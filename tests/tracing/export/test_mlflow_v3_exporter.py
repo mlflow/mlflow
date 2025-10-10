@@ -27,7 +27,6 @@ from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
-from mlflow.utils.databricks_tracing_utils import trace_to_json
 
 _EXPERIMENT_ID = "dummy-experiment-id"
 
@@ -100,9 +99,7 @@ def test_export(is_async, monkeypatch):
     size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
 
     # The total size of the trace should much with the size of the trace object
-    expected_size_bytes = len(
-        trace_to_json(Trace(info=trace_info, data=trace_data)).encode("utf-8")
-    )
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
 
     assert size_bytes == expected_size_bytes
     assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
@@ -145,15 +142,15 @@ def test_export(is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
-@mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True)
-def test_async_logging_disabled_in_databricks_notebook(mock_is_in_db_notebook, monkeypatch):
-    exporter = MlflowV3SpanExporter()
-    assert not exporter._is_async_enabled
+def test_async_logging_disabled_in_databricks_notebook(monkeypatch):
+    with mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True):
+        exporter = MlflowV3SpanExporter()
+        assert not exporter._is_async_enabled
 
-    # If the env var is set explicitly, we should respect that
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
-    exporter = MlflowV3SpanExporter()
-    assert exporter._is_async_enabled
+        # If the env var is set explicitly, we should respect that
+        monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", "True")
+        exporter = MlflowV3SpanExporter()
+        assert exporter._is_async_enabled
 
 
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
