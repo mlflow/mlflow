@@ -58,7 +58,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             result = mlflow.genai.optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
-                target_prompt_uris=[prompt.uri],
+                prompt_uris=[prompt.uri],
                 optimizer=GepaPromptOptimizer(
                     reflection_model="openai:/gpt-4o",
                     display_progress_bar=True,

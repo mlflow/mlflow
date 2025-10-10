@@ -101,7 +101,7 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
     result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
@@ -126,7 +126,7 @@ def test_adapt_prompts_multiple_prompts(
     result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
@@ -191,7 +191,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
     optimize_prompts(
         predict_fn=predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
@@ -212,7 +212,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
     result = optimize_prompts(
         predict_fn=summarization_predict_fn,
         train_data=sample_summarization_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
@@ -236,7 +236,7 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
     result = optimize_prompts(
         predict_fn=sample_predict_fn,
         train_data=sample_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
@@ -354,7 +354,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
     result = optimize_prompts(
         predict_fn=predict_fn,
         train_data=test_dataset,
-        target_prompt_uris=[
+        prompt_uris=[
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         scorers=[case_insensitive_match],

@@ -366,7 +366,7 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
     optimize_prompts(
         predict_fn=predict_fn,
         train_data=sample_data,
-        target_prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
+        prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
         optimizer=MockAdapter(),
     )
     validate_telemetry_record(

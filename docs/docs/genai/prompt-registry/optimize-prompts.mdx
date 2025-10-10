@@ -61,7 +61,7 @@ dataset = [
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
 )
 
@@ -122,8 +122,8 @@ The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following co
 
 Your `predict_fn` must:
 
-- Accept inputs as keyword arguments matching your prompt template variables
-- Load and use prompts from MLflow Prompt Registry
+- Accept inputs as keyword arguments matching the inputs field of the dataset
+- Use MLflow Prompt Registry and format <APILink fn="mlflow.entities.model_registry.PromptVersion" /> during execution
 - Return outputs in the same format as your training data
 
 ```python
@@ -170,7 +170,7 @@ dataset = pd.DataFrame(
 Specify which prompts to optimize:
 
 ```python
-target_prompt_uris = [
+prompt_uris = [
     "prompts:/qa/1",  # Specific version
     "prompts:/instruction/latest",  # Latest version
 ]
@@ -221,7 +221,7 @@ def weighted_objective(scores):
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[accuracy_scorer, brevity_scorer],
     objective=weighted_objective,
@@ -256,7 +256,7 @@ class MyCustomOptimizer(BasePromptOptimizer):
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=MyCustomOptimizer(model_name="openai:/gpt-4o"),
 )
 ```
@@ -280,7 +280,7 @@ user_prompt = mlflow.genai.register_prompt(
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[system_prompt.uri, user_prompt.uri],
+    prompt_uris=[system_prompt.uri, user_prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
 )
 
@@ -324,7 +324,7 @@ from mlflow.genai.scorers import Correctness
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[Correctness(model="openai:/gpt-4o")],
 )
@@ -341,7 +341,7 @@ from mlflow.genai.scorers import Safety
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
     scorers=[Safety(model="openai:/gpt-4o")],
 )
@@ -351,14 +351,16 @@ result = mlflow.genai.optimize_prompts(
 
 ### Issue: Optimization Takes Too Long
 
-**Solution**: Reduce dataset size or use a faster optimizer model:
+**Solution**: Reduce dataset size or reduce the optimizer budget:
 
 ```python
 # Use fewer examples
 small_dataset = dataset[:20]
 
 # Use faster model for optimization
-optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini")
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-4o-mini", max_metric_calls=100
+)
 ```
 
 ### Issue: No Improvement Observed
@@ -367,12 +369,12 @@ optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini")
 
 - Ensure scorers accurately measure what you care about
 - Increase training data size and diversity
-- Try a more powerful optimizer model
+- Try to modify optimizer configurations
 - Verify outputs format matches expectations
 
 ### Issue: Prompts Not Being Used
 
-**Solution**: Ensure `predict_fn` loads prompts from registry:
+**Solution**: Ensure `predict_fn` formats <APILink fn="mlflow.entities.model_registry.PromptVersion" /> during execution:
 
 ```python
 # ✅ Correct - loads from registry

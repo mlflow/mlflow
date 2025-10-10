@@ -11,21 +11,21 @@ When migrating to a new language model, you often discover that your carefully c
 
 :::tip Key Benefits
 
-- **Seamless Model Migration**: Switch between models while preserving output quality
-- **No Manual Labeling**: Use traces from your existing application as training data
-- **Automatic Adaptation**: Let GEPA optimize prompts for the new model
-- **Cost Optimization**: Confidently downgrade to cheaper models without quality loss
-- **Provider Switching**: Migrate between providers (OpenAI ↔ Anthropic ↔ others)
+- **Model Migration**: Seamlessly switch between language models while maintaining output consistency
+- **Automatic Optimization**: Automatically rewrites prompts based on your existing data
+- **No Ground Truth Requirement**: No human labeling is required if you optimize prompts based on the existing outputs
+- **Trace-Aware**: Leverages MLflow tracing to understand prompt usage patterns
+- **Flexible**: Works with any function that uses MLflow Prompt Registry
 
 :::
 
 :::note[Version Requirements]
-This feature requires **MLflow >= 3.5.0**.
+The `optimize_prompts` API requires **MLflow >= 3.5.0**.
 :::
 
 ![](/images/adapt_prompt_flow.svg)
 
-## When to Use This
+## When to Use Use Prompt Rewriting
 
 This approach is ideal when:
 
@@ -145,7 +145,7 @@ Use the collected dataset to optimize prompts for the target model:
 result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset.to_df(),
-    target_prompt_uris=[prompt.uri],
+    prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
 )
 
@@ -200,38 +200,6 @@ test_result = predict_fn_optimized("This product is amazing!")
 print(test_result)  # Output: positive
 ```
 
-## Alternative: Using Existing Data
-
-If you already have a dataset with inputs and expected outputs, you can skip the tracing step:
-
-```python
-# Prepare dataset directly
-import pandas as pd
-
-dataset = pd.DataFrame(
-    {
-        "inputs": [
-            {"text": "This is wonderful!"},
-            {"text": "Terrible experience."},
-            {"text": "It's okay."},
-        ],
-        "outputs": [
-            "positive",
-            "negative",
-            "neutral",
-        ],
-    }
-)
-
-# Optimize directly
-result = mlflow.genai.optimize_prompts(
-    predict_fn=predict_fn,
-    train_data=dataset,
-    target_prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
-)
-```
-
 ## Best Practices
 
 ### 1. Collect Sufficient Data
@@ -271,47 +239,6 @@ inputs = [
 ### 3. Verify Results
 
 Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> before production deployment.
-
-## Troubleshooting
-
-### Issue: Target Model Still Doesn't Match Source
-
-**Cause**: Different models have different capabilities.
-
-**Solution**:
-
-- Increase training data size (aim for 50+ examples)
-- Use a more powerful optimizer model
-- Consider if the target model is capable of the task
-- Add explicit format examples to your initial prompt
-
-### Issue: Optimization Takes Too Long
-
-**Solution**: Reduce dataset size or use faster optimizer:
-
-```python
-# Use subset of data
-small_dataset = dataset.sample(n=20)
-
-# Or use faster optimizer model
-optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini")
-```
-
-### Issue: Dataset Creation Fails
-
-**Solution**: Verify trace structure:
-
-```python
-# Check traces have required fields
-traces = mlflow.search_traces(return_type="list", run_id=run.info.run_id)
-for trace in traces:
-    print(f"Inputs: {trace.info.request}")
-    print(f"Outputs: {trace.info.response}")
-```
-
-## Measuring Success
-
-Track how well the migration worked:
 
 ```python
 # Compare source and target model on test set

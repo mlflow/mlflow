@@ -19,7 +19,7 @@ from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.telemetry.events import PromptOptimizationEvent
+from mlflow.telemetry.events import PromptAdaptationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
-@record_usage_event(PromptOptimizationEvent)
+@record_usage_event(PromptAdaptationEvent)
 def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],
@@ -43,14 +43,9 @@ def optimize_prompts(
     objective: ObjectiveFn | None = None,
 ) -> PromptOptimizationResult:
     """
-    Automatically optimize prompts using evaluation metrics and training data.
-
-    This function uses optimization algorithms (such as GEPA) to improve prompt
-    quality based on your evaluation criteria. It's ideal for:
-
-    - Improving prompt performance on specific tasks
-    - Adapting prompts when switching between language models
-    - Systematically enhancing prompt quality with data-driven techniques
+    This API optimizes prompts used in the passed in function to produce similar
+    outputs as the outputs in the dataset. This API can be used to maintain the
+    outputs of `predict_fn` when the language model used in the function is changed.
 
     Args:
         predict_fn: a target function to be optimized. The callable should receive inputs
@@ -87,8 +82,7 @@ def optimize_prompts(
             uses sum of scores by default.
 
     Returns:
-        The optimization result object that includes the optimized prompts
-        as a list of prompt versions and the optimizer name.
+        A list of optimized prompt versions.
 
     Examples:
 
