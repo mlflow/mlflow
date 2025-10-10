@@ -184,7 +184,7 @@ def test_optimize_autolog(sample_prompt, sample_data):
     expected_params = {
         "optimizer_config.algorithm": "DSPy/MIPROv2",
         "optimizer_config.autolog": "True",
-        "optimizer_config.max_few_show_examples": "6",
+        "optimizer_config.max_few_shot_examples": "6",
         "optimizer_config.num_instruction_candidates": "6",
         "optimizer_config.optimizer_llm": "None",
         "optimizer_config.verbose": "False",
