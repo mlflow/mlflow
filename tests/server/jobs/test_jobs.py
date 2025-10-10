@@ -50,12 +50,6 @@ def _setup_job_runner(
     backend_store_uri: str | None = None,
 ):
     backend_store_uri = backend_store_uri or f"sqlite:///{tmp_path / 'mlflow.db'}"
-    """
-    # Pre-initialize the database to prevent race conditions when the tracking store and job store
-    # attempt to initialize the database simultaneously.
-    store = SqlAlchemyStore(backend_store_uri, (tmp_path / "artifacts").as_uri())
-    store.engine.dispose()
-    """
     huey_store_path = tmp_path / "huey_store"
     huey_store_path.mkdir()
     default_artifact_root = str(tmp_path / "artifacts")
