@@ -1,0 +1,152 @@
+""" """  # TODO
+
+import logging
+
+import mlflow
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_location import TraceLocationType
+from mlflow.exceptions import MlflowException
+from mlflow.genai.judges.tools.base import JudgeTool
+from mlflow.genai.judges.tools.constants import ToolNames
+from mlflow.genai.judges.tools.types import HistoricalTrace
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.types.llm import (
+    FunctionToolDefinition,
+    ToolDefinition,
+    ToolParamsSchema,
+)
+from mlflow.utils.annotations import experimental
+
+_logger = logging.getLogger(__name__)
+
+
+@experimental(version="3.5.0")
+class SearchTracesTool(JudgeTool):
+    """ """  # TODO
+
+    @property
+    def name(self) -> str:
+        return ToolNames.SEARCH_TRACES
+
+    def get_definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            function=FunctionToolDefinition(
+                name=ToolNames.SEARCH_TRACES,
+                description=(),  # TODO
+                parameters=ToolParamsSchema(
+                    type="object",
+                    properties={},  # TODO
+                    required=[],
+                ),
+            ),
+            type="function",
+        )
+
+    def _get_experiment_id(self, trace: Trace) -> str:
+        """
+        Get and validate experiment ID from trace.
+
+        Args:
+            trace: The MLflow trace object
+
+        Returns:
+            Experiment ID
+
+        Raises:
+            MlflowException: If trace is not from MLflow experiment or has no experiment ID
+        """
+        if not trace.info.trace_location:
+            raise MlflowException(
+                "Current trace has no trace location. Cannot determine experiment context.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if trace.info.trace_location.type != TraceLocationType.MLFLOW_EXPERIMENT:
+            raise MlflowException(
+                f"Current trace is not from an MLflow experiment "
+                f"(type: {trace.info.trace_location.type}). "
+                "Traces can only be retrieved for traces within MLflow experiments.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if not (
+            trace.info.trace_location.mlflow_experiment
+            and trace.info.trace_location.mlflow_experiment.experiment_id
+        ):
+            raise MlflowException(
+                "Current trace has no experiment_id. Cannot search for traces.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        return trace.info.trace_location.mlflow_experiment.experiment_id
+
+    def invoke(
+        self,
+        trace: Trace,
+        filter_string: str | None = None,
+        order_by: list[str] | None = None,
+        max_results: int = 20,
+    ) -> list[HistoricalTrace]:
+        """ """  # TODO
+        # Extract and validate experiment ID from trace
+        experiment_id = self._validate_experiment_id(trace)
+        locations = [experiment_id]
+
+        # Default to chronological order
+        if order_by is None:
+            order_by = ["timestamp ASC"]
+
+        _logger.debug(
+            "Searching for traces with properties:\n\n"
+            + "\n".join(
+                [
+                    f"* experiment_id={experiment_id}",
+                    f"* filter_string={filter_string}",
+                    f"* order_by={order_by}",
+                    f"* max_results={max_results}",
+                ]
+            )
+        )
+
+        try:
+            # Search for traces with the same session ID
+            df = mlflow.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                extract_fields=["trace_id", "trace", "request", "response"],
+            )
+
+            historical_traces = []
+
+            for _, row in df.iterrows():
+                try:
+                    # Parse trace from JSON
+                    trace_obj = Trace.from_json(row["trace"])
+
+                    # Create HistoricalTrace object
+                    historical_trace = HistoricalTrace(
+                        trace_info=trace_obj.info,
+                        request=row["request"],
+                        response=row["response"],
+                    )
+                    historical_traces.append(historical_trace)
+
+                except Exception as e:
+                    _logger.warning(
+                        f"Failed to process trace {row.get('trace_id', 'unknown')} "
+                        f"from session {session_id}: {e}"
+                    )
+                    continue
+
+            _logger.debug(
+                f"Retrieved {len(historical_traces)} historical traces for session {session_id}"
+            )
+            return historical_traces
+
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to search historical traces for session {session_id}: {e!s}",
+                error_code="INTERNAL_ERROR",
+            ) from e
