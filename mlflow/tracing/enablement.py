@@ -9,6 +9,7 @@ from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
@@ -87,7 +88,7 @@ def set_experiment_trace_location(
     # Check if the experiment exists. In Databricks notebook, this `get_experiment` call triggers
     # a side effect to create the experiment for the notebook if it doesn't exist. This side effect
     # is convenient for users.
-    if experiment_id:
+    if experiment_id and not IS_TRACING_SDK_ONLY:
         try:
             mlflow.get_experiment(str(experiment_id))
         except Exception as e:
