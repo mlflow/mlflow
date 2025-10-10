@@ -105,10 +105,10 @@ def test_get_traces_in_session_tool_invoke_success(mock_search_tool_class: Any) 
     assert result[1].trace_id == "trace-2"
 
     mock_search_tool.invoke.assert_called_once_with(
-        current_trace,
-        "tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
-        ["timestamp ASC"],
-        20,
+        trace=current_trace,
+        filter_string="tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
+        order_by=None,
+        max_results=20,
     )
 
 
@@ -125,10 +125,10 @@ def test_get_traces_in_session_tool_invoke_custom_parameters(mock_search_tool_cl
     tool.invoke(current_trace, max_results=50, order_by=["timestamp DESC"])
 
     mock_search_tool.invoke.assert_called_once_with(
-        current_trace,
-        "tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
-        ["timestamp DESC"],
-        50,
+        trace=current_trace,
+        filter_string="tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
+        order_by=["timestamp DESC"],
+        max_results=50,
     )
 
 

@@ -100,11 +100,10 @@ class GetTracesInSession(JudgeTool):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-        if order_by is None:
-            order_by = ["timestamp ASC"]
-
         filter_string = (
             f"tags.`session.id` = '{session_id}' AND trace.timestamp < {trace.info.request_time}"
         )
 
-        return SearchTracesTool().invoke(trace, filter_string, order_by, max_results)
+        return SearchTracesTool().invoke(
+            trace=trace, filter_string=filter_string, order_by=order_by, max_results=max_results
+        )
