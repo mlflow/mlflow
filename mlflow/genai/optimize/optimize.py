@@ -44,13 +44,8 @@ def optimize_prompts(
 ) -> PromptOptimizationResult:
     """
     Automatically optimize prompts using evaluation metrics and training data.
-
-    This function uses optimization algorithms (such as GEPA) to improve prompt
-    quality based on your evaluation criteria. It's ideal for:
-
-    - Improving prompt performance on specific tasks
-    - Adapting prompts when switching between language models
-    - Systematically enhancing prompt quality with data-driven techniques
+    This function uses the provided optimization algorithm to improve prompt
+    quality based on your evaluation criteria and dataset.
 
     Args:
         predict_fn: a target function to be optimized. The callable should receive inputs
@@ -88,7 +83,7 @@ def optimize_prompts(
 
     Returns:
         The optimization result object that includes the optimized prompts
-        as a list of prompt versions and the optimizer name.
+        as a list of prompt versions, evaluation scores, and the optimizer name.
 
     Examples:
 
