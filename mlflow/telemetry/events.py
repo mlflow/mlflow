@@ -175,10 +175,6 @@ class CreateWebhookEvent(Event):
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
 
-
-class PromptAdaptationEvent(Event):
-    name: str = "adapt_prompt"
-
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         result = {}
@@ -189,10 +185,10 @@ class PromptAdaptationEvent(Event):
         else:
             result["optimizer_type"] = None
 
-        # Track the number of prompts being adapted
-        target_prompt_uris = arguments.get("target_prompt_uris") or []
+        # Track the number of prompts being optimized
+        prompt_uris = arguments.get("prompt_uris") or []
         try:
-            result["prompt_count"] = len(target_prompt_uris)
+            result["prompt_count"] = len(prompt_uris)
         except TypeError:
             result["prompt_count"] = None
 

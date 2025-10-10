@@ -398,7 +398,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'prompt-registry/adapt-prompts',
+          id: 'prompt-registry/rewrite-prompts',
         },
         {
           type: 'doc',

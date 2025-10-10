@@ -16,7 +16,7 @@ from mlflow.telemetry.events import (
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
-    PromptAdaptationEvent,
+    PromptOptimizationEvent,
     StartTraceEvent,
 )
 
@@ -90,7 +90,7 @@ def test_event_name():
     assert MergeRecordsEvent.name == "merge_records"
     assert MakeJudgeEvent.name == "make_judge"
     assert AlignJudgeEvent.name == "align_judge"
-    assert PromptAdaptationEvent.name == "adapt_prompt"
+    assert PromptOptimizationEvent.name == "prompt_optimization"
 
 
 @pytest.mark.parametrize(
@@ -147,7 +147,7 @@ def test_align_judge_parse_params(arguments, expected_params):
         (
             {
                 "optimizer": type("MockOptimizer", (), {})(),
-                "target_prompt_uris": ["prompts:/test/1"],
+                "prompt_uris": ["prompts:/test/1"],
                 "scorers": None,
                 "objective": None,
             },
@@ -162,7 +162,7 @@ def test_align_judge_parse_params(arguments, expected_params):
         (
             {
                 "optimizer": type("CustomAdapter", (), {})(),
-                "target_prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
+                "prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
                 "scorers": [Mock()],
                 "objective": None,
             },
@@ -177,7 +177,7 @@ def test_align_judge_parse_params(arguments, expected_params):
         (
             {
                 "optimizer": type("TestAdapter", (), {})(),
-                "target_prompt_uris": ["prompts:/test/1"],
+                "prompt_uris": ["prompts:/test/1"],
                 "scorers": [Mock(), Mock(), Mock()],
                 "objective": lambda scores: sum(scores.values()),
             },
@@ -192,7 +192,7 @@ def test_align_judge_parse_params(arguments, expected_params):
         (
             {
                 "optimizer": None,
-                "target_prompt_uris": ["prompts:/test/1"],
+                "prompt_uris": ["prompts:/test/1"],
                 "scorers": None,
                 "objective": None,
             },
@@ -205,5 +205,5 @@ def test_align_judge_parse_params(arguments, expected_params):
         ),
     ],
 )
-def test_prompt_adaptation_parse_params(arguments, expected_params):
-    assert PromptAdaptationEvent.parse(arguments) == expected_params
+def test_prompt_optimization_parse_params(arguments, expected_params):
+    assert PromptOptimizationEvent.parse(arguments) == expected_params
