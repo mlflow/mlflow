@@ -8,7 +8,7 @@ from mlflow.entities.trace_location import TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
-from mlflow.genai.judges.tools.types import HistoricalTrace
+from mlflow.genai.judges.tools.types import TraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import (
     FunctionToolDefinition,
@@ -32,7 +32,7 @@ class SearchTracesTool(JudgeTool):
         return ToolDefinition(
             function=FunctionToolDefinition(
                 name=ToolNames.SEARCH_TRACES,
-                description=(),  # TODO
+                description=("PLACEHOLDER"),  # TODO
                 parameters=ToolParamsSchema(
                     type="object",
                     properties={},  # TODO
@@ -86,7 +86,7 @@ class SearchTracesTool(JudgeTool):
         filter_string: str | None = None,
         order_by: list[str] | None = None,
         max_results: int = 20,
-    ) -> list[HistoricalTrace]:
+    ) -> list[TraceInfo]:
         """ """  # TODO
         # Extract and validate experiment ID from trace
         experiment_id = self._validate_experiment_id(trace)
@@ -109,44 +109,44 @@ class SearchTracesTool(JudgeTool):
         )
 
         try:
-            # Search for traces with the same session ID
             df = mlflow.search_traces(
-                experiment_ids=experiment_ids,
+                locations=locations,
                 filter_string=filter_string,
-                max_results=max_results,
                 order_by=order_by,
+                max_results=max_results,
                 extract_fields=["trace_id", "trace", "request", "response"],
             )
 
-            historical_traces = []
-
-            for _, row in df.iterrows():
-                try:
-                    # Parse trace from JSON
-                    trace_obj = Trace.from_json(row["trace"])
-
-                    # Create HistoricalTrace object
-                    historical_trace = HistoricalTrace(
-                        trace_info=trace_obj.info,
-                        request=row["request"],
-                        response=row["response"],
-                    )
-                    historical_traces.append(historical_trace)
-
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to process trace {row.get('trace_id', 'unknown')} "
-                        f"from session {session_id}: {e}"
-                    )
-                    continue
-
-            _logger.debug(
-                f"Retrieved {len(historical_traces)} historical traces for session {session_id}"
-            )
-            return historical_traces
-
         except Exception as e:
             raise MlflowException(
-                f"Failed to search historical traces for session {session_id}: {e!s}",
+                f"Failed to search traces: {e!s}",
                 error_code="INTERNAL_ERROR",
             ) from e
+
+        traces = []
+
+        for _, row in df.iterrows():
+            try:
+                # Parse trace from JSON
+                trace_obj = Trace.from_json(row["trace"])
+
+                # Create HistoricalTrace object
+                trace_info = TraceInfo(
+                    trace_id=trace_obj.info.trace_id,
+                    request_time=trace_obj.info.request_time,
+                    state=trace_obj.info.state,
+                    request=row["request"],
+                    response=row["response"],
+                    execution_duration=trace_obj.info.execution_duration,
+                    assessments=trace_obj.info.assessments,
+                )
+                traces.append(trace_info)
+
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to process trace {row.get('trace_id', 'unknown')}: {e}"
+                )
+                continue
+
+        _logger.debug(f"Retrieved {len(traces)} traces")
+        return traces
