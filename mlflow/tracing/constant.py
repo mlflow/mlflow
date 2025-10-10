@@ -106,6 +106,3 @@ DATABRICKS_OUTPUT_KEY = "databricks_output"
 
 # Assessment constants
 ASSESSMENT_ID_PREFIX = "a-"
-
-# Maximum number of trace IDs can be fetched in a single batch_get_traces call
-BATCH_GET_TRACES_MAX_RESULTS = 10

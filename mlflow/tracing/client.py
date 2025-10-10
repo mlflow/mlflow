@@ -14,6 +14,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import UCSchemaLocation
 from mlflow.environment_variables import (
+    _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE,
     MLFLOW_SEARCH_TRACES_MAX_THREADS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
@@ -34,7 +35,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import BATCH_GET_TRACES_MAX_RESULTS, TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -362,10 +363,8 @@ class TracingClient:
         def _fetch_minibatch(ids: list[str]) -> list[Trace]:
             return self.store.batch_get_traces(ids, location) or []
 
-        batches = [
-            trace_ids[i : i + BATCH_GET_TRACES_MAX_RESULTS]
-            for i in range(0, len(trace_ids), BATCH_GET_TRACES_MAX_RESULTS)
-        ]
+        batch_size = _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE.get()
+        batches = [trace_ids[i : i + batch_size] for i in range(0, len(trace_ids), batch_size)]
         for minibatch_traces in executor.map(_fetch_minibatch, batches):
             traces.extend(minibatch_traces)
         return traces
