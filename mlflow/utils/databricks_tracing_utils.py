@@ -1,9 +1,6 @@
-import json
 import logging
-from typing import Any
 
 from google.protobuf.duration_pb2 import Duration
-from google.protobuf.json_format import MessageToDict
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import Assessment, Span, Trace, TraceData, TraceInfo
@@ -18,7 +15,6 @@ from mlflow.entities.trace_location import (
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.tracing.utils import (
-    TraceJSONEncoder,
     construct_trace_id_v4,
     parse_trace_id_v4,
 )
@@ -84,30 +80,26 @@ def trace_location_type_from_proto(proto: pb.TraceLocation.TraceLocationType) ->
 def trace_location_from_proto(proto: pb.TraceLocation) -> TraceLocation:
     type_ = trace_location_type_from_proto(proto.type)
 
-    # If the type is unspecified, fallback by looking at the identifier
-    if type_ == TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED:
-        type_ = None
-
     if proto.WhichOneof("identifier") == "uc_schema":
         return TraceLocation(
-            type=type_ or TraceLocationType.UC_SCHEMA,
+            type=type_,
             uc_schema=uc_schema_location_from_proto(proto.uc_schema),
         )
     elif proto.WhichOneof("identifier") == "mlflow_experiment":
         return TraceLocation(
-            type=type_ or TraceLocationType.MLFLOW_EXPERIMENT,
+            type=type_,
             mlflow_experiment=MlflowExperimentLocation.from_proto(proto.mlflow_experiment),
         )
     elif proto.WhichOneof("identifier") == "inference_table":
         return TraceLocation(
-            type=type_ or TraceLocationType.INFERENCE_TABLE,
+            type=type_,
             inference_table=InferenceTableLocation.from_proto(proto.inference_table),
         )
     else:
         return TraceLocation(TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED)
 
 
-def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
+def trace_info_to_v4_proto(trace_info: TraceInfo) -> pb.TraceInfo:
     request_time = Timestamp()
     request_time.FromMilliseconds(trace_info.request_time)
     execution_duration = None
@@ -135,19 +127,9 @@ def trace_info_to_proto(trace_info: TraceInfo) -> pb.TraceInfo:
     )
 
 
-def trace_info_to_dict(trace_info: TraceInfo) -> dict[str, Any]:
-    trace_info_dict = MessageToDict(
-        trace_info_to_proto(trace_info), preserving_proto_field_name=True
-    )
-    if trace_info.execution_duration is not None:
-        trace_info_dict.pop("execution_duration", None)
-        trace_info_dict["execution_duration_ms"] = trace_info.execution_duration
-    return trace_info_dict
-
-
 def trace_to_proto(trace: Trace) -> pb.Trace:
     return pb.Trace(
-        trace_info=trace_info_to_proto(trace.info),
+        trace_info=trace.info.to_proto(),
         spans=[span.to_otel_proto() for span in trace.data.spans],
     )
 
@@ -157,11 +139,6 @@ def trace_from_proto(proto: pb.Trace) -> Trace:
         info=TraceInfo.from_proto(proto.trace_info),
         data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
     )
-
-
-def trace_to_json(trace: Trace) -> str:
-    trace_dict = {"info": trace_info_to_dict(trace.info), "data": trace.data.to_dict()}
-    return json.dumps(trace_dict, cls=TraceJSONEncoder)
 
 
 def assessment_to_proto(assessment: Assessment) -> pb.Assessment:
