@@ -269,7 +269,9 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
 def test_output_equivalence_scorer_exact_match(program_outputs, expected_outputs, expected_score):
     test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
     assert (
-        test_scorer.run(inputs={}, outputs=program_outputs, expectations={"expected_response": expected_outputs})
+        test_scorer.run(
+            inputs={}, outputs=program_outputs, expectations={"expected_response": expected_outputs}
+        )
         == expected_score
     )
 
@@ -283,7 +285,9 @@ def test_output_equivalence_scorer_llm_judge():
 
         test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
         score = test_scorer.run(
-            inputs={}, outputs="The capital of France is Paris", expectations={"expected_response": "Paris"}
+            inputs={},
+            outputs="The capital of France is Paris",
+            expectations={"expected_response": "Paris"},
         )
 
         # Verify correct parameters passed to make_judge
@@ -305,7 +309,12 @@ def test_output_equivalence_scorer_llm_judge():
         mock_judge = Mock(return_value=mock_result)
         mock_make_judge.return_value = mock_judge
         test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
-        assert test_scorer.run(inputs={}, outputs="output", expectations={"expected_response": "different"}) == 0.0
+        assert (
+            test_scorer.run(
+                inputs={}, outputs="output", expectations={"expected_response": "different"}
+            )
+            == 0.0
+        )
 
 
 def test_output_equivalence_scorer_error_handling():
@@ -313,7 +322,12 @@ def test_output_equivalence_scorer_error_handling():
         mock_judge = Mock(side_effect=Exception("API Error"))
         mock_make_judge.return_value = mock_judge
         test_scorer = _make_output_equivalence_scorer("openai:/gpt-4o-mini")
-        assert test_scorer.run(inputs={}, outputs="output", expectations={"expected_response": "expected"}) == 0.0
+        assert (
+            test_scorer.run(
+                inputs={}, outputs="output", expectations={"expected_response": "expected"}
+            )
+            == 0.0
+        )
 
 
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
