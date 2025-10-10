@@ -1453,6 +1453,12 @@ class OutputEquivalence(BuiltInScorer):
         Returns:
             Feedback object with 'yes'/'no' value and rationale
         """
+        from mlflow.genai.judges.builtin import _sanitize_feedback
+        from mlflow.genai.judges.prompts.output_equivalence import (
+            OUTPUT_EQUIVALENCE_FEEDBACK_NAME,
+            get_prompt,
+        )
+
         # Use resolve_scorer_fields to extract fields from trace if provided
         fields = resolve_scorer_fields(
             trace,
@@ -1483,13 +1489,13 @@ class OutputEquivalence(BuiltInScorer):
             if actual_output == expected_output:
                 return Feedback(
                     name=self.name,
-                    value="yes",
+                    value=CategoricalRating.YES,
                     rationale="Exact numerical match",
                 )
             else:
                 return Feedback(
                     name=self.name,
-                    value="no",
+                    value=CategoricalRating.NO,
                     rationale=f"Values do not match: {actual_output} != {expected_output}",
                 )
 
@@ -1501,16 +1507,11 @@ class OutputEquivalence(BuiltInScorer):
         if outputs_str == expectations_str:
             return Feedback(
                 name=self.name,
-                value="yes",
+                value=CategoricalRating.YES,
                 rationale="Exact string match",
             )
 
         # Use LLM judge for semantic equivalence
-        from mlflow.genai.judges.builtin import _sanitize_feedback
-        from mlflow.genai.judges.prompts.output_equivalence import (
-            OUTPUT_EQUIVALENCE_FEEDBACK_NAME,
-            get_prompt,
-        )
 
         model = self.model or get_default_model()
         assessment_name = self.name or OUTPUT_EQUIVALENCE_FEEDBACK_NAME

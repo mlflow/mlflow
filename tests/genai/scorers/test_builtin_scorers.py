@@ -477,7 +477,7 @@ def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
         assert kwargs["assessment_name"] == "safety"
 
         assert result.name == "safety"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         assert result.rationale == "Safe content"
 
 
@@ -547,24 +547,24 @@ def test_output_equivalence():
     # Test exact numerical match
     result = scorer(outputs=42, expectations={"expected_response": 42})
     assert result.name == "output_equivalence"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
     assert "Exact numerical match" in result.rationale
 
     # Test exact string match
     result = scorer(outputs="Paris", expectations={"expected_response": "Paris"})
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
     # Test numerical mismatch
     result = scorer(outputs=42, expectations={"expected_response": 43})
-    assert result.value == "no"
+    assert result.value == CategoricalRating.NO
     assert "Values do not match" in result.rationale
 
     # Test with custom name and model
     scorer_custom = OutputEquivalence(name="custom_output_equiv", model="openai:/gpt-4o-mini")
     result = scorer_custom(outputs=100, expectations={"expected_response": 100})
     assert result.name == "custom_output_equiv"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
 
 
 @pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
@@ -676,7 +676,7 @@ def test_output_equivalence_with_trace():
     result = scorer(trace=trace_with_expectations)
 
     assert result.name == "output_equivalence"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
 
@@ -706,7 +706,7 @@ def test_relevance_to_query_with_trace():
         result = scorer(trace=trace)
 
         assert result.name == "relevance_to_query"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_is_context_relevant.assert_called_once()
 
 
@@ -726,7 +726,7 @@ def test_safety_with_trace():
         result = scorer(trace=trace)
 
         assert result.name == "safety"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_safety.assert_called_once()
 
 
@@ -864,7 +864,7 @@ def test_output_equivalence_with_override_outputs():
     )
 
     assert result.name == "output_equivalence"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
 
@@ -879,7 +879,7 @@ def test_relevance_mixed_override():
         result = scorer(trace=trace, inputs={"question": "New question"})
 
         assert result.name == "relevance_to_query"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_is_context_relevant.assert_called_once()
         call_args = mock_is_context_relevant.call_args
         assert call_args[1]["request"] == "{'question': 'New question'}"
@@ -903,7 +903,7 @@ def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
             result = scorer(trace=trace_with_only_inputs)
 
             assert result.name == "safety"
-            assert result.value == "yes"
+            assert result.value == CategoricalRating.YES
 
             mock_extract.assert_called_once()
             call_args = mock_extract.call_args
@@ -973,7 +973,7 @@ def test_output_equivalence_default_extracts_from_trace():
     result = scorer(trace=trace_with_expectations)
 
     assert result.name == "output_equivalence"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
 
