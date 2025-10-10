@@ -853,13 +853,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace, monkeypatch
-):
+def test_log_trace_with_databricks_tracking_uri(mock_store_start_trace, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
@@ -901,6 +897,8 @@ def test_log_trace_with_databricks_tracking_uri(
     model = TestModel()
 
     with (
+        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.context.default_context._get_source_name", return_value="test"),
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
