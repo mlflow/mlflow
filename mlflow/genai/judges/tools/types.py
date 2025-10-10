@@ -84,13 +84,3 @@ class TraceInfo:
     response: str | None
     execution_duration: int | None
     assessments: list[Expectation | Feedback]
-
-
-@experimental(version="3.4.0")
-@dataclass
-class HistoricalTrace:
-    """Historical trace from the same session."""
-
-    trace_info: Any
-    request: str | None
-    response: str | None
