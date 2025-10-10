@@ -41,11 +41,6 @@ class MockPatchAsDecorator(Rule):
         "tests/store/artifact/test_dbfs_artifact_repo_delegation.py",  # 1
         "tests/store/model_registry/test_rest_store.py",  # 1
         "tests/store/tracking/test_abstract_store.py",  # 1
-        "tests/tracing/export/test_async_export_queue.py",  # 1
-        "tests/tracing/export/test_mlflow_v3_exporter.py",  # 1
-        "tests/tracing/test_fluent.py",  # 1
-        "tests/tracking/test_client.py",  # 1
-        "tests/transformers/test_transformers_llm_inference_utils.py",  # 1
     }
 
     def _message(self) -> str:
