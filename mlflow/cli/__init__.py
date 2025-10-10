@@ -851,6 +851,11 @@ from mlflow.cli import traces
 
 cli.add_command(traces.commands)
 
+# Add secrets CLI commands
+from mlflow.cli import secrets
+
+cli.add_command(secrets.commands)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 

@@ -44,6 +44,7 @@ from mlflow.entities import (
     RunInfo,
     RunStatus,
     RunTag,
+    Secret,
     SourceType,
     TraceInfo,
     ViewType,
@@ -2027,4 +2028,79 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
+        )
+
+
+class SqlSecret(Base):
+    """
+    DB model for storing encrypted secrets. These are recorded in ``secrets`` table.
+    """
+
+    __tablename__ = "secrets"
+
+    id = Column(String(36), primary_key=True)
+    """
+    Secret ID: `String` (limit 36 characters). *Primary Key* for ``secrets`` table.
+    """
+    scope = Column(Integer, nullable=False)
+    """
+    Scope type: `Integer` (0=GLOBAL, 1=SCORER).
+    """
+    scope_id = Column(Integer, nullable=True)
+    """
+    Scope ID: `Integer`, nullable. Database ID of the scope entity (None for GLOBAL).
+    """
+    name_hash = Column(String(64), nullable=False)
+    """
+    Name hash: `String` (64 characters). HMAC-SHA256 hash of secret name for lookup.
+    """
+    encrypted_name = Column(Text, nullable=False)
+    """
+    Encrypted name: `Text`. Fernet-encrypted secret name for listing.
+    """
+    secret = Column(Text, nullable=False)
+    """
+    Secret value: `Text`. Fernet-encrypted secret value.
+    """
+    encrypted_dek = Column(Text, nullable=True)
+    """
+    Encrypted DEK: `Text`, nullable. Data Encryption Key encrypted with master key
+    (for envelope encryption).
+    """
+    master_key_version = Column(Integer, nullable=True)
+    """
+    Master key version: `Integer`, nullable. Version of master key used to encrypt the DEK.
+    """
+    created_at = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger`. Unix timestamp in milliseconds.
+    """
+    updated_at = Column(BigInteger, nullable=False)
+    """
+    Update timestamp: `BigInteger`. Unix timestamp in milliseconds.
+    """
+
+    __table_args__ = (
+        UniqueConstraint("scope", "scope_id", "name_hash", name="uq_secret_scope_name"),
+        Index("idx_secrets_scope", "scope", "scope_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlSecret (scope={self.scope}, scope_id={self.scope_id})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.Secret.
+        """
+        return Secret(
+            secret_id=self.id,
+            scope=self.scope,
+            scope_id=self.scope_id,
+            name_hash=self.name_hash,
+            secret_value=self.secret,
+            created_at=self.created_at,
+            updated_at=self.updated_at,
         )

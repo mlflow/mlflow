@@ -1342,3 +1342,59 @@ class AbstractStore:
             MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def set_secret(self, name: str, value: str, scope: int, scope_id: int | None = None):
+        """
+        Set a secret value with encryption.
+
+        Args:
+            name: Name of the secret.
+            value: Plaintext value to encrypt and store.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_secret(self, name: str, scope: int, scope_id: int | None = None):
+        """
+        Delete a secret.
+
+        Args:
+            name: Name of the secret to delete.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def list_secret_names(self, scope: int, scope_id: int | None = None) -> list[str]:
+        """
+        List secret names for a scope (WITHOUT returning secret values).
+
+        This method intentionally does NOT return secret values to prevent accidental
+        secret leakage.
+
+        Args:
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+
+        Returns:
+            List of secret names (decrypted) without their values.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def get_secret(self, name: str, scope: int, scope_id: int | None = None) -> str:
+        """
+        Get a decrypted secret value.
+
+        This is an internal method used by the system to retrieve secrets for
+        scorer execution. It should NOT be exposed via public APIs.
+
+        Args:
+            name: Name of the secret.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+
+        Returns:
+            Decrypted secret value.
+        """
+        raise NotImplementedError(self.__class__.__name__)

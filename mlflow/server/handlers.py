@@ -508,7 +508,21 @@ def initialize_backend_stores(
     registry_store_uri: str | None = None,
     default_artifact_root: str | None = None,
 ) -> None:
-    _get_tracking_store(backend_store_uri, default_artifact_root)
+    store = _get_tracking_store(backend_store_uri, default_artifact_root)
+
+    validation_mode = os.environ.get("MLFLOW_SECRETS_VALIDATION_MODE", "warn")
+
+    if validation_mode != "skip":
+        from mlflow.secrets.validation import SecretKeyValidator, log_validation_results
+
+        validator = SecretKeyValidator()
+        result = validator.validate_with_store(store)
+
+        log_validation_results(result, mode=validation_mode)
+
+        if validation_mode == "strict" and result.has_errors():
+            raise RuntimeError("Secret key validation failed. Server startup aborted.")
+
     try:
         _get_model_registry_store(registry_store_uri)
     except UnsupportedModelRegistryStoreURIException:

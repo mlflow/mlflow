@@ -81,6 +81,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.secrets.client import SecretsClient
 from mlflow.store.artifact.utils.models import (
     _parse_model_uri,
     get_model_name_and_version,
@@ -217,6 +218,7 @@ class MlflowClient:
         self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         self._tracing_client = TracingClient(tracking_uri)
+        self._secrets_client = SecretsClient(tracking_uri)
 
         # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
         # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
@@ -1590,6 +1592,123 @@ class MlflowClient:
                 it will be truncated when stored.
         """
         self._tracing_client.delete_trace_tag(trace_id, key)
+
+    def set_secret(
+        self,
+        name: str,
+        value: str,
+        scope=None,
+        scope_id: int | None = None,
+    ):
+        """
+        Set a secret with client-side encryption.
+
+        The secret is encrypted on the client before transmission to ensure
+        end-to-end security. Even if HTTPS is compromised, secrets remain encrypted.
+
+        .. note::
+            This method encrypts secrets before transmission. There is NO ``get_secret()``
+            method on the client to prevent credential harvesting. Secrets can only be
+            retrieved server-side for authorized operations like scorer execution.
+
+        Args:
+            name: Secret name (will be encrypted).
+            value: Secret value (will be encrypted).
+            scope: Secret scope. Use ``mlflow.secrets.scope.SecretScope.GLOBAL`` (default)
+                or ``mlflow.secrets.scope.SecretScope.SCORER``.
+            scope_id: Scope ID (required for SCORER scope, None for GLOBAL).
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+                from mlflow.secrets.scope import SecretScope
+
+                client = MlflowClient()
+
+                # Set a global secret
+                client.set_secret("api_key", "sk-1234567890")
+
+                # Set a scorer-scoped secret
+                client.set_secret("scorer_key", "secret", SecretScope.SCORER, scope_id=123)
+        """
+        from mlflow.secrets.scope import SecretScope
+
+        if scope is None:
+            scope = SecretScope.GLOBAL
+
+        self._secrets_client.set_secret(name, value, scope, scope_id)
+
+    def list_secret_names(
+        self,
+        scope=None,
+        scope_id: int | None = None,
+    ) -> list[str]:
+        """
+        List secret names for a scope.
+
+        This returns ONLY the names of secrets, never their values. This is
+        intentional to prevent credential harvesting.
+
+        Args:
+            scope: Secret scope. Use ``mlflow.secrets.scope.SecretScope.GLOBAL`` (default)
+                or ``mlflow.secrets.scope.SecretScope.SCORER``.
+            scope_id: Scope ID (required for SCORER scope, None for GLOBAL).
+
+        Returns:
+            List of secret names (decrypted).
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+                from mlflow.secrets.scope import SecretScope
+
+                client = MlflowClient()
+
+                # List global secrets
+                names = client.list_secret_names()
+                print(names)  # ['api_key', 'db_password']
+
+                # List scorer-scoped secrets
+                names = client.list_secret_names(SecretScope.SCORER, scope_id=123)
+        """
+        from mlflow.secrets.scope import SecretScope
+
+        if scope is None:
+            scope = SecretScope.GLOBAL
+
+        return self._secrets_client.list_secret_names(scope, scope_id)
+
+    def delete_secret(
+        self,
+        name: str,
+        scope=None,
+        scope_id: int | None = None,
+    ):
+        """
+        Delete a secret.
+
+        Args:
+            name: Secret name to delete.
+            scope: Secret scope. Use ``mlflow.secrets.scope.SecretScope.GLOBAL`` (default)
+                or ``mlflow.secrets.scope.SecretScope.SCORER``.
+            scope_id: Scope ID (required for SCORER scope, None for GLOBAL).
+
+        Example:
+            .. code-block:: python
+
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+                client.delete_secret("old_api_key")
+        """
+        from mlflow.secrets.scope import SecretScope
+
+        if scope is None:
+            scope = SecretScope.GLOBAL
+
+        self._secrets_client.delete_secret(name, scope, scope_id)
 
     def search_experiments(
         self,

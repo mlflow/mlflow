@@ -91,6 +91,7 @@ basic_proto_files = to_paths(
     "assessments.proto",
     "datasets.proto",
     "webhooks.proto",
+    "secrets.proto",
 )
 uc_proto_files = to_paths(
     "databricks_managed_catalog_messages.proto",
@@ -151,6 +152,10 @@ python_gencode_replacements = [
     (
         "import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
+    ),
+    (
+        "import secrets_pb2 as secrets__pb2",
+        "from . import secrets_pb2 as secrets__pb2",
     ),
 ]
 

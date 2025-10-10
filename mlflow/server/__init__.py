@@ -156,6 +156,27 @@ def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
 
 
+@app.route(_add_static_prefix("/api/3.0/mlflow/secrets/create"), methods=["POST"])
+def serve_create_secret():
+    from mlflow.server.handlers_secrets import create_secret
+
+    return create_secret()
+
+
+@app.route(_add_static_prefix("/api/3.0/mlflow/secrets/list"), methods=["GET"])
+def serve_list_secrets():
+    from mlflow.server.handlers_secrets import list_secrets
+
+    return list_secrets()
+
+
+@app.route(_add_static_prefix("/api/3.0/mlflow/secrets/delete"), methods=["DELETE"])
+def serve_delete_secret():
+    from mlflow.server.handlers_secrets import delete_secret
+
+    return delete_secret()
+
+
 # We expect the react app to be built assuming it is hosted at /static-files, so that requests for
 # CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.

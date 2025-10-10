@@ -93,6 +93,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlScorer,
     SqlScorerVersion,
+    SqlSecret,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -4281,6 +4282,174 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
 
             return dataset.to_mlflow_entity()
+
+    def set_secret(self, name: str, value: str, scope: int, scope_id: int | None = None):
+        """
+        Set a secret value with envelope encryption.
+
+        Args:
+            name: Name of the secret.
+            value: Plaintext value to encrypt and store.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+        """
+        from mlflow.secrets import SecretManager
+
+        secret_manager = SecretManager()
+        name_hash = secret_manager.hash_name(name)
+
+        dek = secret_manager.generate_dek()
+        encrypted_name = secret_manager.encrypt_with_dek(name, dek)
+        encrypted_value = secret_manager.encrypt_with_dek(value, dek)
+        encrypted_dek = secret_manager.encrypt_dek(dek)
+
+        current_time = int(time.time() * 1000)
+
+        with self.ManagedSessionMaker() as session:
+            existing = (
+                session.query(SqlSecret)
+                .filter(
+                    SqlSecret.scope == scope,
+                    SqlSecret.scope_id == scope_id,
+                    SqlSecret.name_hash == name_hash,
+                )
+                .first()
+            )
+
+            if existing:
+                existing.encrypted_name = encrypted_name
+                existing.secret = encrypted_value
+                existing.encrypted_dek = encrypted_dek
+                existing.master_key_version = 1
+                existing.updated_at = current_time
+                session.commit()
+            else:
+                new_secret = SqlSecret(
+                    id=uuid.uuid4().hex,
+                    scope=scope,
+                    scope_id=scope_id,
+                    name_hash=name_hash,
+                    encrypted_name=encrypted_name,
+                    secret=encrypted_value,
+                    encrypted_dek=encrypted_dek,
+                    master_key_version=1,
+                    created_at=current_time,
+                    updated_at=current_time,
+                )
+                session.add(new_secret)
+                session.commit()
+
+    def delete_secret(self, name: str, scope: int, scope_id: int | None = None):
+        """
+        Delete a secret.
+
+        Args:
+            name: Name of the secret to delete.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+        """
+        from mlflow.secrets import SecretManager
+
+        secret_manager = SecretManager()
+        name_hash = secret_manager.hash_name(name)
+
+        with self.ManagedSessionMaker() as session:
+            secret = (
+                session.query(SqlSecret)
+                .filter(
+                    SqlSecret.scope == scope,
+                    SqlSecret.scope_id == scope_id,
+                    SqlSecret.name_hash == name_hash,
+                )
+                .first()
+            )
+
+            if secret:
+                session.delete(secret)
+                session.commit()
+
+    def list_secret_names(self, scope: int, scope_id: int | None = None) -> list[str]:
+        """
+        List secret names for a scope (WITHOUT returning secret values).
+
+        This method intentionally does NOT return secret values to prevent accidental
+        secret leakage.
+
+        Args:
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+
+        Returns:
+            List of secret names (decrypted) without their values.
+        """
+        from mlflow.secrets import SecretManager
+
+        secret_manager = SecretManager()
+
+        with self.ManagedSessionMaker() as session:
+            secrets = (
+                session.query(SqlSecret)
+                .filter(
+                    SqlSecret.scope == scope,
+                    SqlSecret.scope_id == scope_id,
+                )
+                .all()
+            )
+
+            names = []
+            for secret in secrets:
+                if secret.encrypted_dek:
+                    dek = secret_manager.decrypt_dek(secret.encrypted_dek)
+                    names.append(secret_manager.decrypt_with_dek(secret.encrypted_name, dek))
+                else:
+                    names.append(secret_manager.decrypt(secret.encrypted_name))
+            return names
+
+    def get_secret(self, name: str, scope: int, scope_id: int | None = None) -> str:
+        """
+        Get a decrypted secret value.
+
+        This is an internal method used by the system to retrieve secrets for
+        scorer execution. It should NOT be exposed via public APIs.
+
+        Args:
+            name: Name of the secret.
+            scope: Scope type (0=GLOBAL, 1=SCORER).
+            scope_id: Database ID of scope entity (None for GLOBAL).
+
+        Returns:
+            Decrypted secret value.
+
+        Raises:
+            MlflowException: If secret is not found.
+        """
+        from mlflow.secrets import SecretManager
+
+        secret_manager = SecretManager()
+        name_hash = secret_manager.hash_name(name)
+
+        with self.ManagedSessionMaker() as session:
+            secret = (
+                session.query(SqlSecret)
+                .filter(
+                    SqlSecret.scope == scope,
+                    SqlSecret.scope_id == scope_id,
+                    SqlSecret.name_hash == name_hash,
+                )
+                .first()
+            )
+
+            if not secret:
+                raise MlflowException(
+                    f"Secret with name '{name}' not found for scope {scope}, scope_id {scope_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if secret.encrypted_dek:
+                dek = secret_manager.decrypt_dek(secret.encrypted_dek)
+                return secret_manager.decrypt_with_dek(secret.secret, dek)
+            else:
+                return secret_manager.decrypt(secret.secret)
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

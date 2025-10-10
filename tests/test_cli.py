@@ -847,3 +847,390 @@ def test_mlflow_gc_with_datasets(sqlite_store):
     assert experiments[0].experiment_id == "0"
     with pytest.raises(MlflowException, match=f"No Experiment with id={experiment_id} exists"):
         store.get_experiment(experiment_id)
+
+
+def test_secrets_generate_key_stdout():
+    from mlflow.cli import cli
+
+    result = CliRunner().invoke(cli, ["secrets", "generate-key", "--stdout"])
+    assert result.exit_code == 0
+    lines = result.output.split("\n")
+    key = lines[0]
+    assert len(key) == 44
+    assert "WARNING: This key is shown only once" in result.stderr
+
+
+def test_secrets_generate_key_to_file(tmp_path):
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    result = CliRunner().invoke(cli, ["secrets", "generate-key", "--output", str(key_file)])
+    assert result.exit_code == 0
+    assert key_file.exists()
+    assert oct(key_file.stat().st_mode)[-3:] == "600"
+    key_content = key_file.read_text()
+    assert len(key_content) == 44
+    assert "Generated master key" in result.output
+    assert "File permissions: 600" in result.output
+
+
+def test_secrets_generate_key_file_exists_without_force(tmp_path):
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key_file.write_text("existing-key")
+
+    result = CliRunner().invoke(cli, ["secrets", "generate-key", "--output", str(key_file)])
+    assert result.exit_code != 0
+    assert "already exists" in result.output
+    assert "Use --force" in result.output
+
+
+def test_secrets_generate_key_file_exists_with_force(tmp_path):
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key_file.write_text("existing-key")
+    old_content = key_file.read_text()
+
+    result = CliRunner().invoke(
+        cli, ["secrets", "generate-key", "--output", str(key_file), "--force"]
+    )
+    assert result.exit_code == 0
+    new_content = key_file.read_text()
+    assert old_content != new_content
+    assert len(new_content) == 44
+    assert oct(key_file.stat().st_mode)[-3:] == "600"
+
+
+def test_secrets_generate_key_k8s_secret():
+    from mlflow.cli import cli
+
+    result = CliRunner().invoke(cli, ["secrets", "generate-key", "--k8s-secret", "mlflow-key"])
+    assert result.exit_code == 0
+    assert "kubectl create secret generic mlflow-key" in result.output
+    assert "MLFLOW_SECRET_MASTER_KEY" in result.output
+    assert "envFrom:" in result.stderr
+
+
+def test_secrets_generate_key_multiple_modes_error():
+    from mlflow.cli import cli
+
+    result = CliRunner().invoke(
+        cli, ["secrets", "generate-key", "--stdout", "--k8s-secret", "test"]
+    )
+    assert result.exit_code != 0
+    assert "Specify only one of" in result.output
+
+
+def test_secrets_generate_key_no_mode_error():
+    from mlflow.cli import cli
+
+    result = CliRunner().invoke(cli, ["secrets", "generate-key"])
+    assert result.exit_code != 0
+    assert "Must specify one of" in result.output
+
+
+def test_secrets_status_temporary_key(monkeypatch):
+    from mlflow.cli import cli
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY_FILE", raising=False)
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 1
+    assert "Temporary Key" in result.stderr
+    assert "WARNING" in result.stderr
+    assert "Encryption Test:" in result.output
+    assert "✓ Passed" in result.output
+
+
+def test_secrets_status_env_var(monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    test_key = Fernet.generate_key().decode()
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY", test_key)
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY_FILE", raising=False)
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 0
+    assert "Environment Variable" in result.output
+    assert "Key Fingerprint:" in result.output
+    assert "Encryption Test:  ✓ Passed" in result.output
+
+
+def test_secrets_status_file(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+    key_file.chmod(0o600)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 0
+    assert "Key Source:       File" in result.output
+    assert str(key_file) in result.output
+    assert "File Permissions: 600" in result.output
+    assert "✓ Secure" in result.output
+    assert "Encryption Test:  ✓ Passed" in result.output
+
+
+def test_secrets_status_file_bad_permissions(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+    key_file.chmod(0o644)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 2
+    assert "File Permissions: 644" in result.stderr
+    assert "INSECURE" in result.stderr
+    assert "group/world readable" in result.stderr
+
+
+def test_secrets_status_file_warning_permissions(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+    key_file.chmod(0o640)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 2
+    assert "INSECURE" in result.stderr
+
+
+def test_secrets_status_file_not_found(tmp_path, monkeypatch):
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "nonexistent.key"
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 2
+    assert "does not exist" in result.stderr
+
+
+def test_secrets_status_both_env_vars_set(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY", key)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status"])
+    assert result.exit_code == 2
+    assert "Both MLFLOW_SECRET_MASTER_KEY and MLFLOW_SECRET_MASTER_KEY_FILE" in result.stderr
+    assert "Please set only one" in result.stderr
+
+
+def test_secrets_status_verbose(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "master.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+    key_file.chmod(0o600)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY_FILE", str(key_file))
+
+    result = CliRunner().invoke(cli, ["secrets", "status", "--verbose"])
+    assert result.exit_code == 0
+    assert "File Modified:" in result.output
+    assert "File Size:" in result.output
+
+
+def test_secrets_rotate_key_dry_run(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+    from mlflow.secrets.scope import SecretScope
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_path = tmp_path / "artifacts"
+    current_key_file = tmp_path / "current.key"
+    new_key_file = tmp_path / "new.key"
+
+    current_key = Fernet.generate_key().decode()
+    new_key = Fernet.generate_key().decode()
+
+    current_key_file.write_text(current_key)
+    new_key_file.write_text(new_key)
+
+    backend_uri = f"sqlite:///{db_path}"
+    artifact_root = f"file://{artifact_path}"
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY", current_key)
+
+    store = SqlAlchemyStore(backend_uri, artifact_root)
+    store.set_secret("test_secret", "test_value", SecretScope.GLOBAL)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "secrets",
+            "rotate-key",
+            "--current-key-file",
+            str(current_key_file),
+            "--new-key-file",
+            str(new_key_file),
+            "--backend-store-uri",
+            backend_uri,
+            "--dry-run",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "DRY RUN - No changes will be made" in result.output
+    assert "Would rotate 1 secrets" in result.output
+
+
+def test_secrets_rotate_key_same_keys_error(tmp_path):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    key_file = tmp_path / "same.key"
+    key = Fernet.generate_key().decode()
+    key_file.write_text(key)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "secrets",
+            "rotate-key",
+            "--current-key-file",
+            str(key_file),
+            "--new-key-file",
+            str(key_file),
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "Current and new keys are identical" in result.output
+
+
+def test_secrets_rotate_key_no_secrets(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_path = tmp_path / "artifacts"
+    current_key_file = tmp_path / "current.key"
+    new_key_file = tmp_path / "new.key"
+
+    current_key = Fernet.generate_key().decode()
+    new_key = Fernet.generate_key().decode()
+
+    current_key_file.write_text(current_key)
+    new_key_file.write_text(new_key)
+
+    backend_uri = f"sqlite:///{db_path}"
+    artifact_root = f"file://{artifact_path}"
+
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY", current_key)
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    SqlAlchemyStore(backend_uri, artifact_root)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "secrets",
+            "rotate-key",
+            "--current-key-file",
+            str(current_key_file),
+            "--new-key-file",
+            str(new_key_file),
+            "--backend-store-uri",
+            backend_uri,
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "No secrets with envelope encryption found" in result.output
+
+
+def test_secrets_rotate_key_with_confirmation(tmp_path, monkeypatch):
+    from cryptography.fernet import Fernet
+
+    from mlflow.cli import cli
+    from mlflow.secrets.scope import SecretScope
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    db_path = tmp_path / "mlflow.db"
+    artifact_path = tmp_path / "artifacts"
+    current_key_file = tmp_path / "current.key"
+    new_key_file = tmp_path / "new.key"
+
+    current_key = Fernet.generate_key().decode()
+    new_key = Fernet.generate_key().decode()
+
+    current_key_file.write_text(current_key)
+    new_key_file.write_text(new_key)
+
+    backend_uri = f"sqlite:///{db_path}"
+    artifact_root = f"file://{artifact_path}"
+    monkeypatch.setenv("MLFLOW_SECRET_MASTER_KEY", current_key)
+
+    store = SqlAlchemyStore(backend_uri, artifact_root)
+    store.set_secret("test_secret", "test_value", SecretScope.GLOBAL)
+
+    monkeypatch.delenv("MLFLOW_SECRET_MASTER_KEY", raising=False)
+
+    result = CliRunner().invoke(
+        cli,
+        [
+            "secrets",
+            "rotate-key",
+            "--current-key-file",
+            str(current_key_file),
+            "--new-key-file",
+            str(new_key_file),
+            "--backend-store-uri",
+            backend_uri,
+            "--yes",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully rotated 1 secrets" in result.output
+    assert "Update your environment to use the new key" in result.output

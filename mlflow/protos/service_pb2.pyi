@@ -6,6 +6,7 @@ from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
+import secrets_pb2 as _secrets_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor

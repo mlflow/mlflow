@@ -10,6 +10,7 @@ import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
+import "secrets.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
