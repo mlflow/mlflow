@@ -392,21 +392,17 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n")
 
     if (
+        # `uv run` was used to run tests
         "UV" in os.environ
+        # Some tests failed because of missing dependencies
         and (errors := terminalreporter.stats.get("error"))
-        and any(
-            "ModuleNotFoundError" in str(e.longrepr) or "ImportError" in str(e.longrepr)
-            for e in errors
-        )
+        and any(re.search(r"ModuleNotFoundError|ImportError", str(e.longrepr)) for e in errors)
     ):
         terminalreporter.write("\n")
         terminalreporter.section("HINTS", yellow=True)
         terminalreporter.write(
-            "Some tests failed due to missing dependencies (ModuleNotFoundError/ImportError).\n"
             "To run tests with additional packages, use:\n"
             "  uv run --with <package> pytest ...\n\n"
-            "Example:\n"
-            "  uv run --with pyspark pytest tests/pyfunc/test_pyspark.py\n\n"
             "For multiple packages:\n"
             "  uv run --with <package1> --with <package2> pytest ...\n\n",
             yellow=True,
