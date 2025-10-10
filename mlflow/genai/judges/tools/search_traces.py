@@ -1,4 +1,10 @@
-""" """  # TODO
+"""
+Search traces tool for MLflow GenAI judges.
+
+This module provides a tool for searching and retrieving traces from an MLflow experiment
+based on filter criteria, ordering, and result limits. It enables judges to analyze historical
+traces within the same experiment context.
+"""
 
 import logging
 
@@ -97,7 +103,14 @@ def _get_experiment_id(trace: Trace) -> str:
 
 @experimental(version="3.5.0")
 class SearchTracesTool(JudgeTool):
-    """ """  # TODO
+    """
+    Tool for searching and retrieving traces from an MLflow experiment.
+
+    This tool enables judges to search for traces within the same experiment context
+    as the current trace being evaluated. It supports filtering, ordering, and
+    pagination of results. The tool returns trace metadata including request/response
+    data, execution metrics, and assessments for analysis.
+    """
 
     @property
     def name(self) -> str:
@@ -107,10 +120,41 @@ class SearchTracesTool(JudgeTool):
         return ToolDefinition(
             function=FunctionToolDefinition(
                 name=ToolNames.SEARCH_TRACES,
-                description=("PLACEHOLDER"),  # TODO
+                description=(
+                    "Search for traces within the same MLflow experiment as the current trace. "
+                    "Returns trace metadata including trace_id, request_time, state, request, "
+                    "response, execution_duration, and assessments. Supports filtering with "
+                    "MLflow search syntax (e.g., 'attributes.status = \"OK\"'), custom ordering "
+                    "(e.g., ['timestamp DESC']), and result limits. Use this to analyze patterns "
+                    "across historical traces or find specific traces matching criteria."
+                ),
                 parameters=ToolParamsSchema(
                     type="object",
-                    properties={},  # TODO
+                    properties={
+                        "filter_string": {
+                            "type": "string",
+                            "description": (
+                                "Optional filter string using MLflow search syntax "
+                                "(e.g., 'attributes.status = \"OK\"'). If not specified, "
+                                "all traces in the experiment are returned."
+                            ),
+                            "default": None,
+                        },
+                        "order_by": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": (
+                                "Optional list of order by expressions (e.g., ['timestamp DESC']). "
+                                "Defaults to ['timestamp ASC'] for chronological order."
+                            ),
+                            "default": ["timestamp ASC"],
+                        },
+                        "max_results": {
+                            "type": "integer",
+                            "description": "Maximum number of traces to return (default: 20)",
+                            "default": 20,
+                        },
+                    },
                     required=[],
                 ),
             ),
@@ -124,7 +168,23 @@ class SearchTracesTool(JudgeTool):
         order_by: list[str] | None = None,
         max_results: int = 20,
     ) -> list[TraceInfo]:
-        """ """  # TODO
+        """
+        Search for traces within the same experiment as the current trace.
+
+        Args:
+            trace: The current MLflow trace object (used to determine experiment context)
+            filter_string: Optional filter using MLflow search syntax
+                (e.g., 'attributes.status = "OK"')
+            order_by: Optional list of order by expressions (e.g., ['timestamp DESC'])
+            max_results: Maximum number of traces to return (default: 20)
+
+        Returns:
+            List of TraceInfo objects containing trace metadata, request/response data,
+            and assessments for each matching trace
+
+        Raises:
+            MlflowException: If trace has no experiment context or search fails
+        """
         # Extract and validate experiment ID from trace
         experiment_id = _get_experiment_id(trace)
         locations = [experiment_id]
