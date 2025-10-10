@@ -4,7 +4,7 @@ import logging
 from functools import lru_cache
 from typing import Any, Union
 
-from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.json_format import ParseDict
 from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     build_otel_context,
@@ -223,17 +223,31 @@ class Span:
         return self._attributes.get(key)
 
     def to_dict(self) -> dict[str, Any]:
-        d = MessageToDict(
-            self.to_proto(),
-            preserving_proto_field_name=True,
-        )
-        # Casting fields types as MessageToDict convert everything to string
-        d["start_time_unix_nano"] = self.start_time_ns
-        d["end_time_unix_nano"] = self.end_time_ns
-        for i, event in enumerate(d.get("events", [])):
-            event["time_unix_nano"] = self.events[i].timestamp
-            event["attributes"] = self.events[i].attributes
-        return d
+        return {
+            "trace_id": self.trace_id,
+            "span_id": self.span_id,
+            "parent_span_id": self.parent_id,
+            "name": self.name,
+            "start_time_unix_nano": self.start_time_ns,
+            "end_time_unix_nano": self.end_time_ns,
+            "status": {
+                "code": self.status.status_code.value,
+                "message": self.status.description,
+            },
+            "events": [
+                {
+                    "name": event.name,
+                    "time_unix_nano": event.timestamp,
+                    "attributes": event.attributes,
+                }
+                for event in self.events
+            ],
+            # save the dumped attributes so they can be loaded correctly when deserializing
+            "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
+            # use this to distinguish the span dict version when deserializing
+            SPAN_DICT_VERSION_KEY: 4,
+            "otel_trace_id": self._trace_id,
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -250,12 +264,25 @@ class Span:
             if Span._is_span_v2_schema(data):
                 return cls.from_dict_v2(data)
 
-            trace_id = _decode_id_from_byte(data["trace_id"])
-            span_id = _decode_id_from_byte(data["span_id"])
-            # Parent ID always exists in proto (empty string) even if the span is a root span.
-            parent_id = (
-                _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
-            )
+            if data.get(SPAN_DICT_VERSION_KEY) == 4:
+                trace_id = decode_id(data["otel_trace_id"])
+                span_id = decode_id(data["span_id"])
+                parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
+                status = SpanStatus(
+                    status_code=SpanStatusCode(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                )
+            else:
+                trace_id = _decode_id_from_byte(data["trace_id"])
+                span_id = _decode_id_from_byte(data["span_id"])
+                # Parent ID always exists in proto (empty string) even if the span is a root span.
+                parent_id = (
+                    _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
+                )
+                status = SpanStatus(
+                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                )
 
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
@@ -267,10 +294,7 @@ class Span:
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
                 attributes=data["attributes"],
-                status=SpanStatus(
-                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message"),
-                ).to_otel_status(),
+                status=status.to_otel_status(),
                 # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
                 # Resource.create(), which introduces a significant overhead in some environments.
                 # https://github.com/mlflow/mlflow/issues/15625
