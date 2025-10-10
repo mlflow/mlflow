@@ -114,6 +114,7 @@ dataset.merge_records(traces)
 ```
 
 This automatically creates a dataset with:
+
 - `inputs`: The input variables (`text` in this case)
 - `outputs`: The actual outputs from your source model (`gpt-4o`)
 
@@ -278,6 +279,7 @@ Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> befor
 **Cause**: Different models have different capabilities.
 
 **Solution**:
+
 - Increase training data size (aim for 50+ examples)
 - Use a more powerful optimizer model
 - Consider if the target model is capable of the task
