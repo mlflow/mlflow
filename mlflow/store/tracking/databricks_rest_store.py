@@ -100,6 +100,8 @@ class DatabricksTracingRestStore(RestStore):
             if trace_info.trace_location.uc_schema is not None:
                 return self._start_trace_v4(trace_info)
 
+        # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
+        # TODO: remove this once the endpoint is fully rolled out
         except Exception as e:
             if trace_info.trace_location.mlflow_experiment is None:
                 _logger.debug("MLflow experiment is not set for trace, cannot fallback to V3 API.")
@@ -221,6 +223,7 @@ class DatabricksTracingRestStore(RestStore):
         model_id: str | None = None,
         locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
+        # This API is not client-facing, so we should always use `locations`.
         if experiment_ids is not None:
             raise MlflowException("`experiment_ids` is deprecated, use `locations` instead.")
         if not locations:
@@ -228,6 +231,7 @@ class DatabricksTracingRestStore(RestStore):
                 "At least one location must be specified for searching traces."
             )
 
+        # model_id is only supported by V3 API
         if model_id is not None:
             return self._search_unified_traces(
                 model_id=model_id,
@@ -275,6 +279,10 @@ class DatabricksTracingRestStore(RestStore):
                 endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/search",
             )
         except MlflowException as e:
+            # There are 2 expected failure cases:
+            # 1. Server does not support SearchTracesV4 API yet.
+            # 2. Server supports V4 API but the experiment location is not supported yet.
+            # For these known cases, MLflow fallback to V3 API.
             if e.error_code == ErrorCode.Name(ENDPOINT_NOT_FOUND):
                 if contain_uc_schemas:
                     raise MlflowException.invalid_parameter_value(
@@ -327,6 +335,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         req_body = message_to_json(request)
         response_proto = self._call_endpoint(SearchUnifiedTraces, req_body)
+        # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
         trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
@@ -372,6 +381,7 @@ class DatabricksTracingRestStore(RestStore):
                 raise
         _logger.debug(f"Created trace UC storage location: {location}")
 
+        # link experiment to uc trace location
         req_body = message_to_json(
             LinkExperimentToUCTraceLocation(
                 experiment_id=experiment_id,
@@ -411,6 +421,8 @@ class DatabricksTracingRestStore(RestStore):
             raise MlflowException(
                 "`tracking_uri` must be provided to log spans to with Databricks tracking server."
             )
+
+        # TODO: check server version
 
         endpoint = f"/api/2.0/tracing/otel{OTLP_TRACES_PATH}"
         try:
@@ -502,6 +514,7 @@ class DatabricksTracingRestStore(RestStore):
                 trace_location_to_proto(TraceLocation.from_databricks_uc_schema(catalog, schema)),
             )
             assessment.trace_id = parsed_trace_id
+            # Field mask specifies which fields to update.
             mask = UpdateAssessment().update_mask
             if name is not None:
                 assessment.assessment_name = name
