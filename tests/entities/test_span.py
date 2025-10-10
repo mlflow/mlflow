@@ -14,8 +14,10 @@ import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
 from mlflow.entities.span import NoOpSpan, create_mlflow_span
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
 def test_create_live_span():
@@ -440,10 +442,6 @@ def test_span_from_otel_proto_conversion():
     # Add attributes
     from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
-    attr1 = otel_proto.attributes.add()
-    attr1.key = "mlflow.traceRequestId"
-    _set_otel_proto_anyvalue(attr1.value, '{"request": "id"}')
-
     attr2 = otel_proto.attributes.add()
     attr2.key = "mlflow.spanType"
     _set_otel_proto_anyvalue(attr2.value, "CHAIN")
@@ -469,6 +467,7 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.end_time_ns == 2000000000
 
     # Verify IDs
+    assert mlflow_span.trace_id == "tr-12345678901234567890123456789012"
     assert mlflow_span.span_id == "1234567890123456"
     assert mlflow_span.parent_id == "0987654321098765"
 
@@ -485,6 +484,47 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].name == "test_event"
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
+
+
+def test_span_from_otel_proto_with_location():
+    # Create OTel proto span
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.parent_span_id = bytes.fromhex("0987654321098765")
+    otel_proto.name = "proto_span_v4"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # Add status
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
+    otel_proto.status.message = ""
+
+    # Add attributes
+    attr1 = otel_proto.attributes.add()
+    attr1.key = "mlflow.spanType"
+    _set_otel_proto_anyvalue(attr1.value, "LLM")
+
+    # Convert to MLflow span with location
+    location = "catalog.schema"
+    mlflow_span = Span.from_otel_proto(otel_proto, location_id=location)
+
+    # Verify basic fields
+    assert mlflow_span.name == "proto_span_v4"
+    assert mlflow_span.start_time_ns == 1000000000
+    assert mlflow_span.end_time_ns == 2000000000
+
+    # Verify IDs
+    assert mlflow_span.span_id == "1234567890123456"
+    assert mlflow_span.parent_id == "0987654321098765"
+
+    # Verify trace_id is in v4 format with location
+    expected_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/12345678901234567890123456789012"
+    assert mlflow_span.trace_id == expected_trace_id
+
+    # Verify the REQUEST_ID attribute also uses v4 format
+    request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
+    assert request_id == expected_trace_id
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):

@@ -30,6 +30,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
     generate_mlflow_trace_id_from_otel_trace_id,
+    generate_trace_id_v4_from_otel_trace_id,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -351,7 +352,7 @@ class Span:
         )
 
     @classmethod
-    def from_otel_proto(cls, otel_proto_span) -> "Span":
+    def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
@@ -370,6 +371,11 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
+        mlflow_trace_id = (
+            generate_trace_id_v4_from_otel_trace_id(trace_id, location_id)
+            if location_id
+            else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
+        )
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -378,8 +384,7 @@ class Span:
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
                 # Include the MLflow trace request ID only if it's not already present in attributes
-                # TODO: make the consistent with trace.trace_id once it supports trace:/ format
-                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
+                SpanAttributeKey.REQUEST_ID: mlflow_trace_id,
                 **{
                     attr.key: _decode_otel_proto_anyvalue(attr.value)
                     for attr in otel_proto_span.attributes

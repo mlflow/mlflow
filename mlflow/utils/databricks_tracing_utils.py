@@ -134,10 +134,10 @@ def trace_to_proto(trace: Trace) -> pb.Trace:
     )
 
 
-def trace_from_proto(proto: pb.Trace) -> Trace:
+def trace_from_proto(proto: pb.Trace, location_id: str) -> Trace:
     return Trace(
         info=TraceInfo.from_proto(proto.trace_info),
-        data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
+        data=TraceData(spans=[Span.from_otel_proto(span, location_id) for span in proto.spans]),
     )
 
 
