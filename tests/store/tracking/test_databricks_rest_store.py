@@ -294,7 +294,9 @@ def test_set_trace_tag():
             json=expected_json,
         )
         # Verify polling was called
-        mock_poll.assert_called_once_with(location, trace_id, request.key, request.value)
+        mock_poll.assert_called_once_with(
+            f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}", request.key, request.value
+        )
         assert res is None
 
 
@@ -360,7 +362,7 @@ def test_delete_trace_tag(monkeypatch):
             json=expected_json,
         )
         # Verify polling was called for deletion
-        mock_poll.assert_called_once_with(location, trace_id, request.key)
+        mock_poll.assert_called_once_with(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}", request.key)
         assert res is None
 
 
@@ -377,7 +379,10 @@ def test_delete_trace_tag_with_special_characters(monkeypatch):
     response.text = "{}"
 
     monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+    with (
+        mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http,
+        mock.patch.object(store, "_poll_for_tag_deletion") as mock_poll,
+    ):
         res = store.delete_trace_tag(
             trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
             key=key_with_slash,
@@ -391,6 +396,10 @@ def test_delete_trace_tag_with_special_characters(monkeypatch):
             endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar",
             method="DELETE",
             json=expected_json,
+        )
+        # Verify polling was called for deletion
+        mock_poll.assert_called_once_with(
+            f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}", key_with_slash
         )
         assert res is None
 

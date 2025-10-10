@@ -120,19 +120,18 @@ class DatabricksTracingRestStore(RestStore):
             f"{timeout_message} Backend took longer than {timeout}s to reflect the change."
         )
 
-    def _poll_for_tag_set(self, location: str, trace_id: str, key: str, value: str) -> None:
+    def _poll_for_tag_set(self, trace_id: str, key: str, value: str) -> None:
         """
         Poll for a tag set operation to be reflected in the backend.
 
         Args:
-            location: Location of the trace (e.g., "catalog.schema").
-            trace_id: OTEL trace ID.
+            trace_id: Full trace ID in V4 format "trace:/<location>/<otel_trace_id>".
             key: Tag key to check.
             value: Expected tag value.
         """
 
         def is_tag_set() -> bool:
-            trace_info = self.get_trace_info(f"{location}:{trace_id}")
+            trace_info = self.get_trace_info(trace_id)
             return any(t.key == key and t.value == value for t in trace_info.tags)
 
         self._poll_until(
@@ -141,18 +140,17 @@ class DatabricksTracingRestStore(RestStore):
             timeout_message=f"Tag '{key}' update may not be immediately visible.",
         )
 
-    def _poll_for_tag_deletion(self, location: str, trace_id: str, key: str) -> None:
+    def _poll_for_tag_deletion(self, trace_id: str, key: str) -> None:
         """
         Poll for a tag deletion to be reflected in the backend.
 
         Args:
-            location: Location of the trace (e.g., "catalog.schema").
-            trace_id: OTEL trace ID.
+            trace_id: Full trace ID in V4 format "trace:/<location>/<otel_trace_id>".
             key: Tag key to verify is deleted.
         """
 
         def is_tag_deleted() -> bool:
-            trace_info = self.get_trace_info(f"{location}:{trace_id}")
+            trace_info = self.get_trace_info(trace_id)
             return not any(t.key == key for t in trace_info.tags)
 
         self._poll_until(
@@ -271,7 +269,7 @@ class DatabricksTracingRestStore(RestStore):
             )
             self._call_endpoint(SetTraceTag, req_body, endpoint=endpoint)
             # Poll to ensure the tag is set in the backend
-            self._poll_for_tag_set(location, otel_trace_id, key, value)
+            self._poll_for_tag_set(trace_id, key, value)
             return
         return super().set_trace_tag(trace_id, key, value)
 
@@ -291,7 +289,7 @@ class DatabricksTracingRestStore(RestStore):
             req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
             self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
             # Poll to ensure the tag is deleted from the backend
-            self._poll_for_tag_deletion(location, otel_trace_id, key)
+            self._poll_for_tag_deletion(trace_id, key)
             return
         return super().delete_trace_tag(trace_id, key)
 
