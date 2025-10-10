@@ -582,21 +582,13 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 where the artifact will be logged.
 
         """
-        # NB: When cloud_credential_info is None, this indicates a large file where credentials
-        # were intentionally not pre-allocated to avoid double credential allocation in strict
-        # egress control environments (e.g., Databricks SEG). We must request credentials based
-        # on file size and cloud type.
+        # NB: For AWS large files, credentials may be None to avoid double allocation in strict
+        # egress control environments (e.g., Databricks SEG). When None, we use multipart upload
+        # which creates its own credentials via CreateMultipartUpload API.
         if cloud_credential_info is None:
-            file_size = os.path.getsize(src_file_path)
-            if file_size >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
-                # Large file: use multipart upload which creates its own credentials
-                _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
-                self._multipart_upload(src_file_path, artifact_file_path)
-            else:
-                # File became small (edge case: file size changed between check and upload)
-                # Request credentials now for single PUT upload
-                cloud_credential_info = self._get_write_credential_infos([artifact_file_path])[0]
-                self._signed_url_upload_file(cloud_credential_info, src_file_path)
+            # Large AWS file without pre-allocated credentials: use multipart upload
+            _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+            self._multipart_upload(src_file_path, artifact_file_path)
             return
 
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
@@ -614,10 +606,13 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+            # Check file size to determine upload strategy
+            if os.path.getsize(src_file_path) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+                # Large file: use multipart upload (which creates its own credentials)
                 _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
+                # Small file: use the presigned URL for simple PUT upload
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)
         elif cloud_credential_info.type == ArtifactCredentialType.GCP_SIGNED_URL:
             self._signed_url_upload_file(cloud_credential_info, src_file_path)

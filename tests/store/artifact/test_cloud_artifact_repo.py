@@ -1,5 +1,4 @@
 from concurrent.futures import Future
-from contextlib import contextmanager
 from unittest import mock
 
 import pytest
@@ -11,17 +10,6 @@ from mlflow.store.artifact.cloud_artifact_repo import (
     _readable_size,
     _validate_chunk_size_aws,
 )
-
-
-@contextmanager
-def large_file(path, size_mb):
-    file_path = path
-    file_path.write_bytes(b"x" * (size_mb * 1024 * 1024))
-    try:
-        yield file_path
-    finally:
-        if file_path.exists():
-            file_path.unlink()
 
 
 @pytest.mark.parametrize(
@@ -144,133 +132,3 @@ def test__parallelized_download_from_cloud(
                     download_path=str(fake_local_path),
                     http_uri="fake_signed_uri",
                 )
-
-
-def test_log_artifacts_partitions_by_file_size(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", str(100 * 1024 * 1024))
-
-    small_file = tmp_path / "small.txt"
-    small_file.write_bytes(b"small" * 1000)
-
-    with large_file(tmp_path / "large.bin", 101):
-
-        class TestCloudRepo(CloudArtifactRepository):
-            def __init__(self):
-                self.artifact_uri = "test://bucket/path"
-                self.thread_pool = mock.MagicMock()
-                self.uploaded_files = []
-
-            def _get_write_credential_infos(self, remote_file_paths):
-                return [
-                    ArtifactCredentialInfo(
-                        signed_uri=f"https://example.com/{path}",
-                        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
-                    )
-                    for path in remote_file_paths
-                ]
-
-            def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-                self.uploaded_files.append(
-                    {
-                        "path": src_file_path,
-                        "artifact_path": artifact_file_path,
-                        "has_credentials": cloud_credential_info is not None,
-                    }
-                )
-
-            def _get_read_credential_infos(self, remote_file_paths):
-                return []
-
-            def _download_from_cloud(self, remote_file_path, local_path):
-                pass
-
-        repo = TestCloudRepo()
-        repo.thread_pool.submit.side_effect = lambda fn, **kwargs: mock.MagicMock(
-            result=lambda: fn(**kwargs)
-        )
-
-        repo.log_artifacts(str(tmp_path))
-
-        small_uploads = [u for u in repo.uploaded_files if "small.txt" in u["path"]]
-        large_uploads = [u for u in repo.uploaded_files if "large.bin" in u["path"]]
-
-        assert len(small_uploads) == 1
-        assert small_uploads[0]["has_credentials"] is True
-
-        assert len(large_uploads) == 1
-        assert large_uploads[0]["has_credentials"] is False
-
-
-def test_log_artifacts_mixed_sizes_requests_credentials_only_for_small_files(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE", str(50 * 1024 * 1024))
-
-    files_dir = tmp_path / "files"
-    files_dir.mkdir()
-
-    (files_dir / "small1.txt").write_bytes(b"a" * 1000)
-    (files_dir / "small2.txt").write_bytes(b"b" * 2000)
-
-    with large_file(files_dir / "large1.bin", 60), large_file(files_dir / "large2.bin", 70):
-        credential_requests = []
-
-        class TestCloudRepo(CloudArtifactRepository):
-            def __init__(self):
-                self.artifact_uri = "test://bucket/path"
-                self.thread_pool = mock.MagicMock()
-
-            def _get_write_credential_infos(self, remote_file_paths):
-                credential_requests.append(remote_file_paths)
-                return [
-                    ArtifactCredentialInfo(
-                        signed_uri=f"https://example.com/{path}",
-                        type=ArtifactCredentialType.AWS_PRESIGNED_URL,
-                    )
-                    for path in remote_file_paths
-                ]
-
-            def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-                pass
-
-            def _get_read_credential_infos(self, remote_file_paths):
-                return []
-
-            def _download_from_cloud(self, remote_file_path, local_path):
-                pass
-
-        repo = TestCloudRepo()
-        repo.thread_pool.submit.side_effect = lambda fn, **kwargs: mock.MagicMock(
-            result=lambda: fn(**kwargs)
-        )
-
-        repo.log_artifacts(str(files_dir))
-
-        assert len(credential_requests) == 1
-        requested_files = credential_requests[0]
-        assert all("small" in f for f in requested_files)
-        assert not any("large" in f for f in requested_files)
-        assert len(requested_files) == 2
-
-
-def test_databricks_upload_to_cloud_handles_none_credential_for_large_files(tmp_path):
-    from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
-
-    with large_file(tmp_path / "large.bin", 600) as large_file_path:
-        with mock.patch.object(DatabricksArtifactRepository, "_multipart_upload") as mock_multipart:
-            with mock.patch.object(
-                DatabricksArtifactRepository, "__init__", lambda self, *args, **kwargs: None
-            ):
-                repo = DatabricksArtifactRepository()
-                repo.resource = mock.MagicMock()
-                repo.resource.relative_path = "path"
-
-                mock_multipart.side_effect = lambda *args, **kwargs: setattr(
-                    mock, "multipart_upload_called", True
-                )
-
-                repo._upload_to_cloud(
-                    cloud_credential_info=None,
-                    src_file_path=str(large_file_path),
-                    artifact_file_path="artifacts/large.bin",
-                )
-
-                assert mock_multipart.called

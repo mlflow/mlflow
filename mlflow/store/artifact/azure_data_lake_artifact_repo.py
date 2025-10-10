@@ -186,11 +186,6 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         raise NotImplementedError("This artifact repository does not support deleting artifacts")
 
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-        # NB: cloud_credential_info can be None for large files in strict egress control
-        # environments (e.g., Databricks SEG). Request credentials if not provided.
-        if cloud_credential_info is None:
-            cloud_credential_info = self._get_write_credential_infos([artifact_file_path])[0]
-
         if (
             MLFLOW_ENABLE_MULTIPART_UPLOAD.get()
             and os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
