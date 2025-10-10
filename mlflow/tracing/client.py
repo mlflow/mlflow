@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -34,7 +35,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import GET_TRACE_V4_RETRY_TIMEOUT_SECONDS, TraceMetadataKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags, parse_trace_id_v4
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -151,14 +152,26 @@ class TracingClient:
         """
         location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
-            # V4 trace, load spans from v4 BatchGetTraces endpoint.
-            traces = self.store.batch_get_traces([trace_id], location)
-            if not traces:
-                raise MlflowException(
-                    message=f"Trace with ID {trace_id} is not found.",
-                    error_code=NOT_FOUND,
+            start_time = time.time()
+            attempt = 0
+            while time.time() - start_time < GET_TRACE_V4_RETRY_TIMEOUT_SECONDS:
+                # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
+                # BatchGetTraces returns an empty list if the trace is not found, which will be
+                # retried up to GET_TRACE_V4_RETRY_TIMEOUT_SECONDS seconds.
+                if traces := self.store.batch_get_traces([trace_id], location):
+                    return traces[0]
+
+                attempt += 1
+                interval = 2**attempt
+                _logger.debug(
+                    f"Trace not found, retrying in {interval} seconds (attempt {attempt})"
                 )
-            return traces[0]
+                time.sleep(interval)
+
+            raise MlflowException(
+                message=f"Trace with ID {trace_id} is not found.",
+                error_code=NOT_FOUND,
+            )
         else:
             # V3 trace, load spans from artifact repository.
             try:
