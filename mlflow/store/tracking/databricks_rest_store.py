@@ -133,8 +133,7 @@ class DatabricksTracingRestStore(RestStore):
 
         def is_tag_set() -> bool:
             trace_info = self.get_trace_info(f"{location}:{trace_id}")
-            tags = {tag.key: tag.value for tag in trace_info.tags}
-            return tags.get(key) == value
+            return any(tag.key == key and tag.value == value for tag in trace_info.tags)
 
         self._poll_until(
             condition_fn=is_tag_set,
@@ -154,8 +153,7 @@ class DatabricksTracingRestStore(RestStore):
 
         def is_tag_deleted() -> bool:
             trace_info = self.get_trace_info(f"{location}:{trace_id}")
-            tags = {tag.key: tag.value for tag in trace_info.tags}
-            return key not in tags
+            return not any(tag.key == key for tag in trace_info.tags)
 
         self._poll_until(
             condition_fn=is_tag_deleted,
