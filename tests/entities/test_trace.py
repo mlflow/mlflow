@@ -270,7 +270,7 @@ def test_trace_pandas_dataframe_columns():
     assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
 
     t = Trace(
-        info=create_test_trace_info_with_uc_table("a", "catalog", "schema", "spans_table"),
+        info=create_test_trace_info_with_uc_table("a", "catalog", "schema"),
         data=TraceData(),
     )
     assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())

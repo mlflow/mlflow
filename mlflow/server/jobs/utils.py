@@ -323,7 +323,7 @@ def _launch_huey_consumer(job_fn_fullname: str) -> None:
     threading.Thread(
         target=_huey_consumer_thread,
         name=f"MLflow-huey-consumer-{job_fn_fullname}-watcher",
-        daemon=True,
+        daemon=False,
     ).start()
 
 
@@ -374,12 +374,16 @@ def _load_function(fullname: str) -> Callable[..., Any]:
         )
 
 
-def _enqueue_unfinished_jobs() -> None:
+def _enqueue_unfinished_jobs(server_launching_timestamp: int) -> None:
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
 
-    unfinished_jobs = job_store.list_jobs(statuses=[JobStatus.PENDING, JobStatus.RUNNING])
+    unfinished_jobs = job_store.list_jobs(
+        statuses=[JobStatus.PENDING, JobStatus.RUNNING],
+        # filter out jobs created after the server is launched.
+        end_timestamp=server_launching_timestamp,
+    )
 
     for job in unfinished_jobs:
         if job.status == JobStatus.RUNNING:
