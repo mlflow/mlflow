@@ -148,7 +148,7 @@ class DatabricksTracingRestStore(RestStore):
             req_body,
             endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet",
         )
-        return [trace_from_proto(proto) for proto in response_proto.traces]
+        return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """

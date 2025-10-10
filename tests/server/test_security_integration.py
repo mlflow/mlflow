@@ -1,5 +1,4 @@
 import json
-from unittest import mock
 
 import pytest
 from werkzeug.test import Client
@@ -56,8 +55,9 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
         assert response.status_code != 403
 
 
-@mock.patch.dict("os.environ", {"MLFLOW_SERVER_CORS_ALLOWED_ORIGINS": "https://trusted-app.com"})
-def test_cors_with_configured_origins():
+def test_cors_with_configured_origins(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "https://trusted-app.com")
+
     from flask import Flask
 
     from mlflow.server import handlers, security

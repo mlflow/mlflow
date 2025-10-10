@@ -22,7 +22,12 @@ from mlflow.entities.trace_location import (
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_ID_V4_PREFIX,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import TraceMetadataKey, add_size_stats_to_trace_metadata
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
@@ -217,7 +222,7 @@ def test_trace_to_proto_and_from_proto():
     assert proto_trace_v4.trace_info.trace_location.uc_schema.schema_name == "schema"
     assert len(proto_trace_v4.spans) == len(trace.data.spans)
 
-    reconstructed_trace = trace_from_proto(proto_trace_v4)
+    reconstructed_trace = trace_from_proto(proto_trace_v4, location_id="catalog.schema")
 
     assert reconstructed_trace.info.trace_id == trace_id
     assert reconstructed_trace.info.trace_location.uc_schema.catalog_name == "catalog"
@@ -233,6 +238,42 @@ def test_trace_to_proto_and_from_proto():
     assert reconstructed_span.inputs == original_span.inputs
     assert reconstructed_span.outputs == original_span.outputs
     assert reconstructed_span.get_attribute("custom") == original_span.get_attribute("custom")
+
+
+def test_trace_from_proto_with_location_preserves_v4_trace_id():
+    with mlflow.start_span() as span:
+        otel_trace_id = span.trace_id.removeprefix("tr-")
+        uc_schema = "catalog.schema"
+        trace_id_v4 = f"{TRACE_ID_V4_PREFIX}{uc_schema}/{otel_trace_id}"
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, trace_id_v4)
+        mlflow_span = span.to_immutable_span()
+
+    # Create trace with v4 trace ID
+    trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id_v4,
+            trace_location=TraceLocation.from_databricks_uc_schema(
+                catalog_name="catalog", schema_name="schema"
+            ),
+            request_time=0,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mlflow_span]),
+    )
+
+    # Convert to proto
+    proto_trace = trace_to_proto(trace)
+
+    # Reconstruct with location parameter
+    reconstructed_trace = trace_from_proto(proto_trace, location_id=uc_schema)
+
+    # Verify that all spans have the correct v4 trace_id format
+    for reconstructed_span in reconstructed_trace.data.spans:
+        assert reconstructed_span.trace_id == trace_id_v4
+        assert reconstructed_span.trace_id.startswith(TRACE_ID_V4_PREFIX)
+        # Verify the REQUEST_ID attribute is also in v4 format
+        request_id = reconstructed_span.get_attribute("mlflow.traceRequestId")
+        assert request_id == trace_id_v4
 
 
 def test_trace_info_from_proto_handles_uc_schema_location():
