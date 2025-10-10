@@ -14,6 +14,8 @@ from mlflow.tracing.enablement import (
     unset_experiment_trace_location,
 )
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
 
 @pytest.fixture
 def mock_databricks_tracking_uri():
@@ -21,6 +23,7 @@ def mock_databricks_tracking_uri():
         yield
 
 
+@skip_when_testing_trace_sdk
 def test_set_experiment_trace_location(mock_databricks_tracking_uri):
     experiment_id = mlflow.create_experiment("test_experiment")
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
@@ -83,6 +86,7 @@ def test_set_experiment_trace_location_no_experiment(mock_databricks_tracking_ur
             set_experiment_trace_location(location=location)
 
 
+@skip_when_testing_trace_sdk
 def test_set_experiment_trace_location_non_existent_experiment(mock_databricks_tracking_uri):
     location = UCSchemaLocation(catalog_name="test_catalog", schema_name="test_schema")
 
