@@ -152,11 +152,10 @@ class TracingClient:
         """
         location, _ = parse_trace_id_v4(trace_id)
         if location is not None:
-            # Retry up to 10 seconds because...
             start_time = time.time()
             attempt = 0
             while time.time() - start_time < GET_TRACE_V4_RETRY_TIMEOUT:
-                # V4 trace, load spans from v4 BatchGetTraces endpoint.
+                # For a V4 trace, load spans from the v4 BatchGetTraces endpoint.
                 # BatchGetTraces returns an empty list if the trace is not found, which will be
                 # retried up to GET_TRACE_V4_RETRY_TIMEOUT seconds.
                 if traces := self.store.batch_get_traces([trace_id], location):
