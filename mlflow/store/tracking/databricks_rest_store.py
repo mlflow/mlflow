@@ -87,6 +87,38 @@ class DatabricksTracingRestStore(RestStore):
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
 
+    def _poll_until(
+        self,
+        condition_fn,
+        success_message: str,
+        timeout_message: str,
+    ) -> None:
+        """
+        Poll until a condition function returns True.
+
+        Args:
+            condition_fn: A callable that returns True when the condition is met.
+            success_message: Message to log when condition is met.
+            timeout_message: Message to log if timeout is exceeded.
+        """
+        timeout = MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS.get()
+        interval = MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS.get()
+        start_time = time.time()
+
+        while time.time() - start_time < timeout:
+            try:
+                if condition_fn():
+                    _logger.debug(success_message)
+                    return
+                time.sleep(interval)
+            except Exception as e:
+                _logger.debug(f"Error during polling: {e!s}")
+                time.sleep(interval)
+
+        _logger.warning(
+            f"{timeout_message} Backend took longer than {timeout}s to reflect the change."
+        )
+
     def _poll_for_tag_set(self, location: str, trace_id: str, key: str, value: str) -> None:
         """
         Poll for a tag set operation to be reflected in the backend.
@@ -97,27 +129,16 @@ class DatabricksTracingRestStore(RestStore):
             key: Tag key to check.
             value: Expected tag value.
         """
-        timeout = MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS.get()
-        interval = MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS.get()
-        start_time = time.time()
 
-        while time.time() - start_time < timeout:
-            try:
-                trace_info = self.get_trace_info(f"{location}:{trace_id}")
-                tags = {tag.key: tag.value for tag in trace_info.tags}
+        def check_tag_set():
+            trace_info = self.get_trace_info(f"{location}:{trace_id}")
+            tags = {tag.key: tag.value for tag in trace_info.tags}
+            return tags.get(key) == value
 
-                if tags.get(key) == value:
-                    _logger.debug(f"Tag '{key}' successfully set to '{value}'")
-                    return
-
-                time.sleep(interval)
-            except Exception as e:
-                _logger.debug(f"Error during tag polling: {e!s}")
-                time.sleep(interval)
-
-        _logger.warning(
-            f"Tag '{key}' update may not be immediately visible. "
-            f"Backend took longer than {timeout}s to reflect the change."
+        self._poll_until(
+            condition_fn=check_tag_set,
+            success_message=f"Tag '{key}' successfully set to '{value}'",
+            timeout_message=f"Tag '{key}' update may not be immediately visible.",
         )
 
     def _poll_for_tag_deletion(self, location: str, trace_id: str, key: str) -> None:
@@ -129,27 +150,16 @@ class DatabricksTracingRestStore(RestStore):
             trace_id: OTEL trace ID.
             key: Tag key to verify is deleted.
         """
-        timeout = MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS.get()
-        interval = MLFLOW_TRACE_TAG_POLL_INTERVAL_SECONDS.get()
-        start_time = time.time()
 
-        while time.time() - start_time < timeout:
-            try:
-                trace_info = self.get_trace_info(f"{location}:{trace_id}")
-                tags = {tag.key: tag.value for tag in trace_info.tags}
+        def check_tag_deleted():
+            trace_info = self.get_trace_info(f"{location}:{trace_id}")
+            tags = {tag.key: tag.value for tag in trace_info.tags}
+            return key not in tags
 
-                if key not in tags:
-                    _logger.debug(f"Tag '{key}' successfully deleted from trace")
-                    return
-
-                time.sleep(interval)
-            except Exception as e:
-                _logger.debug(f"Error during tag polling: {e!s}")
-                time.sleep(interval)
-
-        _logger.warning(
-            f"Tag '{key}' deletion may not be immediately visible. "
-            f"Backend took longer than {timeout}s to reflect the change."
+        self._poll_until(
+            condition_fn=check_tag_deleted,
+            success_message=f"Tag '{key}' successfully deleted from trace",
+            timeout_message=f"Tag '{key}' deletion may not be immediately visible.",
         )
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
