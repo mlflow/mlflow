@@ -394,7 +394,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     if (
         # `uv run` was used to run tests
         "UV" in os.environ
-        # Some tests failed because of missing dependencies
+        # Tests failed because of missing dependencies
         and (errors := terminalreporter.stats.get("error"))
         and any(re.search(r"ModuleNotFoundError|ImportError", str(e.longrepr)) for e in errors)
     ):
