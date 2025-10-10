@@ -5,6 +5,7 @@ This module tests the functionality of the GetTracesInSession class,
 including successful trace retrieval, error handling, and parameter validation.
 """
 
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -20,13 +21,13 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.types.llm import ToolDefinition
 
 
-def test_get_traces_in_session_tool_name():
+def test_get_traces_in_session_tool_name() -> None:
     """Test that the tool returns the correct name."""
     tool = GetTracesInSession()
     assert tool.name == "get_traces_in_session"
 
 
-def test_get_traces_in_session_tool_get_definition():
+def test_get_traces_in_session_tool_get_definition() -> None:
     """Test that the tool returns a valid tool definition."""
     tool = GetTracesInSession()
     definition = tool.get_definition()
@@ -46,7 +47,9 @@ def test_get_traces_in_session_tool_get_definition():
     assert params["order_by"].type == "array"
 
 
-def create_mock_trace(trace_id: str, experiment_id: str = "exp-123", session_id: str | None = None):
+def create_mock_trace(
+    trace_id: str, experiment_id: str = "exp-123", session_id: str | None = None
+) -> Trace:
     """Helper function to create mock trace objects."""
     tags = {}
     if session_id:
@@ -64,7 +67,7 @@ def create_mock_trace(trace_id: str, experiment_id: str = "exp-123", session_id:
 
 
 @patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_success(mock_search_tool_class):
+def test_get_traces_in_session_tool_invoke_success(mock_search_tool_class: Any) -> None:
     """Test successful retrieval of traces in session."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
@@ -110,7 +113,7 @@ def test_get_traces_in_session_tool_invoke_success(mock_search_tool_class):
 
 
 @patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_custom_parameters(mock_search_tool_class):
+def test_get_traces_in_session_tool_invoke_custom_parameters(mock_search_tool_class: Any) -> None:
     """Test tool invocation with custom parameters."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("current-trace", "exp-123", "session-456")
@@ -129,7 +132,7 @@ def test_get_traces_in_session_tool_invoke_custom_parameters(mock_search_tool_cl
     )
 
 
-def test_get_traces_in_session_tool_invoke_no_session_id():
+def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
     """Test that tool raises error when no session.id is found in trace tags."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("current-trace", "exp-123", session_id=None)
@@ -140,7 +143,7 @@ def test_get_traces_in_session_tool_invoke_no_session_id():
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-def test_get_traces_in_session_tool_invoke_invalid_session_id():
+def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
     """Test error when session.id has invalid format."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("current-trace", "exp-123", "session@123!invalid")
@@ -152,7 +155,7 @@ def test_get_traces_in_session_tool_invoke_invalid_session_id():
 
 
 @patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_empty_result(mock_search_tool_class):
+def test_get_traces_in_session_tool_invoke_empty_result(mock_search_tool_class: Any) -> None:
     """Test tool behavior when no traces are found."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("current-trace", "exp-123", "session-123")

@@ -18,7 +18,7 @@ from mlflow.genai.judges.tools.search_trace_regex import (
     SearchTraceRegexResult,
     SearchTraceRegexTool,
 )
-from mlflow.genai.judges.tools.types import HistoricalTrace, SpanInfo, SpanResult
+from mlflow.genai.judges.tools.types import SpanInfo, SpanResult
 
 __all__ = [
     "JudgeTool",
@@ -31,7 +31,6 @@ __all__ = [
     "ListSpansTool",
     "SpanInfo",
     "ListSpansResult",
-    "HistoricalTrace",
     "JudgeToolRegistry",
     "RegexMatch",
     "SearchTraceRegexResult",
