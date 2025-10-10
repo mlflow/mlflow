@@ -268,6 +268,23 @@ def test_get_trace_info_fallback_to_v3():
         assert result.trace_id == span.trace_id
 
 
+def test_get_trace_info_missing_warehouse_id():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+    with mock.patch.object(
+        store,
+        "_call_endpoint",
+        side_effect=RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "Could not resolve a SQL warehouse ID. Please provide one.",
+            }
+        ),
+    ) as mock_call:
+        with pytest.raises(MlflowException, match="SQL warehouse ID is required for "):
+            store.get_trace_info("trace:/catalog.schema/1234567890")
+
+
 def test_set_trace_tag():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)

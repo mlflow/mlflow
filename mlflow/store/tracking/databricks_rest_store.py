@@ -1,4 +1,6 @@
 import logging
+from functools import wraps
+from typing import Any, Callable
 from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -13,6 +15,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, RestException, get_error_code
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
+    BAD_REQUEST,
     ENDPOINT_NOT_FOUND,
     INVALID_PARAMETER_VALUE,
     ErrorCode,
@@ -62,6 +65,32 @@ from mlflow.utils.rest_utils import (
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
 
 _logger = logging.getLogger(__name__)
+
+
+def convert_missing_warehouse_id_error(func: Callable[..., Any]):
+    """A decorator translates missing warehouse ID error to a more user-friendly message."""
+
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except RestException as e:
+            if (
+                e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                and "Could not resolve a SQL warehouse ID" in e.message
+            ):
+                raise MlflowException(
+                    message="SQL warehouse ID is required for accessing traces in UC tables.\n"
+                    f"Please set the {MLFLOW_TRACING_SQL_WAREHOUSE_ID.name} environment variable "
+                    "to your SQL warehouse ID.\n"
+                    "```\nexport MLFLOW_TRACING_SQL_WAREHOUSE_ID=<your_sql_warehouse_id>\n```\n"
+                    "See https://docs.databricks.com/compute/sql-warehouse for how to "
+                    "set up a SQL warehouse and get its ID.",
+                    error_code=BAD_REQUEST,
+                )
+            raise
+
+    return wrapper
 
 
 class DatabricksTracingRestStore(RestStore):
@@ -123,6 +152,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         return TraceInfo.from_proto(response_proto)
 
+    @convert_missing_warehouse_id_error
     def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
@@ -149,6 +179,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
+    @convert_missing_warehouse_id_error
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Get the trace info matching the `trace_id`.
@@ -173,6 +204,7 @@ class DatabricksTracingRestStore(RestStore):
 
         return super().get_trace_info(trace_id)
 
+    @convert_missing_warehouse_id_error
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace_id.
@@ -195,6 +227,7 @@ class DatabricksTracingRestStore(RestStore):
             return
         return super().set_trace_tag(trace_id, key, value)
 
+    @convert_missing_warehouse_id_error
     def delete_trace_tag(self, trace_id: str, key: str):
         """
         Delete a tag on the trace with the given trace_id.
@@ -213,6 +246,7 @@ class DatabricksTracingRestStore(RestStore):
             return
         return super().delete_trace_tag(trace_id, key)
 
+    @convert_missing_warehouse_id_error
     def search_traces(
         self,
         experiment_ids: list[str] | None = None,
@@ -355,6 +389,7 @@ class DatabricksTracingRestStore(RestStore):
         response_proto = self._call_endpoint(GetOnlineTraceDetails, req_body)
         return response_proto.trace_data
 
+    @convert_missing_warehouse_id_error
     def set_experiment_trace_location(
         self,
         location: UCSchemaLocationEntity,
@@ -482,6 +517,7 @@ class DatabricksTracingRestStore(RestStore):
 
         return response
 
+    @convert_missing_warehouse_id_error
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Create an assessment entity in the backend store.
@@ -508,6 +544,7 @@ class DatabricksTracingRestStore(RestStore):
 
         return super().create_assessment(assessment)
 
+    @convert_missing_warehouse_id_error
     def update_assessment(
         self,
         trace_id: str,
@@ -582,6 +619,7 @@ class DatabricksTracingRestStore(RestStore):
                 trace_id, assessment_id, name, expectation, feedback, rationale, metadata
             )
 
+    @convert_missing_warehouse_id_error
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Get an assessment entity from the backend store.
@@ -599,6 +637,7 @@ class DatabricksTracingRestStore(RestStore):
 
         return super().get_assessment(trace_id, assessment_id)
 
+    @convert_missing_warehouse_id_error
     def delete_assessment(self, trace_id: str, assessment_id: str):
         """
         Delete an assessment associated with a trace.
