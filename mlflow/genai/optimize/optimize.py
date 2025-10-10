@@ -17,7 +17,7 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
@@ -246,75 +246,3 @@ def _build_eval_fn(
             gorilla.revert(patch)
 
     return eval_fn
-
-
-def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
-    """
-    Create an output equivalence scorer with a specific judge model.
-
-    Args:
-        judge_model: The model to use for LLM judge evaluation
-
-    Returns:
-        A Scorer that compares outputs against expected outputs
-    """
-
-    @scorer(name="output_equivalence")
-    def output_equivalence(outputs: Any, expectations: Any) -> float:
-        """
-        Compare outputs against expected outputs.
-
-        Uses exact match for numerical types and LLM judge for text types.
-
-        Args:
-            outputs: The actual output from the program
-            expectations: The expected output to match (can be a dict with expected_response key)
-
-        Returns:
-            A score between 0 and 1
-        """
-        from mlflow.genai.judges import make_judge
-
-        # Extract expected_response if expectations is a dict
-        if isinstance(expectations, dict) and "expected_response" in expectations:
-            expected_value = expectations["expected_response"]
-        else:
-            expected_value = expectations
-
-        # Handle exact match for numerical types
-        if isinstance(outputs, (int, float, bool)) and isinstance(
-            expected_value, (int, float, bool)
-        ):
-            return 1.0 if outputs == expected_value else 0.0
-
-        # Convert to strings for comparison
-        outputs_str = str(outputs)
-        expectations_str = str(expected_value)
-
-        # Use exact match first
-        if outputs_str == expectations_str:
-            return 1.0
-
-        # Use LLM judge for text outputs
-        judge = make_judge(
-            name="equivalence_judge",
-            instructions=(
-                "Compare {{outputs}} against {{expectations}}. "
-                "Evaluate if they are both semantically equivalent or convey the same meaning, "
-                "and if the output format matches the expected format "
-                "(e.g., JSON structure, list format, sentence structure). "
-                "Return 'pass' if they match in both content and format, 'fail' if they don't."
-            ),
-            model=judge_model,
-        )
-        try:
-            result = judge(
-                outputs={"outputs": outputs_str}, expectations={"outputs": expectations_str}
-            )
-            result_value = str(result.value).lower().strip()
-            return 1.0 if result_value == "pass" else 0.0
-        except Exception as e:
-            _logger.warning("Failed to compute score with LLM judge: %s", e)
-            return 0.0
-
-    return output_equivalence
