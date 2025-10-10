@@ -354,6 +354,37 @@ def test_delete_trace_tag(monkeypatch):
         assert res is None
 
 
+def test_delete_trace_tag_with_special_characters(monkeypatch):
+    """Test that trace tag keys with special characters like '/' are URL-encoded."""
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    location = "catalog.schema"
+    trace_id = "tr-1234"
+    sql_warehouse_id = "warehouse_456"
+    key_with_slash = "foo/bar"
+    response.text = "{}"
+
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.delete_trace_tag(
+            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
+            key=key_with_slash,
+        )
+        expected_json = {
+            "sql_warehouse_id": sql_warehouse_id,
+        }
+        # Verify that the key is URL-encoded in the endpoint (/ becomes %2F)
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar",
+            method="DELETE",
+            json=expected_json,
+        )
+        assert res is None
+
+
 def test_delete_trace_tag_fallback():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
