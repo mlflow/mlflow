@@ -111,6 +111,7 @@ Register prompts and automatically optimize them with data-driven techniques:
 import mlflow
 import openai
 from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
 
 # Register an initial prompt
 prompt = mlflow.genai.register_prompt(
@@ -129,11 +130,20 @@ def predict_fn(question: str) -> str:
     return completion.choices[0].message.content
 
 
-# Prepare training data with inputs and expected outputs
+# Prepare training data with inputs and expectations
 train_data = [
-    {"inputs": {"question": "What is 15 + 27?"}, "outputs": "42"},
-    {"inputs": {"question": "Calculate 8 × 9"}, "outputs": "72"},
-    {"inputs": {"question": "What is 100 - 37?"}, "outputs": "63"},
+    {
+        "inputs": {"question": "What is 15 + 27?"},
+        "expectations": {"expected_response": "42"},
+    },
+    {
+        "inputs": {"question": "Calculate 8 × 9"},
+        "expectations": {"expected_response": "72"},
+    },
+    {
+        "inputs": {"question": "What is 100 - 37?"},
+        "expectations": {"expected_response": "63"},
+    },
     # ... more examples
 ]
 
@@ -143,6 +153,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=train_data,
     prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
+    scorers=[Correctness(model="openai:/gpt-4o-mini")],
 )
 
 # The optimized prompt is automatically registered as a new version

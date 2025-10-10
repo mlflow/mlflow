@@ -52,10 +52,22 @@ def predict_fn(question: str) -> str:
 
 # Training data with inputs and expected outputs
 dataset = [
-    {"inputs": {"question": "What is the capital of France?"}, "outputs": "Paris"},
-    {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
-    {"inputs": {"question": "What is the capital of Japan?"}, "outputs": "Tokyo"},
-    {"inputs": {"question": "What is the capital of Italy?"}, "outputs": "Rome"},
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"expected_response": "Paris"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Germany?"},
+        "expectations": {"expected_response": "Berlin"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Japan?"},
+        "expectations": {"expected_response": "Tokyo"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Italy?"},
+        "expectations": {"expected_response": "Rome"},
+    },
 ]
 
 # Optimize the prompt
@@ -149,8 +161,14 @@ Provide a dataset with `inputs` and `outputs`:
 ```python
 # List of dictionaries
 dataset = [
-    {"inputs": {"question": "What is AI?"}, "outputs": "Artificial Intelligence"},
-    {"inputs": {"question": "What is ML?"}, "outputs": "Machine Learning"},
+    {
+        "inputs": {"question": "What is AI?"},
+        "expectations": {"expected_response": "Artificial Intelligence"},
+    },
+    {
+        "inputs": {"question": "What is ML?"},
+        "expectations": {"expected_response": "Machine Learning"},
+    },
 ]
 
 # Or pandas DataFrame
@@ -162,7 +180,10 @@ dataset = pd.DataFrame(
             {"question": "What is AI?"},
             {"question": "What is ML?"},
         ],
-        "outputs": ["Artificial Intelligence", "Machine Learning"],
+        "expectations": [
+            {"expected_response": "Artificial Intelligence"},
+            {"expected_response": "Machine Learning"},
+        ],
     }
 )
 ```
