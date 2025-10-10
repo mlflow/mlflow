@@ -1,5 +1,4 @@
 import json
-from unittest import mock
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -31,7 +30,6 @@ from mlflow.utils.databricks_tracing_utils import (
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
-    trace_info_to_dict,
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
@@ -261,40 +259,6 @@ def test_trace_info_from_proto_handles_uc_schema_location():
     assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
     assert trace_info.trace_metadata["other_key"] == "other_value"
     assert trace_info.tags == {"test_tag": "test_value"}
-
-
-def test_trace_info_to_dict():
-    trace_info = TraceInfo(
-        trace_id="test_trace_id",
-        trace_location=TraceLocation.from_databricks_uc_schema(
-            catalog_name="catalog", schema_name="schema"
-        ),
-        request_time=0,
-        state=TraceState.OK,
-        request_preview="request",
-        response_preview="response",
-        client_request_id="client_request_id",
-        tags={"key": "value"},
-    )
-    assert trace_info_to_dict(trace_info) == {
-        "trace_id": "test_trace_id",
-        "trace_location": {
-            "type": "UC_SCHEMA",
-            "uc_schema": {
-                "catalog_name": "catalog",
-                "schema_name": "schema",
-                # Default table names
-                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
-                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
-            },
-        },
-        "request_time": mock.ANY,
-        "state": "OK",
-        "request_preview": "request",
-        "response_preview": "response",
-        "client_request_id": "client_request_id",
-        "tags": {"key": "value"},
-    }
 
 
 def test_add_size_stats_to_trace_metadata_for_v4_trace():
