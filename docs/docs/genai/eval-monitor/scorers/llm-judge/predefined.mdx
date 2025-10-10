@@ -78,6 +78,7 @@ results = mlflow.genai.evaluate(
 | <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    | ⚠️ **Trace Required** |
+| <APILink fn="mlflow.genai.scorers.OutputEquivalence">OutputEquivalence</APILink>                                 | Is the app's response equivalent to the expected output?      | Yes                     | No                    |
 
 \*Can extract expectations from trace assessments if available.
 
