@@ -586,7 +586,6 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         # egress control environments (e.g., Databricks SEG). When None, we use multipart upload
         # which creates its own credentials via CreateMultipartUpload API.
         if cloud_credential_info is None:
-            # Large AWS file without pre-allocated credentials: use multipart upload
             _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             self._multipart_upload(src_file_path, artifact_file_path)
             return
@@ -606,13 +605,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            # Check file size to determine upload strategy
             if os.path.getsize(src_file_path) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
-                # Large file: use multipart upload (which creates its own credentials)
                 _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
-                # Small file: use the presigned URL for simple PUT upload
                 self._signed_url_upload_file(cloud_credential_info, src_file_path)
         elif cloud_credential_info.type == ArtifactCredentialType.GCP_SIGNED_URL:
             self._signed_url_upload_file(cloud_credential_info, src_file_path)

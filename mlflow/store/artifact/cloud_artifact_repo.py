@@ -146,15 +146,12 @@ class CloudArtifactRepository(ArtifactRepository):
                 # files use multipart upload which creates its own credentials. Azure/GCP
                 # large files use the same credentials throughout, so request them upfront.
 
-                # Determine cloud type only if we might have large files to optimize
                 has_large_files = any(
                     os.path.getsize(u.src_file_path) >= multipart_threshold
                     for u in staged_upload_chunk
                 )
 
                 if cloud_credential_type_cache is None and has_large_files:
-                    # Request a single credential to determine cloud type
-                    # Prefer a small file to avoid wasting a credential on a large AWS file
                     sample_upload_for_typing = None
                     for upload in staged_upload_chunk:
                         if os.path.getsize(upload.src_file_path) < multipart_threshold:
@@ -173,7 +170,6 @@ class CloudArtifactRepository(ArtifactRepository):
                     sample_upload_for_typing = None
                     sample_cred_info = None
 
-                # Partition files for credential requests
                 files_needing_credentials = []
                 files_without_credentials = []
 
@@ -184,21 +180,17 @@ class CloudArtifactRepository(ArtifactRepository):
                         and file_size >= multipart_threshold
                     )
 
-                    # Skip credentials for AWS large files only
                     if is_aws_large:
                         files_without_credentials.append(upload)
                     else:
                         files_needing_credentials.append(upload)
 
-                # Request credentials only for files that need them
                 write_credential_infos = []
                 if files_needing_credentials:
-                    # If we fetched a sample credential and it's in this batch, reuse it
                     if (
                         sample_upload_for_typing is not None
                         and sample_upload_for_typing in files_needing_credentials
                     ):
-                        # Request credentials for all except the sample
                         other_files = [
                             u for u in files_needing_credentials if u != sample_upload_for_typing
                         ]
@@ -206,7 +198,6 @@ class CloudArtifactRepository(ArtifactRepository):
                             other_creds = self._get_write_credential_infos(
                                 remote_file_paths=[u.artifact_file_path for u in other_files]
                             )
-                            # Reconstruct the list in original order
                             write_credential_infos = []
                             other_creds_iter = iter(other_creds)
                             for u in files_needing_credentials:
@@ -215,10 +206,8 @@ class CloudArtifactRepository(ArtifactRepository):
                                 else:
                                     write_credential_infos.append(next(other_creds_iter))
                         else:
-                            # Only the sample file needs credentials
                             write_credential_infos = [sample_cred_info]
                     else:
-                        # No sample or sample not in this batch, request all credentials
                         write_credential_infos = self._get_write_credential_infos(
                             remote_file_paths=[
                                 u.artifact_file_path for u in files_needing_credentials
@@ -227,53 +216,62 @@ class CloudArtifactRepository(ArtifactRepository):
 
                 inflight_uploads = {}
 
-                # NB: When we have both AWS large files (multipart) and small files (simple PUT),
-                # serialize the uploads to avoid race conditions in strict egress environments
-                # where the storage proxy can fail with 500 errors when handling concurrent
-                # multipart and simple uploads to the same artifact location.
-                has_mixed_upload_types = (
-                    files_without_credentials
-                    and files_needing_credentials
-                    and cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL
-                )
+                # NB: Serialize uploads to avoid race conditions in strict egress environments
+                # (e.g., Databricks SEG) where the storage proxy can fail with 500 errors when
+                # handling concurrent chunked uploads to the same artifact location.
+                needs_serialization = False
 
-                if has_mixed_upload_types:
-                    # Serialize: upload small files first, then large files
-                    # This avoids race conditions in the storage proxy when handling
-                    # concurrent simple PUT and multipart uploads to the same location.
+                if cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL:
+                    needs_serialization = files_without_credentials and files_needing_credentials
+                elif cloud_credential_type_cache in (
+                    ArtifactCredentialType.AZURE_SAS_URI,
+                    ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+                ):
+                    needs_serialization = len(staged_upload_chunk) > 1
 
-                    # First: Upload small files in parallel (fast)
-                    small_file_futures = {}
-                    for staged_upload, write_credential_info in zip(
-                        files_needing_credentials, write_credential_infos
+                if needs_serialization:
+                    if cloud_credential_type_cache in (
+                        ArtifactCredentialType.AZURE_SAS_URI,
+                        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
                     ):
-                        upload_future = self.thread_pool.submit(
-                            self._upload_to_cloud,
-                            cloud_credential_info=write_credential_info,
-                            src_file_path=staged_upload.src_file_path,
-                            artifact_file_path=staged_upload.artifact_file_path,
-                        )
-                        small_file_futures[staged_upload.src_file_path] = upload_future
+                        for staged_upload, write_credential_info in zip(
+                            files_needing_credentials, write_credential_infos
+                        ):
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=write_credential_info,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            upload_future.result()
+                            inflight_uploads[staged_upload.src_file_path] = upload_future
 
-                    # Wait for all small files to complete
-                    for src_file_path, upload_future in small_file_futures.items():
-                        upload_future.result()
-                        inflight_uploads[src_file_path] = upload_future
+                    else:
+                        small_file_futures = {}
+                        for staged_upload, write_credential_info in zip(
+                            files_needing_credentials, write_credential_infos
+                        ):
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=write_credential_info,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            small_file_futures[staged_upload.src_file_path] = upload_future
 
-                    # Then: Upload large files with multipart
-                    # (each multipart upload parallelizes chunks internally)
-                    for staged_upload in files_without_credentials:
-                        upload_future = self.thread_pool.submit(
-                            self._upload_to_cloud,
-                            cloud_credential_info=None,
-                            src_file_path=staged_upload.src_file_path,
-                            artifact_file_path=staged_upload.artifact_file_path,
-                        )
-                        # Start multipart uploads in parallel with each other
-                        inflight_uploads[staged_upload.src_file_path] = upload_future
+                        for src_file_path, upload_future in small_file_futures.items():
+                            upload_future.result()
+                            inflight_uploads[src_file_path] = upload_future
+
+                        for staged_upload in files_without_credentials:
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=None,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            inflight_uploads[staged_upload.src_file_path] = upload_future
                 else:
-                    # Parallel uploads (safe when all same type or non-AWS)
-                    # Upload files with credentials
                     for staged_upload, write_credential_info in zip(
                         files_needing_credentials, write_credential_infos
                     ):
@@ -285,7 +283,6 @@ class CloudArtifactRepository(ArtifactRepository):
                         )
                         inflight_uploads[staged_upload.src_file_path] = upload_future
 
-                    # Upload files without pre-allocated credentials (AWS large files)
                     for staged_upload in files_without_credentials:
                         upload_future = self.thread_pool.submit(
                             self._upload_to_cloud,
