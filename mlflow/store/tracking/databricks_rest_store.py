@@ -1,5 +1,6 @@
 import logging
 import time
+from collections.abc import Callable
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -89,7 +90,7 @@ class DatabricksTracingRestStore(RestStore):
 
     def _poll_until(
         self,
-        condition_fn,
+        condition_fn: Callable[[], bool],
         success_message: str,
         timeout_message: str,
     ) -> None:
