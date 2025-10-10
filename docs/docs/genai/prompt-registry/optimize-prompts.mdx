@@ -293,7 +293,7 @@ optimized_user = result.optimized_prompts[1]
 
 ## Result Object
 
-The API returns a <APILink fn="mlflow.genai.optimize.PromptAdaptationResult" /> object:
+The API returns a <APILink fn="mlflow.genai.optimize.PromptOptimizationResult" /> object:
 
 ```python
 result = mlflow.genai.optimize_prompts(...)
@@ -392,6 +392,6 @@ def predict_fn(question: str):
 
 ## See Also
 
-- [Rewrite Prompts for New Models](/genai/prompt-registry/adapt-prompts): Adapt prompts when switching between language models
+- [Rewrite Prompts for New Models](/genai/prompt-registry/rewrite-prompts): Adapt prompts when switching between language models
 - [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Basic Prompt Registry usage
 - [Evaluate Prompts](/genai/eval-monitor/running-evaluation/prompts): Evaluate prompt performance
