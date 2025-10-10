@@ -230,10 +230,6 @@ class Span:
             "name": self.name,
             "start_time_unix_nano": self.start_time_ns,
             "end_time_unix_nano": self.end_time_ns,
-            "status": {
-                "code": self.status.status_code.value,
-                "message": self.status.description,
-            },
             "events": [
                 {
                     "name": event.name,
@@ -242,6 +238,10 @@ class Span:
                 }
                 for event in self.events
             ],
+            "status": {
+                "code": self.status.status_code.value,
+                "message": self.status.description,
+            },
             # save the dumped attributes so they can be loaded correctly when deserializing
             "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
             # use this to distinguish the span dict version when deserializing

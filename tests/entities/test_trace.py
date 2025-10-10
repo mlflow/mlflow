@@ -23,7 +23,7 @@ from mlflow.entities.assessment import Expectation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
@@ -111,14 +111,14 @@ def test_json_deserialization(monkeypatch):
                     "name": "predict",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
-                    "parent_span_id": "",
+                    "parent_span_id": None,
                     "start_time_unix_nano": trace.data.spans[0].start_time_ns,
                     "end_time_unix_nano": trace.data.spans[0].end_time_ns,
+                    "events": [],
                     "status": {
-                        "code": "STATUS_CODE_OK",
+                        "code": "OK",
                         "message": "",
                     },
-                    "trace_state": "",
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"UNKNOWN"',
@@ -126,6 +126,8 @@ def test_json_deserialization(monkeypatch):
                         "mlflow.spanInputs": '{"x": 2, "y": 5}',
                         "mlflow.spanOutputs": "8",
                     },
+                    SPAN_DICT_VERSION_KEY: 4,
+                    "otel_trace_id": mock.ANY,
                 },
                 {
                     "name": "add_one_with_custom_name",
@@ -134,11 +136,11 @@ def test_json_deserialization(monkeypatch):
                     "parent_span_id": mock.ANY,
                     "start_time_unix_nano": trace.data.spans[1].start_time_ns,
                     "end_time_unix_nano": trace.data.spans[1].end_time_ns,
+                    "events": [],
                     "status": {
-                        "code": "STATUS_CODE_OK",
+                        "code": "OK",
                         "message": "",
                     },
-                    "trace_state": "",
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"LLM"',
@@ -149,6 +151,8 @@ def test_json_deserialization(monkeypatch):
                         "datetime": json.dumps(str(datetime_now)),
                         "metadata": '{"foo": "bar"}',
                     },
+                    SPAN_DICT_VERSION_KEY: 4,
+                    "otel_trace_id": mock.ANY,
                 },
             ],
         },
