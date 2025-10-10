@@ -31,7 +31,7 @@ def test_get_trace_v4_retry():
         trace = client.get_trace("trace:/catalog.schema/1234567890")
 
     assert trace == "dummy_trace"
-    assert mock_store.batch_get_traces.call_count == 3
+    assert mock_store.batch_get_traces.call_count == 2
 
 
 @skip_when_testing_trace_sdk
