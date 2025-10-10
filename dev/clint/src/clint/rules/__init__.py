@@ -22,6 +22,7 @@ from clint.rules.missing_docstring_param import MissingDocstringParam
 from clint.rules.missing_notebook_h1_header import MissingNotebookH1Header
 from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.mock_patch_dict_environ import MockPatchDictEnviron
+from clint.rules.mock_patch_as_decorator import MockPatchAsDecorator
 from clint.rules.multi_assign import MultiAssign
 from clint.rules.no_class_based_tests import NoClassBasedTests
 from clint.rules.no_rst import NoRst
@@ -72,6 +73,7 @@ __all__ = [
     "MissingNotebookH1Header",
     "MlflowClassName",
     "MockPatchDictEnviron",
+    "MockPatchAsDecorator",
     "NoClassBasedTests",
     "NoRst",
     "NoShebang",
