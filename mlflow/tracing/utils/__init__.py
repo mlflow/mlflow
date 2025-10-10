@@ -342,6 +342,20 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
     return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
 
 
+def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -> str:
+    """
+    Generate a trace ID in v4 format from the given OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+        location: The location, of the trace.
+
+    Returns:
+        The MLflow trace ID string in format "trace:/<location>/<hex_trace_id>".
+    """
+    return construct_trace_id_v4(location, encode_trace_id(otel_trace_id))
+
+
 def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
     """
     Generate a trace ID for the given span.
@@ -353,7 +367,7 @@ def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
     Returns:
         Trace ID with format "trace:/<location>/<hex_trace_id>".
     """
-    return construct_trace_id_v4(location, encode_trace_id(span.context.trace_id))
+    return generate_trace_id_v4_from_otel_trace_id(span.context.trace_id, location)
 
 
 def generate_trace_id_v3(span: OTelSpan) -> str:
