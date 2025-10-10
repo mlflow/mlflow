@@ -168,14 +168,14 @@ def _patched_compile(original, self, *args, **kwargs):
                     # Reset the callback state after the completion of root compile
                     callback.reset()
 
+    if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
+        return _compile_fn(self, *args, **kwargs)
+
     # NB: Log a dummy run outputs such that "Run" tab is shown in the UI. Currently, the
     # GenAI experiment does not show the "Run" tab without this, which is critical gap for
     # DSPy users. This should be done BEFORE the compile call, because Run page is used
     # for tracking the compile progress, not only after finishing the compile.
     log_dummy_model_outputs()
-
-    if not get_autologging_config(FLAVOR_NAME, "log_compiles"):
-        return _compile_fn(self, *args, **kwargs)
 
     program = _compile_fn(self, *args, **kwargs)
     # Save the state of the best model in json format

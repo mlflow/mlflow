@@ -143,10 +143,11 @@ def _flatten_dspy_module_state(
 
 def log_dummy_model_outputs():
     try:
+        from mlflow.dspy.autolog import FLAVOR_NAME
         from mlflow.tracking.fluent import _create_logged_model
 
         run_id = mlflow.active_run().info.run_id
-        logged_model = _create_logged_model(name="dspy", source_run_id=run_id, flavor="dspy")
-        mlflow.log_outputs(models=[LoggedModelOutput(logged_model.model_id, 0)])
+        logged_model = _create_logged_model(name="dspy", source_run_id=run_id, flavor=FLAVOR_NAME)
+        mlflow.log_outputs(models=[LoggedModelOutput(model_id=logged_model.model_id, step=0)])
     except Exception as e:
         _logger.debug(f"Failed to log a dummy DSPy model outputs: {e}")
