@@ -1,4 +1,6 @@
 import logging
+import time
+from collections.abc import Callable
 from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -8,6 +10,7 @@ from mlflow.entities.assessment import ExpectationValue, FeedbackValue
 from mlflow.entities.trace_location import UCSchemaLocation as UCSchemaLocationEntity
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
 from mlflow.exceptions import MlflowException
@@ -83,6 +86,82 @@ class DatabricksTracingRestStore(RestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
+
+    def _poll_until(
+        self,
+        condition_fn: Callable[[], bool],
+        success_message: str,
+        timeout_message: str,
+    ) -> None:
+        """
+        Poll until a condition function returns True using exponential backoff.
+
+        The polling starts at 0.5s and doubles on each retry (0.5s, 1s, 2s, 4s, etc.)
+        until the timeout is reached.
+
+        Args:
+            condition_fn: A callable that returns True when the condition is met.
+            success_message: Message to log when condition is met.
+            timeout_message: Message to log if timeout is exceeded.
+        """
+        timeout = MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS.get()
+        start_time = time.time()
+        current_interval = 0.5  # Initial interval: 0.5 seconds
+
+        while time.time() - start_time < timeout:
+            try:
+                if condition_fn():
+                    _logger.debug(success_message)
+                    return
+            except Exception as e:
+                _logger.debug(f"Error during polling: {e}")
+
+            time.sleep(current_interval)
+            # Exponential backoff: double the interval for next iteration
+            current_interval *= 2
+
+        _logger.warning(
+            f"{timeout_message} Backend took longer than {timeout}s to reflect the change."
+        )
+
+    def _poll_for_tag_set(self, trace_id: str, key: str, value: str) -> None:
+        """
+        Poll for a tag set operation to be reflected in the backend.
+
+        Args:
+            trace_id: Full trace ID in V4 format "trace:/<location>/<otel_trace_id>".
+            key: Tag key to check.
+            value: Expected tag value.
+        """
+
+        def is_tag_set() -> bool:
+            trace_info = self.get_trace_info(trace_id)
+            return any(t.key == key and t.value == value for t in trace_info.tags)
+
+        self._poll_until(
+            condition_fn=is_tag_set,
+            success_message=f"Tag '{key}' successfully set to '{value}'",
+            timeout_message=f"Tag '{key}' update may not be immediately visible.",
+        )
+
+    def _poll_for_tag_deletion(self, trace_id: str, key: str) -> None:
+        """
+        Poll for a tag deletion to be reflected in the backend.
+
+        Args:
+            trace_id: Full trace ID in V4 format "trace:/<location>/<otel_trace_id>".
+            key: Tag key to verify is deleted.
+        """
+
+        def is_tag_deleted() -> bool:
+            trace_info = self.get_trace_info(trace_id)
+            return not any(t.key == key for t in trace_info.tags)
+
+        self._poll_until(
+            condition_fn=is_tag_deleted,
+            success_message=f"Tag '{key}' successfully deleted from trace",
+            timeout_message=f"Tag '{key}' deletion may not be immediately visible.",
+        )
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
@@ -183,9 +262,9 @@ class DatabricksTracingRestStore(RestStore):
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
+        location, otel_trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags"
+            endpoint = f"{get_single_trace_endpoint_v4(location, otel_trace_id)}/tags"
             req_body = message_to_json(
                 SetTraceTag(
                     key=key,
@@ -193,6 +272,8 @@ class DatabricksTracingRestStore(RestStore):
                 )
             )
             self._call_endpoint(SetTraceTag, req_body, endpoint=endpoint)
+            # Poll to ensure the tag is set in the backend
+            self._poll_for_tag_set(trace_id, key, value)
             return
         return super().set_trace_tag(trace_id, key, value)
 
@@ -204,13 +285,15 @@ class DatabricksTracingRestStore(RestStore):
             trace_id: The ID of the trace.
             key: The string key of the tag.
         """
-        location, trace_id = parse_trace_id_v4(trace_id)
+        location, otel_trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
             encoded_key = quote(key, safe="")
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
+            endpoint = f"{get_single_trace_endpoint_v4(location, otel_trace_id)}/tags/{encoded_key}"
             req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
             self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
+            # Poll to ensure the tag is deleted from the backend
+            self._poll_for_tag_deletion(trace_id, key)
             return
         return super().delete_trace_tag(trace_id, key)
 
