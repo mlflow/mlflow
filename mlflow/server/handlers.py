@@ -3661,12 +3661,16 @@ def _update_scorer():
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
             "sample_rate": [],
+            "sampling_strategy": [],
         },
     )
-    scorer_version = _get_tracking_store().update_scorer(
+    scorer_version = _get_tracking_store().update_registered_scorer_sampling(
         request_message.experiment_id,
         request_message.name,
         request_message.sample_rate if request_message.HasField("sample_rate") else None,
+        request_message.sampling_strategy
+        if request_message.HasField("sampling_strategy")
+        else None,
     )
     response_message = UpdateScorer.Response(scorer=scorer_version.to_proto())
     response = Response(mimetype="application/json")

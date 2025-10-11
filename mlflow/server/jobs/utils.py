@@ -220,17 +220,7 @@ def _exec_job(
     from mlflow.server.handlers import _get_job_store
 
     job_store = _get_job_store()
-
-    # Try to start the job. If it's not in PENDING state, skip execution.
-    # This handles the case where a stale huey task tries to execute a job
-    # that was already reset and re-enqueued after a runner restart.
-    try:
-        _logger.debug(f"Starting job execution for {job_id}")
-        job_store.start_job(job_id)
-    except Exception as e:
-        _logger.debug(f"Skipping execution of job {job_id}: {e}")
-        # Don't re-raise - just return silently to avoid huey internal retries
-        return
+    job_store.start_job(job_id)
 
     fn_metadata = function._job_fn_metadata
 
@@ -245,24 +235,20 @@ def _exec_job(
         )
 
     if job_result is None:
-        _logger.debug(f"Job {job_id} timed out")
         job_store.mark_job_timed_out(job_id)
         return
 
     if job_result.succeeded:
-        _logger.debug(f"Job {job_id} succeeded with result: {job_result.result}")
         job_store.finish_job(job_id, job_result.result)
         return
 
     if job_result.is_transient_error:
         # For transient errors, if the retry count is less than max allowed count,
         # trigger task retry by raising `RetryTask` exception.
-        _logger.debug(f"Job {job_id} failed with transient error: {job_result.error}")
         retry_count = job_store.retry_or_fail_job(job_id, job_result.error)
         if retry_count is not None:
             _exponential_backoff_retry(retry_count)
     else:
-        _logger.debug(f"Job {job_id} failed with error: {job_result.error}")
         job_store.fail_job(job_id, job_result.error)
 
 
@@ -397,19 +383,15 @@ def _enqueue_unfinished_jobs() -> None:
 
     for job in unfinished_jobs:
         if job.status == JobStatus.RUNNING:
-            _logger.debug(
-                f"Resetting job {job.job_id} from RUNNING to PENDING after runner restart"
-            )
-            job_store.reset_job(job.job_id)
+            job_store.reset_job(job.job_id)  # reset the job status to PENDING
 
-        # Re-enqueue the job. If there's a stale task in the huey queue, it will be skipped
-        # because _exec_job checks if the job is in PENDING state before executing.
         params = json.loads(job.params)
         function = _load_function(job.function_fullname)
         timeout = job.timeout
-        huey_instance = _get_or_init_huey_instance(job.function_fullname)
-        _logger.debug(f"Enqueueing unfinished job {job.job_id} to huey queue")
-        huey_instance.submit_task(job.job_id, function, params, timeout)
+        # enqueue job
+        _get_or_init_huey_instance(job.function_fullname).submit_task(
+            job.job_id, function, params, timeout
+        )
 
 
 def _validate_function_parameters(function: Callable[..., Any], params: dict[str, Any]) -> None:

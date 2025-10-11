@@ -1591,11 +1591,13 @@ def test_update_scorer(mock_get_request_message, mock_tracking_store):
         creation_time=1234567890000,
         sample_rate=sample_rate,
     )
-    mock_tracking_store.update_scorer.return_value = mock_scorer_version
+    mock_tracking_store.update_registered_scorer_sampling.return_value = mock_scorer_version
 
     resp = _update_scorer()
 
-    mock_tracking_store.update_scorer.assert_called_once_with(experiment_id, name, sample_rate)
+    mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
+        experiment_id, name, sample_rate, None
+    )
 
     response_data = json.loads(resp.get_data())
     assert "scorer" in response_data
@@ -1618,11 +1620,13 @@ def test_update_scorer_no_sample_rate(mock_get_request_message, mock_tracking_st
         creation_time=1234567890000,
         sample_rate=0.3,
     )
-    mock_tracking_store.update_scorer.return_value = mock_scorer_version
+    mock_tracking_store.update_registered_scorer_sampling.return_value = mock_scorer_version
 
     resp = _update_scorer()
 
-    mock_tracking_store.update_scorer.assert_called_once_with(experiment_id, name, None)
+    mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
+        experiment_id, name, None, None
+    )
 
     response_data = json.loads(resp.get_data())
     assert "scorer" in response_data

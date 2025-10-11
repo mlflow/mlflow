@@ -366,6 +366,7 @@ CREATE TABLE scorer_versions (
 	serialized_scorer VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	creation_time BIGINT,
 	sample_rate FLOAT DEFAULT ('0.0') NOT NULL,
+	sampling_strategy VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
 )

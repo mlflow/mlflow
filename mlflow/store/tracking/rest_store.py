@@ -1228,19 +1228,22 @@ class RestStore(AbstractStore):
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
 
-    def update_scorer(
+    def update_registered_scorer_sampling(
         self,
         experiment_id: str,
         name: str,
         sample_rate: float | None = None,
+        sampling_strategy: str | None = None,
     ) -> ScorerVersion:
         """
-        Update a scorer's sampling configuration.
+        Update a registered scorer's sampling configuration.
 
         Args:
             experiment_id: String ID of the experiment.
             name: String name of the scorer.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            sampling_strategy: The strategy for selecting which traces to score. If None,
+                keeps current value.
 
         Returns:
             A ScorerVersion entity object with updated configuration.
@@ -1253,6 +1256,7 @@ class RestStore(AbstractStore):
                 experiment_id=experiment_id,
                 name=name,
                 sample_rate=sample_rate if sample_rate is not None else None,
+                sampling_strategy=sampling_strategy if sampling_strategy is not None else None,
             )
         )
         response_proto = self._call_endpoint(
