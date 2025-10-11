@@ -169,7 +169,7 @@ def test_convert_to_dspy_metric_raises_on_non_numeric_score():
 
     with pytest.raises(
         MlflowException,
-        match=r"Scorer \[non_numeric_scorer\] return a string, Assessment or a list of Assessment.",
+        match=r"Scorers \[non_numeric_scorer \(type: str\)\] return non-numerical values",
     ):
         metric(
             dspy.Example(input_text="Hello", language="Spanish"),
@@ -215,28 +215,3 @@ def test_extract_instructions():
     mock_forward.assert_called_once_with(prompt=template)
 
     assert result == "extracted system message"
-
-
-def test_parse_model_name():
-    optimizer = _TestDSPyPromptOptimizer(OptimizerConfig())
-
-    assert optimizer._parse_model_name("openai:/gpt-4") == "openai/gpt-4"
-    assert optimizer._parse_model_name("anthropic:/claude-3") == "anthropic/claude-3"
-    assert optimizer._parse_model_name("mistral:/mistral-7b") == "mistral/mistral-7b"
-
-    # Test that already formatted names are unchanged
-    assert optimizer._parse_model_name("openai/gpt-4") == "openai/gpt-4"
-    assert optimizer._parse_model_name("anthropic/claude-3") == "anthropic/claude-3"
-
-    # Test invalid formats raise errors
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("invalid-model-name")
-
-    with pytest.raises(MlflowException, match="Model name cannot be empty"):
-        optimizer._parse_model_name("")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("openai:")
-
-    with pytest.raises(MlflowException, match="Invalid model name format"):
-        optimizer._parse_model_name("openai/")

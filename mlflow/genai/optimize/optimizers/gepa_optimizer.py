@@ -4,9 +4,9 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
-from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.base_optimizer import BasePromptOptimizer
 from mlflow.genai.optimize.types import LLMParams, ObjectiveFn, OptimizerOutput
+from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.scorers import Scorer
 from mlflow.utils.annotations import experimental
 
@@ -125,6 +125,7 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 self.llm_params = llm_params
                 self.scorers = scorers_list
                 self.objective = objective_fn
+                self.metric = create_metric_from_scorers(scorers_list, objective_fn)
 
             def evaluate(
                 self,
@@ -172,7 +173,7 @@ class _GEPAOptimizer(BasePromptOptimizer):
                 filled_prompt = format_prompt(prompt_template, **inputs)
                 expectations = record.get("expectations")
                 outputs = self._call_llm(filled_prompt)
-                score = self._metric(inputs, outputs, expectations, self.scorers, self.objective)
+                score = self.metric(inputs, outputs, expectations)
 
                 return {
                     "inputs": inputs,
@@ -180,35 +181,6 @@ class _GEPAOptimizer(BasePromptOptimizer):
                     "expectations": expectations,
                     "score": score,
                 }
-
-            def _metric(
-                self,
-                inputs: dict[str, Any],
-                outputs: dict[str, Any],
-                expectations: dict[str, Any],
-                scorers: list[Scorer],
-                objective: ObjectiveFn | None,
-            ) -> float:
-                scores = {}
-
-                for scorer in scorers:
-                    scores[scorer.name] = scorer.run(
-                        inputs=inputs, outputs=outputs, expectations=expectations
-                    )
-                if objective is not None:
-                    return objective(scores)
-                elif all(isinstance(score, (int, float, bool)) for score in scores.values()):
-                    # Use total score by default if no objective is provided
-                    return sum(scores.values())
-                else:
-                    non_numerical_scorers = [
-                        k for k, v in scores.items() if not isinstance(v, (int, float, bool))
-                    ]
-                    raise MlflowException(
-                        f"Scorer [{','.join(non_numerical_scorers)}] return a string, Assessment or"
-                        " a list of Assessment. Please provide `objective` function to aggregate "
-                        "non-numerical values into a single value for optimization."
-                    )
 
             def _call_llm(self, prompt: str) -> str:
                 try:

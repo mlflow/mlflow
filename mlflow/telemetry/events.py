@@ -176,6 +176,39 @@ class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
 
 
+class PromptAdaptationEvent(Event):
+    name: str = "adapt_prompt"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        # Track the optimizer type used
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
+        else:
+            result["optimizer_type"] = None
+
+        # Track the number of prompts being adapted
+        target_prompt_uris = arguments.get("target_prompt_uris") or []
+        try:
+            result["prompt_count"] = len(target_prompt_uris)
+        except TypeError:
+            result["prompt_count"] = None
+
+        # Track if custom scorers are provided and how many
+        scorers = arguments.get("scorers")
+        try:
+            result["scorer_count"] = len(scorers)
+        except TypeError:
+            result["scorer_count"] = None
+
+        # Track if custom objective is provided
+        result["custom_objective"] = arguments.get("objective") is not None
+
+        return result
+
+
 class LogDatasetEvent(Event):
     name: str = "log_dataset"
 

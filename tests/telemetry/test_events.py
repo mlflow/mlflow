@@ -1,3 +1,5 @@
+from unittest.mock import Mock
+
 import pytest
 
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
@@ -14,6 +16,7 @@ from mlflow.telemetry.events import (
     LogAssessmentEvent,
     MakeJudgeEvent,
     MergeRecordsEvent,
+    PromptAdaptationEvent,
     StartTraceEvent,
 )
 
@@ -87,6 +90,7 @@ def test_event_name():
     assert MergeRecordsEvent.name == "merge_records"
     assert MakeJudgeEvent.name == "make_judge"
     assert AlignJudgeEvent.name == "align_judge"
+    assert PromptAdaptationEvent.name == "adapt_prompt"
 
 
 @pytest.mark.parametrize(
@@ -134,3 +138,72 @@ def test_make_judge_parse_params(arguments, expected_params):
 )
 def test_align_judge_parse_params(arguments, expected_params):
     assert AlignJudgeEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        # Normal case with optimizer and prompt URIs
+        (
+            {
+                "optimizer": type("MockOptimizer", (), {})(),
+                "target_prompt_uris": ["prompts:/test/1"],
+                "scorers": None,
+                "objective": None,
+            },
+            {
+                "optimizer_type": "MockOptimizer",
+                "prompt_count": 1,
+                "scorer_count": None,
+                "custom_objective": False,
+            },
+        ),
+        # Multiple prompt URIs with custom scorers
+        (
+            {
+                "optimizer": type("CustomAdapter", (), {})(),
+                "target_prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
+                "scorers": [Mock()],
+                "objective": None,
+            },
+            {
+                "optimizer_type": "CustomAdapter",
+                "prompt_count": 2,
+                "scorer_count": 1,
+                "custom_objective": False,
+            },
+        ),
+        # Custom objective with multiple scorers
+        (
+            {
+                "optimizer": type("TestAdapter", (), {})(),
+                "target_prompt_uris": ["prompts:/test/1"],
+                "scorers": [Mock(), Mock(), Mock()],
+                "objective": lambda scores: sum(scores.values()),
+            },
+            {
+                "optimizer_type": "TestAdapter",
+                "prompt_count": 1,
+                "scorer_count": 3,
+                "custom_objective": True,
+            },
+        ),
+        # No optimizer provided - optimizer_type should be None
+        (
+            {
+                "optimizer": None,
+                "target_prompt_uris": ["prompts:/test/1"],
+                "scorers": None,
+                "objective": None,
+            },
+            {
+                "optimizer_type": None,
+                "prompt_count": 1,
+                "scorer_count": None,
+                "custom_objective": False,
+            },
+        ),
+    ],
+)
+def test_prompt_adaptation_parse_params(arguments, expected_params):
+    assert PromptAdaptationEvent.parse(arguments) == expected_params

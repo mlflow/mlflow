@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.genai.optimize.optimizers.dspy_optimizer import DSPyPromptOptimizer
+from mlflow.genai.optimize.optimizers.utils.dspy_optimizer_utils import parse_model_name
 from mlflow.genai.optimize.types import OptimizerOutput
 
 if TYPE_CHECKING:
@@ -34,7 +35,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
 
         if self.optimizer_config.optimizer_llm:
             teacher_lm = dspy.LM(
-                model=self._parse_model_name(self.optimizer_config.optimizer_llm.model_name),
+                model=parse_model_name(self.optimizer_config.optimizer_llm.model_name),
                 temperature=self.optimizer_config.optimizer_llm.temperature,
                 api_base=self.optimizer_config.optimizer_llm.base_uri,
             )
