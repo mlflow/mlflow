@@ -51,7 +51,8 @@ class JudgeToolRegistry:
 
         if function_name not in self._tools:
             raise MlflowException(
-                f"Tool '{function_name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
+                f"Tool '{function_name}' not found in registry",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
         tool = self._tools[function_name]
 
@@ -132,6 +133,7 @@ from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
     GetSpanPerformanceAndTimingReportTool,
 )
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
+from mlflow.genai.judges.tools.get_traces_in_session import GetTracesInSession
 from mlflow.genai.judges.tools.list_spans import ListSpansTool
 from mlflow.genai.judges.tools.search_trace_regex import SearchTraceRegexTool
 
@@ -141,3 +143,4 @@ _judge_tool_registry.register(GetSpanTool())
 _judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())
+_judge_tool_registry.register(GetTracesInSession())

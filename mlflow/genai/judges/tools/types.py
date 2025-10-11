@@ -6,8 +6,11 @@ across multiple judge tools for consistent data representation.
 """
 
 from dataclasses import dataclass
+from typing import Any
 
+from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.span_status import SpanStatus
+from mlflow.entities.trace_state import TraceState
 from mlflow.utils.annotations import experimental
 
 
@@ -38,3 +41,46 @@ class SpanInfo:
     status: SpanStatus
     is_root: bool
     attribute_names: list[str]
+
+
+@experimental(version="3.5.0")
+@dataclass
+class Expectation:
+    """Expectation for a trace."""
+
+    name: str
+    source: str
+    rationale: str | None
+    span_id: str | None
+    assessment_id: str | None
+    value: Any
+
+
+@experimental(version="3.5.0")
+@dataclass
+class Feedback:
+    """Feedback for a trace."""
+
+    name: str
+    source: str
+    rationale: str | None
+    span_id: str | None
+    assessment_id: str | None
+    value: FeedbackValueType | None
+    error_code: str | None
+    error_message: str | None
+    stack_trace: str | None
+
+
+@experimental(version="3.5.0")
+@dataclass
+class TraceInfo:
+    """Information about a single trace."""
+
+    trace_id: str
+    request_time: int
+    state: TraceState
+    request: str | None
+    response: str | None
+    execution_duration: int | None
+    assessments: list[Expectation | Feedback]
