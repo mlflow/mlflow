@@ -458,7 +458,7 @@ def test_databricks_http_request_integration():
         return http_response
 
     with (
-        mock.patch("requests.Session.request") as request,
+        mock.patch("requests.Session.request", side_effect=confirm_request_params),
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds",
             return_value=MlflowHostCreds(
@@ -466,8 +466,6 @@ def test_databricks_http_request_integration():
             ),
         ),
     ):
-        request.side_effect = confirm_request_params
-
         response = DatabricksJobRunner(databricks_profile_uri=None)._databricks_api_request(
             "/clusters/list", "PUT", json={"a": "b"}
         )
@@ -477,7 +475,7 @@ def test_databricks_http_request_integration():
 def test_run_databricks_failed():
     text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
     with (
-        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds") as _,
+        mock.patch("mlflow.utils.databricks_utils.get_databricks_host_creds"),
         mock.patch(
             "mlflow.utils.rest_utils.http_request",
             return_value=mock.Mock(text=text, status_code=400),

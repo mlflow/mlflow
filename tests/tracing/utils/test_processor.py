@@ -84,9 +84,9 @@ def test_apply_span_processors_returns_non_none_warning():
 
         predict("test")
 
-        mock_logger.warning.assert_called_once()
-        message = mock_logger.warning.call_args[0][0]
-        assert message.startswith("Span processors ['bad_processor'] returned a non-null value")
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert message.startswith("Span processors ['bad_processor'] returned a non-null value")
 
     # Other processors should still be applied
     span = get_traces()[0].data.spans[0]
@@ -107,11 +107,11 @@ def test_apply_span_processors_exception_handling():
 
         predict("test")
 
-        span = get_traces()[0].data.spans[0]
-        assert span.outputs == "overridden_output"
-        mock_logger.warning.assert_called_once()
-        message = mock_logger.warning.call_args[0][0]
-        assert message.startswith("Span processor failing_processor failed")
+    span = get_traces()[0].data.spans[0]
+    assert span.outputs == "overridden_output"
+    mock_logger.warning.assert_called_once()
+    message = mock_logger.warning.call_args[0][0]
+    assert message.startswith("Span processor failing_processor failed")
 
 
 def test_validate_span_processors_empty_input():
