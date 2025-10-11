@@ -7,7 +7,7 @@ import json
 import click
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
-from mlflow.genai.scorers import list_scorers
+from mlflow.genai.scorers import list_scorers as list_scorers_api
 from mlflow.utils.string_utils import _create_table
 
 
@@ -34,7 +34,7 @@ def commands():
     default="table",
     help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
 )
-def list_scorers_cmd(experiment_id: str, output: str) -> None:
+def list_scorers(experiment_id: str, output: str) -> None:
     """
     List all registered scorers for the specified experiment.
 
@@ -53,7 +53,7 @@ def list_scorers_cmd(experiment_id: str, output: str) -> None:
     export MLFLOW_EXPERIMENT_ID=123
     mlflow scorers list
     """
-    scorers = list_scorers(experiment_id=experiment_id)
+    scorers = list_scorers_api(experiment_id=experiment_id)
     scorer_names = [scorer.name for scorer in scorers]
 
     if output == "json":

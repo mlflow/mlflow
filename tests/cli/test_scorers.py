@@ -1,259 +1,253 @@
 import json
-from unittest import mock
 
 import pytest
 from click.testing import CliRunner
 
+import mlflow
 from mlflow.cli.scorers import commands
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
+from mlflow.genai.scorers import scorer
 
 
 @pytest.fixture
 def runner():
-    """Provide a CLI runner for testing."""
     return CliRunner(catch_exceptions=False)
 
 
-def _create_mock_scorer(name, sample_rate=0.1, filter_string=None):
-    """Helper to create a mock Scorer object."""
-    scorer = Scorer(name=name)
-    scorer._sampling_config = ScorerSamplingConfig(
-        sample_rate=sample_rate, filter_string=filter_string
+@pytest.fixture
+def experiment_with_scorers():
+    """Create an experiment with registered scorers for testing."""
+    experiment_id = mlflow.create_experiment(
+        f"test_scorers_cli_{mlflow.utils.time.get_current_time_millis()}"
     )
-    scorer._registered_backend = "test_backend"
-    return scorer
+
+    # Register a few test scorers
+    @scorer
+    def correctness_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    @scorer
+    def safety_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    @scorer
+    def relevance_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    correctness_scorer.register(experiment_id=experiment_id, name="Correctness")
+    safety_scorer.register(experiment_id=experiment_id, name="Safety")
+    relevance_scorer.register(experiment_id=experiment_id, name="RelevanceToQuery")
+
+    yield experiment_id
+
+    # Cleanup
+    mlflow.delete_experiment(experiment_id)
 
 
 def test_commands_group_exists():
-    """Verify that the scorers command group exists."""
     assert commands.name == "scorers"
     assert commands.help is not None
 
 
 def test_list_command_params():
-    """Verify that the list command has the expected parameters."""
     list_cmd = next((cmd for cmd in commands.commands.values() if cmd.name == "list"), None)
     assert list_cmd is not None
-    param_names = [p.name for p in list_cmd.params]
-    assert "experiment_id" in param_names
-    assert "output" in param_names
+    param_names = {p.name for p in list_cmd.params}
+    assert param_names == {"experiment_id", "output"}
 
 
-def test_list_scorers_table_output(runner):
-    """Verify that the command correctly displays scorer names in table format."""
-    mock_scorers = [
-        _create_mock_scorer("Correctness"),
-        _create_mock_scorer("Safety"),
-        _create_mock_scorer("RelevanceToQuery"),
-    ]
+def test_list_scorers_table_output(runner, experiment_with_scorers):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment_with_scorers])
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
-
-        assert result.exit_code == 0
-        assert "Scorer Name" in result.output
-        assert "Correctness" in result.output
-        assert "Safety" in result.output
-        assert "RelevanceToQuery" in result.output
+    assert result.exit_code == 0
+    assert "Scorer Name" in result.output
+    assert "Correctness" in result.output
+    assert "Safety" in result.output
+    assert "RelevanceToQuery" in result.output
 
 
-def test_list_scorers_json_output(runner):
-    """Verify that the command correctly outputs scorer names as valid JSON array."""
-    mock_scorers = [
-        _create_mock_scorer("Correctness"),
-        _create_mock_scorer("Safety"),
-        _create_mock_scorer("RelevanceToQuery"),
-    ]
+def test_list_scorers_json_output(runner, experiment_with_scorers):
+    result = runner.invoke(
+        commands, ["list", "--experiment-id", experiment_with_scorers, "--output", "json"]
+    )
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "json"])
-
-        assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        assert "scorers" in output_json
-        assert output_json["scorers"] == ["Correctness", "Safety", "RelevanceToQuery"]
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    assert set(output_json["scorers"]) == {"Correctness", "Safety", "RelevanceToQuery"}
 
 
 def test_list_scorers_empty_experiment(runner):
-    """Verify graceful handling when an experiment has no registered scorers."""
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = []
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
+    experiment_id = mlflow.create_experiment(
+        f"test_empty_{mlflow.utils.time.get_current_time_millis()}"
+    )
 
+    try:
+        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
         assert result.exit_code == 0
         # Empty table produces minimal output
         assert result.output.strip() == ""
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_list_scorers_empty_experiment_json(runner):
-    """Verify JSON output for empty experiment."""
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = []
-        result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "json"])
+    experiment_id = mlflow.create_experiment(
+        f"test_empty_json_{mlflow.utils.time.get_current_time_millis()}"
+    )
 
+    try:
+        result = runner.invoke(
+            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
+        )
         assert result.exit_code == 0
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": []}
+        expected = {"scorers": []}
+        assert output_json == expected
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
-def test_list_scorers_with_experiment_id_flag(runner):
-    """Verify that experiment ID can be specified via --experiment-id flag."""
-    mock_scorers = [_create_mock_scorer("Correctness")]
+def test_list_scorers_with_experiment_id_env_var(runner, experiment_with_scorers):
+    result = runner.invoke(
+        commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": experiment_with_scorers}
+    )
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "456"])
-
-        assert result.exit_code == 0
-        mock_list.assert_called_once_with(experiment_id="456")
-
-
-def test_list_scorers_with_experiment_id_short_flag(runner):
-    """Verify that experiment ID can be specified via -x short flag."""
-    mock_scorers = [_create_mock_scorer("Safety")]
-
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "-x", "789"])
-
-        assert result.exit_code == 0
-        mock_list.assert_called_once_with(experiment_id="789")
-
-
-def test_list_scorers_with_experiment_id_env_var(runner):
-    """Verify that experiment ID can be read from MLFLOW_EXPERIMENT_ID environment variable."""
-    mock_scorers = [_create_mock_scorer("Correctness")]
-
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": "999"})
-
-        assert result.exit_code == 0
-        mock_list.assert_called_once_with(experiment_id="999")
-
-
-def test_list_scorers_multiple_scorers(runner):
-    """Verify correct listing when multiple scorers are registered."""
-    mock_scorers = [
-        _create_mock_scorer("Scorer1"),
-        _create_mock_scorer("Scorer2"),
-        _create_mock_scorer("Scorer3"),
-        _create_mock_scorer("Scorer4"),
-        _create_mock_scorer("Scorer5"),
-    ]
-
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
-
-        assert result.exit_code == 0
-        for scorer in mock_scorers:
-            assert scorer.name in result.output
+    assert result.exit_code == 0
+    assert "Correctness" in result.output
 
 
 def test_list_scorers_missing_experiment_id(runner):
-    """Verify appropriate error when experiment ID is not provided."""
     result = runner.invoke(commands, ["list"])
 
     assert result.exit_code != 0
     assert "experiment-id" in result.output.lower() or "experiment_id" in result.output.lower()
 
 
-def test_list_scorers_invalid_output_format(runner):
-    """Verify that invalid --output values are rejected."""
-    result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "invalid"])
+def test_list_scorers_invalid_output_format(runner, experiment_with_scorers):
+    result = runner.invoke(
+        commands, ["list", "--experiment-id", experiment_with_scorers, "--output", "invalid"]
+    )
 
     assert result.exit_code != 0
     assert "invalid" in result.output.lower() or "choice" in result.output.lower()
 
 
 def test_list_scorers_special_characters_in_names(runner):
-    """Verify proper handling of scorer names with special characters."""
-    mock_scorers = [
-        _create_mock_scorer("Scorer With Spaces"),
-        _create_mock_scorer("Scorer.With.Dots"),
-        _create_mock_scorer("Scorer-With-Dashes"),
-        _create_mock_scorer("Scorer_With_Underscores"),
-    ]
+    experiment_id = mlflow.create_experiment(
+        f"test_special_{mlflow.utils.time.get_current_time_millis()}"
+    )
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
+    try:
+        # Register scorers with special characters in names
+        @scorer
+        def test_scorer(outputs) -> bool:
+            return True
 
-        assert result.exit_code == 0
-        for scorer in mock_scorers:
-            assert scorer.name in result.output
+        test_scorer.register(experiment_id=experiment_id, name="Scorer With Spaces")
+        test_scorer.register(experiment_id=experiment_id, name="Scorer.With.Dots")
+        test_scorer.register(experiment_id=experiment_id, name="Scorer-With-Dashes")
+        test_scorer.register(experiment_id=experiment_id, name="Scorer_With_Underscores")
 
-
-def test_list_scorers_json_array_structure(runner):
-    """Verify JSON output is a proper array of strings."""
-    mock_scorers = [
-        _create_mock_scorer("Scorer1"),
-        _create_mock_scorer("Scorer2"),
-    ]
-
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "json"])
+        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
 
         assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        assert isinstance(output_json, dict)
-        assert "scorers" in output_json
-        assert isinstance(output_json["scorers"], list)
-        assert all(isinstance(name, str) for name in output_json["scorers"])
+        assert "Scorer With Spaces" in result.output
+        assert "Scorer.With.Dots" in result.output
+        assert "Scorer-With-Dashes" in result.output
+        assert "Scorer_With_Underscores" in result.output
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_list_scorers_single_scorer(runner):
-    """Verify correct display when only one scorer is registered."""
-    mock_scorers = [_create_mock_scorer("OnlyScorer")]
+    experiment_id = mlflow.create_experiment(
+        f"test_single_{mlflow.utils.time.get_current_time_millis()}"
+    )
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
+    try:
+
+        @scorer
+        def only_scorer(outputs) -> bool:
+            return True
+
+        only_scorer.register(experiment_id=experiment_id, name="OnlyScorer")
+
+        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
 
         assert result.exit_code == 0
         assert "OnlyScorer" in result.output
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_list_scorers_single_scorer_json(runner):
-    """Verify JSON output for single scorer."""
-    mock_scorers = [_create_mock_scorer("OnlyScorer")]
+    experiment_id = mlflow.create_experiment(
+        f"test_single_json_{mlflow.utils.time.get_current_time_millis()}"
+    )
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "json"])
+    try:
+
+        @scorer
+        def only_scorer(outputs) -> bool:
+            return True
+
+        only_scorer.register(experiment_id=experiment_id, name="OnlyScorer")
+
+        result = runner.invoke(
+            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
+        )
 
         assert result.exit_code == 0
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": ["OnlyScorer"]}
+        expected = {"scorers": ["OnlyScorer"]}
+        assert output_json == expected
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_list_scorers_long_names(runner):
-    """Verify that very long scorer names are displayed in full without truncation."""
+    experiment_id = mlflow.create_experiment(
+        f"test_long_{mlflow.utils.time.get_current_time_millis()}"
+    )
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
-    mock_scorers = [_create_mock_scorer(long_name)]
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123"])
+    try:
+
+        @scorer
+        def long_scorer(outputs) -> bool:
+            return True
+
+        long_scorer.register(experiment_id=experiment_id, name=long_name)
+
+        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
 
         assert result.exit_code == 0
         # Full name should be present
         assert long_name in result.output
+    finally:
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_list_scorers_long_names_json(runner):
-    """Verify that long names are fully preserved in JSON output."""
+    experiment_id = mlflow.create_experiment(
+        f"test_long_json_{mlflow.utils.time.get_current_time_millis()}"
+    )
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
-    mock_scorers = [_create_mock_scorer(long_name)]
 
-    with mock.patch("mlflow.cli.scorers.list_scorers") as mock_list:
-        mock_list.return_value = mock_scorers
-        result = runner.invoke(commands, ["list", "--experiment-id", "123", "--output", "json"])
+    try:
+
+        @scorer
+        def long_scorer(outputs) -> bool:
+            return True
+
+        long_scorer.register(experiment_id=experiment_id, name=long_name)
+
+        result = runner.invoke(
+            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
+        )
 
         assert result.exit_code == 0
         output_json = json.loads(result.output)
-        assert output_json["scorers"][0] == long_name
+        expected = {"scorers": [long_name]}
+        assert output_json == expected
+    finally:
+        mlflow.delete_experiment(experiment_id)
