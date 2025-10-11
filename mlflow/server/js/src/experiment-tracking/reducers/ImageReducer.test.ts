@@ -106,6 +106,51 @@ describe('ImageReducer', () => {
     });
   });
 
+  it('should add images to the state for file list of different valid delimiters', () => {
+    const initialState = {};
+    const action: AsyncFulfilledAction<ListImagesAction> = {
+      type: 'LIST_IMAGES_API_FULFILLED',
+      payload: {
+        files: [
+          {
+            path: 'images/image1%step%0%timestamp%1%UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            path: 'images/image2+step+1+timestamp+1+UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+        ],
+        root_uri: '',
+      },
+      meta: {
+        id: '123',
+        runUuid: '123',
+      },
+    };
+    const newState = imagesByRunUuid(initialState, action);
+    expect(newState).toEqual({
+      '123': {
+        image1: {
+          'image1%step%0%timestamp%1%UUID': {
+            filepath: 'images/image1%step%0%timestamp%1%UUID.png',
+            step: 0,
+            timestamp: 1,
+          },
+        },
+        image2: {
+          'image2+step+1+timestamp+1+UUID': {
+            filepath: 'images/image2+step+1+timestamp+1+UUID.png',
+            step: 1,
+            timestamp: 1,
+          },
+        },
+      },
+    });
+  });
+
   it('should handle error and prevent state update on malformed inputs', () => {
     const initialState = {};
     const action: AsyncFulfilledAction<ListImagesAction> = {
@@ -113,7 +158,26 @@ describe('ImageReducer', () => {
       payload: {
         files: [
           {
+            // missing timestamp
             path: 'images/image1%step%0%1%UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            // missing step
+            path: 'images/image1%timestamp%1%UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            // mixed delimiters + first
+            path: 'images/image1+step%0%timestamp%1%UUID.png',
+            is_dir: false,
+            file_size: 123,
+          },
+          {
+            // mixed delimiters % first
+            path: 'images/image1%step+0%timestamp%1%UUID.png',
             is_dir: false,
             file_size: 123,
           },
