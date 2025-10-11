@@ -176,12 +176,11 @@ def test_http_request_with_auth():
     host_only = MlflowHostCreds("http://my-host", auth=auth)
     response = mock.MagicMock()
     response.status_code = 200
-
     with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
         mock.patch(
             "mlflow.tracking.request_auth.registry.fetch_auth", return_value=mock_fetch_auth
         ) as mock_fetch_auth_call,
-        mock.patch("requests.Session.request", return_value=response) as mock_request,
     ):
         http_request(host_only, "/my/endpoint", "GET")
 
@@ -296,8 +295,8 @@ def test_http_request_request_headers():
     response = mock.MagicMock()
     response.status_code = 200
     with (
-        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
         mock.patch("requests.Session.request", return_value=response) as mock_request,
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
     ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
         http_request(host_only, "/my/endpoint", "GET")
@@ -329,13 +328,13 @@ def test_http_request_request_headers_default():
     response = mock.MagicMock()
     response.status_code = 200
     with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
         mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
         mock.patch.object(
             PluginRequestHeaderProvider,
             "request_headers",
             return_value={_USER_AGENT: "test_user_agent", _CLIENT_VERSION: "test_client_version"},
         ),
-        mock.patch("requests.Session.request", return_value=response) as mock_request,
     ):
         http_request(host_only, "/my/endpoint", "GET")
         mock_request.assert_called_with(
@@ -367,6 +366,7 @@ def test_http_request_request_headers_default_and_extra_header():
     response = mock.MagicMock()
     response.status_code = 200
     with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
         mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
         mock.patch.object(
             PluginRequestHeaderProvider,
@@ -377,7 +377,6 @@ def test_http_request_request_headers_default_and_extra_header():
                 "header": "value",
             },
         ),
-        mock.patch("requests.Session.request", return_value=response) as mock_request,
     ):
         http_request(host_only, "/my/endpoint", "GET")
         mock_request.assert_called_with(
