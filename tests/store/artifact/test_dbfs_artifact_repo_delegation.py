@@ -26,11 +26,8 @@ def host_creds_mock():
 
 
 def test_dbfs_artifact_repo_delegates_to_correct_repo(host_creds_mock, monkeypatch):
-    with mock.patch(
-        "mlflow.utils.databricks_utils.is_dbfs_fuse_available"
-    ) as is_dbfs_fuse_available:
+    with mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=True):
         # fuse available
-        is_dbfs_fuse_available.return_value = True
         artifact_uri = "dbfs:/databricks/my/absolute/dbfs/path"
         repo = get_artifact_repository(artifact_uri)
         assert isinstance(repo, LocalArtifactRepository)
@@ -46,7 +43,8 @@ def test_dbfs_artifact_repo_delegates_to_correct_repo(host_creds_mock, monkeypat
             fuse_disabled_repo = get_artifact_repository(artifact_uri)
         assert isinstance(fuse_disabled_repo, DbfsRestArtifactRepository)
         assert fuse_disabled_repo.artifact_uri == artifact_uri
-        is_dbfs_fuse_available.return_value = False
+
+    with mock.patch("mlflow.utils.databricks_utils.is_dbfs_fuse_available", return_value=False):
         rest_repo = get_artifact_repository(artifact_uri)
         assert isinstance(rest_repo, DbfsRestArtifactRepository)
         assert rest_repo.artifact_uri == artifact_uri
