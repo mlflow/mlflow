@@ -150,6 +150,7 @@ def test_evaluation_to_entity():
         error_message="An error occurred",
     )
 
+    # Freeze time to ensure consistent timestamp in entity
     with mock.patch("time.time", return_value=1234567890):
         entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
         expected_assessments = [a._to_entity("eval1") for a in assessments]
