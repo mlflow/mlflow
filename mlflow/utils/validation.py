@@ -169,7 +169,7 @@ def bad_character_message():
 
 def path_not_unique(name):
     norm = posixpath.normpath(name)
-    return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
+    return norm != str(name) or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
 def _validate_metric_name(name, path="name"):
