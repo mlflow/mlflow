@@ -7,10 +7,9 @@ from clint.rules.base import Rule
 
 class MockPatchAsDecorator(Rule):
     # TODO: Gradually migrate these files to use mock.patch as context manager
-    # Remove files from this list once they've been migrated (total: 92 violations)
+    # Remove files from this list once they've been migrated (total: 77 violations)
     # Files are sorted by violation count (descending) to prioritize migration
     IGNORED_FILES = {
-        "tests/utils/test_rest_utils.py",  # 15
         "tests/utils/test_databricks_utils.py",  # 10
         "tests/genai/scorers/test_builtin_scorers.py",  # 6
         "tests/evaluate/test_evaluation.py",  # 5
