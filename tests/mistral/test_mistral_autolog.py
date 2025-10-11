@@ -176,9 +176,13 @@ def test_chat_complete_autolog():
         TokenUsageKey.TOTAL_TOKENS: 28,
     }
 
-    mlflow.mistral.autolog(disable=True)
-    client = mistralai.Mistral(api_key="test_key")
-    client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
+    with patch(
+        "mistralai.chat.Chat.do_request",
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+    ):
+        mlflow.mistral.autolog(disable=True)
+        client = mistralai.Mistral(api_key="test_key")
+        client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
     # No new trace should be created
     traces = get_traces()
