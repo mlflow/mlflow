@@ -24,11 +24,6 @@ class MockPatchAsDecorator(Rule):
         "tests/mistral/test_mistral_autolog.py",  # 3
         "tests/models/test_model_config.py",  # 3
         "tests/transformers/test_transformers_model_export.py",  # 3
-        "tests/genai/judges/test_judge_utils.py",  # 2
-        "tests/projects/test_databricks.py",  # 2
-        "tests/store/_unity_catalog/model_registry/test_unity_catalog_rest_store.py",  # 2
-        "tests/tracing/utils/test_processor.py",  # 2
-        "tests/autologging/test_autologging_safety_unit.py",  # 1
     }
 
     def _message(self) -> str:
