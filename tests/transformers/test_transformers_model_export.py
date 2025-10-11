@@ -3540,31 +3540,31 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
 
 # Patch tempdir just to verify the invocation
 def test_persist_pretrained_model(small_qa_pipeline):
+    with mlflow.start_run():
+        model_info = mlflow.transformers.log_model(
+            small_qa_pipeline,
+            name="model",
+            save_pretrained=False,
+            pip_requirements=["mlflow"],  # For speed up logging
+        )
+
+    artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
+    model_path = artifact_path / "model"
+    tokenizer_path = artifact_path / "components" / "tokenizer"
+
+    original_config = Model.load(artifact_path).flavors["transformers"]
+    assert "model_binary" not in original_config
+    assert "source_model_revision" in original_config
+    assert not model_path.exists()
+    assert not tokenizer_path.exists()
+
     with mock.patch(
         "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
     ) as mock_tmpdir:
-        with mlflow.start_run():
-            model_info = mlflow.transformers.log_model(
-                small_qa_pipeline,
-                name="model",
-                save_pretrained=False,
-                pip_requirements=["mlflow"],  # For speed up logging
-            )
-
-        artifact_path = Path(mlflow.artifacts.download_artifacts(model_info.model_uri))
-        model_path = artifact_path / "model"
-        tokenizer_path = artifact_path / "components" / "tokenizer"
-
-        original_config = Model.load(artifact_path).flavors["transformers"]
-        assert "model_binary" not in original_config
-        assert "source_model_revision" in original_config
-        assert not model_path.exists()
-        assert not tokenizer_path.exists()
-
         mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-
         mock_tmpdir.assert_called_once()
-        updated_config = Model.load(model_info.model_uri).flavors["transformers"]
+
+    updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
     assert model_path.exists()
@@ -3574,9 +3574,11 @@ def test_persist_pretrained_model(small_qa_pipeline):
     assert (tokenizer_path / "tokenizer.json").exists()
 
     # Repeat persisting the model will no-op
-    mock_tmpdir.reset_mock()
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-    mock_tmpdir.assert_not_called()
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_not_called()
 
 
 def test_small_qa_pipeline_copy_metadata_in_databricks(
@@ -3687,39 +3689,39 @@ def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
             input_example=["What is MLflow?"],
         )
 
-        logged_info = Model.load(model_path)
-        flavor_conf = logged_info.flavors["transformers"]
-        assert flavor_conf["source_model_name"] == local_checkpoint_path
-        assert flavor_conf["task"] == "text-generation"
-        assert flavor_conf["framework"] == "pt"
-        assert flavor_conf["instance_type"] == "TextGenerationPipeline"
-        assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
+    logged_info = Model.load(model_path)
+    flavor_conf = logged_info.flavors["transformers"]
+    assert flavor_conf["source_model_name"] == local_checkpoint_path
+    assert flavor_conf["task"] == "text-generation"
+    assert flavor_conf["framework"] == "pt"
+    assert flavor_conf["instance_type"] == "TextGenerationPipeline"
+    assert flavor_conf["tokenizer_type"] == "GPT2TokenizerFast"
 
-        # Default task signature should be used
-        assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
-        assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
+    # Default task signature should be used
+    assert logged_info.signature.inputs == Schema([ColSpec(DataType.string)])
+    assert logged_info.signature.outputs == Schema([ColSpec(DataType.string)])
 
-        # Default requirements should be used
-        info_calls = mock_logger.info.call_args_list
-        assert any("A local checkpoint path or PEFT model" in c[0][0] for c in info_calls)
-        with model_path.joinpath("requirements.txt").open() as f:
-            reqs = {req.split("==")[0] for req in f.read().split("\n")}
-        assert reqs == {"mlflow", "accelerate", "transformers", "torch", "torchvision"}
+    # Default requirements should be used
+    info_calls = mock_logger.info.call_args_list
+    assert any("A local checkpoint path or PEFT model" in c[0][0] for c in info_calls)
+    with model_path.joinpath("requirements.txt").open() as f:
+        reqs = {req.split("==")[0] for req in f.read().split("\n")}
+    assert reqs == {"mlflow", "accelerate", "transformers", "torch", "torchvision"}
 
-        # Load as native pipeline
-        loaded_pipeline = mlflow.transformers.load_model(model_path)
-        assert isinstance(loaded_pipeline, transformers.TextGenerationPipeline)
+    # Load as native pipeline
+    loaded_pipeline = mlflow.transformers.load_model(model_path)
+    assert isinstance(loaded_pipeline, transformers.TextGenerationPipeline)
 
-        query = "What is MLflow?"
-        pred_native = loaded_pipeline(query)[0]
-        assert pred_native["generated_text"].startswith(query)
+    query = "What is MLflow?"
+    pred_native = loaded_pipeline(query)[0]
+    assert pred_native["generated_text"].startswith(query)
 
-        # Load as pyfunc
-        loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
-        pred_pyfunc = loaded_pyfunc.predict(query)[0]
-        assert pred_pyfunc.startswith(query)
+    # Load as pyfunc
+    loaded_pyfunc = mlflow.pyfunc.load_model(model_path)
+    pred_pyfunc = loaded_pyfunc.predict(query)[0]
+    assert pred_pyfunc.startswith(query)
 
-        # Serve
+    # Serve
     response = pyfunc_serve_and_score_model(
         model_path,
         data=json.dumps({"inputs": [query]}),
@@ -3824,11 +3826,10 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
     tmp_path,
     request,
 ):
+    # input to avoid expensive computation
+    model = request.getfixturevalue(model_fixture)
     with mock.patch("mlflow.models.validate_serving_input") as mock_validate_input:
         # Ensure mlflow skips serving input validation for local checkpoint
-        # input to avoid expensive computation
-        model = request.getfixturevalue(model_fixture)
-
         with mlflow.start_run():
             model_info = mlflow.transformers.log_model(
                 model,
@@ -3837,13 +3838,13 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
                 input_example=["How are you?"],
             )
 
-        # Serving input should exist regardless of the skip validation
-        mlflow_model = Model.load(model_info.model_uri)
-        local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
-        serving_input = mlflow_model.get_serving_input(local_path)
-        assert json.loads(serving_input) == {"inputs": ["How are you?"]}
+    # Serving input should exist regardless of the skip validation
+    mlflow_model = Model.load(model_info.model_uri)
+    local_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    serving_input = mlflow_model.get_serving_input(local_path)
+    assert json.loads(serving_input) == {"inputs": ["How are you?"]}
 
-        if should_skip_validation:
-            mock_validate_input.assert_not_called()
-        else:
-            mock_validate_input.assert_called_once()
+    if should_skip_validation:
+        mock_validate_input.assert_not_called()
+    else:
+        mock_validate_input.assert_called_once()
