@@ -851,6 +851,11 @@ from mlflow.cli import traces
 
 cli.add_command(traces.commands)
 
+# Add scorers CLI commands
+from mlflow.cli import scorers
+
+cli.add_command(scorers.commands)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
