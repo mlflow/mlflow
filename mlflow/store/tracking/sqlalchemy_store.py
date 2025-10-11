@@ -4602,7 +4602,13 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         comparator = sql_statement.get("comparator").upper()
 
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
-            attribute = getattr(SqlTraceInfo, key_name)
+            if key_name in ("end_time_ms", "end_time"):
+                # end_time = timestamp_ms + execution_time_ms
+                attribute = SqlTraceInfo.timestamp_ms + func.coalesce(
+                    SqlTraceInfo.execution_time_ms, 0
+                )
+            else:
+                attribute = getattr(SqlTraceInfo, key_name)
             attr_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                 attribute, value
             )
@@ -4627,10 +4633,19 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 # which have key-value structure, so we need specialized handling
                 from mlflow.store.tracking.dbmodels.models import SqlSpan
 
-                span_column = getattr(SqlSpan, key_name)
-                val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                    span_column, value
-                )
+                # Handle span.attributes.<attribute> format
+                if key_name.startswith("attributes."):
+                    attr_name = key_name[len("attributes.") :]
+                    # Search within the content JSON for the specific attribute
+                    # Using JSON extraction with LIKE for broad database compatibility
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"%{value}%'
+                    )
+                else:
+                    span_column = getattr(SqlSpan, key_name)
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        span_column, value
+                    )
 
                 span_subquery = (
                     session.query(SqlSpan.trace_id.label("request_id"))
@@ -4639,6 +4654,40 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .subquery()
                 )
                 span_filters.append(span_subquery)
+                continue
+            elif SearchTraceUtils.is_feedback(key_type, key_name, comparator):
+                # Create subquery to find traces with matching feedback
+                # Filter by feedback name and check the value
+                feedback_subquery = (
+                    session.query(SqlAssessments.trace_id.label("request_id"))
+                    .filter(
+                        SqlAssessments.assessment_type == "feedback",
+                        SqlAssessments.name == key_name,
+                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlAssessments.value, value
+                        ),
+                    )
+                    .distinct()
+                    .subquery()
+                )
+                span_filters.append(feedback_subquery)
+                continue
+            elif SearchTraceUtils.is_expectation(key_type, key_name, comparator):
+                # Create subquery to find traces with matching expectation
+                # Filter by expectation name and check the value
+                expectation_subquery = (
+                    session.query(SqlAssessments.trace_id.label("request_id"))
+                    .filter(
+                        SqlAssessments.assessment_type == "expectation",
+                        SqlAssessments.name == key_name,
+                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlAssessments.value, value
+                        ),
+                    )
+                    .distinct()
+                    .subquery()
+                )
+                span_filters.append(expectation_subquery)
                 continue
             else:
                 raise MlflowException(
