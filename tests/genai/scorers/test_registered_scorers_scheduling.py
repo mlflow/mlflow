@@ -33,7 +33,7 @@ def test_scorer_register(mock_add, mock_get_tracking_uri):
     assert registered is not my_scorer
     assert registered.name == "my_length_check"
     assert registered._sampling_config.sample_rate == 0.0
-    assert registered._sampling_config.filter_string is None
+    assert registered._sampling_config.sampling_strategy is None
 
     # Check that the original scorer is unchanged
     assert my_scorer.name == "length_check"
@@ -44,7 +44,7 @@ def test_scorer_register(mock_add, mock_get_tracking_uri):
     call_args = mock_add.call_args.kwargs
     assert call_args["name"] == "my_length_check"
     assert call_args["sample_rate"] == 0.0
-    assert call_args["filter_string"] is None
+    assert call_args["sampling_strategy"] is None
 
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
@@ -72,11 +72,13 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
     mock_update.return_value = my_scorer._create_copy()
     mock_update.return_value.name = "my_length_check"
     mock_update.return_value._sampling_config = ScorerSamplingConfig(
-        sample_rate=0.5, filter_string="trace.status = 'OK'"
+        sample_rate=0.5, sampling_strategy="trace.status = 'OK'"
     )
 
     started = my_scorer.start(
-        sampling_config=ScorerSamplingConfig(sample_rate=0.5, filter_string="trace.status = 'OK'")
+        sampling_config=ScorerSamplingConfig(
+            sample_rate=0.5, sampling_strategy="trace.status = 'OK'"
+        )
     )
 
     mock_get_tracking_uri.assert_called()
@@ -85,7 +87,7 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
     assert started is not my_scorer
     assert started.name == "my_length_check"
     assert started._sampling_config.sample_rate == 0.5
-    assert started._sampling_config.filter_string == "trace.status = 'OK'"
+    assert started._sampling_config.sampling_strategy == "trace.status = 'OK'"
 
     # Original unchanged
     assert my_scorer._sampling_config.sample_rate == 0.0
@@ -95,7 +97,7 @@ def test_scorer_start(mock_update, mock_get_tracking_uri):
     call_args = mock_update.call_args.kwargs
     assert call_args["name"] == "my_length_check"
     assert call_args["sample_rate"] == 0.5
-    assert call_args["filter_string"] == "trace.status = 'OK'"
+    assert call_args["sampling_strategy"] == "trace.status = 'OK'"
 
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
@@ -126,30 +128,32 @@ def test_scorer_update(mock_update, mock_get_tracking_uri):
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "my_length_check"
-    my_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.5, filter_string="old filter")
+    my_scorer._sampling_config = ScorerSamplingConfig(
+        sample_rate=0.5, sampling_strategy="old filter"
+    )
 
     # Mock the return value
     mock_update.return_value = my_scorer._create_copy()
     mock_update.return_value._sampling_config = ScorerSamplingConfig(
-        sample_rate=0.4, filter_string="old filter"
+        sample_rate=0.4, sampling_strategy="old filter"
     )
 
     # Update with new config
     updated = my_scorer.update(
-        sampling_config=ScorerSamplingConfig(sample_rate=0.4, filter_string="old filter")
+        sampling_config=ScorerSamplingConfig(sample_rate=0.4, sampling_strategy="old filter")
     )
 
     mock_get_tracking_uri.assert_called()
 
     assert updated._sampling_config.sample_rate == 0.4
-    assert updated._sampling_config.filter_string == "old filter"
+    assert updated._sampling_config.sampling_strategy == "old filter"
 
     # Check mock was called correctly
     mock_update.assert_called_once()
     call_args = mock_update.call_args.kwargs
     assert call_args["name"] == "my_length_check"
     assert call_args["sample_rate"] == 0.4
-    assert call_args["filter_string"] == "old filter"
+    assert call_args["sampling_strategy"] == "old filter"
 
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
@@ -217,13 +221,13 @@ def test_scorer_update_with_all_params(mock_update, _):
 
     mock_update.return_value = my_scorer._create_copy()
     mock_update.return_value._sampling_config = ScorerSamplingConfig(
-        sample_rate=0.9, filter_string="new_filter"
+        sample_rate=0.9, sampling_strategy="new_filter"
     )
 
     my_scorer.update(
         name="override_name",
         experiment_id="exp456",
-        sampling_config=ScorerSamplingConfig(sample_rate=0.9, filter_string="new_filter"),
+        sampling_config=ScorerSamplingConfig(sample_rate=0.9, sampling_strategy="new_filter"),
     )
 
     mock_update.assert_called_once()
@@ -231,7 +235,7 @@ def test_scorer_update_with_all_params(mock_update, _):
     assert call_args["name"] == "override_name"
     assert call_args["experiment_id"] == "exp456"
     assert call_args["sample_rate"] == 0.9
-    assert call_args["filter_string"] == "new_filter"
+    assert call_args["sampling_strategy"] == "new_filter"
 
 
 @patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
@@ -290,7 +294,7 @@ def test_all_methods_are_immutable(_):
     # Set up some state
     original = original._create_copy()
     original.name = "original_name"
-    original._sampling_config = ScorerSamplingConfig(sample_rate=0.1, filter_string="original")
+    original._sampling_config = ScorerSamplingConfig(sample_rate=0.1, sampling_strategy="original")
 
     # Test each method
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
@@ -311,14 +315,14 @@ def test_all_methods_are_immutable(_):
 
         mock_update.return_value = original._create_copy()
         mock_update.return_value._sampling_config = ScorerSamplingConfig(
-            sample_rate=0.1, filter_string="new filter"
+            sample_rate=0.1, sampling_strategy="new filter"
         )
 
         updated = original.update(
-            sampling_config=ScorerSamplingConfig(sample_rate=0.1, filter_string="new filter")
+            sampling_config=ScorerSamplingConfig(sample_rate=0.1, sampling_strategy="new filter")
         )
         assert updated is not original
-        assert original._sampling_config.filter_string == "original"  # Unchanged
+        assert original._sampling_config.sampling_strategy == "original"  # Unchanged
 
         mock_update.return_value = original._create_copy()
         mock_update.return_value._sampling_config = ScorerSamplingConfig(sample_rate=0.0)

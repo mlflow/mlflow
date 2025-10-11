@@ -364,7 +364,7 @@ def build(package_type: PackageType) -> None:
             "urls": {
                 "homepage": "https://mlflow.org",
                 "issues": "https://github.com/mlflow/mlflow/issues",
-                "documentation": "https://mlflow.org/docs/latest/index.html",
+                "documentation": "https://mlflow.org/docs/latest",
                 "repository": "https://github.com/mlflow/mlflow",
             },
             "scripts": {

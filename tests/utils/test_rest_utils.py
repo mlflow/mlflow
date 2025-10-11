@@ -8,7 +8,10 @@ import pytest
 import requests
 
 from mlflow.deployments.databricks import DatabricksDeploymentClient
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
@@ -922,3 +925,22 @@ def test_deployment_client_timeout_propagation(monkeypatch):
             retry_timeout_seconds=None,
             timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
         )
+
+
+def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch):
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Test with env var set
+    monkeypatch.setenv(_MLFLOW_DATABRICKS_TRAFFIC_ID.name, "test-traffic-id-12345")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers["x-databricks-traffic-id"] == "test-traffic-id-12345"
+
+    # Test without env var set
+    monkeypatch.delenv(_MLFLOW_DATABRICKS_TRAFFIC_ID.name)
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert "x-databricks-traffic-id" not in headers

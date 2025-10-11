@@ -53,6 +53,7 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     TraceLocation,
+    UpdateScorer,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -111,6 +112,7 @@ from mlflow.server.handlers import (
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _update_scorer,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -1570,6 +1572,66 @@ def test_delete_scorer_without_version(mock_get_request_message, mock_tracking_s
     # Verify the response (should be empty for delete operations)
     response_data = json.loads(resp.get_data())
     assert response_data == {}
+
+
+def test_update_scorer(mock_get_request_message, mock_tracking_store):
+    experiment_id = "123"
+    name = "accuracy_scorer"
+    sample_rate = 0.5
+
+    mock_get_request_message.return_value = UpdateScorer(
+        experiment_id=experiment_id, name=name, sample_rate=sample_rate
+    )
+
+    mock_scorer_version = ScorerVersion(
+        experiment_id=experiment_id,
+        scorer_name=name,
+        scorer_version=1,
+        serialized_scorer='{"name": "accuracy_scorer"}',
+        creation_time=1234567890000,
+        sample_rate=sample_rate,
+    )
+    mock_tracking_store.update_registered_scorer_sampling.return_value = mock_scorer_version
+
+    resp = _update_scorer()
+
+    mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
+        experiment_id, name, sample_rate, None
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert "scorer" in response_data
+    assert response_data["scorer"]["scorer_name"] == name
+    assert response_data["scorer"]["sample_rate"] == sample_rate
+    assert response_data["scorer"]["scorer_version"] == 1
+
+
+def test_update_scorer_no_sample_rate(mock_get_request_message, mock_tracking_store):
+    experiment_id = "123"
+    name = "accuracy_scorer"
+
+    mock_get_request_message.return_value = UpdateScorer(experiment_id=experiment_id, name=name)
+
+    mock_scorer_version = ScorerVersion(
+        experiment_id=experiment_id,
+        scorer_name=name,
+        scorer_version=1,
+        serialized_scorer='{"name": "accuracy_scorer"}',
+        creation_time=1234567890000,
+        sample_rate=0.3,
+    )
+    mock_tracking_store.update_registered_scorer_sampling.return_value = mock_scorer_version
+
+    resp = _update_scorer()
+
+    mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
+        experiment_id, name, None, None
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert "scorer" in response_data
+    assert response_data["scorer"]["scorer_name"] == name
+    assert response_data["scorer"]["sample_rate"] == 0.3
 
 
 def test_calculate_trace_filter_correlation(mock_get_request_message, mock_tracking_store):
