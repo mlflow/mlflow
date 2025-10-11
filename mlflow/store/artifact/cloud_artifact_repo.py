@@ -14,8 +14,10 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
     MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE,
+    MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
@@ -135,24 +137,160 @@ class CloudArtifactRepository(ArtifactRepository):
         # For each batch of files, upload them in parallel and wait for completion
         # TODO: change to class method
         def upload_artifacts_iter():
+            cloud_credential_type_cache = None
+            multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+
             for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-                write_credential_infos = self._get_write_credential_infos(
-                    remote_file_paths=[
-                        staged_upload.artifact_file_path for staged_upload in staged_upload_chunk
-                    ],
+                # NB: For AWS, skip requesting credentials for large files to avoid double
+                # allocation in strict egress environments (e.g., Databricks SEG). AWS large
+                # files use multipart upload which creates its own credentials. Azure/GCP
+                # large files use the same credentials throughout, so request them upfront.
+
+                has_large_files = any(
+                    os.path.getsize(u.src_file_path) >= multipart_threshold
+                    for u in staged_upload_chunk
                 )
 
-                inflight_uploads = {}
-                for staged_upload, write_credential_info in zip(
-                    staged_upload_chunk, write_credential_infos
-                ):
-                    upload_future = self.thread_pool.submit(
-                        self._upload_to_cloud,
-                        cloud_credential_info=write_credential_info,
-                        src_file_path=staged_upload.src_file_path,
-                        artifact_file_path=staged_upload.artifact_file_path,
+                if cloud_credential_type_cache is None and has_large_files:
+                    sample_upload_for_typing = None
+                    for upload in staged_upload_chunk:
+                        if os.path.getsize(upload.src_file_path) < multipart_threshold:
+                            sample_upload_for_typing = upload
+                            break
+                    if sample_upload_for_typing is None:
+                        sample_upload_for_typing = staged_upload_chunk[0]
+
+                    sample_cred_info = self._get_write_credential_infos(
+                        [sample_upload_for_typing.artifact_file_path]
+                    )[0]
+                    cloud_credential_type_cache = (
+                        sample_cred_info.type if hasattr(sample_cred_info, "type") else None
                     )
-                    inflight_uploads[staged_upload.src_file_path] = upload_future
+                else:
+                    sample_upload_for_typing = None
+                    sample_cred_info = None
+
+                files_needing_credentials = []
+                files_without_credentials = []
+
+                for upload in staged_upload_chunk:
+                    file_size = os.path.getsize(upload.src_file_path)
+                    is_aws_large = (
+                        cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL
+                        and file_size >= multipart_threshold
+                    )
+
+                    if is_aws_large:
+                        files_without_credentials.append(upload)
+                    else:
+                        files_needing_credentials.append(upload)
+
+                write_credential_infos = []
+                if files_needing_credentials:
+                    if (
+                        sample_upload_for_typing is not None
+                        and sample_upload_for_typing in files_needing_credentials
+                    ):
+                        other_files = [
+                            u for u in files_needing_credentials if u != sample_upload_for_typing
+                        ]
+                        if other_files:
+                            other_creds = self._get_write_credential_infos(
+                                remote_file_paths=[u.artifact_file_path for u in other_files]
+                            )
+                            write_credential_infos = []
+                            other_creds_iter = iter(other_creds)
+                            for u in files_needing_credentials:
+                                if u == sample_upload_for_typing:
+                                    write_credential_infos.append(sample_cred_info)
+                                else:
+                                    write_credential_infos.append(next(other_creds_iter))
+                        else:
+                            write_credential_infos = [sample_cred_info]
+                    else:
+                        write_credential_infos = self._get_write_credential_infos(
+                            remote_file_paths=[
+                                u.artifact_file_path for u in files_needing_credentials
+                            ]
+                        )
+
+                inflight_uploads = {}
+
+                # NB: Serialize uploads to avoid race conditions in strict egress environments
+                # (e.g., Databricks SEG) where the storage proxy can fail with 500 errors when
+                # handling concurrent chunked uploads to the same artifact location.
+                needs_serialization = False
+
+                if cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL:
+                    needs_serialization = files_without_credentials and files_needing_credentials
+                elif cloud_credential_type_cache in (
+                    ArtifactCredentialType.AZURE_SAS_URI,
+                    ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+                ):
+                    needs_serialization = len(staged_upload_chunk) > 1
+
+                if needs_serialization:
+                    if cloud_credential_type_cache in (
+                        ArtifactCredentialType.AZURE_SAS_URI,
+                        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+                    ):
+                        for staged_upload, write_credential_info in zip(
+                            files_needing_credentials, write_credential_infos
+                        ):
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=write_credential_info,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            upload_future.result()
+                            inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                    else:
+                        small_file_futures = {}
+                        for staged_upload, write_credential_info in zip(
+                            files_needing_credentials, write_credential_infos
+                        ):
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=write_credential_info,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            small_file_futures[staged_upload.src_file_path] = upload_future
+
+                        for src_file_path, upload_future in small_file_futures.items():
+                            upload_future.result()
+                            inflight_uploads[src_file_path] = upload_future
+
+                        for staged_upload in files_without_credentials:
+                            upload_future = self.thread_pool.submit(
+                                self._upload_to_cloud,
+                                cloud_credential_info=None,
+                                src_file_path=staged_upload.src_file_path,
+                                artifact_file_path=staged_upload.artifact_file_path,
+                            )
+                            inflight_uploads[staged_upload.src_file_path] = upload_future
+                else:
+                    for staged_upload, write_credential_info in zip(
+                        files_needing_credentials, write_credential_infos
+                    ):
+                        upload_future = self.thread_pool.submit(
+                            self._upload_to_cloud,
+                            cloud_credential_info=write_credential_info,
+                            src_file_path=staged_upload.src_file_path,
+                            artifact_file_path=staged_upload.artifact_file_path,
+                        )
+                        inflight_uploads[staged_upload.src_file_path] = upload_future
+
+                    for staged_upload in files_without_credentials:
+                        upload_future = self.thread_pool.submit(
+                            self._upload_to_cloud,
+                            cloud_credential_info=None,
+                            src_file_path=staged_upload.src_file_path,
+                            artifact_file_path=staged_upload.artifact_file_path,
+                        )
+                        inflight_uploads[staged_upload.src_file_path] = upload_future
 
                 yield from inflight_uploads.items()
 
@@ -192,7 +330,8 @@ class CloudArtifactRepository(ArtifactRepository):
         Upload a single file to the cloud.
 
         Args:
-            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file,
+                or None for large files where credentials should be obtained separately.
             src_file_path: Local source file path for the upload.
             artifact_file_path: Path in the artifact repository where the artifact will be logged.
 
