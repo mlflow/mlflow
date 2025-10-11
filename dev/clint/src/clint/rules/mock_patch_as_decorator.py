@@ -19,11 +19,6 @@ class MockPatchAsDecorator(Rule):
         "tests/projects/test_docker_projects.py",  # 4
         "tests/store/tracking/test_databricks_rest_store.py",  # 4
         "tests/store/tracking/test_rest_store.py",  # 4
-        "tests/store/tracking/test_sqlalchemy_store.py",  # 4
-        "tests/genai/test_genai_import_without_agent_sdk.py",  # 3
-        "tests/mistral/test_mistral_autolog.py",  # 3
-        "tests/models/test_model_config.py",  # 3
-        "tests/transformers/test_transformers_model_export.py",  # 3
     }
 
     def _message(self) -> str:

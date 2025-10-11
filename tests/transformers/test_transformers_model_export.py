@@ -3539,8 +3539,7 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
 
 
 # Patch tempdir just to verify the invocation
-@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
-def test_persist_pretrained_model(mock_tmpdir, small_qa_pipeline):
+def test_persist_pretrained_model(small_qa_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
             small_qa_pipeline,
@@ -3559,9 +3558,12 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_pipeline):
     assert not model_path.exists()
     assert not tokenizer_path.exists()
 
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_called_once()
 
-    mock_tmpdir.assert_called_once()
     updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
@@ -3572,9 +3574,11 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_pipeline):
     assert (tokenizer_path / "tokenizer.json").exists()
 
     # Repeat persisting the model will no-op
-    mock_tmpdir.reset_mock()
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-    mock_tmpdir.assert_not_called()
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_not_called()
 
 
 def test_small_qa_pipeline_copy_metadata_in_databricks(
@@ -3676,14 +3680,14 @@ def local_checkpoint_path(tmp_path):
     return str(checkpoint_path)
 
 
-@mock.patch("mlflow.transformers._logger")
-def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpoint_path):
-    mlflow.transformers.save_model(
-        transformers_model=local_checkpoint_path,
-        task="text-generation",
-        path=model_path,
-        input_example=["What is MLflow?"],
-    )
+def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
+    with mock.patch("mlflow.transformers._logger") as mock_logger:
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            task="text-generation",
+            path=model_path,
+            input_example=["What is MLflow?"],
+        )
 
     logged_info = Model.load(model_path)
     flavor_conf = logged_info.flavors["transformers"]
@@ -3809,7 +3813,6 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
         )
 
 
-@mock.patch("mlflow.models.validate_serving_input")
 @pytest.mark.parametrize(
     ("model_fixture", "should_skip_validation"),
     [
@@ -3818,23 +3821,22 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
     ],
 )
 def test_log_model_skip_validating_serving_input_for_local_checkpoint(
-    mock_validate_input,
     model_fixture,
     should_skip_validation,
     tmp_path,
     request,
 ):
-    # Ensure mlflow skips serving input validation for local checkpoint
     # input to avoid expensive computation
     model = request.getfixturevalue(model_fixture)
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            model,
-            name="model",
-            task="fill-mask",
-            input_example=["How are you?"],
-        )
+    with mock.patch("mlflow.models.validate_serving_input") as mock_validate_input:
+        # Ensure mlflow skips serving input validation for local checkpoint
+        with mlflow.start_run():
+            model_info = mlflow.transformers.log_model(
+                model,
+                name="model",
+                task="fill-mask",
+                input_example=["How are you?"],
+            )
 
     # Serving input should exist regardless of the skip validation
     mlflow_model = Model.load(model_info.model_uri)
