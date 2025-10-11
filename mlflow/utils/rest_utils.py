@@ -8,6 +8,9 @@ from functools import lru_cache
 from typing import Any, Callable
 
 import requests
+import threading
+import boto3
+from requests_aws4auth import AWS4Auth
 
 from mlflow.environment_variables import (
     _MLFLOW_DATABRICKS_TRAFFIC_ID,
@@ -55,6 +58,22 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+_thread_local = threading.local()
+
+
+def _get_aws_auth():
+    if not hasattr(_thread_local, "auth"):
+        session = boto3.Session()
+        credentials = session.get_credentials()
+        _thread_local.auth = AWS4Auth(
+            credentials.access_key,
+            credentials.secret_key,
+            session.region_name,
+            "execute-api",
+            session_token=credentials.token,
+        )
+    return _thread_local.auth
 
 
 def http_request(
@@ -224,9 +243,7 @@ def http_request(
 
     if host_creds.aws_sigv4:
         # will overwrite the Authorization header
-        from requests_auth_aws_sigv4 import AWSSigV4
-
-        kwargs["auth"] = AWSSigV4("execute-api")
+        kwargs["auth"] = _get_aws_auth()
     elif host_creds.auth:
         from mlflow.tracking.request_auth.registry import fetch_auth
 

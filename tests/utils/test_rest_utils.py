@@ -146,9 +146,9 @@ def test_http_request_with_basic_auth(request):
 
 @mock.patch("requests.Session.request")
 def test_http_request_with_aws_sigv4(request, monkeypatch):
-    """This test requires the "requests_auth_aws_sigv4" package to be installed"""
+    """This test requires the "requests_aws4auth" package to be installed"""
 
-    from requests_auth_aws_sigv4 import AWSSigV4
+    from requests_aws4auth import AWS4Auth
 
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret-key")
@@ -161,7 +161,7 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
 
     class AuthMatcher:
         def __eq__(self, other):
-            return isinstance(other, AWSSigV4)
+            return isinstance(other, AWS4Auth)
 
     request.assert_called_once_with(
         "GET",
