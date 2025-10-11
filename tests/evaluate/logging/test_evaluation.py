@@ -125,8 +125,7 @@ def test_evaluation_to_from_dictionary():
     assert recreated_evaluation == evaluation
 
 
-@patch("time.time", return_value=1234567890)
-def test_evaluation_to_entity(mock_time):
+def test_evaluation_to_entity():
     inputs = {"feature1": 1.0, "feature2": 2.0}
     outputs = {"prediction": 0.5}
     assessments = [
@@ -151,7 +150,8 @@ def test_evaluation_to_entity(mock_time):
         error_message="An error occurred",
     )
 
-    entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
+    with patch("time.time", return_value=1234567890):
+        entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
     assert entity.evaluation_id == "eval1"
     assert entity.run_id == "run1"
     assert entity.inputs_id == evaluation.inputs_id
