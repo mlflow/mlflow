@@ -1,7 +1,5 @@
-import React from 'react';
 import { BeakerIcon, ModelsIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import ExperimentTrackingRoutes from '../experiment-tracking/routes';
 import type { HomeQuickActionDefinition } from './types';
 
 export const homeQuickActions: HomeQuickActionDefinition[] = [
