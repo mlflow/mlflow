@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 from mlflow.entities import Metric
 from mlflow.evaluation import Assessment, Evaluation
 from mlflow.evaluation.assessment import AssessmentSource
@@ -125,8 +123,7 @@ def test_evaluation_to_from_dictionary():
     assert recreated_evaluation == evaluation
 
 
-@patch("time.time", return_value=1234567890)
-def test_evaluation_to_entity(mock_time):
+def test_evaluation_to_entity():
     inputs = {"feature1": 1.0, "feature2": 2.0}
     outputs = {"prediction": 0.5}
     assessments = [

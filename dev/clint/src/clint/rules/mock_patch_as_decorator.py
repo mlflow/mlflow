@@ -30,11 +30,6 @@ class MockPatchAsDecorator(Rule):
         "tests/store/_unity_catalog/model_registry/test_unity_catalog_rest_store.py",  # 2
         "tests/tracing/utils/test_processor.py",  # 2
         "tests/autologging/test_autologging_safety_unit.py",  # 1
-        "tests/db/test_tracking_operations.py",  # 1
-        "tests/evaluate/logging/test_evaluation.py",  # 1
-        "tests/genai/evaluate/test_context.py",  # 1
-        "tests/genai/evaluate/test_evaluation.py",  # 1
-        "tests/pyfunc/test_pyfunc_model_with_type_hints.py",  # 1
     }
 
     def _message(self) -> str:
