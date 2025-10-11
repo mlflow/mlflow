@@ -146,35 +146,35 @@ def _make_httpx_response(response: BaseModel, status_code: int = 200) -> httpx.R
     )
 
 
-@patch(
-    "mistralai.chat.Chat.do_request",
-    return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
-)
-def test_chat_complete_autolog(mock_complete):
-    mlflow.mistral.autolog()
-    client = mistralai.Mistral(api_key="test_key")
-    client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
+def test_chat_complete_autolog():
+    with patch(
+        "mistralai.chat.Chat.do_request",
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+    ):
+        mlflow.mistral.autolog()
+        client = mistralai.Mistral(api_key="test_key")
+        client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) == 1
-    span = traces[0].data.spans[0]
-    assert span.name == "Chat.complete"
-    assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
-    # Only keep input_tokens / output_tokens fields in usage dict.
-    span.outputs["usage"] = {
-        key: span.outputs["usage"][key]
-        for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
-    }
-    assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
-    assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 18,
-        TokenUsageKey.TOTAL_TOKENS: 28,
-    }
+        traces = get_traces()
+        assert len(traces) == 1
+        assert traces[0].info.status == "OK"
+        assert len(traces[0].data.spans) == 1
+        span = traces[0].data.spans[0]
+        assert span.name == "Chat.complete"
+        assert span.span_type == SpanType.CHAT_MODEL
+        assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
+        # Only keep input_tokens / output_tokens fields in usage dict.
+        span.outputs["usage"] = {
+            key: span.outputs["usage"][key]
+            for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+        }
+        assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+        assert traces[0].info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 18,
+            TokenUsageKey.TOTAL_TOKENS: 28,
+        }
 
     mlflow.mistral.autolog(disable=True)
     client = mistralai.Mistral(api_key="test_key")
@@ -185,98 +185,98 @@ def test_chat_complete_autolog(mock_complete):
     assert len(traces) == 1
 
 
-@patch(
-    "mistralai.chat.Chat.do_request",
-    return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE),
-)
-def test_chat_complete_autolog_tool_calling(mock_complete):
-    mlflow.mistral.autolog()
-    client = mistralai.Mistral(api_key="test_key")
-    client.chat.complete(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST)
+def test_chat_complete_autolog_tool_calling():
+    with patch(
+        "mistralai.chat.Chat.do_request",
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE),
+    ):
+        mlflow.mistral.autolog()
+        client = mistralai.Mistral(api_key="test_key")
+        client.chat.complete(**DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) == 1
-    span = traces[0].data.spans[0]
-    assert span.name == "Chat.complete"
-    assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
-    assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
+        traces = get_traces()
+        assert len(traces) == 1
+        assert traces[0].info.status == "OK"
+        assert len(traces[0].data.spans) == 1
+        span = traces[0].data.spans[0]
+        assert span.name == "Chat.complete"
+        assert span.span_type == SpanType.CHAT_MODEL
+        assert span.inputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_REQUEST
+        assert span.outputs == DUMMY_CHAT_COMPLETION_WITH_TOOLS_RESPONSE.model_dump()
 
-    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
-        {
-            "type": "function",
-            "function": {
-                "name": "get_unit",
-                "description": "Get the temperature unit commonly used in a given location",
-                "parameters": {
-                    "properties": {
-                        "location": {
-                            "description": "The city and state, e.g., San Francisco, CA",
-                            "type": "string",
+        assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_unit",
+                    "description": "Get the temperature unit commonly used in a given location",
+                    "parameters": {
+                        "properties": {
+                            "location": {
+                                "description": "The city and state, e.g., San Francisco, CA",
+                                "type": "string",
+                            },
                         },
+                        "required": ["location"],
+                        "type": "object",
                     },
-                    "required": ["location"],
-                    "type": "object",
                 },
             },
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Get the current weather in a given location",
-                "parameters": {
-                    "properties": {
-                        "location": {
-                            "description": "The city and state, e.g., San Francisco, CA",
-                            "type": "string",
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get the current weather in a given location",
+                    "parameters": {
+                        "properties": {
+                            "location": {
+                                "description": "The city and state, e.g., San Francisco, CA",
+                                "type": "string",
+                            },
+                            "unit": {
+                                "description": 'The unit of temperature, "celsius" or "fahrenheit"',
+                                "enum": ["celsius", "fahrenheit"],
+                                "type": "string",
+                            },
                         },
-                        "unit": {
-                            "description": 'The unit of temperature, "celsius" or "fahrenheit"',
-                            "enum": ["celsius", "fahrenheit"],
-                            "type": "string",
-                        },
+                        "required": ["location", "unit"],
+                        "type": "object",
                     },
-                    "required": ["location", "unit"],
-                    "type": "object",
                 },
             },
-        },
-    ]
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
-    assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 11,
-        TokenUsageKey.OUTPUT_TOKENS: 19,
-        TokenUsageKey.TOTAL_TOKENS: 30,
-    }
+        ]
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+        assert traces[0].info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 11,
+            TokenUsageKey.OUTPUT_TOKENS: 19,
+            TokenUsageKey.TOTAL_TOKENS: 30,
+        }
 
 
-@patch(
-    "mistralai.chat.Chat.do_request_async",
-    return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
-)
 @pytest.mark.asyncio
-async def test_chat_complete_async_autolog(mock_complete_async):
-    mlflow.mistral.autolog()
-    client = mistralai.Mistral(api_key="test_key")
-    await client.chat.complete_async(**DUMMY_CHAT_COMPLETION_REQUEST)
+async def test_chat_complete_async_autolog():
+    with patch(
+        "mistralai.chat.Chat.do_request_async",
+        return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+    ):
+        mlflow.mistral.autolog()
+        client = mistralai.Mistral(api_key="test_key")
+        await client.chat.complete_async(**DUMMY_CHAT_COMPLETION_REQUEST)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    span = traces[0].data.spans[0]
-    assert span.name == "Chat.complete_async"
-    assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
-    span.outputs["usage"] = {
-        key: span.outputs["usage"][key]
-        for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
-    }
-    assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
-    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
-    assert traces[0].info.token_usage == {
-        TokenUsageKey.INPUT_TOKENS: 10,
-        TokenUsageKey.OUTPUT_TOKENS: 18,
-        TokenUsageKey.TOTAL_TOKENS: 28,
-    }
+        traces = get_traces()
+        assert len(traces) == 1
+        span = traces[0].data.spans[0]
+        assert span.name == "Chat.complete_async"
+        assert span.span_type == SpanType.CHAT_MODEL
+        assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
+        span.outputs["usage"] = {
+            key: span.outputs["usage"][key]
+            for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+        }
+        assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "mistral"
+        assert traces[0].info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 10,
+            TokenUsageKey.OUTPUT_TOKENS: 18,
+            TokenUsageKey.TOTAL_TOKENS: 28,
+        }
