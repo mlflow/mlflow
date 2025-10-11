@@ -92,7 +92,7 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
         (
             OptimizerConfig(
                 num_instruction_candidates=4,
-                max_few_show_examples=2,
+                max_few_shot_examples=2,
                 num_threads=2,
                 optimizer_llm=LLMParams(model_name="test/model"),
             ),
