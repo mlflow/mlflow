@@ -52,6 +52,8 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
+        self.connection_timeout = MLFLOW_AZURE_BLOB_CONNECTION_TIMEOUT.get()
+
 
         # Allow override for testing
         if client:
@@ -122,7 +124,8 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = posixpath.join(dest_path, os.path.basename(local_file))
         with open(local_file, "rb") as file:
             container_client.upload_blob(
-                dest_path, file, overwrite=True, timeout=self.write_timeout
+                dest_path, file, overwrite=True, timeout=self.write_timeout,
+                connection_timeout=self.connection_timeout
             )
 
     def log_artifacts(self, local_dir, artifact_path=None):
@@ -141,7 +144,8 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
                 local_file_path = os.path.join(root, f)
                 with open(local_file_path, "rb") as file:
                     container_client.upload_blob(
-                        remote_file_path, file, overwrite=True, timeout=self.write_timeout
+                        remote_file_path, file, overwrite=True, timeout=self.write_timeout, 
+                        connection_timeout=self.connection_timeout
                     )
 
     def list_artifacts(self, path=None):
