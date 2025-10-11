@@ -152,21 +152,21 @@ def test_evaluation_to_entity():
 
     with patch("time.time", return_value=1234567890):
         entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
-    assert entity.evaluation_id == "eval1"
-    assert entity.run_id == "run1"
-    assert entity.inputs_id == evaluation.inputs_id
-    assert entity.inputs == inputs
-    assert entity.outputs == outputs
-    assert entity.request_id == "req1"
-    assert entity.targets == {"target1": 1.0}
-    assert entity.error_code == "E001"
-    assert entity.error_message == "An error occurred"
-    assert entity.assessments == [a._to_entity("eval1") for a in assessments]
-    assert entity.metrics == metrics
-    assert entity.tags == [
-        EvaluationTag(key="tag1", value="value1"),
-        EvaluationTag(key="tag2", value="value2"),
-    ]
+        assert entity.evaluation_id == "eval1"
+        assert entity.run_id == "run1"
+        assert entity.inputs_id == evaluation.inputs_id
+        assert entity.inputs == inputs
+        assert entity.outputs == outputs
+        assert entity.request_id == "req1"
+        assert entity.targets == {"target1": 1.0}
+        assert entity.error_code == "E001"
+        assert entity.error_message == "An error occurred"
+        assert entity.assessments == [a._to_entity("eval1") for a in assessments]
+        assert entity.metrics == metrics
+        assert entity.tags == [
+            EvaluationTag(key="tag1", value="value1"),
+            EvaluationTag(key="tag2", value="value2"),
+        ]
 
 
 def test_evaluation_inputs_id_uniqueness():
