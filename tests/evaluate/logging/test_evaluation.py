@@ -1,5 +1,3 @@
-from unittest.mock import patch
-
 from mlflow.entities import Metric
 from mlflow.evaluation import Assessment, Evaluation
 from mlflow.evaluation.assessment import AssessmentSource
@@ -150,8 +148,7 @@ def test_evaluation_to_entity():
         error_message="An error occurred",
     )
 
-    with patch("time.time", return_value=1234567890):
-        entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
+    entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
     assert entity.evaluation_id == "eval1"
     assert entity.run_id == "run1"
     assert entity.inputs_id == evaluation.inputs_id
@@ -161,8 +158,7 @@ def test_evaluation_to_entity():
     assert entity.targets == {"target1": 1.0}
     assert entity.error_code == "E001"
     assert entity.error_message == "An error occurred"
-    with patch("time.time", return_value=1234567890):
-        assert entity.assessments == [a._to_entity("eval1") for a in assessments]
+    assert entity.assessments == [a._to_entity("eval1") for a in assessments]
     assert entity.metrics == metrics
     assert entity.tags == [
         EvaluationTag(key="tag1", value="value1"),
