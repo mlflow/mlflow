@@ -111,27 +111,30 @@ def test_docker_project_tracking_uri_propagation(
     expected_command_segment,
     docker_example_base_image,
 ):
-    with mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider") as ProfileConfigProvider:
-        mock_provider = mock.MagicMock()
-        mock_provider.get_config.return_value = DatabricksConfig.from_password(
-            "host", "user", "pass", insecure=True
-        )
-        ProfileConfigProvider.return_value = mock_provider
-        # Create and mock local tracking directory
-        local_tracking_dir = os.path.join(tmp_path, "mlruns")
-        if tracking_uri is None:
-            tracking_uri = local_tracking_dir
-        old_uri = mlflow.get_tracking_uri()
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
+    )
+    # Create and mock local tracking directory
+    local_tracking_dir = os.path.join(tmp_path, "mlruns")
+    if tracking_uri is None:
+        tracking_uri = local_tracking_dir
+    old_uri = mlflow.get_tracking_uri()
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+        ),
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils._get_store",
+            return_value=file_store.FileStore(local_tracking_dir),
+        ),
+    ):
         try:
             mlflow.set_tracking_uri(tracking_uri)
-            with mock.patch(
-                "mlflow.tracking._tracking_service.utils._get_store",
-                return_value=file_store.FileStore(local_tracking_dir),
-            ):
-                mlflow.projects.run(
-                    TEST_DOCKER_PROJECT_DIR,
-                    experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
-                )
+            mlflow.projects.run(
+                TEST_DOCKER_PROJECT_DIR,
+                experiment_id=file_store.FileStore.DEFAULT_EXPERIMENT_ID,
+            )
         finally:
             mlflow.set_tracking_uri(old_uri)
 
@@ -150,11 +153,10 @@ def test_docker_image_uri_with_git():
 
 
 def test_docker_image_uri_no_git():
-    with mock.patch("mlflow.projects.docker.get_git_commit") as get_git_commit_mock:
-        get_git_commit_mock.return_value = None
+    with mock.patch("mlflow.projects.docker.get_git_commit", return_value=None) as mock_commit:
         image_uri = _get_docker_image_uri("my_project", "my_workdir")
         assert image_uri == "my_project"
-        get_git_commit_mock.assert_called_with("my_workdir")
+        mock_commit.assert_called_with("my_workdir")
 
 
 def test_docker_valid_project_backend_local():
@@ -199,13 +201,13 @@ def test_docker_mount_local_artifact_uri(
 
 
 def test_docker_databricks_tracking_cmd_and_envs():
-    with mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider") as ProfileConfigProvider:
-        mock_provider = mock.MagicMock()
-        mock_provider.get_config.return_value = DatabricksConfig.from_password(
-            "host", "user", "pass", insecure=True
-        )
-        ProfileConfigProvider.return_value = mock_provider
-
+    mock_provider = mock.MagicMock()
+    mock_provider.get_config.return_value = DatabricksConfig.from_password(
+        "host", "user", "pass", insecure=True
+    )
+    with mock.patch(
+        "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+    ):
         cmds, envs = mlflow.projects.docker.get_docker_tracking_cmd_and_envs(
             "databricks://some-profile"
         )

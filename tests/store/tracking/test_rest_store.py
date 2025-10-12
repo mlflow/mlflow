@@ -142,9 +142,7 @@ def test_successful_http_request():
         response.text = '{"experiments": [{"name": "Exp!", "lifecycle_stage": "active"}]}'
         return response
 
-    with mock.patch("requests.Session.request") as request:
-        request.side_effect = mock_request
-
+    with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         experiments = store.search_experiments()
         assert experiments[0].name == "Exp!"
@@ -154,10 +152,7 @@ def test_failed_http_request():
     response = mock.MagicMock()
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
-
-    with mock.patch("requests.Session.request") as request:
-        request.return_value = response
-
+    with mock.patch("requests.Session.request", return_value=response):
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
             store.search_experiments()
@@ -168,9 +163,7 @@ def test_failed_http_request_custom_handler():
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
 
-    with mock.patch("requests.Session.request") as request:
-        request.return_value = response
-
+    with mock.patch("requests.Session.request", return_value=response):
         store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
         with pytest.raises(MyCoolException, match="cool"):
             store.search_experiments()
@@ -185,13 +178,11 @@ def test_response_with_unknown_fields():
         "OMG_WHAT_IS_THIS_FIELD": "Hooly cow",
     }
 
-    with mock.patch("requests.Session.request") as request:
-        response = mock.MagicMock()
-        response.status_code = 200
-        experiments = {"experiments": [experiment_json]}
-        response.text = json.dumps(experiments)
-        request.return_value = response
-
+    response = mock.MagicMock()
+    response.status_code = 200
+    experiments = {"experiments": [experiment_json]}
+    response.text = json.dumps(experiments)
+    with mock.patch("requests.Session.request", return_value=response):
         store = RestStore(lambda: MlflowHostCreds("https://hello"))
         experiments = store.search_experiments()
         assert len(experiments) == 1

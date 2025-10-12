@@ -1845,37 +1845,27 @@ def test_evaluate_on_chat_model_endpoint(input_data, feature_names, targets):
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
 
-        # Validate the endpoint is called with correct payloads
-        call_args_list = mock_deploy_client.return_value.predict.call_args_list
-        expected_calls = [
-            mock.call(
-                endpoint="chat",
-                inputs={
-                    "messages": [{"content": "What is MLflow?", "role": "user"}],
-                    "max_tokens": 10,
-                    "temperature": 0.5,
-                },
-            ),
-            mock.call(
-                endpoint="chat",
-                inputs={
-                    "messages": [{"content": "What is Spark?", "role": "user"}],
-                    "max_tokens": 10,
-                    "temperature": 0.5,
-                },
-            ),
-        ]
-        assert call_args_list == expected_calls
-
-        # Validate the evaluation metrics
-        expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
-        if targets:
-            expected_metrics_subset.add("exact_match/v1")
-        assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
-
-        # Validate the model output is passed to the evaluator in the correct format (string)
-        eval_results_table = eval_result.tables["eval_results_table"]
-        assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="chat",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="chat",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert call_args_list == expected_calls
 
     # Validate the evaluation metrics
     expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean"}
@@ -1926,29 +1916,25 @@ def test_evaluate_on_completion_model_endpoint(input_data, feature_names):
                 feature_names=feature_names,
             )
 
-        # Validate the endpoint is called with correct payloads
-        call_args_list = mock_deploy_client.return_value.predict.call_args_list
-        expected_calls = [
-            mock.call(
-                endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}
-            ),
-            mock.call(
-                endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}
-            ),
-        ]
-        assert call_args_list == expected_calls
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(endpoint="completions", inputs={"prompt": "What is MLflow?", "max_tokens": 10}),
+        mock.call(endpoint="completions", inputs={"prompt": "What is Spark?", "max_tokens": 10}),
+    ]
+    assert call_args_list == expected_calls
 
-        # Validate the evaluation metrics
-        expected_metrics_subset = {
-            "toxicity/v1/ratio",
-            "ari_grade_level/v1/mean",
-            "flesch_kincaid_grade_level/v1/mean",
-        }
-        assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+    # Validate the evaluation metrics
+    expected_metrics_subset = {
+        "toxicity/v1/ratio",
+        "ari_grade_level/v1/mean",
+        "flesch_kincaid_grade_level/v1/mean",
+    }
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
 
-        # Validate the model output is passed to the evaluator in the correct format (string)
-        eval_results_table = eval_result.tables["eval_results_table"]
-        assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
 def test_evaluate_on_model_endpoint_without_type():
@@ -1981,35 +1967,35 @@ def test_evaluate_on_model_endpoint_without_type():
                 inference_params={"max_tokens": 10, "temperature": 0.5},
             )
 
-        # Validate the endpoint is called with correct payloads
-        call_args_list = mock_deploy_client.return_value.predict.call_args_list
-        expected_calls = [
-            mock.call(
-                endpoint="random",
-                inputs={
-                    "messages": [{"content": "What is MLflow?", "role": "user"}],
-                    "max_tokens": 10,
-                    "temperature": 0.5,
-                },
-            ),
-            mock.call(
-                endpoint="random",
-                inputs={
-                    "messages": [{"content": "What is Spark?", "role": "user"}],
-                    "max_tokens": 10,
-                    "temperature": 0.5,
-                },
-            ),
-        ]
-        assert call_args_list == expected_calls
+    # Validate the endpoint is called with correct payloads
+    call_args_list = mock_deploy_client.return_value.predict.call_args_list
+    expected_calls = [
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is MLflow?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+        mock.call(
+            endpoint="random",
+            inputs={
+                "messages": [{"content": "What is Spark?", "role": "user"}],
+                "max_tokens": 10,
+                "temperature": 0.5,
+            },
+        ),
+    ]
+    assert call_args_list == expected_calls
 
-        # Validate the evaluation metrics
-        expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean", "exact_match/v1"}
-        assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
+    # Validate the evaluation metrics
+    expected_metrics_subset = {"toxicity/v1/ratio", "ari_grade_level/v1/mean", "exact_match/v1"}
+    assert expected_metrics_subset.issubset(set(eval_result.metrics.keys()))
 
-        # Validate the model output is passed to the evaluator in the correct format (string)
-        eval_results_table = eval_result.tables["eval_results_table"]
-        assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
+    # Validate the model output is passed to the evaluator in the correct format (string)
+    eval_results_table = eval_result.tables["eval_results_table"]
+    assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
 def test_evaluate_on_model_endpoint_invalid_payload():
@@ -2123,13 +2109,13 @@ def test_model_from_deployment_endpoint(model_input):
 
         response = model.predict(model_input)
 
-        if isinstance(model_input, dict):
-            assert mock_deploy_client.return_value.predict.call_count == 1
-            # Chat response should be unwrapped
-            assert response == "This is a response"
-        else:
-            assert mock_deploy_client.return_value.predict.call_count == 2
-            assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
+    if isinstance(model_input, dict):
+        assert mock_deploy_client.return_value.predict.call_count == 1
+        # Chat response should be unwrapped
+        assert response == "This is a response"
+    else:
+        assert mock_deploy_client.return_value.predict.call_count == 2
+        assert pd.Series(response).equals(pd.Series(["This is a response"] * 2))
 
 
 def test_import_evaluation_dataset():
