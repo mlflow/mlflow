@@ -1,7 +1,3 @@
-"""
-CLI for scorers
-"""
-
 import json
 
 import click
