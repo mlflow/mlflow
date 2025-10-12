@@ -1,5 +1,4 @@
 import time
-from unittest import mock
 
 import pytest
 
@@ -11,6 +10,8 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking import MlflowClient
 from mlflow.utils.os import is_windows
+
+from tests.tracing.helper import get_traces
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -30,15 +31,43 @@ _TEST_HTTP_OTLP_ENDPOINT = "http://127.0.0.1:4317/v1/traces"
 _TEST_HTTPS_OTLP_ENDPOINT = "https://127.0.0.1:4317/v1/traces"
 
 
-def test_should_use_otlp_exporter(monkeypatch):
-    assert not should_use_otlp_exporter()
+@pytest.mark.parametrize(
+    ("traces_endpoint", "otlp_endpoint", "mlflow_enable", "expected"),
+    [
+        # No endpoints configured
+        (None, None, None, False),  # Default behavior - no export without endpoint
+        (None, None, "true", False),  # Explicit enable but no endpoint
+        (None, None, "false", False),  # Explicit disable and no endpoint
+        # OTEL_EXPORTER_OTLP_TRACES_ENDPOINT configured
+        (_TEST_HTTP_OTLP_ENDPOINT, None, None, True),  # Default behavior - export enabled
+        (_TEST_HTTP_OTLP_ENDPOINT, None, "true", True),  # Explicit enable
+        (_TEST_HTTP_OTLP_ENDPOINT, None, "false", False),  # Explicit disable
+        # OTEL_EXPORTER_OTLP_ENDPOINT configured
+        (None, _TEST_HTTP_OTLP_ENDPOINT, None, True),  # Default behavior - export enabled
+        (None, _TEST_HTTP_OTLP_ENDPOINT, "true", True),  # Explicit enable
+        (None, _TEST_HTTP_OTLP_ENDPOINT, "false", False),  # Explicit disable
+        # Both endpoints configured (traces endpoint takes precedence)
+        (_TEST_HTTP_OTLP_ENDPOINT, _TEST_HTTPS_OTLP_ENDPOINT, None, True),
+        (_TEST_HTTP_OTLP_ENDPOINT, _TEST_HTTPS_OTLP_ENDPOINT, "false", False),
+    ],
+)
+def test_should_use_otlp_exporter(
+    traces_endpoint, otlp_endpoint, mlflow_enable, expected, monkeypatch
+):
+    # Clear all relevant environment variables to ensure test isolation
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", raising=False)
+    monkeypatch.delenv("OTEL_EXPORTER_OTLP_ENDPOINT", raising=False)
+    monkeypatch.delenv("MLFLOW_ENABLE_OTLP_EXPORTER", raising=False)
 
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", _TEST_HTTP_OTLP_ENDPOINT)
-    assert should_use_otlp_exporter()
+    # Set environment variables based on test parameters
+    if traces_endpoint is not None:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", traces_endpoint)
+    if otlp_endpoint is not None:
+        monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", otlp_endpoint)
+    if mlflow_enable is not None:
+        monkeypatch.setenv("MLFLOW_ENABLE_OTLP_EXPORTER", mlflow_enable)
 
-    monkeypatch.delenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT")
-    monkeypatch.setenv("OTEL_EXPORTER_OTLP_ENDPOINT", _TEST_HTTP_OTLP_ENDPOINT)
-    assert should_use_otlp_exporter()
+    assert should_use_otlp_exporter() is expected
 
 
 @pytest.mark.parametrize(
@@ -73,7 +102,13 @@ def test_get_otlp_exporter_invalid_protocol(monkeypatch):
 
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
-def test_export_to_otel_collector(otel_collector, monkeypatch):
+@pytest.mark.parametrize("dual_export", [True, False, None], ids=["enable", "disable", "default"])
+def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
+    if dual_export:
+        monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "true")
+    elif dual_export is False:
+        monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "false")
+
     from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
     _, _, port = otel_collector
@@ -98,21 +133,21 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
             time.sleep(0.1)
             return res
 
-    mock_client = mock.MagicMock()
-    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=mock_client):
-        # Create a trace
-        model = TestModel()
-        model.predict(2, 5)
+    model = TestModel()
+    model.predict(2, 5)
 
     # Tracer should be configured to export to OTLP
     exporter = _get_trace_exporter()
     assert isinstance(exporter, OTLPSpanExporter)
     assert exporter._endpoint == f"127.0.0.1:{port}"
 
-    # Traces should not be logged to MLflow
-    mock_client.start_trace.assert_not_called()
-    mock_client._upload_trace_data.assert_not_called()
-    mock_client._upload_ended_trace_info.assert_not_called()
+    mlflow_traces = get_traces()
+    if dual_export:
+        assert len(mlflow_traces) == 1
+        assert mlflow_traces[0].info.state == "OK"
+        assert len(mlflow_traces[0].data.spans) == 3
+    else:
+        assert len(mlflow_traces) == 0
 
     # Wait for collector to receive spans, checking every second for up to 60 seconds
     _, output_file, _ = otel_collector
@@ -124,7 +159,11 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
         # Check if spans are in the logs - the debug exporter outputs span details
         # The BatchSpanProcessor may send spans in multiple batches, so we check for any evidence
         # that the collector is receiving spans from our test
-        if "predict" in collector_logs:
+        if (
+            "predict" in collector_logs
+            and "add_one_with_custom_name" in collector_logs
+            and "square" in collector_logs
+        ):
             # We found evidence that spans are being exported to the collector
             # The child spans may come in separate batches, but OTLP export works
             spans_found = True

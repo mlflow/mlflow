@@ -840,6 +840,112 @@ def test_create_model_version_missing_output_signature(store, tmp_path):
         store.create_model_version(name="mymodel", source=str(tmp_path))
 
 
+def test_create_model_version_with_optional_signature_validation_bypass_enabled(store, tmp_path):
+    # Create a model directory without proper signature
+    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
+
+    # Mock only the essential methods needed to test signature validation bypass
+    with (
+        mock.patch.object(store, "_validate_model_signature") as mock_validate_signature,
+        mock.patch.object(store, "_local_model_dir") as mock_local_model_dir,
+        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
+        mock.patch.object(store, "_get_artifact_repo") as mock_get_artifact_repo,
+        mock.patch.object(store, "_finalize_model_version") as mock_finalize,
+    ):
+        # Setup minimal mocks
+        mock_local_model_dir.return_value.__enter__.return_value = tmp_path
+        mock_local_model_dir.return_value.__exit__.return_value = None
+
+        # Mock the model version response
+        mock_model_version = mock.Mock()
+        mock_response = mock.Mock()
+        mock_response.model_version = mock_model_version
+        mock_call_endpoint.return_value = mock_response
+
+        # Mock artifact repo
+        mock_artifact_repo = mock.Mock()
+        mock_get_artifact_repo.return_value = mock_artifact_repo
+
+        # Mock finalization
+        mock_finalized_mv = mock.Mock()
+        mock_finalized_mv.status = 1
+        mock_finalized_mv.name = "test_model"
+        mock_finalized_mv.version = "1"
+        mock_finalized_mv.aliases = []
+        mock_finalized_mv.tags = []
+        mock_finalized_mv.model_params = []
+        mock_finalized_mv.model_metrics = []
+        mock_deployment_job_state = mock.Mock()
+        mock_deployment_job_state.job_id = "job123"
+        mock_deployment_job_state.run_id = "run123"
+        mock_deployment_job_state.job_state = 1
+        mock_deployment_job_state.run_state = 1
+        mock_deployment_job_state.current_task_name = "task1"
+        mock_finalized_mv.deployment_job_state = mock_deployment_job_state
+        mock_finalize.return_value = mock_finalized_mv
+
+        # Call the method with bypass_signature_validation=True
+        store._create_model_version_with_optional_signature_validation(
+            name="test_model", source=str(tmp_path), bypass_signature_validation=True
+        )
+
+        # Verify that signature validation was bypassed
+        mock_validate_signature.assert_not_called()
+
+
+def test_create_model_version_with_optional_signature_validation_bypass_disabled(store, tmp_path):
+    # Create a model directory without proper signature
+    tmp_path.joinpath(MLMODEL_FILE_NAME).write_text(json.dumps({"a": "b"}))
+
+    # Mock only the essential methods needed to test signature validation
+    with (
+        mock.patch.object(store, "_validate_model_signature") as mock_validate_signature,
+        mock.patch.object(store, "_local_model_dir") as mock_local_model_dir,
+        mock.patch.object(store, "_call_endpoint") as mock_call_endpoint,
+        mock.patch.object(store, "_get_artifact_repo") as mock_get_artifact_repo,
+        mock.patch.object(store, "_finalize_model_version") as mock_finalize,
+    ):
+        # Setup minimal mocks
+        mock_local_model_dir.return_value.__enter__.return_value = tmp_path
+        mock_local_model_dir.return_value.__exit__.return_value = None
+
+        # Mock the model version response
+        mock_model_version = mock.Mock()
+        mock_response = mock.Mock()
+        mock_response.model_version = mock_model_version
+        mock_call_endpoint.return_value = mock_response
+
+        # Mock artifact repo
+        mock_artifact_repo = mock.Mock()
+        mock_get_artifact_repo.return_value = mock_artifact_repo
+
+        # Mock finalization
+        mock_finalized_mv = mock.Mock()
+        mock_finalized_mv.status = 1
+        mock_finalized_mv.name = "test_model"
+        mock_finalized_mv.version = "1"
+        mock_finalized_mv.aliases = []
+        mock_finalized_mv.tags = []
+        mock_finalized_mv.model_params = []
+        mock_finalized_mv.model_metrics = []
+        mock_deployment_job_state = mock.Mock()
+        mock_deployment_job_state.job_id = "job123"
+        mock_deployment_job_state.run_id = "run123"
+        mock_deployment_job_state.job_state = 1
+        mock_deployment_job_state.run_state = 1
+        mock_deployment_job_state.current_task_name = "task1"
+        mock_finalized_mv.deployment_job_state = mock_deployment_job_state
+        mock_finalize.return_value = mock_finalized_mv
+
+        # Call the method with bypass_signature_validation=False
+        store._create_model_version_with_optional_signature_validation(
+            name="test_model", source=str(tmp_path), bypass_signature_validation=False
+        )
+
+        # Verify that signature validation was performed
+        mock_validate_signature.assert_called_once_with(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("encryption_details", "extra_args"),
     [
@@ -2544,13 +2650,8 @@ def test_link_prompt_version_to_model_success(store):
         assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_model_sets_tag(store):
     """Test that linking a prompt version to a model sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2560,7 +2661,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the logged model
         model_id = "model_123"
         logged_model = LoggedModel(
@@ -2673,13 +2781,8 @@ def test_link_prompt_version_to_run_success(store):
         assert req_body["run_ids"] == ["run_123"]
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_run_sets_tag(store):
     """Test that linking a prompt version to a run sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2689,7 +2792,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the run
         run_id = "run_123"
         run_data = RunData(metrics=[], params=[], tags={})

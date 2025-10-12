@@ -3,12 +3,16 @@ from unittest import mock
 import pytest
 from fastapi.encoders import jsonable_encoder
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.gemini import GeminiProvider
 from mlflow.gateway.schemas import chat, completions, embeddings
 
-from tests.gateway.tools import MockAsyncResponse
+from tests.gateway.tools import (
+    MockAsyncResponse,
+    MockAsyncStreamingResponse,
+    mock_http_client,
+)
 
 
 def completions_config():
@@ -104,7 +108,7 @@ def fake_chat_response():
 @pytest.mark.asyncio
 async def test_gemini_single_embedding():
     config = embedding_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"input": "This is a test embedding."}
 
     expected_payload = {"content": {"parts": [{"text": "This is a test embedding."}]}}
@@ -137,7 +141,7 @@ async def test_gemini_single_embedding():
 @pytest.mark.asyncio
 async def test_gemini_batch_embedding():
     config = embedding_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {"input": ["Test embedding 1.", "Test embedding 2."]}
 
     expected_payload = {
@@ -183,7 +187,7 @@ async def test_gemini_batch_embedding():
 @pytest.mark.asyncio
 async def test_gemini_completions():
     config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {
         "prompt": "Tell me a joke",
         "temperature": 0.1,
@@ -245,19 +249,6 @@ async def test_gemini_completions():
 
 
 @pytest.mark.asyncio
-async def test_gemini_completions_streaming_not_supported():
-    config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {"prompt": "Tell me a joke", "stream": True}
-
-    with pytest.raises(
-        AIGatewayException,
-        match="Streaming is not yet supported for completions with Gemini AI Gateway",
-    ):
-        await provider.completions(completions.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("override", "exclude_keys", "expected_msg"),
     [
@@ -270,7 +261,7 @@ async def test_gemini_completions_streaming_not_supported():
 )
 async def test_invalid_parameters_completions(override, exclude_keys, expected_msg):
     config = completions_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
 
     base_payload = {
         "prompt": "Tell me a joke",
@@ -292,7 +283,7 @@ async def test_invalid_parameters_completions(override, exclude_keys, expected_m
 @pytest.mark.asyncio
 async def test_gemini_chat():
     config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
     payload = {
         "messages": [
             {"role": "system", "content": "You are a helpful assistant"},
@@ -363,22 +354,6 @@ async def test_gemini_chat():
 
 
 @pytest.mark.asyncio
-async def test_gemini_chat_streaming_not_supported():
-    config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
-    payload = {
-        "messages": [{"role": "user", "content": "Tell me a joke"}],
-        "stream": True,
-    }
-
-    with pytest.raises(
-        AIGatewayException,
-        match="Streaming is not yet supported for chat completions with Gemini AI Gateway",
-    ):
-        await provider.chat(chat.RequestPayload(**payload))
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("override", "exclude_keys", "expected_msg"),
     [
@@ -395,7 +370,7 @@ async def test_gemini_chat_streaming_not_supported():
 )
 async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
     config = chat_config()
-    provider = GeminiProvider(RouteConfig(**config))
+    provider = GeminiProvider(EndpointConfig(**config))
 
     base_payload = {
         "messages": [{"role": "user", "content": "Tell me a joke"}],
@@ -412,3 +387,154 @@ async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
 
     with pytest.raises(AIGatewayException, match=expected_msg):
         await provider.chat(chat.RequestPayload(**payload))
+
+
+def chat_stream_response():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+def chat_stream_response_incomplete():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"chat.completion.chunk",',
+        b'"created":1,"model":"test"}\n\n'
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"chat.completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize("resp", [chat_stream_response(), chat_stream_response_incomplete()])
+@pytest.mark.asyncio
+async def test_gemini_chat_stream(resp):
+    config = chat_config()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = {"messages": [{"role": "user", "content": "Tell me a joke"}]}
+
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
+                {"index": 0, "finish_reason": None, "delta": {"role": "assistant", "content": "a"}}
+            ],
+        },
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "stop",
+                    "delta": {"role": "assistant", "content": "b"},
+                }
+            ],
+        },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
+
+
+def completions_stream_response():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"text_completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"text_completion.chunk","created":1,"model":"test"}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+def completions_stream_response_incomplete():
+    return [
+        b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
+        b'id":"test-id","object":"text_completion.chunk",',
+        b'"created":1,"model":"test"}\n\n'
+        b'data: {"candidates":[{"content":{"parts":[{"text":"b"}]},"finishReason":"stop"}],"'
+        b'id":"test-id","object":"text_completion.chunk",',
+        b'"created":1,"model":"test"}\n\n',
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.parametrize(
+    "resp", [completions_stream_response(), completions_stream_response_incomplete()]
+)
+@pytest.mark.asyncio
+async def test_gemini_completions_stream(resp):
+    config = completions_config()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = {"prompt": "Recite the song jhony jhony yes papa"}
+
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.completions_stream(completions.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+        {
+            "id": "gemini-completions-stream-1",
+            "object": "text_completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [{"index": 0, "finish_reason": None, "text": "a"}],
+        },
+        {
+            "id": "gemini-completions-stream-1",
+            "object": "text_completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [{"index": 0, "finish_reason": "stop", "text": "b"}],
+        },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )

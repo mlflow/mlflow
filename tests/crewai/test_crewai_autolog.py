@@ -9,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -77,6 +78,21 @@ class AnyInt(int):
 
 ANY_INT = AnyInt()
 
+# CrewAI >= 0.175.0 changed behavior: TaskOutput.name falls back to description when None
+# See: https://github.com/crewAIInc/crewAI/pull/3382
+_CREWAI_VERSION = Version(crewai.__version__)
+_TASK_DESCRIPTION = "Analyze and select the best city for the trip"
+_TASK_DESCRIPTION_2 = "Compile an in-depth guide"
+
+
+def _get_expected_task_name(description: str) -> str | None:
+    """Get expected task name based on CrewAI version."""
+    return description if _CREWAI_VERSION >= Version("0.175.0") else None
+
+
+_TASK_NAME = _get_expected_task_name(_TASK_DESCRIPTION)
+_TASK_NAME_2 = _get_expected_task_name(_TASK_DESCRIPTION_2)
+
 _CREW_OUTPUT = {
     "json_dict": None,
     "pydantic": None,
@@ -84,8 +100,8 @@ _CREW_OUTPUT = {
     "tasks_output": [
         {
             "agent": "City Selection Expert",
-            "name": None,
-            "description": "Analyze and select the best city for the trip",
+            "name": _TASK_NAME,
+            "description": _TASK_DESCRIPTION,
             "expected_output": "Detailed report on the chosen city",
             "json_dict": None,
             "pydantic": None,
@@ -245,7 +261,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -282,6 +298,12 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
         }
     }
     assert span_4.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
     with patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION):
         mlflow.crewai.autolog(disable=True)
@@ -382,7 +404,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -425,6 +447,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     }
     assert span_5.outputs is None
 
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
+
 
 def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     crew = Crew(
@@ -455,7 +483,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "tasks_output": [
             {
                 "agent": "City Selection Expert",
-                "name": None,
+                "name": _TASK_NAME,
                 "description": "Analyze and select the best city for the trip",
                 "expected_output": "Detailed report on the chosen city",
                 "json_dict": None,
@@ -469,7 +497,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
                 "description": "Compile an in-depth guide",
                 "expected_output": "Comprehensive city guide",
                 "json_dict": None,
-                "name": None,
+                "name": _TASK_NAME_2,
                 "output_format": "raw",
                 "pydantic": None,
                 "raw": _LLM_ANSWER,
@@ -498,7 +526,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -550,7 +578,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         "description": "Compile an in-depth guide",
         "expected_output": "Comprehensive city guide",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME_2,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -586,6 +614,12 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         }
     }
     assert span_8.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
 
 
 @pytest.mark.skipif(
@@ -632,7 +666,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -691,13 +725,18 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_7.name == "ShortTermMemory.save"
     assert span_7.span_type == SpanType.MEMORY
     assert span_7.parent_id is span_2.span_id
-    assert span_7.inputs == {
-        "agent": "City Selection Expert",
+    # CrewAI changed the memory save input format - agent field was removed in newer versions
+    expected_memory_inputs = {
         "metadata": {
             "observation": "Analyze and select the best city for the trip",
         },
         "value": f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}",
     }
+    # Add agent field for older CrewAI versions
+    if _CREWAI_VERSION < Version("0.175.0"):
+        expected_memory_inputs["agent"] = "City Selection Expert"
+
+    assert span_7.inputs == expected_memory_inputs
     assert span_7.outputs is None
 
     # Create Long Term Memory
@@ -762,7 +801,7 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -808,6 +847,12 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 def test_kickoff_for_each(simple_agent_1, task_1, autolog):
@@ -855,7 +900,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,
@@ -944,7 +989,7 @@ def test_flow(simple_agent_1, task_1, autolog):
         "description": "Analyze and select the best city for the trip",
         "expected_output": "Detailed report on the chosen city",
         "json_dict": None,
-        "name": None,
+        "name": _TASK_NAME,
         "output_format": "raw",
         "pydantic": None,
         "raw": _LLM_ANSWER,

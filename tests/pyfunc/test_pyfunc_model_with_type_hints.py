@@ -43,7 +43,6 @@ from mlflow.types.schema import (
     Schema,
 )
 from mlflow.types.type_hints import TypeFromExample
-from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -925,11 +924,7 @@ def test_predict_model_with_type_hints():
     mlflow.models.predict(
         model_uri=model_info.model_uri,
         input_data=["a", "b", "c"],
-        # uv env manager works in local testing but not in CI
-        # because setuptools also exists in https://download.pytorch.org/whl/cpu, but it might
-        # not include the version we need, and uv by default finds the first index that
-        # has the package, this could cause version not found error
-        env_manager=VIRTUALENV,
+        env_manager="uv",
     )
 
 
@@ -1167,56 +1162,56 @@ def test_python_model_without_type_hint_warning():
             mlflow.pyfunc.log_model(name="model", python_model=predict, input_example="abc")
 
 
-@mock.patch("mlflow.pyfunc.utils.data_validation.color_warning")
-def test_type_hint_warning_not_shown_for_builtin_subclasses(mock_warning):
-    # Class outside "mlflow" module should warn
-    class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
-        def predict(self, model_input, params=None):
-            return model_input
+def test_type_hint_warning_not_shown_for_builtin_subclasses():
+    with mock.patch("mlflow.pyfunc.utils.data_validation.color_warning") as mock_warning:
+        # Class outside "mlflow" module should warn
+        class PythonModelWithoutTypeHint(mlflow.pyfunc.PythonModel):
+            def predict(self, model_input, params=None):
+                return model_input
 
-    assert mock_warning.call_count == 1
-    assert "Add type hints to the `predict` method" in mock_warning.call_args[0][0]
-    mock_warning.reset_mock()
+        assert mock_warning.call_count == 1
+        assert "Add type hints to the `predict` method" in mock_warning.call_args[0][0]
+        mock_warning.reset_mock()
 
-    # Class inside "mlflow" module should not warn
-    ChatModel.__init_subclass__()
-    assert mock_warning.call_count == 0
+        # Class inside "mlflow" module should not warn
+        ChatModel.__init_subclass__()
+        assert mock_warning.call_count == 0
 
-    _FunctionPythonModel.__init_subclass__()
-    assert mock_warning.call_count == 0
+        _FunctionPythonModel.__init_subclass__()
+        assert mock_warning.call_count == 0
 
-    # Subclass of ChatModel should not warn (exception to the rule)
-    class ChatModelSubclass(ChatModel):
-        def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
-            return model_input
+        # Subclass of ChatModel should not warn (exception to the rule)
+        class ChatModelSubclass(ChatModel):
+            def predict(self, model_input: list[ChatMessage], params: ChatParams | None = None):
+                return model_input
 
-    assert mock_warning.call_count == 0
+        assert mock_warning.call_count == 0
 
-    # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
-    class SimpleChatAgent(ChatAgent):
-        def predict(
-            self,
-            messages: list[ChatAgentMessage],
-            context: ChatContext | None = None,
-            custom_inputs: dict[str, Any] | None = None,
-        ) -> ChatAgentResponse:
-            pass
+        # Subclass of ChatAgent should not warn as well (valid pydantic type hint)
+        class SimpleChatAgent(ChatAgent):
+            def predict(
+                self,
+                messages: list[ChatAgentMessage],
+                context: ChatContext | None = None,
+                custom_inputs: dict[str, Any] | None = None,
+            ) -> ChatAgentResponse:
+                pass
 
-    assert mock_warning.call_count == 0
+        assert mock_warning.call_count == 0
 
-    # Check import does not trigger any warning (from builtin sub-classes)
-    # Note: DO NOT USE importlib.reload as classes in the reloaded
-    # module are different than original ones, which could cause unintended
-    # side effects in other tests.
-    subprocess.check_call(
-        [
-            sys.executable,
-            "-W",
-            "error::UserWarning:mlflow.pyfunc.model",
-            "-c",
-            "import mlflow.pyfunc.model",
-        ]
-    )
+        # Check import does not trigger any warning (from builtin sub-classes)
+        # Note: DO NOT USE importlib.reload as classes in the reloaded
+        # module are different than original ones, which could cause unintended
+        # side effects in other tests.
+        subprocess.check_call(
+            [
+                sys.executable,
+                "-W",
+                "error::UserWarning:mlflow.pyfunc.model",
+                "-c",
+                "import mlflow.pyfunc.model",
+            ]
+        )
 
 
 def test_load_context_type_hint():

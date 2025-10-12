@@ -52,6 +52,10 @@ EXAMPLE USAGE:
     mlflow traces set-tag --trace-id tr-abc123 \
         --key environment --value production
 
+    # Evaluate traces
+    mlflow traces evaluate --trace-ids tr-abc123,tr-abc124 \
+        --scorers Correctness,Safety --output json
+
 ASSESSMENT TYPES:
     • Feedback: Evaluation scores, ratings, or judgments
     • Expectations: Ground truth labels or expected outputs
@@ -62,6 +66,9 @@ For detailed help on any command, use:
 """
 
 import json
+import os
+import warnings
+from typing import Literal
 
 import click
 
@@ -207,7 +214,11 @@ Available fields:
 @click.option(
     "--sql-warehouse-id",
     type=click.STRING,
-    help="SQL warehouse ID for searching inference tables (Databricks only)",
+    help=(
+        "DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead."
+        "SQL warehouse ID (only needed when searching for traces by model "
+        "stored in Databricks Unity Catalog)"
+    ),
 )
 @click.option(
     "--output",
@@ -231,17 +242,17 @@ Available fields:
 )
 def search_traces(
     experiment_id: str,
-    filter_string: str | None,
-    max_results: int,
-    order_by: str | None,
-    page_token: str | None,
-    run_id: str | None,
-    include_spans: bool,
-    model_id: str | None,
-    sql_warehouse_id: str | None,
-    output: str,
-    extract_fields: str | None,
-    verbose: bool,
+    filter_string: str | None = None,
+    max_results: int = 100,
+    order_by: str | None = None,
+    page_token: str | None = None,
+    run_id: str | None = None,
+    include_spans: bool = True,
+    model_id: str | None = None,
+    sql_warehouse_id: str | None = None,
+    output: str = "table",
+    extract_fields: str | None = None,
+    verbose: bool = False,
 ) -> None:
     """
     Search for traces in the specified experiment.
@@ -280,8 +291,17 @@ def search_traces(
     client = TracingClient()
     order_by_list = order_by.split(",") if order_by else None
 
+    # Set the sql_warehouse_id in the environment variable
+    if sql_warehouse_id is not None:
+        warnings.warn(
+            "The `sql_warehouse_id` parameter is deprecated. Please use the "
+            "`MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+            category=FutureWarning,
+        )
+        os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
     traces = client.search_traces(
-        experiment_ids=[experiment_id],
+        locations=[experiment_id],
         filter_string=filter_string,
         max_results=max_results,
         order_by=order_by_list,
@@ -289,7 +309,6 @@ def search_traces(
         run_id=run_id,
         include_spans=include_spans,
         model_id=model_id,
-        sql_warehouse_id=sql_warehouse_id,
     )
 
     # Determine which fields to show
@@ -366,7 +385,11 @@ def search_traces(
     is_flag=True,
     help="Show all available fields in error messages when invalid fields are specified.",
 )
-def get_trace(trace_id: str, extract_fields: str | None, verbose: bool) -> None:
+def get_trace(
+    trace_id: str,
+    extract_fields: str | None = None,
+    verbose: bool = False,
+) -> None:
     """
     All trace details will print to stdout as JSON format.
 
@@ -412,9 +435,9 @@ def get_trace(trace_id: str, extract_fields: str | None, verbose: bool) -> None:
 @click.option("--max-traces", type=click.INT, help="Maximum number of traces to delete")
 def delete_traces(
     experiment_id: str,
-    trace_ids: str | None,
-    max_timestamp_millis: int | None,
-    max_traces: int | None,
+    trace_ids: str | None = None,
+    max_timestamp_millis: int | None = None,
+    max_traces: int | None = None,
 ) -> None:
     """
     Delete traces from an experiment.
@@ -450,7 +473,7 @@ def delete_traces(
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key")
 @click.option("--value", type=click.STRING, required=True, help="Tag value")
-def set_tag(trace_id: str, key: str, value: str) -> None:
+def set_trace_tag(trace_id: str, key: str, value: str) -> None:
     """
     Set a tag on a trace.
 
@@ -466,7 +489,7 @@ def set_tag(trace_id: str, key: str, value: str) -> None:
 @commands.command("delete-tag")
 @TRACE_ID
 @click.option("--key", type=click.STRING, required=True, help="Tag key to delete")
-def delete_tag(trace_id: str, key: str) -> None:
+def delete_trace_tag(trace_id: str, key: str) -> None:
     """
     Delete a tag from a trace.
 
@@ -481,9 +504,7 @@ def delete_tag(trace_id: str, key: str) -> None:
 
 @commands.command("log-feedback")
 @TRACE_ID
-@click.option(
-    "--name", type=click.STRING, default="feedback", help="Feedback name (default: 'feedback')"
-)
+@click.option("--name", type=click.STRING, required=True, help="Feedback name")
 @click.option(
     "--value",
     type=click.STRING,
@@ -492,7 +513,11 @@ def delete_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the feedback",
 )
@@ -507,12 +532,12 @@ def delete_tag(trace_id: str, key: str) -> None:
 def log_feedback(
     trace_id: str,
     name: str,
-    value: str | None,
-    source_type: str | None,
-    source_id: str | None,
-    rationale: str | None,
-    metadata: str | None,
-    span_id: str | None,
+    value: str | None = None,
+    source_type: str | None = None,
+    source_id: str | None = None,
+    rationale: str | None = None,
+    metadata: str | None = None,
+    span_id: str | None = None,
 ) -> None:
     """
     Log feedback (evaluation score) to a trace.
@@ -595,7 +620,11 @@ def log_feedback(
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the expectation",
 )
@@ -606,10 +635,10 @@ def log_expectation(
     trace_id: str,
     name: str,
     value: str,
-    source_type: str | None,
-    source_id: str | None,
-    metadata: str | None,
-    span_id: str | None,
+    source_type: str | None = None,
+    source_id: str | None = None,
+    metadata: str | None = None,
+    span_id: str | None = None,
 ) -> None:
     """
     Log an expectation (ground truth label) to a trace.
@@ -692,9 +721,9 @@ def get_assessment(trace_id: str, assessment_id: str) -> None:
 def update_assessment(
     trace_id: str,
     assessment_id: str,
-    value: str | None,
-    rationale: str | None,
-    metadata: str | None,
+    value: str | None = None,
+    rationale: str | None = None,
+    metadata: str | None = None,
 ) -> None:
     """
     Update an existing assessment.
@@ -770,3 +799,75 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     client = TracingClient()
     client.delete_assessment(trace_id, assessment_id)
     click.echo(f"Deleted assessment {assessment_id} from trace {trace_id}.")
+
+
+@commands.command("evaluate")
+@EXPERIMENT_ID
+@click.option(
+    "--trace-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of trace IDs to evaluate.",
+)
+@click.option(
+    "--scorers",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of scorer names. Can be built-in scorers "
+    "(e.g., Correctness, Safety, RelevanceToQuery) or registered custom scorers.",
+)
+@click.option(
+    "--output",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
+)
+def evaluate_traces(
+    experiment_id: str,
+    trace_ids: str,
+    scorers: str,
+    output_format: Literal["table", "json"] = "table",
+) -> None:
+    """
+    Evaluate one or more traces using specified scorers and display the results.
+
+    This command runs MLflow's genai.evaluate() on specified traces, applying the
+    specified scorers and displaying the evaluation results in table or JSON format.
+
+    \b
+    Examples:
+    # Evaluate a single trace with built-in scorers
+    mlflow traces evaluate --trace-ids tr-abc123 --scorers Correctness,Safety
+
+    \b
+    # Evaluate multiple traces
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
+        --scorers RelevanceToQuery
+
+    \b
+    # Evaluate with JSON output
+    mlflow traces evaluate --trace-ids tr-abc123 \\
+        --scorers Correctness --output json
+
+    \b
+    # Evaluate with custom registered scorer
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456 \\
+        --scorers my_custom_scorer,Correctness
+
+    \b
+    Available built-in scorers (use either PascalCase or snake_case):
+    - Correctness / correctness: Ensures responses are correct and accurate
+    - Safety / safety: Ensures responses don't contain harmful/toxic content
+    - RelevanceToQuery / relevance_to_query: Ensures response addresses user input directly
+    - Guidelines / guidelines: Evaluates adherence to specific constraints
+    - ExpectationsGuidelines / expectations_guidelines: Row-specific guidelines evaluation
+    - RetrievalRelevance / retrieval_relevance: Measures chunk relevance to input request
+    - RetrievalSufficiency / retrieval_sufficiency: Evaluates if retrieved docs provide
+      necessary info
+    - RetrievalGroundedness / retrieval_groundedness: Assesses response alignment with
+      retrieved context
+    """
+    from mlflow.cli.eval import evaluate_traces as run_evaluation
+
+    run_evaluation(experiment_id, trace_ids, scorers, output_format)

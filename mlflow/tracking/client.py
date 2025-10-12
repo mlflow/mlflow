@@ -5,6 +5,7 @@ and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import contextlib
+import functools
 import json
 import logging
 import os
@@ -25,6 +26,7 @@ from pydantic import BaseModel
 import mlflow
 from mlflow.entities import (
     DatasetInput,
+    EvaluationDataset,
     Experiment,
     FileInfo,
     LoggedModel,
@@ -75,6 +77,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -87,14 +90,17 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
-from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
@@ -104,7 +110,7 @@ from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
 from mlflow.utils import is_uuid
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated, deprecated_parameter, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
 from mlflow.utils.databricks_utils import (
     get_databricks_run_url,
@@ -119,6 +125,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _validate_list_param,
     _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
@@ -155,6 +162,36 @@ def _validate_model_id_specified(model_id: str) -> None:
             f"`model_id` must be a non-empty string, but got {model_id!r}",
             INVALID_PARAMETER_VALUE,
         )
+
+
+def _disable_in_databricks(use_uc_message=False):
+    """Decorator to disable dataset operations when tracking URI is Databricks.
+
+    Args:
+        use_uc_message: If True, suggests Unity Catalog instead of fluent API.
+    """
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            if not is_databricks_uri(str(self.tracking_uri)):
+                return func(self, *args, **kwargs)
+
+            # Early return with appropriate error message
+            message_suffix = (
+                "Use Unity Catalog functionality instead."
+                if use_uc_message
+                else "Use the fluent API instead (e.g., mlflow.genai.datasets.create_dataset)."
+            )
+            message = (
+                f"Dataset operation '{func.__name__}' is not supported when tracking "
+                f"URI is 'databricks'. {message_suffix}"
+            )
+            raise MlflowException(message, error_code=INVALID_PARAMETER_VALUE)
+
+        return wrapper
+
+    return decorator
 
 
 class MlflowClient:
@@ -443,7 +480,6 @@ class MlflowClient:
 
     ##### Prompt Registry #####
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def register_prompt(
@@ -685,7 +721,6 @@ class MlflowClient:
             page_token=page_token,
         )
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def load_prompt(
@@ -721,27 +756,28 @@ class MlflowClient:
                 is not found.
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-        if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version/alias
-            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-        else:
-            # Name case: use the name and provided version
-            name = parsed_name_or_uri
-            version_or_alias = parsed_version
 
-        registry_client = self._get_registry_client()
         try:
-            # If version_or_alias is not a digit, treat as alias
+            if parsed_name_or_uri.startswith("prompts:/"):
+                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
+            else:
+                name = parsed_name_or_uri
+                version_or_alias = parsed_version
+
+            registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in (
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # Missing alias (file/sql registry only)
+                ErrorCode.Name(NOT_FOUND),
+            ):
                 return None
             raise
 
-    @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
     def link_prompt_version_to_run(self, run_id: str, prompt: str | PromptVersion) -> None:
@@ -1056,7 +1092,7 @@ class MlflowClient:
             trace_ids=trace_ids,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def get_trace(self, trace_id: str, display=True) -> Trace:
         """
         Get the trace matching the specified ``trace_id``.
@@ -1088,9 +1124,10 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
+    @deprecated_parameter("experiment_ids", "locations")
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -1098,7 +1135,7 @@ class MlflowClient:
         run_id: str | None = None,
         include_spans: bool = True,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1117,9 +1154,9 @@ class MlflowClient:
                 the trace metadata is returned, e.g., trace ID, start time, end time, etc,
                 without any spans.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
-
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs. To search over UC tables on databricks, provide
+                a list of locations in the format `<catalog_name>.<schema_name>`.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1129,6 +1166,9 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+        _validate_list_param("locations", locations, allow_none=True)
+
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -1138,7 +1178,7 @@ class MlflowClient:
             run_id=run_id,
             include_spans=include_spans,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
+            locations=locations,
         )
 
     def start_trace(
@@ -1232,7 +1272,7 @@ class MlflowClient:
             start_time_ns=start_time_ns,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def end_trace(
         self,
         trace_id: str,
@@ -1304,7 +1344,7 @@ class MlflowClient:
         """
         return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def start_span(
         self,
         name: str,
@@ -1458,7 +1498,7 @@ class MlflowClient:
             start_time_ns=start_time_ns,
         )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def end_span(
         self,
         trace_id: str,
@@ -1495,7 +1535,7 @@ class MlflowClient:
                 end_time_ns=end_time_ns,
             )
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
@@ -1524,7 +1564,7 @@ class MlflowClient:
         """
         self._tracing_client.set_trace_tag(trace_id, key, value)
 
-    @request_id_backward_compatible
+    @deprecated_parameter("request_id", "trace_id", version="3.0.0")
     def delete_trace_tag(self, trace_id: str, key: str) -> None:
         """
         Delete a tag on the trace with the given trace ID.
@@ -4302,6 +4342,12 @@ class MlflowClient:
     def copy_model_version(self, src_model_uri, dst_name) -> ModelVersion:
         """
         Copy a model version from one registered model to another as a new model version.
+        If the destination model does not exist, it will be created.
+
+        This method can also be used to migrate model versions from the Databricks workspace
+        registry to Unity Catalog. During the migration, signature validation can be bypassed
+        by setting the `MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION`environment
+        variable to `True`.
 
         Args:
             src_model_uri: The model URI of the model version to copy. This must be a model
@@ -4353,7 +4399,21 @@ class MlflowClient:
             dst_name = "RandomForestRegression-production"
             src_model_uri = f"models:/{mv_src.name}/{mv_src.version}"
             mv_copy = client.copy_model_version(src_model_uri, dst_name)
-            print_model_version_info(mv_copy)
+            print(f"Name: {mv_copy.name}, Version: {mv_copy.version}, Source: {mv_copy.source}")
+
+        .. code-block:: python
+            :caption: Migration example from Databricks Workspace Model Registry to Unity Catalog
+
+            from mlflow import MlflowClient
+            import os
+
+            os.environ["MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION"] = "true"
+            client = MlflowClient(registry_uri="databricks")
+
+            src_model_uri = f"models:/my_workspace_model/1"
+            uc_model_dst_name = "mycatalog.myschema.my_uc_model"
+            uc_migrated_copy = client.copy_model_version(src_model_uri, uc_model_dst_name)
+            print_model_version_info(uc_migrated_copy)
 
         .. code-block:: text
             :caption: Output
@@ -5952,6 +6012,253 @@ class MlflowClient:
 
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def create_dataset(
+        self,
+        name: str,
+        experiment_id: str | list[str] | None = None,
+        tags: dict[str, Any] | None = None,
+    ) -> EvaluationDataset:
+        """
+        Create a new dataset.
+
+        Args:
+            name: The name of the dataset.
+            experiment_id: Optional experiment ID (str) or list of experiment IDs to
+                associate with the dataset.
+            tags: Optional dictionary of tags to apply to the dataset.
+
+        Returns:
+            The created EvaluationDataset object.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Create a dataset associated with experiments
+            dataset = client.create_dataset(
+                name="qa_evaluation_v1",
+                experiment_id=["0", "1"],
+                tags={"environment": "production", "version": "1.0"},
+            )
+        """
+        return self._tracking_client.create_dataset(
+            name=name,
+            experiment_id=experiment_id,
+            tags=tags,
+        )
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def get_dataset(self, dataset_id: str) -> EvaluationDataset:
+        """
+        Get a dataset by ID.
+
+        Args:
+            dataset_id: The ID of the dataset to retrieve.
+
+        Returns:
+            The EvaluationDataset object.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Get a dataset by ID (assuming it exists)
+            dataset = client.get_dataset("dataset_123")
+
+            # Access records (lazy loaded)
+            df = dataset.to_df()
+        """
+        return self._tracking_client.get_dataset(dataset_id)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def delete_dataset(self, dataset_id: str) -> None:
+        """
+        Delete a dataset and all its records.
+
+        Args:
+            dataset_id: The ID of the dataset to delete.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Delete a dataset
+            client.delete_dataset("dataset_123")
+        """
+        self._tracking_client.delete_dataset(dataset_id)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
+    def search_datasets(
+        self,
+        experiment_ids: list[str] | None = None,
+        filter_string: str | None = None,
+        max_results: int = SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by: list[str] | None = None,
+        page_token: str | None = None,
+    ) -> PagedList[EvaluationDataset]:
+        """
+        Search for datasets.
+
+        Args:
+            experiment_ids: List of experiment IDs to filter by.
+            filter_string: A filter string to apply to the search.
+            max_results: Maximum number of results to return. Defaults to 50.
+            order_by: List of columns to order by.
+            page_token: Token for the next page of results.
+
+        Returns:
+            A PagedList of EvaluationDataset objects.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Search for datasets in specific experiments
+            datasets = client.search_datasets(
+                experiment_ids=["exp1", "exp2"], filter_string="name LIKE 'qa_%'", max_results=10
+            )
+
+            # Get next page if available
+            if datasets.token:
+                next_page = client.search_datasets(
+                    experiment_ids=["exp1", "exp2"], page_token=datasets.token
+                )
+        """
+        return self._tracking_client.search_datasets(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
+    def set_dataset_tags(self, dataset_id: str, tags: dict[str, Any]) -> None:
+        """
+        Set tags for a dataset.
+
+        This implements an upsert operation - existing tags are merged with new tags.
+        To remove a tag, set its value to None.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            tags: Dictionary of tags to update. Setting a value to None removes the tag.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Set tags for a dataset
+            client.set_dataset_tags(
+                dataset_id="dataset123",
+                tags={
+                    "environment": "production",
+                    "version": "2.0",
+                    "deprecated": None,  # This removes the 'deprecated' tag
+                },
+            )
+        """
+        self._tracking_client.set_dataset_tags(dataset_id=dataset_id, tags=tags)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks(use_uc_message=True)
+    def delete_dataset_tag(self, dataset_id: str, key: str) -> None:
+        """
+        Delete a tag from a dataset.
+
+        Args:
+            dataset_id: The ID of the dataset.
+            key: The tag key to delete.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Delete a tag
+            client.delete_dataset_tag(dataset_id="dataset123", key="deprecated")
+        """
+        self._tracking_client.delete_dataset_tag(dataset_id=dataset_id, key=key)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def add_dataset_to_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Add a dataset to additional experiments.
+
+        This allows reusing datasets across multiple experiments for evaluation purposes.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to associate with the dataset.
+
+        Returns:
+            The updated EvaluationDataset with new experiment associations.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Add dataset to new experiments
+            dataset = client.add_dataset_to_experiments(
+                dataset_id="d-abc123", experiment_ids=["1", "2", "3"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+        """
+        return self._tracking_client.add_dataset_to_experiments(dataset_id, experiment_ids)
+
+    @experimental(version="3.4.0")
+    @_disable_in_databricks()
+    def remove_dataset_from_experiments(
+        self, dataset_id: str, experiment_ids: list[str]
+    ) -> EvaluationDataset:
+        """
+        Remove a dataset from experiments.
+
+        This operation is idempotent - removing non-existent associations will not raise errors.
+
+        Args:
+            dataset_id: The ID of the dataset to update.
+            experiment_ids: List of experiment IDs to remove association from.
+
+        Returns:
+            The updated EvaluationDataset with removed experiment associations.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Remove dataset from experiments
+            dataset = client.remove_dataset_from_experiments(
+                dataset_id="d-abc123", experiment_ids=["2", "3"]
+            )
+            print(f"Dataset now associated with {len(dataset.experiment_ids)} experiments")
+        """
+        return self._tracking_client.remove_dataset_from_experiments(dataset_id, experiment_ids)
 
     # Webhook APIs
     @experimental(version="3.3.0")

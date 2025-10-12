@@ -36,7 +36,8 @@ import {
  * Import React Router V5 parts
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+import React from 'react';
 
 const useLocation = useLocationDirect;
 
@@ -81,8 +82,9 @@ export {
 
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
-  componentLoader: () => Promise<{ default: React.ComponentType<any> }>,
+  componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
 ) => React.createElement(React.lazy(componentLoader));
-export const createRouteElement = (component: React.ComponentType<any>) => React.createElement(component);
+export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
+  React.createElement(component);
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

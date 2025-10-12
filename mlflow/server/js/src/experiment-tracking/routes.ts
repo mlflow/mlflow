@@ -1,11 +1,12 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
-import { ExperimentPageTabName } from './constants';
+import type { ExperimentPageTabName } from './constants';
 
 /**
  * Page identifiers for MLflow experiment tracking pages.
  * Keys should correspond to route paths.
  */
 export enum PageId {
+  home = 'mlflow.home',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
   experimentPageTabbed = 'mlflow.experiment.details.tab',
@@ -215,7 +216,7 @@ class Routes {
     experimentIds: string[],
     plotMetricKeys: string[] | null = null,
     plotLayout: any = {},
-    selectedXAxis: 'wall' | 'step' | 'relative' = 'relative',
+    selectedXAxis: 'wall' | 'step' | 'relative' = 'step',
     yAxisLogScale = false,
     lineSmoothness = 1,
     showPoint = false,

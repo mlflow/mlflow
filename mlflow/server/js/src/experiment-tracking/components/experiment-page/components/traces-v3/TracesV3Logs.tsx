@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
+import type { TracesTableColumn, TraceActions } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -8,31 +9,32 @@ import {
   REQUEST_TIME_COLUMN_ID,
   STATE_COLUMN_ID,
   RESPONSE_COLUMN_ID,
-  TracesTableColumn,
   TracesTableColumnType,
   useSearchMlflowTraces,
   useSelectedColumns,
   getEvalTabTotalTracesLimit,
   GenAITracesTableProvider,
-  TraceActions,
   useFilters,
   getTracesTagKeys,
   useTableSort,
   useMlflowTracesTableMetadata,
   TOKENS_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
+  TRACE_ID_COLUMN_ID,
 } from '@databricks/web-shared/genai-traces-table';
-import { MlflowService } from '@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
+import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
+import { checkColumnContents } from './utils/columnUtils';
+import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
 
-export const TracesV3Logs = React.memo(
+const TracesV3LogsImpl = React.memo(
   ({
     experimentId,
     endpointName,
@@ -54,6 +56,7 @@ export const TracesV3Logs = React.memo(
       allColumns,
       totalCount,
       isLoading: isMetadataLoading,
+      evaluatedTraces,
       error: metadataError,
       isEmpty,
       tableFilterOptions,
@@ -68,22 +71,26 @@ export const TracesV3Logs = React.memo(
     const [filters, setFilters] = useFilters();
     const queryClient = useQueryClient();
 
-    const defaultSelectedColumns = useCallback((columns: TracesTableColumn[]) => {
-      return columns.filter(
-        (col) =>
-          col.type === TracesTableColumnType.ASSESSMENT ||
-          col.type === TracesTableColumnType.INPUT ||
-          (col.type === TracesTableColumnType.TRACE_INFO &&
-            [
-              EXECUTION_DURATION_COLUMN_ID,
-              RESPONSE_COLUMN_ID,
-              REQUEST_TIME_COLUMN_ID,
-              STATE_COLUMN_ID,
-              TOKENS_COLUMN_ID,
-            ].includes(col.id)) ||
-          col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
-      );
-    }, []);
+    const defaultSelectedColumns = useCallback(
+      (allColumns: TracesTableColumn[]) => {
+        const { responseHasContent, inputHasContent, tokensHasContent } = checkColumnContents(evaluatedTraces);
+
+        return allColumns.filter(
+          (col) =>
+            col.type === TracesTableColumnType.ASSESSMENT ||
+            col.type === TracesTableColumnType.EXPECTATION ||
+            (inputHasContent && col.type === TracesTableColumnType.INPUT) ||
+            (responseHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === RESPONSE_COLUMN_ID) ||
+            (tokensHasContent && col.type === TracesTableColumnType.TRACE_INFO && col.id === TOKENS_COLUMN_ID) ||
+            (col.type === TracesTableColumnType.TRACE_INFO &&
+              [TRACE_ID_COLUMN_ID, EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, STATE_COLUMN_ID].includes(
+                col.id,
+              )) ||
+            col.type === TracesTableColumnType.INTERNAL_MONITOR_REQUEST_TIME,
+        );
+      },
+      [evaluatedTraces],
+    );
 
     const { selectedColumns, toggleColumns, setSelectedColumns } = useSelectedColumns(
       experimentId,
@@ -119,21 +126,6 @@ export const TracesV3Logs = React.memo(
       tableSort,
     });
 
-    // Get trace function
-    // Only traceId is used for trace v3
-    const getTrace = useCallback(async (requestId?: string, traceId?: string) => {
-      const [traceInfoResponse, traceData] = await Promise.all([
-        traceId ? MlflowService.getExperimentTraceInfoV3(traceId) : undefined,
-        traceId ? MlflowService.getExperimentTraceData(traceId) : undefined,
-      ]);
-      return traceData
-        ? {
-            info: traceInfoResponse?.trace?.trace_info || {},
-            data: traceData,
-          }
-        : undefined;
-    }, []);
-
     const deleteTracesMutation = useDeleteTracesMutation();
 
     // TODO: We should update this to use web-shared/unified-tagging components for the
@@ -144,6 +136,11 @@ export const TracesV3Logs = React.memo(
       useV3Apis: true,
     });
 
+    const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
+      useExportTracesToDatasetModal({
+        experimentId,
+      });
+
     const traceActions: TraceActions = useMemo(() => {
       return {
         deleteTracesAction: {
@@ -151,15 +148,23 @@ export const TracesV3Logs = React.memo(
             deleteTracesMutation.mutateAsync({ experimentId, traceRequestIds: traceIds }),
         },
         exportToEvals: {
-          exportToEvalsInstanceEnabled: true,
-          getTrace,
+          showExportTracesToDatasetsModal,
+          setShowExportTracesToDatasetsModal,
+          renderExportTracesToDatasetsModal,
         },
         editTags: {
           showEditTagsModalForTrace,
           EditTagsModal,
         },
       };
-    }, [getTrace, deleteTracesMutation, showEditTagsModalForTrace, EditTagsModal]);
+    }, [
+      showExportTracesToDatasetsModal,
+      setShowExportTracesToDatasetsModal,
+      renderExportTracesToDatasetsModal,
+      showEditTagsModalForTrace,
+      EditTagsModal,
+      deleteTracesMutation,
+    ]);
 
     const countInfo = useMemo(() => {
       return {
@@ -178,7 +183,7 @@ export const TracesV3Logs = React.memo(
     const renderMainContent = () => {
       // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
-        return <TracesV3EmptyState experimentIds={[experimentId]} />;
+        return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
       }
       // Default traces view with optional navigation
       return (
@@ -252,7 +257,7 @@ export const TracesV3Logs = React.memo(
 
     // Early return for empty state without insights
     if (!enableTraceInsights && isTableEmpty) {
-      return <TracesV3EmptyState experimentIds={[experimentId]} />;
+      return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
     }
 
     // Single unified layout with toolbar and content
@@ -292,3 +297,5 @@ export const TracesV3Logs = React.memo(
     );
   },
 );
+
+export const TracesV3Logs = TracesV3LogsImpl;

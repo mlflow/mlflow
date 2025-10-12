@@ -75,6 +75,12 @@ class CreateLoggedModelEvent(Event):
 class GetLoggedModelEvent(Event):
     name: str = "get_logged_model"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "imports": [pkg for pkg in MODULES_TO_CHECK_IMPORT if pkg in sys.modules],
+        }
+
 
 class CreateRegisteredModelEvent(Event):
     name: str = "create_registered_model"
@@ -106,6 +112,47 @@ class CreateModelVersionEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         tags = arguments.get("tags") or {}
         return {"is_prompt": _is_prompt(tags)}
+
+
+class CreateDatasetEvent(Event):
+    name: str = "create_dataset"
+
+
+class MergeRecordsEvent(Event):
+    name: str = "merge_records"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        if arguments is None:
+            return None
+
+        records = arguments.get("records")
+        if records is None:
+            return None
+
+        try:
+            count = len(records)
+        except TypeError:
+            return None
+
+        if count == 0:
+            return None
+
+        input_type = type(records).__name__.lower()
+        if "dataframe" in input_type:
+            input_type = "pandas"
+        elif isinstance(records, list):
+            first_elem = records[0]
+            if hasattr(first_elem, "__class__") and first_elem.__class__.__name__ == "Trace":
+                input_type = "list[trace]"
+            elif isinstance(first_elem, dict):
+                input_type = "list[dict]"
+            else:
+                input_type = "list"
+        else:
+            input_type = "other"
+
+        return {"record_count": count, "input_type": input_type}
 
 
 def _is_prompt(tags: dict[str, str]) -> bool:
@@ -160,3 +207,63 @@ class LogBatchEvent(Event):
             "tags": bool(arguments.get("tags")),
             "synchronous": arguments.get("synchronous"),
         }
+
+
+class McpRunEvent(Event):
+    name: str = "mcp_run"
+
+
+class GitModelVersioningEvent(Event):
+    name: str = "git_model_versioning"
+
+
+class InvokeCustomJudgeModelEvent(Event):
+    name: str = "invoke_custom_judge_model"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
+
+        model_uri = arguments.get("model_uri")
+        if not model_uri:
+            return {"model_provider": None}
+
+        model_provider, _ = _parse_model_uri(model_uri)
+        return {"model_provider": model_provider}
+
+
+class MakeJudgeEvent(Event):
+    name: str = "make_judge"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        model = arguments.get("model")
+        if model and isinstance(model, str):
+            model_provider = model.split(":")[0] if ":" in model else None
+            return {"model_provider": model_provider}
+        return {"model_provider": None}
+
+
+class AlignJudgeEvent(Event):
+    name: str = "align_judge"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        if (traces := arguments.get("traces")) is not None:
+            try:
+                result["trace_count"] = len(traces)
+            except TypeError:
+                result["trace_count"] = None
+
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
+        else:
+            result["optimizer_type"] = "default"
+
+        return result
+
+
+class AutologgingEvent(Event):
+    name: str = "autologging"

@@ -2,12 +2,14 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  HomeIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Link, matchPath, useLocation, Location, useNavigate } from '../utils/RoutingUtils';
+import type { Location } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
@@ -20,6 +22,8 @@ import {
 } from '../../experiment-tracking/pages/prompts/hooks/useCreatePromptModal';
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
+
+const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
@@ -40,6 +44,25 @@ export function MlflowSidebar() {
   });
 
   const menuItems = [
+    {
+      key: 'home',
+      icon: <HomeIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.rootRoute,
+        isActive: isHomeActive,
+        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_experiment_button',
+        onClick: () => setShowCreateExperimentModal(true),
+        children: (
+          <FormattedMessage
+            defaultMessage="Experiment"
+            description="Sidebar button inside the 'new' popover to create new experiment"
+          />
+        ),
+      },
+    },
     {
       key: 'experiments',
       icon: <BeakerIcon />,

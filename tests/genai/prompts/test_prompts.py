@@ -5,6 +5,7 @@ import pytest
 from pydantic import BaseModel
 
 import mlflow
+from mlflow.genai.prompts.utils import format_prompt
 
 
 @contextmanager
@@ -22,6 +23,12 @@ def test_suppress_prompt_api_migration_warning():
         mlflow.genai.load_prompt("prompts:/test_prompt/1")
         mlflow.genai.set_prompt_alias("test_prompt", "test_alias", 1)
         mlflow.genai.delete_prompt_alias("test_prompt", "test_alias")
+        mlflow.genai.set_prompt_tag("test_prompt", "key", "value")
+        mlflow.genai.get_prompt_tags("test_prompt")
+        mlflow.genai.delete_prompt_tag("test_prompt", "key")
+        mlflow.genai.set_prompt_version_tag("test_prompt", 1, "key", "value")
+        mlflow.genai.load_prompt("test_prompt", version=1).tags
+        mlflow.genai.delete_prompt_version_tag("test_prompt", 1, "key")
 
 
 def test_prompt_api_migration_warning():
@@ -58,8 +65,6 @@ def test_register_chat_prompt_with_messages():
 
 
 def test_register_prompt_with_pydantic_response_format():
-    """Test registering prompts with Pydantic response format."""
-
     class ResponseSchema(BaseModel):
         answer: str
         confidence: float
@@ -94,7 +99,6 @@ def test_register_prompt_with_dict_response_format():
 
 
 def test_register_prompt_error_handling_invalid_chat_format():
-    """Test error handling for invalid chat message formats."""
     invalid_template = [{"content": "Hello"}]  # Missing role
 
     with pytest.raises(ValueError, match="Template must be a list of dicts with role and content"):
@@ -184,7 +188,6 @@ def test_register_prompt_with_complex_response_format():
 
 
 def test_register_prompt_with_none_response_format():
-    """Test registering prompts with None response format."""
     prompt = mlflow.genai.register_prompt(
         name="test_none_response", template="Hello {{name}}!", response_format=None
     )
@@ -193,7 +196,6 @@ def test_register_prompt_with_none_response_format():
 
 
 def test_register_prompt_with_empty_chat_template():
-    """Test registering prompts with empty chat template list."""
     # Empty list should be treated as text prompt
     prompt = mlflow.genai.register_prompt(name="test_empty_chat", template=[])
 
@@ -266,3 +268,46 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_set_and_delete_prompt_tag_genai():
+    mlflow.genai.register_prompt(name="tag_prompt", template="Hi")
+    mlflow.genai.set_prompt_tag("tag_prompt", "env", "prod")
+    mlflow.genai.set_prompt_version_tag("tag_prompt", 1, "env", "prod")
+    assert mlflow.genai.get_prompt_tags("tag_prompt") == {"env": "prod"}
+    assert mlflow.genai.load_prompt("tag_prompt", version=1).tags == {"env": "prod"}
+    mlflow.genai.delete_prompt_tag("tag_prompt", "env")
+    assert "env" not in mlflow.genai.get_prompt_tags("tag_prompt")
+    mlflow.genai.delete_prompt_version_tag("tag_prompt", 1, "env")
+    assert "env" not in mlflow.genai.load_prompt("tag_prompt", version=1).tags
+
+
+@pytest.mark.parametrize(
+    ("prompt_template", "values", "expected"),
+    [
+        # Test with Unicode escape-like sequences
+        (
+            "User input: {{ user_text }}",
+            {"user_text": r"Path is C:\users\john"},
+            r"User input: Path is C:\users\john",
+        ),
+        # Test with newlines and tabs
+        (
+            "Data: {{ data }}",
+            {"data": "Line1\\nLine2\\tTabbed"},
+            "Data: Line1\\nLine2\\tTabbed",
+        ),
+        # Test with multiple variables
+        (
+            "Path: {{ path }}, Command: {{ cmd }}",
+            {"path": r"C:\temp", "cmd": r"echo \u0041"},
+            r"Path: C:\temp, Command: echo \u0041",
+        ),
+    ],
+)
+def test_format_prompt_with_backslashes(
+    prompt_template: str, values: dict[str, str], expected: str
+):
+    """Test that format_prompt correctly handles values containing backslashes."""
+    result = format_prompt(prompt_template, **values)
+    assert result == expected

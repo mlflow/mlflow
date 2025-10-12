@@ -122,6 +122,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   loadModelVersions(isInitialLoading = true) {
     this.loadPage(this.currentPage, isInitialLoading, true);
   }
+
   get currentPage() {
     const urlPage = parseInt(this.props.searchParams.get('page') || '1', 10);
     return isNaN(urlPage) ? 1 : urlPage;
@@ -283,10 +284,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     const { pageTokens } = this.state;
     return (
       <PageContainer>
-        <RequestStateWrapper
-          requestIds={this.criticalInitialRequestIds}
-          // eslint-disable-next-line no-trailing-spaces
-        >
+        <RequestStateWrapper requestIds={this.criticalInitialRequestIds}>
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {

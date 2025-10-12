@@ -11,7 +11,7 @@ import sys
 import tempfile
 import time
 import uuid
-from contextlib import ExitStack, contextmanager
+from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
 from typing import Iterator
@@ -43,7 +43,7 @@ def get_safe_port():
 
 
 def random_int(lo=1, hi=1e10):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def random_str(size=12):
@@ -552,12 +552,6 @@ def mock_method_chain(mock_obj, methods, return_value=None, side_effect=None):
         else:
             mock_obj.return_value = return_value
             mock_obj.side_effect = side_effect
-
-
-@contextmanager
-def multi_context(*cms):
-    with ExitStack() as stack:
-        yield list(map(stack.enter_context, cms))
 
 
 class StartsWithMatcher:

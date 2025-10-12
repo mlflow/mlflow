@@ -390,7 +390,7 @@ def _is_context_in_predict_function_signature(*, func=None, parameters=None):
 
 @filter_user_warnings_once
 def _infer_signature_from_type_hints(
-    func, type_hints: _TypeHints, input_example=None
+    python_model, context, type_hints: _TypeHints, input_example=None
 ) -> ModelSignature | None:
     """
     Infer the signature from type hints.
@@ -414,6 +414,8 @@ def _infer_signature_from_type_hints(
     except Exception as e:
         warnings.warn(f"Failed to infer signature from type hint: {e.message}", stacklevel=3)
         return None
+
+    func = python_model if callable(python_model) else python_model.predict
 
     # only warn if the pyfunc decorator is not used and schema can
     # be inferred from the input type hint
@@ -488,6 +490,8 @@ def _infer_signature_from_type_hints(
                 inputs = [input_example]
             _logger.info("Running the predict function to generate output based on input example")
             try:
+                if hasattr(python_model, "load_context"):
+                    python_model.load_context(context)
                 output_example = func(*inputs, **kwargs)
             except Exception:
                 _logger.warning(
@@ -604,10 +608,10 @@ def set_signature(
 
     Furthermore, as model registry artifacts are read-only, model artifacts located in the
     model registry and represented by ``models:/`` URI schemes are not compatible with this API.
-    To set a signature on a model version, first set the signature on the source model artifacts.
-    Following this, generate a new model version using the updated model artifacts. For more
-    information about setting signatures on model versions, see
-    `this doc section <https://www.mlflow.org/docs/latest/models.html#set-signature-on-mv>`_.
+    To set a signature on a model version, first load the source model artifacts. Following this,
+    generate a new model version using the loaded model artifacts and a corresponding signature.
+    For more information about setting signatures on model versions, see
+    `this doc section <https://mlflow.org/docs/latest/ml/model/signatures/#adding-signatures-to-registered-model-versions>`_.
 
     Args:
         model_uri: The location, in URI format, of the MLflow model. For example:

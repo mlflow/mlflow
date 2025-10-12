@@ -1,14 +1,16 @@
 import { IntlProvider } from 'react-intl';
 import { render, waitFor } from '../../../../common/utils/TestUtils.react18';
-import { LoggedModelProto, LoggedModelStatusProtoEnum, type RunInfoEntity } from '../../../types';
+import type { LoggedModelProto } from '../../../types';
+import { LoggedModelStatusProtoEnum, type RunInfoEntity } from '../../../types';
 import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../hooks/useGetRunQuery';
 import { RunViewLoggedModelsTable } from './RunViewLoggedModelsTable';
 import { TestApolloProvider } from '../../../../common/utils/TestApolloProvider';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { TestRouter, testRoute } from '../../../../common/utils/RoutingTestUtils';
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { QueryClient, QueryClientProvider } from '../../../../common/utils/reactQueryHooks';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // High timeout because of testing heavy data table
 
 describe('RunViewLoggedModelsTable', () => {

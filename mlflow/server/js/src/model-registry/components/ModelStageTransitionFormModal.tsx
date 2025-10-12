@@ -1,7 +1,7 @@
+import type { ModalProps } from '@databricks/design-system';
 import {
   FormUI,
   Modal,
-  ModalProps,
   RHFControlledComponents,
   Spacer,
   Tooltip,

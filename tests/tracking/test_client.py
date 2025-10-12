@@ -13,6 +13,7 @@ import mlflow
 from mlflow import MlflowClient, flush_async_logging
 from mlflow.config import enable_async_logging
 from mlflow.entities import (
+    EvaluationDataset,
     ExperimentTag,
     LoggedModel,
     Run,
@@ -20,6 +21,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Span,
     SpanStatusCode,
     SpanType,
     Trace,
@@ -34,17 +36,22 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_location import TraceLocation, TraceLocationType, UCSchemaLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.exceptions import (
+    MlflowException,
+    MlflowTraceDataCorrupted,
+    MlflowTraceDataNotFound,
+)
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS, SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
@@ -64,6 +71,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_SOURCE_TYPE,
     MLFLOW_USER,
 )
+from mlflow.utils.os import is_windows
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
@@ -202,6 +210,78 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
+    trace_id = "trace:/catalog.schema/123"
+    mock_store.batch_get_traces.return_value = [
+        Trace(
+            TraceInfo(
+                trace_id=trace_id,
+                trace_location=TraceLocation(
+                    type=TraceLocationType.UC_SCHEMA,
+                    uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+                ),
+                request_time=123,
+                execution_duration=456,
+                state=TraceState.OK,
+                tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
+            ),
+            TraceData(
+                spans=[
+                    Span.from_dict(
+                        {
+                            "name": "predict",
+                            "context": {
+                                "trace_id": "0x123456789",
+                                "span_id": "0x12345",
+                            },
+                            "parent_id": None,
+                            "start_time": 123000000,
+                            "end_time": 579000000,
+                            "status_code": "OK",
+                            "status_message": "",
+                            "attributes": {
+                                "mlflow.traceRequestId": f'"{trace_id}"',
+                                "mlflow.spanType": '"LLM"',
+                                "mlflow.spanFunctionName": '"predict"',
+                                "mlflow.spanInputs": '{"prompt": "What is the meaning of life?"}',
+                                "mlflow.spanOutputs": '{"answer": 42}',
+                            },
+                            "events": [],
+                        }
+                    )
+                ]
+            ),
+        )
+    ]
+    trace = MlflowClient().get_trace(trace_id)
+    mock_store.batch_get_traces.assert_called_once_with([trace_id], "catalog.schema")
+    mock_artifact_repo.download_trace_data.assert_not_called()
+
+    assert trace.info.trace_id == trace_id
+    assert trace.info.trace_location.uc_schema.catalog_name == "catalog"
+    assert trace.info.trace_location.uc_schema.schema_name == "schema"
+    assert trace.info.timestamp_ms == 123
+    assert trace.info.execution_time_ms == 456
+    assert trace.info.status == TraceStatus.OK
+    assert trace.info.tags == {"mlflow.artifactLocation": "dbfs:/path/to/artifacts"}
+    assert trace.data.request == '{"prompt": "What is the meaning of life?"}'
+    assert trace.data.response == '{"answer": 42}'
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "predict"
+    assert trace.data.spans[0].trace_id == trace_id
+    assert trace.data.spans[0].inputs == {"prompt": "What is the meaning of life?"}
+    assert trace.data.spans[0].outputs == {"answer": 42}
+    assert trace.data.spans[0].start_time_ns == 123000000
+    assert trace.data.spans[0].end_time_ns == 579000000
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+
+
+def test_client_get_trace_empty_result(mock_store):
+    mock_store.batch_get_traces.return_value = []
+    with pytest.raises(MlflowException, match="not found"):
+        MlflowClient().get_trace("trace:/catalog.schema/123")
+
+
+def test_client_get_trace_from_artifact_repo(mock_store, mock_artifact_repo):
     mock_store.get_trace_info.return_value = TraceInfo(
         trace_id="tr-1234567",
         trace_location=TraceLocation.from_experiment_id("0"),
@@ -284,7 +364,151 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
-def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
+@pytest.mark.parametrize("num_results", [0, 5])
+def test_client_search_traces_with_get_traces(
+    mock_store, mock_artifact_repo, include_spans, num_results
+):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id=f"trace:/catalog.schema/{i}",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+        )
+        for i in range(num_results)
+    ]
+    mock_store.search_traces.return_value = (mock_trace_infos, None)
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=info, data=TraceData(spans=[])) for info in mock_trace_infos
+    ]
+
+    results = MlflowClient().search_traces(
+        locations=["catalog.schema"],
+        include_spans=include_spans,
+    )
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        locations=["catalog.schema"],
+    )
+    assert len(results) == num_results
+
+    if include_spans and num_results > 0:
+        mock_store.batch_get_traces.assert_called_once_with(
+            [f"trace:/catalog.schema/{i}" for i in range(num_results)],
+            "catalog.schema",
+        )
+    else:
+        mock_store.batch_get_traces.assert_not_called()
+
+    mock_artifact_repo.download_trace_data.assert_not_called()
+
+    # The TraceInfo is already fetched prior to the upload_trace_data call,
+    # so we should not call _get_trace_info again
+    mock_store.get_trace_info.assert_not_called()
+
+
+def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id=f"trace:/catalog.schema/{i}",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+        )
+        for i in range(100)
+    ]
+    mock_store.search_traces.return_value = (mock_trace_infos, None)
+
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=mock_trace_infos[0], data=TraceData(spans=[])) for i in range(10)
+    ]
+
+    results = MlflowClient().search_traces(locations=["catalog.schema"])
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        locations=["catalog.schema"],
+    )
+    assert len(results) == 100
+    assert mock_store.batch_get_traces.call_count == 10
+    assert mock_store.batch_get_traces.has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ]
+    )
+    mock_artifact_repo.download_trace_data.assert_not_called()
+
+
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_mixed(mock_store, mock_artifact_repo, include_spans):
+    mock_traces = [
+        TraceInfo(
+            trace_id="1234567",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
+        ),
+        TraceInfo(
+            trace_id="8910",
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
+            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
+        ),
+    ]
+    mock_store.search_traces.return_value = (mock_traces, None)
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=mock_traces[0], data=TraceData(spans=[]))
+    ]
+    mock_artifact_repo.download_trace_data.return_value = {}
+    results = MlflowClient().search_traces(
+        locations=["1", "catalog.schema"], include_spans=include_spans
+    )
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        locations=["1", "catalog.schema"],
+    )
+    assert len(results) == 2
+    if include_spans:
+        mock_store.batch_get_traces.assert_called_once_with(["1234567"], "catalog.schema")
+        mock_artifact_repo.download_trace_data.assert_called()
+    else:
+        mock_store.batch_get_traces.assert_not_called()
+        mock_artifact_repo.download_trace_data.assert_not_called()
+
+
+@pytest.mark.parametrize("include_spans", [True, False])
+def test_client_search_traces_with_artifact_repo(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
         TraceInfo(
             trace_id="1234567",
@@ -305,18 +529,16 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     ]
     mock_store.search_traces.return_value = (mock_traces, None)
     mock_artifact_repo.download_trace_data.return_value = {}
-    results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"], include_spans=include_spans
-    )
+    results = MlflowClient().search_traces(locations=["1", "2", "3"], include_spans=include_spans)
 
     mock_store.search_traces.assert_called_once_with(
-        experiment_ids=["1", "2", "3"],
+        experiment_ids=None,
         filter_string=None,
         max_results=100,
         order_by=None,
         page_token=None,
         model_id=None,
-        sql_warehouse_id=None,
+        locations=["1", "2", "3"],
     )
     assert len(results) == 2
     if include_spans:
@@ -368,6 +590,14 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
             assert len(traces) == 1
             assert traces[0].info.trace_id == "1234567"
             mock_get_artifact_repository.assert_not_called()
+
+
+def test_client_search_traces_validates_experiment_ids_type():
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        MlflowClient().search_traces(locations=4)
+
+    with pytest.raises(MlflowException, match=r"locations must be a list"):
+        MlflowClient().search_traces(locations="4")
 
 
 def test_client_delete_traces(mock_store):
@@ -623,13 +853,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace, monkeypatch
-):
+def test_log_trace_with_databricks_tracking_uri(mock_store_start_trace, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
@@ -671,6 +897,8 @@ def test_log_trace_with_databricks_tracking_uri(
     model = TestModel()
 
     with (
+        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.context.default_context._get_source_name", return_value="test"),
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
@@ -847,6 +1075,16 @@ def test_log_trace(tracking_uri):
     new_trace_id = client._log_trace(trace)
     backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
     assert len(backend_traces) == 1
+
+
+def test_search_traces_experiment_ids_deprecation_warning():
+    client = MlflowClient()
+    exp_id = mlflow.set_experiment("test_experiment_deprecation").experiment_id
+
+    # Test that using experiment_ids shows a deprecation warning
+    with pytest.warns(FutureWarning, match="experiment_ids.*deprecated.*use.*locations"):
+        result = client.search_traces(experiment_ids=[exp_id])
+    assert isinstance(result, list)
 
 
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):
@@ -2392,8 +2630,74 @@ def test_load_prompt_with_alias_uri(tracking_uri):
     assert prompt.template == "Hello, {{name}}!"
 
 
+def test_load_prompt_allow_missing_name_version(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Non-existent prompt by name+version should return None when allow_missing=True
+    result = client.load_prompt("nonexistent_prompt", version=1, allow_missing=True)
+    assert result is None
+
+    # Non-existent prompt by name+version should raise exception when allow_missing=False
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
+        client.load_prompt("nonexistent_prompt", version=1, allow_missing=False)
+
+    # Existing prompt with non-existent version should return None when allow_missing=True
+    client.register_prompt(name="existing_prompt", template="Hello, world!")
+    result = client.load_prompt("existing_prompt", version=999, allow_missing=True)
+    assert result is None
+
+    # Existing prompt with non-existent version should raise exception when allow_missing=False
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=existing_prompt, version=999\) not found"
+    ):
+        client.load_prompt("existing_prompt", version=999, allow_missing=False)
+
+
+def test_load_prompt_allow_missing_uri_version(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Non-existent prompt by URI+version should return None when allow_missing=True
+    result = client.load_prompt("prompts:/nonexistent_prompt/1", allow_missing=True)
+    assert result is None
+
+    # Non-existent prompt by URI+version should raise exception when allow_missing=False
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
+        client.load_prompt("prompts:/nonexistent_prompt/1", allow_missing=False)
+
+    # Existing prompt with non-existent version via URI should return None when allow_missing=True
+    client.register_prompt(name="existing_prompt", template="Hello, world!")
+    result = client.load_prompt("prompts:/existing_prompt/999", allow_missing=True)
+    assert result is None
+
+    # Existing prompt with non-existent version via URI should raise when allow_missing=False
+    with pytest.raises(
+        MlflowException, match=r"Prompt \(name=existing_prompt, version=999\) not found"
+    ):
+        client.load_prompt("prompts:/existing_prompt/999", allow_missing=False)
+
+
+def test_load_prompt_allow_missing_uri_alias(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Non-existent prompt with alias should return None when allow_missing=True
+    result = client.load_prompt("prompts:/nonexistent_prompt@production", allow_missing=True)
+    assert result is None
+
+    # Non-existent prompt with alias should raise exception when allow_missing=False
+    with pytest.raises(MlflowException, match="Prompt with name=nonexistent_prompt not found"):
+        client.load_prompt("prompts:/nonexistent_prompt@production", allow_missing=False)
+
+    # Existing prompt with non-existent alias should return None when allow_missing=True
+    client.register_prompt(name="existing_prompt", template="Hello, world!")
+    result = client.load_prompt("prompts:/existing_prompt@nonexistent_alias", allow_missing=True)
+    assert result is None
+
+    # Existing prompt with non-existent alias should raise exception when allow_missing=False
+    with pytest.raises(MlflowException, match="Prompt alias nonexistent_alias not found"):
+        client.load_prompt("prompts:/existing_prompt@nonexistent_alias", allow_missing=False)
+
+
 def test_create_prompt_chat_format_client_integration():
-    """Test client-level integration with chat prompts."""
     chat_template = [
         {"role": "system", "content": "You are a {{style}} assistant."},
         {"role": "user", "content": "{{question}}"},
@@ -2446,7 +2750,6 @@ def test_link_chat_prompt_version_to_run():
 
 
 def test_create_prompt_with_pydantic_response_format_client():
-    """Test client-level integration with Pydantic response format."""
     from pydantic import BaseModel
 
     class ResponseSchema(BaseModel):
@@ -2545,7 +2848,6 @@ def test_create_prompt_complex_chat_template_client():
 
 
 def test_create_prompt_with_none_response_format_client():
-    """Test client-level integration with None response format."""
     client = MlflowClient()
     prompt = client.register_prompt(
         name="test_none_response_client",
@@ -2590,7 +2892,6 @@ def test_create_prompt_with_single_message_chat_client():
 
 
 def test_create_prompt_with_multiple_variables_in_chat_client():
-    """Test client-level integration with multiple variables in chat messages."""
     chat_template = [
         {
             "role": "system",
@@ -2723,3 +3024,272 @@ def test_link_multiple_prompt_types_to_run():
     ]
     for expected_prompt in expected_prompts:
         assert expected_prompt in linked_prompts
+
+
+def test_mlflow_client_create_dataset(mock_store):
+    created_dataset = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+        tags={"environment": "production", "version": "1.0"},
+    )
+    created_dataset.experiment_ids = ["exp1", "exp2"]
+    mock_store.create_dataset.return_value = created_dataset
+
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_dataset(
+            name="qa_evaluation",
+            experiment_id=["exp1", "exp2"],
+            tags={"environment": "production", "version": "1.0"},
+        )
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+    assert dataset.tags == {"environment": "production", "version": "1.0"}
+
+    mock_store.create_dataset.assert_called_once_with(
+        name="qa_evaluation",
+        tags={"environment": "production", "version": "1.0"},
+        experiment_ids=["exp1", "exp2"],
+    )
+
+
+def test_mlflow_client_create_evaluation_dataset_minimal(mock_store):
+    created_dataset = EvaluationDataset(
+        dataset_id="test_dataset_id",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+    )
+    mock_store.create_dataset.return_value = created_dataset
+
+    # Mock context registry to return empty tags so mlflow.user is not auto-added
+    with mock.patch(
+        "mlflow.tracking._tracking_service.client.context_registry.resolve_tags", return_value={}
+    ):
+        dataset = MlflowClient().create_dataset(name="test_dataset")
+
+    assert dataset.dataset_id == "test_dataset_id"
+    assert dataset.name == "test_dataset"
+
+    mock_store.create_dataset.assert_called_once_with(
+        name="test_dataset",
+        tags=None,
+        experiment_ids=None,
+    )
+
+
+def test_mlflow_client_get_dataset(mock_store):
+    mock_store.get_dataset.return_value = EvaluationDataset(
+        dataset_id="dataset_123",
+        name="test_dataset",
+        digest="abcdef123456",
+        created_time=1234567890,
+        last_update_time=1234567890,
+        tags={"source": "human-annotated"},
+    )
+
+    dataset = MlflowClient().get_dataset("dataset_123")
+
+    assert dataset.dataset_id == "dataset_123"
+    assert dataset.name == "test_dataset"
+    assert dataset.tags == {"source": "human-annotated"}
+
+    mock_store.get_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_delete_dataset(mock_store):
+    MlflowClient().delete_dataset("dataset_123")
+
+    mock_store.delete_dataset.assert_called_once_with("dataset_123")
+
+
+def test_mlflow_client_search_datasets(mock_store):
+    mock_store.search_datasets.return_value = PagedList(
+        [
+            EvaluationDataset(
+                dataset_id="dataset_1",
+                name="dataset_1",
+                digest="digest1",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
+            EvaluationDataset(
+                dataset_id="dataset_2",
+                name="dataset_2",
+                digest="digest2",
+                created_time=1234567890,
+                last_update_time=1234567890,
+            ),
+        ],
+        "next_token",
+    )
+
+    result = MlflowClient().search_datasets(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+    assert len(result) == 2
+    assert result[0].dataset_id == "dataset_1"
+    assert result[1].dataset_id == "dataset_2"
+    assert result.token == "next_token"
+
+    mock_store.search_datasets.assert_called_once_with(
+        experiment_ids=["exp1", "exp2"],
+        filter_string="name LIKE 'qa_%'",
+        max_results=100,
+        order_by=["created_time DESC"],
+        page_token="page_token_123",
+    )
+
+
+def test_mlflow_client_search_datasets_empty_results(mock_store):
+    mock_store.search_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_datasets(
+        experiment_ids=["exp1"], filter_string="name = 'nonexistent'"
+    )
+
+    assert len(result) == 0
+    assert result.token is None
+
+
+def test_mlflow_client_search_datasets_defaults(mock_store):
+    mock_store.search_datasets.return_value = PagedList([], None)
+
+    result = MlflowClient().search_datasets()
+
+    assert len(result) == 0
+    assert result.token is None
+
+    mock_store.search_datasets.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=SEARCH_EVALUATION_DATASETS_MAX_RESULTS,
+        order_by=None,
+        page_token=None,
+    )
+
+
+@pytest.mark.skipif(is_windows(), reason="FileStore URI handling issues on Windows")
+def test_mlflow_client_datasets_filestore_not_supported(tmp_path):
+    file_store_uri = str(tmp_path)
+    client = MlflowClient(tracking_uri=file_store_uri)
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.create_dataset(name="test_dataset")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.get_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_dataset("dataset_123")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.search_datasets()
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.set_dataset_tags("dataset_123", {"tag1": "value1"})
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.delete_dataset_tag("dataset_123", "tag1")
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+    with pytest.raises(MlflowException, match="is not supported with FileStore") as exc_info:
+        client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+    assert exc_info.value.error_code == "FEATURE_DISABLED"
+
+
+def test_mlflow_client_set_dataset_tags(mock_store):
+    MlflowClient().set_dataset_tags(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+    )
+
+    mock_store.set_dataset_tags.assert_called_once_with(
+        dataset_id="dataset_123",
+        tags={"env": "prod", "version": "2.0"},
+    )
+
+
+def test_mlflow_client_delete_dataset_tag(mock_store):
+    MlflowClient().delete_dataset_tag(
+        dataset_id="dataset_123",
+        key="deprecated",
+    )
+
+    mock_store.delete_dataset_tag.assert_called_once_with(
+        dataset_id="dataset_123",
+        key="deprecated",
+    )
+
+
+def test_mlflow_client_add_dataset_to_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.add_dataset_to_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1", "2", "3"]
+    mock_store.add_dataset_to_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_remove_dataset_from_experiments(mock_store):
+    mock_dataset = Mock(spec=EvaluationDataset)
+    mock_dataset.dataset_id = "dataset_123"
+    mock_dataset.experiment_ids = ["1"]
+    mock_store.remove_dataset_from_experiments.return_value = mock_dataset
+
+    client = MlflowClient()
+    result = client.remove_dataset_from_experiments(
+        dataset_id="dataset_123",
+        experiment_ids=["2", "3"],
+    )
+
+    assert result == mock_dataset
+    assert result.experiment_ids == ["1"]
+    mock_store.remove_dataset_from_experiments.assert_called_once_with("dataset_123", ["2", "3"])
+
+
+def test_mlflow_client_dataset_associations_databricks_blocking(mock_store):
+    with mock.patch("mlflow.utils.databricks_utils.is_databricks_uri") as mock_is_dbx:
+        mock_is_dbx.return_value = True
+        client = MlflowClient(tracking_uri="databricks")
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.add_dataset_to_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"
+
+        with pytest.raises(
+            MlflowException, match="not supported when tracking URI is 'databricks'"
+        ) as exc_info:
+            client.remove_dataset_from_experiments("dataset_123", ["1", "2"])
+        assert exc_info.value.error_code == "INVALID_PARAMETER_VALUE"

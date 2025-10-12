@@ -1,6 +1,7 @@
 import { ExperimentKind } from '../constants';
-import { defineMessage, MessageDescriptor } from 'react-intl';
-import { KeyValueEntity } from '../../common/types';
+import type { MessageDescriptor } from 'react-intl';
+import { defineMessage } from 'react-intl';
+import type { KeyValueEntity } from '../../common/types';
 
 export const EXPERIMENT_KIND_TAG_KEY = 'mlflow.experimentKind';
 

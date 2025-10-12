@@ -6,16 +6,18 @@ import re
 import sys
 import warnings
 from datetime import timedelta
+from pathlib import Path
 
 import click
 from click import UsageError
+from dotenv import load_dotenv
 
 import mlflow.db
 import mlflow.deployments.cli
 import mlflow.experiments
 import mlflow.runs
 import mlflow.store.artifact.cli
-from mlflow import projects, version
+from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
@@ -45,9 +47,40 @@ class AliasedGroup(click.Group):
         return super().get_command(ctx, cmd_name)
 
 
+def _load_env_file(ctx: click.Context, param: click.Parameter, value: str | None) -> str | None:
+    """
+    Click callback to load environment variables from a dotenv file.
+
+    This function is designed to be used as an eager callback for the --env-file option,
+    ensuring that environment variables are loaded before any command execution.
+    """
+    if value is not None:
+        env_path = Path(value)
+        if not env_path.exists():
+            raise click.BadParameter(f"Environment file '{value}' does not exist.")
+
+        # Load the environment file
+        # override=False means existing environment variables take precedence
+        load_dotenv(env_path, override=False)
+
+        # Log that we've loaded the env file (using click.echo for CLI output)
+        click.echo(f"Loaded environment variables from: {value}")
+
+    return value
+
+
 @click.group(cls=AliasedGroup)
 @click.version_option(version=version.VERSION)
-def cli():
+@click.option(
+    "--env-file",
+    type=click.Path(exists=False),
+    callback=_load_env_file,
+    expose_value=True,
+    is_eager=True,
+    help="Load environment variables from a dotenv file before executing the command. "
+    "Variables in the file will be loaded but won't override existing environment variables.",
+)
+def cli(env_file):
     pass
 
 
@@ -243,14 +276,23 @@ def _user_args_to_dict(arguments, argument_type="P"):
     return user_dict
 
 
-def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, uvicorn_opts=None):
+def _validate_server_args(
+    ctx=None,
+    gunicorn_opts=None,
+    workers=None,
+    waitress_opts=None,
+    uvicorn_opts=None,
+    allowed_hosts=None,
+    cors_allowed_origins=None,
+    x_frame_options=None,
+    disable_security_middleware=None,
+):
     if sys.platform == "win32":
         if gunicorn_opts is not None:
             raise NotImplementedError(
                 "gunicorn is not supported on Windows, cannot specify --gunicorn-opts"
             )
 
-    # Check for conflicting options
     num_server_opts_specified = sum(
         1 for opt in [gunicorn_opts, waitress_opts, uvicorn_opts] if opt is not None
     )
@@ -258,6 +300,33 @@ def _validate_server_args(gunicorn_opts=None, workers=None, waitress_opts=None, 
         raise click.UsageError(
             "Cannot specify multiple server options. Choose one of: "
             "'--gunicorn-opts', '--waitress-opts', or '--uvicorn-opts'."
+        )
+
+    using_flask_only = gunicorn_opts is not None or waitress_opts is not None
+    # NB: Only check for security params that are explicitly passed via CLI (not env vars)
+    # This allows Docker containers to set env vars while using gunicorn
+    from click.core import ParameterSource
+
+    security_params_specified = False
+    if ctx:
+        security_params_specified = any(
+            [
+                ctx.get_parameter_source("allowed_hosts") == ParameterSource.COMMANDLINE,
+                ctx.get_parameter_source("cors_allowed_origins") == ParameterSource.COMMANDLINE,
+                (
+                    ctx.get_parameter_source("disable_security_middleware")
+                    == ParameterSource.COMMANDLINE
+                ),
+            ]
+        )
+
+    if using_flask_only and security_params_specified:
+        raise click.UsageError(
+            "Security middleware parameters (--allowed-hosts, --cors-allowed-origins, "
+            "--disable-security-middleware) are only supported with "
+            "the default uvicorn server. They cannot be used with --gunicorn-opts or "
+            "--waitress-opts. To use security features, run without specifying a server "
+            "option (uses uvicorn by default) or explicitly use --uvicorn-opts."
         )
 
 
@@ -276,6 +345,7 @@ def _validate_static_prefix(ctx, param, value):
 
 
 @cli.command()
+@click.pass_context
 @click.option(
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
@@ -325,6 +395,10 @@ def _validate_static_prefix(ctx, param, value):
 @cli_args.HOST
 @cli_args.PORT
 @cli_args.WORKERS
+@cli_args.ALLOWED_HOSTS
+@cli_args.CORS_ALLOWED_ORIGINS
+@cli_args.DISABLE_SECURITY_MIDDLEWARE
+@cli_args.X_FRAME_OPTIONS
 @click.option(
     "--static-prefix",
     envvar="MLFLOW_STATIC_PREFIX",
@@ -378,6 +452,7 @@ def _validate_static_prefix(ctx, param, value):
     ),
 )
 def server(
+    ctx,
     backend_store_uri,
     registry_store_uri,
     default_artifact_root,
@@ -387,6 +462,10 @@ def server(
     host,
     port,
     workers,
+    allowed_hosts,
+    cors_allowed_origins,
+    disable_security_middleware,
+    x_frame_options,
     static_prefix,
     gunicorn_opts,
     waitress_opts,
@@ -396,15 +475,21 @@ def server(
     uvicorn_opts,
 ):
     """
-    Run the MLflow tracking server.
+    Run the MLflow tracking server with built-in security middleware.
 
     The server listens on http://localhost:5000 by default and only accepts connections
     from the local machine. To let the server accept connections from other machines, you will need
     to pass ``--host 0.0.0.0`` to listen on all network interfaces
     (or a specific interface address).
+
+    See https://mlflow.org/docs/latest/tracking/server-security.html for detailed documentation
+    and guidance on security configurations for the MLflow tracking server.
     """
     from mlflow.server import _run_server
     from mlflow.server.handlers import initialize_backend_stores
+
+    # Get env_file from parent context
+    env_file = ctx.parent.params.get("env_file") if ctx.parent else None
 
     if dev:
         if is_windows():
@@ -419,15 +504,42 @@ def server(
                 "is only supported for the default MLflow tracking server."
             )
 
-        # In dev mode, use uvicorn with reload and debug logging
         uvicorn_opts = "--reload --log-level debug"
 
     _validate_server_args(
+        ctx=ctx,
         gunicorn_opts=gunicorn_opts,
         workers=workers,
         waitress_opts=waitress_opts,
         uvicorn_opts=uvicorn_opts,
+        allowed_hosts=allowed_hosts,
+        cors_allowed_origins=cors_allowed_origins,
+        x_frame_options=x_frame_options,
+        disable_security_middleware=disable_security_middleware,
     )
+
+    if disable_security_middleware:
+        os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"
+    else:
+        if allowed_hosts:
+            os.environ["MLFLOW_SERVER_ALLOWED_HOSTS"] = allowed_hosts
+            if allowed_hosts == "*":
+                click.echo(
+                    "WARNING: Accepting ALL hosts. "
+                    "This may leave the server vulnerable to DNS rebinding attacks."
+                )
+
+        if cors_allowed_origins:
+            os.environ["MLFLOW_SERVER_CORS_ALLOWED_ORIGINS"] = cors_allowed_origins
+            if cors_allowed_origins == "*":
+                click.echo(
+                    "WARNING: Allowing ALL origins for CORS. "
+                    "This allows ANY website to access your MLflow data. "
+                    "This configuration is only recommended for local development."
+                )
+
+        if x_frame_options:
+            os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
@@ -449,6 +561,33 @@ def server(
         _logger.exception(e)
         sys.exit(1)
 
+    if disable_security_middleware:
+        click.echo(
+            "[MLflow] WARNING: Security middleware is DISABLED. "
+            "Your MLflow server is vulnerable to various attacks.",
+            err=True,
+        )
+    elif not allowed_hosts and not cors_allowed_origins:
+        click.echo(
+            "[MLflow] Security middleware enabled with default settings (localhost-only). "
+            "To allow connections from other hosts, use --host 0.0.0.0 and configure "
+            "--allowed-hosts and --cors-allowed-origins.",
+            err=True,
+        )
+    else:
+        parts = ["[MLflow] Security middleware enabled"]
+        if allowed_hosts:
+            hosts_list = allowed_hosts.split(",")[:3]
+            if len(allowed_hosts.split(",")) > 3:
+                hosts_list.append(f"and {len(allowed_hosts.split(',')) - 3} more")
+            parts.append(f"Allowed hosts: {', '.join(hosts_list)}")
+        if cors_allowed_origins:
+            origins_list = cors_allowed_origins.split(",")[:3]
+            if len(cors_allowed_origins.split(",")) > 3:
+                origins_list.append(f"and {len(cors_allowed_origins.split(',')) - 3} more")
+            parts.append(f"CORS origins: {', '.join(origins_list)}")
+        click.echo(". ".join(parts) + ".", err=True)
+
     try:
         _run_server(
             file_store_path=backend_store_uri,
@@ -466,6 +605,7 @@ def server(
             expose_prometheus=expose_prometheus,
             app_name=app_name,
             uvicorn_opts=uvicorn_opts,
+            env_file=env_file,
         )
     except ShellCommandException:
         eprint("Running the mlflow server failed. Please see the logs above for details.")
@@ -710,6 +850,16 @@ cli.add_command(mlflow.db.commands)
 from mlflow.cli import traces
 
 cli.add_command(traces.commands)
+
+# Add AI commands CLI
+cli.add_command(ai_commands.commands)
+
+try:
+    from mlflow.mcp.cli import cli as mcp_cli
+
+    cli.add_command(mcp_cli)
+except ImportError:
+    pass
 
 # Add Claude Code integration commands
 try:

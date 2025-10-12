@@ -1,4 +1,4 @@
-import { createLazyRouteElement, createMLflowRoutePath } from '../common/utils/RoutingUtils';
+import { createLazyRouteElement } from '../common/utils/RoutingUtils';
 
 import { PageId, RoutePaths } from './routes';
 import { shouldEnableExperimentPageChildRoutes } from '../common/utils/FeatureUtils';
@@ -91,6 +91,11 @@ const getExperimentPageRouteDefs = () => {
 };
 
 export const getRouteDefs = () => [
+  {
+    path: RoutePaths.rootRoute,
+    element: createLazyRouteElement(() => import('../home/HomePage')),
+    pageId: PageId.home,
+  },
   ...getExperimentPageRouteDefs(),
   {
     path: RoutePaths.experimentLoggedModelDetailsPageTab,
@@ -104,7 +109,9 @@ export const getRouteDefs = () => [
   },
   {
     path: RoutePaths.compareExperimentsSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/HomePage')),
+    element: createLazyRouteElement(
+      () => import(/* webpackChunkName: "experimentPage" */ './components/experiment-page/ExperimentPage'),
+    ),
     pageId: PageId.compareExperimentsSearch,
   },
   {

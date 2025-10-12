@@ -84,6 +84,8 @@ TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS = 1000
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
+# Trace ID V4 format starts with "trace:/" in the format of "trace:/<location>/<trace_id>"
+TRACE_ID_V4_PREFIX = "trace:/"
 
 # Schema version of traces and spans.
 TRACE_SCHEMA_VERSION = 3
@@ -104,3 +106,10 @@ DATABRICKS_OUTPUT_KEY = "databricks_output"
 
 # Assessment constants
 ASSESSMENT_ID_PREFIX = "a-"
+
+
+# Maximum number of seconds to retry getting a trace from the v4 endpoint.
+# V4 traces have some delay in propagation after the log_spans call returns success response.
+# To make sure get_trace API does not fail due to this delay, we retry up to a reasonable timeout.
+# Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
+GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15

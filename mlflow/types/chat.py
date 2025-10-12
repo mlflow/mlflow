@@ -115,8 +115,11 @@ class ChatMessage(BaseModel):
     tool_call_id: str | None = None
 
 
+AllowedType = Literal["string", "number", "integer", "object", "array", "boolean", "null"]
+
+
 class ParamType(BaseModel):
-    type: Literal["string", "number", "integer", "object", "array", "boolean", "null"] | None = None
+    type: AllowedType | list[AllowedType] | None = None
 
 
 class ParamProperty(ParamType):

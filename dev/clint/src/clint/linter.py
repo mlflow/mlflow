@@ -456,6 +456,17 @@ class Linter(ast.NodeVisitor):
         if rule := rules.NoClassBasedTests.check(node, self.path.name):
             self._check(Location.from_node(node), rule)
 
+    def _redundant_test_docstring(
+        self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef
+    ) -> None:
+        if rule := rules.RedundantTestDocstring.check(node, self.path.name):
+            self._check(Location.from_node(node), rule)
+
+    def visit_Module(self, node: ast.Module) -> None:
+        if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
+            self._check(Location(0, 0), rule)
+        self.generic_visit(node)
+
     def _is_in_test(self) -> bool:
         if not self.path.name.startswith("test_"):
             return False
@@ -499,6 +510,7 @@ class Linter(ast.NodeVisitor):
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
         self._no_class_based_tests(node)
+        self._redundant_test_docstring(node)
         self.visit_decorators(node.decorator_list)
         self._markdown_link(node)
         with self.resolver.scope():
@@ -557,6 +569,16 @@ class Linter(ast.NodeVisitor):
         if deco := rules.PytestMarkRepeat.check(node.decorator_list, self.resolver):
             self._check(Location.from_node(deco), rules.PytestMarkRepeat())
 
+    def _mock_patch_as_decorator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # Only check in test files
+        if not self.path.name.startswith("test_"):
+            return
+
+        # Check all decorators, not just the first one
+        for deco in node.decorator_list:
+            if rules.MockPatchAsDecorator.check([deco], self.resolver, self.path):
+                self._check(Location.from_node(deco), rules.MockPatchAsDecorator())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
@@ -564,6 +586,8 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
+        self._redundant_test_docstring(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
             if arg.annotation:
@@ -586,6 +610,8 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
+        self._redundant_test_docstring(node)
         self.stack.append(node)
         self._no_rst(node)
         self.visit_decorators(node.decorator_list)
@@ -694,11 +720,26 @@ class Linter(ast.NodeVisitor):
         if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        if expr := rules.ForbiddenDeprecationWarning.check(node, self.resolver):
+            self._check(Location.from_node(expr), rules.ForbiddenDeprecationWarning())
+
         if rules.UnnamedThread.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UnnamedThread())
 
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+
+        if rules.IsinstanceUnionSyntax.check(node):
+            self._check(Location.from_node(node), rules.IsinstanceUnionSyntax())
+
+        if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsChdirInTest())
+
+        if self._is_in_test() and rules.TempDirInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.TempDirInTest())
+
+        if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.MockPatchDictEnviron())
 
         self.generic_visit(node)
 
@@ -752,6 +793,10 @@ class Linter(ast.NodeVisitor):
     def visit_noqa(self, noqa: Noqa) -> None:
         if rule := rules.DoNotDisable.check(noqa.rules):
             self._check(Location.from_noqa(noqa), rule)
+
+    def visit_file_content(self, src: str) -> None:
+        if rules.NoShebang.check(src):
+            self._check(Location(0, 0), rules.NoShebang())
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
@@ -828,8 +873,9 @@ def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
     )
 
 
-def lint_file(path: Path, config: Config, index_path: Path) -> list[Violation]:
-    code = path.read_text()
+def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[Violation]:
+    if path.is_absolute():
+        raise ValueError(f"Path must be relative: {path}")
     index = SymbolIndex.load(index_path)
     if path.suffix == ".ipynb":
         violations = []
@@ -863,7 +909,9 @@ def lint_file(path: Path, config: Config, index_path: Path) -> list[Violation]:
         return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code), index=index)
-        linter.visit(ast.parse(code))
+        module = ast.parse(code)
+        linter.visit(module)
         linter.visit_comments(code)
+        linter.visit_file_content(code)
         linter.post_visit()
         return linter.violations

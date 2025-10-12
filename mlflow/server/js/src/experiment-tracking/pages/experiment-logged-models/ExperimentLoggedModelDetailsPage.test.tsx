@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { setupServer } from '../../../common/utils/setup-msw';
 import { graphql, rest } from 'msw';
-import { GetRun, GetRunVariables, MlflowGetExperimentQuery } from '../../../graphql/__generated__/graphql';
+import type { GetRun, GetRunVariables, MlflowGetExperimentQuery } from '../../../graphql/__generated__/graphql';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { first } from 'lodash';
 import { LoggedModelStatusProtoEnum } from '../../types';
@@ -16,6 +16,7 @@ import Utils from '../../../common/utils/Utils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000); // Larger timeout for integration testing (tables rendering)
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
@@ -275,17 +276,13 @@ describe('ExperimentLoggedModelListPage', () => {
     renderTestComponent();
 
     await waitFor(() => {
-      // Experiment load error should be displayed
       expect(screen.getByText('Experiment load error: Experiment not found')).toBeInTheDocument();
-
-      // Regardless, the logged model details should be visible
       expect(screen.getByRole('heading', { name: 'model-1' })).toBeInTheDocument();
     });
   });
   test('should render parameter list', async () => {
     renderTestComponent();
 
-    // Assert sample params data to be visible in the table
     await waitFor(() => {
       expect(screen.getByRole('row', { name: 'top_k 0.9' })).toBeInTheDocument();
     });

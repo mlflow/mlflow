@@ -12,12 +12,14 @@ import {
   getMockedRegisteredPromptSetTagsResponse,
   getMockedRegisteredPromptSourceRunResponse,
   getMockedRegisteredPromptVersionsResponse,
+  getMockedRegisteredPromptCreateVersionResponse,
 } from './test-utils';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {
@@ -170,6 +172,57 @@ describe('PromptsDetailsPage', () => {
     await waitFor(() => {
       expect(deletePromptSpy).toHaveBeenCalledWith({ name: 'prompt1' });
     });
+  });
+
+  it('should create a new chat prompt version', async () => {
+    const createVersionSpy = jest.fn();
+    server.use(getMockedRegisteredPromptCreateVersionResponse(createVersionSpy));
+
+    renderTestComponent();
+
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('button', { name: 'Create prompt version' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeInTheDocument();
+    });
+
+    await userEvent.click(screen.getByRole('radio', { name: 'Chat' }));
+
+    const firstContent = document.querySelector('textarea[name="chatMessages.0.content"]') as HTMLTextAreaElement;
+    await userEvent.type(firstContent, 'Hello');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Add message' })[0]);
+    await userEvent.clear(screen.getAllByPlaceholderText('role')[1]);
+    await userEvent.type(screen.getAllByPlaceholderText('role')[1], 'assistant');
+    const secondContent = document.querySelector('textarea[name="chatMessages.1.content"]') as HTMLTextAreaElement;
+    await userEvent.type(secondContent, 'Hi!');
+    await userEvent.type(screen.getByLabelText('Commit message (optional):'), 'commit message');
+    await userEvent.click(screen.getByText('Create'));
+
+    const expectedMessages = [
+      { role: 'user', content: 'Hello' },
+      { role: 'assistant', content: 'Hi!' },
+    ];
+
+    await waitFor(() => {
+      expect(createVersionSpy).toHaveBeenCalled();
+    });
+
+    const payload = createVersionSpy.mock.calls[0][0];
+    expect(payload).toMatchObject({
+      name: 'prompt1',
+      description: 'commit message',
+    });
+    expect(payload.tags).toEqual(
+      expect.arrayContaining([
+        { key: 'mlflow.prompt.is_prompt', value: 'true' },
+        { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },
+        { key: '_mlflow_prompt_type', value: 'chat' },
+      ]),
+    );
   });
 
   it('should display table and react to change page mode', async () => {

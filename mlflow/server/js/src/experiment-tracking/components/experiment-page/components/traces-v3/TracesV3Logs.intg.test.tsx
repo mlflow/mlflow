@@ -1,4 +1,4 @@
-import { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
@@ -13,10 +13,11 @@ import {
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
   useSelectedColumns,
+  convertTraceInfoV3ToRunEvalEntry,
 } from '@databricks/web-shared/genai-traces-table';
 
 import { getUser } from '@databricks/web-shared/global-settings';
-import { NetworkRequestError } from '@databricks/web-shared/errors';
+import type { NetworkRequestError } from '@databricks/web-shared/errors';
 import { TestRouter, testRoute, waitForRoutesToBeRendered } from '@mlflow/mlflow/src/common/utils/RoutingTestUtils';
 
 // Mock the virtualizer to render all rows in tests
@@ -184,6 +185,8 @@ describe('TracesV3Logs - integration test', () => {
       error: new Error('Failed to fetch metadata') as unknown as NetworkRequestError,
       isEmpty: false,
       tableFilterOptions: { source: [] },
+      evaluatedTraces: [],
+      otherEvaluatedTraces: [],
     });
     renderTestComponent();
     await waitForRoutesToBeRendered();
@@ -201,6 +204,8 @@ describe('TracesV3Logs - integration test', () => {
       error: null,
       isEmpty: true,
       tableFilterOptions: { source: [] },
+      evaluatedTraces: [],
+      otherEvaluatedTraces: [],
     });
 
     // Wrap in ApolloProvider for this test
@@ -273,6 +278,8 @@ describe('TracesV3Logs - integration test', () => {
       error: null,
       isEmpty: false,
       tableFilterOptions: mockTableFilterOptions,
+      evaluatedTraces: mockTraceInfos.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace)),
+      otherEvaluatedTraces: [],
     });
     jest.mocked(useSearchMlflowTraces).mockReturnValue({
       data: mockTraceInfos,
@@ -315,6 +322,8 @@ describe('TracesV3Logs - integration test', () => {
       error: null,
       isEmpty: false,
       tableFilterOptions: mockTableFilterOptions,
+      evaluatedTraces: [],
+      otherEvaluatedTraces: [],
     });
     jest.mocked(useSearchMlflowTraces).mockReturnValue({
       data: undefined,
@@ -370,6 +379,8 @@ describe('TracesV3Logs - integration test', () => {
       error: null,
       isEmpty: false,
       tableFilterOptions: mockTableFilterOptions,
+      evaluatedTraces: mockTraceInfos.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace)),
+      otherEvaluatedTraces: [],
     });
 
     jest.mocked(useSearchMlflowTraces).mockReturnValue({

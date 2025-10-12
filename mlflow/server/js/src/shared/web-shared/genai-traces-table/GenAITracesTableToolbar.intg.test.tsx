@@ -11,6 +11,7 @@ import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } fr
 import type { TraceInfoV3, TableFilter, EvaluationsOverviewTableSort, TraceActions } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup, FilterOperator } from './types';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
 
 // Mock necessary modules
@@ -69,7 +70,9 @@ describe('GenAITracesTableToolbar - integration test', () => {
       setSelectedColumns: jest.fn(),
       traceActions: {
         exportToEvals: {
-          getTrace: jest.fn().mockResolvedValue(undefined),
+          showExportTracesToDatasetsModal: false,
+          setShowExportTracesToDatasetsModal: jest.fn(),
+          renderExportTracesToDatasetsModal: jest.fn(),
         },
         deleteTracesAction: {
           deleteTraces: jest.fn().mockResolvedValue(undefined),
@@ -215,7 +218,9 @@ describe('GenAITracesTableToolbar - integration test', () => {
   it('handles trace actions', async () => {
     const traceActions: TraceActions = {
       exportToEvals: {
-        getTrace: jest.fn().mockResolvedValue(undefined),
+        showExportTracesToDatasetsModal: false,
+        setShowExportTracesToDatasetsModal: jest.fn(),
+        renderExportTracesToDatasetsModal: jest.fn(),
       },
       deleteTracesAction: {
         deleteTraces: jest.fn().mockResolvedValue(undefined),

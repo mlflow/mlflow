@@ -1,6 +1,6 @@
 import { matchPredefinedError, UnknownError } from '@databricks/web-shared/errors';
 import { fetchEndpoint } from '../../../common/utils/FetchUtils';
-import { RegisteredPrompt, RegisteredPromptsListResponse, RegisteredPromptVersion } from './types';
+import type { RegisteredPrompt, RegisteredPromptsListResponse, RegisteredPromptVersion } from './types';
 import { IS_PROMPT_TAG_NAME, IS_PROMPT_TAG_VALUE, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 const defaultErrorHandler = async ({

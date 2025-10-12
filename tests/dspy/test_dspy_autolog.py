@@ -16,9 +16,8 @@ from dspy.utils.dummies import DummyLM
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities import SpanType
-from mlflow.entities.trace import Trace
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.entities import Feedback, LoggedModelOutput, SpanType, Trace
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
@@ -30,6 +29,8 @@ if not IS_TRACING_SDK_ONLY:
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
 _DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+
+_DSPY_3_0_4_OR_NEWER = _DSPY_VERSION >= Version("3.0.4")
 
 
 # Test module
@@ -47,10 +48,29 @@ class CoT(dspy.Module):
         return self.prog(question=question)
 
 
+class DummyLMWithUsage(DummyLM):
+    # Usage tracking had an issue before3.0.4
+    # and DummyLM.__call__ cannot be overridden in 2.5.x
+    if _DSPY_3_0_4_OR_NEWER:
+
+        def __call__(self, prompt=None, messages=None, **kwargs):
+            if dspy.settings.usage_tracker:
+                dspy.settings.usage_tracker.add_usage(
+                    "openai/gpt-4.1",
+                    {
+                        "prompt_tokens": 5,
+                        "completion_tokens": 7,
+                        "total_tokens": 12,
+                    },
+                )
+
+            return super().__call__(prompt, messages, **kwargs)
+
+
 def test_autolog_lm():
     mlflow.dspy.autolog()
 
-    lm = DummyLM([{"output": "test output"}])
+    lm = DummyLMWithUsage([{"output": "test output"}])
     result = lm("test input")
     assert result == ["[[ ## output ## ]]\ntest output"]
 
@@ -62,7 +82,7 @@ def test_autolog_lm():
 
     spans = trace.data.spans
     assert len(spans) == 1
-    assert spans[0].name == "DummyLM.__call__"
+    assert spans[0].name == "DummyLMWithUsage.__call__"
     assert spans[0].span_type == SpanType.CHAT_MODEL
     assert spans[0].status.status_code == "OK"
     assert spans[0].inputs["prompt"] == "test input"
@@ -77,7 +97,9 @@ def test_autolog_cot():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM({"How are you?": {"answer": "test output", "reasoning": "No more responses"}})
+        lm=DummyLMWithUsage(
+            {"How are you?": {"answer": "test output", "reasoning": "No more responses"}}
+        )
     )
 
     cot = dspy.ChainOfThought("question -> answer", n=3)
@@ -91,6 +113,12 @@ def test_autolog_cot():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
+    if _DSPY_3_0_4_OR_NEWER:
+        assert traces[0].info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 7,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+        }
 
     spans = traces[0].data.spans
     assert len(spans) == 7
@@ -104,6 +132,12 @@ def test_autolog_cot():
         if _DSPY_UNDER_2_6
         else "question -> reasoning, answer"
     )
+    if _DSPY_3_0_4_OR_NEWER:
+        assert spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 7,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+        }
     assert spans[1].name == "Predict.forward"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].inputs["question"] == "How are you?"
@@ -115,7 +149,7 @@ def test_autolog_cot():
         "demos": mock.ANY,
         "signature": mock.ANY,
     }
-    assert spans[3].name == "DummyLM.__call__"
+    assert spans[3].name == "DummyLMWithUsage.__call__"
     assert spans[3].span_type == SpanType.CHAT_MODEL
     assert spans[3].inputs == {
         "prompt": None,
@@ -181,7 +215,7 @@ def test_autolog_react():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
+        lm=DummyLMWithUsage(
             [
                 {
                     "next_thought": "I need to search for the highest mountain in the world",
@@ -214,6 +248,12 @@ def test_autolog_react():
     assert trace is not None
     assert trace.info.status == "OK"
     assert trace.info.execution_time_ms > 0
+    if _DSPY_3_0_4_OR_NEWER:
+        assert trace.info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 15,
+            TokenUsageKey.OUTPUT_TOKENS: 21,
+            TokenUsageKey.TOTAL_TOKENS: 36,
+        }
 
     spans = trace.data.spans
     assert len(spans) == 15
@@ -221,17 +261,17 @@ def test_autolog_react():
         "ReAct.forward",
         "Predict.forward_1",
         "ChatAdapter.format_1",
-        "DummyLM.__call___1",
+        "DummyLMWithUsage.__call___1",
         "ChatAdapter.parse_1",
         "Tool.search",
         "Predict.forward_2",
         "ChatAdapter.format_2",
-        "DummyLM.__call___2",
+        "DummyLMWithUsage.__call___2",
         "ChatAdapter.parse_2",
         "ChainOfThought.forward",
         "Predict.forward_3",
         "ChatAdapter.format_3",
-        "DummyLM.__call___3",
+        "DummyLMWithUsage.__call___3",
         "ChatAdapter.parse_3",
     ]
 
@@ -302,7 +342,7 @@ def test_autolog_custom_module():
     mlflow.dspy.autolog()
 
     dspy.settings.configure(
-        lm=DummyLM(
+        lm=DummyLMWithUsage(
             [
                 {
                     "answer": "test output",
@@ -321,6 +361,12 @@ def test_autolog_custom_module():
     assert traces[0] is not None
     assert traces[0].info.status == "OK"
     assert traces[0].info.execution_time_ms > 0
+    if _DSPY_3_0_4_OR_NEWER:
+        assert traces[0].info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 7,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+        }
 
     spans = traces[0].data.spans
     assert len(spans) == 8
@@ -331,7 +377,7 @@ def test_autolog_custom_module():
         "ChainOfThought.forward",
         "Predict.forward",
         "ChatAdapter.format",
-        "DummyLM.__call__",
+        "DummyLMWithUsage.__call__",
         "ChatAdapter.parse",
     ]
 
@@ -572,10 +618,56 @@ def test_autolog_log_compile(log_compiles):
     if log_compiles:
         run = mlflow.last_active_run()
         assert run is not None
-        assert run.data.params == {"kwarg1": "1", "kwarg2": "2"}
+        assert run.data.params == {
+            "kwarg1": "1",
+            "kwarg2": "2",
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
+        }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
         assert "best_model.json" in artifacts
+
+        # verify that a dummy model output is logged
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
+    else:
+        assert mlflow.last_active_run() is None
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.parametrize("log_compiles", [True, False])
+def test_autolog_log_compile_log_model_output_when_failure(log_compiles):
+    class DummyOptimizer(dspy.teleprompt.Teleprompter):
+        def compile(self, program, kwarg1=None, kwarg2=None):
+            raise Exception("test error")
+
+    mlflow.dspy.autolog(log_compiles=log_compiles)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    program = dspy.ChainOfThought("question -> answer")
+    optimizer = DummyOptimizer()
+
+    with pytest.raises(Exception, match="test error"):
+        optimizer.compile(program, kwarg1=1, kwarg2="2")
+
+    if log_compiles:
+        run = mlflow.last_active_run()
+        assert run is not None
+
+        # verify that a dummy model output is logged even when compilation fails
+        client = MlflowClient()
+        run = client.get_run(run.info.run_id)
+        assert len(run.outputs.model_outputs) == 1
+        assert isinstance(run.outputs.model_outputs[0], LoggedModelOutput)
     else:
         assert mlflow.last_active_run() is None
 
@@ -708,18 +800,18 @@ is_2_7_or_newer = Version(importlib.metadata.version("dspy")) >= Version("2.7.0"
 def test_autolog_log_evals(
     tmp_path, log_evals, return_outputs, lm, examples, expected_result_table
 ):
-    dspy.settings.configure(lm=lm)
-    program = Predict("question -> answer")
-    if is_2_7_or_newer:
-        evaluator = Evaluate(devset=examples, metric=answer_exact_match)
-    else:
-        # return_outputs arg does not exist after 2.7
-        evaluator = Evaluate(
-            devset=examples, metric=answer_exact_match, return_outputs=return_outputs
-        )
-
     mlflow.dspy.autolog(log_evals=log_evals)
-    evaluator(program, devset=examples)
+
+    with dspy.context(lm=lm):
+        program = Predict("question -> answer")
+        if is_2_7_or_newer:
+            evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+        else:
+            # return_outputs arg does not exist after 2.7
+            evaluator = Evaluate(
+                devset=examples, metric=answer_exact_match, return_outputs=return_outputs
+            )
+        evaluator(program, devset=examples)
 
     run = mlflow.last_active_run()
     if log_evals:
@@ -731,6 +823,15 @@ def test_autolog_log_evals(
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
         client = MlflowClient()
         artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
@@ -744,6 +845,21 @@ def test_autolog_log_evals(
             assert result_table == expected_result_table
     else:
         assert run is None
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
+def test_autolog_log_evals_disable_by_caller():
+    mlflow.dspy.autolog(log_evals=True)
+    examples = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+    ]
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+    program = Predict("question -> answer")
+    with dspy.context(lm=DummyLM([{"answer": "2"}])):
+        evaluator(program, devset=examples, callback_metadata={"disable_logging": True})
+
+    assert mlflow.last_active_run() is None
 
 
 @skip_when_testing_trace_sdk
@@ -764,32 +880,114 @@ def test_autolog_nested_evals():
     evaluator = Evaluate(devset=examples, metric=answer_exact_match)
 
     mlflow.dspy.autolog(log_evals=True)
-    with mlflow.start_run() as run:
+    with mlflow.start_run() as active_run:
         evaluator(program, devset=examples[:1])
         evaluator(program, devset=examples[1:])
 
-    # children runs
     client = MlflowClient()
+    run = client.get_run(active_run.info.run_id)
+    assert run.data.metrics == {"eval": 0.0}
+
+    artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
+    assert "model.json" in artifacts
+
+    metric_history = client.get_metric_history(run.info.run_id, "eval")
+    assert [metric.value for metric in metric_history] == [100.0, 0.0]
+
     child_runs = client.search_runs(
         run.info.experiment_id,
         filter_string=f"tags.mlflow.parentRunId = '{run.info.run_id}'",
         order_by=["attributes.start_time ASC"],
     )
-    assert len(child_runs) == 2
-    for i, run in enumerate(child_runs):
-        if i == 0:
-            assert run.data.metrics == {"eval": 100.0}
-        else:
-            assert run.data.metrics == {"eval": 0}
-        assert run.data.params == {
-            "Predict.signature.fields.0.description": "${question}",
-            "Predict.signature.fields.0.prefix": "Question:",
-            "Predict.signature.fields.1.description": "${answer}",
-            "Predict.signature.fields.1.prefix": "Answer:",
-            "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
-        }
-        artifacts = (x.path for x in client.list_artifacts(run.info.run_id))
-        assert "model.json" in artifacts
+
+    assert len(child_runs) == 0
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
+@pytest.mark.parametrize("call_args", ["args", "kwargs", "mixed"])
+def test_autolog_log_traces_from_evals(call_args):
+    mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    class DummyProgram(dspy.Module):
+        def forward(self, question):
+            return dspy.Prediction(answer="2")
+
+    examples = [
+        Example(question="What is 1 + 1?", answer="2").with_inputs("question"),
+        Example(question="What is 2 + 2?", answer="4").with_inputs("question"),
+    ]
+
+    program = DummyProgram()
+    evaluator = Evaluate(devset=examples, metric=answer_exact_match)
+
+    if call_args == "args":
+        result = evaluator(program, answer_exact_match, examples)
+    elif call_args == "kwargs":
+        result = evaluator(program=program, devset=examples, metric=answer_exact_match)
+    else:
+        result = evaluator(program, answer_exact_match, devset=examples)
+
+    if _DSPY_VERSION >= Version("3.0.0"):
+        from dspy.evaluate.evaluate import EvaluationResult
+
+        assert isinstance(result, EvaluationResult)
+    else:
+        assert result is not None
+
+    traces = get_traces()
+    assert len(traces) == 2
+    assert all(trace.info.status == "OK" for trace in traces)
+
+    actual_values = []
+
+    assessments = traces[0].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "answer_exact_match"
+    actual_values.append(assessments[0].value)
+
+    assessments = traces[1].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "answer_exact_match"
+    actual_values.append(assessments[0].value)
+
+    assert set(actual_values) == {True, False}
+
+
+@skip_when_testing_trace_sdk
+@skip_if_evaluate_callback_unavailable
+def test_autolog_log_traces_from_evals_log_error_assessment():
+    mlflow.dspy.autolog(log_evals=True, log_traces_from_eval=True)
+    dspy.settings.configure(lm=DummyLM([{"answer": "4", "reasoning": "reason"}]))
+
+    class DummyProgram(dspy.Module):
+        def forward(self, question):
+            return dspy.Prediction(answer="2")
+
+    def error_metric(program, devset):
+        raise Exception("Error")
+
+    examples = [Example(question="What is 1 + 1?", answer="2").with_inputs("question")]
+
+    program = DummyProgram()
+    evaluator = Evaluate(devset=examples, metric=error_metric)
+    evaluator(program, error_metric, examples)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assessments = traces[0].info.assessments
+    assert len(assessments) == 1
+    assert isinstance(assessments[0], Feedback)
+    assert assessments[0].name == "error_metric"
+    assert assessments[0].value is None
+    assert assessments[0].error.error_code == "Exception"
+    assert assessments[0].error.error_message == "Error"
+    assert assessments[0].error.stack_trace is not None
 
 
 @skip_when_testing_trace_sdk
@@ -862,6 +1060,15 @@ def test_autolog_log_compile_with_evals():
             "Predict.signature.fields.1.description": "${answer}",
             "Predict.signature.fields.1.prefix": "Answer:",
             "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+            "lm_params": json.dumps(
+                {
+                    "cache": True,
+                    "max_tokens": 1000,
+                    "model": "dummy",
+                    "model_type": "chat",
+                    "temperature": 0.0,
+                }
+            ),
         }
 
 

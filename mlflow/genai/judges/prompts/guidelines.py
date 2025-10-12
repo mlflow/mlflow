@@ -1,20 +1,29 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 GUIDELINES_FEEDBACK_NAME = "guidelines"
 
-GUIDELINES_PROMPT = """\
-Given the following set of guidelines and some inputs, please assess whether the inputs fully comply with all the provided guidelines. Only focus on the provided guidelines and not the correctness, relevance, or effectiveness of the inputs.
+
+GUIDELINES_PROMPT_INSTRUCTIONS = """\
+Given the following set of guidelines and some inputs, please assess whether the inputs fully \
+comply with all the provided guidelines. Only focus on the provided guidelines and not the \
+correctness, relevance, or effectiveness of the inputs.
 
 <guidelines>
 {{guidelines}}
 </guidelines>
-{{guidelines_context}}
+{{guidelines_context}}\
+"""
 
-Please provide your assessment using the following json format. Do not use any markdown formatting. If any of the guidelines are not satisfied, the result must be "no". If none of the guidelines apply to the given inputs, the result must be "yes".
+GUIDELINES_PROMPT_OUTPUT = """
+
+Please provide your assessment using only the following json format. Do not use any markdown formatting or output additional lines. If any of the guidelines are not satisfied, the result must be "no". If none of the guidelines apply to the given inputs, the result must be "yes".
 {
   "rationale": "Detailed reasoning for your assessment. If the assessment does not satisfy the guideline, state which parts of the guideline are not satisfied. Start each rationale with `Let's think step by step. `",
   "result": "yes|no"
-}"""  # noqa: E501
+}\
+"""  # noqa: E501
+
+GUIDELINES_PROMPT = GUIDELINES_PROMPT_INSTRUCTIONS + GUIDELINES_PROMPT_OUTPUT
 
 
 def get_prompt(

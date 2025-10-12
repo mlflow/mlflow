@@ -135,7 +135,13 @@ export interface EvaluationsOverviewTableSort {
 
 export interface TraceActions {
   exportToEvals?: {
-    getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+    showExportTracesToDatasetsModal: boolean;
+    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
+    renderExportTracesToDatasetsModal: ({
+      selectedTraceInfos,
+    }: {
+      selectedTraceInfos: ModelTrace['info'][];
+    }) => React.ReactNode;
   };
   deleteTracesAction?: {
     deleteTraces: (experimentId: string, traceIds: string[]) => Promise<any>;
@@ -320,6 +326,7 @@ export interface SaveAssessmentsQuery {
 // We should try to move away from this and start to use TracesTableColumnGroup instead.
 export enum TracesTableColumnType {
   ASSESSMENT = 'ASSESSMENT',
+  EXPECTATION = 'EXPECTATION',
   TRACE_INFO = 'TRACE_INFO',
   INPUT = 'INPUT',
   // This is a hack so that internal agent monitoring can display request time.
@@ -330,12 +337,14 @@ export enum TracesTableColumnType {
 // For example, each assessment is its own column, but they are all grouped under the "Assessments" column group.
 export enum TracesTableColumnGroup {
   ASSESSMENT = 'ASSESSMENT',
+  EXPECTATION = 'EXPECTATION',
   TAG = 'TAG',
   INFO = 'INFO',
 }
 
 export const TracesTableColumnGroupToLabelMap = {
   [TracesTableColumnGroup.ASSESSMENT]: 'Assessments',
+  [TracesTableColumnGroup.EXPECTATION]: 'Expectations',
   [TracesTableColumnGroup.TAG]: 'Tags',
   // We don't show a label for the info column group
   [TracesTableColumnGroup.INFO]: '\u00A0',
@@ -350,6 +359,7 @@ export interface TracesTableColumn {
 
   // TODO: Remove this field once migration to trace info v3 is complete
   assessmentInfo?: AssessmentInfo;
+  expectationName?: string;
 }
 
 export interface TableFilterFormState {

@@ -8,7 +8,6 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import V2_TRACE_DICT
@@ -186,7 +185,6 @@ def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
     assert trace_info.trace_id != V2_TRACE_DICT["info"]["request_id"]
     assert trace_info.request_preview == '{"x": 2, "y": 5}'
     assert trace_info.response_preview == "8"
-    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 2
     assert trace_data.spans[0].name == "predict"
@@ -223,3 +221,43 @@ def test_to_predict_fn_should_not_pass_databricks_options_to_fmapi(
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 1
     assert trace_data.spans[0].name == "predict"
+
+
+def test_to_predict_fn_handles_trace_without_tags(
+    sample_rag_trace, mock_deploy_client, mock_tracing_client
+):
+    # Create a trace dict without `tags` field
+    trace_dict = sample_rag_trace.to_dict()
+    trace_dict["info"].pop("tags", None)  # Remove tags field entirely
+
+    mock_deploy_client.predict.return_value = {
+        **_DUMMY_CHAT_RESPONSE,
+        "databricks_output": {"trace": trace_dict},
+    }
+    messages = [
+        {"content": "You are a helpful assistant.", "role": "system"},
+        {"content": "What is Spark?", "role": "user"},
+    ]
+
+    predict_fn = to_predict_fn("endpoints:/chat")
+    response = predict_fn(messages=messages)
+
+    mock_deploy_client.predict.assert_called_once_with(
+        endpoint="chat",
+        inputs={
+            "messages": messages,
+            "databricks_options": {"return_trace": True},
+        },
+    )
+    assert response == _DUMMY_CHAT_RESPONSE
+
+    # Trace should be copied successfully even without tags
+    mock_tracing_client.start_trace.assert_called_once()
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
+    assert trace_info.trace_id != sample_rag_trace.info.trace_id
+    assert trace_info.request_preview == '{"question": "query"}'
+    assert trace_info.response_preview == '"answer"'
+
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert len(trace_data.spans) == 3
+    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace_data)

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MockedReduxStoreProvider } from '../../../../common/utils/TestUtils';
 import { renderWithIntl, fastFillInput, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { setRunTagsBulkApi } from '../../../actions';
-import { KeyValueEntity } from '../../../../common/types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { RunViewTagsBox } from './RunViewTagsBox';
 import { DesignSystemProvider } from '@databricks/design-system';
 

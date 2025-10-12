@@ -37,6 +37,7 @@ defaults:
 env:
   MLFLOW_HOME: ${{ github.workspace }}
   MLFLOW_CONDA_HOME: /usr/share/miniconda
+  PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PYTHONFAULTHANDLER: "1"
 
 jobs:
@@ -80,6 +81,9 @@ jobs:
         run: |
           source ./dev/install-common-deps.sh --ml
           pip install fastapi uvicorn tf-keras
+          sudo apt-get update -y
+          # Required for the transformers example that uses the Whisper model
+          sudo apt-get install -y ffmpeg
 
       - name: Run example tests
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}

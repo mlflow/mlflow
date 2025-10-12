@@ -3,7 +3,7 @@ import { useToggleRowVisibilityCallback } from './useToggleRowVisibilityCallback
 import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useEffect, useState } from 'react';
-import { RunRowType } from '../utils/experimentPage.row-types';
+import type { RunRowType } from '../utils/experimentPage.row-types';
 import {
   shouldEnableToggleIndividualRunsInGroups,
   shouldUseRunRowsVisibilityMap,

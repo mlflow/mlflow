@@ -14,6 +14,16 @@ from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from tests.tracing.helper import get_traces, purge_traces
 
 
+@pytest.fixture(autouse=True)
+def increase_db_pool_size(monkeypatch):
+    # Set larger pool size for tests to handle concurrent trace creation
+    # test_extra_traces_from_customer_scorer_should_be_cleaned_up test requires this
+    # to reduce flakiness
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "20")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "40")
+    return
+
+
 def always_yes(inputs, outputs, expectations, trace):
     return "yes"
 
@@ -62,9 +72,14 @@ def test_scorer_name_works(sample_data, dummy_scorer, is_in_databricks):
     assert any(_SCORER_NAME in metric for metric in result.metrics.keys())
 
 
-def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_databricks):
+def test_trace_passed_to_builtin_scorers_correctly(
+    sample_rag_trace, is_in_databricks, monkeypatch: pytest.MonkeyPatch
+):
     if not is_in_databricks:
         pytest.skip("OSS GenAI evaluator doesn't support passing traces yet")
+
+    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
+    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
 
     with (
         patch(
@@ -79,8 +94,6 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace, is_in_datab
             "databricks.agents.evals.judges.groundedness",
             return_value=Feedback(name="groundedness", value=CategoricalRating.YES),
         ) as mock_groundedness,
-        # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-        patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}),
     ):
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [sample_rag_trace]}),

@@ -215,6 +215,13 @@ result = mlflow.models.evaluate(
 <Tabs>
   <TabItem value="custom-metrics" label="Custom Metrics" default>
 
+:::note Classic System Only
+
+The `make_metric` function and `EvaluationMetric` class are part of MLflow's classic evaluation system.
+
+For GenAI/LLM custom evaluation metrics, use the [@scorer decorator](/genai/eval-monitor/scorers/custom) instead.
+:::
+
 MLflow provides a powerful framework for defining custom evaluation metrics using the `make_metric` function:
 
 ```python

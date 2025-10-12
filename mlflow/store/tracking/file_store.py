@@ -61,6 +61,7 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
+from mlflow.store.tracking._sql_backend_utils import filestore_not_supported
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.utils import (
     generate_assessment_id,
@@ -105,6 +106,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_experiment_artifact_location_length,
@@ -246,9 +248,9 @@ class FileStore(AbstractStore):
 
     def _get_experiment_path(self, experiment_id, view_type=ViewType.ALL, assert_exists=False):
         parents = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             parents.append(self.root_directory)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             parents.append(self.trash_folder)
         for parent in parents:
             exp_list = find(parent, experiment_id, full_path=True)
@@ -354,9 +356,9 @@ class FileStore(AbstractStore):
 
         self._check_root_dir()
         experiment_ids = []
-        if view_type == ViewType.ACTIVE_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.ACTIVE_ONLY, ViewType.ALL):
             experiment_ids += self._get_active_experiments(full_path=False)
-        if view_type == ViewType.DELETED_ONLY or view_type == ViewType.ALL:
+        if view_type in (ViewType.DELETED_ONLY, ViewType.ALL):
             experiment_ids += self._get_deleted_experiments(full_path=False)
 
         experiments = []
@@ -2144,13 +2146,13 @@ class FileStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2165,8 +2167,8 @@ class FileStore(AbstractStore):
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -2176,6 +2178,7 @@ class FileStore(AbstractStore):
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
@@ -2183,7 +2186,7 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
         traces = []
-        for experiment_id in experiment_ids:
+        for experiment_id in locations:
             trace_infos = self._list_trace_infos(experiment_id)
             traces.extend(trace_infos)
         filtered = SearchTraceUtils.filter(traces, filter_string)
@@ -2724,6 +2727,60 @@ class FileStore(AbstractStore):
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return TraceInfoV2.from_v3(trace_info)
+
+    # Evaluation Dataset APIs - Not supported in FileStore
+
+    @filestore_not_supported
+    def create_dataset(
+        self,
+        name: str,
+        tags: dict[str, Any] | None = None,
+        experiment_ids: list[str] | None = None,
+    ):
+        pass
+
+    @filestore_not_supported
+    def get_dataset(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def delete_dataset(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def search_datasets(
+        self,
+        experiment_ids=None,
+        filter_string=None,
+        max_results=1000,
+        order_by=None,
+        page_token=None,
+    ):
+        pass
+
+    @filestore_not_supported
+    def upsert_dataset_records(self, dataset_id, records):
+        pass
+
+    @filestore_not_supported
+    def set_dataset_tags(self, dataset_id, tags):
+        pass
+
+    @filestore_not_supported
+    def get_dataset_experiment_ids(self, dataset_id):
+        pass
+
+    @filestore_not_supported
+    def delete_dataset_tag(self, dataset_id, key):
+        pass
+
+    @filestore_not_supported
+    def add_dataset_to_experiments(self, dataset_id, experiment_ids):
+        pass
+
+    @filestore_not_supported
+    def remove_dataset_from_experiments(self, dataset_id, experiment_ids):
+        pass
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """

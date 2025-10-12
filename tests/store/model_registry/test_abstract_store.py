@@ -102,7 +102,6 @@ def mock_tracing_client():
 
 
 def test_link_prompt_version_to_model_success(store, mock_tracking_store):
-    """Test successful linking of prompt version to model."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
     model_id = "model_123"
@@ -183,7 +182,6 @@ def test_link_prompt_version_to_model_no_model_found(store, mock_tracking_store)
 
 
 def test_link_prompt_version_to_model_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     model_id = "model_123"
     logged_model = LoggedModel(
@@ -694,7 +692,6 @@ def test_link_prompt_version_to_run_no_run_found(store, mock_tracking_store):
 
 
 def test_link_prompt_version_to_run_prompt_not_found(store, mock_tracking_store):
-    """Test error when prompt version is not found."""
     # Setup
     run_id = "run_123"
 
@@ -840,7 +837,6 @@ def test_link_chat_prompt_to_model(store, mock_tracking_store):
 
 
 def test_link_prompt_with_response_format_to_model(store, mock_tracking_store):
-    """Test linking prompts with response format to models."""
     response_format = {"type": "string", "description": "A response"}
     prompt_version = PromptVersion(
         "test_response", 1, "Hello {{name}}!", response_format=response_format
@@ -911,7 +907,6 @@ def test_link_chat_prompt_to_run(store, mock_tracking_store):
 
 
 def test_link_prompt_with_response_format_to_run(store, mock_tracking_store):
-    """Test linking prompts with response format to runs."""
     response_format = {
         "type": "object",
         "properties": {"answer": {"type": "string"}},

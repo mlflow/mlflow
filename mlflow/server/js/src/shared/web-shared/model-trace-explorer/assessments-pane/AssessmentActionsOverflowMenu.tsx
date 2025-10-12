@@ -2,7 +2,6 @@ import { PencilIcon, TrashIcon, OverflowIcon, Button, DropdownMenu } from '@data
 import { FormattedMessage } from '@databricks/i18n';
 import { getUser } from '@databricks/web-shared/global-settings';
 
-import { shouldEnableAssessmentEditing } from '../FeatureUtils';
 import type { Assessment } from '../ModelTrace.types';
 
 export const AssessmentActionsOverflowMenu = ({
@@ -16,11 +15,10 @@ export const AssessmentActionsOverflowMenu = ({
 }) => {
   const isFeedback = 'feedback' in assessment;
   const user = getUser() ?? '';
-  // humans are not allowed to edit other humans' assessments
-  const isEditEnabled = shouldEnableAssessmentEditing();
+
   const doesUserHavePermissions =
     user === assessment.source.source_id || (isFeedback && assessment.source.source_type !== 'HUMAN');
-  const showEditButton = isEditEnabled && doesUserHavePermissions && setIsEditing;
+  const showEditButton = doesUserHavePermissions && setIsEditing;
 
   return (
     <DropdownMenu.Root>

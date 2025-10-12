@@ -1,22 +1,29 @@
-from mlflow.genai.judges.utils import format_prompt
+from mlflow.genai.prompts.utils import format_prompt
 
 # NB: User-facing name for the is_correct assessment.
 CORRECTNESS_FEEDBACK_NAME = "correctness"
 
 
-CORRECTNESS_PROMPT = """\
-Consider the following question, claim and document. You must determine whether the claim is supported by the document in the context of the question. Do not focus on the correctness or completeness of the claim. Do not make assumptions, approximations, or bring in external knowledge.
+CORRECTNESS_PROMPT_INSTRUCTIONS = """\
+Consider the following question, claim and document. You must determine whether the claim is \
+supported by the document in the context of the question. Do not focus on the correctness or \
+completeness of the claim. Do not make assumptions, approximations, or bring in external knowledge.
 
 <question>{{input}}</question>
 <claim>{{ground_truth}}</claim>
-<document>{{input}} - {{output}}</document>
+<document>{{input}} - {{output}}</document>\
+"""
 
-Please indicate whether each statement in the claim is supported by the document in the context of the question using the json format:
+CORRECTNESS_PROMPT_OUTPUT = """
+
+Please indicate whether each statement in the claim is supported by the document in the context of the question using only the following json format. Do not use any markdown formatting or output additional lines.
 {
   "rationale": "Reason for the assessment. If the claim is not fully supported by the document in the context of the question, state which parts are not supported. Start each rationale with `Let's think step by step`",
   "result": "yes|no"
 }\
 """  # noqa: E501
+
+CORRECTNESS_PROMPT = CORRECTNESS_PROMPT_INSTRUCTIONS + CORRECTNESS_PROMPT_OUTPUT
 
 # This suffix is only shown when expected facts are provided to squeeze out better judge quality.
 CORRECTNESS_PROMPT_SUFFIX = """

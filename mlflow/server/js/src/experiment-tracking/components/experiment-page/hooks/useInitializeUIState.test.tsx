@@ -11,7 +11,6 @@ import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageS
 import { RunsChartType } from '../../runs-charts/runs-charts.types';
 import { expandedEvaluationRunRowsUIStateInitializer } from '../utils/expandedRunsViewStateInitializer';
 import { createBaseExperimentEntity, createBaseRunsData, createBaseRunsInfoEntity } from '../utils/test-utils';
-import _ from 'lodash';
 import { shouldRerunExperimentUISeeding } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 const experimentIds = ['experiment_1'];
@@ -23,7 +22,6 @@ jest.mock('../utils/expandedRunsViewStateInitializer', () => ({
 }));
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   shouldRerunExperimentUISeeding: jest.fn(),
-  shouldEnableExperimentPageAutoRefresh: jest.fn(() => true),
 }));
 
 const initialUIState = createExperimentPageUIState();

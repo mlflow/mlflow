@@ -2,7 +2,7 @@ import os
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from unittest import mock
 
@@ -46,7 +46,7 @@ def create_mock_otel_span(
         trace_id: str
         span_id: str
         trace_flags: trace_api.TraceFlags = trace_api.TraceFlags(1)
-        trace_state: trace_api.TraceState = trace_api.TraceState()
+        trace_state: trace_api.TraceState = field(default_factory=trace_api.TraceState)
 
     class _MockOTelSpan(trace_api.Span, ReadableSpan):
         def __init__(
@@ -134,10 +134,24 @@ def create_test_trace_info(
     )
 
 
+def create_test_trace_info_with_uc_table(
+    trace_id: str, catalog_name: str, schema_name: str
+) -> TraceInfo:
+    return TraceInfo(
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_databricks_uc_schema(catalog_name, schema_name),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        tags={},
+    )
+
+
 def get_traces(experiment_id=None) -> list[Trace]:
     # Get all traces from the backend
     return TracingClient().search_traces(
-        experiment_ids=[experiment_id or _get_experiment_id()],
+        locations=[experiment_id or _get_experiment_id()],
     )
 
 

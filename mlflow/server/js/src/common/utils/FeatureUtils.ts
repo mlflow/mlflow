@@ -2,7 +2,6 @@
  * This file aggregates utility functions for enabling features configured by flags.
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
-export const shouldEnableExperimentPageAutoRefresh = () => true;
 
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 /**
@@ -43,21 +42,18 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 export const isLoggedModelsFilteringAndSortingEnabled = () => false;
 export const isRunPageLoggedModelsTableEnabled = () => true;
 
-export const shouldUseRenamedUnifiedTracesTab = () => true;
-
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
 
 /**
- * Determines if the V2 experiment page header is enabled.
+ * Determines if experiment kind inference is enabled.
  */
-export const shouldEnableExperimentPageHeaderV2 = () => false;
-export const shouldEnableExperimentKindInference = () => false;
+export const shouldEnableExperimentKindInference = () => true;
 
 /**
  * Determines if the new prompts tab on DB platform is enabled.
@@ -82,21 +78,9 @@ export const shouldUseGetLoggedModelsBatchAPI = () => {
 };
 
 /**
- * Enables grouping logged models in UI.
- * The current supported mode is grouping by source run ID.
- */
-export const shouldEnableLoggedModelsGrouping = () => {
-  return false;
-};
-
-/**
  * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
  */
 export const shouldEnableExperimentPageChildRoutes = () => {
-  // This feature depends on the new experiment page header/tabs being enabled.
-  if (!shouldEnableExperimentPageHeaderV2()) {
-    return false;
-  }
   return false;
 };
 
@@ -115,16 +99,32 @@ export const shouldEnableTraceInsights = () => {
   return false;
 };
 
+export const shouldEnableTracesSyncUI = () => {
+  return false;
+};
+
 /**
  * Total number of traces that will be fetched via mlflow traces 3.0 search api in eval tab
  */
 export const getEvalTabTotalTracesLimit = () => {
-  return 10000;
+  return 1000;
 };
 
 /**
  * Determines if evaluation results online monitoring UI is enabled
  */
 export const isExperimentEvalResultsMonitoringUIEnabled = () => {
+  return true;
+};
+
+export const shouldUseUnifiedArtifactBrowserForLoggedModels = () => {
+  return false;
+};
+
+export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
+  return false;
+};
+
+export const shouldEnableTagGrouping = () => {
   return true;
 };

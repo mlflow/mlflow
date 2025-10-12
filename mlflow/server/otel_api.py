@@ -77,8 +77,19 @@ async def export_traces(
     parsed_request = ExportTraceServiceRequest()
 
     try:
+        # In Python protobuf library 5.x, ParseFromString may not raise DecodeError on invalid data
         parsed_request.ParseFromString(body)
+
+        # Check if we actually parsed any data
+        # If no resource_spans were parsed, the data was likely invalid
+        if not parsed_request.resource_spans:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid OpenTelemetry protobuf format - no spans found",
+            )
+
     except DecodeError:
+        # This will catch errors in Python protobuf library 3.x
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid OpenTelemetry protobuf format",
@@ -89,11 +100,11 @@ async def export_traces(
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
-                    mlflow_span = Span._from_otel_proto(otel_proto_span)
+                    mlflow_span = Span.from_otel_proto(otel_proto_span)
                     mlflow_spans.append(mlflow_span)
                 except Exception:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=422,
                         detail="Cannot convert OpenTelemetry span to MLflow span",
                     )
 
@@ -109,7 +120,7 @@ async def export_traces(
             )
         except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=422,
                 detail=f"Cannot store OpenTelemetry spans: {e}",
             )
 

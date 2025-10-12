@@ -374,7 +374,7 @@ class SearchUtils:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             return token.value
-        elif identifier_type == cls._PARAM_IDENTIFIER or identifier_type == cls._TAG_IDENTIFIER:
+        elif identifier_type in (cls._PARAM_IDENTIFIER, cls._TAG_IDENTIFIER):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             raise MlflowException(
@@ -1903,6 +1903,84 @@ class SearchTraceUtils(SearchUtils):
             cls.is_span(comp["type"], comp["key"], comp["comparator"])
 
         return comp
+
+
+class SearchEvaluationDatasetsUtils(SearchUtils):
+    """
+    Utility class for searching evaluation datasets.
+    """
+
+    VALID_SEARCH_ATTRIBUTE_KEYS = {
+        "name",
+        "created_time",
+        "last_update_time",
+        "created_by",
+        "last_updated_by",
+    }
+    VALID_ORDER_BY_ATTRIBUTE_KEYS = {"name", "created_time", "last_update_time"}
+    NUMERIC_ATTRIBUTES = {"created_time", "last_update_time"}
+
+    @classmethod
+    def _invalid_statement_token(cls, token):
+        if (
+            isinstance(token, Comparison)
+            or token.is_whitespace
+            or token.match(ttype=TokenType.Keyword, values=["AND"])
+        ):
+            return False
+        return True
+
+    @classmethod
+    def _process_statement(cls, statement):
+        tokens = _join_in_comparison_tokens(statement.tokens)
+        invalids = list(filter(cls._invalid_statement_token, tokens))
+        if len(invalids) > 0:
+            invalid_clauses = ", ".join(map(str, invalids))
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid clause(s) in filter string: {invalid_clauses}"
+            )
+        return [cls._get_comparison(t) for t in tokens if isinstance(t, Comparison)]
+
+    @classmethod
+    def _get_identifier(cls, identifier, valid_attributes):
+        tokens = identifier.split(".", maxsplit=1)
+        if len(tokens) == 1:
+            key = tokens[0]
+            if key not in valid_attributes:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid attribute key '{key}' specified. Valid keys are: {valid_attributes}"
+                )
+            return {"type": "attribute", "key": key}
+        else:
+            if tokens[0] == "tags":
+                key = tokens[1]
+                return {"type": "tag", "key": key}
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid identifier token '{tokens[0]}' specified"
+                )
+
+    @classmethod
+    def parse_order_by_for_search_evaluation_datasets(cls, order_by):
+        token_value, is_ascending = cls._parse_order_by_string(order_by)
+        identifier = cls._get_identifier(token_value.strip(), cls.VALID_ORDER_BY_ATTRIBUTE_KEYS)
+        return identifier["type"], identifier["key"], is_ascending
+
+    @classmethod
+    def is_string_attribute(cls, type_, key, comparator):
+        return (
+            type_ == "attribute"
+            and key not in cls.NUMERIC_ATTRIBUTES
+            and comparator in cls.VALID_STRING_ATTRIBUTE_COMPARATORS
+        )
+
+    @classmethod
+    def is_numeric_attribute(cls, type_, key, comparator):
+        return (
+            type_ == "attribute"
+            and key in cls.NUMERIC_ATTRIBUTES
+            and comparator in cls.VALID_NUMERIC_ATTRIBUTE_COMPARATORS
+        )
 
 
 class SearchLoggedModelsUtils(SearchUtils):

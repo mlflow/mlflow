@@ -2,8 +2,10 @@ from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
+import datasets_pb2 as _datasets_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -879,6 +881,33 @@ class DeleteTracesV3(_message.Message):
     request_ids: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, experiment_id: _Optional[str] = ..., max_timestamp_millis: _Optional[int] = ..., max_traces: _Optional[int] = ..., request_ids: _Optional[_Iterable[str]] = ...) -> None: ...
 
+class CalculateTraceFilterCorrelation(_message.Message):
+    __slots__ = ("experiment_ids", "filter_string1", "filter_string2", "base_filter")
+    class Response(_message.Message):
+        __slots__ = ("npmi", "npmi_smoothed", "filter1_count", "filter2_count", "joint_count", "total_count")
+        NPMI_FIELD_NUMBER: _ClassVar[int]
+        NPMI_SMOOTHED_FIELD_NUMBER: _ClassVar[int]
+        FILTER1_COUNT_FIELD_NUMBER: _ClassVar[int]
+        FILTER2_COUNT_FIELD_NUMBER: _ClassVar[int]
+        JOINT_COUNT_FIELD_NUMBER: _ClassVar[int]
+        TOTAL_COUNT_FIELD_NUMBER: _ClassVar[int]
+        npmi: float
+        npmi_smoothed: float
+        filter1_count: int
+        filter2_count: int
+        joint_count: int
+        total_count: int
+        def __init__(self, npmi: _Optional[float] = ..., npmi_smoothed: _Optional[float] = ..., filter1_count: _Optional[int] = ..., filter2_count: _Optional[int] = ..., joint_count: _Optional[int] = ..., total_count: _Optional[int] = ...) -> None: ...
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING1_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING2_FIELD_NUMBER: _ClassVar[int]
+    BASE_FILTER_FIELD_NUMBER: _ClassVar[int]
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    filter_string1: str
+    filter_string2: str
+    base_filter: str
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string1: _Optional[str] = ..., filter_string2: _Optional[str] = ..., base_filter: _Optional[str] = ...) -> None: ...
+
 class SetTraceTag(_message.Message):
     __slots__ = ("request_id", "key", "value")
     class Response(_message.Message):
@@ -1300,13 +1329,188 @@ class SearchTracesV3(_message.Message):
     page_token: str
     def __init__(self, locations: _Optional[_Iterable[_Union[TraceLocation, _Mapping]]] = ..., filter: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
 
+class CreateDataset(_message.Message):
+    __slots__ = ("name", "experiment_ids", "source_type", "source", "schema", "profile", "created_by", "tags")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: _datasets_pb2.Dataset
+        def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    PROFILE_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    source_type: _datasets_pb2.DatasetRecordSource.SourceType
+    source: str
+    schema: str
+    profile: str
+    created_by: str
+    tags: str
+    def __init__(self, name: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ..., source_type: _Optional[_Union[_datasets_pb2.DatasetRecordSource.SourceType, str]] = ..., source: _Optional[str] = ..., schema: _Optional[str] = ..., profile: _Optional[str] = ..., created_by: _Optional[str] = ..., tags: _Optional[str] = ...) -> None: ...
+
+class GetDataset(_message.Message):
+    __slots__ = ("dataset_id", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("dataset", "next_page_token")
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        dataset: _datasets_pb2.Dataset
+        next_page_token: str
+        def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    page_token: str
+    def __init__(self, dataset_id: _Optional[str] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class DeleteDataset(_message.Message):
+    __slots__ = ("dataset_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+
+class SearchEvaluationDatasets(_message.Message):
+    __slots__ = ("experiment_ids", "filter_string", "max_results", "order_by", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("datasets", "next_page_token")
+        DATASETS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        datasets: _containers.RepeatedCompositeFieldContainer[_datasets_pb2.Dataset]
+        next_page_token: str
+        def __init__(self, datasets: _Optional[_Iterable[_Union[_datasets_pb2.Dataset, _Mapping]]] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    ORDER_BY_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    filter_string: str
+    max_results: int
+    order_by: _containers.RepeatedScalarFieldContainer[str]
+    page_token: str
+    def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ..., filter_string: _Optional[str] = ..., max_results: _Optional[int] = ..., order_by: _Optional[_Iterable[str]] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class SetDatasetTags(_message.Message):
+    __slots__ = ("dataset_id", "tags")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: _datasets_pb2.Dataset
+        def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    tags: str
+    def __init__(self, dataset_id: _Optional[str] = ..., tags: _Optional[str] = ...) -> None: ...
+
+class DeleteDatasetTag(_message.Message):
+    __slots__ = ("dataset_id", "key")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    key: str
+    def __init__(self, dataset_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
+
+class UpsertDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "records", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("inserted_count", "updated_count")
+        INSERTED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        UPDATED_COUNT_FIELD_NUMBER: _ClassVar[int]
+        inserted_count: int
+        updated_count: int
+        def __init__(self, inserted_count: _Optional[int] = ..., updated_count: _Optional[int] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    RECORDS_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    records: str
+    updated_by: str
+    def __init__(self, dataset_id: _Optional[str] = ..., records: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class GetDatasetExperimentIds(_message.Message):
+    __slots__ = ("dataset_id",)
+    class Response(_message.Message):
+        __slots__ = ("experiment_ids",)
+        EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+        experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+        def __init__(self, experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    def __init__(self, dataset_id: _Optional[str] = ...) -> None: ...
+
+class GetDatasetRecords(_message.Message):
+    __slots__ = ("dataset_id", "max_results", "page_token")
+    class Response(_message.Message):
+        __slots__ = ("records", "next_page_token")
+        RECORDS_FIELD_NUMBER: _ClassVar[int]
+        NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+        records: str
+        next_page_token: str
+        def __init__(self, records: _Optional[str] = ..., next_page_token: _Optional[str] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    MAX_RESULTS_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    max_results: int
+    page_token: str
+    def __init__(self, dataset_id: _Optional[str] = ..., max_results: _Optional[int] = ..., page_token: _Optional[str] = ...) -> None: ...
+
+class AddDatasetToExperiments(_message.Message):
+    __slots__ = ("dataset_id", "experiment_ids")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: Dataset
+        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RemoveDatasetFromExperiments(_message.Message):
+    __slots__ = ("dataset_id", "experiment_ids")
+    class Response(_message.Message):
+        __slots__ = ("dataset",)
+        DATASET_FIELD_NUMBER: _ClassVar[int]
+        dataset: Dataset
+        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+    DATASET_ID_FIELD_NUMBER: _ClassVar[int]
+    EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
+    dataset_id: str
+    experiment_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, dataset_id: _Optional[str] = ..., experiment_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class RegisterScorer(_message.Message):
     __slots__ = ("experiment_id", "name", "serialized_scorer")
     class Response(_message.Message):
-        __slots__ = ("version",)
+        __slots__ = ("version", "scorer_id", "experiment_id", "name", "serialized_scorer", "creation_time")
         VERSION_FIELD_NUMBER: _ClassVar[int]
+        SCORER_ID_FIELD_NUMBER: _ClassVar[int]
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
+        CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
         version: int
-        def __init__(self, version: _Optional[int] = ...) -> None: ...
+        scorer_id: str
+        experiment_id: str
+        name: str
+        serialized_scorer: str
+        creation_time: int
+        def __init__(self, version: _Optional[int] = ..., scorer_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
@@ -1368,18 +1572,20 @@ class DeleteScorer(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class Scorer(_message.Message):
-    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "scorer_id")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_ID_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     scorer_name: str
     scorer_version: int
     serialized_scorer: str
     creation_time: int
-    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+    scorer_id: str
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

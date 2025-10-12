@@ -36,7 +36,7 @@ const memoryStore: Record<string, any> = {};
 
 jest.mock('@databricks/web-shared/hooks', () => {
   const actual = jest.requireActual<typeof import('@databricks/web-shared/hooks')>('@databricks/web-shared/hooks');
-  // eslint-disable-next-line @typescript-eslint/no-var-requires, global-require
+  // eslint-disable-next-line @typescript-eslint/no-require-imports, global-require
   const React = require('react');
 
   return {

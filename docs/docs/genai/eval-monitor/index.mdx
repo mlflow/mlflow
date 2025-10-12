@@ -6,9 +6,20 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { Rocket, Target, MessageSquare, Scale } from "lucide-react";
+import { MessageSquare, Target, BarChart3, ExternalLink, Bot, Users, CheckCircle, TrendingUp, Database, Book, Rocket, Scale } from "lucide-react";
 
 # Evaluating LLMs/Agents with MLflow
+
+:::info Modern GenAI Evaluation
+
+This documentation covers MLflow's **GenAI evaluation system** which uses:
+
+- `mlflow.genai.evaluate()` for evaluation
+- `Scorer` objects for metrics
+- Built-in and custom LLM judges
+
+**Note**: This system is separate from the [classic ML evaluation](/ml/evaluation) system that uses `mlflow.evaluate()` and `EvaluationMetric`. The two systems serve different purposes and are not interoperable.
+:::
 
 MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle from development through production.
 
@@ -22,23 +33,23 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
 <TabsWrapper>
   <Tabs>
-  <TabItem value="evaluation" label="Systematic Evaluation">
+  <TabItem value="dataset" label="Dataset Management">
     <div class="flex-column">
       <div class="flex-row">
         <div class="flex-item">
 
-        #### Evaluate and Enhance quality
+        #### Create and maintain a High-Quality Dataset
 
-        Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
+        Before you can evaluate your GenAI application, you need test data. **Evaluation Datasets** provide a centralized repository for managing test cases, ground truth expectations, and evaluation data at scale.
 
-        Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
+        Think of Evaluation Datasets as your "test database" - a single source of truth for all the data needed to evaluate your AI systems. They transform ad-hoc testing into systematic quality assurance.
 
-        [Learn more →](/genai/eval-monitor/quickstart)
+        [Learn more →](/genai/datasets)
 
         </div>
 
         <div class="flex-item padding-md">
-          ![Trace Evaluation](/images/llms/tracing/genai-evaluation-compare.png)
+          ![Trace Dataset](/images/llms/tracing/genai-trace-dataset.png)
         </div>
       </div>
     </div>
@@ -88,7 +99,28 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
     </div>
 
   </TabItem>
+  <TabItem value="evaluation" label="Systematic Evaluation">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
 
+        #### Evaluate and Enhance quality
+
+        Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
+
+        Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
+
+        [Learn more →](/genai/eval-monitor/quickstart)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Evaluation](/images/llms/tracing/genai-evaluation-compare.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
   <TabItem value="production-monitoring" label="Production Monitoring">
     <div class="flex-column">
       <div class="flex-row">
@@ -104,28 +136,6 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         <div class="flex-item padding-md">
           ![Monitoring](/images/llms/tracing/genai-monitoring.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-  <TabItem value="dataset" label="Dataset Collection">
-    <div class="flex-column">
-      <div class="flex-row">
-        <div class="flex-item">
-
-        #### Create a High-Quality Dataset from Real World Traffic
-
-        Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset is challenging.
-
-        Traces from production systems capture perfect data for building high-quality datasets with precise details for internal components like retrievers and tools.
-
-        [Learn more →](/genai/tracing/search-traces/#creating-evaluation-datasets)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Trace Dataset](/images/llms/tracing/genai-trace-dataset.png)
         </div>
       </div>
     </div>

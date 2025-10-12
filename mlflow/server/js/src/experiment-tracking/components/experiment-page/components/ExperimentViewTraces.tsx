@@ -1,8 +1,6 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { TracesView } from '../../traces/TracesView';
-import { ExperimentViewRunsModeSwitch } from './runs/ExperimentViewRunsModeSwitch';
 import {
-  shouldEnableExperimentPageHeaderV2,
   shouldEnableTracesV3View,
   isExperimentEvalResultsMonitoringUIEnabled,
 } from '../../../../common/utils/FeatureUtils';
@@ -21,7 +19,6 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
         overflow: 'hidden',
       }}
     >
-      {shouldEnableExperimentPageHeaderV2() ? null : <ExperimentViewRunsModeSwitch hideBorder={false} />}
       <TracesComponent experimentIds={experimentIds} />
     </div>
   );

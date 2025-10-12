@@ -5,10 +5,11 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import _, { first, isEmpty } from 'lodash';
+import { first, isEmpty, isUndefined } from 'lodash';
 import React, { Component } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { WithRouterNextProps, withRouterNext } from '../../common/utils/withRouterNext';
+import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
+import { withRouterNext } from '../../common/utils/withRouterNext';
 import { ArtifactView } from './ArtifactView';
 import { Spinner } from '../../common/components/Spinner';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
@@ -25,10 +26,10 @@ import { DangerIcon, Empty } from '@databricks/design-system';
 import { ArtifactViewErrorState } from './artifact-view-components/ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './artifact-view-components/ArtifactViewComponents.types';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
-import { ReduxState } from '../../redux-types';
+import type { UseGetRunQueryResponseOutputs } from './run-page/hooks/useGetRunQuery';
+import type { ReduxState } from '../../redux-types';
 import { asyncGetLoggedModel } from '../hooks/logged-models/useGetLoggedModelQuery';
-import { KeyValueEntity } from '../../common/types';
+import type { KeyValueEntity } from '../../common/types';
 
 type ArtifactPageImplProps = {
   runUuid?: string;
@@ -167,7 +168,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
   };
 
   componentDidMount() {
-    if (Utils.isModelRegistryEnabled()) {
+    if (this.props.runUuid && this.isWorkspaceModelRegistryEnabled) {
       this.pollModelVersionsForCurrentRun();
       this.pollIntervalId = setInterval(this.pollModelVersionsForCurrentRun, POLL_INTERVAL);
     }
@@ -186,8 +187,12 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     }
   }
 
+  get isWorkspaceModelRegistryEnabled() {
+    return Utils.isModelRegistryEnabled();
+  }
+
   componentWillUnmount() {
-    if (Utils.isModelRegistryEnabled()) {
+    if (this.isWorkspaceModelRegistryEnabled && !isUndefined(this.pollIntervalId)) {
       clearInterval(this.pollIntervalId);
     }
   }
@@ -318,7 +323,7 @@ const mapStateToProps = (state: any, ownProps: ArtifactPageOwnProps & WithRouter
   if (!selectedPath) {
     const loggedModelPaths = getLoggedModelPathsFromTags(ownProps.runTags ?? {});
     if (loggedModelPaths.length > 0) {
-      selectedPath = _.first(loggedModelPaths);
+      selectedPath = first(loggedModelPaths);
     }
   }
   return {
