@@ -5,7 +5,6 @@ This module tests the functionality of the GetTracesInSession class,
 including successful trace retrieval, error handling, and parameter validation.
 """
 
-from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -66,70 +65,74 @@ def create_mock_trace(
     return Trace(info=trace_info, data=None)
 
 
-@patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_success(mock_search_tool_class: Any) -> None:
+def test_get_traces_in_session_tool_invoke_success() -> None:
     """Test successful retrieval of traces in session."""
-    tool = GetTracesInSession()
-    current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
+        tool = GetTracesInSession()
+        current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
 
-    mock_search_tool = MagicMock()
-    mock_result = [
-        TraceInfo(
-            trace_id="trace-1",
-            request_time=1000,
-            state=TraceState.OK,
-            request="What is machine learning?",
-            response="Machine learning is a subset of AI...",
-            execution_duration=100,
-            assessments=[],
-        ),
-        TraceInfo(
-            trace_id="trace-2",
-            request_time=2000,
-            state=TraceState.OK,
-            request="Can you give an example?",
-            response="Sure! A common example is...",
-            execution_duration=150,
-            assessments=[],
-        ),
-    ]
-    mock_search_tool.invoke.return_value = mock_result
-    mock_search_tool_class.return_value = mock_search_tool
+        mock_search_tool = MagicMock()
+        mock_result = [
+            TraceInfo(
+                trace_id="trace-1",
+                request_time=1000,
+                state=TraceState.OK,
+                request="What is machine learning?",
+                response="Machine learning is a subset of AI...",
+                execution_duration=100,
+                assessments=[],
+            ),
+            TraceInfo(
+                trace_id="trace-2",
+                request_time=2000,
+                state=TraceState.OK,
+                request="Can you give an example?",
+                response="Sure! A common example is...",
+                execution_duration=150,
+                assessments=[],
+            ),
+        ]
+        mock_search_tool.invoke.return_value = mock_result
+        mock_search_tool_class.return_value = mock_search_tool
 
-    result = tool.invoke(current_trace)
+        result = tool.invoke(current_trace)
 
-    assert len(result) == 2
-    assert all(isinstance(ti, TraceInfo) for ti in result)
-    assert result[0].trace_id == "trace-1"
-    assert result[0].request == "What is machine learning?"
-    assert result[1].trace_id == "trace-2"
+        assert len(result) == 2
+        assert all(isinstance(ti, TraceInfo) for ti in result)
+        assert result[0].trace_id == "trace-1"
+        assert result[0].request == "What is machine learning?"
+        assert result[1].trace_id == "trace-2"
 
-    mock_search_tool.invoke.assert_called_once_with(
-        trace=current_trace,
-        filter_string="tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
-        order_by=None,
-        max_results=20,
-    )
+        mock_search_tool.invoke.assert_called_once_with(
+            trace=current_trace,
+            filter_string="tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
+            order_by=None,
+            max_results=20,
+        )
 
 
-@patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_custom_parameters(mock_search_tool_class: Any) -> None:
+def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
     """Test tool invocation with custom parameters."""
-    tool = GetTracesInSession()
-    current_trace = create_mock_trace("current-trace", "exp-123", "session-456")
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
+        tool = GetTracesInSession()
+        current_trace = create_mock_trace("current-trace", "exp-123", "session-456")
 
-    mock_search_tool = MagicMock()
-    mock_search_tool.invoke.return_value = []
-    mock_search_tool_class.return_value = mock_search_tool
+        mock_search_tool = MagicMock()
+        mock_search_tool.invoke.return_value = []
+        mock_search_tool_class.return_value = mock_search_tool
 
-    tool.invoke(current_trace, max_results=50, order_by=["timestamp DESC"])
+        tool.invoke(current_trace, max_results=50, order_by=["timestamp DESC"])
 
-    mock_search_tool.invoke.assert_called_once_with(
-        trace=current_trace,
-        filter_string="tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
-        order_by=["timestamp DESC"],
-        max_results=50,
-    )
+        mock_search_tool.invoke.assert_called_once_with(
+            trace=current_trace,
+            filter_string="tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
+            order_by=["timestamp DESC"],
+            max_results=50,
+        )
 
 
 def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
@@ -154,17 +157,19 @@ def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
-@patch("mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool")
-def test_get_traces_in_session_tool_invoke_empty_result(mock_search_tool_class: Any) -> None:
+def test_get_traces_in_session_tool_invoke_empty_result() -> None:
     """Test tool behavior when no traces are found."""
-    tool = GetTracesInSession()
-    current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
+    with patch(
+        "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
+    ) as mock_search_tool_class:
+        tool = GetTracesInSession()
+        current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
 
-    mock_search_tool = MagicMock()
-    mock_search_tool.invoke.return_value = []
-    mock_search_tool_class.return_value = mock_search_tool
+        mock_search_tool = MagicMock()
+        mock_search_tool.invoke.return_value = []
+        mock_search_tool_class.return_value = mock_search_tool
 
-    result = tool.invoke(current_trace)
+        result = tool.invoke(current_trace)
 
-    assert result == []
-    assert len(result) == 0
+        assert result == []
+        assert len(result) == 0
