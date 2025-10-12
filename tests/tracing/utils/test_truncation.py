@@ -153,3 +153,62 @@ def test_truncate_responses_api_output():
     )
 
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
+
+
+def test_truncate_non_openai_choices_format():
+    input_str = json.dumps(
+        {
+            "question": "What is 1+1?" + "a" * 50,
+            "choices": ["1", "2", "3", "4"],
+        }
+    )
+    result = _get_truncated_preview(input_str, role="user")
+    assert len(result) == 50
+    assert result.startswith('{"question":')
+
+
+def test_truncate_invalid_message_types():
+    result = _get_truncated_preview(json.dumps({"messages": 123, "data": "a" * 50}), role="user")
+    assert len(result) == 50
+    assert result.startswith('{"messages":')
+
+    result = _get_truncated_preview(json.dumps({"input": "string", "data": "a" * 50}), role="user")
+    assert len(result) == 50
+    assert result.startswith('{"input":')
+
+    result = _get_truncated_preview(json.dumps({"output": 123, "data": "a" * 50}), role="user")
+    assert len(result) == 50
+    assert result.startswith('{"output":')
+
+    result = _get_truncated_preview(
+        json.dumps({"choices": {"0": "value"}, "data": "a" * 50}), role="user"
+    )
+    assert len(result) == 50
+    assert result.startswith('{"choices":')
+
+    result = _get_truncated_preview(
+        json.dumps({"request": "string", "data": "a" * 50}), role="user"
+    )
+    assert len(result) == 50
+    assert result.startswith('{"request":')
+
+
+def test_truncate_choices_with_invalid_message():
+    result = _get_truncated_preview(
+        json.dumps({"choices": [{"message": "not a dict"}], "data": "a" * 50}), role="user"
+    )
+    assert len(result) == 50
+    assert result.startswith('{"choices":')
+
+    result = _get_truncated_preview(
+        json.dumps({"choices": [{"message": {"role": "user"}}], "data": "a" * 50}), role="user"
+    )
+    assert len(result) == 50
+    assert result.startswith('{"choices":')
+
+    result = _get_truncated_preview(
+        json.dumps({"choices": [{"message": {"content": "hello"}}], "data": "a" * 50}),
+        role="user",
+    )
+    assert len(result) == 50
+    assert result.startswith('{"choices":')
