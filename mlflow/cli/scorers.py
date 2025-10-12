@@ -10,8 +10,8 @@ from mlflow.utils.string_utils import _create_table
 @click.group("scorers")
 def commands():
     """
-    Manage scorers, including LLM judges. To manage scorers associated with a tracking server, set the
-    MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
+    Manage scorers, including LLM judges. To manage scorers associated with a tracking
+    server, set the MLFLOW_TRACKING_URI environment variable to the URL of the desired server.
     """
 
 
