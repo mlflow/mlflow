@@ -6,6 +6,7 @@ from click.testing import CliRunner
 import mlflow
 from mlflow.cli.scorers import commands
 from mlflow.genai.scorers import scorer
+from mlflow.utils.string_utils import _create_table
 
 
 @pytest.fixture
@@ -14,33 +15,57 @@ def runner():
 
 
 @pytest.fixture
-def experiment_with_scorers():
-    """Create an experiment with registered scorers for testing."""
+def experiment():
+    """Create a test experiment."""
     experiment_id = mlflow.create_experiment(
         f"test_scorers_cli_{mlflow.utils.time.get_current_time_millis()}"
     )
-
-    # Register a few test scorers
-    @scorer
-    def correctness_scorer(outputs) -> bool:
-        return len(outputs) > 0
-
-    @scorer
-    def safety_scorer(outputs) -> bool:
-        return len(outputs) > 0
-
-    @scorer
-    def relevance_scorer(outputs) -> bool:
-        return len(outputs) > 0
-
-    correctness_scorer.register(experiment_id=experiment_id, name="Correctness")
-    safety_scorer.register(experiment_id=experiment_id, name="Safety")
-    relevance_scorer.register(experiment_id=experiment_id, name="RelevanceToQuery")
-
     yield experiment_id
-
-    # Cleanup
     mlflow.delete_experiment(experiment_id)
+
+
+@pytest.fixture
+def correctness_scorer():
+    """Create a correctness scorer."""
+
+    @scorer
+    def _correctness_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    return _correctness_scorer
+
+
+@pytest.fixture
+def safety_scorer():
+    """Create a safety scorer."""
+
+    @scorer
+    def _safety_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    return _safety_scorer
+
+
+@pytest.fixture
+def relevance_scorer():
+    """Create a relevance scorer."""
+
+    @scorer
+    def _relevance_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    return _relevance_scorer
+
+
+@pytest.fixture
+def generic_scorer():
+    """Create a generic test scorer."""
+
+    @scorer
+    def _generic_scorer(outputs) -> bool:
+        return True
+
+    return _generic_scorer
 
 
 def test_commands_group_exists():
@@ -55,61 +80,59 @@ def test_list_command_params():
     assert param_names == {"experiment_id", "output"}
 
 
-def test_list_scorers_table_output(runner, experiment_with_scorers):
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment_with_scorers])
+def test_list_scorers_table_output(
+    runner, experiment, correctness_scorer, safety_scorer, relevance_scorer
+):
+    correctness_scorer.register(experiment_id=experiment, name="Correctness")
+    safety_scorer.register(experiment_id=experiment, name="Safety")
+    relevance_scorer.register(experiment_id=experiment, name="RelevanceToQuery")
+
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
     assert result.exit_code == 0
-    assert "Scorer Name" in result.output
-    assert "Correctness" in result.output
-    assert "Safety" in result.output
-    assert "RelevanceToQuery" in result.output
 
-
-def test_list_scorers_json_output(runner, experiment_with_scorers):
-    result = runner.invoke(
-        commands, ["list", "--experiment-id", experiment_with_scorers, "--output", "json"]
+    # Construct expected table output (scorers are returned in alphabetical order)
+    # Note: click.echo() adds a trailing newline
+    expected_table = (
+        _create_table([["Correctness"], ["RelevanceToQuery"], ["Safety"]], headers=["Scorer Name"])
+        + "\n"
     )
+    assert result.output == expected_table
+
+
+def test_list_scorers_json_output(
+    runner, experiment, correctness_scorer, safety_scorer, relevance_scorer
+):
+    correctness_scorer.register(experiment_id=experiment, name="Correctness")
+    safety_scorer.register(experiment_id=experiment, name="Safety")
+    relevance_scorer.register(experiment_id=experiment, name="RelevanceToQuery")
+
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
     assert result.exit_code == 0
     output_json = json.loads(result.output)
     assert set(output_json["scorers"]) == {"Correctness", "Safety", "RelevanceToQuery"}
 
 
-def test_list_scorers_empty_experiment(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_empty_{mlflow.utils.time.get_current_time_millis()}"
-    )
-
-    try:
-        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
-        assert result.exit_code == 0
-        # Empty table produces minimal output
-        assert result.output.strip() == ""
-    finally:
-        mlflow.delete_experiment(experiment_id)
+def test_list_scorers_empty_experiment(runner, experiment):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    assert result.exit_code == 0
+    # Empty table produces minimal output
+    assert result.output.strip() == ""
 
 
-def test_list_scorers_empty_experiment_json(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_empty_json_{mlflow.utils.time.get_current_time_millis()}"
-    )
-
-    try:
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
-        )
-        assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        expected = {"scorers": []}
-        assert output_json == expected
-    finally:
-        mlflow.delete_experiment(experiment_id)
+def test_list_scorers_empty_experiment_json(runner, experiment):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    expected = {"scorers": []}
+    assert output_json == expected
 
 
-def test_list_scorers_with_experiment_id_env_var(runner, experiment_with_scorers):
-    result = runner.invoke(
-        commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": experiment_with_scorers}
-    )
+def test_list_scorers_with_experiment_id_env_var(runner, experiment, correctness_scorer):
+    correctness_scorer.register(experiment_id=experiment, name="Correctness")
+
+    result = runner.invoke(commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": experiment})
 
     assert result.exit_code == 0
     assert "Correctness" in result.output
@@ -122,132 +145,66 @@ def test_list_scorers_missing_experiment_id(runner):
     assert "experiment-id" in result.output.lower() or "experiment_id" in result.output.lower()
 
 
-def test_list_scorers_invalid_output_format(runner, experiment_with_scorers):
-    result = runner.invoke(
-        commands, ["list", "--experiment-id", experiment_with_scorers, "--output", "invalid"]
-    )
+def test_list_scorers_invalid_output_format(runner, experiment):
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "invalid"])
 
     assert result.exit_code != 0
     assert "invalid" in result.output.lower() or "choice" in result.output.lower()
 
 
-def test_list_scorers_special_characters_in_names(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_special_{mlflow.utils.time.get_current_time_millis()}"
-    )
+def test_list_scorers_special_characters_in_names(runner, experiment, generic_scorer):
+    generic_scorer.register(experiment_id=experiment, name="Scorer With Spaces")
+    generic_scorer.register(experiment_id=experiment, name="Scorer.With.Dots")
+    generic_scorer.register(experiment_id=experiment, name="Scorer-With-Dashes")
+    generic_scorer.register(experiment_id=experiment, name="Scorer_With_Underscores")
 
-    try:
-        # Register scorers with special characters in names
-        @scorer
-        def test_scorer(outputs) -> bool:
-            return True
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        test_scorer.register(experiment_id=experiment_id, name="Scorer With Spaces")
-        test_scorer.register(experiment_id=experiment_id, name="Scorer.With.Dots")
-        test_scorer.register(experiment_id=experiment_id, name="Scorer-With-Dashes")
-        test_scorer.register(experiment_id=experiment_id, name="Scorer_With_Underscores")
-
-        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
-
-        assert result.exit_code == 0
-        assert "Scorer With Spaces" in result.output
-        assert "Scorer.With.Dots" in result.output
-        assert "Scorer-With-Dashes" in result.output
-        assert "Scorer_With_Underscores" in result.output
-    finally:
-        mlflow.delete_experiment(experiment_id)
+    assert result.exit_code == 0
+    assert "Scorer With Spaces" in result.output
+    assert "Scorer.With.Dots" in result.output
+    assert "Scorer-With-Dashes" in result.output
+    assert "Scorer_With_Underscores" in result.output
 
 
-def test_list_scorers_single_scorer(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_single_{mlflow.utils.time.get_current_time_millis()}"
-    )
+def test_list_scorers_single_scorer(runner, experiment, generic_scorer):
+    generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
 
-    try:
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        @scorer
-        def only_scorer(outputs) -> bool:
-            return True
-
-        only_scorer.register(experiment_id=experiment_id, name="OnlyScorer")
-
-        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
-
-        assert result.exit_code == 0
-        assert "OnlyScorer" in result.output
-    finally:
-        mlflow.delete_experiment(experiment_id)
+    assert result.exit_code == 0
+    assert "OnlyScorer" in result.output
 
 
-def test_list_scorers_single_scorer_json(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_single_json_{mlflow.utils.time.get_current_time_millis()}"
-    )
+def test_list_scorers_single_scorer_json(runner, experiment, generic_scorer):
+    generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
 
-    try:
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
-        @scorer
-        def only_scorer(outputs) -> bool:
-            return True
-
-        only_scorer.register(experiment_id=experiment_id, name="OnlyScorer")
-
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
-        )
-
-        assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        expected = {"scorers": ["OnlyScorer"]}
-        assert output_json == expected
-    finally:
-        mlflow.delete_experiment(experiment_id)
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    expected = {"scorers": ["OnlyScorer"]}
+    assert output_json == expected
 
 
-def test_list_scorers_long_names(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_long_{mlflow.utils.time.get_current_time_millis()}"
-    )
+def test_list_scorers_long_names(runner, experiment, generic_scorer):
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
+    generic_scorer.register(experiment_id=experiment, name=long_name)
 
-    try:
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
 
-        @scorer
-        def long_scorer(outputs) -> bool:
-            return True
-
-        long_scorer.register(experiment_id=experiment_id, name=long_name)
-
-        result = runner.invoke(commands, ["list", "--experiment-id", experiment_id])
-
-        assert result.exit_code == 0
-        # Full name should be present
-        assert long_name in result.output
-    finally:
-        mlflow.delete_experiment(experiment_id)
+    assert result.exit_code == 0
+    # Full name should be present
+    assert long_name in result.output
 
 
-def test_list_scorers_long_names_json(runner):
-    experiment_id = mlflow.create_experiment(
-        f"test_long_json_{mlflow.utils.time.get_current_time_millis()}"
-    )
+def test_list_scorers_long_names_json(runner, experiment, generic_scorer):
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
+    generic_scorer.register(experiment_id=experiment, name=long_name)
 
-    try:
+    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
 
-        @scorer
-        def long_scorer(outputs) -> bool:
-            return True
-
-        long_scorer.register(experiment_id=experiment_id, name=long_name)
-
-        result = runner.invoke(
-            commands, ["list", "--experiment-id", experiment_id, "--output", "json"]
-        )
-
-        assert result.exit_code == 0
-        output_json = json.loads(result.output)
-        expected = {"scorers": [long_name]}
-        assert output_json == expected
-    finally:
-        mlflow.delete_experiment(experiment_id)
+    assert result.exit_code == 0
+    output_json = json.loads(result.output)
+    expected = {"scorers": [long_name]}
+    assert output_json == expected
