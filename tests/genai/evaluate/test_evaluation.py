@@ -222,7 +222,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
 
 
 @pytest.mark.skip(reason="TODO: OSS MLflow backend doesn't support trace->run linking yet")
-def test_evaluate_with_traces(pass_full_dataframe):
+def test_evaluate_with_traces(pass_full_dataframe, monkeypatch: pytest.MonkeyPatch):
     questions = ["What is MLflow?", "What is Spark?"]
 
     @mlflow.trace(span_type=SpanType.AGENT)
@@ -280,11 +280,11 @@ def test_evaluate_with_traces(pass_full_dataframe):
         data = data[["trace"]]
 
     # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    with mock.patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
-        result = mlflow.genai.evaluate(
-            data=data,
-            scorers=[exact_match, is_concise, relevance, has_trace],
-        )
+    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
+    result = mlflow.genai.evaluate(
+        data=data,
+        scorers=[exact_match, is_concise, relevance, has_trace],
+    )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0
@@ -472,68 +472,68 @@ def test_evaluate_with_managed_dataset_from_searched_traces():
     assert metrics["has_trace/mean"] == 1.0
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_model_from_deployment_endpoint(mock_get_deploy_client, is_in_databricks):
-    mock_client = mock_get_deploy_client.return_value
-    mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
+def test_model_from_deployment_endpoint(is_in_databricks):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_get_deploy_client:
+        mock_client = mock_get_deploy_client.return_value
+        mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
 
-    data = [
-        {
-            "inputs": {
-                "messages": [
-                    {"content": "You are a helpful assistant.", "role": "system"},
-                    {"content": "What is Spark?", "role": "user"},
-                ],
-                "max_tokens": 10,
-            }
-        },
-        {
-            "inputs": {
-                "messages": [
-                    {"content": "What is MLflow?", "role": "user"},
-                ]
-            }
-        },
-    ]
-    predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
-    result = mlflow.genai.evaluate(
-        data=data,
-        predict_fn=predict_fn,
-        scorers=[has_trace],
-    )
+        data = [
+            {
+                "inputs": {
+                    "messages": [
+                        {"content": "You are a helpful assistant.", "role": "system"},
+                        {"content": "What is Spark?", "role": "user"},
+                    ],
+                    "max_tokens": 10,
+                }
+            },
+            {
+                "inputs": {
+                    "messages": [
+                        {"content": "What is MLflow?", "role": "user"},
+                    ]
+                }
+            },
+        ]
+        predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
+        result = mlflow.genai.evaluate(
+            data=data,
+            predict_fn=predict_fn,
+            scorers=[has_trace],
+        )
 
-    databricks_options = {"databricks_options": {"return_trace": True}}
-    mock_client.predict.assert_has_calls(
-        [
-            # Test call to check if the function is traced or not
-            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
-            # First evaluation call
-            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
-            # Second evaluation call
-            mock.call(endpoint="chat", inputs={**data[1]["inputs"], **databricks_options}),
-        ],
-        any_order=True,
-    )
+        databricks_options = {"databricks_options": {"return_trace": True}}
+        mock_client.predict.assert_has_calls(
+            [
+                # Test call to check if the function is traced or not
+                mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
+                # First evaluation call
+                mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
+                # Second evaluation call
+                mock.call(endpoint="chat", inputs={**data[1]["inputs"], **databricks_options}),
+            ],
+            any_order=True,
+        )
 
-    # Validate traces
-    traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
+        # Validate traces
+        traces = mlflow.search_traces(run_id=result.run_id, return_type="list")
 
-    assert len(traces) == 2
-    spans = traces[0].data.spans
-    assert len(spans) == 1
-    assert spans[0].name == "predict"
-    # Eval harness runs prediction in parallel, so the order is not deterministic
-    assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
-    assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
+        assert len(traces) == 2
+        spans = traces[0].data.spans
+        assert len(spans) == 1
+        assert spans[0].name == "predict"
+        # Eval harness runs prediction in parallel, so the order is not deterministic
+        assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
+        assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
-@patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_no_scorers(mock_get_tracking_uri):
-    with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
+def test_no_scorers():
+    with patch("mlflow.get_tracking_uri", return_value="databricks"):
+        with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
+            mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
-    with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+        with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
+            mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])

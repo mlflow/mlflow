@@ -342,6 +342,34 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
     return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
 
 
+def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -> str:
+    """
+    Generate a trace ID in v4 format from the given OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+        location: The location, of the trace.
+
+    Returns:
+        The MLflow trace ID string in format "trace:/<location>/<hex_trace_id>".
+    """
+    return construct_trace_id_v4(location, encode_trace_id(otel_trace_id))
+
+
+def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
+    """
+    Generate a trace ID for the given span.
+
+    Args:
+        span: The OpenTelemetry span object.
+        location: The location, of the trace.
+
+    Returns:
+        Trace ID with format "trace:/<location>/<hex_trace_id>".
+    """
+    return generate_trace_id_v4_from_otel_trace_id(span.context.trace_id, location)
+
+
 def generate_trace_id_v3(span: OTelSpan) -> str:
     """
     Generate a trace ID for the given span (V3 trace schema).
@@ -510,7 +538,7 @@ def add_size_stats_to_trace_metadata(trace: Trace):
         # again (which can be expensive), we compute the size of the trace without spans
         # and combine it with the total size of the spans.
         empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
-        metadata_size = len(empty_trace.to_json().encode("utf-8"))
+        metadata_size = len((empty_trace.to_json()).encode("utf-8"))
 
         # NB: the third term is the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
@@ -594,6 +622,20 @@ def get_experiment_id_for_trace(span: OTelReadableSpan) -> str:
     return _get_experiment_id()
 
 
+def get_active_spans_table_name() -> str | None:
+    """
+    Get active Unity Catalog spans table name that's set by `mlflow.tracing.set_destination`.
+    """
+    from mlflow.entities.trace_location import UCSchemaLocation
+    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+
+    if destination := _MLFLOW_TRACE_USER_DESTINATION.get():
+        if isinstance(destination, UCSchemaLocation):
+            return destination.full_otel_spans_table_name
+
+    return None
+
+
 def generate_assessment_id() -> str:
     """
     Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
@@ -623,10 +665,12 @@ def _bypass_attribute_guard(span: OTelSpan) -> Generator[None, None, None]:
         span._end_time = original_end_time
 
 
-def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
+def parse_trace_id_v4(trace_id: str | None) -> tuple[str | None, str | None]:
     """
     Parse the trace ID into location and trace ID components.
     """
+    if trace_id is None:
+        return None, None
     if trace_id.startswith(TRACE_ID_V4_PREFIX):
         match trace_id.removeprefix(TRACE_ID_V4_PREFIX).split("/"):
             case [location, tid] if location and tid:
@@ -637,3 +681,10 @@ def parse_trace_id_v4(trace_id: str) -> tuple[str | None, str]:
                     f"Expected format: {TRACE_ID_V4_PREFIX}<location>/<trace_id>"
                 )
     return None, trace_id
+
+
+def construct_trace_id_v4(location: str, trace_id: str) -> str:
+    """
+    Construct a trace ID for the given location and trace ID.
+    """
+    return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"

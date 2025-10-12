@@ -21,9 +21,9 @@ class MockAbstractStore(AbstractStore, ABC):
 
 
 @pytest.fixture
-@patch.multiple(MockAbstractStore, __abstractmethods__=set())
 def store():
-    return MockAbstractStore()
+    with patch.multiple(MockAbstractStore, __abstractmethods__=set()):
+        yield MockAbstractStore()
 
 
 @pytest.fixture
@@ -60,7 +60,6 @@ def test_get_metric_history_bulk_interval_single_run_single_metric(store):
 
 
 def test_get_metric_history_bulk_interval_single_run_multiple_metrics_within_range(store):
-    """Test single run with multiple metrics within step range."""
     store.metrics = [
         Metric("accuracy", 0.7, 1000, 1, run_id="run1"),
         Metric("accuracy", 0.8, 2000, 5, run_id="run1"),
@@ -147,7 +146,6 @@ def test_get_metric_history_bulk_interval_metric_sorting_by_step_and_timestamp(s
 
 
 def test_get_metric_history_bulk_interval_bisect_boundary_conditions(store):
-    """Test bisect boundary conditions with exact step matches."""
     store.metrics = [
         Metric("accuracy", 0.7, 1000, 10, run_id="run1"),  # Exact start boundary
         Metric("accuracy", 0.8, 2000, 15, run_id="run1"),
@@ -265,7 +263,6 @@ def test_get_sampled_steps_from_steps(start_step, end_step, max_results, steps, 
 
 
 def test_get_metric_history_bulk_interval_from_steps_empty_steps(store):
-    """Test with empty steps list."""
     store.metrics = [Metric("accuracy", 0.8, 1000, 5, run_id="run1")]
     result = store.get_metric_history_bulk_interval_from_steps("run1", "accuracy", [], 10)
     assert result == []
@@ -282,7 +279,6 @@ def test_get_metric_history_bulk_interval_from_steps_no_matching_steps(store):
 
 
 def test_get_metric_history_bulk_interval_from_steps_single_matching_step(store):
-    """Test with single matching step."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
@@ -298,7 +294,6 @@ def test_get_metric_history_bulk_interval_from_steps_single_matching_step(store)
 
 
 def test_get_metric_history_bulk_interval_from_steps_multiple_matching_steps(store):
-    """Test with multiple matching steps."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.9, 2000, 10, run_id="run1"),
@@ -313,7 +308,6 @@ def test_get_metric_history_bulk_interval_from_steps_multiple_matching_steps(sto
 
 
 def test_get_metric_history_bulk_interval_from_steps_max_results_limit(store):
-    """Test max_results limiting."""
     store.metrics = [
         Metric("accuracy", 0.8, 1000, 5, run_id="run1"),
         Metric("accuracy", 0.9, 2000, 10, run_id="run1"),

@@ -915,6 +915,7 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     #    the first element.
     ValidationExemptArgument("tensorflow", "fit", is_iterator, 1, "x"),
     ValidationExemptArgument("keras", "fit", is_iterator, 1, "x"),
+    ValidationExemptArgument("dspy", "__call__", lambda x: isinstance(x, Callable), 2, "metric"),
 ]
 
 

@@ -1,5 +1,5 @@
 import type { RowSelectionState } from '@tanstack/react-table';
-import { isNil } from 'lodash';
+import { compact, isNil } from 'lodash';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
@@ -75,17 +75,7 @@ interface TraceActionsDropdownProps {
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const { experimentId, selectedTraces, traceActions, setRowSelection } = props;
   const intl = useIntl();
-  const [showDatasetModal, setShowDatasetModal] = useState(false);
-  const [showLabelingSessionModal, setShowLabelingSessionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  const handleExportToDatasets = useCallback(() => {
-    setShowDatasetModal(true);
-  }, []);
-
-  const handleExportToLabelingSessions = useCallback(() => {
-    setShowLabelingSessionModal(true);
-  }, []);
 
   const handleEditTags = useCallback(() => {
     if (selectedTraces.length === 1 && selectedTraces[0].traceInfo && traceActions?.editTags) {
@@ -106,9 +96,14 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
     [setRowSelection, traceActions],
   );
 
-  const hasExportAction = Boolean(traceActions?.exportToEvals?.getTrace);
+  const hasExportAction = Boolean(traceActions?.exportToEvals);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
+
+  const handleExportToDatasets = useCallback(() => {
+    traceActions?.exportToEvals?.setShowExportTracesToDatasetsModal(true);
+  }, [traceActions?.exportToEvals]);
+  const showDatasetModal = traceActions?.exportToEvals?.showExportTracesToDatasetsModal;
 
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
@@ -156,6 +151,27 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
         )}
         <DropdownMenu.Content>
+          {hasExportAction && (
+            <>
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>
+                  {intl.formatMessage({
+                    defaultMessage: 'Use for evaluation',
+                    description: 'Trace actions dropdown group label',
+                  })}
+                </DropdownMenu.Label>
+                <DropdownMenu.Item
+                  componentId="mlflow.genai-traces-table.export-to-datasets"
+                  onClick={handleExportToDatasets}
+                >
+                  {intl.formatMessage({
+                    defaultMessage: 'Add to evaluation dataset',
+                    description: 'Add traces to evaluation dataset action',
+                  })}
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            </>
+          )}
           {(hasEditTagsAction || hasDeleteAction) && (
             <>
               {hasExportAction && <DropdownMenu.Separator />}
@@ -193,6 +209,11 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
       </DropdownMenu.Root>
 
       {traceActions?.editTags?.EditTagsModal}
+
+      {showDatasetModal &&
+        traceActions?.exportToEvals?.renderExportTracesToDatasetsModal({
+          selectedTraceInfos: compact(selectedTraces.map((trace) => trace.traceInfo)),
+        })}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

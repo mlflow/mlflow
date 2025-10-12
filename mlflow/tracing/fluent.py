@@ -6,6 +6,8 @@ import importlib
 import inspect
 import json
 import logging
+import os
+import warnings
 from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal
 
@@ -16,6 +18,7 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_location import TraceLocationBase
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
@@ -28,7 +31,6 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TraceMetadataKey,
 )
-from mlflow.tracing.destination import TraceDestination
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
@@ -42,6 +44,7 @@ from mlflow.tracing.utils import (
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
 
@@ -64,7 +67,7 @@ def trace(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
@@ -207,7 +210,7 @@ def _wrap_function(
     name: str | None = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
@@ -269,7 +272,7 @@ def _wrap_generator(
     span_type: str = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
     output_reducer: Callable[[list[Any]], Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
@@ -413,7 +416,7 @@ def start_span(
     name: str = "span",
     span_type: str | None = SpanType.UNKNOWN,
     attributes: dict[str, Any] | None = None,
-    trace_destination: TraceDestination | None = None,
+    trace_destination: TraceLocationBase | None = None,
 ) -> Generator[LiveSpan, None, None]:
     """
     Context manager to create a new span and start it as the current span in the context.
@@ -652,6 +655,7 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
         return None
 
 
+@deprecated_parameter("experiment_ids", "locations")
 def search_traces(
     experiment_ids: list[str] | None = None,
     filter_string: str | None = None,
@@ -663,6 +667,7 @@ def search_traces(
     model_id: str | None = None,
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
+    locations: list[str] | None = None,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -674,8 +679,7 @@ def search_traces(
         function returns all results in memory and may not be suitable for large result sets.
 
     Args:
-        experiment_ids: List of experiment ids to scope the search. If not provided, the search
-            will be performed across the current active experiment.
+        experiment_ids: List of experiment ids to scope the search.
         filter_string: A search filter string.
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
@@ -722,12 +726,18 @@ def search_traces(
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
 
         model_id: If specified, search traces associated with the given model ID.
-        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-            searching traces in inference tables.
+        sql_warehouse_id: DEPRECATED. Use the `MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment
+            variable instead. The ID of the SQL warehouse to use for
+            searching traces in inference tables or UC tables. Only used in Databricks.
 
         include_spans: If ``True``, include spans in the returned traces. Otherwise, only
             the trace metadata is returned, e.g., trace ID, start time, end time, etc,
             without any spans. Default to ``True``.
+
+        locations: A list of locations to search over. To search over experiments, provide
+            a list of experiment IDs. To search over UC tables on databricks, provide
+            a list of locations in the format `<catalog_name>.<schema_name>`.
+            If not provided, the search will be performed across the current active experiment.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -784,6 +794,14 @@ def search_traces(
     """
     from mlflow.tracking.fluent import _get_experiment_id
 
+    if sql_warehouse_id is not None:
+        warnings.warn(
+            "The `sql_warehouse_id` parameter is deprecated. Please use the "
+            "`MLFLOW_TRACING_SQL_WAREHOUSE_ID` environment variable instead.",
+            category=FutureWarning,
+        )
+        os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
         try:
@@ -811,13 +829,17 @@ def search_traces(
                 ),
             )
 
-    if not experiment_ids:
+    _validate_list_param("locations", locations, allow_none=True)
+
+    if not experiment_ids and not locations:
+        _logger.debug("Searching traces in the current active experiment")
+
         if experiment_id := _get_experiment_id():
-            experiment_ids = [experiment_id]
+            locations = [experiment_id]
         else:
             raise MlflowException(
                 "No active experiment found. Set an experiment using `mlflow.set_experiment`, "
-                "or specify the list of experiment IDs in the `experiment_ids` parameter."
+                "or specify the list of experiment IDs in the `locations` parameter."
             )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -829,8 +851,8 @@ def search_traces(
             order_by=order_by,
             page_token=next_page_token,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
             include_spans=include_spans,
+            locations=locations,
         )
 
     results = get_results_from_paginated_fn(

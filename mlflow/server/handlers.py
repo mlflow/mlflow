@@ -127,7 +127,6 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -183,8 +182,7 @@ from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
-from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -259,7 +257,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
-        return RestStore(partial(get_databricks_host_creds, store_uri))
+        return DatabricksTracingRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
@@ -2911,18 +2909,6 @@ def _get_trace_info_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_trace_info_v4(location: str, trace_id: str) -> Response:
-    """
-    A request handler for `GET /mlflow/traces/{location}/{trace_id}/info` to retrieve
-    an existing TraceInfo record from tracking store.
-    """
-    trace_info = _get_tracking_store().get_trace_info(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}")
-    response_message = GetTraceInfoV4.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -2946,7 +2932,7 @@ def _search_traces_v3():
             experiment_ids.append(location.mlflow_experiment.experiment_id)
 
     traces, token = _get_tracking_store().search_traces(
-        experiment_ids=experiment_ids,
+        locations=experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
@@ -3574,13 +3560,18 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    version = _get_tracking_store().register_scorer(
+    scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
     )
     response_message = RegisterScorer.Response()
-    response_message.version = version
+    response_message.version = scorer_version.scorer_version
+    response_message.scorer_id = scorer_version.scorer_id
+    response_message.experiment_id = scorer_version.experiment_id
+    response_message.name = scorer_version.scorer_name
+    response_message.serialized_scorer = scorer_version._serialized_scorer
+    response_message.creation_time = scorer_version.creation_time
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4049,8 +4040,6 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
-    # MLflow Tracing APIs (V4)
-    GetTraceInfoV4: _get_trace_info_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

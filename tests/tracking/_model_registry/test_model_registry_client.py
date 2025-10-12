@@ -495,7 +495,6 @@ def test_search_registered_models_excludes_text_prompts(mock_store):
 
 
 def test_search_registered_models_excludes_prompts_with_response_format(mock_store):
-    """Test that search_registered_models excludes prompts with response format."""
     mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
 
     client = newModelRegistryClient()
@@ -511,7 +510,6 @@ def test_search_registered_models_excludes_prompts_with_response_format(mock_sto
 
 
 def test_search_registered_models_preserves_existing_prompt_filter(mock_store):
-    """Test that search_registered_models preserves existing prompt filter."""
     mock_store.search_registered_models.return_value = PagedList([RegisteredModel("Model 1")], "")
 
     client = newModelRegistryClient()
