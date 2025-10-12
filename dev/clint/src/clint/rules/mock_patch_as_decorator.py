@@ -12,12 +12,9 @@ class MockPatchAsDecorator(Rule):
     IGNORED_FILES = {
         "tests/utils/test_databricks_utils.py",  # 10
         "tests/genai/scorers/test_builtin_scorers.py",  # 6
-        "tests/evaluate/test_evaluation.py",  # 5
         "tests/genai/scorers/test_scorer_CRUD.py",  # 5
         "tests/langchain/test_langchain_model_export.py",  # 5
-        "tests/projects/test_docker_projects.py",  # 4
         "tests/store/tracking/test_databricks_rest_store.py",  # 4
-        "tests/store/tracking/test_rest_store.py",  # 4
     }
 
     def _message(self) -> str:
