@@ -32,7 +32,7 @@ def commands():
 )
 def list_scorers(experiment_id: str, output: str) -> None:
     """
-    List all registered scorers for the specified experiment.
+    List all registered scorers, including LLM judges, for the specified experiment.
 
     Examples:
 
