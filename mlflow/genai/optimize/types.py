@@ -4,36 +4,13 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from mlflow.entities import Feedback, Trace
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 
 if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
 
 ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
-
-
-@experimental(version="3.0.0")
-@dataclass
-class PromptOptimizationResult:
-    """
-    Result of the :py:func:`mlflow.genai.optimize_prompt()` API.
-
-    Args:
-        prompt: The optimized prompt. When autolog=True (default), this is a
-            PromptVersion entity containing the registered optimized template.
-            When autolog=False, this is the raw optimized template (str or dict).
-        initial_prompt: A prompt version entity containing the initial template.
-        optimizer_name: The name of the optimizer.
-        final_eval_score: The final evaluation score of the optimized prompt.
-        initial_eval_score: The initial evaluation score of the optimized prompt.
-    """
-
-    prompt: str | dict[str, Any] | PromptVersion
-    initial_prompt: PromptVersion
-    optimizer_name: str
-    final_eval_score: float | None
-    initial_eval_score: float | None
 
 
 @experimental(version="3.0.0")
@@ -58,11 +35,15 @@ class LLMParams:
     temperature: float | None = None
 
 
+@deprecated(since="3.5.0", impact="This class has been removed. Use mlflow.genai.optimize_prompts() instead.")
 @experimental(version="3.0.0")
 @dataclass
 class OptimizerConfig:
     """
     Configuration for prompt optimization.
+
+    .. deprecated:: 3.5.0
+        ``OptimizerConfig`` has been removed. Use :py:func:`mlflow.genai.optimize_prompts()` instead.
 
     Args:
         num_instruction_candidates: Number of candidate instructions to generate
@@ -99,25 +80,6 @@ class OptimizerConfig:
     autolog: bool = True
     convert_to_single_text: bool = True
     extract_instructions: bool = True
-
-
-@experimental(version="3.3.0")
-@dataclass(kw_only=True)
-class OptimizerOutput:
-    """
-    Output of the `optimize` method of :py:class:`mlflow.genai.optimize.BasePromptOptimizer`.
-
-    Args:
-        optimized_prompt: The optimized prompt version entity.
-        optimizer_name: The name of the optimizer.
-        final_eval_score: The final evaluation score of the optimized prompt.
-        initial_eval_score: The initial evaluation score of the optimized prompt.
-    """
-
-    optimized_prompt: str | dict[str, Any]
-    optimizer_name: str
-    final_eval_score: float | None = None
-    initial_eval_score: float | None = None
 
 
 @experimental(version="3.5.0")
