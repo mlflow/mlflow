@@ -114,19 +114,27 @@ def test_list_scorers_json_output(
     assert set(output_json["scorers"]) == {"Correctness", "Safety", "RelevanceToQuery"}
 
 
-def test_list_scorers_empty_experiment(runner, experiment):
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
-    assert result.exit_code == 0
-    # Empty table produces minimal output
-    assert result.output.strip() == ""
+@pytest.mark.parametrize(
+    ("output_format", "expected_output"),
+    [
+        ("table", ""),
+        ("json", {"scorers": []}),
+    ],
+)
+def test_list_scorers_empty_experiment(runner, experiment, output_format, expected_output):
+    args = ["list", "--experiment-id", experiment]
+    if output_format == "json":
+        args.extend(["--output", "json"])
 
-
-def test_list_scorers_empty_experiment_json(runner, experiment):
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
+    result = runner.invoke(commands, args)
     assert result.exit_code == 0
-    output_json = json.loads(result.output)
-    expected = {"scorers": []}
-    assert output_json == expected
+
+    if output_format == "json":
+        output_json = json.loads(result.output)
+        assert output_json == expected_output
+    else:
+        # Empty table produces minimal output
+        assert result.output.strip() == expected_output
 
 
 def test_list_scorers_with_experiment_id_env_var(runner, experiment, correctness_scorer):
@@ -167,44 +175,45 @@ def test_list_scorers_special_characters_in_names(runner, experiment, generic_sc
     assert "Scorer_With_Underscores" in result.output
 
 
-def test_list_scorers_single_scorer(runner, experiment, generic_scorer):
+@pytest.mark.parametrize(
+    "output_format",
+    ["table", "json"],
+)
+def test_list_scorers_single_scorer(runner, experiment, generic_scorer, output_format):
     generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
 
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    args = ["list", "--experiment-id", experiment]
+    if output_format == "json":
+        args.extend(["--output", "json"])
 
+    result = runner.invoke(commands, args)
     assert result.exit_code == 0
-    assert "OnlyScorer" in result.output
+
+    if output_format == "json":
+        output_json = json.loads(result.output)
+        assert output_json == {"scorers": ["OnlyScorer"]}
+    else:
+        assert "OnlyScorer" in result.output
 
 
-def test_list_scorers_single_scorer_json(runner, experiment, generic_scorer):
-    generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
-
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
-
-    assert result.exit_code == 0
-    output_json = json.loads(result.output)
-    expected = {"scorers": ["OnlyScorer"]}
-    assert output_json == expected
-
-
-def test_list_scorers_long_names(runner, experiment, generic_scorer):
+@pytest.mark.parametrize(
+    "output_format",
+    ["table", "json"],
+)
+def test_list_scorers_long_names(runner, experiment, generic_scorer, output_format):
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
     generic_scorer.register(experiment_id=experiment, name=long_name)
 
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    args = ["list", "--experiment-id", experiment]
+    if output_format == "json":
+        args.extend(["--output", "json"])
 
+    result = runner.invoke(commands, args)
     assert result.exit_code == 0
-    # Full name should be present
-    assert long_name in result.output
 
-
-def test_list_scorers_long_names_json(runner, experiment, generic_scorer):
-    long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
-    generic_scorer.register(experiment_id=experiment, name=long_name)
-
-    result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "json"])
-
-    assert result.exit_code == 0
-    output_json = json.loads(result.output)
-    expected = {"scorers": [long_name]}
-    assert output_json == expected
+    if output_format == "json":
+        output_json = json.loads(result.output)
+        assert output_json == {"scorers": [long_name]}
+    else:
+        # Full name should be present
+        assert long_name in result.output
