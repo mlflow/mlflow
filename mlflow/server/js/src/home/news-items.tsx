@@ -31,7 +31,7 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
     id: 'agents-as-a-judge',
     title: <FormattedMessage defaultMessage="Agents-as-a-judge" description="Home page news card title three" />,
     description: 'Leverage agents as a judge to perform deep trace analysis and improve your evaluation accuracy.',
-    link: 'https://mlflow.org/docs/latest/llms/index.html',
+    link: 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/agentic-overview/index.html',
     componentId: 'mlflow.home.news.agents_as_a_judge',
     thumbnail: {
       gradient: 'linear-gradient(135deg, #FFF5E1 0%, #FFE2F2 100%)',
