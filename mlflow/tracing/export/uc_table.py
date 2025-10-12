@@ -50,7 +50,10 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
                 )
             )
         else:
-            self._client.log_spans(location, spans)
+            try:
+                self._client.log_spans(location, spans)
+            except Exception as e:
+                _logger.debug(f"Failed to log spans to the trace server: {e}")
 
     def _should_enable_async_logging(self) -> bool:
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
