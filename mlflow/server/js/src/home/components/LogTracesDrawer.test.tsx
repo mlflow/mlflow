@@ -1,7 +1,7 @@
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { LogTracesDrawer } from './LogTracesDrawer';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart', () => ({
