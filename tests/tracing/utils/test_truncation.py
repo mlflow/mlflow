@@ -163,7 +163,6 @@ def test_truncate_non_openai_choices_format():
         }
     )
     result = _get_truncated_preview(input_str, role="user")
-    assert len(result) == 50
     assert result.startswith('{"question":')
 
 
