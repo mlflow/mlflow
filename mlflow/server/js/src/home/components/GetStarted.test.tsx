@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { GetStarted } from './GetStarted';
 import { homeQuickActions } from '../quick-actions';
+import { HomePageViewStateProvider, useHomePageViewState } from '../HomePageViewStateContext';
 
 type FormattedMessageReactElement = React.ReactElement<{ defaultMessage: string }>;
 
@@ -18,7 +19,11 @@ const getQuickActionDefaultMessage = (title: React.ReactNode): string => {
 
 describe('GetStarted', () => {
   it('renders header and all quick actions', () => {
-    renderWithDesignSystem(<GetStarted />);
+    renderWithDesignSystem(
+      <HomePageViewStateProvider>
+        <GetStarted />
+      </HomePageViewStateProvider>,
+    );
 
     expect(
       screen.getByRole('heading', {
@@ -31,27 +36,54 @@ describe('GetStarted', () => {
       const defaultMessage = getQuickActionDefaultMessage(action.title);
       const element = screen.getByText(defaultMessage);
       expect(element).toBeInTheDocument();
-      expect(element.closest('a')).not.toBeNull();
+      if (action.id === 'log-traces') {
+        expect(element.closest('button')).not.toBeNull();
+      } else {
+        expect(element.closest('a')).not.toBeNull();
+      }
     });
   });
 
-  it('renders quick actions as external links when no handler is provided', () => {
-    renderWithDesignSystem(<GetStarted />);
+  it('renders non log traces quick actions as external links', () => {
+    renderWithDesignSystem(
+      <HomePageViewStateProvider>
+        <GetStarted />
+      </HomePageViewStateProvider>,
+    );
 
     homeQuickActions.forEach((action) => {
       const defaultMessage = getQuickActionDefaultMessage(action.title);
-      const linkElement = screen.getByText(defaultMessage).closest('a') as HTMLAnchorElement | null;
-
-      expect(linkElement).not.toBeNull();
-      expect(linkElement).toHaveAttribute('href', action.link);
-      expect(linkElement).toHaveAttribute('target', '_blank');
-      expect(linkElement).toHaveAttribute('rel', 'noopener noreferrer');
+      if (action.id === 'log-traces') {
+        const buttonElement = screen.getByText(defaultMessage).closest('button');
+        expect(buttonElement).not.toBeNull();
+      } else {
+        const linkElement = screen.getByText(defaultMessage).closest('a') as HTMLAnchorElement | null;
+        expect(linkElement).not.toBeNull();
+        expect(linkElement).toHaveAttribute('href', action.link);
+        expect(linkElement).toHaveAttribute('target', '_blank');
+        expect(linkElement).toHaveAttribute('rel', 'noopener noreferrer');
+      }
     });
   });
 
-  it('invokes handler when log traces quick action is clicked', async () => {
-    const onLogTracesClick = jest.fn();
-    renderWithDesignSystem(<GetStarted onLogTracesClick={onLogTracesClick} />);
+  const DrawerObserver = ({ onOpen }: { onOpen: jest.Mock }) => {
+    const { isLogTracesDrawerOpen } = useHomePageViewState();
+    useEffect(() => {
+      if (isLogTracesDrawerOpen) {
+        onOpen();
+      }
+    }, [isLogTracesDrawerOpen, onOpen]);
+    return null;
+  };
+
+  it('opens log traces drawer state when quick action is clicked', async () => {
+    const onOpen = jest.fn();
+    renderWithDesignSystem(
+      <HomePageViewStateProvider>
+        <DrawerObserver onOpen={onOpen} />
+        <GetStarted />
+      </HomePageViewStateProvider>,
+    );
 
     const logTracesAction = homeQuickActions.find((action) => action.id === 'log-traces');
     if (!logTracesAction) {
@@ -63,17 +95,6 @@ describe('GetStarted', () => {
     });
 
     await userEvent.click(logTracesButton);
-    expect(onLogTracesClick).toHaveBeenCalled();
-
-    homeQuickActions
-      .filter((action) => action.id !== 'log-traces')
-      .forEach((action) => {
-        const link = screen
-          .getByText(getQuickActionDefaultMessage(action.title))
-          .closest('a') as HTMLAnchorElement | null;
-
-        expect(link).not.toBeNull();
-        expect(link).toHaveAttribute('href', action.link);
-      });
+    expect(onOpen).toHaveBeenCalled();
   });
 });

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { LogTracesDrawer } from './LogTracesDrawer';
+import { HomePageViewStateProvider, useHomePageViewState } from '../HomePageViewStateContext';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart', () => ({
   TraceTableGenericQuickstart: ({ flavorName, baseComponentId }: { flavorName: string; baseComponentId: string }) => (
@@ -10,11 +11,22 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/T
   ),
 }));
 
+const OpenOnMount = () => {
+  const { openLogTracesDrawer } = useHomePageViewState();
+  React.useEffect(() => {
+    openLogTracesDrawer();
+  }, [openLogTracesDrawer]);
+  return null;
+};
+
 describe('LogTracesDrawer', () => {
   it('renders the drawer with default framework selected', () => {
     renderWithDesignSystem(
       <MemoryRouter>
-        <LogTracesDrawer isOpen onClose={jest.fn()} />
+        <HomePageViewStateProvider>
+          <OpenOnMount />
+          <LogTracesDrawer />
+        </HomePageViewStateProvider>
       </MemoryRouter>,
     );
 
@@ -35,7 +47,10 @@ describe('LogTracesDrawer', () => {
   it('updates quickstart content when selecting a different framework', async () => {
     renderWithDesignSystem(
       <MemoryRouter>
-        <LogTracesDrawer isOpen onClose={jest.fn()} />
+        <HomePageViewStateProvider>
+          <OpenOnMount />
+          <LogTracesDrawer />
+        </HomePageViewStateProvider>
       </MemoryRouter>,
     );
 

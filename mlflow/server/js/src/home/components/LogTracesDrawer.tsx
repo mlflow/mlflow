@@ -30,6 +30,7 @@ import BedrockLogo from '../../common/static/logos/bedrock.svg';
 import LlamaIndexLogo from '../../common/static/logos/llamaindex.png';
 import AutoGenLogo from '../../common/static/logos/autogen.png';
 import CrewAILogo from '../../common/static/logos/crewai.png';
+import { useHomePageViewState } from '../HomePageViewStateContext';
 
 type SupportedQuickstartFlavor = QUICKSTART_FLAVOR;
 
@@ -112,19 +113,20 @@ mlflow.set_tracking_uri("http://<tracking-server-host>:<port>")
 # If the experiment with the name "traces-quickstart" doesn't exist, MLflow will create it
 mlflow.set_experiment("traces-quickstart")`;
 
-export const LogTracesDrawer = ({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) => {
+export const LogTracesDrawer = () => {
   const { theme } = useDesignSystemTheme();
   const [selectedFramework, setSelectedFramework] = useState<SupportedQuickstartFlavor>('openai');
+  const { isLogTracesDrawerOpen, closeLogTracesDrawer } = useHomePageViewState();
 
   const handleOpenChange = (open: boolean) => {
     if (!open) {
       setSelectedFramework('openai');
-      onClose();
+      closeLogTracesDrawer();
     }
   };
 
   return (
-    <Drawer.Root modal open={isOpen} onOpenChange={handleOpenChange}>
+    <Drawer.Root modal open={isLogTracesDrawerOpen} onOpenChange={handleOpenChange}>
       <Drawer.Content
         componentId="mlflow.home.log_traces.drawer"
         width="70vw"

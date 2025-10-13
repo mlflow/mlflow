@@ -1,10 +1,11 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { homeQuickActions } from '../quick-actions';
+import { useHomePageViewState } from '../HomePageViewStateContext';
 
 type QuickAction = typeof homeQuickActions[number];
 
-const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onLogTracesClick?: () => void }) => {
+const GetStartedCard = ({ action }: { action: QuickAction }) => {
   const { theme } = useDesignSystemTheme();
   const linkStyles = {
     textDecoration: 'none',
@@ -63,11 +64,13 @@ const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onL
     </div>
   );
 
-  if (action.id === 'log-traces' && onLogTracesClick) {
+  const { openLogTracesDrawer } = useHomePageViewState();
+
+  if (action.id === 'log-traces') {
     return (
       <button
         type="button"
-        onClick={onLogTracesClick}
+        onClick={openLogTracesDrawer}
         css={{
           ...linkStyles,
           border: 0,
@@ -81,16 +84,16 @@ const GetStartedCard = ({ action, onLogTracesClick }: { action: QuickAction; onL
         {card}
       </button>
     );
-  } else {
-    return (
-      <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
-        {card}
-      </a>
-    );
   }
+
+  return (
+    <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
+      {card}
+    </a>
+  );
 };
 
-export const GetStarted = ({ onLogTracesClick }: { onLogTracesClick?: () => void }) => {
+export const GetStarted = () => {
   const { theme } = useDesignSystemTheme();
 
   return (
@@ -109,7 +112,7 @@ export const GetStarted = ({ onLogTracesClick }: { onLogTracesClick?: () => void
         }}
       >
         {homeQuickActions.map((action) => (
-          <GetStartedCard key={action.id} action={action} onLogTracesClick={onLogTracesClick} />
+          <GetStartedCard key={action.id} action={action} />
         ))}
       </section>
     </section>
