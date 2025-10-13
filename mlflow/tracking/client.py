@@ -4236,7 +4236,7 @@ class MlflowClient:
                 new_source = logged_model.artifact_location
         elif (
             is_databricks_unity_catalog_uri(self._registry_uri)
-            and tracking_uri != self._registry_uri
+            and not is_databricks_uri(tracking_uri)
             and model_id is not None
         ):
             logged_model = self.get_logged_model(model_id)
