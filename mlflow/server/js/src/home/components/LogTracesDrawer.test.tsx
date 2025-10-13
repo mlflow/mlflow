@@ -1,6 +1,7 @@
 import React from 'react';
 import userEvent from '@testing-library/user-event';
 import { renderWithDesignSystem, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { MemoryRouter } from 'react-router-dom';
 import { LogTracesDrawer } from './LogTracesDrawer';
 
 jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart', () => ({
@@ -11,7 +12,11 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/T
 
 describe('LogTracesDrawer', () => {
   it('renders the drawer with default framework selected', () => {
-    renderWithDesignSystem(<LogTracesDrawer isOpen onClose={jest.fn()} />);
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <LogTracesDrawer isOpen onClose={jest.fn()} />
+      </MemoryRouter>,
+    );
 
     expect(
       screen.getByRole('dialog', {
@@ -28,7 +33,11 @@ describe('LogTracesDrawer', () => {
   });
 
   it('updates quickstart content when selecting a different framework', async () => {
-    renderWithDesignSystem(<LogTracesDrawer isOpen onClose={jest.fn()} />);
+    renderWithDesignSystem(
+      <MemoryRouter>
+        <LogTracesDrawer isOpen onClose={jest.fn()} />
+      </MemoryRouter>,
+    );
 
     const langChainButton = screen.getByRole('button', { name: 'LangChain' });
     await userEvent.click(langChainButton);

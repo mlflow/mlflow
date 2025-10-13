@@ -59,7 +59,7 @@ describe('GetStarted', () => {
     }
 
     const logTracesButton = screen.getByRole('button', {
-      name: getQuickActionDefaultMessage(logTracesAction.title),
+      name: new RegExp(getQuickActionDefaultMessage(logTracesAction.title), 'i'),
     });
 
     await userEvent.click(logTracesButton);
