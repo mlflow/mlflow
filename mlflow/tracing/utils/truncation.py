@@ -80,10 +80,10 @@ def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
         and isinstance(choices, list)
         and len(choices) > 0
         and isinstance(choices[0], dict)
-        and "message" in choices[0]
-        and _is_message(choices[0]["message"])
+        and (msg := choices[0].get("message"))
+        and _is_message(msg)
     ):
-        return [choices[0].get("message")]
+        return [msg]
 
     # Check if the object contains a message in OpenAI Responses API request format
     if (input := obj.get("input")) and isinstance(input, list):
