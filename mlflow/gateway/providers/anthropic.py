@@ -47,12 +47,51 @@ class AnthropicAdapter(ProviderAdapter):
             payload["system"] = "\n".join(m["content"] for m in system_messages)
 
         # remaining messages are chat history
-        # we want to include only user and assistant messages
-        payload["messages"] = [m for m in payload["messages"] if m["role"] in ("user", "assistant")]
+        # we want to include only user, assistant or tool messages
+        converted_messages = []
+        for m in payload["messages"]:
+            if m["role"] in ("user", "assistant"):
+                converted_messages.append(m)
+            elif m["role"] == "tool":
+                # convert tool message to Anthropic format
+                # example: https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
+                converted_messages.append({
+                    "role": "user",
+                    "content": {
+                        "type": "tool_result",
+                        "tool_use_id": m["tool_call_id"],
+                        "content": m["content"],
+                    },
+                })
+        payload["messages"] = converted_messages
 
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
+
+        tools = payload.pop("tools", None)
+
+        # convert tool definition to Anthropic format
+        if tools:
+            converted_tools = []
+            for tool in tools:
+                if tool["type"] != "function":
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            "Only function calling tool is supported, but received tool type "
+                            f"{tool['type']}"
+                        ),
+                    )
+
+                tool_function = tool["function"]
+                converted_tools.append({
+                    "name": tool_function["name"],
+                    "description": tool_function["description"],
+                    "input_schema": tool_function["parameters"]
+                })
+
+            payload["tools"] = converted_tools
 
         return payload
 
@@ -67,6 +106,12 @@ class AnthropicAdapter(ProviderAdapter):
         #     {
         #       "text": "Blue is often seen as a calming and soothing color.",
         #       "type": "text"
+        #     },
+        #     {
+        #       "type": "tool_use",
+        #       "id": "toolu_011UYCoc...",
+        #       "name": "get_weather",
+        #       "input": { "city": "Singapore" }
         #     },
         #     {
         #       "source": {
