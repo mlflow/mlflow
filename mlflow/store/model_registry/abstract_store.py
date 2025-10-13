@@ -905,39 +905,6 @@ class AbstractStore:
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        from mlflow.tracing.client import TracingClient
-
-        client = TracingClient()
-        with self._prompt_link_lock:
-            trace_info = client.get_trace_info(trace_id)
-            if not trace_info:
-                raise MlflowException(
-                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
-                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                )
-
-            # Prepare new prompt entries to add
-            new_prompt_entries = [
-                {
-                    "name": prompt_version.name,
-                    "version": str(prompt_version.version),
-                }
-                for prompt_version in prompt_versions
-            ]
-
-            # Use utility function to update linked prompts tag
-            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-            updated_tag_value = self._update_linked_prompts_tag(
-                current_tag_value, new_prompt_entries
-            )
-
-            # Only update if the tag value actually changed (avoiding redundant updates)
-            if current_tag_value != updated_tag_value:
-                client.set_trace_tag(
-                    trace_id,
-                    LINKED_PROMPTS_TAG_KEY,
-                    updated_tag_value,
-                )
 
     def set_prompt_version_tag(self, name: str, version: str | int, key: str, value: str) -> None:
         """
@@ -1039,78 +1006,6 @@ class AbstractStore:
             version: Version of the prompt to link.
             run_id: ID of the run to link to.
         """
-        from mlflow.tracking import _get_store as _get_tracking_store
-
-        prompt_version = self.get_prompt_version(name, version)
-        tracking_store = _get_tracking_store()
-
-        with self._prompt_link_lock:
-            run = tracking_store.get_run(run_id)
-            if not run:
-                raise MlflowException(
-                    f"Could not find run with ID '{run_id}' to which to link prompt '{name}'.",
-                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                )
-
-            new_prompt_entry = {
-                "name": prompt_version.name,
-                "version": str(prompt_version.version),
-            }
-
-            current_tag_value = None
-            if isinstance(run.data.tags, dict):
-                current_tag_value = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
-            else:
-                for tag in run.data.tags:
-                    if tag.key == LINKED_PROMPTS_TAG_KEY:
-                        current_tag_value = tag.value
-                        break
-
-            updated_tag_value = self._update_linked_prompts_tag(
-                current_tag_value, [new_prompt_entry]
-            )
-
-            if current_tag_value != updated_tag_value:
-                from mlflow.entities import RunTag
-
-                tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
-
-    def _update_linked_prompts_tag(
-        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
-    ) -> str:
-        """
-        Utility method to update linked prompts tag value with new entries.
-
-        Args:
-            current_tag_value: Current JSON string value of the linked prompts tag
-            new_prompt_entries: List of prompt entry dicts to add
-
-        Returns:
-            Updated JSON string with new entries added (avoiding duplicates)
-
-        Raises:
-            MlflowException: If current tag value has invalid JSON or format
-        """
-        if current_tag_value is not None:
-            try:
-                parsed_prompts_tag_value = json.loads(current_tag_value)
-                if not isinstance(parsed_prompts_tag_value, list):
-                    raise MlflowException(
-                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
-                    )
-            except json.JSONDecodeError:
-                raise MlflowException(
-                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
-                )
-        else:
-            parsed_prompts_tag_value = []
-
-        # Add new prompt entries that aren't already linked
-        for new_prompt_entry in new_prompt_entries:
-            if new_prompt_entry not in parsed_prompts_tag_value:
-                parsed_prompts_tag_value.append(new_prompt_entry)
-
-        return json.dumps(parsed_prompts_tag_value)
 
     # CRUD API for Webhook objects
     def create_webhook(

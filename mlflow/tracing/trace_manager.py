@@ -1,4 +1,5 @@
 import contextlib
+import json
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -7,6 +8,7 @@ from typing import Generator, Sequence
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
 
@@ -110,6 +112,28 @@ class InMemoryTraceManager:
         """
         with self._lock:
             self._traces[trace_id].prompts.append(prompt)
+
+            # NB: Set prompt URIs in trace tags for linking. This is a short-term solution until
+            # LinkPromptsToTraces endpoint is implemented in the backend.
+            # TODO: Remove this once LinkPromptsToTraces endpoint is implemented in the backend.
+            try:
+                self._update_linked_prompts_tag(trace_id, prompt)
+            except Exception:
+                _logger.debug(f"Failed to update prompts tag for trace {trace_id}", exc_info=True)
+
+    def _update_linked_prompts_tag(self, trace_id: str, prompt: PromptVersion):
+        trace_info = self._traces[trace_id].info
+
+        if current_tag_value := trace_info.tags.get(LINKED_PROMPTS_TAG_KEY):
+            parsed_prompts_tag_value = json.loads(current_tag_value)
+        else:
+            parsed_prompts_tag_value = []
+
+        updated_tag_value = parsed_prompts_tag_value.append(
+            {"name": prompt.name, "version": str(prompt.version)}
+        )
+        updated_tag_value = json.dumps(parsed_prompts_tag_value)
+        self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag_value
 
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[_Trace | None, None, None]:
