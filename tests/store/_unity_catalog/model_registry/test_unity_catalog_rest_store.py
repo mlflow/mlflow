@@ -2650,13 +2650,8 @@ def test_link_prompt_version_to_model_success(store):
         assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_model_sets_tag(store):
     """Test that linking a prompt version to a model sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2666,7 +2661,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the logged model
         model_id = "model_123"
         logged_model = LoggedModel(
@@ -2779,13 +2781,8 @@ def test_link_prompt_version_to_run_success(store):
         assert req_body["run_ids"] == ["run_123"]
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_run_sets_tag(store):
     """Test that linking a prompt version to a run sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2795,7 +2792,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the run
         run_id = "run_123"
         run_data = RunData(metrics=[], params=[], tags={})
