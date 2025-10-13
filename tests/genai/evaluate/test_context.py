@@ -64,10 +64,13 @@ def test_context_get_user_name(monkeypatch):
     _test()
 
 
-@mock.patch("mlflow.tracking.context.default_context.DefaultRunContext.tags", return_value={})
-def test_context_get_user_name_no_user_set(mock_default_tags):
-    @eval_context
-    def _test():
-        assert get_context().get_user_name() == "unknown"
+def test_context_get_user_name_no_user_set():
+    with mock.patch(
+        "mlflow.tracking.context.default_context.DefaultRunContext.tags", return_value={}
+    ):
 
-    _test()
+        @eval_context
+        def _test():
+            assert get_context().get_user_name() == "unknown"
+
+        _test()

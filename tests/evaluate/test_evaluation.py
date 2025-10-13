@@ -1830,20 +1830,20 @@ _TEST_GT_LIST = [
         ),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature_names, targets):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+def test_evaluate_on_chat_model_endpoint(input_data, feature_names, targets):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/chat",
-            data=input_data,
-            model_type="question-answering",
-            feature_names=feature_names,
-            targets=targets,
-            inference_params={"max_tokens": 10, "temperature": 0.5},
-        )
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/chat",
+                data=input_data,
+                model_type="question-answering",
+                feature_names=feature_names,
+                targets=targets,
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1902,19 +1902,19 @@ _DUMMY_COMPLETION_RESPONSE = {
         ([{"prompt": q} for q in _TEST_QUERY_LIST], None),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, feature_names):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
+def test_evaluate_on_completion_model_endpoint(input_data, feature_names):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
 
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/completions",
-            data=input_data,
-            inference_params={"max_tokens": 10},
-            model_type="text",
-            feature_names=feature_names,
-        )
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/completions",
+                data=input_data,
+                inference_params={"max_tokens": 10},
+                model_type="text",
+                feature_names=feature_names,
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1937,35 +1937,35 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
-    # An endpoint that does not have endpoint type. For such endpoint, we simply
-    # pass the input data to the endpoint without any modification and return
-    # the response as is.
-    mock_deploy_client.return_value.get_endpoint.return_value = {}
-    mock_deploy_client.return_value.predict.return_value = "This is a response"
+def test_evaluate_on_model_endpoint_without_type():
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        # An endpoint that does not have endpoint type. For such endpoint, we simply
+        # pass the input data to the endpoint without any modification and return
+        # the response as is.
+        mock_deploy_client.return_value.get_endpoint.return_value = {}
+        mock_deploy_client.return_value.predict.return_value = "This is a response"
 
-    input_data = pd.DataFrame(
-        {
-            "inputs": [
-                {
-                    "messages": [{"content": q, "role": "user"}],
-                    "max_tokens": 10,
-                }
-                for q in _TEST_QUERY_LIST
-            ],
-            "ground_truth": _TEST_GT_LIST,
-        }
-    )
-
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/random",
-            data=input_data,
-            model_type="question-answering",
-            targets="ground_truth",
-            inference_params={"max_tokens": 10, "temperature": 0.5},
+        input_data = pd.DataFrame(
+            {
+                "inputs": [
+                    {
+                        "messages": [{"content": q, "role": "user"}],
+                        "max_tokens": 10,
+                    }
+                    for q in _TEST_QUERY_LIST
+                ],
+                "ground_truth": _TEST_GT_LIST,
+            }
         )
+
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/random",
+                data=input_data,
+                model_type="question-answering",
+                targets="ground_truth",
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1998,27 +1998,27 @@ def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_model_endpoint_invalid_payload(mock_deploy_client):
-    # An endpoint that does not have endpoint type. For such endpoint, we simply
-    # pass the input data to the endpoint without any modification and return
-    # the response as is.
-    mock_deploy_client.return_value.get_endpoint.return_value = {}
-    mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
+def test_evaluate_on_model_endpoint_invalid_payload():
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        # An endpoint that does not have endpoint type. For such endpoint, we simply
+        # pass the input data to the endpoint without any modification and return
+        # the response as is.
+        mock_deploy_client.return_value.get_endpoint.return_value = {}
+        mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
 
-    input_data = pd.DataFrame(
-        {
-            "inputs": [{"invalid": "payload"}],
-        }
-    )
-
-    with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
-        mlflow.evaluate(
-            model="endpoints:/random",
-            data=input_data,
-            model_type="question-answering",
-            inference_params={"max_tokens": 10, "temperature": 0.5},
+        input_data = pd.DataFrame(
+            {
+                "inputs": [{"invalid": "payload"}],
+            }
         )
+
+        with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
+            mlflow.evaluate(
+                model="endpoints:/random",
+                data=input_data,
+                model_type="question-answering",
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
 
 @pytest.mark.parametrize(
@@ -2100,14 +2100,14 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
         ),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+def test_model_from_deployment_endpoint(model_input):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
-    model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
+        model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
 
-    response = model.predict(model_input)
+        response = model.predict(model_input)
 
     if isinstance(model_input, dict):
         assert mock_deploy_client.return_value.predict.call_count == 1
