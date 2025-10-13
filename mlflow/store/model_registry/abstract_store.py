@@ -1007,6 +1007,42 @@ class AbstractStore:
             run_id: ID of the run to link to.
         """
 
+    def _update_linked_prompts_tag(
+        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
+    ) -> str:
+        """
+        Utility method to update linked prompts tag value with new entries.
+
+        Args:
+            current_tag_value: Current JSON string value of the linked prompts tag
+            new_prompt_entries: List of prompt entry dicts to add
+        Returns:
+            Updated JSON string with new entries added (avoiding duplicates)
+
+        Raises:
+            MlflowException: If current tag value has invalid JSON or format
+        """
+        if current_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(current_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                )
+        else:
+            parsed_prompts_tag_value = []
+
+        # Add new prompt entries that aren't already linked
+        for new_prompt_entry in new_prompt_entries:
+            if new_prompt_entry not in parsed_prompts_tag_value:
+                parsed_prompts_tag_value.append(new_prompt_entry)
+
+        return json.dumps(parsed_prompts_tag_value)
+
     # CRUD API for Webhook objects
     def create_webhook(
         self,
