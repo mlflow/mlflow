@@ -171,6 +171,9 @@ class AnthropicAdapter(ProviderAdapter):
         content = resp.get("delta") or resp.get("content_block") or {}
         if (stop_reason := content.get("stop_reason")) is not None:
             stop_reason = "length" if stop_reason == "max_tokens" else "stop"
+
+        # example of function calling delta message format:
+        # https://platform.openai.com/docs/guides/function-calling#streaming
         if content.get("type") == "tool_use":
             delta = chat.StreamDelta(
                 tool_calls=[ToolCallDelta(
