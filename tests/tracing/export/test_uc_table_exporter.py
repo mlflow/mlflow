@@ -27,7 +27,7 @@ def test_export_spans_to_uc_table(is_async, monkeypatch):
     span = Span(otel_span)
 
     # Create trace info with UC table
-    trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema", "spans")
+    trace_info = create_test_trace_info_with_uc_table(trace_id, "catalog", "schema")
     trace_manager.register_trace(otel_span.context.trace_id, trace_info)
     trace_manager.register_span(span)
 

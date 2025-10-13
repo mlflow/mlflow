@@ -59,7 +59,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
-        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -72,7 +72,7 @@ service DatabricksTrackingService {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
-        path: "/mlflow/traces/{location}/{trace_id}/tags"
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags/{key}"
         since { major: 4, minor: 0 },
       }],
       visibility: PUBLIC_UNDOCUMENTED,
@@ -356,8 +356,8 @@ message SetTraceTag {
   // ID of the trace on which to set a tag.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Location of the trace. experiment_id or catalog.schema
-  optional string location = 2 [(validate_required) = true];
+  // The location ID (experiment_id or catalog.schema).
+  optional string location_id = 2 [(validate_required) = true];
 
   // Name of the tag. Maximum size depends on storage backend.
   // All storage backends are guaranteed to support key values up to 250 bytes in size.
@@ -377,8 +377,8 @@ message DeleteTraceTag {
   // ID of the trace on which to set a tag.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Location of the trace.
-  optional string location = 2 [(validate_required) = true];
+  // The location ID (experiment_id or catalog.schema).
+  optional string location_id = 2 [(validate_required) = true];
 
   // Name of the tag to delete.
   optional string key = 3 [(validate_required) = true];

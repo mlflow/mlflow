@@ -45,6 +45,10 @@ def test_validate_scorers_valid():
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
+def test_validate_scorers_empty_list():
+    assert validate_scorers([]) == []
+
+
 @databricks_only
 def test_validate_scorers_legacy_metric():
     from databricks.agents.evals import metric

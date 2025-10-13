@@ -68,19 +68,25 @@ class MockScorer(Scorer):
         return {"score": 1.0}
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_list_scorers_raises_when_agents_not_installed(_):
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        list_scorers(experiment_id="test_experiment")
+def test_list_scorers_raises_when_agents_not_installed():
+    with patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+            list_scorers(experiment_id="test_experiment")
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_get_scorer_raises_when_agents_not_installed(_):
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        get_scorer(name="test_scorer", experiment_id="test_experiment")
+def test_get_scorer_raises_when_agents_not_installed():
+    with patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+            get_scorer(name="test_scorer", experiment_id="test_experiment")
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-def test_delete_scorer_raises_when_agents_not_installed(_):
-    with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
-        delete_scorer(experiment_id="test_experiment", name="test_scorer")
+def test_delete_scorer_raises_when_agents_not_installed():
+    with patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ):
+        with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
+            delete_scorer(experiment_id="test_experiment", name="test_scorer")

@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -16,6 +17,7 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     ErrorCode,
 )
+from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
     CreateAssessment,
@@ -41,7 +43,6 @@ from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
-    trace_info_to_proto,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
@@ -96,7 +97,7 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            if trace_info.trace_location.uc_schema is not None:
+            if trace_info._is_v4():
                 return self._start_trace_v4(trace_info)
 
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
@@ -113,7 +114,7 @@ class DatabricksTracingRestStore(RestStore):
         if location is None:
             raise MlflowException("Invalid trace ID format for v4 API.")
 
-        req_body = message_to_json(trace_info_to_proto(trace_info))
+        req_body = message_to_json(trace_info.to_proto())
         response_proto = self._call_endpoint(
             CreateTraceInfo,
             req_body,
@@ -147,7 +148,7 @@ class DatabricksTracingRestStore(RestStore):
             req_body,
             endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet",
         )
-        return [trace_from_proto(proto) for proto in response_proto.traces]
+        return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
@@ -206,7 +207,8 @@ class DatabricksTracingRestStore(RestStore):
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
+            encoded_key = quote(key, safe="")
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
             req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
             self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
             return
@@ -463,19 +465,17 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(assessment.trace_id)
         if location is not None:
-            req_body = message_to_json(
-                CreateAssessment(
-                    assessment=assessment_to_proto(assessment),
-                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-                )
+            req_body = message_to_json(assessment_to_proto(assessment))
+            endpoint = self._append_sql_warehouse_id_param(
+                f"{get_single_trace_endpoint_v4(location, trace_id)}/assessments",
             )
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/assessment"
             response_proto = self._call_endpoint(
                 CreateAssessment,
                 req_body,
                 endpoint=endpoint,
+                response_proto=ProtoAssessment(),
             )
-            return Assessment.from_proto(response_proto.assessment)
+            return Assessment.from_proto(response_proto)
 
         return super().create_assessment(assessment)
 
@@ -508,11 +508,7 @@ class DatabricksTracingRestStore(RestStore):
 
         location, parsed_trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            update = UpdateAssessment(
-                sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-            )
-            endpoint = get_single_assessment_endpoint_v4(location, parsed_trace_id, assessment_id)
-            assessment = update.assessment
+            assessment = UpdateAssessment().assessment
             assessment.assessment_id = assessment_id
             catalog, schema = location.split(".")
             assessment.trace_location.CopyFrom(
@@ -520,8 +516,7 @@ class DatabricksTracingRestStore(RestStore):
             )
             assessment.trace_id = parsed_trace_id
             # Field mask specifies which fields to update.
-            mask = update.update_mask
-
+            mask = UpdateAssessment().update_mask
             if name is not None:
                 assessment.assessment_name = name
                 mask.paths.append("assessment_name")
@@ -538,13 +533,21 @@ class DatabricksTracingRestStore(RestStore):
                 assessment.metadata.update(metadata)
                 mask.paths.append("metadata")
 
-            req_body = message_to_json(update)
+            endpoint = get_single_assessment_endpoint_v4(location, parsed_trace_id, assessment_id)
+            endpoint = self._append_sql_warehouse_id_param(endpoint)
+
+            if mask.paths:
+                mask_param = ",".join(mask.paths)
+                endpoint = f"{endpoint}&update_mask={mask_param}"
+
+            req_body = message_to_json(assessment)
             response_proto = self._call_endpoint(
                 UpdateAssessment,
                 req_body,
                 endpoint=endpoint,
+                response_proto=ProtoAssessment(),
             )
-            return Assessment.from_proto(response_proto.assessment)
+            return Assessment.from_proto(response_proto)
         else:
             return super().update_assessment(
                 trace_id, assessment_id, name, expectation, feedback, rationale, metadata
@@ -557,18 +560,13 @@ class DatabricksTracingRestStore(RestStore):
 
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            req_body = message_to_json(
-                GetAssessment(
-                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-                )
+            endpoint = self._append_sql_warehouse_id_param(
+                get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
             )
-            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
             response_proto = self._call_endpoint(
-                GetAssessment,
-                req_body,
-                endpoint=endpoint,
+                GetAssessment, endpoint=endpoint, response_proto=ProtoAssessment()
             )
-            return Assessment.from_proto(response_proto.assessment)
+            return Assessment.from_proto(response_proto)
 
         return super().get_assessment(trace_id, assessment_id)
 
@@ -582,16 +580,14 @@ class DatabricksTracingRestStore(RestStore):
         """
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
-            req_body = message_to_json(
-                DeleteAssessment(
-                    sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
-                )
+            endpoint = self._append_sql_warehouse_id_param(
+                get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
             )
-            endpoint = get_single_assessment_endpoint_v4(location, trace_id, assessment_id)
-            self._call_endpoint(
-                DeleteAssessment,
-                req_body,
-                endpoint=endpoint,
-            )
+            self._call_endpoint(DeleteAssessment, endpoint=endpoint)
         else:
             return super().delete_assessment(trace_id, assessment_id)
+
+    def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
+        if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
+            return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
+        return endpoint
