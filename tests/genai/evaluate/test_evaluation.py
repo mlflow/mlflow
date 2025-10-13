@@ -2,7 +2,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest import mock
-from unittest.mock import ANY, MagicMock, patch
+from unittest.mock import ANY, MagicMock
 
 import pandas as pd
 import pytest
@@ -14,13 +14,35 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.evaluation.entities import EvaluationResult
 from mlflow.genai.scorers.base import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 
-from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
+
+_DUMMY_CHAT_RESPONSE = {
+    "id": "1",
+    "object": "text_completion",
+    "created": "2021-10-01T00:00:00.000000Z",
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "content": "This is a response",
+                "role": "assistant",
+            },
+            "finish_reason": "length",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "total_tokens": 2,
+    },
+}
 
 
 class TestModel:
@@ -527,13 +549,26 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client, is_in_databricks
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
-@patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_no_scorers(mock_get_tracking_uri):
+def test_missing_scorers_argument():
     with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
         mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
-    with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
-        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+
+def test_empty_scorers_allowed():
+    mock_result = EvaluationResult(run_id="test-run", metrics={}, result_df=pd.DataFrame())
+
+    data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
+
+    with (
+        mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss,
+        mock.patch("mlflow.genai.evaluation.base.clean_up_extra_traces") as mock_clean_up,
+    ):
+        mock_evaluate_oss.return_value = mock_result
+        result = mlflow.genai.evaluate(data=data, scorers=[])
+
+    assert result is mock_result
+    mock_evaluate_oss.assert_called_once()
+    mock_clean_up.assert_called_once_with(mock_result.run_id, ANY)
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
