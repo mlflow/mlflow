@@ -50,6 +50,13 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
 )
 
+try:
+    from google.rpc import status_pb2
+
+    grpc_status_exists = True
+except ImportError:
+    grpc_status_exists = False
+
 
 @pytest.fixture
 def sql_warehouse_id(monkeypatch):
@@ -1214,9 +1221,8 @@ def test_verify_trace_response_success_empty_response():
     assert result._content == b"{}"
 
 
+@pytest.mark.skipif(grpc_status_exists is False, reason="grpcio-status is not installed")
 def test_verify_trace_response_error_with_protobuf():
-    from google.rpc import status_pb2
-
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
     response = mock.MagicMock()
     response.status_code = 400

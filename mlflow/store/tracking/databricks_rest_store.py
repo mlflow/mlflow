@@ -2,7 +2,6 @@ import logging
 from copy import deepcopy
 from urllib.parse import quote
 
-from google.rpc import status_pb2
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
 from mlflow.entities import Assessment, Span, Trace, TraceInfo, TraceLocation
@@ -466,9 +465,11 @@ class DatabricksTracingRestStore(RestStore):
 
         # Handle non-200 status codes
         if response.status_code != 200:
-            # OTLP traces endpoint returns a protobuf status message
-            error_status = status_pb2.Status()
             try:
+                from google.rpc import status_pb2
+
+                # OTLP traces endpoint returns a protobuf status message
+                error_status = status_pb2.Status()
                 error_status.ParseFromString(response.content)
             except Exception:
                 base_msg = (
