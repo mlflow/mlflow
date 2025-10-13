@@ -136,22 +136,24 @@ def test_create_model_version(mock_http, store, creds):
     mock_local_model_dir.__enter__ = mock.Mock(return_value="/mock/local/model/dir")
     mock_local_model_dir.__exit__ = mock.Mock(return_value=None)
 
-    with mock.patch.object(store, "_local_model_dir", return_value=mock_local_model_dir):
-        with mock.patch.object(
+    with (
+        mock.patch.object(store, "_local_model_dir", return_value=mock_local_model_dir),
+        mock.patch.object(
             store, "_get_artifact_repo", return_value=mock.Mock()
-        ) as mock_artifact_repo:
-            mock_artifact_repo.log_artifacts.return_value = None
+        ) as mock_artifact_repo,
+    ):
+        mock_artifact_repo.log_artifacts.return_value = None
 
-            model_name = "catalog_1.schema_1.model_1"
-            store.create_model_version(
-                name=model_name, source="source", run_id="run_id", description="description"
-            )
-            _verify_requests(
-                mock_http,
-                "models/catalog_1.schema_1.model_1/versions/0/finalize",
-                "PATCH",
-                FinalizeModelVersion(full_name=model_name, version=0),
-            )
+        model_name = "catalog_1.schema_1.model_1"
+        store.create_model_version(
+            name=model_name, source="source", run_id="run_id", description="description"
+        )
+        _verify_requests(
+            mock_http,
+            "models/catalog_1.schema_1.model_1/versions/0/finalize",
+            "PATCH",
+            FinalizeModelVersion(full_name=model_name, version=0),
+        )
 
 
 @pytest.mark.parametrize("version", [0, "0"])

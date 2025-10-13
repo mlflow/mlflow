@@ -2683,12 +2683,14 @@ def test_link_prompt_version_to_model_sets_tag(store):
         mock_tracking_store.get_logged_model.return_value = logged_model
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_model("test_prompt", "1", model_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_model("test_prompt", "1", model_id)
 
         # Verify the tag was set
         mock_tracking_store.set_logged_model_tags.assert_called_once()
@@ -2816,12 +2818,14 @@ def test_link_prompt_version_to_run_sets_tag(store):
         mock_tracking_store.get_run.return_value = run
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_run("test_prompt", "1", run_id)
 
         # Verify the tag was set
         mock_tracking_store.set_tag.assert_called_once()

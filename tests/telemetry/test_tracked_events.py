@@ -666,21 +666,25 @@ def test_invoke_custom_judge_model(
         ),
     ):
         if use_native_provider:
-            with mock.patch.object(
-                __import__("mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]),
-                "score_model_on_payload",
-                return_value=mock_response,
-            ):
-                with mock.patch.object(
+            with (
+                mock.patch.object(
+                    __import__(
+                        "mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]
+                    ),
+                    "score_model_on_payload",
+                    return_value=mock_response,
+                ),
+                mock.patch.object(
                     __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
                     "get_endpoint_type",
                     return_value="llm/v1/chat",
-                ):
-                    invoke_judge_model(
-                        model_uri=model_uri,
-                        prompt="Test prompt",
-                        assessment_name="test_assessment",
-                    )
+                ),
+            ):
+                invoke_judge_model(
+                    model_uri=model_uri,
+                    prompt="Test prompt",
+                    assessment_name="test_assessment",
+                )
         else:
             with (
                 mock.patch(

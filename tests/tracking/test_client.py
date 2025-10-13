@@ -2451,12 +2451,14 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     mock_response = Mock()
     mock_response.prompt_versions = [Mock(version="1")]
 
-    with patch.object(client, "search_prompt_versions", return_value=mock_response):
-        with patch.object(client, "_registry_uri", registry_uri):
-            with pytest.raises(
-                MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
-            ):
-                client.delete_prompt("test_prompt")
+    with (
+        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "_registry_uri", registry_uri),
+    ):
+        with pytest.raises(
+            MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
+        ):
+            client.delete_prompt("test_prompt")
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
