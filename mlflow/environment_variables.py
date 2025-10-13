@@ -834,6 +834,14 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 #: (default: ``None``)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
 
+#: Specifies the Databricks traffic ID to inject as x-databricks-traffic-id header
+#: in HTTP requests to Databricks endpoints
+#: (default: ``None``)
+_MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
+
+#######################################################################################
+# Tracing
+#######################################################################################
 
 #: Specifies whether to enable async trace logging to Databricks Tracing Server.
 #: TODO: Update OSS MLflow Server to logging async by default
@@ -861,6 +869,21 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
+
+#: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
+#: (default: ``None``)
+MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
+
+
+#: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
+#: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
+#: (default: ``None`` (an active MLflow experiment will be used))
+MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
+
+
+#######################################################################################
+# Model Logging
+#######################################################################################
 
 #: The default active LoggedModel ID. Traces created while this variable is set (unless overridden,
 #: e.g., by the `set_active_model()` API) will be associated with this LoggedModel ID.
@@ -904,6 +927,12 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
     "MLFLOW_SEARCH_TRACES_MAX_THREADS",
     int,
     max(32, (os.cpu_count() or 1) * 4),
+)
+
+#: Maximum number of traces to fetch in a single BatchGetTraces request during search operations.
+#: (default: ``10``)
+_MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
 )
 
 #: Specifies the logging level for MLflow. This can be set to any valid logging level
@@ -1017,10 +1046,6 @@ _MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
 MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
     "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
 )
-
-#: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
-#: (default: ``None``)
-MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
 
 #: Specifies whether to enable job execution feature for MLflow server.
 #: This feature requires "huey" package dependency, and requires MLflow server to configure

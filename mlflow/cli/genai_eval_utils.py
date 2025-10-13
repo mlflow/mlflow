@@ -136,17 +136,24 @@ def resolve_scorers(scorer_names: list[str], experiment_id: str) -> list[Scorer]
             try:
                 registered_scorer = get_scorer(name=scorer_name, experiment_id=experiment_id)
                 resolved_scorers.append(registered_scorer)
-            except MlflowException:
-                available_builtin = ", ".join(
-                    sorted({scorer.__class__.__name__ for scorer in builtin_scorers})
-                )
-                raise click.UsageError(
-                    f"Scorer '{scorer_name}' not found. "
-                    f"Only built-in or registered scorers can be resolved. "
-                    f"Available built-in scorers: {available_builtin}. "
-                    f"To use a custom scorer, register it first in experiment {experiment_id} "
-                    f"using the register_scorer() API."
-                )
+            except MlflowException as e:
+                error_message = str(e)
+                if "not found" in error_message.lower():
+                    available_builtin = ", ".join(
+                        sorted({scorer.__class__.__name__ for scorer in builtin_scorers})
+                    )
+                    raise click.UsageError(
+                        f"Could not identify Scorer '{scorer_name}'. "
+                        f"Only built-in or registered scorers can be resolved. "
+                        f"Available built-in scorers: {available_builtin}. "
+                        f"To use a custom scorer, register it first in experiment {experiment_id} "
+                        f"using the register_scorer() API."
+                    )
+                else:
+                    raise click.UsageError(
+                        f"An error occurred when retrieving information for Scorer "
+                        f"`{scorer_name}`: {error_message}"
+                    )
 
     if not resolved_scorers:
         raise click.UsageError("No valid scorers specified")

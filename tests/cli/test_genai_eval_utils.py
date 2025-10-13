@@ -17,7 +17,6 @@ from mlflow.tracing.constant import AssessmentMetadataKey
 
 
 def test_format_single_trace_with_result_and_rationale():
-    """Test formatting a single trace with result and rationale."""
     output_data = [
         EvalResult(
             trace_id="tr-123",
@@ -295,7 +294,7 @@ def test_resolve_scorer_not_found_raises_error():
             side_effect=MlflowException("Not found"),
         ) as mock_get_scorer,
     ):
-        with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
+        with pytest.raises(click.UsageError, match="Could not identify Scorer 'UnknownScorer'"):
             resolve_scorers(["UnknownScorer"], "experiment_123")
 
         # Verify mocks were called as expected
@@ -385,7 +384,6 @@ def test_extract_with_different_assessment_name():
 
 
 def test_extract_filter_out_assessments_with_different_run_id():
-    """Test that assessments with different run_id are filtered out."""
     results_df = pd.DataFrame(
         [
             {

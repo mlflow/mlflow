@@ -263,3 +263,7 @@ class AlignJudgeEvent(Event):
             result["optimizer_type"] = "default"
 
         return result
+
+
+class AutologgingEvent(Event):
+    name: str = "autologging"

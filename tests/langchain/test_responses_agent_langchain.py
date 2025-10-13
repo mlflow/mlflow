@@ -1,14 +1,6 @@
-import langchain
-import pytest
-from packaging.version import Version
-
 from mlflow.types.responses import ResponsesAgentStreamEvent, output_to_responses_items_stream
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="Langchain messages are not pydantic v2 prior to langchain 0.3.0",
-)
 def test_output_to_responses_items_stream_langchain():
     """
     Tests langchain message stream to responses items stream conversion.

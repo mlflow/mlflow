@@ -747,3 +747,28 @@ def _validate_webhook_events(events: list[WebhookEvent]) -> None:
         raise MlflowException.invalid_parameter_value(
             f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
         )
+
+
+def _resolve_experiment_ids_and_locations(
+    experiment_ids: list[str] | None, locations: list[str] | None
+) -> list[str]:
+    if experiment_ids:
+        if locations:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is deprecated, use `locations` instead."
+            )
+        else:
+            locations = experiment_ids
+    if not locations:
+        return locations
+
+    if invalid_experiment_ids := [location for location in locations if "." in location]:
+        invalid_exp_ids_str = ", ".join(invalid_experiment_ids)
+        if len(invalid_exp_ids_str) > 20:
+            invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
+        raise MlflowException.invalid_parameter_value(
+            "Locations must be a list of experiment IDs. "
+            f"Found invalid experiment IDs: {invalid_exp_ids_str}."
+        )
+
+    return locations
