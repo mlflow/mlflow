@@ -57,7 +57,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
     <tr>
       <th>Use Case</th>
       <td>By default, MLflow records metadata and artifacts for each run to a local directory, `mlruns`. This is the simplest way to get started with MLflow Tracking, without setting up any external server, database, and storage.</td>
-      <td>Database backend provides better performance and reliability than the default file backend. MLflow client SDK interfaces with a [SQLAlchemy-compatible database](./backend-store) (e.g., SQLite, PostgreSQL, MySQL) to manage metadata, and store artifacts to the local file system.</td>
+      <td>Database backend provides better performance and reliability than the default file backend. MLflow client SDK interfaces with a [SQLAlchemy-compatible database](/self-hosting/architecture/backend-store) (e.g., SQLite, PostgreSQL, MySQL) to manage metadata, and store artifacts to the local file system.</td>
       <td>[MLflow Tracking Server](/self-hosting/architecture/tracking-server) serves as a proxy for the remote access to the metadata and artifacts. This is particularly useful for team development scenarios where you want to store artifacts and experiment metadata in a shared location with proper access control.</td>
     </tr>
     <tr>
@@ -69,7 +69,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
         Set the tracking URI to the database URI (e.g., `sqlite:///mlflow.db`) with the `mlflow.set_tracking_uri` or the `MLFLOW_TRACKING_URI` environment variable.
       </td>
       <td>
-        Refer to the [Docker Compose](/self-hosting/#docker-compose) setup. Alternatively, you can use the [managed MLflow services](self-hosting/#cloud-services) from popular cloud providers to avoid the maintenance overhead.
+        Refer to the [Docker Compose](/self-hosting/#docker-compose) setup. Alternatively, you can use the [managed MLflow service](https://www.databricks.com/product/managed-mlflow) from popular cloud providers to avoid the maintenance overhead.
       </td>
     </tr>
   </tbody>

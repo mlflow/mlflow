@@ -15,7 +15,7 @@ Runs, models, traces, and experiments such as:
 - Parameters
 - Metrics
 
-Large model artifacts such as model weight files are stored in [artifact store](artifact-stores).
+Large model artifacts such as model weight files are stored in [artifact store](/self-hosting/architecture/artifact-store).
 
 ## Type of Backend Stores
 
@@ -37,10 +37,10 @@ You can configure the location by passing the desired **tracking URI** to MLflow
 
 - Set the `MLFLOW_TRACKING_URI` environment variable.
 - Call <APILink fn="mlflow.set_tracking_uri" /> in your code.
-- If you are running a [Tracking Server](tracking-server), you can set the `tracking_uri` option when starting the server, like `mlflow server --backend-store-uri sqlite:///mydb.sqlite`
+- If you are running a [Tracking Server](/self-hosting/architecture/tracking-server), you can set the `tracking_uri` option when starting the server, like `mlflow server --backend-store-uri sqlite:///mydb.sqlite`
 
 Continue to the next section for the supported format of tracking URLs.
-Also visit [this guidance](tracking-server#tracking_setup) for how to set up the backend store properly for your workflow.
+Also visit [this guidance](/self-hosting/architecture/tracking-server) for how to set up the backend store properly for your workflow.
 
 :::warning important
 
@@ -54,11 +54,10 @@ MLflow supports the following types of tracking URI for backend stores:
 
 - Local file path (specified as `file:/my/local/dir`), where data is just directly stored locally to a system disk where your code is executing.
 - A Database, encoded as `<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>`. MLflow supports the dialects `mysql`, `mssql`, `sqlite`, and `postgresql`. For more details, see [SQLAlchemy database uri](https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls).
-- HTTP server (specified as `https://my-server:5000`), which is a server hosting an [MLflow tracking server](/ml/tracking#tracking_server).
+- HTTP server (specified as `https://my-server:5000`), which is a server hosting an [MLflow tracking server](/self-hosting/architecture/tracking-server).
 - Databricks workspace (specified as `databricks` or as `databricks://<profileName>`, a [Databricks CLI profile](https://github.com/databricks/databricks-cli#installation)).
   Refer to Access the MLflow tracking server from outside Databricks [[AWS]](http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html)
-  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server), or [the quickstart](/ml/tracking/quickstart) to
-  easily get started with hosted MLflow on the Databricks Free Trial.
+  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server).
 
 :::warning database-requirements
 **Database-Backed Store Requirements**
