@@ -1,5 +1,4 @@
 import logging
-from copy import deepcopy
 from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -439,7 +438,7 @@ class DatabricksTracingRestStore(RestStore):
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
-        host_creds = deepcopy(self.get_host_creds())
+        host_creds = self.get_host_creds()
         # avoid using databricks sdk for this request since we need special handling
         # for the protobuf response
         host_creds.use_databricks_sdk = False
@@ -472,12 +471,10 @@ class DatabricksTracingRestStore(RestStore):
                 error_status = status_pb2.Status()
                 error_status.ParseFromString(response.content)
             except Exception:
-                base_msg = (
-                    f"API request to endpoint {endpoint} "
-                    f"failed with error code {response.status_code} != 200"
-                )
                 raise MlflowException(
-                    f"{base_msg}. Response body: '{response.text}'",
+                    f"API request to endpoint {endpoint} "
+                    f"failed with error code {response.status_code}. "
+                    f"Response body: '{response.text}'",
                     error_code=get_error_code(response.status_code),
                 )
             else:
