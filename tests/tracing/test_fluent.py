@@ -29,7 +29,6 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
-    SPAN_DICT_VERSION_KEY,
     TRACE_SCHEMA_VERSION_KEY,
     SpanAttributeKey,
     TraceMetadataKey,
@@ -1070,7 +1069,6 @@ def test_search_traces_dataframe_contains_human_readable_ids():
         assert df_span["trace_id"] == trace_span.trace_id
         assert df_span["span_id"] == trace_span.span_id
         assert df_span["parent_span_id"] == trace_span.parent_id
-        assert df_span[SPAN_DICT_VERSION_KEY] == 4
 
 
 @skip_when_testing_trace_sdk

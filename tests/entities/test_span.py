@@ -17,7 +17,7 @@ from mlflow.entities.span import (
     create_mlflow_span,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY, TRACE_ID_V4_PREFIX
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
 from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
@@ -602,16 +602,10 @@ def test_span_to_dict_v4_format():
 
     span_dict = span.to_dict()
 
-    # Verify v4 format
-    assert span_dict[SPAN_DICT_VERSION_KEY] == 4
-
     # Verify human-readable IDs (not base64 encoded)
     assert span_dict["trace_id"].startswith("tr-")
     assert not span_dict["span_id"].startswith("tr-")
     assert not span_dict["parent_span_id"].startswith("tr-")
-
-    # Verify otel_trace_id exists
-    assert "otel_trace_id" in span_dict
 
     # Verify structure
     assert span_dict["name"] == "child"
@@ -678,7 +672,6 @@ def test_span_dict_v4_with_no_parent():
 
     # Root span should have None for parent_span_id
     assert span_dict["parent_span_id"] is None
-    assert span_dict[SPAN_DICT_VERSION_KEY] == 4
 
     # Deserialize and verify
     recovered = Span.from_dict(span_dict)

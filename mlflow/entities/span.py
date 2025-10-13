@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     build_otel_context,
@@ -31,6 +31,7 @@ from mlflow.tracing.utils import (
     encode_trace_id,
     generate_mlflow_trace_id_from_otel_trace_id,
     generate_trace_id_v4_from_otel_trace_id,
+    parse_trace_id_v4,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -244,9 +245,6 @@ class Span:
             },
             # save the dumped attributes so they can be loaded correctly when deserializing
             "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
-            # use this to distinguish the span dict version when deserializing
-            SPAN_DICT_VERSION_KEY: 4,
-            "otel_trace_id": self._trace_id,
         }
 
     @classmethod
@@ -264,16 +262,8 @@ class Span:
             if Span._is_span_v2_schema(data):
                 return cls.from_dict_v2(data)
 
-            if data.get(SPAN_DICT_VERSION_KEY) == 4:
-                trace_id = decode_id(data["otel_trace_id"])
-                span_id = decode_id(data["span_id"])
-                parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
-                status = SpanStatus(
-                    status_code=SpanStatusCode(data["status"]["code"]),
-                    description=data["status"].get("message"),
-                )
-            else:
-                trace_id = _decode_id_from_byte(data["trace_id"])
+            if _is_base64_encoded(data["trace_id"]):
+                otel_trace_id = _decode_id_from_byte(data["trace_id"])
                 span_id = _decode_id_from_byte(data["span_id"])
                 # Parent ID always exists in proto (empty string) even if the span is a root span.
                 parent_id = (
@@ -283,14 +273,24 @@ class Span:
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
                     description=data["status"].get("message"),
                 )
+            else:
+                otel_trace_id = decode_id(
+                    parse_trace_id_v4(data["trace_id"])[1].removeprefix(TRACE_REQUEST_ID_PREFIX)
+                )
+                span_id = decode_id(data["span_id"])
+                parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
+                status = SpanStatus(
+                    status_code=SpanStatusCode(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                )
 
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
 
             otel_span = OTelReadableSpan(
                 name=data["name"],
-                context=build_otel_context(trace_id, span_id),
-                parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+                context=build_otel_context(otel_trace_id, span_id),
+                parent=build_otel_context(otel_trace_id, parent_id) if parent_id else None,
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
                 attributes=data["attributes"],
@@ -479,6 +479,14 @@ def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
     bytes = base64.b64decode(trace_or_span_id_b64)
     return int.from_bytes(bytes, byteorder="big", signed=False)
+
+
+def _is_base64_encoded(trace_or_span_id: str) -> bool:
+    try:
+        base64.b64decode(trace_or_span_id, validate=True)
+        return True
+    except Exception:
+        return False
 
 
 class LiveSpan(Span):

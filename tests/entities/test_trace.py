@@ -23,7 +23,7 @@ from mlflow.entities.assessment import Expectation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
@@ -126,8 +126,6 @@ def test_json_deserialization(monkeypatch):
                         "mlflow.spanInputs": '{"x": 2, "y": 5}',
                         "mlflow.spanOutputs": "8",
                     },
-                    SPAN_DICT_VERSION_KEY: 4,
-                    "otel_trace_id": mock.ANY,
                 },
                 {
                     "name": "add_one_with_custom_name",
@@ -151,8 +149,6 @@ def test_json_deserialization(monkeypatch):
                         "datetime": json.dumps(str(datetime_now)),
                         "metadata": '{"foo": "bar"}',
                     },
-                    SPAN_DICT_VERSION_KEY: 4,
-                    "otel_trace_id": mock.ANY,
                 },
             ],
         },

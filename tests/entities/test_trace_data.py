@@ -6,7 +6,6 @@ import pytest
 import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
-from mlflow.tracing.constant import SPAN_DICT_VERSION_KEY
 
 
 def test_json_deserialization():
@@ -69,8 +68,6 @@ def test_json_deserialization():
                         },
                     }
                 ],
-                SPAN_DICT_VERSION_KEY: 4,
-                "otel_trace_id": mock.ANY,
             },
             {
                 "name": "with_ok_event",
@@ -94,8 +91,6 @@ def test_json_deserialization():
                         "attributes": {"foo": "bar"},
                     }
                 ],
-                SPAN_DICT_VERSION_KEY: 4,
-                "otel_trace_id": mock.ANY,
             },
             {
                 "name": "always_fail_name",
@@ -127,8 +122,6 @@ def test_json_deserialization():
                         },
                     }
                 ],
-                SPAN_DICT_VERSION_KEY: 4,
-                "otel_trace_id": mock.ANY,
             },
         ],
     }
