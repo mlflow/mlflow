@@ -111,7 +111,8 @@ class InMemoryTraceManager:
             prompt: The prompt version to be registered.
         """
         with self._lock:
-            self._traces[trace_id].prompts.append(prompt)
+            if prompt not in self._traces[trace_id].prompts:
+                self._traces[trace_id].prompts.append(prompt)
 
             # NB: Set prompt URIs in trace tags for linking. This is a short-term solution until
             # LinkPromptsToTraces endpoint is implemented in the backend.
@@ -123,15 +124,17 @@ class InMemoryTraceManager:
 
     def _update_linked_prompts_tag(self, trace_id: str, prompt: PromptVersion):
         trace_info = self._traces[trace_id].info
+        new_prompt_entry = {"name": prompt.name, "version": str(prompt.version)}
 
         if current_tag_value := trace_info.tags.get(LINKED_PROMPTS_TAG_KEY):
             parsed_prompts_tag_value = json.loads(current_tag_value)
         else:
             parsed_prompts_tag_value = []
 
-        updated_tag_value = parsed_prompts_tag_value.append(
-            {"name": prompt.name, "version": str(prompt.version)}
-        )
+        if new_prompt_entry in parsed_prompts_tag_value:
+            return
+
+        parsed_prompts_tag_value.append(new_prompt_entry)
         updated_tag_value = json.dumps(parsed_prompts_tag_value)
         self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag_value
 
