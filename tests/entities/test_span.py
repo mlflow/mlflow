@@ -12,7 +12,10 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
-from mlflow.entities.span import NoOpSpan, create_mlflow_span
+from mlflow.entities.span import (
+    NoOpSpan,
+    create_mlflow_span,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
@@ -586,3 +589,113 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
+
+
+def test_span_to_dict_v4_format():
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
+            span.set_inputs({"input": 1})
+            span.set_outputs(2)
+            span.set_attribute("key", 3)
+            span.set_status("OK")
+            span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
+
+    span_dict = span.to_dict()
+
+    # Verify human-readable IDs (not base64 encoded)
+    assert span_dict["trace_id"].startswith("tr-")
+    assert not span_dict["span_id"].startswith("tr-")
+    assert not span_dict["parent_span_id"].startswith("tr-")
+
+    # Verify structure
+    assert span_dict["name"] == "child"
+    assert isinstance(span_dict["start_time_unix_nano"], int)
+    assert isinstance(span_dict["end_time_unix_nano"], int)
+
+    # Verify status structure
+    assert "status" in span_dict
+    assert span_dict["status"]["code"] == SpanStatusCode.OK.value
+    assert "message" in span_dict["status"]
+
+    # Verify events structure
+    assert len(span_dict["events"]) == 1
+    assert span_dict["events"][0]["name"] == "test_event"
+    assert span_dict["events"][0]["time_unix_nano"] == 99999
+    assert span_dict["events"][0]["attributes"] == {"foo": "bar"}
+
+    # Verify attributes are preserved
+    assert "attributes" in span_dict
+    assert "mlflow.spanInputs" in span_dict["attributes"]
+    assert "mlflow.spanOutputs" in span_dict["attributes"]
+
+
+def test_span_from_dict_old_format():
+    span_dict = {
+        "trace_id": "6ST7JNq8BC4JRp0HA/vD6Q==",
+        "span_id": "Sd/l0Zs4M3g=",
+        "parent_span_id": None,
+        "name": "test_span",
+        "start_time_unix_nano": 1000000000,
+        "end_time_unix_nano": 2000000000,
+        "status": {"code": "STATUS_CODE_ERROR", "message": "Error occurred"},
+        "attributes": {
+            "mlflow.spanInputs": '{"query": "test"}',
+            "mlflow.spanOutputs": '{"result": "success"}',
+            "custom": "value",
+            "mlflow.traceRequestId": '"tr-e924fb24dabc042e09469d0703fbc3e9"',
+        },
+        "events": [],
+    }
+
+    # Deserialize it
+    recovered_span = Span.from_dict(span_dict)
+
+    # Verify all fields are recovered correctly
+    assert recovered_span.trace_id == "tr-e924fb24dabc042e09469d0703fbc3e9"
+    assert recovered_span.span_id == "49dfe5d19b383378"
+    assert recovered_span.parent_id is None
+    assert recovered_span.name == span_dict["name"]
+    assert recovered_span.start_time_ns == span_dict["start_time_unix_nano"]
+    assert recovered_span.end_time_ns == span_dict["end_time_unix_nano"]
+    assert recovered_span.status.status_code.value == "ERROR"
+    assert recovered_span.inputs == {"query": "test"}
+    assert recovered_span.outputs == {"result": "success"}
+    assert recovered_span.get_attribute("custom") == "value"
+
+
+def test_span_dict_v4_with_no_parent():
+    with mlflow.start_span("root_span") as span:
+        span.set_inputs({"x": 1})
+        span.set_outputs({"y": 2})
+
+    span_dict = span.to_dict()
+
+    # Root span should have None for parent_span_id
+    assert span_dict["parent_span_id"] is None
+
+    # Deserialize and verify
+    recovered = Span.from_dict(span_dict)
+    assert recovered.parent_id is None
+    assert recovered.name == "root_span"
+    assert recovered.inputs == {"x": 1}
+    assert recovered.outputs == {"y": 2}
+
+
+def test_span_dict_v4_preserves_ids_across_serialization():
+    with mlflow.start_span("parent"):
+        with mlflow.start_span("child") as child:
+            pass
+
+    # Get the dict representation
+    child_dict = child.to_dict()
+
+    # Verify IDs are in human-readable format
+    assert child_dict["trace_id"] == child.trace_id
+    assert child_dict["span_id"] == child.span_id
+    assert child_dict["parent_span_id"] == child.parent_id
+
+    # Deserialize and verify IDs match
+    recovered = Span.from_dict(child_dict)
+    assert recovered.trace_id == child.trace_id
+    assert recovered.span_id == child.span_id
+    assert recovered.parent_id == child.parent_id
