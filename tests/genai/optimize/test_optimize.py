@@ -256,14 +256,11 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
 def test_optimize_prompts_warns_on_unused_prompt(
     sample_translation_prompt, sample_summarization_prompt, sample_dataset, capsys
 ):
-    """Test that a warning is logged when a prompt is not used during evaluation."""
     mock_optimizer = MockPromptAdapter()
 
     # Create predict_fn that only uses translation prompt, not summarization prompt
     def predict_fn_single_prompt(input_text, language):
-        # Only loads and accesses translation prompt template, ignoring summarization prompt
         prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
-        # Access the template property to trigger the patch tracking
         _ = prompt.template
         return sample_predict_fn(input_text=input_text, language=language)
 
@@ -278,16 +275,14 @@ def test_optimize_prompts_warns_on_unused_prompt(
         scorers=[output_equivalence],
     )
 
-    # Verify optimization still works correctly even with unused prompts
     assert len(result.optimized_prompts) == 2
 
-    # Check that warning was logged for the unused summarization prompt
     captured = capsys.readouterr()
     assert "prompts were not used during evaluation" in captured.err, (
-        f"Expected warning about unused prompts not found in stderr"
+        "Expected warning about unused prompts not found in stderr"
     )
     assert "test_summarization_prompt" in captured.err, (
-        f"Expected 'test_summarization_prompt' in warning message"
+        "Expected 'test_summarization_prompt' in warning message"
     )
 
 

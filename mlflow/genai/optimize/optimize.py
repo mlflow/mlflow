@@ -251,10 +251,10 @@ def _build_eval_fn(
             unused_prompts = set(candidate_prompts.keys()) - accessed_prompts
             if unused_prompts:
                 _logger.warning(
-                    f"The following prompts were not used during evaluation: {sorted(unused_prompts)}. "
-                    "This may indicate that predict_fn is not calling format() for these prompts, "
-                    "or the prompt names don't match. Please verify that your predict_fn uses "
-                    "all prompts specified in prompt_uris."
+                    "The following prompts were not used during evaluation: "
+                    f"{sorted(unused_prompts)}. This may indicate that predict_fn is "
+                    "not calling format() for these prompts, or the prompt names don't match. "
+                    "Please verify that your predict_fn uses all prompts specified in prompt_uris."
                 )
 
             return results
