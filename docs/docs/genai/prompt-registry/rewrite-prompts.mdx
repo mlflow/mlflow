@@ -37,8 +37,6 @@ The `optimize_prompts` API requires **MLflow >= 3.5.0**.
 Answer the following question: {{question}}
 ```
 
-Simple, generic prompt
-
 </td>
 <td width="50%" valign="top">
 
@@ -67,8 +65,6 @@ Guidelines:
 Your response must match this exact format with
 no additional explanation.
 ```
-
-Detailed instructions with format constraints and guidelines
 
 </td>
 </tr>
@@ -186,6 +182,9 @@ def predict_fn(text: str) -> str:
 
 You might notice the target model doesn't follow the format as consistently as the source model.
 
+Check the created dataset in the MLflow UI.
+![](/images/evaluation_dataset_ui.png)
+
 ### Step 4: Optimize Prompts for Target Model
 
 Use the collected dataset to optimize prompts for the target model:
@@ -266,7 +265,11 @@ inputs = [
             "text": "The delivery was delayed by three days and the packaging was damaged. The product itself works fine but the experience was disappointing overall."
         }
     },
-    {"inputs": {"text": "It meets the basic requirements. Nothing more, nothing less."}},
+    {
+        "inputs": {
+            "text": "It meets the basic requirements. Nothing more, nothing less."
+        }
+    },
     # ... more varied examples
 ]
 
