@@ -88,28 +88,40 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             )
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
+        # NB: Serialize uploads in strict egress environments (e.g., Databricks SEG) to avoid
+        # storage proxy race conditions. All file uploads use chunked/block uploads which can
+        # cause 500 errors when uploaded concurrently to the same artifact location.
         local_dir = Path(local_dir).resolve()
-        futures: list[Future[None]] = []
-        with self._create_thread_pool() as executor:
-            for f in local_dir.rglob("*"):
-                if not f.is_file():
-                    continue
 
-                paths: list[str] = []
-                if artifact_path:
-                    paths.append(artifact_path)
-                if f.parent != local_dir:
-                    paths.append(str(f.parent.relative_to(local_dir)))
+        files_to_upload = []
+        for f in local_dir.rglob("*"):
+            if not f.is_file():
+                continue
 
-                fut = executor.submit(
-                    self.log_artifact,
-                    local_file=f,
-                    artifact_path=posixpath.join(*paths) if paths else None,
-                )
-                futures.append(fut)
+            paths: list[str] = []
+            if artifact_path:
+                paths.append(artifact_path)
+            if f.parent != local_dir:
+                paths.append(str(f.parent.relative_to(local_dir)))
 
-        for fut in futures:
-            fut.result()
+            files_to_upload.append((f, posixpath.join(*paths) if paths else None))
+
+        if len(files_to_upload) > 1:
+            for file_path, file_artifact_path in files_to_upload:
+                self.log_artifact(local_file=file_path, artifact_path=file_artifact_path)
+        else:
+            futures: list[Future[None]] = []
+            with self._create_thread_pool() as executor:
+                for file_path, file_artifact_path in files_to_upload:
+                    fut = executor.submit(
+                        self.log_artifact,
+                        local_file=file_path,
+                        artifact_path=file_artifact_path,
+                    )
+                    futures.append(fut)
+
+            for fut in futures:
+                fut.result()
 
     def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         dest_path = self.full_path(path)
