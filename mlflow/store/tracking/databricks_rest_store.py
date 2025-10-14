@@ -589,7 +589,7 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
-    def batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+    def _batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Link multiple traces to a run by creating internal trace-to-run relationships.
 
@@ -631,7 +631,7 @@ class DatabricksTracingRestStore(RestStore):
         endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/link-to-run/batchCreate"
         self._call_endpoint(BatchLinkTraceToRun, req_body, endpoint=endpoint)
 
-    def batch_unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+    def _batch_unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
         Unlink multiple traces from a run by removing the internal trace-to-run relationships.
 
@@ -706,7 +706,7 @@ class DatabricksTracingRestStore(RestStore):
                     f"All trace IDs must have the same location. Found: {locations}"
                 )
             # All traces are V4 - use the batch endpoint
-            self.batch_link_traces_to_run(trace_ids, run_id)
+            self._batch_link_traces_to_run(trace_ids, run_id)
             return
 
         # If all traces are V3, use the V3 endpoint via parent class

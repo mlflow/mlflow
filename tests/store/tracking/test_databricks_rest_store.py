@@ -1192,7 +1192,7 @@ def test_delete_assessment(sql_warehouse_id):
         )
 
 
-def test_batch_link_traces_to_run():
+def test_private_batch_link_traces_to_run():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1209,7 +1209,7 @@ def test_batch_link_traces_to_run():
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         # location_id is now extracted from trace_ids
-        store.batch_link_traces_to_run(
+        store._batch_link_traces_to_run(
             trace_ids=trace_ids,
             run_id=run_id,
         )
@@ -1229,7 +1229,7 @@ def test_batch_link_traces_to_run():
         )
 
 
-def test_batch_unlink_traces_from_run():
+def test_private_batch_unlink_traces_from_run():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1246,7 +1246,7 @@ def test_batch_unlink_traces_from_run():
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         # location_id is now extracted from trace_ids
-        store.batch_unlink_traces_from_run(
+        store._batch_unlink_traces_from_run(
             trace_ids=trace_ids,
             run_id=run_id,
         )
