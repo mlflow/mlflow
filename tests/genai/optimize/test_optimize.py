@@ -311,7 +311,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
 
 
 @pytest.mark.parametrize(
-    "train_data,error_type,error_match",
+    ("train_data", "error_type", "error_match"),
     [
         # Empty dataset validation (handled by _convert_eval_set_to_df)
         ([], "MlflowException", "The dataset is empty"),
