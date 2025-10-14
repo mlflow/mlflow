@@ -1,19 +1,18 @@
 from mlflow.exceptions import MlflowException
-from mlflow.genai.optimize.adapt import adapt_prompts
-from mlflow.genai.optimize.adapters import BasePromptAdapter
+from mlflow.genai.optimize.optimize import optimize_prompts
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer, GepaPromptOptimizer
 from mlflow.genai.optimize.types import (
-    EvaluationResultRecord,
     LLMParams,
     OptimizerConfig,
-    PromptAdaptationResult,
-    PromptAdapterOutput,
+    PromptOptimizationResult,
+    PromptOptimizerOutput,
 )
 
 _MIGRATION_GUIDE = """
     Migration guide:
         The ``optimize_prompt()`` API has been replaced by
-        :py:func:`mlflow.genai.optimize_prompts()`, which provides a more flexible
-        and powerful optimization capabilities.
+        :py:func:`mlflow.genai.optimize_prompts()`, which provides more flexible
+        optimization capabilities with a joint optimization of prompts in an arbitrary function.
 
         **Old API (removed):**
 
@@ -90,12 +89,12 @@ def optimize_prompt(*args, **kwargs):
 
 
 __all__ = [
-    "adapt_prompts",
+    "optimize_prompts",
     "optimize_prompt",
-    "EvaluationResultRecord",
     "LLMParams",
     "OptimizerConfig",
-    "BasePromptAdapter",
-    "PromptAdapterOutput",
-    "PromptAdaptationResult",
+    "BasePromptOptimizer",
+    "GepaPromptOptimizer",
+    "PromptOptimizerOutput",
+    "PromptOptimizationResult",
 ]

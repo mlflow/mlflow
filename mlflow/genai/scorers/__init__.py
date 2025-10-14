@@ -27,6 +27,7 @@ _LAZY_IMPORTS = {
     "Correctness",
     "ExpectationsGuidelines",
     "Guidelines",
+    "Equivalence",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",
@@ -65,6 +66,7 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Correctness,
+        Equivalence,
         ExpectationsGuidelines,
         Guidelines,
         RelevanceToQuery,
@@ -79,6 +81,7 @@ __all__ = [
     "Correctness",
     "ExpectationsGuidelines",
     "Guidelines",
+    "Equivalence",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",

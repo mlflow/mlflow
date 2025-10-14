@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
 
-ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
+AggregationFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
 @deprecated(
@@ -89,7 +89,7 @@ class OptimizerConfig:
 class EvaluationResultRecord:
     """
     The output type of `eval_fn` in the
-    :py:func:`mlflow.genai.optimize.BasePromptAdapter.optimize()` API.
+    :py:func:`mlflow.genai.optimize.BasePromptOptimizer.optimize()` API.
 
     Args:
         inputs: The inputs of the evaluation.
@@ -108,9 +108,9 @@ class EvaluationResultRecord:
 
 @experimental(version="3.5.0")
 @dataclass
-class PromptAdapterOutput:
+class PromptOptimizerOutput:
     """
-    An output of the :py:func:`mlflow.genai.optimize.BasePromptAdapter.optimize()` API.
+    An output of the :py:func:`mlflow.genai.optimize.BasePromptOptimizer.optimize()` API.
 
     Args:
         optimized_prompts: The optimized prompts as
@@ -127,9 +127,9 @@ class PromptAdapterOutput:
 
 @experimental(version="3.5.0")
 @dataclass
-class PromptAdaptationResult:
+class PromptOptimizationResult:
     """
-    Result of the :py:func:`mlflow.genai.adapt_prompts()` API.
+    Result of the :py:func:`mlflow.genai.optimize_prompts()` API.
 
     Args:
         optimized_prompts: The optimized prompts.
