@@ -42,7 +42,7 @@ def optimize_prompts(
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
     aggregation: AggregationFn | None = None,
-    autolog: bool = True,
+    create_run: bool = True,
 ) -> PromptOptimizationResult:
     """
     Automatically optimize prompts using evaluation metrics and training data.
@@ -83,8 +83,8 @@ def optimize_prompts(
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
-        autolog: If True (default), automatically creates an MLflow run and logs:
-            - The optimization score
+        create_run: If True (default), automatically creates an MLflow run and logs:
+            - The optimization scores (initial, final, improvement)
             - Links to the input prompt versions
             - Links to the optimized prompt versions
             - The optimizer name and parameters
@@ -168,7 +168,8 @@ def optimize_prompts(
             )
     """
     # TODO: Add dataset validation
-    converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
+    train_data_df = _convert_eval_set_to_df(train_data)
+    converted_train_data = train_data_df.to_dict("records")
     predict_fn = convert_predict_fn(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
@@ -176,7 +177,18 @@ def optimize_prompts(
     metric_fn = create_metric_from_scorers(scorers, aggregation)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
-    target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
+    # Load prompts outside of any active run context to avoid auto-linking
+    # them to an outer run. We'll explicitly link them in the context manager below.
+    outer_run = mlflow.active_run()
+    if outer_run:
+        mlflow.end_run()
+    try:
+        target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
+    finally:
+        # Restore the outer run if it existed
+        if outer_run:
+            mlflow.start_run(run_id=outer_run.info.run_id, nested=False)
+
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
     with (
@@ -185,8 +197,9 @@ def optimize_prompts(
             num_prompts=len(target_prompts),
             num_training_samples=len(converted_train_data),
             input_prompts=target_prompts,
+            train_data_df=train_data_df,
         )
-        if autolog
+        if create_run
         else nullcontext({})
     ) as log_results:
         optimizer_output = optimizer.optimize(eval_fn, converted_train_data, target_prompts_dict)

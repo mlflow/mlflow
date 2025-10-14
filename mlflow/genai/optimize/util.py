@@ -4,7 +4,6 @@ from typing import Any, Callable
 
 from pydantic import BaseModel, create_model
 
-import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 from mlflow.prompt.registry_utils import PromptVersion
@@ -17,6 +16,7 @@ def prompt_optimization_autolog(
     num_prompts: int,
     num_training_samples: int,
     input_prompts: list[PromptVersion],
+    train_data_df,
 ):
     """
     Context manager for autologging prompt optimization runs.
@@ -26,11 +26,13 @@ def prompt_optimization_autolog(
         num_prompts: Number of prompts being optimized
         num_training_samples: Number of training samples
         input_prompts: List of input PromptVersion objects
+        train_data_df: Training data as a pandas DataFrame
 
     Yields:
         Tuple of (run_id, results_dict) where results_dict should be populated with
         PromptOptimizerOutput and list of optimized PromptVersion objects
     """
+    import mlflow.data
 
     with mlflow.start_run() if mlflow.active_run() is None else mlflow.active_run() as run:
         client = MlflowClient()
@@ -39,6 +41,10 @@ def prompt_optimization_autolog(
         mlflow.log_param("optimizer", optimizer_name)
         mlflow.log_param("num_prompts", num_prompts)
         mlflow.log_param("num_training_samples", num_training_samples)
+
+        # Log training dataset as run input
+        dataset = mlflow.data.from_pandas(train_data_df, source="prompt_optimization_train_data")
+        mlflow.log_input(dataset, context="training")
 
         for prompt in input_prompts:
             client.link_prompt_version_to_run(run_id=run_id, prompt=prompt)

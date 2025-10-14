@@ -255,7 +255,7 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
     assert len(result.optimized_prompts) == 1
 
 
-def test_optimize_prompts_autolog_enabled(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_create_run_enabled(sample_translation_prompt, sample_dataset):
     mock_optimizer = MockPromptAdapter()
 
     result = optimize_prompts(
@@ -266,7 +266,7 @@ def test_optimize_prompts_autolog_enabled(sample_translation_prompt, sample_data
         ],
         optimizer=mock_optimizer,
         scorers=[output_equivalence],
-        autolog=True,
+        create_run=True,
     )
 
     assert len(result.optimized_prompts) == 1
@@ -300,8 +300,13 @@ def test_optimize_prompts_autolog_enabled(sample_translation_prompt, sample_data
     assert "initial_eval_score" in run.data.metrics
     assert "final_eval_score" in run.data.metrics
 
+    # Verify dataset was logged as input
+    assert len(run.inputs.dataset_inputs) == 1
+    dataset_input = run.inputs.dataset_inputs[0]
+    assert dataset_input.tags[0].value == "training"  # context tag
 
-def test_optimize_prompts_autolog_disabled(sample_translation_prompt, sample_dataset):
+
+def test_optimize_prompts_create_run_disabled(sample_translation_prompt, sample_dataset):
     mock_optimizer = MockPromptAdapter()
 
     experiment = mlflow.get_experiment_by_name("Default")
@@ -315,7 +320,7 @@ def test_optimize_prompts_autolog_disabled(sample_translation_prompt, sample_dat
         ],
         optimizer=mock_optimizer,
         scorers=[output_equivalence],
-        autolog=False,  # Explicitly disable autolog
+        create_run=False,  # Explicitly disable run creation
     )
 
     assert len(result.optimized_prompts) == 1

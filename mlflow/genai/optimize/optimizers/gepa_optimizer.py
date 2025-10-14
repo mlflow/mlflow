@@ -1,5 +1,7 @@
 from typing import TYPE_CHECKING, Any
 
+from packaging.version import Version
+
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer, _EvalFunc
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.utils.annotations import experimental
@@ -106,8 +108,14 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             import gepa
         except ImportError as e:
             raise ImportError(
-                "GEPA is not installed. Please install it with: pip install gepa"
+                "GEPA is not installed. Please install it with: pip install 'gepa>=0.10.0'"
             ) from e
+
+        if Version(gepa.__version__) < Version("0.10.0"):
+            raise ImportError(
+                f"GEPA version {gepa.__version__} is installed, but version >=0.10.0 is required. "
+                "Please upgrade with: pip install --upgrade 'gepa>=0.10.0'"
+            )
 
         provider, model = _parse_model_uri(self.reflection_model)
 
@@ -194,6 +202,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             reflection_lm=f"{provider}/{model}",
             max_metric_calls=self.max_metric_calls,
             display_progress_bar=self.display_progress_bar,
+            use_mlflow=True,
         )
 
         optimized_prompts = gepa_result.best_candidate
