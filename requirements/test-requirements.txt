@@ -38,3 +38,5 @@ polars>=1
 dspy
 # required for testing mlflow.server.jobs
 huey<3,>=2.5.0
+# required for testing mlflow.store.tracking.databricks_rest_store
+grpcio-status
