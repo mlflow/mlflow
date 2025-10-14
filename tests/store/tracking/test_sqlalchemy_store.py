@@ -8399,7 +8399,9 @@ def test_scorer_operations(store: SqlAlchemyStore):
     scorer_before_update = store.get_scorer(experiment_id, "accuracy_scorer")
     assert scorer_before_update.sample_rate == 0.0
 
-    updated_scorer = store.update_scorer(experiment_id, "accuracy_scorer", sample_rate=0.5)
+    updated_scorer = store.update_registered_scorer_sampling(
+        experiment_id, "accuracy_scorer", sample_rate=0.5
+    )
     assert updated_scorer.sample_rate == 0.5
     assert updated_scorer.scorer_name == "accuracy_scorer"
     assert updated_scorer.scorer_version == 3
@@ -8408,17 +8410,19 @@ def test_scorer_operations(store: SqlAlchemyStore):
     assert scorer_after_update.sample_rate == 0.5
 
     with pytest.raises(MlflowException, match="Must be between 0.0 and 1.0"):
-        store.update_scorer(experiment_id, "accuracy_scorer", sample_rate=1.5)
+        store.update_registered_scorer_sampling(experiment_id, "accuracy_scorer", sample_rate=1.5)
 
     with pytest.raises(MlflowException, match="Must be between 0.0 and 1.0"):
-        store.update_scorer(experiment_id, "accuracy_scorer", sample_rate=-0.1)
+        store.update_registered_scorer_sampling(experiment_id, "accuracy_scorer", sample_rate=-0.1)
 
     with pytest.raises(MlflowException, match="not found"):
-        store.update_scorer(experiment_id, "non_existent_scorer", sample_rate=0.3)
+        store.update_registered_scorer_sampling(
+            experiment_id, "non_existent_scorer", sample_rate=0.3
+        )
 
-    store.update_scorer(experiment_id, "accuracy_scorer", sample_rate=0.3)
+    store.update_registered_scorer_sampling(experiment_id, "accuracy_scorer", sample_rate=0.3)
 
-    updated_without_rate = store.update_scorer(experiment_id, "accuracy_scorer")
+    updated_without_rate = store.update_registered_scorer_sampling(experiment_id, "accuracy_scorer")
     assert updated_without_rate.sample_rate == 0.3
 
     final_scorer = store.get_scorer(experiment_id, "accuracy_scorer")

@@ -2271,14 +2271,18 @@ class SqlAlchemyStore(AbstractStore):
 
             return scorers
 
-    def update_scorer(self, experiment_id, name, sample_rate=None) -> ScorerVersion:
+    def update_registered_scorer_sampling(
+        self, experiment_id, name, sample_rate=None, sampling_strategy=None
+    ) -> ScorerVersion:
         """
-        Update a scorer's sampling configuration.
+        Update a registered scorer's sampling configuration.
 
         Args:
             experiment_id: The experiment ID.
             name: The scorer name.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            sampling_strategy: The strategy for selecting which traces to score. If None,
+                keeps current value.
 
         Returns:
             A ScorerVersion entity object with updated configuration.
@@ -2314,6 +2318,11 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=INVALID_PARAMETER_VALUE,
                     )
                 latest_version.sample_rate = sample_rate
+
+            if sampling_strategy is not None:
+                latest_version.sampling_strategy = sampling_strategy
+
+            if sample_rate is not None or sampling_strategy is not None:
                 session.commit()
 
             return latest_version.to_mlflow_entity()

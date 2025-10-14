@@ -2564,7 +2564,9 @@ def test_update_scorer():
         mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
 
-        result = store.update_scorer(experiment_id, name, sample_rate=sample_rate)
+        result = store.update_registered_scorer_sampling(
+            experiment_id, name, sample_rate=sample_rate
+        )
 
         expected_request = UpdateScorer(
             experiment_id=experiment_id, name=name, sample_rate=sample_rate
@@ -2600,7 +2602,7 @@ def test_update_scorer_no_sample_rate():
         mock_response.scorer = mock_scorer
         mock_call_endpoint.return_value = mock_response
 
-        result = store.update_scorer(experiment_id, name)
+        result = store.update_registered_scorer_sampling(experiment_id, name)
 
         expected_request = UpdateScorer(experiment_id=experiment_id, name=name)
         mock_call_endpoint.assert_called_once_with(

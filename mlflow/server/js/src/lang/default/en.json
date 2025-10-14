@@ -746,6 +746,10 @@
     "defaultMessage": "The retrieval groundedness LLM judge returns a binary evaluation and written rationale on whether the generated response is factually consistent with the agent's retrieved context.",
     "description": "Evaluation results > known type of evaluation result assessment > description of retrieval groundedness judge."
   },
+  "6R2ply": {
+    "defaultMessage": "Edit description",
+    "description": "Text for edit description button on experiment view page header"
+  },
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
@@ -2561,13 +2565,13 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
-  "Qg12xQ": {
-    "defaultMessage": "Register prompts",
-    "description": "Home page quick action title for registering prompts"
-  },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
+  },
+  "Qg12xQ": {
+    "defaultMessage": "Register prompts",
+    "description": "Home page quick action title for registering prompts"
   },
   "QhEnTA": {
     "defaultMessage": "Name",

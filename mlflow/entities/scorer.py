@@ -27,6 +27,8 @@ class ScorerVersion(_MlflowObject):
         creation_time (int): Unix timestamp (in milliseconds) when this version was created.
         sample_rate (float): The fraction of traces to sample for scoring (0.0 to 1.0).
             Default is 0.0.
+        sampling_strategy (str, optional): The strategy for selecting which traces to score.
+            Default is None.
 
     Example:
         .. code-block:: python
@@ -55,6 +57,7 @@ class ScorerVersion(_MlflowObject):
         serialized_scorer: str,
         creation_time: int,
         sample_rate: float = 0.0,
+        sampling_strategy: str | None = None,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
@@ -62,6 +65,7 @@ class ScorerVersion(_MlflowObject):
         self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time
         self._sample_rate = sample_rate
+        self._sampling_strategy = sampling_strategy
 
     @property
     def experiment_id(self):
@@ -141,6 +145,16 @@ class ScorerVersion(_MlflowObject):
         """
         return self._sample_rate
 
+    @property
+    def sampling_strategy(self):
+        """
+        The strategy for selecting which traces to score.
+
+        Returns:
+            str | None: A sampling strategy string, or None if no strategy is specified.
+        """
+        return self._sampling_strategy
+
     @classmethod
     def from_proto(cls, proto):
         """
@@ -167,6 +181,9 @@ class ScorerVersion(_MlflowObject):
             serialized_scorer=proto.serialized_scorer,
             creation_time=proto.creation_time,
             sample_rate=proto.sample_rate if proto.HasField("sample_rate") else 0.0,
+            sampling_strategy=proto.sampling_strategy
+            if proto.HasField("sampling_strategy")
+            else None,
         )
 
     def to_proto(self):
@@ -191,6 +208,8 @@ class ScorerVersion(_MlflowObject):
         proto.serialized_scorer = self._serialized_scorer
         proto.creation_time = self.creation_time
         proto.sample_rate = self.sample_rate
+        if self.sampling_strategy is not None:
+            proto.sampling_strategy = self.sampling_strategy
         return proto
 
     def __repr__(self):
