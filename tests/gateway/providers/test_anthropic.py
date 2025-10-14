@@ -323,7 +323,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": ""}}
+                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "", 'tool_calls': None,}}
                 ],
             },
             {
@@ -335,7 +335,7 @@ async def test_chat_stream():
                     {
                         "index": 0,
                         "finish_reason": None,
-                        "delta": {"role": None, "content": "Hello"},
+                        "delta": {"role": None, "content": "Hello", 'tool_calls': None,},
                     }
                 ],
             },
@@ -345,7 +345,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "!"}}
+                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "!", 'tool_calls': None,}}
                 ],
             },
             {
@@ -354,7 +354,7 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": "stop", "delta": {"role": None, "content": None}}
+                    {"index": 0, "finish_reason": "stop", "delta": {"role": None, "content": None, 'tool_calls': None,}}
                 ],
             },
         ]
