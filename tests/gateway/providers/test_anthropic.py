@@ -307,23 +307,22 @@ def chat_function_calling_payload(stream: bool = False):
             {"role": "user", "content": "What's the weather like in Singapore today?"},
         ],
         "temperature": 0.5,
-        "tools": [{
-            "type": "function",
-            "function": {
-                "name": "get_weather",
-                "description": "Get current temperature for a given location.",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "location": {
-                            "type": "string",
-                            "description": "The name of a city"
-                        }
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
                     },
-                    "required": ["location"],
                 },
             }
-        }],
+        ],
     }
     if stream:
         payload["stream"] = True
@@ -333,20 +332,20 @@ def chat_function_calling_payload(stream: bool = False):
 def chat_function_calling_response():
     # see https://docs.anthropic.com/claude/reference/messages_post
     return {
-      "id": "test-id",
-      "model": "claude-2.1",
-      "type": "message",
-      "role": "assistant",
-      "stop_reason": "tool_use",
-      "content": [
-        {
-          "type": "tool_use",
-          "id": "toolu_001",
-          "name": "get_weather",
-          "input": { "location": "Singapore" }
-        }
-      ],
-      "usage": {"input_tokens": 10, "output_tokens": 25},
+        "id": "test-id",
+        "model": "claude-2.1",
+        "type": "message",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_001",
+                "name": "get_weather",
+                "input": {"location": "Singapore"},
+            }
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 25},
     }
 
 
@@ -363,36 +362,32 @@ async def test_chat_function_calling():
         response = await provider.chat(chat.RequestPayload(**payload))
 
         assert jsonable_encoder(response) == {
-          "id": "test-id",
-          "object": "chat.completion",
-          "created": 1677858242,
-          "model": "claude-2.1",
-          "choices": [
-            {
-              "index": 0,
-              "message": {
-                "role": "assistant",
-                "content": [],
-                "tool_calls": [
-                  {
-                    "id": "toolu_001",
-                    "type": "function",
-                    "function": {
-                      "name": "get_weather",
-                      "arguments": "{\"location\": \"Singapore\"}"
-                    }
-                  }
-                ],
-                "refusal": None,
-              },
-              "finish_reason": "stop"
-            }
-          ],
-          "usage": {
-            "prompt_tokens": 10,
-            "completion_tokens": 25,
-            "total_tokens": 35
-          }
+            "id": "test-id",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "claude-2.1",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": [],
+                        "tool_calls": [
+                            {
+                                "id": "toolu_001",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "Singapore"}',
+                                },
+                            }
+                        ],
+                        "refusal": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 25, "total_tokens": 35},
         }
 
         mock_post.assert_called_once_with(
@@ -400,10 +395,7 @@ async def test_chat_function_calling():
             json={
                 "model": "claude-2.1",
                 "messages": [
-                    {
-                        "role": "user",
-                        "content": "What's the weather like in Singapore today?"
-                    }
+                    {"role": "user", "content": "What's the weather like in Singapore today?"}
                 ],
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
@@ -413,18 +405,13 @@ async def test_chat_function_calling():
                         "description": "Get current temperature for a given location.",
                         "input_schema": {
                             "properties": {
-                                "location": {
-                                    "type": "string",
-                                    "description": "The name of a city"
-                                }
+                                "location": {"type": "string", "description": "The name of a city"}
                             },
                             "type": "object",
-                            "required": [
-                                "location"
-                            ]
-                        }
+                            "required": ["location"],
+                        },
                     }
-                ]
+                ],
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
         )
@@ -452,7 +439,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "", 'tool_calls': None,}}
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": "",
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
             {
@@ -464,7 +459,11 @@ async def test_chat_stream():
                     {
                         "index": 0,
                         "finish_reason": None,
-                        "delta": {"role": None, "content": "Hello", 'tool_calls': None,},
+                        "delta": {
+                            "role": None,
+                            "content": "Hello",
+                            "tool_calls": None,
+                        },
                     }
                 ],
             },
@@ -474,7 +473,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "!", 'tool_calls': None,}}
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": "!",
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
             {
@@ -483,7 +490,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": "stop", "delta": {"role": None, "content": None, 'tool_calls': None,}}
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
         ]
@@ -554,114 +569,98 @@ async def test_chat_function_calling_stream():
         response = provider.chat_stream(chat.RequestPayload(**payload))
         chunks = [jsonable_encoder(chunk) async for chunk in response]
         assert chunks == [
-          {
-            "id": "test-id",
-            "object": "chat.completion.chunk",
-            "created": 1677858242,
-            "model": "claude-2.1",
-            "choices": [
-              {
-                "index": 0,
-                "finish_reason": None,
-                "delta": {
-                  "role": None,
-                  "content": None,
-                  "tool_calls": [
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
                     {
-                      "index": 0,
-                      "id": "toolu_001",
-                      "type": "function",
-                      "function": {
-                        "name": "get_weather",
-                        "arguments": None
-                      }
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "toolu_001",
+                                    "type": "function",
+                                    "function": {"name": "get_weather", "arguments": None},
+                                }
+                            ],
+                        },
                     }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "id": "test-id",
-            "object": "chat.completion.chunk",
-            "created": 1677858242,
-            "model": "claude-2.1",
-            "choices": [
-              {
-                "index": 0,
-                "finish_reason": None,
-                "delta": {
-                  "role": None,
-                  "content": None,
-                  "tool_calls": [
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
                     {
-                      "index": 0,
-                      "id": None,
-                      "type": None,
-                      "function": {
-                        "name": None,
-                        "arguments": "{\"location\":"
-                      }
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '{"location":'},
+                                }
+                            ],
+                        },
                     }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "id": "test-id",
-            "object": "chat.completion.chunk",
-            "created": 1677858242,
-            "model": "claude-2.1",
-            "choices": [
-              {
-                "index": 0,
-                "finish_reason": None,
-                "delta": {
-                  "role": None,
-                  "content": None,
-                  "tool_calls": [
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
                     {
-                      "index": 0,
-                      "id": None,
-                      "type": None,
-                      "function": {
-                        "name": None,
-                        "arguments": "\"Singapore\"}"
-                      }
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '"Singapore"}'},
+                                }
+                            ],
+                        },
                     }
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "id": "test-id",
-            "object": "chat.completion.chunk",
-            "created": 1677858242,
-            "model": "claude-2.1",
-            "choices": [
-              {
-                "index": 0,
-                "finish_reason": "stop",
-                "delta": {
-                  "role": None,
-                  "content": None,
-                  "tool_calls": None
-                }
-              }
-            ]
-          }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {"role": None, "content": None, "tool_calls": None},
+                    }
+                ],
+            },
         ]
         mock_post.assert_called_once_with(
             "https://api.anthropic.com/v1/messages",
             json={
                 "model": "claude-2.1",
                 "messages": [
-                    {
-                        "role": "user",
-                        "content": "What's the weather like in Singapore today?"
-                    }
+                    {"role": "user", "content": "What's the weather like in Singapore today?"}
                 ],
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
@@ -671,16 +670,11 @@ async def test_chat_function_calling_stream():
                         "description": "Get current temperature for a given location.",
                         "input_schema": {
                             "properties": {
-                                "location": {
-                                    "type": "string",
-                                    "description": "The name of a city"
-                                }
+                                "location": {"type": "string", "description": "The name of a city"}
                             },
                             "type": "object",
-                            "required": [
-                                "location"
-                            ]
-                        }
+                            "required": ["location"],
+                        },
                     }
                 ],
                 "stream": True,

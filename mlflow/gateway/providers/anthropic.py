@@ -11,7 +11,7 @@ from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
-from mlflow.types.chat import ToolCallDelta, Function
+from mlflow.types.chat import Function, ToolCallDelta
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -70,14 +70,18 @@ class AnthropicAdapter(ProviderAdapter):
                     m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":
-                converted_messages.append({
-                    "role": "user",
-                    "content": [{
-                        "type": "tool_result",
-                        "tool_use_id": m["tool_call_id"],
-                        "content": m["content"],
-                    }],
-                })
+                converted_messages.append(
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": m["tool_call_id"],
+                                "content": m["content"],
+                            }
+                        ],
+                    }
+                )
         payload["messages"] = converted_messages
 
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
@@ -100,11 +104,13 @@ class AnthropicAdapter(ProviderAdapter):
                     )
 
                 tool_function = tool["function"]
-                converted_tools.append({
-                    "name": tool_function["name"],
-                    "description": tool_function["description"],
-                    "input_schema": tool_function["parameters"]
-                })
+                converted_tools.append(
+                    {
+                        "name": tool_function["name"],
+                        "description": tool_function["description"],
+                        "input_schema": tool_function["parameters"],
+                    }
+                )
 
             payload["tools"] = converted_tools
 
@@ -190,19 +196,20 @@ class AnthropicAdapter(ProviderAdapter):
         # https://platform.openai.com/docs/guides/function-calling#streaming
         if content.get("type") == "tool_use":
             delta = chat.StreamDelta(
-                tool_calls=[ToolCallDelta(
-                    index=0,
-                    id=content.get("id"),
-                    type="function",
-                    function=Function(name=content.get("name")),
-                )]
+                tool_calls=[
+                    ToolCallDelta(
+                        index=0,
+                        id=content.get("id"),
+                        type="function",
+                        function=Function(name=content.get("name")),
+                    )
+                ]
             )
         elif content.get("type") == "input_json_delta":
             delta = chat.StreamDelta(
-                tool_calls=[ToolCallDelta(
-                    index=0,
-                    function=Function(arguments=content.get("partial_json"))
-                )]
+                tool_calls=[
+                    ToolCallDelta(index=0, function=Function(arguments=content.get("partial_json")))
+                ]
             )
         else:
             delta = chat.StreamDelta(
@@ -394,9 +401,7 @@ class AnthropicProvider(BaseProvider, AnthropicAdapter):
                         self.config,
                     )
             else:
-                yield AnthropicAdapter.model_to_chat_streaming(
-                    resp, self.config
-                )
+                yield AnthropicAdapter.model_to_chat_streaming(resp, self.config)
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder
