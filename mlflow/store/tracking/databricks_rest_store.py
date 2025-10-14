@@ -590,41 +590,6 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
-    def _parse_and_validate_v4_trace_ids(self, trace_ids: list[str]) -> tuple[str, list[str]]:
-        """
-        Parse V4 trace IDs and validate they have a single consistent location.
-
-        Args:
-            trace_ids: List of V4 trace IDs to parse and validate.
-
-        Returns:
-            Tuple of (location_id, list of OTEL trace IDs).
-
-        Raises:
-            MlflowException: If trace IDs are not V4 format, have different locations,
-                or the list is empty.
-        """
-        if not trace_ids:
-            raise MlflowException.invalid_parameter_value("trace_ids cannot be empty")
-
-        # Parse trace IDs to extract location and OTEL trace IDs
-        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
-        locations = {loc for loc, _ in parsed_traces if loc is not None}
-
-        if not locations:
-            raise MlflowException.invalid_parameter_value(
-                "All trace IDs must be V4 format with location (e.g., 'trace:/catalog.schema/id')"
-            )
-
-        if len(locations) > 1:
-            raise MlflowException.invalid_parameter_value(
-                f"All trace IDs must have the same location. Found: {locations}"
-            )
-
-        location_id = locations.pop()
-        otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
-        return location_id, otel_trace_ids
-
     def _batch_link_traces_to_run(
         self, location_id: str, otel_trace_ids: list[str], run_id: str
     ) -> None:
