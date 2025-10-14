@@ -113,6 +113,52 @@ class AbstractScorerStore(metaclass=ABCMeta):
             mlflow.MlflowException: If scorer is not found.
         """
 
+    @abstractmethod
+    def update_registered_scorer_sampling(
+        self,
+        experiment_id,
+        name,
+        sample_rate=None,
+        filter_string=None,
+        sampling_strategy=None,
+        version=None,
+    ):
+        """
+        Update a registered scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The strategy for selecting which traces to score. If None,
+                keeps current value.
+            sampling_strategy: The sampling strategy enum (0=INDEPENDENT, 1=SHARED, 2=PARTITIONED).
+                If None, keeps current value.
+            version: The scorer version. If None, updates the latest version only.
+
+        Returns:
+            The updated scorer.
+
+        Raises:
+            mlflow.MlflowException: If scorer is not found.
+        """
+
+    @abstractmethod
+    def stop_all_scorer_versions(self, experiment_id, name):
+        """
+        Stop all versions of a scorer by setting their sample rate to 0.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            mlflow.MlflowException: If scorer is not found.
+        """
+
 
 class ScorerStoreRegistry:
     """
@@ -248,6 +294,31 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         experiment_id = experiment_id or _get_experiment_id()
         return self._tracking_store.delete_scorer(experiment_id, name, version)
+
+    def update_registered_scorer_sampling(
+        self,
+        experiment_id,
+        name,
+        sample_rate=None,
+        filter_string=None,
+        sampling_strategy=None,
+        version=None,
+    ):
+        from mlflow.genai.scorers import Scorer
+
+        experiment_id = experiment_id or _get_experiment_id()
+
+        # Update the scorer in the tracking store
+        scorer_version = self._tracking_store.update_registered_scorer_sampling(
+            experiment_id, name, sample_rate, filter_string, sampling_strategy, version
+        )
+
+        # Convert to Scorer object
+        return Scorer.model_validate(scorer_version.serialized_scorer)
+
+    def stop_all_scorer_versions(self, experiment_id, name):
+        experiment_id = experiment_id or _get_experiment_id()
+        return self._tracking_store.stop_all_scorer_versions(experiment_id, name)
 
 
 class DatabricksStore(AbstractScorerStore):
@@ -398,6 +469,34 @@ class DatabricksStore(AbstractScorerStore):
             )
 
         DatabricksStore.delete_scheduled_scorer(experiment_id, name)
+
+    def update_registered_scorer_sampling(
+        self,
+        experiment_id,
+        name,
+        sample_rate=None,
+        filter_string=None,
+        sampling_strategy=None,
+        version=None,
+    ):
+        if version is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Databricks does not support version-aware scorer updates."
+            )
+        if sampling_strategy is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Databricks does not support sampling_strategy configuration."
+            )
+        raise MlflowException(
+            "Databricks backend does not support update_registered_scorer_sampling. "
+            "Use the Databricks UI or API to update scorer configuration."
+        )
+
+    def stop_all_scorer_versions(self, experiment_id, name):
+        raise MlflowException(
+            "Databricks backend does not support stop_all_scorer_versions. "
+            "Use the Databricks UI or API to stop scorers."
+        )
 
 
 # Create the global scorer store registry instance

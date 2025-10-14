@@ -50,6 +50,12 @@ class LoggedModelStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     LOGGED_MODEL_PENDING: _ClassVar[LoggedModelStatus]
     LOGGED_MODEL_READY: _ClassVar[LoggedModelStatus]
     LOGGED_MODEL_UPLOAD_FAILED: _ClassVar[LoggedModelStatus]
+
+class SamplingStrategy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    INDEPENDENT: _ClassVar[SamplingStrategy]
+    SHARED: _ClassVar[SamplingStrategy]
+    PARTITIONED: _ClassVar[SamplingStrategy]
 ACTIVE_ONLY: ViewType
 DELETED_ONLY: ViewType
 ALL: ViewType
@@ -71,6 +77,9 @@ LOGGED_MODEL_STATUS_UNSPECIFIED: LoggedModelStatus
 LOGGED_MODEL_PENDING: LoggedModelStatus
 LOGGED_MODEL_READY: LoggedModelStatus
 LOGGED_MODEL_UPLOAD_FAILED: LoggedModelStatus
+INDEPENDENT: SamplingStrategy
+SHARED: SamplingStrategy
+PARTITIONED: SamplingStrategy
 
 class Metric(_message.Message):
     __slots__ = ("key", "value", "timestamp", "step", "dataset_name", "dataset_digest", "model_id", "run_id")
@@ -1561,19 +1570,44 @@ class DeleteScorer(_message.Message):
     version: int
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
+class UpdateScorer(_message.Message):
+    __slots__ = ("experiment_id", "name", "sample_rate", "filter_string", "version")
+    class Response(_message.Message):
+        __slots__ = ("scorer",)
+        SCORER_FIELD_NUMBER: _ClassVar[int]
+        scorer: Scorer
+        def __init__(self, scorer: _Optional[_Union[Scorer, _Mapping]] = ...) -> None: ...
+    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING_FIELD_NUMBER: _ClassVar[int]
+    VERSION_FIELD_NUMBER: _ClassVar[int]
+    experiment_id: str
+    name: str
+    sample_rate: float
+    filter_string: str
+    version: int
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., sample_rate: _Optional[float] = ..., filter_string: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+
 class Scorer(_message.Message):
-    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "sample_rate", "filter_string", "sampling_strategy")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
+    FILTER_STRING_FIELD_NUMBER: _ClassVar[int]
+    SAMPLING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     scorer_name: str
     scorer_version: int
     serialized_scorer: str
     creation_time: int
-    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+    sample_rate: float
+    filter_string: str
+    sampling_strategy: SamplingStrategy
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., sample_rate: _Optional[float] = ..., filter_string: _Optional[str] = ..., sampling_strategy: _Optional[_Union[SamplingStrategy, str]] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

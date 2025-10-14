@@ -1909,6 +1909,22 @@ class SqlScorerVersion(Base):
     """
     Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
     """
+    sample_rate = Column(sa.types.Float, nullable=False, default=0.0)
+    """
+    Sample rate: `Float`. Default value is 0.0. Fraction of traces to sample (0.0-1.0).
+    """
+    filter_string = Column(Text, nullable=True)
+    """
+    Filter string: `Text`. Optional filter string for selecting which traces to score.
+    """
+    sampling_strategy = Column(Integer, nullable=False, default=0)
+    """
+    Sampling strategy: `Integer`. Controls how traces are sampled when multiple versions run:
+        - 0 (INDEPENDENT): Each version samples randomly (default)
+        - 1 (SHARED): All versions evaluate the same traces (A/B testing)
+        - 2 (PARTITIONED): Versions evaluate different traces with no overlap
+    Maps to SamplingStrategy protobuf enum.
+    """
 
     # Relationship to the parent scorer
     scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
@@ -1939,6 +1955,9 @@ class SqlScorerVersion(Base):
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
+            sample_rate=self.sample_rate,
+            filter_string=self.filter_string,
+            sampling_strategy=self.sampling_strategy,
         )
 
 

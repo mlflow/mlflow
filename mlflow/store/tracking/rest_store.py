@@ -110,6 +110,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateScorer,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -1226,6 +1227,91 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
+
+    def update_registered_scorer_sampling(
+        self,
+        experiment_id: str,
+        name: str,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+        sampling_strategy: int | None = None,
+        version: int | None = None,
+    ) -> ScorerVersion:
+        """
+        Update a registered scorer's sampling configuration.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The filter string for selecting which traces to score. If None,
+                keeps current value.
+            sampling_strategy: The sampling strategy ("independent"/"shared"/"partitioned").
+                If None, keeps current value.
+            version: Integer version of the scorer to update. If None, updates the latest
+                version only.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        update_request = UpdateScorer(
+            experiment_id=experiment_id,
+            name=name,
+        )
+        if sample_rate is not None:
+            update_request.sample_rate = sample_rate
+        if filter_string is not None:
+            update_request.filter_string = filter_string
+        if sampling_strategy is not None:
+            update_request.sampling_strategy = sampling_strategy
+        if version is not None:
+            update_request.version = version
+
+        req_body = message_to_json(update_request)
+        response_proto = self._call_endpoint(
+            UpdateScorer,
+            req_body,
+            endpoint="/api/3.0/mlflow/scorers/update",
+        )
+        return ScorerVersion.from_proto(response_proto.scorer)
+
+    def stop_all_scorer_versions(self, experiment_id: str, name: str) -> int:
+        """
+        Stop all versions of a scorer by setting their sample rate to 0.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            name: String name of the scorer.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        # Get all versions of the scorer
+        scorer_versions = self.list_scorer_versions(experiment_id, name)
+
+        if not scorer_versions:
+            raise MlflowException(
+                f"Scorer with name '{name}' not found for experiment {experiment_id}.",
+                error_code=databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+
+        # Stop each version
+        for scorer_version in scorer_versions:
+            self.update_registered_scorer_sampling(
+                experiment_id=experiment_id,
+                name=name,
+                sample_rate=0.0,
+                filter_string=None,
+                version=scorer_version.scorer_version,
+            )
+
+        return len(scorer_versions)
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.

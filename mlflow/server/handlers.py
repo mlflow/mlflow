@@ -162,6 +162,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateScorer,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3652,6 +3653,31 @@ def _delete_scorer():
     return response
 
 
+@catch_mlflow_exception
+def _update_scorer():
+    request_message = _get_request_message(
+        UpdateScorer(),
+        schema={
+            "experiment_id": [_assert_required, _assert_string],
+            "name": [_assert_required, _assert_string],
+            "version": [],
+            "sample_rate": [],
+            "filter_string": [],
+        },
+    )
+    scorer_version = _get_tracking_store().update_registered_scorer_sampling(
+        request_message.experiment_id,
+        request_message.name,
+        request_message.version if request_message.HasField("version") else None,
+        request_message.sample_rate if request_message.HasField("sample_rate") else None,
+        request_message.filter_string if request_message.HasField("filter_string") else None,
+    )
+    response_message = UpdateScorer.Response(scorer=scorer_version.to_proto())
+    response = Response(mimetype="application/json")
+    response.set_data(message_to_json(response_message))
+    return response
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4064,4 +4090,5 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    UpdateScorer: _update_scorer,
 }

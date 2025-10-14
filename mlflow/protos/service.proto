@@ -1104,7 +1104,20 @@ service MlflowService {
       rpc_doc_title: "Delete Scorer",
     };
   }
-  
+
+  // Update a scorer's sampling configuration.
+  rpc updateScorer (UpdateScorer) returns (UpdateScorer.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/scorers/update"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Scorer",
+    };
+  }
+
   // Get records for an evaluation dataset
   rpc getDatasetRecords(GetDatasetRecords) returns (GetDatasetRecords.Response) {
     option (rpc) = {
@@ -3112,6 +3125,39 @@ message DeleteScorer {
   }
 }
 
+// Update a scorer's sampling configuration.
+message UpdateScorer {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID.
+  optional string experiment_id = 1;
+  // The scorer name.
+  optional string name = 2;
+  // The new sample rate (0.0 to 1.0). If not specified, keeps current value.
+  optional double sample_rate = 3;
+  // The filter string for selecting which traces to score. If not specified, keeps current value.
+  optional string filter_string = 4;
+  // The scorer version to update.
+  optional int32 version = 5;
+  // The sampling strategy for multi-version coordination. If not specified, keeps current value.
+  optional SamplingStrategy sampling_strategy = 6;
+
+  message Response {
+    // The updated scorer version.
+    optional Scorer scorer = 1;
+  }
+}
+
+// Sampling strategy for controlling multi-version trace sampling behavior.
+enum SamplingStrategy {
+  // Each version samples traces independently and randomly (default).
+  INDEPENDENT = 0;
+  // All versions evaluate the same traces (for A/B testing).
+  SHARED = 1;
+  // Versions evaluate different traces with no overlap (for complementary coverage).
+  PARTITIONED = 2;
+}
+
 // Scorer entity representing a scorer in the database.
 message Scorer {
   // The experiment ID.
@@ -3124,4 +3170,10 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+  // The sample rate for scoring (0.0 to 1.0).
+  optional double sample_rate = 6;
+  // The filter string for selecting which traces to score.
+  optional string filter_string = 7;
+  // The sampling strategy for multi-version coordination.
+  optional SamplingStrategy sampling_strategy = 8 [default = INDEPENDENT];
 }

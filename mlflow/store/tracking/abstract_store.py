@@ -1342,3 +1342,49 @@ class AbstractStore:
             MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def update_registered_scorer_sampling(
+        self,
+        experiment_id: str,
+        name: str,
+        sample_rate: float | None = None,
+        filter_string: str | None = None,
+        sampling_strategy: int | None = None,
+        version: int | None = None,
+    ):
+        """
+        Update a registered scorer's sampling configuration.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+            sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
+            filter_string: The filter string for selecting which traces to score. If None,
+                keeps current value.
+            sampling_strategy: The sampling strategy enum (0=INDEPENDENT, 1=SHARED, 2=PARTITIONED).
+                If None, keeps current value.
+            version: The scorer version to update. If None, updates the latest version only.
+
+        Returns:
+            A ScorerVersion entity object with updated configuration.
+
+        Raises:
+            MlflowException: If scorer is not found or if sample_rate is invalid.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def stop_all_scorer_versions(self, experiment_id: str, name: str) -> int:
+        """
+        Stop all versions of a scorer by setting their sample rate to 0.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)

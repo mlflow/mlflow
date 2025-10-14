@@ -87,6 +87,7 @@ from mlflow.protos.service_pb2 import (
     SetTraceTag,
     StartTrace,
     StartTraceV3,
+    UpdateScorer,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import RunTag as ProtoRunTag
@@ -2541,6 +2542,78 @@ def test_delete_scorer_without_version():
             message_to_json(DeleteScorer(experiment_id=experiment_id, name=name)),
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
+
+
+def test_update_scorer():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "accuracy_scorer"
+        sample_rate = 0.5
+
+        mock_response = mock.MagicMock()
+        mock_scorer = mock.MagicMock()
+        mock_scorer.experiment_id = 123
+        mock_scorer.scorer_name = name
+        mock_scorer.scorer_version = 1
+        mock_scorer.serialized_scorer = "serialized_scorer"
+        mock_scorer.creation_time = 1234567890000
+        mock_scorer.sample_rate = sample_rate
+        mock_scorer.HasField = lambda field: field == "sample_rate"
+        mock_response.scorer = mock_scorer
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.update_registered_scorer_sampling(
+            experiment_id, name, sample_rate=sample_rate
+        )
+
+        expected_request = UpdateScorer(
+            experiment_id=experiment_id, name=name, sample_rate=sample_rate
+        )
+        mock_call_endpoint.assert_called_once_with(
+            UpdateScorer,
+            message_to_json(expected_request),
+            endpoint="/api/3.0/mlflow/scorers/update",
+        )
+
+        assert result.experiment_id == "123"
+        assert result.scorer_name == name
+        assert result.scorer_version == 1
+        assert result.sample_rate == sample_rate
+
+
+def test_update_scorer_no_sample_rate():
+    store = RestStore(lambda: None)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call_endpoint:
+        experiment_id = "123"
+        name = "accuracy_scorer"
+
+        mock_response = mock.MagicMock()
+        mock_scorer = mock.MagicMock()
+        mock_scorer.experiment_id = 123
+        mock_scorer.scorer_name = name
+        mock_scorer.scorer_version = 1
+        mock_scorer.serialized_scorer = "serialized_scorer"
+        mock_scorer.creation_time = 1234567890000
+        mock_scorer.sample_rate = 0.3
+        mock_scorer.HasField = lambda field: field == "sample_rate"
+        mock_response.scorer = mock_scorer
+        mock_call_endpoint.return_value = mock_response
+
+        result = store.update_registered_scorer_sampling(experiment_id, name)
+
+        expected_request = UpdateScorer(experiment_id=experiment_id, name=name)
+        mock_call_endpoint.assert_called_once_with(
+            UpdateScorer,
+            message_to_json(expected_request),
+            endpoint="/api/3.0/mlflow/scorers/update",
+        )
+
+        assert result.experiment_id == "123"
+        assert result.scorer_name == name
+        assert result.sample_rate == 0.3
 
 
 def test_calculate_trace_filter_correlation():
