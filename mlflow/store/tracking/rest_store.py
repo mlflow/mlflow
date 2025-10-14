@@ -1233,7 +1233,7 @@ class RestStore(AbstractStore):
         experiment_id: str,
         name: str,
         sample_rate: float | None = None,
-        sampling_strategy: str | None = None,
+        filter_string: str | None = None,
     ) -> ScorerVersion:
         """
         Update a registered scorer's sampling configuration.
@@ -1242,7 +1242,7 @@ class RestStore(AbstractStore):
             experiment_id: String ID of the experiment.
             name: String name of the scorer.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
-            sampling_strategy: The strategy for selecting which traces to score. If None,
+            filter_string: The filter string for selecting which traces to score. If None,
                 keeps current value.
 
         Returns:
@@ -1256,7 +1256,7 @@ class RestStore(AbstractStore):
                 experiment_id=experiment_id,
                 name=name,
                 sample_rate=sample_rate if sample_rate is not None else None,
-                sampling_strategy=sampling_strategy if sampling_strategy is not None else None,
+                filter_string=filter_string if filter_string is not None else None,
             )
         )
         response_proto = self._call_endpoint(

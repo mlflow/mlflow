@@ -115,7 +115,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
 
     @abstractmethod
     def update_registered_scorer_sampling(
-        self, experiment_id, name, sample_rate=None, sampling_strategy=None
+        self, experiment_id, name, sample_rate=None, filter_string=None
     ):
         """
         Update a registered scorer's sampling configuration.
@@ -124,7 +124,7 @@ class AbstractScorerStore(metaclass=ABCMeta):
             experiment_id: The experiment ID.
             name: The scorer name.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
-            sampling_strategy: The strategy for selecting which traces to score. If None,
+            filter_string: The strategy for selecting which traces to score. If None,
                 keeps current value.
 
         Returns:
@@ -271,7 +271,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         return self._tracking_store.delete_scorer(experiment_id, name, version)
 
     def update_registered_scorer_sampling(
-        self, experiment_id, name, sample_rate=None, sampling_strategy=None
+        self, experiment_id, name, sample_rate=None, filter_string=None
     ):
         from mlflow.genai.scorers import Scorer
 
@@ -279,7 +279,7 @@ class MlflowTrackingStore(AbstractScorerStore):
 
         # Update the scorer in the tracking store
         scorer_version = self._tracking_store.update_registered_scorer_sampling(
-            experiment_id, name, sample_rate, sampling_strategy
+            experiment_id, name, sample_rate, filter_string
         )
 
         # Convert to Scorer object
@@ -300,7 +300,7 @@ class DatabricksStore(AbstractScorerStore):
         scorer = scheduled_scorer.scorer
         scorer._sampling_config = ScorerSamplingConfig(
             sample_rate=scheduled_scorer.sample_rate,
-            sampling_strategy=scheduled_scorer.sampling_strategy,
+            filter_string=scheduled_scorer.filter_string,
         )
         return scorer
 
@@ -311,7 +311,7 @@ class DatabricksStore(AbstractScorerStore):
         name: str,
         scorer: Scorer,
         sample_rate: float,
-        sampling_strategy: str | None = None,
+        filter_string: str | None = None,
         experiment_id: str | None = None,
     ) -> Scorer:
         """Internal function to add a registered scorer."""
@@ -325,7 +325,7 @@ class DatabricksStore(AbstractScorerStore):
             scheduled_scorer_name=name,
             scorer=scorer,
             sample_rate=sample_rate,
-            sampling_strategy=sampling_strategy,
+            filter_string=filter_string,
         )
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
@@ -368,7 +368,7 @@ class DatabricksStore(AbstractScorerStore):
         name: str,
         scorer: Scorer | None = None,
         sample_rate: float | None = None,
-        sampling_strategy: str | None = None,
+        filter_string: str | None = None,
         experiment_id: str | None = None,
     ) -> Scorer:
         """Internal function to update a registered scorer."""
@@ -382,7 +382,7 @@ class DatabricksStore(AbstractScorerStore):
             scheduled_scorer_name=name,
             scorer=scorer,
             sample_rate=sample_rate,
-            sampling_strategy=sampling_strategy,
+            filter_string=filter_string,
         )
         return DatabricksStore._scheduled_scorer_to_scorer(scheduled_scorer)
 
@@ -392,12 +392,12 @@ class DatabricksStore(AbstractScorerStore):
             name=scorer.name,
             scorer=scorer,
             sample_rate=0.0,
-            sampling_strategy=None,
+            filter_string=None,
             experiment_id=experiment_id,
         )
 
         # Set the sampling config on the new instance
-        scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, sampling_strategy=None)
+        scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
 
         return None
 
@@ -436,7 +436,7 @@ class DatabricksStore(AbstractScorerStore):
         DatabricksStore.delete_scheduled_scorer(experiment_id, name)
 
     def update_registered_scorer_sampling(
-        self, experiment_id, name, sample_rate=None, sampling_strategy=None
+        self, experiment_id, name, sample_rate=None, filter_string=None
     ):
         raise MlflowException(
             "Databricks backend does not support update_registered_scorer_sampling. "

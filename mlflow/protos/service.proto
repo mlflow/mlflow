@@ -3135,8 +3135,8 @@ message UpdateScorer {
   optional string name = 2;
   // The new sample rate (0.0 to 1.0). If not specified, keeps current value.
   optional double sample_rate = 3;
-  // The strategy for selecting which traces to score. If not specified, keeps current value.
-  optional string sampling_strategy = 4;
+  // The filter string for selecting which traces to score. If not specified, keeps current value.
+  optional string filter_string = 4;
 
   message Response {
     // The updated scorer version.
@@ -3158,6 +3158,6 @@ message Scorer {
   optional int64 creation_time = 5;
   // The sample rate for scoring (0.0 to 1.0).
   optional double sample_rate = 6;
-  // The strategy for selecting which traces to score to score.
-  optional string sampling_strategy = 7;
+  // The filter string for selecting which traces to score.
+  optional string filter_string = 7;
 }

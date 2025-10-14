@@ -94,7 +94,7 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
     mock_scheduled_scorer.scorer = Mock(spec=Scorer)
     mock_scheduled_scorer.scorer.name = "test_databricks_scorer"
     mock_scheduled_scorer.sample_rate = 0.5
-    mock_scheduled_scorer.sampling_strategy = "test_filter"
+    mock_scheduled_scorer.filter_string = "test_filter"
 
     mock_list.return_value = [mock_scheduled_scorer]
     mock_get.return_value = mock_scheduled_scorer
@@ -115,7 +115,7 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
         name="test_databricks_scorer",
         scorer=ANY,
         sample_rate=0.0,
-        sampling_strategy=None,
+        filter_string=None,
         experiment_id="exp_123",
     )
 
@@ -124,7 +124,7 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
 
     assert scorers[0].name == "test_databricks_scorer"
     assert scorers[0]._sampling_config == ScorerSamplingConfig(
-        sample_rate=0.5, sampling_strategy="test_filter"
+        sample_rate=0.5, filter_string="test_filter"
     )
 
     assert len(scorers) == 1

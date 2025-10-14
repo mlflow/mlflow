@@ -1348,7 +1348,7 @@ class AbstractStore:
         experiment_id: str,
         name: str,
         sample_rate: float | None = None,
-        sampling_strategy: str | None = None,
+        filter_string: str | None = None,
     ):
         """
         Update a registered scorer's sampling configuration.
@@ -1357,7 +1357,7 @@ class AbstractStore:
             experiment_id: The experiment ID.
             name: The scorer name.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
-            sampling_strategy: The strategy for selecting which traces to score. If None,
+            filter_string: The filter string for selecting which traces to score. If None,
                 keeps current value.
 
         Returns:
