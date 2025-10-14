@@ -4234,6 +4234,16 @@ class MlflowClient:
                 logged_model = self.get_logged_model(model_id)
                 # models:/<model_id> source is not supported by WSMR
                 new_source = logged_model.artifact_location
+        elif (
+            is_databricks_unity_catalog_uri(self._registry_uri)
+            and not is_databricks_uri(tracking_uri)
+            and model_id is not None
+        ):
+            logged_model = self.get_logged_model(model_id)
+            new_source = logged_model.artifact_location
+            if run_id is None:
+                run_id = logged_model.source_run_id
+            model_id = None
 
         return self._get_registry_client().create_model_version(
             name=name,
