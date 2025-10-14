@@ -9,15 +9,7 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.utils.annotations import deprecated
 
-
-@deprecated(
-    since="3.5.0",
-    impact="This function has been removed. Use mlflow.genai.optimize_prompts() instead.",
-)
-def optimize_prompt(*args, **kwargs):
-    """
-    Optimize a LLM prompt using the given dataset and evaluation metrics.
-
+_MIGRATION_GUIDE = """
     Migration guide:
         The ``optimize_prompt()`` API has been replaced by
         :py:func:`mlflow.genai.optimize_prompts()`, which provides a more flexible
@@ -78,13 +70,26 @@ def optimize_prompt(*args, **kwargs):
 
         For more details, see the documentation:
         https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts.html
+        """
+
+
+@deprecated(
+    since="3.5.0",
+    impact="This function has been removed. Use mlflow.genai.optimize_prompts() instead.",
+)
+def optimize_prompt(*args, **kwargs):
+    f"""
+    Optimize a LLM prompt using the given dataset and evaluation metrics.  
+
+    {_MIGRATION_GUIDE}
     """
     from mlflow.exceptions import MlflowException
 
     raise MlflowException(
-        "The optimize_prompt() function has been removed in MLflow 3.5.0. "
-        "Please use mlflow.genai.optimize_prompts() instead. "
-        "See the function docstring for migration instructions."
+        f"""
+        The optimize_prompt() function has been removed in MLflow 3.5.0. 
+        Please use mlflow.genai.optimize_prompts() instead. 
+        {_MIGRATION_GUIDE}"""
     )
 
 
