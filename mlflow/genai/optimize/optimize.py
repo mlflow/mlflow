@@ -9,18 +9,17 @@ from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
-from mlflow.genai.optimize.adapters import BasePromptAdapter, get_default_adapter
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
-    LLMParams,
     ObjectiveFn,
-    PromptAdaptationResult,
+    PromptOptimizationResult,
 )
 from mlflow.genai.optimize.util import create_metric_from_scorers
 from mlflow.genai.prompts import load_prompt, register_prompt
-from mlflow.genai.scorers import Scorer, scorer
+from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
-from mlflow.telemetry.events import PromptAdaptationEvent
+from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
 from mlflow.utils.annotations import experimental
@@ -33,21 +32,20 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.5.0")
-@record_usage_event(PromptAdaptationEvent)
-def adapt_prompts(
+@record_usage_event(PromptOptimizationEvent)
+def optimize_prompts(
     *,
     predict_fn: Callable[..., Any],
     train_data: "EvaluationDatasetTypes",
-    target_prompt_uris: list[str],
-    optimizer_lm_params: LLMParams,
-    scorers: list[Scorer] | None = None,
+    prompt_uris: list[str],
+    optimizer: BasePromptOptimizer,
+    scorers: list[Scorer],
     objective: ObjectiveFn | None = None,
-    optimizer: BasePromptAdapter | None = None,
-) -> PromptAdaptationResult:
+) -> PromptOptimizationResult:
     """
-    This API optimizes prompts used in the passed in function to produce similar
-    outputs as the outputs in the dataset. This API can be used to maintain the
-    outputs of `predict_fn` when the language model used in the function is changed.
+    Automatically optimize prompts using evaluation metrics and training data.
+    This function uses the provided optimization algorithm to improve prompt
+    quality based on your evaluation criteria and dataset.
 
     Args:
         predict_fn: a target function to be optimized. The callable should receive inputs
@@ -70,24 +68,22 @@ def adapt_prompts(
               Each input should contain keys matching the variables in the prompt template.
             - outputs: A column containing an output for each input
               that the predict_fn should produce.
-        target_prompt_uris: a list of prompt uris to be optimized.
+        prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
-        optimizer_lm_params: model parameters used in the optimization algorithm.
-            The model name can be specified in the format
-            `<provider>:/<model>` (e.g., "openai:/gpt-4o")
+        optimizer: a prompt optimizer object that optimizes a set of prompts based
+            on the evaluation dataset and passed in function. For example,
+            GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            If None, uses a default scorer that applies exact match for numeric types
-            and LLM judge for text.
+            Required parameter. Use builtin scorers like OutputEquivalence or Correctness,
+            or define custom scorers with the @scorer decorator.
         objective: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
-        optimizer: an optional prompt optimizer object that optimizes a set of prompts based
-            on the evaluation dataset and passed in function.
-            If this argument is none, the default optimizer is used.
 
     Returns:
-        A list of optimized prompt versions.
+        The optimization result object that includes the optimized prompts
+        as a list of prompt versions, evaluation scores, and the optimizer name.
 
     Examples:
 
@@ -95,7 +91,8 @@ def adapt_prompts(
 
             import mlflow
             import openai
-            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+            from mlflow.genai.scorers import Correctness
 
             prompt = mlflow.genai.register_prompt(
                 name="qa",
@@ -116,11 +113,12 @@ def adapt_prompts(
                 {"inputs": {"question": "What is the capital of Germany?"}, "outputs": "Berlin"},
             ]
 
-            result = mlflow.genai.adapt_prompts(
+            result = mlflow.genai.optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
-                target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                prompt_uris=[prompt.uri],
+                optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
+                scorers=[Correctness(model="openai:/gpt-4o")],
             )
 
             print(result.optimized_prompts[0].template)
@@ -130,7 +128,7 @@ def adapt_prompts(
         .. code-block:: python
 
             import mlflow
-            from mlflow.genai.optimize import LLMParams
+            from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
             from mlflow.genai.scorers import scorer
 
 
@@ -151,22 +149,15 @@ def adapt_prompts(
                 return 0.7 * scores["accuracy"] + 0.3 * scores["brevity"]
 
 
-            result = mlflow.genai.adapt_prompts(
+            result = mlflow.genai.optimize_prompts(
                 predict_fn=predict_fn,
                 train_data=dataset,
-                target_prompt_uris=[prompt.uri],
-                optimizer_lm_params=LLMParams(model_name="openai:/gpt-4o"),
+                prompt_uris=[prompt.uri],
+                optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
                 scorers=[accuracy_scorer, brevity_scorer],
                 objective=weighted_objective,
             )
     """
-    if optimizer is None:
-        optimizer = get_default_adapter()
-
-    # Use default scorer if none provided
-    if not scorers:
-        scorers = [_make_output_equivalence_scorer(optimizer_lm_params.model_name)]
-
     # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
     predict_fn = convert_predict_fn(
@@ -176,14 +167,12 @@ def adapt_prompts(
     metric_fn = create_metric_from_scorers(scorers, objective)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
-    target_prompts = [load_prompt(prompt_uri) for prompt_uri in target_prompt_uris]
+    target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
-    optimizer_output = optimizer.optimize(
-        eval_fn, converted_train_data, target_prompts_dict, optimizer_lm_params
-    )
+    optimizer_output = optimizer.optimize(eval_fn, converted_train_data, target_prompts_dict)
 
-    return PromptAdaptationResult(
+    return PromptOptimizationResult(
         optimized_prompts=[
             register_prompt(name=prompt_name, template=prompt)
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
@@ -225,7 +214,7 @@ def _build_eval_fn(
         def _run_single(record: dict[str, Any]):
             inputs = record["inputs"]
             # use expectations if provided, otherwise use outputs
-            outputs = record.get("expectations") or record.get("outputs")
+            outputs = record.get("expectations") or {"expected_response": record.get("outputs")}
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
@@ -257,67 +246,3 @@ def _build_eval_fn(
             gorilla.revert(patch)
 
     return eval_fn
-
-
-def _make_output_equivalence_scorer(judge_model: str) -> Scorer:
-    """
-    Create an output equivalence scorer with a specific judge model.
-
-    Args:
-        judge_model: The model to use for LLM judge evaluation
-
-    Returns:
-        A Scorer that compares outputs against expected outputs
-    """
-
-    @scorer(name="output_equivalence")
-    def output_equivalence(outputs: Any, expectations: Any) -> float:
-        """
-        Compare outputs against expected outputs.
-
-        Uses exact match for numerical types and LLM judge for text types.
-
-        Args:
-            outputs: The actual output from the program
-            expectations: The expected output to match
-
-        Returns:
-            A score between 0 and 1
-        """
-        from mlflow.genai.judges import make_judge
-
-        # Handle exact match for numerical types
-        if isinstance(outputs, (int, float, bool)) and isinstance(expectations, (int, float, bool)):
-            return 1.0 if outputs == expectations else 0.0
-
-        # Convert to strings for comparison
-        outputs_str = str(outputs)
-        expectations_str = str(expectations)
-
-        # Use exact match first
-        if outputs_str == expectations_str:
-            return 1.0
-
-        # Use LLM judge for text outputs
-        judge = make_judge(
-            name="equivalence_judge",
-            instructions=(
-                "Compare {{outputs}} against {{expectations}}. "
-                "Evaluate if they are both semantically equivalent or convey the same meaning, "
-                "and if the output format matches the expected format "
-                "(e.g., JSON structure, list format, sentence structure). "
-                "Return 'pass' if they match in both content and format, 'fail' if they don't."
-            ),
-            model=judge_model,
-        )
-        try:
-            result = judge(
-                outputs={"outputs": outputs_str}, expectations={"outputs": expectations_str}
-            )
-            result_value = str(result.value).lower().strip()
-            return 1.0 if result_value == "pass" else 0.0
-        except Exception as e:
-            _logger.warning("Failed to compute score with LLM judge: %s", e)
-            return 0.0
-
-    return output_equivalence

@@ -1,11 +1,10 @@
-from mlflow.genai.optimize.adapt import adapt_prompts
-from mlflow.genai.optimize.adapters import BasePromptAdapter
+from mlflow.genai.optimize.optimize import optimize_prompts
+from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.types import (
-    EvaluationResultRecord,
     LLMParams,
     OptimizerConfig,
-    PromptAdaptationResult,
-    PromptAdapterOutput,
+    PromptOptimizerOutput,
+    PromptOptimizationResult,
 )
 from mlflow.utils.annotations import deprecated
 
@@ -94,12 +93,11 @@ def optimize_prompt(*args, **kwargs):
 
 
 __all__ = [
-    "adapt_prompts",
+    "optimize_prompts",
     "optimize_prompt",
-    "EvaluationResultRecord",
     "LLMParams",
     "OptimizerConfig",
-    "BasePromptAdapter",
-    "PromptAdapterOutput",
-    "PromptAdaptationResult",
+    "BasePromptOptimizer",
+    "PromptOptimizerOutput",
+    "PromptOptimizationResult",
 ]
