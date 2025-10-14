@@ -589,20 +589,22 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
-    def _batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+    def _parse_and_validate_v4_trace_ids(self, trace_ids: list[str]) -> tuple[str, list[str]]:
         """
-        Link multiple traces to a run by creating internal trace-to-run relationships.
+        Parse V4 trace IDs and validate they have a single consistent location.
 
         Args:
-            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
-                All trace IDs must have the same location.
-            run_id: ID of the run to link traces to.
+            trace_ids: List of V4 trace IDs to parse and validate.
+
+        Returns:
+            Tuple of (location_id, list of OTEL trace IDs).
 
         Raises:
-            MlflowException: If trace IDs have different locations or invalid format.
+            MlflowException: If trace IDs are not V4 format, have different locations,
+                or the list is empty.
         """
         if not trace_ids:
-            return
+            raise MlflowException.invalid_parameter_value("trace_ids cannot be empty")
 
         # Parse trace IDs to extract location and OTEL trace IDs
         parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
@@ -620,6 +622,24 @@ class DatabricksTracingRestStore(RestStore):
 
         location_id = locations.pop()
         otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
+        return location_id, otel_trace_ids
+
+    def _batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating internal trace-to-run relationships.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+                All trace IDs must have the same location.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If trace IDs have different locations or invalid format.
+        """
+        if not trace_ids:
+            return
+
+        location_id, otel_trace_ids = self._parse_and_validate_v4_trace_ids(trace_ids)
 
         req_body = message_to_json(
             BatchLinkTraceToRun(
@@ -646,22 +666,7 @@ class DatabricksTracingRestStore(RestStore):
         if not trace_ids:
             return
 
-        # Parse trace IDs to extract location and OTEL trace IDs
-        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
-        locations = {loc for loc, _ in parsed_traces if loc is not None}
-
-        if not locations:
-            raise MlflowException.invalid_parameter_value(
-                "All trace IDs must be V4 format with location (e.g., 'trace:/catalog.schema/id')"
-            )
-
-        if len(locations) > 1:
-            raise MlflowException.invalid_parameter_value(
-                f"All trace IDs must have the same location. Found: {locations}"
-            )
-
-        location_id = locations.pop()
-        otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
+        location_id, otel_trace_ids = self._parse_and_validate_v4_trace_ids(trace_ids)
 
         req_body = message_to_json(
             BatchUnlinkTraceFromRun(
