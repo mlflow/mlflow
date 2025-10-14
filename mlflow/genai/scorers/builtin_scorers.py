@@ -1332,9 +1332,9 @@ class Correctness(BuiltInScorer):
 
 @format_docstring(_MODEL_API_DOC)
 @experimental(version="3.5.0")
-class OutputEquivalence(BuiltInScorer):
+class Equivalence(BuiltInScorer):
     """
-    OutputEquivalence compares outputs against expected outputs for semantic equivalence.
+    Equivalence compares outputs against expected outputs for semantic equivalence.
 
     This scorer uses exact matching for numerical types (int, float, bool) and
     an LLM judge for text outputs to determine if they are semantically equivalent
@@ -1352,17 +1352,17 @@ class OutputEquivalence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import OutputEquivalence
+        from mlflow.genai.scorers import Equivalence
 
         # Numerical equivalence
-        assessment = OutputEquivalence()(
+        assessment = Equivalence()(
             outputs=42,
             expectations={"expected_response": 42},
         )
         print(assessment)  # value: 'pass', rationale: 'Exact numerical match'
 
         # Text equivalence
-        assessment = OutputEquivalence()(
+        assessment = Equivalence()(
             outputs="The capital is Paris",
             expectations={"expected_response": "Paris is the capital"},
         )
@@ -1373,7 +1373,7 @@ class OutputEquivalence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import OutputEquivalence
+        from mlflow.genai.scorers import Equivalence
 
         data = [
             {
@@ -1381,7 +1381,7 @@ class OutputEquivalence(BuiltInScorer):
                 "expectations": {"expected_response": "Paris"},
             }
         ]
-        result = mlflow.genai.evaluate(data=data, scorers=[OutputEquivalence()])
+        result = mlflow.genai.evaluate(data=data, scorers=[Equivalence()])
     """
 
     name: str = "output_equivalence"
@@ -1406,7 +1406,7 @@ class OutputEquivalence(BuiltInScorer):
 
     def get_input_fields(self) -> list[JudgeField]:
         """
-        Get the input fields for the OutputEquivalence scorer.
+        Get the input fields for the Equivalence scorer.
 
         Returns:
             List of JudgeField objects defining the input fields.
@@ -1469,12 +1469,12 @@ class OutputEquivalence(BuiltInScorer):
             model=self.model,
             extract_expectations=True,
         )
-        _validate_required_fields(fields, self, "OutputEquivalence scorer")
+        _validate_required_fields(fields, self, "Equivalence scorer")
 
         # Validate that expected_response is present
         if not fields.expectations or fields.expectations.get("expected_response") is None:
             raise MlflowException(
-                "OutputEquivalence scorer requires `expected_response` in the "
+                "Equivalence scorer requires `expected_response` in the "
                 "`expectations` dictionary."
             )
 
@@ -1552,7 +1552,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RelevanceToQuery(),
         RetrievalSufficiency(),
         RetrievalGroundedness(),
-        OutputEquivalence(),
+        Equivalence(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])

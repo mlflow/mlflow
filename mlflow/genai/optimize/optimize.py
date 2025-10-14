@@ -75,7 +75,7 @@ def optimize_prompts(
             the training dataset and scorers. For example,
             GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
-            Required parameter. Use builtin scorers like OutputEquivalence or Correctness,
+            Required parameter. Use builtin scorers like Equivalence or Correctness,
             or define custom scorers with the @scorer decorator.
         aggregation: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float

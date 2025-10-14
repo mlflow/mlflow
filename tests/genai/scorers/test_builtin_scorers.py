@@ -14,7 +14,7 @@ from mlflow.genai.scorers import (
     Correctness,
     ExpectationsGuidelines,
     Guidelines,
-    OutputEquivalence,
+    Equivalence,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -542,7 +542,7 @@ def test_correctness(mock_is_correct):
 
 def test_output_equivalence():
     # Test with default model
-    scorer = OutputEquivalence()
+    scorer = Equivalence()
 
     # Test exact numerical match
     result = scorer(outputs=42, expectations={"expected_response": 42})
@@ -561,7 +561,7 @@ def test_output_equivalence():
     assert "Values do not match" in result.rationale
 
     # Test with custom name and model
-    scorer_custom = OutputEquivalence(name="custom_output_equiv", model="openai:/gpt-4o-mini")
+    scorer_custom = Equivalence(name="custom_output_equiv", model="openai:/gpt-4o-mini")
     result = scorer_custom(outputs=100, expectations={"expected_response": 100})
     assert result.name == "custom_output_equiv"
     assert result.value == CategoricalRating.YES
@@ -631,7 +631,7 @@ def test_correctness_get_input_fields():
 
 
 def test_output_equivalence_get_input_fields():
-    output_equiv = OutputEquivalence(name="test")
+    output_equiv = Equivalence(name="test")
     field_names = [field.name for field in output_equiv.get_input_fields()]
     assert field_names == ["outputs", "expectations"]
 
@@ -672,7 +672,7 @@ def test_output_equivalence_with_trace():
 
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    scorer = OutputEquivalence()
+    scorer = Equivalence()
     result = scorer(trace=trace_with_expectations)
 
     assert result.name == "output_equivalence"
@@ -855,7 +855,7 @@ def test_correctness_with_override_outputs():
 
 def test_output_equivalence_with_override_outputs():
     trace = create_simple_trace(outputs="Original output")
-    scorer = OutputEquivalence()
+    scorer = Equivalence()
 
     result = scorer(
         trace=trace,
@@ -969,7 +969,7 @@ def test_output_equivalence_default_extracts_from_trace():
 
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    scorer = OutputEquivalence()
+    scorer = Equivalence()
     result = scorer(trace=trace_with_expectations)
 
     assert result.name == "output_equivalence"
