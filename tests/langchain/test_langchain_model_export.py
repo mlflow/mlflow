@@ -419,6 +419,7 @@ def test_langchain_llm_chain():
     assert loaded_model.prompt.template == "What is {product}?"
 
 
+# trigger
 def test_langchain_native_log_and_load_model():
     model = create_openai_runnable()
 
