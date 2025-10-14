@@ -37,6 +37,22 @@ export const ExperimentViewManagementMenu = ({
     <>
       <OverflowMenu
         menu={[
+          ...(setEditing
+            ? [
+                {
+                  id: 'edit-description',
+                  itemName: (
+                    <Typography.Text>
+                      <FormattedMessage
+                        defaultMessage="Edit description"
+                        description="Text for edit description button on experiment view page header"
+                      />
+                    </Typography.Text>
+                  ),
+                  onClick: () => setEditing(true),
+                },
+              ]
+            : []),
           {
             id: 'rename',
             itemName: (

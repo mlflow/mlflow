@@ -3560,13 +3560,18 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    version = _get_tracking_store().register_scorer(
+    scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
     )
     response_message = RegisterScorer.Response()
-    response_message.version = version
+    response_message.version = scorer_version.scorer_version
+    response_message.scorer_id = scorer_version.scorer_id
+    response_message.experiment_id = scorer_version.experiment_id
+    response_message.name = scorer_version.scorer_name
+    response_message.serialized_scorer = scorer_version._serialized_scorer
+    response_message.creation_time = scorer_version.creation_time
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

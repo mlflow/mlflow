@@ -34,14 +34,13 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
-    SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
 )
-from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
+from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import deprecated_parameter
 from mlflow.utils.validation import _validate_list_param
@@ -862,13 +861,7 @@ def search_traces(
     )
 
     if return_type == "pandas":
-        results = traces_to_df(results)
-        if extract_fields:
-            results = extract_span_inputs_outputs(
-                traces=results,
-                fields=extract_fields,
-                col_name=SPANS_COLUMN_NAME,
-            )
+        results = traces_to_df(results, extract_fields=extract_fields)
 
     return results
 

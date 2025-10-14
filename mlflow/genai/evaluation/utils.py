@@ -54,6 +54,9 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
     converts it into a pandas DataFrame.
     """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
     if isinstance(data, list):
         # validate that every item in the list is a dict and has inputs as key
         for item in data:
@@ -65,6 +68,8 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        df = data.to_df()
     else:
         try:
             from mlflow.utils.spark_utils import get_spark_dataframe_type

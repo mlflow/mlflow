@@ -834,6 +834,11 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 #: (default: ``None``)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
 
+#: Specifies the Databricks traffic ID to inject as x-databricks-traffic-id header
+#: in HTTP requests to Databricks endpoints
+#: (default: ``None``)
+_MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
+
 #######################################################################################
 # Tracing
 #######################################################################################
@@ -922,6 +927,12 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
     "MLFLOW_SEARCH_TRACES_MAX_THREADS",
     int,
     max(32, (os.cpu_count() or 1) * 4),
+)
+
+#: Maximum number of traces to fetch in a single BatchGetTraces request during search operations.
+#: (default: ``10``)
+_MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
 )
 
 #: Specifies the logging level for MLflow. This can be set to any valid logging level
