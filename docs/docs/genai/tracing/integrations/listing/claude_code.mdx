@@ -26,12 +26,6 @@ After setting up auto tracing, MLflow will automatically capture traces of your 
 - Tool execution results
 - Session metadata including working directory and user
 
-## Requirements
-
-- MLflow >= 3.4 (`pip install mlflow>=3.4`)
-- For CLI tracing: [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
-- For SDK tracing: [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
-
 ## Setup
 
 Claude Code tracing can be configured using either CLI commands (for interactive use) or Python SDK imports (for programmatic use).
@@ -42,6 +36,11 @@ Claude Code tracing can be configured using either CLI commands (for interactive
 ### CLI Tracing Setup
 
 Use CLI tracing to automatically capture your interactive Claude Code CLI conversations.
+
+#### Requirements
+
+- MLflow >= 3.4 (`pip install mlflow>=3.4`)
+- [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
 
 #### Basic Setup
 
@@ -101,6 +100,11 @@ mlflow ui
 ### SDK Tracing Setup
 
 Use SDK tracing when building applications that programmatically use the Claude Agent SDK.
+
+#### Requirements
+
+- MLflow >= 3.5 (`pip install mlflow>=3.5`)
+- [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
 
 #### Basic Setup
 
