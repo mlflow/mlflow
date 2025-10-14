@@ -163,14 +163,6 @@ print(f"Template: {optimized_prompt.template}")
 print(f"Score: {result.score}")
 
 # Deploy the optimized version
-with mlflow.start_run():
-    model_info = mlflow.openai.log_model(
-        model="gpt-4o-mini",
-        task="llm/v1/completions",
-        name="math_tutor_optimized",
-        prompts=[optimized_prompt],  # Link optimized prompt to model
-    )
-# ✅ Data-driven prompt optimization + automatic versioning + deployment
 ```
 
 Transform manual prompt engineering into systematic, data-driven optimization with automatic performance tracking.

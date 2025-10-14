@@ -1,11 +1,11 @@
 ---
 sidebar_position: 6
-sidebar_label: Rewrite Prompts for New Models 🆕
+sidebar_label: Auto-rewrite Prompts for New Models 🆕
 ---
 
 import { APILink } from "@site/src/components/APILink";
 
-# Rewrite Prompts for New Models (Experimental)
+# Auto-rewrite Prompts for New Models (Experimental)
 
 When migrating to a new language model, you often discover that your carefully crafted prompts don't work as well with the new model. MLflow's <APILink fn="mlflow.genai.optimize_prompts" /> API helps you **automatically rewrite prompts** to maintain output quality when switching models, using your existing application's outputs as training data.
 
@@ -25,6 +25,55 @@ The `optimize_prompts` API requires **MLflow >= 3.5.0**.
 
 ![](/images/adapt_prompt_flow.svg)
 
+### Example: Simple Prompt → Optimized Prompt
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Before Optimization:**
+
+```text
+Answer the following question: {{question}}
+```
+
+Simple, generic prompt
+
+</td>
+<td width="50%" valign="top">
+
+**After Optimization:**
+
+```text
+Classify the sentiment of the provided text.
+Your response must be one of the following:
+- 'positive'
+- 'negative'
+- 'neutral'
+
+Ensure your response is lowercase and contains
+only one of these three words.
+
+Text: {{text}}
+
+Guidelines:
+- 'positive': The text expresses satisfaction,
+  happiness, or approval
+- 'negative': The text expresses dissatisfaction,
+  anger, or disapproval
+- 'neutral': The text is factual or balanced
+  without strong emotion
+
+Your response must match this exact format with
+no additional explanation.
+```
+
+Detailed instructions with format constraints and guidelines
+
+</td>
+</tr>
+</table>
+
 ## When to Use Prompt Rewriting
 
 This approach is ideal when:
@@ -38,7 +87,7 @@ This approach is ideal when:
 
 Here's a complete example of migrating from `gpt-4o` to `gpt-4o-mini` while maintaining output consistency:
 
-### Step 1: Capture Outputs from Current Model
+### Step 1: Capture Outputs from Original Model
 
 First, collect outputs from your existing model using MLflow tracing:
 
@@ -47,7 +96,7 @@ import mlflow
 import openai
 from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.datasets import create_dataset
-from mlflow.genai.scorers import OutputEquivalence
+from mlflow.genai.scorers import Equivalence
 
 # Register your current prompt
 prompt = mlflow.genai.register_prompt(
@@ -60,11 +109,11 @@ Text: {{text}}
 )
 
 
-# Define your prediction function using the source model (gpt-4o)
+# Define your prediction function using the original model and base prompt
 @mlflow.trace
 def predict_fn(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-4o",  # Source model
+        model="gpt-4o",  # Original model
         messages=[{"role": "user", "content": prompt.format(text=text)}],
         temperature=0,
     )
@@ -148,7 +197,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset.to_df(),
     prompt_uris=[prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o-mini"),
-    scorers=[OutputEquivalence(model="openai:/gpt-4o")],
+    scorers=[Equivalence(model="openai:/gpt-4o")],
 )
 
 # View the optimized prompt
@@ -245,7 +294,6 @@ inputs = [
 Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> before production deployment.
 
 ```python
-# Compare source and target model on test set
 # Evaluate optimized prompt
 results = mlflow.genai.evaluate(
     data=test_dataset,
