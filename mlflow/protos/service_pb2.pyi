@@ -1571,7 +1571,7 @@ class DeleteScorer(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class UpdateScorer(_message.Message):
-    __slots__ = ("experiment_id", "name", "sample_rate", "filter_string", "version")
+    __slots__ = ("experiment_id", "name", "sample_rate", "filter_string", "version", "sampling_strategy")
     class Response(_message.Message):
         __slots__ = ("scorer",)
         SCORER_FIELD_NUMBER: _ClassVar[int]
@@ -1582,12 +1582,14 @@ class UpdateScorer(_message.Message):
     SAMPLE_RATE_FIELD_NUMBER: _ClassVar[int]
     FILTER_STRING_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
+    SAMPLING_STRATEGY_FIELD_NUMBER: _ClassVar[int]
     experiment_id: str
     name: str
     sample_rate: float
     filter_string: str
     version: int
-    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., sample_rate: _Optional[float] = ..., filter_string: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
+    sampling_strategy: SamplingStrategy
+    def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., sample_rate: _Optional[float] = ..., filter_string: _Optional[str] = ..., version: _Optional[int] = ..., sampling_strategy: _Optional[_Union[SamplingStrategy, str]] = ...) -> None: ...
 
 class Scorer(_message.Message):
     __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "sample_rate", "filter_string", "sampling_strategy")

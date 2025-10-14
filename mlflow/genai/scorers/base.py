@@ -601,6 +601,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated sampling configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
