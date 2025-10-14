@@ -361,6 +361,32 @@ class DeleteAssessment(_message.Message):
     sql_warehouse_id: str
     def __init__(self, location_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
 
+class BatchLinkTraceToRun(_message.Message):
+    __slots__ = ("location_id", "trace_ids", "run_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    run_id: str
+    def __init__(self, location_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., run_id: _Optional[str] = ...) -> None: ...
+
+class BatchUnlinkTraceFromRun(_message.Message):
+    __slots__ = ("location_id", "trace_ids", "run_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    run_id: str
+    def __init__(self, location_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., run_id: _Optional[str] = ...) -> None: ...
+
 class DatabricksTrackingService(_service.service): ...
 
 class DatabricksTrackingService_Stub(DatabricksTrackingService): ...

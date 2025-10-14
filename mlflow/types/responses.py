@@ -287,7 +287,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
                         "id": message["call_id"],
                         "type": "function",
                         "function": {
-                            "arguments": message["arguments"],
+                            "arguments": message.get("arguments") or "{}",
                             "name": message["name"],
                         },
                     }

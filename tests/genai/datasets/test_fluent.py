@@ -373,11 +373,13 @@ def test_search_datasets_databricks(mock_databricks_environment):
 
 
 def test_databricks_import_error():
-    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
-        with mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}):
-            with mock.patch("builtins.__import__", side_effect=ImportError("No module")):
-                with pytest.raises(ImportError, match="databricks-agents"):
-                    create_dataset(name="test", experiment_id="exp1")
+    with (
+        mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True),
+        mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}),
+        mock.patch("builtins.__import__", side_effect=ImportError("No module")),
+    ):
+        with pytest.raises(ImportError, match="databricks-agents"):
+            create_dataset(name="test", experiment_id="exp1")
 
 
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
