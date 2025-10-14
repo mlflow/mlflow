@@ -261,7 +261,7 @@ def test_optimize_prompts_warns_on_unused_prompt(
     # Create predict_fn that only uses translation prompt, not summarization prompt
     def predict_fn_single_prompt(input_text, language):
         prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
-        _ = prompt.template
+        prompt.template
         return sample_predict_fn(input_text=input_text, language=language)
 
     result = optimize_prompts(
