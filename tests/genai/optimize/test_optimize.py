@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -340,9 +341,6 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
 def test_optimize_prompts_validation_errors(
     sample_translation_prompt, train_data, error_type, error_match
 ):
-    """Test that invalid datasets raise appropriate errors."""
-    from mlflow.exceptions import MlflowException
-
     error_class = MlflowException if error_type == "MlflowException" else ValueError
 
     with pytest.raises(error_class, match=error_match):
