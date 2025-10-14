@@ -1,3 +1,4 @@
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.adapt import adapt_prompts
 from mlflow.genai.optimize.adapters import BasePromptAdapter
 from mlflow.genai.optimize.types import (
@@ -7,7 +8,6 @@ from mlflow.genai.optimize.types import (
     PromptAdaptationResult,
     PromptAdapterOutput,
 )
-from mlflow.exceptions import MlflowException
 
 _MIGRATION_GUIDE = """
     Migration guide:
@@ -75,7 +75,7 @@ _MIGRATION_GUIDE = """
 
 def optimize_prompt(*args, **kwargs):
     f"""
-    Optimize a LLM prompt using the given dataset and evaluation metrics. 
+    Optimize a LLM prompt using the given dataset and evaluation metrics.
     This function has been removed. Use mlflow.genai.optimize_prompts() instead.
 
     {_MIGRATION_GUIDE}
