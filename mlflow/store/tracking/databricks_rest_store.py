@@ -657,7 +657,7 @@ class DatabricksTracingRestStore(RestStore):
 
         # Group traces by location (None for V3 traces)
         # For V3 traces, store original IDs; for V4 traces, store OTEL trace IDs
-        v3_trace_ids = []
+        v3_trace_ids: list[str] = []
         v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
 
         for trace_id in trace_ids:
