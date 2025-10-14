@@ -120,14 +120,22 @@ initial_prompt = mlflow.genai.register_prompt(
 
 # Prepare training data for optimization
 train_data = [
-    {"inputs": {"question": "What is 15 + 27?"}, "expectations": {"expected_response": "42"}},
-    {"inputs": {"question": "Calculate 8 × 9"}, "expectations": {"expected_response": "72"}},
+    {
+        "inputs": {"question": "What is 15 + 27?"},
+        "expectations": {"expected_response": "42"},
+    },
+    {
+        "inputs": {"question": "Calculate 8 × 9"},
+        "expectations": {"expected_response": "72"},
+    },
     # ... more examples
 ]
+
 
 @scorer
 def exact_match(outputs: dict, expectations: dict) -> bool:
     return outputs == expectations["expected_response"]
+
 
 # Automatically optimize the prompt using MLflow + DSPy
 result = mlflow.genai.optimize_prompt(
