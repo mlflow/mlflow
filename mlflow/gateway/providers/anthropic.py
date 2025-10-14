@@ -49,20 +49,34 @@ class AnthropicAdapter(ProviderAdapter):
 
         # remaining messages are chat history
         # we want to include only user, assistant or tool messages
+        # Anthropic format of tool related messages example
+        # https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
         converted_messages = []
         for m in payload["messages"]:
-            if m["role"] in ("user", "assistant"):
+            if m["role"] == "user":
+                converted_messages.append(m)
+            elif m["role"] == "assistant":
+                if m.get("tool_calls") is not None:
+                    tool_use_contents = [
+                        {
+                            "type": "tool_use",
+                            "id": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "input": json.loads(tool_call["function"]["arguments"]),
+                        }
+                        for tool_call in m["tool_calls"]
+                    ]
+                    m["content"] = tool_use_contents
+                    m.pop("tool_calls")
                 converted_messages.append(m)
             elif m["role"] == "tool":
-                # convert tool message to Anthropic format
-                # example: https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview#tool-use-examples
                 converted_messages.append({
                     "role": "user",
-                    "content": {
+                    "content": [{
                         "type": "tool_result",
                         "tool_use_id": m["tool_call_id"],
                         "content": m["content"],
-                    },
+                    }],
                 })
         payload["messages"] = converted_messages
 
