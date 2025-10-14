@@ -228,7 +228,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             scorer._sampling_config = ScorerSamplingConfig(
-                sample_rate=scorer_version.sample_rate, sampling_strategy=None
+                sample_rate=scorer_version.sample_rate, filter_string=None
             )
             scorers.append(scorer)
 
@@ -245,7 +245,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         # Convert to Scorer object
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
         scorer._sampling_config = ScorerSamplingConfig(
-            sample_rate=scorer_version.sample_rate, sampling_strategy=None
+            sample_rate=scorer_version.sample_rate, filter_string=None
         )
         return scorer
 
@@ -262,7 +262,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         for scorer_version in scorer_versions:
             scorer = Scorer.model_validate(scorer_version.serialized_scorer)
             scorer._sampling_config = ScorerSamplingConfig(
-                sample_rate=scorer_version.sample_rate, sampling_strategy=None
+                sample_rate=scorer_version.sample_rate, filter_string=None
             )
             version = scorer_version.scorer_version
             scorers.append((scorer, version))
@@ -295,7 +295,7 @@ class MlflowTrackingStore(AbstractScorerStore):
         # Convert to Scorer object
         scorer = Scorer.model_validate(scorer_version.serialized_scorer)
         scorer._sampling_config = ScorerSamplingConfig(
-            sample_rate=scorer_version.sample_rate, sampling_strategy=None
+            sample_rate=scorer_version.sample_rate, filter_string=None
         )
         return scorer
 
@@ -687,7 +687,7 @@ def update_scorer(
     store = _get_scorer_store()
     experiment_id = experiment_id or _get_experiment_id()
     return store.update_registered_scorer_sampling(
-        experiment_id, name, sample_rate=sample_rate, sampling_strategy=None
+        experiment_id, name, sample_rate=sample_rate, filter_string=None
     )
 
 
