@@ -4,6 +4,7 @@ from typing import Any
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_ASSESSMENT_NAME
 from mlflow.genai.judges.utils import CategoricalRating, get_default_model, invoke_judge_model
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.docstring_utils import format_docstring
 
 _MODEL_API_DOC = {
@@ -56,6 +57,10 @@ def requires_databricks_agents(func):
     return wrapper
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.RelevanceToQuery",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def is_context_relevant(
     *, request: str, context: Any, name: str | None = None, model: str | None = None
@@ -119,6 +124,10 @@ def is_context_relevant(
     return _sanitize_feedback(feedback)
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.RetrievalSufficiency",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def is_context_sufficient(
     *,
@@ -200,6 +209,10 @@ def is_context_sufficient(
     return _sanitize_feedback(feedback)
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.Correctness",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def is_correct(
     *,
@@ -274,6 +287,10 @@ def is_correct(
     return _sanitize_feedback(feedback)
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.RetrievalGroundedness",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def is_grounded(
     *,
@@ -351,6 +368,10 @@ def is_grounded(
     return _sanitize_feedback(feedback)
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.Safety",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def is_safe(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
     """
@@ -390,6 +411,10 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
     return _sanitize_feedback(feedback)
 
 
+@deprecated(
+    alternative="mlflow.genai.scorers.Guidelines",
+    since="3.5.0",
+)
 @format_docstring(_MODEL_API_DOC)
 def meets_guidelines(
     *,
