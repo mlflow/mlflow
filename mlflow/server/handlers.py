@@ -3561,13 +3561,18 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    version = _get_tracking_store().register_scorer(
+    scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
     )
     response_message = RegisterScorer.Response()
-    response_message.version = version
+    response_message.version = scorer_version.scorer_version
+    response_message.scorer_id = scorer_version.scorer_id
+    response_message.experiment_id = scorer_version.experiment_id
+    response_message.name = scorer_version.scorer_name
+    response_message.serialized_scorer = scorer_version._serialized_scorer
+    response_message.creation_time = scorer_version.creation_time
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -3660,8 +3665,10 @@ def _update_scorer():
         schema={
             "experiment_id": [_assert_required, _assert_string],
             "name": [_assert_required, _assert_string],
+            "version": [],
             "sample_rate": [],
             "filter_string": [],
+            "sampling_strategy": [],
         },
     )
     scorer_version = _get_tracking_store().update_registered_scorer_sampling(
@@ -3669,6 +3676,10 @@ def _update_scorer():
         request_message.name,
         request_message.sample_rate if request_message.HasField("sample_rate") else None,
         request_message.filter_string if request_message.HasField("filter_string") else None,
+        request_message.sampling_strategy
+        if request_message.HasField("sampling_strategy")
+        else None,
+        request_message.version if request_message.HasField("version") else None,
     )
     response_message = UpdateScorer.Response(scorer=scorer_version.to_proto())
     response = Response(mimetype="application/json")

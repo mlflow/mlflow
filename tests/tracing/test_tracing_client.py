@@ -8,6 +8,32 @@ from mlflow.tracing.client import TracingClient
 from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
+def test_get_trace_v4():
+    mock_store = Mock()
+    mock_store.batch_get_traces.return_value = ["dummy_trace"]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/1234567890")
+
+    assert trace == "dummy_trace"
+    mock_store.batch_get_traces.assert_called_once_with(
+        ["trace:/catalog.schema/1234567890"], "catalog.schema"
+    )
+
+
+def test_get_trace_v4_retry():
+    mock_store = Mock()
+    mock_store.batch_get_traces.side_effect = [[], ["dummy_trace"]]
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        trace = client.get_trace("trace:/catalog.schema/1234567890")
+
+    assert trace == "dummy_trace"
+    assert mock_store.batch_get_traces.call_count == 2
+
+
 @skip_when_testing_trace_sdk
 def test_tracing_client_link_prompt_versions_to_trace():
     with mlflow.start_run():

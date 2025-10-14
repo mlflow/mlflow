@@ -45,12 +45,35 @@ class ScorerStatus(Enum):
     STOPPED = "STOPPED"  # sample_rate == 0
 
 
+class SamplingStrategy(Enum):
+    """Sampling strategy for controlling multi-version trace sampling.
+
+    When multiple versions of a scorer run simultaneously, the sampling strategy
+    determines how traces are distributed across versions.
+    """
+
+    INDEPENDENT = 0  # Each version samples randomly (default)
+    SHARED = 1  # All versions evaluate the same traces (A/B testing)
+    PARTITIONED = 2  # Versions evaluate different traces with no overlap
+
+
 @dataclass
 class ScorerSamplingConfig:
-    """Configuration for registered scorer sampling."""
+    """Configuration for registered scorer sampling.
+
+    The sampling_strategy field controls how traces are sampled across versions:
+        - "independent": Each version samples randomly (default)
+        - "shared": All versions evaluate the same traces (A/B testing)
+        - "partitioned": Versions evaluate different traces with no overlap
+
+    Note: The sampling_strategy is stored and retrieved correctly, but the scheduler
+    implementation that respects SHARED and PARTITIONED strategies will be added in PR-3.
+    Currently, all strategies behave as INDEPENDENT.
+    """
 
     sample_rate: float | None = None
     filter_string: str | None = None
+    sampling_strategy: str | SamplingStrategy | None = None
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
@@ -113,6 +136,7 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+    _version: int | None = PrivateAttr(default=None)
 
     @property
     @experimental(version="3.2.0")
@@ -125,6 +149,12 @@ class Scorer(BaseModel):
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
+
+    @property
+    @experimental(version="3.2.0")
+    def version(self) -> int | None:
+        """Get the version number of this scorer. Available after registration."""
+        return self._version
 
     @property
     @experimental(version="3.3.0")
@@ -532,12 +562,15 @@ class Scorer(BaseModel):
             if new_scorer._cached_dump is not None:
                 new_scorer._cached_dump["name"] = name
 
-        store.register_scorer(experiment_id, new_scorer)
+        version = store.register_scorer(experiment_id, new_scorer)
 
         if isinstance(store, DatabricksStore):
             new_scorer._registered_backend = "databricks"
+            # Databricks doesn't support versioning
+            new_scorer._version = None
         else:
             new_scorer._registered_backend = "tracking"
+            new_scorer._version = version
             new_scorer._sampling_config = ScorerSamplingConfig(sample_rate=0.0, filter_string=None)
 
         return new_scorer
@@ -570,6 +603,7 @@ class Scorer(BaseModel):
             A new Scorer instance with updated sampling configuration.
 
         Example:
+
             .. code-block:: python
 
                 import mlflow
@@ -588,14 +622,7 @@ class Scorer(BaseModel):
                     )
                 )
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Scheduling scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
 
@@ -605,15 +632,33 @@ class Scorer(BaseModel):
             )
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
-            name=scorer_name,
-            scorer=self,
-            sample_rate=sampling_config.sample_rate,
-            filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
-        )
+        # Handle Databricks vs tracking store differently
+        if isinstance(store, DatabricksStore):
+            if sampling_config.sampling_strategy is not None:
+                raise MlflowException.invalid_parameter_value(
+                    "sampling_strategy is not supported with Databricks backend. "
+                    "Databricks uses independent sampling for all scorers."
+                )
+            # Databricks uses its own API for updating scorers
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+        else:
+            # OSS tracking store uses version-aware API
+            return store.update_registered_scorer_sampling(
+                experiment_id=experiment_id,
+                name=scorer_name,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                sampling_strategy=sampling_config.sampling_strategy,
+                version=self._version,
+            )
 
     @experimental(version="3.2.0")
     def update(
@@ -667,27 +712,38 @@ class Scorer(BaseModel):
                 )
                 print(f"Added filter: {filtered_scorer.filter_string}")
         """
-        from mlflow.genai.scorers.registry import DatabricksStore
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Updating scheduled scorers is only supported by Databricks tracking URI."
-            )
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
         self._check_can_be_registered()
 
         scorer_name = name or self.name
+        store = _get_scorer_store()
 
-        # Update the scorer on the server
-        return DatabricksStore.update_registered_scorer(
-            name=scorer_name,
-            scorer=self,
-            sample_rate=sampling_config.sample_rate,
-            filter_string=sampling_config.filter_string,
-            experiment_id=experiment_id,
-        )
+        # Handle Databricks vs tracking store differently
+        if isinstance(store, DatabricksStore):
+            if sampling_config.sampling_strategy is not None:
+                raise MlflowException.invalid_parameter_value(
+                    "sampling_strategy is not supported with Databricks backend. "
+                    "Databricks uses independent sampling for all scorers."
+                )
+            # Databricks uses its own API for updating scorers
+            return DatabricksStore.update_registered_scorer(
+                name=scorer_name,
+                scorer=self,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                experiment_id=experiment_id,
+            )
+        else:
+            # OSS tracking store uses version-aware API
+            return store.update_registered_scorer_sampling(
+                experiment_id=experiment_id,
+                name=scorer_name,
+                sample_rate=sampling_config.sample_rate,
+                filter_string=sampling_config.filter_string,
+                sampling_strategy=sampling_config.sampling_strategy,
+                version=self._version,
+            )
 
     @experimental(version="3.2.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
@@ -728,14 +784,6 @@ class Scorer(BaseModel):
                     sampling_config=ScorerSamplingConfig(sample_rate=0.3)
                 )
         """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
-        if not is_databricks_uri(get_tracking_uri()):
-            raise MlflowException(
-                "Stopping scheduled scorers is only supported by Databricks tracking URI."
-            )
-
         self._check_can_be_registered()
 
         scorer_name = name or self.name
@@ -744,6 +792,71 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
             sampling_config=ScorerSamplingConfig(sample_rate=0.0),
         )
+
+    @experimental(version="3.2.0")
+    def stop_all_versions(
+        self, *, name: str | None = None, experiment_id: str | None = None
+    ) -> int:
+        """
+        Stop all versions of this scorer by setting their sample rate to 0.
+
+        This method deactivates automatic trace evaluation for all versions of the scorer
+        while keeping the scorer registered. Any version can be restarted later using the
+        start() method.
+
+        Note: This method is only supported with MLflow OSS tracking backend, not Databricks.
+
+        Args:
+            name: Optional scorer name. If not provided, uses the scorer's registered name
+                or default name.
+            experiment_id: The ID of the MLflow experiment containing the scorer.
+                If None, uses the currently active experiment.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            MlflowException: If used with Databricks backend or if scorer is not found.
+
+        Example:
+
+            .. code-block:: python
+
+                import mlflow
+                from mlflow.genai.scorers import RelevanceToQuery, ScorerSamplingConfig
+
+                # Register multiple versions of a scorer
+                mlflow.set_experiment("my_genai_app")
+                scorer_v1 = RelevanceToQuery().register()
+                scorer_v2 = RelevanceToQuery().register()
+
+                # Start both versions
+                scorer_v1.start(sampling_config=ScorerSamplingConfig(sample_rate=0.5))
+                scorer_v2.start(sampling_config=ScorerSamplingConfig(sample_rate=0.3))
+
+                # Stop all versions at once
+                count = scorer_v1.stop_all_versions()
+                print(f"Stopped {count} scorer versions")
+        """
+        from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
+
+        self._check_can_be_registered()
+
+        scorer_name = name or self.name
+        store = _get_scorer_store()
+
+        if isinstance(store, DatabricksStore):
+            raise MlflowException(
+                "stop_all_versions() is not supported with Databricks backend. "
+                "Use stop() to stop the scorer, or use the Databricks UI."
+            )
+
+        # Get experiment_id, defaulting to current
+        from mlflow.tracking.fluent import _get_experiment_id
+
+        exp_id = experiment_id or _get_experiment_id()
+
+        return store.stop_all_scorer_versions(exp_id, scorer_name)
 
     def _create_copy(self) -> "Scorer":
         """

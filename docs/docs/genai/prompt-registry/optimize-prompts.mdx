@@ -58,7 +58,7 @@ In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to p
     <tr>
       <td><strong>Optimizer Config</strong><br/><small>Optimization settings</small></td>
       <td>
-        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_show_examples=2<br/>)</code></pre>
+        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_shot_examples=2<br/>)</code></pre>
       </td>
     </tr>
   </tbody>
@@ -168,7 +168,7 @@ result = mlflow.genai.optimize_prompt(
     scorers=[exact_match],
     optimizer_config=OptimizerConfig(
         num_instruction_candidates=8,
-        max_few_show_examples=2,
+        max_few_shot_examples=2,
     ),
 )
 
@@ -208,7 +208,7 @@ You can customize the optimization process using `OptimizerConfig`, which includ
 
 - **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2", "DSPy/GEPA") or a custom optimizer class. Default: "DSPy/MIPROv2"
 - **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
-- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
+- **max_few_shot_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
 - **optimizer_llm**: The LLM to use for optimization. For GEPA, this is used as the reflection LM (recommended: a stronger model like GPT-4). Default: None (uses target LLM)
 - **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
 - **verbose**: Whether to show optimizer logs during optimization. Default: False
@@ -295,7 +295,7 @@ class CustomDSPyOptimizer(DSPyPromptOptimizer):
         # Example using DSPy's BootstrapFewShot optimizer
         optimizer = dspy.BootstrapFewShot(
             metric=metric,
-            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
+            max_bootstrapped_demos=self.optimizer_config.max_few_shot_examples,
         )
 
         # Compile the program

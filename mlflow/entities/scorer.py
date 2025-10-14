@@ -29,6 +29,11 @@ class ScorerVersion(_MlflowObject):
             Default is 0.0.
         filter_string (str, optional): The filter string for selecting which traces to score.
             Default is None.
+        sampling_strategy (int): The sampling strategy enum value for multi-version coordination.
+            - 0 (INDEPENDENT): Random sampling per version (default)
+            - 1 (SHARED): Deterministic sampling for A/B testing (same traces across versions)
+            - 2 (PARTITIONED): Non-overlapping sampling for complementary coverage
+        scorer_id (str, optional): The unique identifier for the scorer.
 
     Example:
         .. code-block:: python
@@ -58,6 +63,8 @@ class ScorerVersion(_MlflowObject):
         creation_time: int,
         sample_rate: float = 0.0,
         filter_string: str | None = None,
+        sampling_strategy: int = 0,
+        scorer_id: str | None = None,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
@@ -66,6 +73,8 @@ class ScorerVersion(_MlflowObject):
         self._creation_time = creation_time
         self._sample_rate = sample_rate
         self._filter_string = filter_string
+        self._sampling_strategy = sampling_strategy
+        self._scorer_id = scorer_id
 
     @property
     def experiment_id(self):
@@ -155,6 +164,29 @@ class ScorerVersion(_MlflowObject):
         """
         return self._filter_string
 
+    @property
+    def sampling_strategy(self):
+        """
+        The sampling strategy enum value for controlling multi-version trace sampling.
+
+        Returns:
+            int: Enum value from SamplingStrategy protobuf:
+                - 0 (INDEPENDENT): Each version samples randomly (default)
+                - 1 (SHARED): All versions evaluate the same traces (A/B testing)
+                - 2 (PARTITIONED): Versions evaluate different traces with no overlap
+        """
+        return self._sampling_strategy
+
+    @property
+    def scorer_id(self):
+        """
+        The unique identifier for the scorer.
+
+        Returns:
+            str: The unique identifier (UUID) for the scorer, or None if not available.
+        """
+        return self._scorer_id
+
     @classmethod
     def from_proto(cls, proto):
         """
@@ -182,6 +214,10 @@ class ScorerVersion(_MlflowObject):
             creation_time=proto.creation_time,
             sample_rate=proto.sample_rate if proto.HasField("sample_rate") else 0.0,
             filter_string=proto.filter_string if proto.HasField("filter_string") else None,
+            sampling_strategy=int(proto.sampling_strategy)
+            if proto.HasField("sampling_strategy")
+            else 0,
+            scorer_id=proto.scorer_id if proto.HasField("scorer_id") else None,
         )
 
     def to_proto(self):
@@ -208,6 +244,9 @@ class ScorerVersion(_MlflowObject):
         proto.sample_rate = self.sample_rate
         if self.filter_string is not None:
             proto.filter_string = self.filter_string
+        proto.sampling_strategy = self.sampling_strategy
+        if self.scorer_id is not None:
+            proto.scorer_id = self.scorer_id
         return proto
 
     def __repr__(self):

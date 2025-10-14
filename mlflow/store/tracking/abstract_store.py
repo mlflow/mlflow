@@ -13,6 +13,7 @@ from mlflow.entities import (
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
+    ScorerVersion,
     ViewType,
 )
 
@@ -1269,7 +1270,9 @@ class AbstractStore:
             "A SQL backend is required to use this feature."
         )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1279,11 +1282,11 @@ class AbstractStore:
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorers(self, experiment_id):
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
@@ -1296,7 +1299,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def get_scorer(self, experiment_id, name, version=None):
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -1313,7 +1316,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def list_scorer_versions(self, experiment_id, name):
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -1329,7 +1332,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
         Delete all versions of a scorer for an experiment.
 
@@ -1349,6 +1352,8 @@ class AbstractStore:
         name: str,
         sample_rate: float | None = None,
         filter_string: str | None = None,
+        sampling_strategy: int | None = None,
+        version: int | None = None,
     ):
         """
         Update a registered scorer's sampling configuration.
@@ -1359,11 +1364,30 @@ class AbstractStore:
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
             filter_string: The filter string for selecting which traces to score. If None,
                 keeps current value.
+            sampling_strategy: The sampling strategy enum (0=INDEPENDENT, 1=SHARED, 2=PARTITIONED).
+                If None, keeps current value.
+            version: The scorer version to update. If None, updates the latest version only.
 
         Returns:
             A ScorerVersion entity object with updated configuration.
 
         Raises:
             MlflowException: If scorer is not found or if sample_rate is invalid.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def stop_all_scorer_versions(self, experiment_id: str, name: str) -> int:
+        """
+        Stop all versions of a scorer by setting their sample rate to 0.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)

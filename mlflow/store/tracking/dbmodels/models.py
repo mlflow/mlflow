@@ -1917,6 +1917,14 @@ class SqlScorerVersion(Base):
     """
     Filter string: `Text`. Optional filter string for selecting which traces to score.
     """
+    sampling_strategy = Column(Integer, nullable=False, default=0)
+    """
+    Sampling strategy: `Integer`. Controls how traces are sampled when multiple versions run:
+        - 0 (INDEPENDENT): Each version samples randomly (default)
+        - 1 (SHARED): All versions evaluate the same traces (A/B testing)
+        - 2 (PARTITIONED): Versions evaluate different traces with no overlap
+    Maps to SamplingStrategy protobuf enum.
+    """
 
     # Relationship to the parent scorer
     scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
@@ -1942,13 +1950,15 @@ class SqlScorerVersion(Base):
         from mlflow.entities.scorer import ScorerVersion
 
         return ScorerVersion(
-            experiment_id=self.scorer.experiment_id,
+            experiment_id=str(self.scorer.experiment_id),
             scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
             sample_rate=self.sample_rate,
             filter_string=self.filter_string,
+            sampling_strategy=self.sampling_strategy,
+            scorer_id=self.scorer_id,
         )
 
 

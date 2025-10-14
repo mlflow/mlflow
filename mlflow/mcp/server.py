@@ -8,6 +8,7 @@ from fastmcp import FastMCP
 from fastmcp.tools import FunctionTool
 
 from mlflow.ai_commands.ai_command_utils import get_command_body, list_commands
+from mlflow.cli.scorers import commands as scorers_cli
 from mlflow.cli.traces import commands as traces_cli
 
 
@@ -101,9 +102,13 @@ def register_prompts(mcp: FastMCP) -> None:
 
 
 def create_mcp() -> FastMCP:
+    tools = [
+        *[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
+        *[cmd_to_function_tool(cmd) for cmd in scorers_cli.commands.values()],
+    ]
     mcp = FastMCP(
         name="Mlflow MCP",
-        tools=[cmd_to_function_tool(cmd) for cmd in traces_cli.commands.values()],
+        tools=tools,
     )
 
     register_prompts(mcp)

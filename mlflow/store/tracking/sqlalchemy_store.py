@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunOutputs,
     RunStatus,
     RunTag,
+    ScorerVersion,
     SourceType,
     TraceInfo,
     ViewType,
@@ -56,6 +57,7 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers.base import SamplingStrategy
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -1971,7 +1973,9 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1981,7 +1985,7 @@ class SqlAlchemyStore(AbstractStore):
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         with self.ManagedSessionMaker() as session:
             experiment = self.get_experiment(experiment_id)
@@ -2025,10 +2029,11 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_scorer_version)
+            session.flush()
 
-            return new_version
+            return sql_scorer_version.to_mlflow_entity()
 
-    def list_scorers(self, experiment_id):
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
@@ -2079,14 +2084,13 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
 
             return scorers
 
-    def get_scorer(self, experiment_id, name, version=None):
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -2150,7 +2154,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_scorer_version.to_mlflow_entity()
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
         Delete a scorer for an experiment.
 
@@ -2215,7 +2219,7 @@ class SqlAlchemyStore(AbstractStore):
             if version is None:
                 session.delete(scorer)
 
-    def list_scorer_versions(self, experiment_id, name):
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -2272,7 +2276,13 @@ class SqlAlchemyStore(AbstractStore):
             return scorers
 
     def update_registered_scorer_sampling(
-        self, experiment_id, name, sample_rate=None, filter_string=None
+        self,
+        experiment_id,
+        name,
+        sample_rate=None,
+        filter_string=None,
+        sampling_strategy=None,
+        version=None,
     ) -> ScorerVersion:
         """
         Update a registered scorer's sampling configuration.
@@ -2283,6 +2293,11 @@ class SqlAlchemyStore(AbstractStore):
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
             filter_string: The filter string for selecting which traces to score. If None,
                 keeps current value.
+            sampling_strategy: The sampling strategy (str, Enum, or int). If None, keeps
+                current value. Accepts: "independent"/"shared"/"partitioned",
+                SamplingStrategy enum, or 0/1/2.
+            version: The scorer version to update. If None, updates the latest version
+                only.
 
         Returns:
             A ScorerVersion entity object with updated configuration.
@@ -2294,38 +2309,117 @@ class SqlAlchemyStore(AbstractStore):
             experiment = self.get_experiment(experiment_id)
             self._check_experiment_is_active(experiment)
 
-            latest_version = (
+            if sample_rate is not None and not 0.0 <= sample_rate <= 1.0:
+                raise MlflowException(
+                    f"Invalid sample_rate: {sample_rate}. Must be between 0.0 and 1.0.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            # Convert sampling_strategy to int if needed
+            if sampling_strategy is not None:
+                if isinstance(sampling_strategy, str):
+                    strategy_map = {
+                        "independent": 0,
+                        "shared": 1,
+                        "partitioned": 2,
+                    }
+                    sampling_strategy = strategy_map.get(sampling_strategy.lower())
+                    if sampling_strategy is None:
+                        valid = list(strategy_map.keys())
+                        raise MlflowException(
+                            f"Invalid sampling_strategy. Must be one of: {valid}",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                elif isinstance(sampling_strategy, SamplingStrategy):
+                    sampling_strategy = sampling_strategy.value
+                elif not isinstance(sampling_strategy, int) or sampling_strategy not in (0, 1, 2):
+                    raise MlflowException(
+                        "Invalid sampling_strategy. Must be 0, 1, 2, or a valid string/enum.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+            query = (
                 session.query(SqlScorerVersion)
                 .join(SqlScorer)
                 .filter(
                     SqlScorer.experiment_id == experiment.experiment_id,
                     SqlScorer.scorer_name == name,
                 )
-                .order_by(SqlScorerVersion.scorer_version.desc())
-                .first()
             )
 
-            if latest_version is None:
+            if version is not None:
+                query = query.filter(SqlScorerVersion.scorer_version == version)
+                version_desc = f" and version {version}"
+            else:
+                query = query.order_by(SqlScorerVersion.scorer_version.desc())
+                version_desc = " (latest)"
+
+            scorer_version = query.first()
+
+            if scorer_version is None:
+                raise MlflowException(
+                    f"Scorer with name '{name}'{version_desc} not found for "
+                    f"experiment {experiment_id}.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if sample_rate is not None:
+                scorer_version.sample_rate = sample_rate
+            if filter_string is not None:
+                scorer_version.filter_string = filter_string
+            if sampling_strategy is not None:
+                scorer_version.sampling_strategy = sampling_strategy
+
+            if (
+                sample_rate is not None
+                or filter_string is not None
+                or sampling_strategy is not None
+            ):
+                session.commit()
+
+            return scorer_version.to_mlflow_entity()
+
+    def stop_all_scorer_versions(self, experiment_id: str, name: str) -> int:
+        """
+        Stop all versions of a scorer by setting their sample rate to 0.
+
+        Args:
+            experiment_id: The experiment ID.
+            name: The scorer name.
+
+        Returns:
+            Number of scorer versions stopped.
+
+        Raises:
+            MlflowException: If scorer is not found.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            scorer_versions = (
+                session.query(SqlScorerVersion)
+                .join(SqlScorer)
+                .filter(
+                    SqlScorer.experiment_id == experiment.experiment_id,
+                    SqlScorer.scorer_name == name,
+                )
+                .all()
+            )
+
+            if not scorer_versions:
                 raise MlflowException(
                     f"Scorer with name '{name}' not found for experiment {experiment_id}.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            if sample_rate is not None:
-                if not 0.0 <= sample_rate <= 1.0:
-                    raise MlflowException(
-                        f"Invalid sample_rate: {sample_rate}. Must be between 0.0 and 1.0.",
-                        error_code=INVALID_PARAMETER_VALUE,
-                    )
-                latest_version.sample_rate = sample_rate
+            count = 0
+            for scorer_version in scorer_versions:
+                scorer_version.sample_rate = 0.0
+                count += 1
 
-            if filter_string is not None:
-                latest_version.filter_string = filter_string
-
-            if sample_rate is not None or filter_string is not None:
-                session.commit()
-
-            return latest_version.to_mlflow_entity()
+            session.commit()
+            return count
 
     def _apply_order_by_search_logged_models(
         self,

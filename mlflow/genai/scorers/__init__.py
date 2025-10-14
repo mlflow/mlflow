@@ -1,6 +1,6 @@
 from typing import TYPE_CHECKING
 
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, scorer
+from mlflow.genai.scorers.base import SamplingStrategy, Scorer, ScorerSamplingConfig, scorer
 from mlflow.genai.scorers.registry import (
     delete_scorer,
     get_scorer,
@@ -90,6 +90,7 @@ __all__ = [
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "SamplingStrategy",
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
