@@ -7,7 +7,7 @@ from mlflow.genai.optimize.types import (
     PromptAdaptationResult,
     PromptAdapterOutput,
 )
-from mlflow.utils.annotations import deprecated
+from mlflow.exceptions import MlflowException
 
 _MIGRATION_GUIDE = """
     Migration guide:
@@ -73,17 +73,13 @@ _MIGRATION_GUIDE = """
         """
 
 
-@deprecated(
-    since="3.5.0",
-    impact="This function has been removed. Use mlflow.genai.optimize_prompts() instead.",
-)
 def optimize_prompt(*args, **kwargs):
     f"""
     Optimize a LLM prompt using the given dataset and evaluation metrics. 
+    This function has been removed. Use mlflow.genai.optimize_prompts() instead.
 
     {_MIGRATION_GUIDE}
     """
-    from mlflow.exceptions import MlflowException
 
     raise MlflowException(
         f"""
