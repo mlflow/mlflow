@@ -1,3 +1,5 @@
+import json
+
 import pandas as pd
 import pytest
 
@@ -251,6 +253,75 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
     )
 
     assert len(result.optimized_prompts) == 1
+
+
+def test_optimize_prompts_autolog_enabled(sample_translation_prompt, sample_dataset):
+    mock_optimizer = MockPromptAdapter()
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=mock_optimizer,
+        scorers=[output_equivalence],
+        autolog=True,
+    )
+
+    assert len(result.optimized_prompts) == 1
+
+    run = mlflow.last_active_run()
+    assert run is not None
+
+    assert run.data.params["optimizer"] == "MockPromptAdapter"
+    assert run.data.params["num_prompts"] == "1"
+    assert run.data.params["num_training_samples"] == "3"
+
+    assert "mlflow.linkedPrompts" in run.data.tags
+
+    linked_prompts = json.loads(run.data.tags["mlflow.linkedPrompts"])
+    assert len(linked_prompts) == 2  # Input + output prompt
+
+    input_prompt_found = any(
+        p["name"] == sample_translation_prompt.name
+        and p["version"] == str(sample_translation_prompt.version)
+        for p in linked_prompts
+    )
+    assert input_prompt_found
+
+    optimized_prompt = result.optimized_prompts[0]
+    output_prompt_found = any(
+        p["name"] == optimized_prompt.name and p["version"] == str(optimized_prompt.version)
+        for p in linked_prompts
+    )
+    assert output_prompt_found
+
+    assert "initial_eval_score" in run.data.metrics
+    assert "final_eval_score" in run.data.metrics
+
+
+def test_optimize_prompts_autolog_disabled(sample_translation_prompt, sample_dataset):
+    mock_optimizer = MockPromptAdapter()
+
+    experiment = mlflow.get_experiment_by_name("Default")
+    runs_before = len(mlflow.search_runs([experiment.experiment_id]))
+
+    result = optimize_prompts(
+        predict_fn=sample_predict_fn,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+        ],
+        optimizer=mock_optimizer,
+        scorers=[output_equivalence],
+        autolog=False,  # Explicitly disable autolog
+    )
+
+    assert len(result.optimized_prompts) == 1
+
+    runs_after = len(mlflow.search_runs([experiment.experiment_id]))
+    assert runs_after == runs_before
 
 
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
