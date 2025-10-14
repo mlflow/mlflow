@@ -60,7 +60,7 @@ Text: {{text}}
 )
 
 
-# Your current function with the source model
+# Define your prediction function using the source model (gpt-4o)
 @mlflow.trace
 def predict_fn(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
@@ -71,7 +71,7 @@ def predict_fn(text: str) -> str:
     return completion.choices[0].message.content.lower()
 
 
-# Example inputs
+# Example inputs - each record contains an "inputs" dict with the function's input parameters
 inputs = [
     {
         "inputs": {
@@ -211,18 +211,20 @@ For best results, collect outputs from at least 20-50 diverse examples:
 ```python
 # ✅ Good: Diverse examples
 inputs = [
-    {"text": "Short positive."},
+    {"inputs": {"text": "Great product!"}},
     {
-        "text": "A much longer negative review with multiple sentences and detailed criticism."
+        "inputs": {
+            "text": "The delivery was delayed by three days and the packaging was damaged. The product itself works fine but the experience was disappointing overall."
+        }
     },
-    {"text": "Neutral statement."},
+    {"inputs": {"text": "It meets the basic requirements. Nothing more, nothing less."}},
     # ... more varied examples
 ]
 
 # ❌ Poor: Too few, too similar
 inputs = [
-    {"text": "Good"},
-    {"text": "Bad"},
+    {"inputs": {"text": "Good"}},
+    {"inputs": {"text": "Bad"}},
 ]
 ```
 
@@ -232,9 +234,9 @@ Include edge cases and challenging inputs:
 
 ```python
 inputs = [
-    {"text": "Absolutely fantastic!"},  # Clear positive
-    {"text": "It's not bad, I guess."},  # Ambiguous
-    {"text": "The food was good but service terrible."},  # Mixed sentiment
+    {"inputs": {"text": "Absolutely fantastic!"}},  # Clear positive
+    {"inputs": {"text": "It's not bad, I guess."}},  # Ambiguous
+    {"inputs": {"text": "The food was good but service terrible."}},  # Mixed sentiment
 ]
 ```
 
@@ -244,10 +246,8 @@ Always test optimized prompts using <APILink fn="mlflow.genai.evaluate" /> befor
 
 ```python
 # Compare source and target model on test set
-from mlflow.genai import evaluate
-
 # Evaluate optimized prompt
-results = evaluate(
+results = mlflow.genai.evaluate(
     data=test_dataset,
     predict_fn=predict_fn_optimized,
     scorers=[accuracy_scorer, format_scorer],
