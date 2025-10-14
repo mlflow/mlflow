@@ -43,7 +43,7 @@ class _DSPyMIPROv2Optimizer(DSPyPromptOptimizer):
         num_candidates = self.optimizer_config.num_instruction_candidates
         optimizer = dspy.MIPROv2(
             metric=metric,
-            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
+            max_bootstrapped_demos=self.optimizer_config.max_few_shot_examples,
             num_candidates=num_candidates,
             num_threads=self.optimizer_config.num_threads,
             teacher_settings=teacher_settings,
