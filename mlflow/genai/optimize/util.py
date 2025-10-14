@@ -7,6 +7,32 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
 
 
+def validate_train_data(train_data: list[dict[str, Any]]) -> None:
+    """
+    Validate that training data has required fields for prompt optimization.
+
+    Args:
+        train_data: List of training data records converted to dict format.
+
+    Raises:
+        ValueError: If any record is missing required fields or has empty required fields.
+    """
+    for i, record in enumerate(train_data):
+        if "inputs" not in record or not record["inputs"]:
+            raise ValueError(f"Record {i} is missing required 'inputs' field or it is empty")
+
+        # Check that at least one of outputs or expectations is present and not None
+        # We explicitly check for None to allow falsy values like False, 0, or empty strings
+        has_outputs = "outputs" in record and record["outputs"] is not None
+        has_expectations = "expectations" in record and record["expectations"] is not None
+
+        if not has_outputs and not has_expectations:
+            raise ValueError(
+                f"Record {i} must have at least one non-empty field: 'outputs' or 'expectations'. "
+                f"Found outputs={record.get('outputs')}, expectations={record.get('expectations')}"
+            )
+
+
 def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
     """
     Infer the type from the value.

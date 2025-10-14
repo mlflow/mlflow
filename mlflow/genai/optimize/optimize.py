@@ -15,7 +15,7 @@ from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     PromptOptimizationResult,
 )
-from mlflow.genai.optimize.util import create_metric_from_scorers
+from mlflow.genai.optimize.util import create_metric_from_scorers, validate_train_data
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
@@ -159,8 +159,9 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
+    validate_train_data(converted_train_data)
+
     predict_fn = convert_predict_fn(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
