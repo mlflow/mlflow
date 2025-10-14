@@ -155,35 +155,24 @@ def test_truncate_responses_api_output():
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
 
 
-def test_truncate_invalid_messages():
-    result = _get_truncated_preview(json.dumps({"messages": 123, "data": "a" * 50}), role="user")
-    assert result.startswith('{"messages":')
-
-    result = _get_truncated_preview(json.dumps({"messages": [], "data": "a" * 50}), role="user")
-    assert result.startswith('{"messages":')
-
-    result = _get_truncated_preview(json.dumps({"input": "string", "data": "a" * 50}), role="user")
-    assert result.startswith('{"input":')
-
-    result = _get_truncated_preview(json.dumps({"output": 123, "data": "a" * 50}), role="user")
-    assert result.startswith('{"output":')
-
-    result = _get_truncated_preview(
-        json.dumps({"choices": {"0": "value"}, "data": "a" * 50}), role="user"
-    )
-    assert result.startswith('{"choices":')
-
-    result = _get_truncated_preview(
-        json.dumps({"request": "string", "data": "a" * 50}), role="user"
-    )
-    assert result.startswith('{"request":')
-
-    result = _get_truncated_preview(
-        json.dumps({"choices": [{"message": "not a dict"}], "data": "a" * 50}), role="user"
-    )
-    assert result.startswith('{"choices":')
-
-    result = _get_truncated_preview(
-        json.dumps({"choices": [{"message": {"role": "user"}}], "data": "a" * 50}), role="user"
-    )
-    assert result.startswith('{"choices":')
+@pytest.mark.parametrize(
+    "input_data",
+    [
+        {"messages": 123, "long_data": "a" * 50},
+        {"messages": []},
+        {"input": "string"},
+        {"output": 123},
+        {"choices": {"0": "value"}},
+        {"request": "string"},
+        {"choices": [{"message": "not a dict"}]},
+        {"choices": [{"message": {"role": "user"}}]},
+    ],
+)
+def test_truncate_invalid_messages(input_data):
+    input_str = json.dumps(input_data)
+    result = _get_truncated_preview(input_str, role="user")
+    if "long_data" in input_data:
+        assert len(result) == 50
+        assert result.startswith(input_str[:20])
+    else:
+        assert result == input_str
