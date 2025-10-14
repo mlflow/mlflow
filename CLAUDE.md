@@ -193,6 +193,31 @@ Commits without DCO sign-off will be rejected by CI.
 yarn --cwd mlflow/server/js check-all
 ```
 
+### Git Clean Command - IMPORTANT WARNING
+
+**DANGER**: Never use `git clean -fd` without explicit user permission!
+
+The `git clean -fd` command permanently deletes all untracked files, including:
+- Jupyter notebooks (*.ipynb)
+- Test data files
+- Local configuration files
+- Any other untracked work
+
+**These files cannot be recovered** as they bypass the Trash/Recycle Bin.
+
+**Safe alternatives:**
+```bash
+# Preview what would be deleted (dry run)
+git clean -fdn
+
+# Only remove untracked files in specific directories
+git clean -fd specific/directory/
+
+# Ask user for confirmation before using git clean
+```
+
+**Always ask the user before running `git clean`!**
+
 ### Creating Pull Requests
 
 Follow [the PR template](./.github/pull_request_template.md) when creating pull requests. Remove any unused checkboxes from the template to keep your PR clean and focused.
