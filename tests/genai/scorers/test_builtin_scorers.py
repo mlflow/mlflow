@@ -540,13 +540,13 @@ def test_correctness(mock_is_correct):
     )
 
 
-def test_output_equivalence():
+def test_equivalence():
     # Test with default model
     scorer = Equivalence()
 
     # Test exact numerical match
     result = scorer(outputs=42, expectations={"expected_response": 42})
-    assert result.name == "output_equivalence"
+    assert result.name == "equivalence"
     assert result.value == CategoricalRating.YES
     assert "Exact numerical match" in result.rationale
 
@@ -630,7 +630,7 @@ def test_correctness_get_input_fields():
     assert field_names == ["inputs", "outputs", "expectations"]
 
 
-def test_output_equivalence_get_input_fields():
+def test_equivalence_get_input_fields():
     output_equiv = Equivalence(name="test")
     field_names = [field.name for field in output_equiv.get_input_fields()]
     assert field_names == ["outputs", "expectations"]
@@ -661,7 +661,7 @@ def test_correctness_with_trace():
         mock_is_correct.assert_called_once()
 
 
-def test_output_equivalence_with_trace():
+def test_equivalence_with_trace():
     trace = create_simple_trace(outputs="Paris")
 
     mlflow.log_expectation(
@@ -675,7 +675,7 @@ def test_output_equivalence_with_trace():
     scorer = Equivalence()
     result = scorer(trace=trace_with_expectations)
 
-    assert result.name == "output_equivalence"
+    assert result.name == "equivalence"
     assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
@@ -853,7 +853,7 @@ def test_correctness_with_override_outputs():
         assert call_args[1]["expected_response"] == "Custom expected"
 
 
-def test_output_equivalence_with_override_outputs():
+def test_equivalence_with_override_outputs():
     trace = create_simple_trace(outputs="Original output")
     scorer = Equivalence()
 
@@ -863,7 +863,7 @@ def test_output_equivalence_with_override_outputs():
         expectations={"expected_response": "Custom output"},
     )
 
-    assert result.name == "output_equivalence"
+    assert result.name == "equivalence"
     assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 
@@ -960,7 +960,7 @@ def test_correctness_default_extracts_from_trace():
         mock_is_correct.assert_called_once()
 
 
-def test_output_equivalence_default_extracts_from_trace():
+def test_equivalence_default_extracts_from_trace():
     trace = create_simple_trace(outputs="MLflow is a platform")
 
     mlflow.log_expectation(
@@ -972,7 +972,7 @@ def test_output_equivalence_default_extracts_from_trace():
     scorer = Equivalence()
     result = scorer(trace=trace_with_expectations)
 
-    assert result.name == "output_equivalence"
+    assert result.name == "equivalence"
     assert result.value == CategoricalRating.YES
     assert "Exact string match" in result.rationale
 

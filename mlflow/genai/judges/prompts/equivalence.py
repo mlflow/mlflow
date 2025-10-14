@@ -1,10 +1,10 @@
 from mlflow.genai.prompts.utils import format_prompt
 
-# NB: User-facing name for the output_equivalence assessment.
-OUTPUT_EQUIVALENCE_FEEDBACK_NAME = "output_equivalence"
+# NB: User-facing name for the equivalence assessment.
+EQUIVALENCE_FEEDBACK_NAME = "equivalence"
 
 
-OUTPUT_EQUIVALENCE_PROMPT_INSTRUCTIONS = """\
+EQUIVALENCE_PROMPT_INSTRUCTIONS = """\
 Compare the following actual output against the expected output. You must determine whether they \
 are semantically equivalent or convey the same meaning, and if the output format matches the \
 expected format (e.g., JSON structure, list format, sentence structure).
@@ -13,7 +13,7 @@ expected format (e.g., JSON structure, list format, sentence structure).
 <expected_output>{{expected_output}}</expected_output>\
 """
 
-OUTPUT_EQUIVALENCE_PROMPT_OUTPUT = """
+EQUIVALENCE_PROMPT_OUTPUT = """
 
 Please indicate whether the actual output is equivalent to the expected output using only the following json format. Do not use any markdown formatting or output additional lines.
 {
@@ -22,8 +22,8 @@ Please indicate whether the actual output is equivalent to the expected output u
 }\
 """  # noqa: E501
 
-OUTPUT_EQUIVALENCE_PROMPT = (
-    OUTPUT_EQUIVALENCE_PROMPT_INSTRUCTIONS + OUTPUT_EQUIVALENCE_PROMPT_OUTPUT
+EQUIVALENCE_PROMPT = (
+    EQUIVALENCE_PROMPT_INSTRUCTIONS + EQUIVALENCE_PROMPT_OUTPUT
 )
 
 
@@ -41,7 +41,7 @@ def get_prompt(
         Formatted prompt string
     """
     return format_prompt(
-        OUTPUT_EQUIVALENCE_PROMPT,
+        EQUIVALENCE_PROMPT,
         output=output,
         expected_output=expected_output,
     )
