@@ -126,9 +126,10 @@ def test_backwards_compatibility_with_v2():
 
 
 def test_trace_info_v4():
+    trace_id = "trace:/catalog.schema/test_trace_id"
     trace_info_v4 = TraceInfo(
         # v4 trace info has URI-format trace id and uc schema location
-        trace_id="trace:/catalog.schema/test_trace_id",
+        trace_id=trace_id,
         trace_location=TraceLocation.from_databricks_uc_schema(
             catalog_name="catalog", schema_name="schema"
         ),
@@ -141,7 +142,7 @@ def test_trace_info_v4():
     )
     dict_trace_info_v4 = trace_info_v4.to_dict()
     assert dict_trace_info_v4 == {
-        "trace_id": "test_trace_id",
+        "trace_id": trace_id,
         "trace_location": {
             "type": "UC_SCHEMA",
             "uc_schema": {
@@ -336,3 +337,31 @@ def test_trace_info_from_proto_preserves_current_schema_version():
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"
+
+
+def test_trace_info_to_dict_preserves_trace_id():
+    # Test with v4 URI format
+    trace_info_v4 = TraceInfo(
+        trace_id="trace:/catalog.schema/actual_trace_id",
+        trace_location=TraceLocation.from_databricks_uc_schema(
+            catalog_name="catalog", schema_name="schema"
+        ),
+        request_time=0,
+        state=TraceState.OK,
+    )
+
+    dict_v4 = trace_info_v4.to_dict()
+    # The dict should have the full trace_id, not the parsed one
+    assert dict_v4["trace_id"] == "trace:/catalog.schema/actual_trace_id"
+
+    # Test with regular trace_id
+    trace_info = TraceInfo(
+        trace_id="tr-12345",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_time=0,
+        state=TraceState.OK,
+    )
+
+    dict_regular = trace_info.to_dict()
+    # Regular trace_id should remain unchanged
+    assert dict_regular["trace_id"] == "tr-12345"

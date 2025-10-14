@@ -50,6 +50,13 @@ from mlflow.utils.rest_utils import (
     MlflowHostCreds,
 )
 
+try:
+    from google.rpc import status_pb2
+
+    grpc_status_exists = True
+except ImportError:
+    grpc_status_exists = False
+
 
 @pytest.fixture
 def sql_warehouse_id(monkeypatch):
@@ -1386,3 +1393,31 @@ def test_link_traces_to_run_with_empty_list_does_nothing():
     with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
         store.link_traces_to_run(trace_ids=[], run_id="run_abc")
         mock_http.assert_not_called()
+
+
+def test_verify_trace_response_success_empty_response():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = ""
+
+    result = store._verify_trace_response(response, "/api/2.0/tracing/otel/v1/traces")
+
+    assert result.status_code == 200
+    assert result._content == b"{}"
+
+
+@pytest.mark.skipif(grpc_status_exists is False, reason="grpcio-status is not installed")
+def test_verify_trace_response_error_with_protobuf():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
+    response = mock.MagicMock()
+    response.status_code = 400
+
+    # Create a protobuf error status
+    error_status = status_pb2.Status()
+    error_status.code = 400
+    error_status.message = "Invalid request: missing required field"
+    response.content = error_status.SerializeToString()
+
+    with pytest.raises(RestException, match="Invalid request"):
+        store._verify_trace_response(response, "/api/2.0/tracing/otel/v1/traces")
