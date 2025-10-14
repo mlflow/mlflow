@@ -61,10 +61,10 @@ class SamplingStrategy(Enum):
 class ScorerSamplingConfig:
     """Configuration for registered scorer sampling.
 
-    The sampling_strategy field controls how traces are sampled across versions:
-        - "independent": Each version samples randomly (default)
-        - "shared": All versions evaluate the same traces (A/B testing)
-        - "partitioned": Versions evaluate different traces with no overlap
+    The sampling_strategy field controls how traces are sampled across versions. The
+    "independent" strategy means each version samples randomly (default), the "shared"
+    strategy means all versions evaluate the same traces (A/B testing), and the
+    "partitioned" strategy means versions evaluate different traces with no overlap.
 
     Note: The sampling_strategy is stored and retrieved correctly, but the scheduler
     implementation that respects SHARED and PARTITIONED strategies will be added in PR-3.
