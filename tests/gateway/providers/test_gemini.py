@@ -435,7 +435,15 @@ async def test_gemini_chat_stream(resp):
             "created": 1,
             "model": "gemini-2.0-flash",
             "choices": [
-                {"index": 0, "finish_reason": None, "delta": {"role": "assistant", "content": "a", 'tool_calls': None,}}
+                {
+                    "index": 0,
+                    "finish_reason": None,
+                    "delta": {
+                        "role": "assistant",
+                        "content": "a",
+                        "tool_calls": None,
+                    },
+                }
             ],
         },
         {
@@ -447,7 +455,11 @@ async def test_gemini_chat_stream(resp):
                 {
                     "index": 0,
                     "finish_reason": "stop",
-                    "delta": {"role": "assistant", "content": "b", 'tool_calls': None,},
+                    "delta": {
+                        "role": "assistant",
+                        "content": "b",
+                        "tool_calls": None,
+                    },
                 }
             ],
         },
