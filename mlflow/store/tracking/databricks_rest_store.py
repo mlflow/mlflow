@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -624,22 +625,19 @@ class DatabricksTracingRestStore(RestStore):
         otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
         return location_id, otel_trace_ids
 
-    def _batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+    def _batch_link_traces_to_run(
+        self, location_id: str, otel_trace_ids: list[str], run_id: str
+    ) -> None:
         """
         Link multiple traces to a run by creating internal trace-to-run relationships.
 
         Args:
-            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
-                All trace IDs must have the same location.
+            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            otel_trace_ids: List of OTEL trace IDs to link to the run.
             run_id: ID of the run to link traces to.
-
-        Raises:
-            MlflowException: If trace IDs have different locations or invalid format.
         """
-        if not trace_ids:
+        if not otel_trace_ids:
             return
-
-        location_id, otel_trace_ids = self._parse_and_validate_v4_trace_ids(trace_ids)
 
         req_body = message_to_json(
             BatchLinkTraceToRun(
@@ -651,22 +649,19 @@ class DatabricksTracingRestStore(RestStore):
         endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/link-to-run/batchCreate"
         self._call_endpoint(BatchLinkTraceToRun, req_body, endpoint=endpoint)
 
-    def _batch_unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+    def _batch_unlink_traces_from_run(
+        self, location_id: str, otel_trace_ids: list[str], run_id: str
+    ) -> None:
         """
         Unlink multiple traces from a run by removing the internal trace-to-run relationships.
 
         Args:
-            trace_ids: List of trace IDs to unlink from the run. Maximum 100 traces allowed.
-                All trace IDs must have the same location.
+            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            otel_trace_ids: List of OTEL trace IDs to unlink from the run.
             run_id: ID of the run to unlink traces from.
-
-        Raises:
-            MlflowException: If trace IDs have different locations or invalid format.
         """
-        if not trace_ids:
+        if not otel_trace_ids:
             return
-
-        location_id, otel_trace_ids = self._parse_and_validate_v4_trace_ids(trace_ids)
 
         req_body = message_to_json(
             BatchUnlinkTraceFromRun(
@@ -685,44 +680,35 @@ class DatabricksTracingRestStore(RestStore):
         This method handles both V3 and V4 trace formats:
         - V4 traces (format: trace:/catalog.schema/id) use the batch V4 endpoint
         - V3 traces use the V3 endpoint via the parent class
+        - Supports traces from multiple locations by grouping them and making separate batch calls
+        - Supports mixing V3 and V4 traces in a single request
 
         Args:
-            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            trace_ids: List of trace IDs to link to the run.
             run_id: ID of the run to link traces to.
-
-        Raises:
-            MlflowException: If trace IDs have mixed V3/V4 formats or different locations.
         """
         if not trace_ids:
             return
 
-        # Parse all trace IDs to check their format
-        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
-        locations = {loc for loc, _ in parsed_traces if loc is not None}
+        # Group traces by location (None for V3 traces)
+        # For V3 traces, store original IDs; for V4 traces, store OTEL trace IDs
+        v3_trace_ids = []
+        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
 
-        # Check if all traces are V4 (have locations) or all are V3 (no locations)
-        num_v4_traces = len(locations)
-        num_v3_traces = len([loc for loc, _ in parsed_traces if loc is None])
+        for trace_id in trace_ids:
+            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
+            if location_id is None:
+                v3_trace_ids.append(trace_id)
+            else:
+                v4_traces_by_location[location_id].append(otel_trace_id)
 
-        # If all traces are V4 with locations, use the V4 batch endpoint
-        if num_v4_traces > 0 and num_v3_traces == 0:
-            if len(locations) > 1:
-                raise MlflowException.invalid_parameter_value(
-                    f"All trace IDs must have the same location. Found: {locations}"
-                )
-            # All traces are V4 - use the batch endpoint
-            self._batch_link_traces_to_run(trace_ids, run_id)
-            return
+        # Link V3 traces
+        if v3_trace_ids:
+            super().link_traces_to_run(v3_trace_ids, run_id)
 
-        # If all traces are V3, use the V3 endpoint via parent class
-        if num_v3_traces > 0 and num_v4_traces == 0:
-            return super().link_traces_to_run(trace_ids, run_id)
-
-        # Mixed V3 and V4 traces - not supported
-        raise MlflowException.invalid_parameter_value(
-            "Cannot link both V3 and V4 traces in a single request. "
-            "All trace IDs must be in the same format."
-        )
+        # Link V4 traces grouped by location
+        for location_id, otel_trace_ids in v4_traces_by_location.items():
+            self._batch_link_traces_to_run(location_id, otel_trace_ids, run_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
