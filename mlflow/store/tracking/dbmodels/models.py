@@ -1950,7 +1950,7 @@ class SqlScorerVersion(Base):
         from mlflow.entities.scorer import ScorerVersion
 
         return ScorerVersion(
-            experiment_id=self.scorer.experiment_id,
+            experiment_id=str(self.scorer.experiment_id),
             scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
@@ -1958,6 +1958,7 @@ class SqlScorerVersion(Base):
             sample_rate=self.sample_rate,
             filter_string=self.filter_string,
             sampling_strategy=self.sampling_strategy,
+            scorer_id=self.scorer_id,
         )
 
 

@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
 
@@ -9,7 +10,7 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException, get_error_code
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     ENDPOINT_NOT_FOUND,
@@ -42,7 +43,6 @@ from mlflow.tracing.utils.otlp import OTLP_TRACES_PATH
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
     trace_from_proto,
-    trace_info_to_proto,
     trace_location_to_proto,
     uc_schema_location_from_proto,
     uc_schema_location_to_proto,
@@ -57,7 +57,6 @@ from mlflow.utils.rest_utils import (
     get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
     http_request,
-    verify_rest_response,
 )
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
@@ -97,7 +96,7 @@ class DatabricksTracingRestStore(RestStore):
             The returned TraceInfo object from the backend.
         """
         try:
-            if trace_info.trace_location.uc_schema is not None:
+            if trace_info._is_v4():
                 return self._start_trace_v4(trace_info)
 
         # Temporarily we capture all exceptions and fallback to v3 if the trace location is not uc
@@ -114,7 +113,7 @@ class DatabricksTracingRestStore(RestStore):
         if location is None:
             raise MlflowException("Invalid trace ID format for v4 API.")
 
-        req_body = message_to_json(trace_info_to_proto(trace_info))
+        req_body = message_to_json(trace_info.to_proto())
         response_proto = self._call_endpoint(
             CreateTraceInfo,
             req_body,
@@ -148,7 +147,7 @@ class DatabricksTracingRestStore(RestStore):
             req_body,
             endpoint=f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/batchGet",
         )
-        return [trace_from_proto(proto) for proto in response_proto.traces]
+        return [trace_from_proto(proto, location) for proto in response_proto.traces]
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
@@ -207,7 +206,8 @@ class DatabricksTracingRestStore(RestStore):
         location, trace_id = parse_trace_id_v4(trace_id)
         if location is not None:
             sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
-            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{key}"
+            encoded_key = quote(key, safe="")
+            endpoint = f"{get_single_trace_endpoint_v4(location, trace_id)}/tags/{encoded_key}"
             req_body = message_to_json(DeleteTraceTag(sql_warehouse_id=sql_warehouse_id))
             self._call_endpoint(DeleteTraceTag, req_body, endpoint=endpoint)
             return
@@ -438,8 +438,12 @@ class DatabricksTracingRestStore(RestStore):
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
+        host_creds = self.get_host_creds()
+        # avoid using databricks sdk for this request since we need special handling
+        # for the protobuf response
+        host_creds.use_databricks_sdk = False
         response = http_request(
-            host_creds=self.get_host_creds(),
+            host_creds=host_creds,
             endpoint=endpoint,
             method="POST",
             data=request.SerializeToString(),
@@ -449,8 +453,36 @@ class DatabricksTracingRestStore(RestStore):
                 **config.authenticate(),
             },
         )
-        verify_rest_response(response, endpoint)
+        self._verify_trace_response(response, endpoint)
         return spans
+
+    def _verify_trace_response(self, response, endpoint):
+        # v1/traces endpoint returns empty response for successful requests
+        if response.status_code == 200 and response.text.strip() == "":
+            response._content = b"{}"
+            return response
+
+        # Handle non-200 status codes
+        if response.status_code != 200:
+            try:
+                from google.rpc import status_pb2
+
+                # OTLP traces endpoint returns a protobuf status message
+                error_status = status_pb2.Status()
+                error_status.ParseFromString(response.content)
+            except Exception:
+                raise MlflowException(
+                    f"API request to endpoint {endpoint} "
+                    f"failed with error code {response.status_code}. "
+                    f"Response body: '{response.text}'",
+                    error_code=get_error_code(response.status_code),
+                )
+            else:
+                raise RestException(
+                    {"error_code": response.status_code, "message": error_status.message}
+                )
+
+        return response
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """

@@ -792,6 +792,8 @@ autogen:
           "fastapi",
           "uvicorn",
           "autogen_ext",
+          # TODO: remove this pin after https://github.com/pydantic/pydantic/issues/12348 is resolved
+          "pydantic<2.12.0",
         ]
     run: pytest tests/autogen
     test_tracing_sdk: true

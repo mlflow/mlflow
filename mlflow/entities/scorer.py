@@ -33,6 +33,7 @@ class ScorerVersion(_MlflowObject):
             - 0 (INDEPENDENT): Random sampling per version (default)
             - 1 (SHARED): Deterministic sampling for A/B testing (same traces across versions)
             - 2 (PARTITIONED): Non-overlapping sampling for complementary coverage
+        scorer_id (str, optional): The unique identifier for the scorer.
 
     Example:
         .. code-block:: python
@@ -63,6 +64,7 @@ class ScorerVersion(_MlflowObject):
         sample_rate: float = 0.0,
         filter_string: str | None = None,
         sampling_strategy: int = 0,
+        scorer_id: str | None = None,
     ):
         self._experiment_id = experiment_id
         self._scorer_name = scorer_name
@@ -72,6 +74,7 @@ class ScorerVersion(_MlflowObject):
         self._sample_rate = sample_rate
         self._filter_string = filter_string
         self._sampling_strategy = sampling_strategy
+        self._scorer_id = scorer_id
 
     @property
     def experiment_id(self):
@@ -174,6 +177,16 @@ class ScorerVersion(_MlflowObject):
         """
         return self._sampling_strategy
 
+    @property
+    def scorer_id(self):
+        """
+        The unique identifier for the scorer.
+
+        Returns:
+            str: The unique identifier (UUID) for the scorer, or None if not available.
+        """
+        return self._scorer_id
+
     @classmethod
     def from_proto(cls, proto):
         """
@@ -204,6 +217,7 @@ class ScorerVersion(_MlflowObject):
             sampling_strategy=int(proto.sampling_strategy)
             if proto.HasField("sampling_strategy")
             else 0,
+            scorer_id=proto.scorer_id if proto.HasField("scorer_id") else None,
         )
 
     def to_proto(self):
@@ -231,6 +245,8 @@ class ScorerVersion(_MlflowObject):
         if self.filter_string is not None:
             proto.filter_string = self.filter_string
         proto.sampling_strategy = self.sampling_strategy
+        if self.scorer_id is not None:
+            proto.scorer_id = self.scorer_id
         return proto
 
     def __repr__(self):
