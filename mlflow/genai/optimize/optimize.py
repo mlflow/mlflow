@@ -11,8 +11,8 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 from mlflow.genai.optimize.types import (
+    AggregationFn,
     EvaluationResultRecord,
-    ObjectiveFn,
     PromptOptimizationResult,
 )
 from mlflow.genai.optimize.util import create_metric_from_scorers
@@ -40,7 +40,7 @@ def optimize_prompts(
     prompt_uris: list[str],
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
-    objective: ObjectiveFn | None = None,
+    aggregation: AggregationFn | None = None,
 ) -> PromptOptimizationResult:
     """
     Automatically optimize prompts using evaluation metrics and training data.
@@ -48,10 +48,11 @@ def optimize_prompts(
     quality based on your evaluation criteria and dataset.
 
     Args:
-        predict_fn: a target function to be optimized. The callable should receive inputs
-            as keyword arguments and return the response. The function should use
-            MLflow prompt registry and call `PromptVersion.format` during execution
-            in order for this API to optimize the prompt. This function should return the
+        predict_fn: a target function that uses the prompts to be optimized.
+            The callable should receive inputs as keyword arguments and
+            return the response. The function should use MLflow prompt registry
+            and call `PromptVersion.format` during execution in order for this
+            API to optimize the prompt. This function should return the
             same type as the outputs in the dataset.
         train_data: an evaluation dataset used for the optimization.
             It should include the inputs and outputs fields with dict values.
@@ -70,13 +71,13 @@ def optimize_prompts(
               that the predict_fn should produce.
         prompt_uris: a list of prompt uris to be optimized.
             The prompt templates should be used by the predict_fn.
-        optimizer: a prompt optimizer object that optimizes a set of prompts based
-            on the evaluation dataset and passed in function. For example,
+        optimizer: a prompt optimizer object that optimizes a set of prompts with
+            the training dataset and scorers. For example,
             GepaPromptOptimizer(reflection_model="openai:/gpt-4o").
         scorers: List of scorers that evaluate the inputs, outputs and expectations.
             Required parameter. Use builtin scorers like OutputEquivalence or Correctness,
             or define custom scorers with the @scorer decorator.
-        objective: A callable that computes the overall performance metric from individual
+        aggregation: A callable that computes the overall performance metric from individual
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
@@ -164,7 +165,7 @@ def optimize_prompts(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
 
-    metric_fn = create_metric_from_scorers(scorers, objective)
+    metric_fn = create_metric_from_scorers(scorers, aggregation)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]

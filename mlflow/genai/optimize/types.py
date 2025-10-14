@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from mlflow.genai.optimize.optimizers import BasePromptOptimizer
 
 
-ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
+AggregationFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
 @deprecated(
@@ -82,6 +82,28 @@ class OptimizerConfig:
     autolog: bool = True
     convert_to_single_text: bool = True
     extract_instructions: bool = True
+
+
+@experimental(version="3.5.0")
+@dataclass
+class EvaluationResultRecord:
+    """
+    The output type of `eval_fn` in the
+    :py:func:`mlflow.genai.optimize.BasePromptOptimizer.optimize()` API.
+
+    Args:
+        inputs: The inputs of the evaluation.
+        outputs: The outputs of the prediction function.
+        expectations: The expected outputs.
+        score: The score of the evaluation result.
+        trace: The trace of the evaluation execution.
+    """
+
+    inputs: dict[str, Any]
+    outputs: Any
+    expectations: Any
+    score: float
+    trace: Trace
 
 
 @experimental(version="3.5.0")
