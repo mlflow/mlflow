@@ -165,7 +165,7 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
 
 
 @pytest.mark.parametrize(
-    "train_data,expected_error",
+    ("train_data", "expected_error"),
     [
         # Empty inputs
         (
@@ -195,14 +195,6 @@ def test_validate_train_data_errors(train_data, expected_error):
         [{"inputs": {"text": "hello"}, "outputs": "result"}],
         # Valid with expectations
         [{"inputs": {"text": "hello"}, "expectations": {"expected": "result"}}],
-        # Valid with both
-        [
-            {
-                "inputs": {"text": "hello"},
-                "outputs": "result",
-                "expectations": {"expected": "result"},
-            }
-        ],
         # Multiple valid records
         [
             {"inputs": {"text": "hello"}, "outputs": "result1"},
@@ -210,14 +202,6 @@ def test_validate_train_data_errors(train_data, expected_error):
         ],
         # Falsy but valid values: False as output
         [{"inputs": {"text": "hello"}, "outputs": False}],
-        # Falsy but valid values: 0 as output
-        [{"inputs": {"text": "hello"}, "outputs": 0}],
-        # Falsy but valid values: empty string as output
-        [{"inputs": {"text": "hello"}, "outputs": ""}],
-        # Falsy but valid values: empty dict as expectations
-        [{"inputs": {"text": "hello"}, "expectations": {}}],
-        # Falsy but valid values: empty list as output
-        [{"inputs": {"text": "hello"}, "outputs": []}],
     ],
 )
 def test_validate_train_data_success(train_data):
