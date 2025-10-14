@@ -673,6 +673,52 @@ class DatabricksTracingRestStore(RestStore):
         endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/unlink-from-run/batchDelete"
         self._call_endpoint(BatchUnlinkTraceFromRun, req_body, endpoint=endpoint)
 
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating trace-to-run relationships.
+
+        This method handles both V3 and V4 trace formats:
+        - V4 traces (format: trace:/catalog.schema/id) use the batch V4 endpoint
+        - V3 traces use the V3 endpoint via the parent class
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If trace IDs have mixed V3/V4 formats or different locations.
+        """
+        if not trace_ids:
+            return
+
+        # Parse all trace IDs to check their format
+        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
+        locations = {loc for loc, _ in parsed_traces if loc is not None}
+
+        # Check if all traces are V4 (have locations) or all are V3 (no locations)
+        num_v4_traces = len(locations)
+        num_v3_traces = len([loc for loc, _ in parsed_traces if loc is None])
+
+        # If all traces are V4 with locations, use the V4 batch endpoint
+        if num_v4_traces > 0 and num_v3_traces == 0:
+            if len(locations) > 1:
+                raise MlflowException.invalid_parameter_value(
+                    f"All trace IDs must have the same location. Found: {locations}"
+                )
+            # All traces are V4 - use the batch endpoint
+            self.batch_link_traces_to_run(trace_ids, run_id)
+            return
+
+        # If all traces are V3, use the V3 endpoint via parent class
+        if num_v3_traces > 0 and num_v4_traces == 0:
+            return super().link_traces_to_run(trace_ids, run_id)
+
+        # Mixed V3 and V4 traces - not supported
+        raise MlflowException.invalid_parameter_value(
+            "Cannot link both V3 and V4 traces in a single request. "
+            "All trace IDs must be in the same format."
+        )
+
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
             return f"{endpoint}?sql_warehouse_id={sql_warehouse_id}"
