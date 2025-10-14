@@ -22,9 +22,7 @@ Please indicate whether the actual output is equivalent to the expected output u
 }\
 """  # noqa: E501
 
-EQUIVALENCE_PROMPT = (
-    EQUIVALENCE_PROMPT_INSTRUCTIONS + EQUIVALENCE_PROMPT_OUTPUT
-)
+EQUIVALENCE_PROMPT = EQUIVALENCE_PROMPT_INSTRUCTIONS + EQUIVALENCE_PROMPT_OUTPUT
 
 
 def get_prompt(
