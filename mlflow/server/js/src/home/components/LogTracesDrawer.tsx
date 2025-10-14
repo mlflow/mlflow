@@ -259,13 +259,6 @@ export const LogTracesDrawer = () => {
               boxShadow: theme.shadows.xs,
             }}
           >
-            {QUICKSTART_CONTENT[selectedFramework]!.getImageSource && (
-              <img
-                src={QUICKSTART_CONTENT[selectedFramework].getImageSource()}
-                css={{ borderRadius: theme.borders.borderRadiusMd }}
-                alt={selectedFramework}
-              />
-            )}
             <section
               css={{
                 display: 'flex',
