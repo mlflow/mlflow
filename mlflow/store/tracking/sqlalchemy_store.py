@@ -2272,7 +2272,7 @@ class SqlAlchemyStore(AbstractStore):
             return scorers
 
     def update_registered_scorer_sampling(
-        self, experiment_id, name, sample_rate=None, sampling_strategy=None
+        self, experiment_id, name, sample_rate=None, filter_string=None
     ) -> ScorerVersion:
         """
         Update a registered scorer's sampling configuration.
@@ -2281,7 +2281,7 @@ class SqlAlchemyStore(AbstractStore):
             experiment_id: The experiment ID.
             name: The scorer name.
             sample_rate: The new sample rate (0.0 to 1.0). If None, keeps current value.
-            sampling_strategy: The strategy for selecting which traces to score. If None,
+            filter_string: The filter string for selecting which traces to score. If None,
                 keeps current value.
 
         Returns:
@@ -2319,10 +2319,10 @@ class SqlAlchemyStore(AbstractStore):
                     )
                 latest_version.sample_rate = sample_rate
 
-            if sampling_strategy is not None:
-                latest_version.sampling_strategy = sampling_strategy
+            if filter_string is not None:
+                latest_version.filter_string = filter_string
 
-            if sample_rate is not None or sampling_strategy is not None:
+            if sample_rate is not None or filter_string is not None:
                 session.commit()
 
             return latest_version.to_mlflow_entity()

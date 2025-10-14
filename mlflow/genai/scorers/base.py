@@ -50,7 +50,7 @@ class ScorerSamplingConfig:
     """Configuration for registered scorer sampling."""
 
     sample_rate: float | None = None
-    sampling_strategy: str | None = None
+    filter_string: str | None = None
 
 
 AggregationFunc = Callable[[list[float]], float]  # List of per-row value -> aggregated value
@@ -122,9 +122,9 @@ class Scorer(BaseModel):
 
     @property
     @experimental(version="3.2.0")
-    def sampling_strategy(self) -> str | None:
-        """Get the sampling strategy for this scorer."""
-        return self._sampling_config.sampling_strategy if self._sampling_config else None
+    def filter_string(self) -> str | None:
+        """Get the filter string for this scorer."""
+        return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
     @experimental(version="3.3.0")
@@ -139,15 +139,12 @@ class Scorer(BaseModel):
     def __repr__(self) -> str:
         # Get the standard representation from the parent class
         base_repr = super().__repr__()
-        sampling_strategy = self.sampling_strategy
-        if sampling_strategy is not None:
-            sampling_strategy = f"'{sampling_strategy}'"
+        filter_string = self.filter_string
+        if filter_string is not None:
+            filter_string = f"'{filter_string}'"
 
         # Inject the property's value into the repr string
-        return (
-            f"{base_repr[:-1]}, sample_rate={self.sample_rate}, "
-            f"sampling_strategy={sampling_strategy})"
-        )
+        return f"{base_repr[:-1]}, sample_rate={self.sample_rate}, filter_string={filter_string})"
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
@@ -569,7 +566,7 @@ class Scorer(BaseModel):
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: Fraction of traces to evaluate (0.0 to 1.0). Required.
-                - sampling_strategy: Optional MLflow search_traces compatible filter string.
+                - filter_string: Optional MLflow search_traces compatible filter string.
 
         Returns:
             A new Scorer instance with updated sampling configuration.
@@ -589,7 +586,7 @@ class Scorer(BaseModel):
                 # Start scorer with filter to only evaluate specific traces
                 filtered_scorer = scorer.start(
                     sampling_config=ScorerSamplingConfig(
-                        sample_rate=1.0, sampling_strategy="YOUR_FILTER_STRING"
+                        sample_rate=1.0, filter_string="YOUR_FILTER_STRING"
                     )
                 )
         """
@@ -616,7 +613,7 @@ class Scorer(BaseModel):
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
-            sampling_strategy=sampling_config.sampling_strategy,
+            filter_string=sampling_config.filter_string,
             experiment_id=experiment_id,
         )
 
@@ -643,7 +640,7 @@ class Scorer(BaseModel):
                 If None, uses the currently active experiment.
             sampling_config: Configuration object containing:
                 - sample_rate: New fraction of traces to evaluate (0.0 to 1.0). Optional.
-                - sampling_strategy: New MLflow search_traces compatible filter string. Optional.
+                - filter_string: New MLflow search_traces compatible filter string. Optional.
 
         Returns:
             A new Scorer instance with updated configuration.
@@ -668,9 +665,9 @@ class Scorer(BaseModel):
 
                 # Update to add filtering criteria
                 filtered_scorer = updated_scorer.update(
-                    sampling_config=ScorerSamplingConfig(sampling_strategy="YOUR_FILTER_STRING")
+                    sampling_config=ScorerSamplingConfig(filter_string="YOUR_FILTER_STRING")
                 )
-                print(f"Added filter: {filtered_scorer.sampling_strategy}")
+                print(f"Added filter: {filtered_scorer.filter_string}")
         """
         from mlflow.genai.scorers.registry import DatabricksStore
         from mlflow.tracking._tracking_service.utils import get_tracking_uri
@@ -690,7 +687,7 @@ class Scorer(BaseModel):
             name=scorer_name,
             scorer=self,
             sample_rate=sampling_config.sample_rate,
-            sampling_strategy=sampling_config.sampling_strategy,
+            filter_string=sampling_config.filter_string,
             experiment_id=experiment_id,
         )
 

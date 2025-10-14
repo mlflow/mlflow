@@ -1913,9 +1913,9 @@ class SqlScorerVersion(Base):
     """
     Sample rate: `Float`. Default value is 0.0. Fraction of traces to sample (0.0-1.0).
     """
-    sampling_strategy = Column(Text, nullable=True)
+    filter_string = Column(Text, nullable=True)
     """
-    Sampling strategy: `Text`. Optional strategy for selecting which traces to score.
+    Filter string: `Text`. Optional filter string for selecting which traces to score.
     """
 
     # Relationship to the parent scorer
@@ -1948,7 +1948,7 @@ class SqlScorerVersion(Base):
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
             sample_rate=self.sample_rate,
-            sampling_strategy=self.sampling_strategy,
+            filter_string=self.filter_string,
         )
 
 
