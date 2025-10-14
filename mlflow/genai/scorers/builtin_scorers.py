@@ -1474,8 +1474,7 @@ class Equivalence(BuiltInScorer):
         # Validate that expected_response is present
         if not fields.expectations or fields.expectations.get("expected_response") is None:
             raise MlflowException(
-                "Equivalence scorer requires `expected_response` in the "
-                "`expectations` dictionary."
+                "Equivalence scorer requires `expected_response` in the `expectations` dictionary."
             )
 
         # Extract the expected response

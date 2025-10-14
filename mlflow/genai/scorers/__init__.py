@@ -66,9 +66,9 @@ def __dir__():
 if TYPE_CHECKING:
     from mlflow.genai.scorers.builtin_scorers import (
         Correctness,
+        Equivalence,
         ExpectationsGuidelines,
         Guidelines,
-        Equivalence,
         RelevanceToQuery,
         RetrievalGroundedness,
         RetrievalRelevance,

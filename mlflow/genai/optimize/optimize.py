@@ -156,7 +156,7 @@ def optimize_prompts(
                 prompt_uris=[prompt.uri],
                 optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-4o"),
                 scorers=[accuracy_scorer, brevity_scorer],
-                objective=weighted_objective,
+                aggregation=weighted_objective,
             )
     """
     # TODO: Add dataset validation

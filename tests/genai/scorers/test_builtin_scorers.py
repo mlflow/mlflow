@@ -12,9 +12,9 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Correctness,
+    Equivalence,
     ExpectationsGuidelines,
     Guidelines,
-    Equivalence,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
