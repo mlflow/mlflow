@@ -100,7 +100,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             The outputs of the prompt adapter that includes the optimized prompts
             as a dict (prompt template name -> prompt template).
         """
-        from mlflow.genai.optimize.optimizers.utils import parse_model_name
+        from mlflow.metrics.genai.model_utils import _parse_model_uri
 
         try:
             import gepa
@@ -109,7 +109,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 "GEPA is not installed. Please install it with: pip install gepa"
             ) from e
 
-        reflection_model = parse_model_name(self.reflection_model)
+        provider, model = _parse_model_uri(self.reflection_model)
 
         class MlflowGEPAAdapter(gepa.GEPAAdapter):
             def __init__(self, eval_function, prompts_dict):
@@ -191,7 +191,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             seed_candidate=target_prompts,
             trainset=train_data,
             adapter=adapter,
-            reflection_lm=reflection_model,
+            reflection_lm=f"{provider}/{model}",
             max_metric_calls=self.max_metric_calls,
             display_progress_bar=self.display_progress_bar,
         )
