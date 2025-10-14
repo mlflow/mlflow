@@ -203,10 +203,13 @@ def _build_eval_fn(
     def eval_fn(
         candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]
     ) -> list[EvaluationResultRecord]:
+        accessed_prompts = set()
+
         @property
         def _template_patch(self) -> str:
             template_name = self.name
             if template_name in candidate_prompts:
+                accessed_prompts.add(template_name)
                 return candidate_prompts[template_name]
             return self.template
 
@@ -242,7 +245,19 @@ def _build_eval_fn(
                 thread_name_prefix="MLflowPromptAdaptation",
             ) as executor:
                 futures = [executor.submit(_run_single, record) for record in dataset]
-                return [future.result() for future in futures]
+                results = [future.result() for future in futures]
+
+            # Check for unused prompts and warn
+            unused_prompts = set(candidate_prompts.keys()) - accessed_prompts
+            if unused_prompts:
+                _logger.warning(
+                    f"The following prompts were not used during evaluation: {sorted(unused_prompts)}. "
+                    "This may indicate that predict_fn is not calling format() for these prompts, "
+                    "or the prompt names don't match. Please verify that your predict_fn uses "
+                    "all prompts specified in prompt_uris."
+                )
+
+            return results
         finally:
             gorilla.revert(patch)
 
