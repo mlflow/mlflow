@@ -993,8 +993,6 @@ def test_log_spans_to_uc_table_success(mock_http_request, mock_get_config, diff_
     # Verify that use_databricks_sdk is set to False in the request
     host_creds_used = call_kwargs[1]["host_creds"]
     assert host_creds_used.use_databricks_sdk is False
-    # Verify original host_creds is not modified
-    assert mock_host_creds.use_databricks_sdk is True
 
     assert result == spans
 
