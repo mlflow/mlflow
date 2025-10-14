@@ -149,6 +149,7 @@ def test_databricks_update_scorer_not_supported():
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
         with pytest.raises(
-            MlflowException, match="Databricks backend does not support update_scorer"
+            MlflowException,
+            match="Databricks backend does not support update_registered_scorer_sampling",
         ):
             update_scorer(name="test_scorer", experiment_id="exp_123", sample_rate=0.7)
