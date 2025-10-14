@@ -20,6 +20,8 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
+    BatchLinkTraceToRun,
+    BatchUnlinkTraceFromRun,
     CreateAssessment,
     CreateTraceInfo,
     CreateTraceUCStorageLocation,
@@ -586,6 +588,90 @@ class DatabricksTracingRestStore(RestStore):
             self._call_endpoint(DeleteAssessment, endpoint=endpoint)
         else:
             return super().delete_assessment(trace_id, assessment_id)
+
+    def batch_link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating internal trace-to-run relationships.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run. Maximum 100 traces allowed.
+                All trace IDs must have the same location.
+            run_id: ID of the run to link traces to.
+
+        Raises:
+            MlflowException: If trace IDs have different locations or invalid format.
+        """
+        if not trace_ids:
+            return
+
+        # Parse trace IDs to extract location and OTEL trace IDs
+        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
+        locations = {loc for loc, _ in parsed_traces if loc is not None}
+
+        if not locations:
+            raise MlflowException.invalid_parameter_value(
+                "All trace IDs must be V4 format with location (e.g., 'trace:/catalog.schema/id')"
+            )
+
+        if len(locations) > 1:
+            raise MlflowException.invalid_parameter_value(
+                f"All trace IDs must have the same location. Found: {locations}"
+            )
+
+        location_id = locations.pop()
+        otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
+
+        req_body = message_to_json(
+            BatchLinkTraceToRun(
+                location_id=location_id,
+                trace_ids=otel_trace_ids,
+                run_id=run_id,
+            )
+        )
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/link-to-run/batchCreate"
+        self._call_endpoint(BatchLinkTraceToRun, req_body, endpoint=endpoint)
+
+    def batch_unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing the internal trace-to-run relationships.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run. Maximum 100 traces allowed.
+                All trace IDs must have the same location.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If trace IDs have different locations or invalid format.
+        """
+        if not trace_ids:
+            return
+
+        # Parse trace IDs to extract location and OTEL trace IDs
+        parsed_traces = [parse_trace_id_v4(trace_id) for trace_id in trace_ids]
+        locations = {loc for loc, _ in parsed_traces if loc is not None}
+
+        if not locations:
+            raise MlflowException.invalid_parameter_value(
+                "All trace IDs must be V4 format with location (e.g., 'trace:/catalog.schema/id')"
+            )
+
+        if len(locations) > 1:
+            raise MlflowException.invalid_parameter_value(
+                f"All trace IDs must have the same location. Found: {locations}"
+            )
+
+        location_id = locations.pop()
+        otel_trace_ids = [otel_id for _, otel_id in parsed_traces]
+
+        req_body = message_to_json(
+            BatchUnlinkTraceFromRun(
+                location_id=location_id,
+                trace_ids=otel_trace_ids,
+                run_id=run_id,
+            )
+        )
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/unlink-from-run/batchDelete"
+        self._call_endpoint(BatchUnlinkTraceFromRun, req_body, endpoint=endpoint)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():

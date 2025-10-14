@@ -1190,3 +1190,77 @@ def test_delete_assessment(sql_warehouse_id):
             json_body=None,
             version="4.0",
         )
+
+
+def test_batch_link_traces_to_run():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location = "catalog.schema"
+    # V4 trace IDs with location prefix
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location}/trace123",
+        f"{TRACE_ID_V4_PREFIX}{location}/trace456",
+    ]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        # location_id is now extracted from trace_ids
+        store.batch_link_traces_to_run(
+            trace_ids=trace_ids,
+            run_id=run_id,
+        )
+
+        expected_json = {
+            "location_id": location,
+            # trace_ids should be raw OTEL IDs without the prefix
+            "trace_ids": ["trace123", "trace456"],
+            "run_id": run_id,
+        }
+
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate",
+            method="POST",
+            json=expected_json,
+        )
+
+
+def test_batch_unlink_traces_from_run():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location = "catalog.schema"
+    # V4 trace IDs with location prefix
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location}/trace789",
+        f"{TRACE_ID_V4_PREFIX}{location}/trace012",
+    ]
+    run_id = "run_xyz"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        # location_id is now extracted from trace_ids
+        store.batch_unlink_traces_from_run(
+            trace_ids=trace_ids,
+            run_id=run_id,
+        )
+
+        expected_json = {
+            "location_id": location,
+            # trace_ids should be raw OTEL IDs without the prefix
+            "trace_ids": ["trace789", "trace012"],
+            "run_id": run_id,
+        }
+
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/unlink-from-run/batchDelete",
+            method="DELETE",
+            json=expected_json,
+        )
