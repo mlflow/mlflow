@@ -4,6 +4,8 @@ and model versions. This is a lower level API than the :py:mod:`mlflow.tracking.
 and is exposed in the :py:mod:`mlflow.tracking` module.
 """
 
+from __future__ import annotations
+
 import contextlib
 import functools
 import json
@@ -18,7 +20,7 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Sequence, Union
+from typing import TYPE_CHECKING, Any, Literal, Sequence
 
 import yaml
 from pydantic import BaseModel
@@ -43,6 +45,9 @@ from mlflow.entities import (
     Trace,
     ViewType,
 )
+
+if TYPE_CHECKING:
+    from mlflow.entities import EvaluationDataset
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
@@ -2669,7 +2674,7 @@ class MlflowClient:
     def log_figure(
         self,
         run_id: str,
-        figure: Union["matplotlib.figure.Figure", "plotly.graph_objects.Figure"],
+        figure: "matplotlib.figure.Figure" | "plotly.graph_objects.Figure",
         artifact_file: str,
         *,
         save_kwargs: dict[str, Any] | None = None,
@@ -2752,7 +2757,7 @@ class MlflowClient:
     def log_image(
         self,
         run_id: str,
-        image: Union["numpy.ndarray", "PIL.Image.Image", "mlflow.Image"],
+        image: "numpy.ndarray" | "PIL.Image.Image" | "mlflow.Image",
         artifact_file: str | None = None,
         key: str | None = None,
         step: int | None = None,
@@ -2991,7 +2996,7 @@ class MlflowClient:
     def log_table(
         self,
         run_id: str,
-        data: Union[dict[str, Any], "pandas.DataFrame"],
+        data: dict[str, Any] | "pandas.DataFrame",
         artifact_file: str,
     ) -> None:
         """
