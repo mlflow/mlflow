@@ -705,6 +705,7 @@ mlflow.genai.Scorer.register
 mlflow.genai.Scorer.run
 mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
+mlflow.genai.Scorer.stop_all_versions
 mlflow.genai.Scorer.update
 mlflow.genai.ScorerScheduleConfig
 mlflow.genai.create_dataset
@@ -831,7 +832,9 @@ mlflow.genai.scorers.RetrievalSufficiency.validate_columns
 mlflow.genai.scorers.Safety
 mlflow.genai.scorers.Safety.get_input_fields
 mlflow.genai.scorers.Safety.model_post_init
+mlflow.genai.scorers.SamplingStrategy
 mlflow.genai.scorers.ScorerSamplingConfig
+mlflow.genai.scorers.base.SamplingStrategy
 mlflow.genai.scorers.base.Scorer
 mlflow.genai.scorers.base.ScorerSamplingConfig
 mlflow.genai.scorers.builtin_scorers.Correctness

@@ -813,9 +813,6 @@ class Scorer(BaseModel):
         Returns:
             Number of scorer versions stopped.
 
-        Raises:
-            MlflowException: If used with Databricks backend or if scorer is not found.
-
         Example:
 
             .. code-block:: python
