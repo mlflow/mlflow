@@ -13,6 +13,9 @@ if TYPE_CHECKING:
 ObjectiveFn = Callable[[dict[str, bool | float | str | Feedback | list[Feedback]]], float]
 
 
+@deprecated(
+    since="3.5.0",
+)
 @experimental(version="3.0.0")
 @dataclass
 class LLMParams:
@@ -35,15 +38,14 @@ class LLMParams:
     temperature: float | None = None
 
 
-@deprecated(since="3.5.0", impact="This class has been removed. Use mlflow.genai.optimize_prompts() instead.")
+@deprecated(
+    since="3.5.0",
+)
 @experimental(version="3.0.0")
 @dataclass
 class OptimizerConfig:
     """
     Configuration for prompt optimization.
-
-    .. deprecated:: 3.5.0
-        ``OptimizerConfig`` has been removed. Use :py:func:`mlflow.genai.optimize_prompts()` instead.
 
     Args:
         num_instruction_candidates: Number of candidate instructions to generate
