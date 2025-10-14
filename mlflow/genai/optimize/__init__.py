@@ -79,7 +79,7 @@ _MIGRATION_GUIDE = """
 )
 def optimize_prompt(*args, **kwargs):
     f"""
-    Optimize a LLM prompt using the given dataset and evaluation metrics.  
+    Optimize a LLM prompt using the given dataset and evaluation metrics. 
 
     {_MIGRATION_GUIDE}
     """
@@ -87,8 +87,8 @@ def optimize_prompt(*args, **kwargs):
 
     raise MlflowException(
         f"""
-        The optimize_prompt() function has been removed in MLflow 3.5.0. 
-        Please use mlflow.genai.optimize_prompts() instead. 
+        The optimize_prompt() function has been removed in MLflow 3.5.0.
+        Please use mlflow.genai.optimize_prompts() instead.
         {_MIGRATION_GUIDE}"""
     )
 
