@@ -15,7 +15,7 @@ def make_judge(
     """
 
     .. note::
-        As of MLflow 3.4.0, this function is deprecated in favor of `mlflow.geani.judges.make_judge`
+        As of MLflow 3.4.0, this function is deprecated in favor of `mlflow.genai.make_judge`
         and may be removed in a future version.
 
     Create a custom MLflow judge instance.
