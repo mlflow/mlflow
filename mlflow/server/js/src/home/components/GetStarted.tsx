@@ -1,6 +1,7 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { homeQuickActions } from '../quick-actions';
+import { useHomePageViewState } from '../HomePageViewStateContext';
 
 type QuickAction = typeof homeQuickActions[number];
 
@@ -62,6 +63,28 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
       </div>
     </div>
   );
+
+  const { openLogTracesDrawer } = useHomePageViewState();
+
+  if (action.id === 'log-traces') {
+    return (
+      <button
+        type="button"
+        onClick={openLogTracesDrawer}
+        css={{
+          ...linkStyles,
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          font: 'inherit',
+          textAlign: 'left',
+        }}
+      >
+        {card}
+      </button>
+    );
+  }
 
   return (
     <a href={action.link} target="_blank" rel="noopener noreferrer" css={linkStyles}>
