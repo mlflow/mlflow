@@ -217,3 +217,166 @@ def test_list_scorers_long_names(runner, experiment, generic_scorer, output_form
     else:
         # Full name should be present
         assert long_name in result.output
+
+
+def test_create_judge_basic(runner, experiment):
+    """Test creating a judge with minimal required parameters."""
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "test_judge",
+            "--prompt",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered judge scorer 'test_judge'" in result.output
+    assert experiment in result.output
+
+    # Verify judge was registered
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "test_judge" in scorer_names
+
+
+def test_create_judge_with_model(runner, experiment):
+    """Test creating a judge with custom model."""
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "custom_model_judge",
+            "--prompt",
+            "Check {{ inputs }} and {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+def test_create_judge_short_options(runner, experiment):
+    """Test creating a judge using short option flags."""
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "-n",
+            "short_options_judge",
+            "-p",
+            "Evaluate {{ outputs }}",
+            "-x",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+def test_create_judge_with_env_var(runner, experiment):
+    """Test creating a judge using MLFLOW_EXPERIMENT_ID env var."""
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "env_var_judge",
+            "--prompt",
+            "Check {{ outputs }}",
+        ],
+        env={"MLFLOW_EXPERIMENT_ID": experiment},
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+
+@pytest.mark.parametrize(
+    ("args", "missing_param"),
+    [
+        (["--prompt", "test", "--experiment-id", "123"], "name"),
+        (["--name", "test", "--experiment-id", "123"], "prompt"),
+        (["--name", "test", "--prompt", "test"], "experiment-id"),
+    ],
+)
+def test_create_judge_missing_required_params(runner, args, missing_param):
+    """Test that missing required parameters cause appropriate errors."""
+    result = runner.invoke(commands, ["create-judge"] + args)
+
+    assert result.exit_code != 0
+    # Click typically shows "Missing option" for required parameters
+    assert "missing" in result.output.lower() or "required" in result.output.lower()
+
+
+def test_create_judge_invalid_prompt(runner, experiment):
+    """Test that invalid prompt without template variables fails."""
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "invalid_judge",
+            "--prompt",
+            "This has no template variables",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    # Should fail because make_judge validates that instructions contain at least one variable
+    assert result.exit_code != 0
+    assert "template" in result.output.lower() or "variable" in result.output.lower()
+
+
+def test_create_judge_then_list(runner, experiment):
+    """Test creating a judge and then listing it."""
+    # Create judge
+    create_result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "integration_judge",
+            "--prompt",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+    assert create_result.exit_code == 0
+
+    # List and verify it appears
+    list_result = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    assert list_result.exit_code == 0
+    assert "integration_judge" in list_result.output
+
+
+def test_create_judge_special_characters_in_name(runner, experiment):
+    result = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "judge-with_special.chars",
+            "--prompt",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
