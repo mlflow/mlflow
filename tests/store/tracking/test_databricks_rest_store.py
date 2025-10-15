@@ -984,7 +984,7 @@ def test_log_spans_to_uc_table_success(mock_http_request, mock_get_config, diff_
     # Verify HTTP request details
     call_kwargs = mock_http_request.call_args
     assert call_kwargs[1]["method"] == "POST"
-    assert call_kwargs[1]["endpoint"] == "/api/2.0/tracing/otel/v1/traces"
+    assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/v1/traces"
     assert "Content-Type" in call_kwargs[1]["extra_headers"]
     assert call_kwargs[1]["extra_headers"]["Content-Type"] == "application/x-protobuf"
     assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
@@ -1213,7 +1213,7 @@ def test_verify_trace_response_success_empty_response():
     response.status_code = 200
     response.text = ""
 
-    result = store._verify_trace_response(response, "/api/2.0/tracing/otel/v1/traces")
+    result = store._verify_trace_response(response, "/api/2.0/otel/v1/traces")
 
     assert result.status_code == 200
     assert result._content == b"{}"
@@ -1232,4 +1232,4 @@ def test_verify_trace_response_error_with_protobuf():
     response.content = error_status.SerializeToString()
 
     with pytest.raises(RestException, match="Invalid request"):
-        store._verify_trace_response(response, "/api/2.0/tracing/otel/v1/traces")
+        store._verify_trace_response(response, "/api/2.0/otel/v1/traces")
