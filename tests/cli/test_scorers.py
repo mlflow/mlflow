@@ -220,7 +220,6 @@ def test_list_scorers_long_names(runner, experiment, generic_scorer, output_form
 
 
 def test_create_judge_basic(runner, experiment):
-    """Test creating a judge with minimal required parameters."""
     result = runner.invoke(
         commands,
         [
@@ -247,7 +246,6 @@ def test_create_judge_basic(runner, experiment):
 
 
 def test_create_judge_with_model(runner, experiment):
-    """Test creating a judge with custom model."""
     result = runner.invoke(
         commands,
         [
@@ -266,9 +264,19 @@ def test_create_judge_with_model(runner, experiment):
     assert result.exit_code == 0
     assert "Successfully created and registered" in result.output
 
+    # Verify judge was registered with correct model
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "custom_model_judge" in scorer_names
+
+    # Get the judge and verify it uses the specified model
+    judge = next(s for s in scorers if s.name == "custom_model_judge")
+    assert judge.model == "openai:/gpt-4"
+
 
 def test_create_judge_short_options(runner, experiment):
-    """Test creating a judge using short option flags."""
     result = runner.invoke(
         commands,
         [
@@ -285,9 +293,15 @@ def test_create_judge_short_options(runner, experiment):
     assert result.exit_code == 0
     assert "Successfully created and registered" in result.output
 
+    # Verify judge was registered
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "short_options_judge" in scorer_names
+
 
 def test_create_judge_with_env_var(runner, experiment):
-    """Test creating a judge using MLFLOW_EXPERIMENT_ID env var."""
     result = runner.invoke(
         commands,
         [
@@ -303,6 +317,13 @@ def test_create_judge_with_env_var(runner, experiment):
     assert result.exit_code == 0
     assert "Successfully created and registered" in result.output
 
+    # Verify judge was registered
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "env_var_judge" in scorer_names
+
 
 @pytest.mark.parametrize(
     ("args", "missing_param"),
@@ -313,7 +334,6 @@ def test_create_judge_with_env_var(runner, experiment):
     ],
 )
 def test_create_judge_missing_required_params(runner, args, missing_param):
-    """Test that missing required parameters cause appropriate errors."""
     result = runner.invoke(commands, ["create-judge"] + args)
 
     assert result.exit_code != 0
@@ -322,7 +342,6 @@ def test_create_judge_missing_required_params(runner, args, missing_param):
 
 
 def test_create_judge_invalid_prompt(runner, experiment):
-    """Test that invalid prompt without template variables fails."""
     result = runner.invoke(
         commands,
         [
@@ -341,30 +360,13 @@ def test_create_judge_invalid_prompt(runner, experiment):
     assert "template" in result.output.lower() or "variable" in result.output.lower()
 
 
-def test_create_judge_then_list(runner, experiment):
-    """Test creating a judge and then listing it."""
-    # Create judge
-    create_result = runner.invoke(
-        commands,
-        [
-            "create-judge",
-            "--name",
-            "integration_judge",
-            "--prompt",
-            "Evaluate {{ outputs }}",
-            "--experiment-id",
-            experiment,
-        ],
-    )
-    assert create_result.exit_code == 0
-
-    # List and verify it appears
-    list_result = runner.invoke(commands, ["list", "--experiment-id", experiment])
-    assert list_result.exit_code == 0
-    assert "integration_judge" in list_result.output
-
-
 def test_create_judge_special_characters_in_name(runner, experiment):
+    # Verify experiment has no judges initially
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 0
+
     result = runner.invoke(
         commands,
         [
@@ -380,3 +382,51 @@ def test_create_judge_special_characters_in_name(runner, experiment):
 
     assert result.exit_code == 0
     assert "Successfully created and registered" in result.output
+
+    # Verify experiment has exactly one judge
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "judge-with_special.chars"
+
+
+def test_create_judge_duplicate_registration(runner, experiment):
+    # Create a judge
+    result1 = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "duplicate_judge",
+            "--prompt",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+    assert result1.exit_code == 0
+
+    from mlflow.genai.scorers import list_scorers
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "duplicate_judge"
+
+    # Register the same judge again with same name - should succeed (replaces the old one)
+    result2 = runner.invoke(
+        commands,
+        [
+            "create-judge",
+            "--name",
+            "duplicate_judge",
+            "--prompt",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+    assert result2.exit_code == 0
+
+    # Verify there is still only one judge (the new one replaced the old one)
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "duplicate_judge"
