@@ -159,7 +159,7 @@ class GeminiAdapter(ProviderAdapter):
                     {
                         "name": tool_function["name"],
                         "description": tool_function["description"],
-                        "parameters": tool_function["parameters"],
+                        "parametersJsonSchema": tool_function["parameters"],
                     }
                 )
 
