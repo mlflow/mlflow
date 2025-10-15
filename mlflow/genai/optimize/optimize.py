@@ -83,11 +83,12 @@ def optimize_prompts(
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
-        enable_tracking: If True (default), automatically creates an MLflow run and logs:
+        enable_tracking: If True (default), automatically creates an MLflow run if no active
+            run exists and logs the following information:
             - The optimization scores (initial, final, improvement)
-            - Links to the input prompt versions
             - Links to the optimized prompt versions
             - The optimizer name and parameters
+            - Optimization progress
             If False, no MLflow run is created and no tracking occurs.
 
     Returns:
