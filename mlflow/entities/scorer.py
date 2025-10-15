@@ -25,6 +25,14 @@ class ScorerVersion(_MlflowObject):
         scorer_version (int): The version number of this scorer instance.
         serialized_scorer (str): JSON-serialized string containing the scorer's metadata and code.
         creation_time (int): Unix timestamp (in milliseconds) when this version was created.
+        sample_rate (float): The fraction of traces to sample for scoring (0.0 to 1.0).
+            Default is 0.0.
+        filter_string (str, optional): The filter string for selecting which traces to score.
+            Default is None.
+        sampling_strategy (int): The sampling strategy enum value for multi-version coordination.
+            - 0 (INDEPENDENT): Random sampling per version (default)
+            - 1 (SHARED): Deterministic sampling for A/B testing (same traces across versions)
+            - 2 (PARTITIONED): Non-overlapping sampling for complementary coverage
         scorer_id (str, optional): The unique identifier for the scorer.
 
     Example:
@@ -53,6 +61,9 @@ class ScorerVersion(_MlflowObject):
         scorer_version: int,
         serialized_scorer: str,
         creation_time: int,
+        sample_rate: float = 0.0,
+        filter_string: str | None = None,
+        sampling_strategy: int = 0,
         scorer_id: str | None = None,
     ):
         self._experiment_id = experiment_id
@@ -60,6 +71,9 @@ class ScorerVersion(_MlflowObject):
         self._scorer_version = scorer_version
         self._serialized_scorer = serialized_scorer
         self._creation_time = creation_time
+        self._sample_rate = sample_rate
+        self._filter_string = filter_string
+        self._sampling_strategy = sampling_strategy
         self._scorer_id = scorer_id
 
     @property
@@ -130,6 +144,40 @@ class ScorerVersion(_MlflowObject):
         return self._creation_time
 
     @property
+    def sample_rate(self):
+        """
+        The fraction of traces to sample for scoring.
+
+        Returns:
+            float: A value between 0.0 and 1.0 representing the sampling rate.
+                  0.0 means no sampling (scorer is disabled), 1.0 means score all traces.
+        """
+        return self._sample_rate
+
+    @property
+    def filter_string(self):
+        """
+        The filter string for selecting which traces to score.
+
+        Returns:
+            str | None: A filter string, or None if no filter is specified.
+        """
+        return self._filter_string
+
+    @property
+    def sampling_strategy(self):
+        """
+        The sampling strategy enum value for controlling multi-version trace sampling.
+
+        Returns:
+            int: Enum value from SamplingStrategy protobuf:
+                - 0 (INDEPENDENT): Each version samples randomly (default)
+                - 1 (SHARED): All versions evaluate the same traces (A/B testing)
+                - 2 (PARTITIONED): Versions evaluate different traces with no overlap
+        """
+        return self._sampling_strategy
+
+    @property
     def scorer_id(self):
         """
         The unique identifier for the scorer.
@@ -159,11 +207,16 @@ class ScorerVersion(_MlflowObject):
             and should not typically be called directly by users.
         """
         return cls(
-            experiment_id=proto.experiment_id,
+            experiment_id=str(proto.experiment_id),
             scorer_name=proto.scorer_name,
             scorer_version=proto.scorer_version,
             serialized_scorer=proto.serialized_scorer,
             creation_time=proto.creation_time,
+            sample_rate=proto.sample_rate if proto.HasField("sample_rate") else 0.0,
+            filter_string=proto.filter_string if proto.HasField("filter_string") else None,
+            sampling_strategy=int(proto.sampling_strategy)
+            if proto.HasField("sampling_strategy")
+            else 0,
             scorer_id=proto.scorer_id if proto.HasField("scorer_id") else None,
         )
 
@@ -188,6 +241,10 @@ class ScorerVersion(_MlflowObject):
         proto.scorer_version = self.scorer_version
         proto.serialized_scorer = self._serialized_scorer
         proto.creation_time = self.creation_time
+        proto.sample_rate = self.sample_rate
+        if self.filter_string is not None:
+            proto.filter_string = self.filter_string
+        proto.sampling_strategy = self.sampling_strategy
         if self.scorer_id is not None:
             proto.scorer_id = self.scorer_id
         return proto

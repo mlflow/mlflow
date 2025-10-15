@@ -65,6 +65,13 @@ def sql_warehouse_id(monkeypatch):
     return wh_id
 
 
+@pytest.fixture
+def sql_warehouse_id(monkeypatch):
+    wh_id = "test-warehouse"
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, wh_id)
+    return wh_id
+
+
 def create_mock_spans(diff_trace_id=False):
     otel_span1 = OTelProtoSpan()
     otel_span1.name = "span1"
