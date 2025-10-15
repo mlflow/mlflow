@@ -41,6 +41,7 @@ from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
@@ -272,7 +273,7 @@ def test_get_trace_info_missing_warehouse_id():
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
 
     with mock.patch.object(
-        store,
+        RestStore,
         "_call_endpoint",
         side_effect=RestException(
             json={
