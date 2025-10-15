@@ -182,6 +182,7 @@ prompt_uris = [
 ```
 
 You can reference prompts by:
+
 - **Specific version**: `"prompts:/qa/1"` - Optimize a particular version
 - **Latest version**: `"prompts:/qa@latest"` - Optimize the most recent version
 - **Alias**: `"prompts:/qa@champion"` - Optimize a version with a specific alias
@@ -379,6 +380,7 @@ optimized_answer = result.optimized_prompts[1]
 ```
 
 ### Use Agent Framework
+
 You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of `format` inside `predict_fn`. This is one of the exceptions that is allowed, however <APILink fn="mlflow.genai.optimize_prompts" /> generally requires `predict_fn` to call <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink>.
 
 ```python
