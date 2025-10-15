@@ -28,7 +28,8 @@ def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | No
             span=old_span,
             parent_span_id=old_span.parent_id,
             trace_id=new_trace_id,
-            experiment_id=experiment_id,
+            # Only set the experiment ID for the root span.
+            experiment_id=experiment_id if old_span.parent_id is None else None,
             # Don't close the root span until the end so that we only export the trace
             # after all spans are copied.
             end_trace=old_span.parent_id is not None,
