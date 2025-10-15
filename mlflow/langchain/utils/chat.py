@@ -209,9 +209,9 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
         )
 
         if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json")
+            return transformed_response.model_dump(mode="json", exclude_unset=True)
         else:
-            return json.loads(transformed_response.json())
+            return json.loads(transformed_response.json(exclude_unset=True))
 
     def _convert(chunk):
         if isinstance(chunk, str):
