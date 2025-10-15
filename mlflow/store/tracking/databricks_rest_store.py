@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from urllib.parse import quote
 
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -20,6 +21,8 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
+    BatchLinkTraceToRun,
+    BatchUnlinkTraceFromRun,
     CreateAssessment,
     CreateTraceInfo,
     CreateTraceUCStorageLocation,
@@ -615,6 +618,85 @@ class DatabricksTracingRestStore(RestStore):
             self._call_endpoint(DeleteAssessment, endpoint=endpoint)
         else:
             return super().delete_assessment(trace_id, assessment_id)
+
+    def _batch_link_traces_to_run(
+        self, location_id: str, otel_trace_ids: list[str], run_id: str
+    ) -> None:
+        """
+        Link multiple traces to a run by creating internal trace-to-run relationships.
+
+        Args:
+            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            otel_trace_ids: List of OTEL trace IDs to link to the run.
+            run_id: ID of the run to link traces to.
+        """
+        if not otel_trace_ids:
+            return
+
+        req_body = message_to_json(
+            BatchLinkTraceToRun(
+                location_id=location_id,
+                trace_ids=otel_trace_ids,
+                run_id=run_id,
+            )
+        )
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/link-to-run/batchCreate"
+        self._call_endpoint(BatchLinkTraceToRun, req_body, endpoint=endpoint)
+
+    def _batch_unlink_traces_from_run(
+        self, location_id: str, otel_trace_ids: list[str], run_id: str
+    ) -> None:
+        """
+        Unlink multiple traces from a run by removing the internal trace-to-run relationships.
+
+        Args:
+            location_id: The location ID (e.g., "catalog.schema") for the traces.
+            otel_trace_ids: List of OTEL trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+        """
+        if not otel_trace_ids:
+            return
+
+        req_body = message_to_json(
+            BatchUnlinkTraceFromRun(
+                location_id=location_id,
+                trace_ids=otel_trace_ids,
+                run_id=run_id,
+            )
+        )
+        endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/unlink-from-run/batchDelete"
+        self._call_endpoint(BatchUnlinkTraceFromRun, req_body, endpoint=endpoint)
+
+    def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Link multiple traces to a run by creating trace-to-run relationships.
+
+        Args:
+            trace_ids: List of trace IDs to link to the run.
+            run_id: ID of the run to link traces to.
+        """
+        if not trace_ids:
+            return
+
+        # Group traces by location (None for V3 traces)
+        # For V3 traces, store original IDs; for V4 traces, store OTEL trace IDs
+        v3_trace_ids: list[str] = []
+        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
+
+        for trace_id in trace_ids:
+            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
+            if location_id is None:
+                v3_trace_ids.append(trace_id)
+            else:
+                v4_traces_by_location[location_id].append(otel_trace_id)
+
+        # Link V3 traces
+        if v3_trace_ids:
+            super().link_traces_to_run(v3_trace_ids, run_id)
+
+        # Link V4 traces grouped by location
+        for location_id, otel_trace_ids in v4_traces_by_location.items():
+            self._batch_link_traces_to_run(location_id, otel_trace_ids, run_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
