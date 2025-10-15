@@ -45,6 +45,21 @@ class StartTraceEvent(Event):
 class LogAssessmentEvent(Event):
     name: str = "log_assessment"
 
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.entities.assessment import Expectation, Feedback
+
+        assessment = arguments.get("assessment")
+        if assessment is None:
+            return None
+
+        if isinstance(assessment, Expectation):
+            return {"type": "expectation"}
+        elif isinstance(assessment, Feedback):
+            return {"type": "feedback"}
+        else:
+            return None
+
 
 class EvaluateEvent(Event):
     name: str = "evaluate"
