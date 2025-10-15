@@ -134,3 +134,30 @@ def test_make_judge_parse_params(arguments, expected_params):
 )
 def test_align_judge_parse_params(arguments, expected_params):
     assert AlignJudgeEvent.parse(arguments) == expected_params
+
+
+@pytest.mark.parametrize(
+    ("arguments", "expected_params"),
+    [
+        ({"assessment": None}, None),
+        ({}, None),
+    ],
+)
+def test_log_assessment_parse_params(arguments, expected_params):
+    assert LogAssessmentEvent.parse(arguments) == expected_params
+
+
+def test_log_assessment_parse_params_with_feedback():
+    from mlflow.entities.assessment import Feedback
+
+    feedback = Feedback(name="test_feedback", value=1.0)
+    arguments = {"assessment": feedback, "trace_id": "test_trace"}
+    assert LogAssessmentEvent.parse(arguments) == {"type": "feedback", "source_type": "CODE"}
+
+
+def test_log_assessment_parse_params_with_expectation():
+    from mlflow.entities.assessment import Expectation
+
+    expectation = Expectation(name="test_expectation", value="expected_value")
+    arguments = {"assessment": expectation, "trace_id": "test_trace"}
+    assert LogAssessmentEvent.parse(arguments) == {"type": "expectation", "source_type": "HUMAN"}
