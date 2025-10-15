@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Drawer,
   Spacer,
   Typography,
   useDesignSystemTheme,
@@ -15,7 +14,9 @@ import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../../experiment-tracking/routes';
 import OpenAiLogo from '../../common/static/logos/openai.svg';
 import OpenAiLogoDark from '../../common/static/logos/openai-dark.svg';
+import ScikitLearnLogo from '../../common/static/logos/scikit-learn.svg';
 import { useHomePageViewState } from '../HomePageViewStateContext';
+import { HomeQuickstartDrawer } from './HomeQuickstartDrawer';
 
 type EvaluationFrameworkId = 'openai' | 'scikit_learn';
 
@@ -87,6 +88,8 @@ results = mlflow.genai.evaluate(
   {
     id: 'scikit_learn',
     message: 'Scikit-learn',
+    logo: ScikitLearnLogo,
+    selectedLogo: ScikitLearnLogo,
     snippet: `import mlflow
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -139,291 +142,220 @@ export const RunEvaluationDrawer = () => {
   const snippet = selectedDefinition?.snippet ?? '';
 
   return (
-    <Drawer.Root modal open={isRunEvaluationDrawerOpen} onOpenChange={handleOpenChange}>
-      <Drawer.Content
-        componentId="mlflow.home.run_evaluation.drawer"
-        width="70vw"
-        title={
-          <span
-            css={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-            }}
-          >
-            <span
-              css={{
-                borderRadius: theme.borders.borderRadiusSm,
-                background: theme.colors.actionDefaultBackgroundHover,
-                padding: theme.spacing.xs,
-                color: theme.colors.blue500,
-                height: 'min-content',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <BeakerIcon css={{ width: 20, height: 20 }} />
-            </span>
-            <FormattedMessage
-              defaultMessage="Run evaluation"
-              description="Title for the run evaluation drawer on the Home page"
-            />
-          </span>
-        }
-      >
-        <Typography.Text color="secondary">
-          <FormattedMessage
-            defaultMessage="Select an example and follow the steps to evaluate your models with MLflow."
-            description="Helper text shown at the top of the run evaluation drawer"
-          />
-        </Typography.Text>
-        <Spacer size="md" />
-        <div
+    <HomeQuickstartDrawer
+      componentId="mlflow.home.run_evaluation.drawer"
+      icon={<BeakerIcon css={{ width: 20, height: 20 }} />}
+      title={
+        <FormattedMessage
+          defaultMessage="Run evaluation"
+          description="Title for the run evaluation drawer on the Home page"
+        />
+      }
+      intro={
+        <FormattedMessage
+          defaultMessage="Select an example and follow the steps to evaluate your models with MLflow."
+          description="Helper text shown at the top of the run evaluation drawer"
+        />
+      }
+      isOpen={isRunEvaluationDrawerOpen}
+      onOpenChange={handleOpenChange}
+      frameworks={evaluationFrameworks.map((framework) => ({
+        id: framework.id,
+        label: framework.message,
+        logo: framework.logo,
+        selectedLogo: framework.selectedLogo,
+        buttonComponentId: `mlflow.home.run_evaluation.drawer.framework.${framework.id}`,
+      }))}
+      selectedFramework={selectedFramework}
+      onSelectFramework={setSelectedFramework}
+      contentCss={{ maxWidth: 860 }}
+      leftFooter={
+        <a
+          href={EVALUATION_DOCS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           css={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: theme.spacing.lg,
-            minHeight: 0,
+            marginTop: theme.spacing.sm,
+            display: 'inline-flex',
+            gap: theme.spacing.xs,
+            alignItems: 'center',
+            fontWeight: theme.typography.typographyBoldFontWeight,
           }}
         >
-          <aside
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing.sm,
-              minWidth: 220,
-              maxWidth: 260,
+          <FormattedMessage
+            defaultMessage="Learn more about evaluations"
+            description="Link text directing users to evaluation documentation"
+          />
+          <NewWindowIcon css={{ fontSize: 14 }} />
+        </a>
+      }
+    >
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="1. Configure experiment and tracking URI"
+            description="Section title for configuring experiment and tracking URI before running evaluations"
+          />
+        </Typography.Title>
+        <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
+          <CopyButton
+            componentId="mlflow.home.run_evaluation.drawer.configure.copy"
+            css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+            showLabel={false}
+            copyText={CONFIGURE_EVALUATION_EXPERIMENT_SNIPPET}
+            icon={<CopyIcon />}
+          />
+          <CodeSnippet
+            showLineNumbers
+            language="python"
+            theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+            style={{
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+              marginTop: theme.spacing.xs,
             }}
           >
-            {evaluationFrameworks.map((framework) => {
-              const isSelected = framework.id === selectedFramework;
-              const logoSrc = isSelected && framework.selectedLogo ? framework.selectedLogo : framework.logo;
-              return (
-                <button
-                  key={framework.id}
-                  type="button"
-                  onClick={() => setSelectedFramework(framework.id)}
-                  data-component-id={`mlflow.home.run_evaluation.drawer.framework.${framework.id}`}
-                  aria-pressed={isSelected}
-                  css={{
-                    border: 0,
-                    borderRadius: theme.borders.borderRadiusSm,
-                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                    textAlign: 'left' as const,
-                    cursor: 'pointer',
-                    backgroundColor: isSelected
-                      ? theme.colors.actionPrimaryBackgroundDefault
-                      : theme.colors.backgroundSecondary,
-                    color: isSelected ? theme.colors.actionPrimaryTextDefault : theme.colors.textPrimary,
-                    boxShadow: theme.shadows.sm,
-                    transition: 'background 150ms ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    '&:hover': {
-                      backgroundColor: isSelected
-                        ? theme.colors.actionPrimaryBackgroundHover
-                        : theme.colors.actionDefaultBackgroundHover,
-                    },
-                    '&:focus-visible': {
-                      outline: `2px solid ${theme.colors.actionPrimaryBackgroundHover}`,
-                      outlineOffset: 2,
-                    },
-                  }}
-                >
-                  {logoSrc && (
-                    <img src={logoSrc} width={28} height={28} alt="" aria-hidden css={{ display: 'block' }} />
-                  )}
-                  {framework.message}
-                </button>
-              );
-            })}
-          </aside>
-          <div
-            css={{
-              flex: 1,
-              minWidth: 0,
-              maxWidth: 860,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing.lg,
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.borders.borderRadiusLg,
-              padding: theme.spacing.lg,
-              backgroundColor: theme.colors.backgroundPrimary,
-              boxShadow: theme.shadows.xs,
-            }}
-          >
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="1. Configure experiment and tracking URI"
-                  description="Section title for configuring experiment and tracking URI before running evaluations"
-                />
-              </Typography.Title>
-              <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
-                <CopyButton
-                  componentId="mlflow.home.run_evaluation.drawer.configure.copy"
-                  css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-                  showLabel={false}
-                  copyText={CONFIGURE_EVALUATION_EXPERIMENT_SNIPPET}
-                  icon={<CopyIcon />}
-                />
-                <CodeSnippet
-                  showLineNumbers
-                  language="python"
-                  theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-                  style={{
-                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                    marginTop: theme.spacing.xs,
-                  }}
-                >
-                  {CONFIGURE_EVALUATION_EXPERIMENT_SNIPPET}
-                </CodeSnippet>
-              </div>
-            </section>
-
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="2. Run the evaluation"
-                  description="Section title introducing evaluation example snippet"
-                />
-              </Typography.Title>
-              <Typography.Text color="secondary">
-                <FormattedMessage
-                  defaultMessage="Use the template below as a starting point for your evaluation script."
-                  description="Description for the evaluation code snippet"
-                />
-              </Typography.Text>
-              <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
-                <CopyButton
-                  componentId={`mlflow.home.run_evaluation.drawer.copy.${selectedFramework}`}
-                  css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-                  showLabel={false}
-                  copyText={snippet}
-                  icon={<CopyIcon />}
-                />
-                <CodeSnippet
-                  showLineNumbers
-                  language="python"
-                  theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-                  style={{
-                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                    marginTop: theme.spacing.xs,
-                  }}
-                >
-                  {snippet}
-                </CodeSnippet>
-              </div>
-            </section>
-
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="3. Review evaluation results"
-                  description="Section title for viewing evaluation results"
-                />
-              </Typography.Title>
-              <Typography.Text color="secondary" css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="Open the MLflow UI to explore runs and compare evaluation outcomes."
-                  description="Introductory text for reviewing evaluation results"
-                />
-                <Spacer size="sm" />
-                <ol
-                  css={{
-                    margin: 0,
-                    paddingLeft: theme.spacing.lg,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.xs,
-                  }}
-                >
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Open the {experimentsLink} page."
-                      description="Instruction to open experiments page from evaluation drawer"
-                      values={{
-                        experimentsLink: (
-                          <Link
-                            to={Routes.experimentsObservatoryRoute}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Experiments"
-                              description="Link label for experiments page from evaluation drawer"
-                            />
-                            <NewWindowIcon css={{ fontSize: 14 }} />
-                          </Link>
-                        ),
-                      }}
-                    />
-                  </li>
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Select the run that logged your evaluation metrics."
-                      description="Instruction to select evaluation run"
-                    />
-                  </li>
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Compare metrics across runs to identify performance improvements."
-                      description="Instruction to compare evaluation results"
-                    />
-                  </li>
-                </ol>
-              </Typography.Text>
-            </section>
-            <section>
-              <Typography.Text color="secondary" css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="Learn more about evaluations in the {evaluationDocs}."
-                  description="Instruction to learn more about evaluations in the documentation"
-                  values={{
-                    evaluationDocs: (
-                      <a
-                        href={EVALUATION_DOCS_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
-                      >
-                        <FormattedMessage
-                          defaultMessage="MLflow documentation"
-                          description="Link to evaluation documentation"
-                        />
-                        <NewWindowIcon css={{ fontSize: 14 }} />
-                      </a>
-                    ),
-                  }}
-                />
-              </Typography.Text>
-            </section>
-          </div>
+            {CONFIGURE_EVALUATION_EXPERIMENT_SNIPPET}
+          </CodeSnippet>
         </div>
-      </Drawer.Content>
-    </Drawer.Root>
+      </section>
+
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="2. Run the evaluation"
+            description="Section title introducing evaluation example snippet"
+          />
+        </Typography.Title>
+        <Typography.Text color="secondary">
+          <FormattedMessage
+            defaultMessage="Use the template below as a starting point for your evaluation script."
+            description="Description for the evaluation code snippet"
+          />
+        </Typography.Text>
+        <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
+          <CopyButton
+            componentId={`mlflow.home.run_evaluation.drawer.copy.${selectedFramework}`}
+            css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+            showLabel={false}
+            copyText={snippet}
+            icon={<CopyIcon />}
+          />
+          <CodeSnippet
+            showLineNumbers
+            language="python"
+            theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+            style={{
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+              marginTop: theme.spacing.xs,
+            }}
+          >
+            {snippet}
+          </CodeSnippet>
+        </div>
+      </section>
+
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="3. Review evaluation results"
+            description="Section title for viewing evaluation results"
+          />
+        </Typography.Title>
+        <Typography.Text color="secondary" css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="Open the MLflow UI to explore runs and compare evaluation outcomes."
+            description="Introductory text for reviewing evaluation results"
+          />
+          <Spacer size="sm" />
+          <ol
+            css={{
+              margin: 0,
+              paddingLeft: theme.spacing.lg,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.xs,
+            }}
+          >
+            <li>
+              <FormattedMessage
+                defaultMessage="Open the {experimentsLink} page."
+                description="Instruction to open experiments page from evaluation drawer"
+                values={{
+                  experimentsLink: (
+                    <Link
+                      to={Routes.experimentsObservatoryRoute}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Experiments"
+                        description="Link label for experiments page from evaluation drawer"
+                      />
+                      <NewWindowIcon css={{ fontSize: 14 }} />
+                    </Link>
+                  ),
+                }}
+              />
+            </li>
+            <li>
+              <FormattedMessage
+                defaultMessage="Select the run that logged your evaluation metrics."
+                description="Instruction to select evaluation run"
+              />
+            </li>
+            <li>
+              <FormattedMessage
+                defaultMessage="Compare metrics across runs to identify performance improvements."
+                description="Instruction to compare evaluation results"
+              />
+            </li>
+          </ol>
+        </Typography.Text>
+      </section>
+      <section>
+        <Typography.Text color="secondary" css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="Learn more about evaluations in the {evaluationDocs}."
+            description="Instruction to learn more about evaluations in the documentation"
+            values={{
+              evaluationDocs: (
+                <a
+                  href={EVALUATION_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
+                >
+                  <FormattedMessage
+                    defaultMessage="MLflow documentation"
+                    description="Link to evaluation documentation"
+                  />
+                  <NewWindowIcon css={{ fontSize: 14 }} />
+                </a>
+              ),
+            }}
+          />
+        </Typography.Text>
+      </section>
+    </HomeQuickstartDrawer>
   );
 };
 

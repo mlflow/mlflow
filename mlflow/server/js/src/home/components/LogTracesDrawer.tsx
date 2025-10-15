@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Drawer,
   Spacer,
   Typography,
   useDesignSystemTheme,
@@ -9,7 +8,6 @@ import {
   WorkflowsIcon,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { QUICKSTART_CONTENT } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { TraceTableGenericQuickstart } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableGenericQuickstart';
 import type { QUICKSTART_FLAVOR } from '@mlflow/mlflow/src/experiment-tracking/components/traces/quickstart/TraceTableQuickstart.utils';
 import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton';
@@ -31,6 +29,7 @@ import LlamaIndexLogo from '../../common/static/logos/llamaindex.png';
 import AutoGenLogo from '../../common/static/logos/autogen.png';
 import CrewAILogo from '../../common/static/logos/crewai.png';
 import { useHomePageViewState } from '../HomePageViewStateContext';
+import { HomeQuickstartDrawer } from './HomeQuickstartDrawer';
 
 type SupportedQuickstartFlavor = QUICKSTART_FLAVOR;
 
@@ -126,291 +125,196 @@ export const LogTracesDrawer = () => {
   };
 
   return (
-    <Drawer.Root modal open={isLogTracesDrawerOpen} onOpenChange={handleOpenChange}>
-      <Drawer.Content
-        componentId="mlflow.home.log_traces.drawer"
-        width="70vw"
-        title={
-          <span
-            css={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: theme.spacing.sm,
-            }}
-          >
-            <span
-              css={{
-                borderRadius: theme.borders.borderRadiusSm,
-                background: theme.colors.actionDefaultBackgroundHover,
-                padding: theme.spacing.xs,
-                color: theme.colors.blue500,
-                height: 'min-content',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <WorkflowsIcon />
-            </span>
-            <FormattedMessage
-              defaultMessage="Log traces"
-              description="Title for the log traces drawer on the Home page"
-            />
-          </span>
-        }
-      >
-        <Typography.Text color="secondary">
-          <FormattedMessage
-            defaultMessage="Select a framework and follow the instructions to log traces with MLflow."
-            description="Helper text shown at the top of the log traces drawer"
-          />
-        </Typography.Text>
-        <Spacer size="md" />
-        <div
+    <HomeQuickstartDrawer
+      componentId="mlflow.home.log_traces.drawer"
+      icon={<WorkflowsIcon />}
+      title={
+        <FormattedMessage defaultMessage="Log traces" description="Title for the log traces drawer on the Home page" />
+      }
+      intro={
+        <FormattedMessage
+          defaultMessage="Select a framework and follow the instructions to log traces with MLflow."
+          description="Helper text shown at the top of the log traces drawer"
+        />
+      }
+      isOpen={isLogTracesDrawerOpen}
+      onOpenChange={handleOpenChange}
+      frameworks={frameworks.map((framework) => ({
+        id: framework.id,
+        label: framework.message,
+        logo: framework.logo,
+        selectedLogo: framework.selectedLogo,
+        buttonComponentId: `mlflow.home.log_traces.drawer.framework.${framework.id}`,
+      }))}
+      selectedFramework={selectedFramework}
+      onSelectFramework={setSelectedFramework}
+      leftFooter={
+        <a
+          href={MORE_INTEGRATIONS_URL}
+          target="_blank"
+          rel="noopener noreferrer"
           css={{
-            display: 'flex',
-            flexDirection: 'row',
-            gap: theme.spacing.lg,
-            minHeight: 0,
+            marginTop: theme.spacing.sm,
+            display: 'inline-flex',
+            gap: theme.spacing.xs,
+            alignItems: 'center',
+            fontWeight: theme.typography.typographyBoldFontWeight,
           }}
         >
-          <aside
-            css={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing.sm,
-              minWidth: 220,
-              maxWidth: 260,
+          <FormattedMessage
+            defaultMessage="View all integrations"
+            description="Link text directing users to additional tracing integrations"
+          />
+          <NewWindowIcon css={{ fontSize: 14 }} />
+        </a>
+      }
+    >
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="1. Configure experiment and tracking URI"
+            description="Section title for configuring experiment and tracking URI before logging traces"
+          />
+        </Typography.Title>
+        <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
+          <CopyButton
+            componentId="mlflow.home.log_traces.drawer.configure.copy"
+            css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
+            showLabel={false}
+            copyText={CONFIGURE_EXPERIMENT_SNIPPET}
+            icon={<CopyIcon />}
+          />
+          <CodeSnippet
+            showLineNumbers
+            language="python"
+            theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
+            style={{
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+              marginTop: theme.spacing.xs,
             }}
           >
-            {frameworks.map((framework) => {
-              const isSelected = framework.id === selectedFramework;
-              const logoSrc = isSelected && framework.selectedLogo ? framework.selectedLogo : framework.logo;
-              return (
-                <button
-                  key={framework.id}
-                  type="button"
-                  onClick={() => setSelectedFramework(framework.id)}
-                  data-component-id={`mlflow.home.log_traces.drawer.framework.${framework.id}`}
-                  aria-pressed={isSelected}
-                  css={{
-                    border: 0,
-                    borderRadius: theme.borders.borderRadiusSm,
-                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                    textAlign: 'left' as const,
-                    cursor: 'pointer',
-                    backgroundColor: isSelected
-                      ? theme.colors.actionPrimaryBackgroundDefault
-                      : theme.colors.backgroundSecondary,
-                    color: isSelected ? theme.colors.actionPrimaryTextDefault : theme.colors.textPrimary,
-                    transition: 'background 150ms ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    '&:hover': {
-                      backgroundColor: isSelected
-                        ? theme.colors.actionPrimaryBackgroundHover
-                        : theme.colors.actionDefaultBackgroundHover,
-                    },
-                    '&:focus-visible': {
-                      outline: `2px solid ${theme.colors.actionPrimaryBackgroundHover}`,
-                      outlineOffset: 2,
-                    },
-                  }}
-                >
-                  {logoSrc && (
-                    <img src={logoSrc} width={28} height={28} alt="icon" aria-hidden css={{ display: 'block' }} />
-                  )}
-                  {framework.message}
-                </button>
-              );
-            })}
-            <Spacer size="sm" />
-            <a
-              href={MORE_INTEGRATIONS_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              css={{
-                marginTop: theme.spacing.sm,
-                display: 'inline-flex',
-                gap: theme.spacing.xs,
-                alignItems: 'center',
-                fontWeight: theme.typography.typographyBoldFontWeight,
-              }}
-            >
-              <FormattedMessage
-                defaultMessage="View all integrations"
-                description="Link text directing users to additional tracing integrations"
-              />
-              <NewWindowIcon css={{ fontSize: 14 }} />
-            </a>
-          </aside>
-          <div
-            css={{
-              flex: 1,
-              minWidth: 0,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: theme.spacing.lg,
-              border: `1px solid ${theme.colors.border}`,
-              borderRadius: theme.borders.borderRadiusLg,
-              padding: theme.spacing.lg,
-              backgroundColor: theme.colors.backgroundPrimary,
-              boxShadow: theme.shadows.xs,
-            }}
-          >
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="1. Configure experiment and tracking URI"
-                  description="Section title for configuring experiment and tracking URI before logging traces"
-                />
-              </Typography.Title>
-              <div css={{ position: 'relative', width: 'min(100%, 800px)' }}>
-                <CopyButton
-                  componentId="mlflow.home.log_traces.drawer.configure.copy"
-                  css={{ zIndex: 1, position: 'absolute', top: theme.spacing.xs, right: theme.spacing.xs }}
-                  showLabel={false}
-                  copyText={CONFIGURE_EXPERIMENT_SNIPPET}
-                  icon={<CopyIcon />}
-                />
-                <CodeSnippet
-                  showLineNumbers
-                  language="python"
-                  theme={theme.isDarkMode ? 'duotoneDark' : 'light'}
-                  style={{
-                    padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-                    marginTop: theme.spacing.xs,
-                  }}
-                >
-                  {CONFIGURE_EXPERIMENT_SNIPPET}
-                </CodeSnippet>
-              </div>
-            </section>
-
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="2. Trace your code"
-                  description="Section title introducing the tracing quickstart example"
-                />
-              </Typography.Title>
-              <TraceTableGenericQuickstart
-                flavorName={selectedFramework}
-                baseComponentId={`mlflow.home.log_traces.drawer.${selectedFramework}`}
-              />
-            </section>
-
-            <section
-              css={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: theme.spacing.sm,
-              }}
-            >
-              <Typography.Title level={4} css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="3. Access the MLflow UI"
-                  description="Section title explaining how to access traces in the MLflow UI"
-                />
-              </Typography.Title>
-              <Typography.Text color="secondary" css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="After your script runs, open the MLflow UI to review the recorded traces."
-                  description="Introductory text for viewing traces in the MLflow UI"
-                />
-                <Spacer size="sm" />
-                <ol
-                  css={{
-                    margin: 0,
-                    paddingLeft: theme.spacing.lg,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: theme.spacing.xs,
-                  }}
-                >
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Open the {experimentsLink} page."
-                      description="Instruction to open the experiments page from the log traces drawer"
-                      values={{
-                        experimentsLink: (
-                          <Link
-                            to={Routes.experimentsObservatoryRoute}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            css={{
-                              display: 'inline-flex',
-                              gap: theme.spacing.xs,
-                              alignItems: 'center',
-                            }}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Experiments"
-                              description="Link label for the experiments page"
-                            />
-                            <NewWindowIcon css={{ fontSize: 14 }} />
-                          </Link>
-                        ),
-                      }}
-                    />
-                  </li>
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Select the experiment you configured above."
-                      description="Instruction to select the experiment configured for traces"
-                    />
-                  </li>
-                  <li>
-                    <FormattedMessage
-                      defaultMessage="Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens."
-                      description="Instruction to open the traces tab in the experiment page"
-                      values={{ tracesTab: <strong>Traces</strong> }}
-                    />
-                  </li>
-                </ol>
-              </Typography.Text>
-            </section>
-            <section>
-              <Typography.Text color="secondary" css={{ margin: 0 }}>
-                <FormattedMessage
-                  defaultMessage="Learn more about tracing in the {tracingDocs}."
-                  description="Instruction to learn more about tracing in the tracing docs"
-                  values={{
-                    tracingDocs: (
-                      <a
-                        href={TRACING_DOCS_URL}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
-                      >
-                        <FormattedMessage
-                          defaultMessage="MLflow documentation"
-                          description="Link to tracing documentation"
-                        />
-                        <NewWindowIcon css={{ fontSize: 14 }} />
-                      </a>
-                    ),
-                  }}
-                />
-              </Typography.Text>
-            </section>
-          </div>
+            {CONFIGURE_EXPERIMENT_SNIPPET}
+          </CodeSnippet>
         </div>
-      </Drawer.Content>
-    </Drawer.Root>
+      </section>
+
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="2. Trace your code"
+            description="Section title introducing the tracing quickstart example"
+          />
+        </Typography.Title>
+        <TraceTableGenericQuickstart
+          flavorName={selectedFramework}
+          baseComponentId={`mlflow.home.log_traces.drawer.${selectedFramework}`}
+        />
+      </section>
+
+      <section
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+        }}
+      >
+        <Typography.Title level={4} css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="3. Access the MLflow UI"
+            description="Section title explaining how to access traces in the MLflow UI"
+          />
+        </Typography.Title>
+        <Typography.Text color="secondary" css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="After your script runs, open the MLflow UI to review the recorded traces."
+            description="Introductory text for viewing traces in the MLflow UI"
+          />
+          <Spacer size="sm" />
+          <ol
+            css={{
+              margin: 0,
+              paddingLeft: theme.spacing.lg,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: theme.spacing.xs,
+            }}
+          >
+            <li>
+              <FormattedMessage
+                defaultMessage="Open the {experimentsLink} page."
+                description="Instruction to open the experiments page from the log traces drawer"
+                values={{
+                  experimentsLink: (
+                    <Link
+                      to={Routes.experimentsObservatoryRoute}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      css={{
+                        display: 'inline-flex',
+                        gap: theme.spacing.xs,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <FormattedMessage
+                        defaultMessage="Experiments"
+                        description="Link label for the experiments page"
+                      />
+                      <NewWindowIcon css={{ fontSize: 14 }} />
+                    </Link>
+                  ),
+                }}
+              />
+            </li>
+            <li>
+              <FormattedMessage
+                defaultMessage="Select the experiment you configured above."
+                description="Instruction to select the experiment configured for traces"
+              />
+            </li>
+            <li>
+              <FormattedMessage
+                defaultMessage="Switch to the {tracesTab} tab to inspect trace inputs, outputs, and tokens."
+                description="Instruction to open the traces tab in the experiment page"
+                values={{ tracesTab: <strong>Traces</strong> }}
+              />
+            </li>
+          </ol>
+        </Typography.Text>
+      </section>
+      <section>
+        <Typography.Text color="secondary" css={{ margin: 0 }}>
+          <FormattedMessage
+            defaultMessage="Learn more about tracing in the {tracingDocs}."
+            description="Instruction to learn more about tracing in the tracing docs"
+            values={{
+              tracingDocs: (
+                <a
+                  href={TRACING_DOCS_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}
+                >
+                  <FormattedMessage defaultMessage="MLflow documentation" description="Link to tracing documentation" />
+                  <NewWindowIcon css={{ fontSize: 14 }} />
+                </a>
+              ),
+            }}
+          />
+        </Typography.Text>
+      </section>
+    </HomeQuickstartDrawer>
   );
 };
 
