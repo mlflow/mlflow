@@ -80,7 +80,9 @@ class ModelsArtifactRepository(ArtifactRepository):
                 self.model_name,
                 self.model_version,
                 underlying_uri,
-            ) = ModelsArtifactRepository._get_model_uri_infos(artifact_uri)
+            ) = ModelsArtifactRepository._get_model_uri_infos(
+                artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
             self.repo = get_artifact_repository(
                 underlying_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
             )
@@ -123,16 +125,21 @@ class ModelsArtifactRepository(ArtifactRepository):
         return is_models_uri(uri) and _parse_model_uri(uri).model_id is not None
 
     @staticmethod
-    def _get_model_uri_infos(uri):
+    def _get_model_uri_infos(uri, tracking_uri=None, registry_uri=None):
         # Note: to support a registry URI that is different from the tracking URI here,
         # we'll need to add setting of registry URIs via environment variables.
 
         from mlflow import MlflowClient
 
         databricks_profile_uri = (
-            get_databricks_profile_uri_from_artifact_uri(uri) or mlflow.get_registry_uri()
+            get_databricks_profile_uri_from_artifact_uri(uri)
+            or registry_uri
+            or mlflow.get_registry_uri()
         )
-        client = MlflowClient(registry_uri=databricks_profile_uri)
+        client = MlflowClient(
+            tracking_uri=tracking_uri or mlflow.get_tracking_uri(),
+            registry_uri=databricks_profile_uri,
+        )
         name_and_version_or_id = get_model_name_and_version(client, uri)
         if len(name_and_version_or_id) == 1:
             name = None
@@ -150,8 +157,10 @@ class ModelsArtifactRepository(ArtifactRepository):
         )
 
     @staticmethod
-    def get_underlying_uri(uri):
-        _, _, underlying_uri = ModelsArtifactRepository._get_model_uri_infos(uri)
+    def get_underlying_uri(uri, tracking_uri=None, registry_uri=None):
+        _, _, underlying_uri = ModelsArtifactRepository._get_model_uri_infos(
+            uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+        )
 
         return underlying_uri
 
