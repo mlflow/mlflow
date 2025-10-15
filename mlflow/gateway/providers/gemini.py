@@ -1,3 +1,4 @@
+import hashlib
 import json
 import time
 from typing import Any, AsyncIterable
@@ -16,6 +17,7 @@ from mlflow.gateway.schemas import (
     embeddings as embeddings_schema,
 )
 from mlflow.gateway.utils import handle_incomplete_chunks, strip_sse_prefix
+from mlflow.types.chat import Function, ToolCall
 
 GENERATION_CONFIG_KEY_MAPPING = {
     "stop": "stopSequences",
@@ -85,18 +87,48 @@ class GeminiAdapter(ProviderAdapter):
 
         contents = []
         system_message = None
+
+        call_id_to_function_name_map = {}
+
         for message in payload["messages"]:
             role = message["role"]
 
-            if role == "assistant":
-                role = "model"
+            if role in ("user", "assistant"):
+                if role == "assistant":
+                    role = "model"
+
+                gemini_function_calls = []
+                if tool_calls := message.get("tool_calls"):
+                    for tool_call in tool_calls:
+                        if tool_call["type"] == "function":
+                            call_id_to_function_name_map[tool_call["id"]] = \
+                                tool_call["function"]["name"]
+                        gemini_function_calls.append({"functionCall": {
+                            "id": tool_call["id"],
+                            "name": tool_call["function"]["name"],
+                            "args": json.loads(tool_call["function"]["arguments"]),
+                        }})
+                if gemini_function_calls:
+                    contents.append({"role": role, "parts": gemini_function_calls})
+                else:
+                    contents.append({"role": role, "parts": [{"text": message["content"]}]})
             elif role == "system":
                 if system_message is None:
                     system_message = {"parts": []}
                 system_message["parts"].append({"text": message["content"]})
-                continue
-
-            contents.append({"role": role, "parts": [{"text": message["content"]}]})
+            elif role == "tool":
+                call_id = message["tool_call_id"]
+                contents.append({
+                    "role": "function",
+                    "parts": [{
+                        "functionResponse": {
+                            "id": call_id,
+                            # the function name field is required by Gemini request format
+                            "name": call_id_to_function_name_map[call_id],
+                            "response": json.loads(message["content"])
+                        }
+                    }]
+                })
 
         gemini_payload = {"contents": contents}
 
@@ -108,6 +140,32 @@ class GeminiAdapter(ProviderAdapter):
         if generation_config:
             gemini_payload["generationConfig"] = generation_config
 
+        tools = payload.pop("tools", None)
+        # convert tool definition to Gemini format
+        if tools:
+            function_declarations = []
+            for tool in tools:
+                if tool["type"] != "function":
+                    raise AIGatewayException(
+                        status_code=422,
+                        detail=(
+                            "Only function calling tool is supported, but received tool type "
+                            f"{tool['type']}"
+                        ),
+                    )
+
+                tool_function = tool["function"]
+                function_declarations.append(
+                    {
+                        "name": tool_function["name"],
+                        "description": tool_function["description"],
+                        "parameters": tool_function["parameters"],
+                    }
+                )
+
+            gemini_payload["tools"] = [{
+                "functionDeclarations": function_declarations
+            }]
         return gemini_payload
 
     @classmethod
@@ -136,26 +194,53 @@ class GeminiAdapter(ProviderAdapter):
         # }
         choices = []
         for idx, candidate in enumerate(resp.get("candidates", [])):
-            content = ""
-            if parts := candidate.get("content", {}).get("parts", None):
-                content = parts[0].get("text", None)
-            if not content:
-                continue
-
             finish_reason = candidate.get("finishReason", "stop")
             if finish_reason == "MAX_TOKENS":
                 finish_reason = "length"
 
-            choices.append(
-                chat_schema.Choice(
-                    index=idx,
-                    message=chat_schema.ResponseMessage(
-                        role="assistant",
-                        content=content,
-                    ),
-                    finish_reason=finish_reason,
-                )
-            )
+            if parts := candidate.get("content", {}).get("parts", None):
+                if function_call := parts[0].get("functionCall", None):
+                    func_name = function_call["name"]
+                    func_arguments = json.dumps(function_call["args"])
+                    call_id = function_call.get("id")
+                    if call_id is None:
+                        # Gemini model response might not contain function call id,
+                        # in order to make it compatible with Openai chat protocol,
+                        # we need to generate a unique call id.
+                        call_id = "call_" + hashlib.md5(
+                            f"{func_name}/{func_arguments}".encode("utf-8"),
+                            usedforsecurity=False,
+                        ).hexdigest()
+
+                    choices.append(
+                        chat_schema.Choice(
+                            index=idx,
+                            message=chat_schema.ResponseMessage(
+                                role="assistant",
+                                tool_calls=[ToolCall(
+                                    id=call_id,
+                                    function=Function(
+                                        name=func_name,
+                                        arguments=func_arguments,
+                                    ),
+                                    type="function",
+                                )],
+                            ),
+                            finish_reason=finish_reason,
+                        )
+                    )
+
+                elif content := parts[0].get("text", None):
+                    choices.append(
+                        chat_schema.Choice(
+                            index=idx,
+                            message=chat_schema.ResponseMessage(
+                                role="assistant",
+                                content=content,
+                            ),
+                            finish_reason=finish_reason,
+                        )
+                    )
 
         usage_metadata = resp.get("usageMetadata", {})
 
