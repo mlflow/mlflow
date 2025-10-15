@@ -110,7 +110,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             import gepa
         except ImportError as e:
             raise ImportError(
-                "GEPA is not installed. Please install it with: pip install 'gepa>=0.10.0'"
+                "GEPA is not installed. Please install it with: `pip install gepa`"
             ) from e
 
         provider, model = _parse_model_uri(self.reflection_model)
