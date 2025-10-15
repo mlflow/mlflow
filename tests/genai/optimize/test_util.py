@@ -5,7 +5,11 @@ from pydantic import BaseModel
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.judges import CategoricalRating
-from mlflow.genai.optimize.util import create_metric_from_scorers, infer_type_from_value
+from mlflow.genai.optimize.util import (
+    create_metric_from_scorers,
+    infer_type_from_value,
+    validate_train_data,
+)
 from mlflow.genai.scorers import scorer
 
 
@@ -158,3 +162,47 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     # Should sum: 1.0 + 1.0 = 2.0
     result = metric({"input": "test"}, {"output": "result"}, {})
     assert result == 2.0
+
+
+@pytest.mark.parametrize(
+    ("train_data", "expected_error"),
+    [
+        # Empty inputs
+        (
+            [{"inputs": {}, "outputs": "result"}],
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+        # Missing inputs
+        ([{"outputs": "result"}], "Record 0 is missing required 'inputs' field"),
+        # Missing both outputs and expectations
+        ([{"inputs": {"text": "hello"}}], "Record 0 must have at least one non-empty field"),
+        # Both outputs and expectations are None
+        (
+            [{"inputs": {"text": "hello"}, "outputs": None, "expectations": None}],
+            "Record 0 must have at least one non-empty field",
+        ),
+    ],
+)
+def test_validate_train_data_errors(train_data, expected_error):
+    with pytest.raises(ValueError, match=expected_error):
+        validate_train_data(train_data)
+
+
+@pytest.mark.parametrize(
+    "train_data",
+    [
+        # Valid with outputs
+        [{"inputs": {"text": "hello"}, "outputs": "result"}],
+        # Valid with expectations
+        [{"inputs": {"text": "hello"}, "expectations": {"expected": "result"}}],
+        # Multiple valid records
+        [
+            {"inputs": {"text": "hello"}, "outputs": "result1"},
+            {"inputs": {"text": "world"}, "expectations": {"expected": "result2"}},
+        ],
+        # Falsy but valid values: False as output
+        [{"inputs": {"text": "hello"}, "outputs": False}],
+    ],
+)
+def test_validate_train_data_success(train_data):
+    validate_train_data(train_data)

@@ -308,3 +308,47 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
     # "monde" vs "monde" (exact match) -> 1.0
     assert testing_adapter.captured_scores == [1.0, 1.0]
     assert len(result.optimized_prompts) == 1
+
+
+@pytest.mark.parametrize(
+    ("train_data", "error_type", "error_match"),
+    [
+        # Empty dataset validation (handled by _convert_eval_set_to_df)
+        ([], "MlflowException", "The dataset is empty"),
+        # Missing inputs validation (handled by _convert_eval_set_to_df)
+        ([{"outputs": "Hola"}], "MlflowException", "Either `inputs` or `trace` column is required"),
+        # Empty inputs validation
+        (
+            [{"inputs": {}, "outputs": "Hola"}],
+            "ValueError",
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+        # Missing both outputs and expectations
+        (
+            [{"inputs": {"text": "Hello"}}],
+            "ValueError",
+            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
+        ),
+        # Both outputs and expectations are None
+        (
+            [{"inputs": {"text": "Hello"}, "outputs": None, "expectations": None}],
+            "ValueError",
+            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
+        ),
+    ],
+)
+def test_optimize_prompts_validation_errors(
+    sample_translation_prompt, train_data, error_type, error_match
+):
+    error_class = MlflowException if error_type == "MlflowException" else ValueError
+
+    with pytest.raises(error_class, match=error_match):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=train_data,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=MockPromptAdapter(),
+            scorers=[output_equivalence],
+        )
