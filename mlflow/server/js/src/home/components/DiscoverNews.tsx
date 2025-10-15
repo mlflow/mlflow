@@ -4,7 +4,10 @@ import { FormattedMessage } from 'react-intl';
 import { homeNewsItems } from '../news-items';
 
 type NewsThumbnailProps = {
-  gradient: string;
+  gradient: {
+    light: string;
+    dark: string;
+  };
   title: ReactNode;
   description: ReactNode;
   icon?: ComponentType<{ className?: string; css?: any }>;
@@ -18,7 +21,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
       css={{
         borderRadius: theme.borders.borderRadiusMd,
         aspectRatio: '16 / 9',
-        background: gradient,
+        background: theme.isDarkMode ? gradient.dark : gradient.light,
         display: 'flex',
         flexDirection: 'column',
         padding: theme.spacing.md,
@@ -26,7 +29,7 @@ const NewsThumbnail = ({ gradient, title, description, icon: IconComponent }: Ne
       }}
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-        <Typography.Text bold style={{ color: theme.colors.grey800 }}>
+        <Typography.Text bold color="primary">
           {title}
         </Typography.Text>
         {description ? <Typography.Text color="secondary">{description}</Typography.Text> : <Spacer size="sm" />}
