@@ -16,7 +16,7 @@ from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     PromptOptimizationResult,
 )
-from mlflow.genai.optimize.util import create_metric_from_scorers, prompt_optimization_autolog
+from mlflow.genai.optimize.util import create_metric_from_scorers, validate_train_data, prompt_optimization_autolog
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
@@ -171,6 +171,8 @@ def optimize_prompts(
     # TODO: Add dataset validation
     train_data_df = _convert_eval_set_to_df(train_data)
     converted_train_data = train_data_df.to_dict("records")
+    validate_train_data(converted_train_data)
+
     predict_fn = convert_predict_fn(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
     )
@@ -231,10 +233,13 @@ def _build_eval_fn(
     def eval_fn(
         candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]
     ) -> list[EvaluationResultRecord]:
+        used_prompts = set()
+
         @property
         def _template_patch(self) -> str:
             template_name = self.name
             if template_name in candidate_prompts:
+                used_prompts.add(template_name)
                 return candidate_prompts[template_name]
             return self.template
 
@@ -270,7 +275,18 @@ def _build_eval_fn(
                 thread_name_prefix="MLflowPromptAdaptation",
             ) as executor:
                 futures = [executor.submit(_run_single, record) for record in dataset]
-                return [future.result() for future in futures]
+                results = [future.result() for future in futures]
+
+            # Check for unused prompts and warn
+            if unused_prompts := set(candidate_prompts.keys()) - used_prompts:
+                _logger.warning(
+                    "The following prompts were not used during evaluation: "
+                    f"{sorted(unused_prompts)}. This may indicate that predict_fn is "
+                    "not calling format() for these prompts, or the prompt names don't match. "
+                    "Please verify that your predict_fn uses all prompts specified in prompt_uris."
+                )
+
+            return results
         finally:
             gorilla.revert(patch)
 

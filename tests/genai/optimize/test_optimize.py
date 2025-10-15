@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -253,6 +254,35 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
     assert len(result.optimized_prompts) == 1
 
 
+def test_optimize_prompts_warns_on_unused_prompt(
+    sample_translation_prompt, sample_summarization_prompt, sample_dataset, capsys
+):
+    mock_optimizer = MockPromptAdapter()
+
+    # Create predict_fn that only uses translation prompt, not summarization prompt
+    def predict_fn_single_prompt(input_text, language):
+        prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+        prompt.format(input_text=input_text, language=language)
+        return sample_predict_fn(input_text=input_text, language=language)
+
+    result = optimize_prompts(
+        predict_fn=predict_fn_single_prompt,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
+            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+
+    captured = capsys.readouterr()
+    assert "prompts were not used during evaluation" in captured.err
+    assert "test_summarization_prompt" in captured.err
+
+
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
     # Create a custom scorer for case-insensitive matching
     @scorer(name="case_insensitive_match")
@@ -308,3 +338,47 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
     # "monde" vs "monde" (exact match) -> 1.0
     assert testing_adapter.captured_scores == [1.0, 1.0]
     assert len(result.optimized_prompts) == 1
+
+
+@pytest.mark.parametrize(
+    ("train_data", "error_type", "error_match"),
+    [
+        # Empty dataset validation (handled by _convert_eval_set_to_df)
+        ([], "MlflowException", "The dataset is empty"),
+        # Missing inputs validation (handled by _convert_eval_set_to_df)
+        ([{"outputs": "Hola"}], "MlflowException", "Either `inputs` or `trace` column is required"),
+        # Empty inputs validation
+        (
+            [{"inputs": {}, "outputs": "Hola"}],
+            "ValueError",
+            "Record 0 is missing required 'inputs' field or it is empty",
+        ),
+        # Missing both outputs and expectations
+        (
+            [{"inputs": {"text": "Hello"}}],
+            "ValueError",
+            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
+        ),
+        # Both outputs and expectations are None
+        (
+            [{"inputs": {"text": "Hello"}, "outputs": None, "expectations": None}],
+            "ValueError",
+            r"Record 0 must have at least one non-empty field: 'outputs' or 'expectations'",
+        ),
+    ],
+)
+def test_optimize_prompts_validation_errors(
+    sample_translation_prompt, train_data, error_type, error_match
+):
+    error_class = MlflowException if error_type == "MlflowException" else ValueError
+
+    with pytest.raises(error_class, match=error_match):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=train_data,
+            prompt_uris=[
+                f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
+            ],
+            optimizer=MockPromptAdapter(),
+            scorers=[equivalence],
+        )
