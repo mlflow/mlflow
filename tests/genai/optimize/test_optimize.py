@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -379,5 +380,5 @@ def test_optimize_prompts_validation_errors(
                 f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
             ],
             optimizer=MockPromptAdapter(),
-            scorers=[output_equivalence],
+            scorers=[equivalence],
         )
