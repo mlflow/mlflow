@@ -179,7 +179,11 @@ async def _run_test_chat_stream(resp, provider):
             {
                 "choices": [
                     {
-                        "delta": {"content": None, "role": "assistant"},
+                        "delta": {
+                            "content": None,
+                            "role": "assistant",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -191,7 +195,15 @@ async def _run_test_chat_stream(resp, provider):
             },
             {
                 "choices": [
-                    {"delta": {"content": "test", "role": None}, "finish_reason": None, "index": 0}
+                    {
+                        "delta": {
+                            "content": "test",
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -200,7 +212,15 @@ async def _run_test_chat_stream(resp, provider):
             },
             {
                 "choices": [
-                    {"delta": {"content": None, "role": None}, "finish_reason": "stop", "index": 0}
+                    {
+                        "delta": {
+                            "content": None,
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": "stop",
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",

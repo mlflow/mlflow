@@ -195,9 +195,17 @@ class ChatUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class ToolCallDelta(BaseModel):
+    index: int
+    id: str | None = None
+    type: str | None = None
+    function: Function
+
+
 class ChatChoiceDelta(BaseModel):
     role: str | None = None
     content: str | None = None
+    tool_calls: list[ToolCallDelta] | None = None
 
 
 class ChatChunkChoice(BaseModel):

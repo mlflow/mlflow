@@ -71,7 +71,7 @@ jobs:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
-          fetch-depth: 300
+          fetch-depth: 100
       - name: Check diff
         id: diff
         env:
@@ -193,7 +193,7 @@ jobs:
           repository: ${{ needs.check-comment.outputs.repository }}
           ref: ${{ needs.check-comment.outputs.head_ref }}
           # Set fetch-depth to merge the base branch
-          fetch-depth: 300
+          fetch-depth: 100
           # As reported in https://github.com/orgs/community/discussions/25702, if an action pushes
           # code using `GITHUB_TOKEN`, that won't trigger new workflow runs on the PR.
           # A personal access token is required to trigger new workflow runs.
