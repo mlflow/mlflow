@@ -25,6 +25,7 @@ from mlflow.entities import (
     Metric,
     Param,
     Run,
+    RunInputs,
     RunStatus,
     RunTag,
     ViewType,
@@ -1051,6 +1052,12 @@ def _log_inputs_for_metrics_if_necessary(
                 datasets_to_log.append(DatasetInput(matching_dataset._to_mlflow_entity(), tags=[]))
     if models_to_log or datasets_to_log:
         client.log_inputs(run.info.run_id, models=models_to_log, datasets=datasets_to_log)
+        # update in-memory run inputs to avoid duplicate logging
+        if run.inputs is None:
+            run._inputs = RunInputs(dataset_inputs=datasets_to_log, model_inputs=models_to_log)
+        else:
+            run._inputs._model_inputs.extend(models_to_log)
+            run._inputs._dataset_inputs.extend(datasets_to_log)
 
 
 def _get_model_ids_for_new_metric_if_exist(run: Run, metric_step: str) -> list[str]:

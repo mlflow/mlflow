@@ -2359,3 +2359,16 @@ def test_log_metrics_not_fetching_run_if_active():
         with mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run:
             mlflow.log_metrics({"metric": 1})
             mock_client_get_run.assert_not_called()
+
+
+def test_log_metrics_with_active_model_log_model_once():
+    mlflow.set_active_model(name="test_model")
+    with mlflow.start_run():
+        with (
+            mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run,
+            mock.patch("mlflow.tracking.fluent.MlflowClient.log_inputs") as mock_client_log_inputs,
+        ):
+            mlflow.log_metrics({"metric": 1})
+            mlflow.log_metrics({"metric": 2})
+            mock_client_get_run.assert_not_called()
+            mock_client_log_inputs.assert_called_once()
