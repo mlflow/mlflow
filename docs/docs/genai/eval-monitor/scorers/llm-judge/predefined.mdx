@@ -75,6 +75,7 @@ results = mlflow.genai.evaluate(
 | <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes\*                  | No                    |
 | <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                       | Is the app's response equivalent to the expected output?     | Yes                    | No                    |
 | <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    | ⚠️ **Trace Required** |

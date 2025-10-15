@@ -31,10 +31,10 @@
   <rect x="240" y="150" width="30" height="25" class="label-bg"/>
   <text x="255" y="167" text-anchor="middle" class="text-small">Build</text>
   
-  <!-- Stage 2: Evaluation Dataset -->
+  <!-- Stage 2: Training Dataset -->
   <g id="stage2">
     <rect x="280" y="120" width="180" height="100" class="box process-box"/>
-    <text x="370" y="155" text-anchor="middle" class="text-title">Evaluation</text>
+    <text x="370" y="155" text-anchor="middle" class="text-title">Training</text>
     <text x="370" y="175" text-anchor="middle" class="text-title">Dataset</text>
     <text x="370" y="200" text-anchor="middle" class="text-small">Inputs + Current Outputs</text>
   </g>
@@ -44,11 +44,11 @@
   <rect x="470" y="150" width="30" height="25" class="label-bg"/>
   <text x="485" y="167" text-anchor="middle" class="text-small">Run</text>
   
-  <!-- Stage 3: Prompt Adaptation -->
+  <!-- Stage 3: Prompt Optimization -->
   <g id="stage3">
     <rect x="510" y="120" width="180" height="100" class="box process-box"/>
     <text x="600" y="155" text-anchor="middle" class="text-title">Prompt</text>
-    <text x="600" y="175" text-anchor="middle" class="text-title">Adaptation</text>
+    <text x="600" y="175" text-anchor="middle" class="text-title">Optimization</text>
     <text x="600" y="200" text-anchor="middle" class="text-small">Optimize prompts</text>
   </g>
   
@@ -73,7 +73,7 @@
     <circle cx="75" cy="320" r="4" fill="#7B1FA2"/>
     <text x="100" y="320" class="text-body" font-weight="bold">Current LLM</text>
     <text x="100" y="340" class="text-small">(e.g., GPT-4o)</text>
-    <text x="100" y="360" class="text-small" fill="#999">Source model</text>
+    <text x="100" y="360" class="text-small" fill="#999">Original model</text>
   </g>
   
   <g id="new-model">
