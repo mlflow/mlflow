@@ -722,8 +722,7 @@ class DatabricksTracingRestStore(RestStore):
 
         traces_by_location = self._group_traces_by_location(trace_ids)
 
-        v3_trace_ids = traces_by_location.pop(None, [])
-        if v3_trace_ids:
+        if v3_trace_ids := traces_by_location.pop(None, []):
             raise MlflowException(
                 "Unlinking V3 traces from runs is not supported. Only V4 traces (with UC "
                 "schema locations) can be unlinked. Unsupported trace IDs: "
