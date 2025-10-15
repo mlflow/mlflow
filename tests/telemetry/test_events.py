@@ -152,7 +152,7 @@ def test_log_assessment_parse_params_with_feedback():
 
     feedback = Feedback(name="test_feedback", value=1.0)
     arguments = {"assessment": feedback, "trace_id": "test_trace"}
-    assert LogAssessmentEvent.parse(arguments) == {"type": "feedback"}
+    assert LogAssessmentEvent.parse(arguments) == {"type": "feedback", "source_type": "CODE"}
 
 
 def test_log_assessment_parse_params_with_expectation():
@@ -160,4 +160,4 @@ def test_log_assessment_parse_params_with_expectation():
 
     expectation = Expectation(name="test_expectation", value="expected_value")
     arguments = {"assessment": expectation, "trace_id": "test_trace"}
-    assert LogAssessmentEvent.parse(arguments) == {"type": "expectation"}
+    assert LogAssessmentEvent.parse(arguments) == {"type": "expectation", "source_type": "HUMAN"}

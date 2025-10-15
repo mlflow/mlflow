@@ -54,11 +54,9 @@ class LogAssessmentEvent(Event):
             return None
 
         if isinstance(assessment, Expectation):
-            return {"type": "expectation"}
+            return {"type": "expectation", "source_type": assessment.source.source_type}
         elif isinstance(assessment, Feedback):
-            return {"type": "feedback"}
-        else:
-            return None
+            return {"type": "feedback", "source_type": assessment.source.source_type}
 
 
 class EvaluateEvent(Event):

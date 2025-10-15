@@ -294,11 +294,17 @@ def test_log_assessment(mock_requests, mock_telemetry_client: TelemetryClient):
 
         mlflow.log_assessment(trace_id=span.trace_id, assessment=feedback)
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LogAssessmentEvent.name, {"type": "feedback"}
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
     )
     mlflow.log_feedback(trace_id=span.trace_id, value=0.9, name="faithfulness")
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LogAssessmentEvent.name, {"type": "feedback"}
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
     )
 
     with mlflow.start_span(name="test_span2") as span:
@@ -309,11 +315,17 @@ def test_log_assessment(mock_requests, mock_telemetry_client: TelemetryClient):
 
         mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LogAssessmentEvent.name, {"type": "expectation"}
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
     )
     mlflow.log_expectation(trace_id=span.trace_id, value="MLflow", name="expected_answer")
     validate_telemetry_record(
-        mock_telemetry_client, mock_requests, LogAssessmentEvent.name, {"type": "expectation"}
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
     )
 
 
