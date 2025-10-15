@@ -511,6 +511,156 @@ async def test_gemini_chat_function_calling():
     )
 
 
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_second_turn():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    payload["messages"].extend([{
+        "role": "assistant",
+        "tool_calls": [
+          {
+            "id": "call_001",
+            "function": {
+              "arguments": "{\"location\": \"Singapore\"}",
+              "name": "get_weather"
+            },
+            "type": "function"
+          }
+        ]
+      },
+      {
+        "role": "tool",
+        "tool_call_id": "call_001",
+        "content": "{\"temperature\": 31.2, \"condition\": \"sunny\"}"
+      }
+    ])
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "The weather in Singapore today is sunny with a temperature of 31.2 degrees."}
+                    ]
+                },
+                "finishReason": "stop",
+            }
+        ]
+    }
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    assert jsonable_encoder(response) == {
+      "id": "gemini-chat-1234567890",
+      "object": "chat.completion",
+      "created": 1234567890,
+      "model": "gemini-2.0-flash",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "The weather in Singapore today is sunny with a temperature of 31.2 degrees.",
+            "tool_calls": None,
+            "refusal": None
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+      }
+    }
+
+    expected_payload = {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What's the weather like in Singapore today?"
+            }
+          ]
+        },
+        {
+          "role": "model",
+          "parts": [
+            {
+              "functionCall": {
+                "id": "call_001",
+                "name": "get_weather",
+                "args": {
+                  "location": "Singapore"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "role": "function",
+          "parts": [
+            {
+              "functionResponse": {
+                "id": "call_001",
+                "name": "get_weather",
+                "response": {
+                  "temperature": 31.2,
+                  "condition": "sunny"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "temperature": 0.5,
+        "candidateCount": 1
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "get_weather",
+              "description": "Get current temperature for a given location.",
+              "parametersJsonSchema": {
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "The name of a city"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "location"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
 def chat_stream_response():
     return [
         b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'

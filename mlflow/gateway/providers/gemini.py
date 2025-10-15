@@ -167,7 +167,6 @@ class GeminiAdapter(ProviderAdapter):
                 "functionDeclarations": function_declarations
             }]
 
-        print(f"DBG: {json.dumps(gemini_payload, indent=2)}")
         return gemini_payload
 
     @classmethod
