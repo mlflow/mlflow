@@ -1609,7 +1609,7 @@ def test_update_scorer(mock_get_request_message, mock_tracking_store):
     resp = _update_scorer()
 
     mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
-        experiment_id, name, sample_rate, None
+        experiment_id, name, sample_rate, None, None, None
     )
 
     response_data = json.loads(resp.get_data())
@@ -1638,7 +1638,7 @@ def test_update_scorer_no_sample_rate(mock_get_request_message, mock_tracking_st
     resp = _update_scorer()
 
     mock_tracking_store.update_registered_scorer_sampling.assert_called_once_with(
-        experiment_id, name, None, None
+        experiment_id, name, None, None, None, None
     )
 
     response_data = json.loads(resp.get_data())
