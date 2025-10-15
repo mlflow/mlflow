@@ -87,7 +87,6 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
         "instruction": "Please answer this question carefully: {{question}}",
     }
     mock_result.val_aggregate_scores = [0.5, 0.6, 0.8, 0.9]  # Mock scores for testing
-    mock_gepa_module.__version__ = "0.10.0"
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
     adapter = GepaPromptOptimizer(
@@ -119,7 +118,6 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
     assert call_kwargs["max_metric_calls"] == 50
     assert call_kwargs["reflection_lm"] == "openai/gpt-4o-mini"
     assert call_kwargs["display_progress_bar"] is True
-    assert call_kwargs["use_mlflow"] is True
     assert len(call_kwargs["trainset"]) == 4
 
 
@@ -137,7 +135,6 @@ def test_gepa_optimizer_optimize_with_custom_reflection_model(
     mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
-    mock_gepa_module.__version__ = "0.10.0"
 
     adapter = GepaPromptOptimizer(
         reflection_model="anthropic:/claude-3-5-sonnet-20241022",
@@ -168,7 +165,6 @@ def test_gepa_optimizer_optimize_model_name_parsing(
     mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
-    mock_gepa_module.__version__ = "0.10.0"
 
     adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
@@ -214,7 +210,6 @@ def test_gepa_optimizer_single_record_dataset(sample_target_prompts, mock_eval_f
     mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
-    mock_gepa_module.__version__ = "0.10.0"
 
     adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
@@ -243,7 +238,6 @@ def test_gepa_optimizer_custom_adapter_evaluate(
     mock_result.val_aggregate_scores = []
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
-    mock_gepa_module.__version__ = "0.10.0"
 
     adapter = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 

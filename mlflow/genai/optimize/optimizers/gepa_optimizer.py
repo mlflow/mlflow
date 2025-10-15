@@ -1,3 +1,4 @@
+import importlib.metadata
 from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
@@ -200,7 +201,8 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             "display_progress_bar": self.display_progress_bar,
             "use_mlflow": enable_tracking,
         }
-        if Version(gepa.__version__) < Version("0.10.0"):
+
+        if Version(importlib.metadata.version("gepa")) < Version("0.10.0"):
             kwargs.pop("use_mlflow")
         gepa_result = gepa.optimize(**kwargs)
 
