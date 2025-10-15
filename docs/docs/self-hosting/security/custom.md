@@ -1,6 +1,6 @@
 # Custom Authentication
 
-MLflow authentication system is designed to be extensible. You can use custom authentication methods through plugins or pluggable functions.
+MLflow's authentication system is designed to be extensible. You can use custom authentication methods through plugins or pluggable functions.
 
 ### Using a Plugin
 
@@ -56,7 +56,7 @@ mlflow server --app-name my-auth
 
 ### Using a Function
 
-You can configure the server to use a custom authentication function upon the MLflow's authentication system.
+You can configure the server to use a custom authentication function extending MLflow's authentication system.
 
 First, install the auth extension:
 
@@ -81,7 +81,7 @@ def custom_authenticate() -> Union[Authorization, Response]:
     pass
 ```
 
-Then, update the auth configuration to use your custom function. The config file is located at `mlflow/server/auth/basic_auth.ini` by default. Alternatively, assign the environment variable `MLFLOW_AUTH_CONFIG_PATH` to pointto your custom configuration file. Set the `authorization_function` setting with the value specifies `module_name:function_name`. The function has the following signature:
+Then, update the auth configuration to use your custom function. The config file is located at `mlflow/server/auth/basic_auth.ini` by default. Alternatively, assign the environment variable `MLFLOW_AUTH_CONFIG_PATH` to point to your custom configuration file. Set the `authorization_function` setting with the value specifies `module_name:function_name`. The function has the following signature:
 
 ```ini
 # /path/to/auth_config.ini

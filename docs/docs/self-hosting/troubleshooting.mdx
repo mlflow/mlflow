@@ -30,7 +30,7 @@ MLflow uses logical deletion for the Runs and Models to avoid accidental deletio
 
 Not necessarily. SDK and the server within the same major version are expected to work together. Also most of APIs are backward compatible between v2 and v3, to make the migration smoother.
 
-That being said, the general recommendation is to keep the client and the server up-to-date to get the latest features and bug fixes.
+That being said, the general recommendation is to keep the client and the server up-to-date to get the latest features and bug fixes. If the backend version is lower than the client version, new features may not be available because of the table definition mismatch.
 
 ## Support
 

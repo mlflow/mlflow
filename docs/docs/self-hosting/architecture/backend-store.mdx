@@ -15,20 +15,27 @@ Runs, models, traces, and experiments such as:
 - Parameters
 - Metrics
 
-Large model artifacts such as model weight files are stored in [artifact store](/self-hosting/architecture/artifact-store).
+Large model artifacts such as model weight files are stored in the [artifact store](/self-hosting/architecture/artifact-store).
 
-## Type of Backend Stores
+## Types of Backend Stores
 
-### Local File System
+### Relational Database (**Recommended**)
+
+MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, and `mssql`. This option provides better performance through indexing and is easier to scale to larger volumes of data than the file system backend..
+
+SQLite is the easiest way to use to database backend. To use it, simply add `--backend-store-uri sqlite:///my.db` when starting MLflow. A database file will be created for you and it will be used to store your tracking data.
+
+### Local File System (**Deprecated Soon**)
 
 By default, MLflow stores metadata in local files in the `./mlruns` directory. This is for the pure sake of simplicity.
 For better performance and reliability, we always recommend using a database backend.
 
-### Relational Database (**Recommended**)
+:::warning[TO BE DEPRECATED SOON]
 
-MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, `mssql`. This option provides better performance through indexing and easy to scale horizontally.
+  File system backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow.
+  We recommend using the database backend instead. Database backend will also be the default option soon.
 
-SQLite is the easiest way to use to database backend. You just need to add `--backend-store-uri sqlite:///my.db`, then MLflow will create a database file and store the metadata there.
+:::
 
 ## Configure Backend Store
 
