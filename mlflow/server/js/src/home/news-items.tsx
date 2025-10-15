@@ -11,7 +11,10 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
     link: 'https://mlflow.org/docs/latest/genai/mcp/index.html',
     componentId: 'mlflow.home.news.auto_tune_llm_judge',
     thumbnail: {
-      gradient: 'linear-gradient(135deg, #E9F2FF 0%, #F4EBFF 100%)',
+      gradient: {
+        light: 'linear-gradient(135deg, #E9F2FF 0%, #F4EBFF 100%)',
+        dark: 'linear-gradient(135deg, #1E2633 0%, #2A2434 100%)',
+      },
       icon: AssistantIcon,
     },
   },
@@ -23,7 +26,10 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
     link: 'https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts',
     componentId: 'mlflow.home.news.optimize_prompts',
     thumbnail: {
-      gradient: 'linear-gradient(135deg, #E8F7F2 0%, #D5E8FF 100%)',
+      gradient: {
+        light: 'linear-gradient(135deg, #E8F7F2 0%, #D5E8FF 100%)',
+        dark: 'linear-gradient(135deg, #1E2B2A 0%, #1C2A3A 100%)',
+      },
       icon: NotebookIcon,
     },
   },
@@ -34,7 +40,10 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
     link: 'https://mlflow.org/docs/latest/genai/eval-monitor/scorers/llm-judge/agentic-overview/index.html',
     componentId: 'mlflow.home.news.agents_as_a_judge',
     thumbnail: {
-      gradient: 'linear-gradient(135deg, #FFF5E1 0%, #FFE2F2 100%)',
+      gradient: {
+        light: 'linear-gradient(135deg, #FFF5E1 0%, #FFE2F2 100%)',
+        dark: 'linear-gradient(135deg, #3A2A1C 0%, #3A2230 100%)',
+      },
       icon: RobotIcon,
     },
   },
@@ -45,7 +54,10 @@ export const homeNewsItems: HomeNewsItemDefinition[] = [
     link: 'https://mlflow.org/docs/latest/genai/datasets/',
     componentId: 'mlflow.home.news.dataset_tracking',
     thumbnail: {
-      gradient: 'linear-gradient(135deg, #E6F3FF 0%, #E0F1F6 100%)',
+      gradient: {
+        light: 'linear-gradient(135deg, #E6F3FF 0%, #E0F1F6 100%)',
+        dark: 'linear-gradient(135deg, #1F2B38 0%, #1E2A2F 100%)',
+      },
       icon: DatabaseIcon,
     },
   },
