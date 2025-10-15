@@ -393,6 +393,124 @@ async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
         await provider.chat(chat.RequestPayload(**payload))
 
 
+def chat_function_calling_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "What's the weather like in Singapore today?"},
+        ],
+        "temperature": 0.5,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    expected_payload = {
+      "contents": [
+        {
+          "role": "user",
+          "parts": [
+            {
+              "text": "What's the weather like in Singapore today?"
+            }
+          ]
+        }
+      ],
+      "generationConfig": {
+        "temperature": 0.5,
+        "candidateCount": 1
+      },
+      "tools": [
+        {
+          "functionDeclarations": [
+            {
+              "name": "get_weather",
+              "description": "Get current temperature for a given location.",
+              "parametersJsonSchema": {
+                "properties": {
+                  "location": {
+                    "type": "string",
+                    "description": "The name of a city"
+                  }
+                },
+                "type": "object",
+                "required": [
+                  "location"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(fake_chat_response()),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    expected_response = {
+      "id": "gemini-chat-1234567890",
+      "object": "chat.completion",
+      "created": 1234567890,
+      "model": "gemini-2.0-flash",
+      "choices": [
+        {
+          "index": 0,
+          "message": {
+            "role": "assistant",
+            "content": "Why did the chicken cross the road? To get to the other side.",
+            "tool_calls": None,
+            "refusal": None,
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "usage": {
+        "prompt_tokens": 6,
+        "completion_tokens": 12,
+        "total_tokens": 18
+      }
+    }
+
+    assert jsonable_encoder(response) == expected_response
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
 def chat_stream_response():
     return [
         b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
@@ -467,6 +585,75 @@ async def test_gemini_chat_stream(resp):
                 }
             ],
         },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
+
+
+def chat_function_calling_stream_response():
+    return [
+        b'data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "get_weather", '
+        b'"args": {"location": "Singapore"}}}],"role": "model"},"finishReason": "STOP","index": 0'
+        b'}]}\n',
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_stream():
+    config = chat_config()
+    resp = chat_function_calling_stream_response()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload(stream=True)
+
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+      {
+        "id": "gemini-chat-stream-1",
+        "object": "chat.completion.chunk",
+        "created": 1,
+        "model": "gemini-2.0-flash",
+        "choices": [
+          {
+            "index": 0,
+            "finish_reason": "STOP",
+            "delta": {
+              "role": "assistant",
+              "content": None,
+              "tool_calls": [
+                {
+                  "index": 0,
+                  "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
+                  "type": "function",
+                  "function": {
+                    "name": "get_weather",
+                    "arguments": "{\"location\": \"Singapore\"}"
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
     ]
 
     mock_build_client.assert_called_once()
