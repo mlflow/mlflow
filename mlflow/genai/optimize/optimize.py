@@ -1,6 +1,7 @@
 import logging
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
@@ -15,7 +16,11 @@ from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     PromptOptimizationResult,
 )
-from mlflow.genai.optimize.util import create_metric_from_scorers, validate_train_data
+from mlflow.genai.optimize.util import (
+    create_metric_from_scorers,
+    prompt_optimization_autolog,
+    validate_train_data,
+)
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
@@ -41,6 +46,7 @@ def optimize_prompts(
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
     aggregation: AggregationFn | None = None,
+    enable_tracking: bool = True,
 ) -> PromptOptimizationResult:
     """
     Automatically optimize prompts using evaluation metrics and training data.
@@ -81,6 +87,13 @@ def optimize_prompts(
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
+        enable_tracking: If True (default), automatically creates an MLflow run if no active
+            run exists and logs the following information:
+            - The optimization scores (initial, final, improvement)
+            - Links to the optimized prompt versions
+            - The optimizer name and parameters
+            - Optimization progress
+            If False, no MLflow run is created and no tracking occurs.
 
     Returns:
         The optimization result object that includes the optimized prompts
@@ -160,7 +173,8 @@ def optimize_prompts(
             )
     """
     # TODO: Add dataset validation
-    converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
+    train_data_df = _convert_eval_set_to_df(train_data)
+    converted_train_data = train_data_df.to_dict("records")
     validate_train_data(converted_train_data)
 
     predict_fn = convert_predict_fn(
@@ -171,15 +185,33 @@ def optimize_prompts(
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
+
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
-    optimizer_output = optimizer.optimize(eval_fn, converted_train_data, target_prompts_dict)
+    with (
+        prompt_optimization_autolog(
+            optimizer_name=optimizer.__class__.__name__,
+            num_prompts=len(target_prompts),
+            num_training_samples=len(converted_train_data),
+            train_data_df=train_data_df,
+        )
+        if enable_tracking
+        else nullcontext({})
+    ) as log_results:
+        optimizer_output = optimizer.optimize(
+            eval_fn, converted_train_data, target_prompts_dict, enable_tracking
+        )
 
-    return PromptOptimizationResult(
-        optimized_prompts=[
+        optimized_prompts = [
             register_prompt(name=prompt_name, template=prompt)
             for prompt_name, prompt in optimizer_output.optimized_prompts.items()
-        ],
+        ]
+
+        log_results["optimizer_output"] = optimizer_output
+        log_results["optimized_prompts"] = optimized_prompts
+
+    return PromptOptimizationResult(
+        optimized_prompts=optimized_prompts,
         optimizer_name=optimizer.__class__.__name__,
         initial_eval_score=optimizer_output.initial_eval_score,
         final_eval_score=optimizer_output.final_eval_score,

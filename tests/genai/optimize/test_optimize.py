@@ -14,7 +14,7 @@ class MockPromptAdapter(BasePromptOptimizer):
     def __init__(self, reflection_model="openai:/gpt-4o-mini"):
         self.model_name = reflection_model
 
-    def optimize(self, eval_fn, train_data, target_prompts):
+    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking=True):
         optimized_prompts = {}
         for prompt_name, template in target_prompts.items():
             # Simple optimization: add "Be precise and accurate. " prefix
@@ -156,7 +156,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
             self.model_name = "openai:/gpt-4o-mini"
             self.eval_fn_calls = []
 
-        def optimize(self, eval_fn, dataset, target_prompts):
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
             # Test that eval_fn works correctly
             test_prompts = {
                 "test_translation_prompt": "Prompt Candidate: "
@@ -236,7 +236,7 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
         def __init__(self):
             self.model_name = "test/custom-model"
 
-        def optimize(self, eval_fn, dataset, target_prompts):
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
             return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     testing_adapter = TestAdapter()
@@ -299,7 +299,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
             self.model_name = "openai:/gpt-4o-mini"
             self.captured_scores = []
 
-        def optimize(self, eval_fn, dataset, target_prompts):
+        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
             # Run eval_fn and capture the scores
             results = eval_fn(target_prompts, dataset)
             self.captured_scores = [r.score for r in results]

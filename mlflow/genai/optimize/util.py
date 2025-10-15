@@ -1,10 +1,64 @@
 import functools
-from typing import Any, Callable
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
+from mlflow.tracking.client import MlflowClient
+
+if TYPE_CHECKING:
+    import pandas as pd
+
+
+@contextmanager
+def prompt_optimization_autolog(
+    optimizer_name: str,
+    num_prompts: int,
+    num_training_samples: int,
+    train_data_df: "pd.DataFrame",
+):
+    """
+    Context manager for autologging prompt optimization runs.
+
+    Args:
+        optimizer_name: Name of the optimizer being used
+        num_prompts: Number of prompts being optimized
+        num_training_samples: Number of training samples
+        train_data_df: Training data as a pandas DataFrame
+
+    Yields:
+        Tuple of (run_id, results_dict) where results_dict should be populated with
+        PromptOptimizerOutput and list of optimized PromptVersion objects
+    """
+    import mlflow.data
+
+    with mlflow.start_run() if mlflow.active_run() is None else mlflow.active_run() as run:
+        client = MlflowClient()
+        run_id = run.info.run_id
+
+        mlflow.log_param("optimizer", optimizer_name)
+        mlflow.log_param("num_prompts", num_prompts)
+        mlflow.log_param("num_training_samples", num_training_samples)
+
+        # Log training dataset as run input
+        dataset = mlflow.data.from_pandas(train_data_df, source="prompt_optimization_train_data")
+        mlflow.log_input(dataset, context="training")
+
+        results = {}
+        yield results
+
+        if "optimized_prompts" in results:
+            for prompt in results["optimized_prompts"]:
+                client.link_prompt_version_to_run(run_id=run_id, prompt=prompt)
+
+        if "optimizer_output" in results:
+            output = results["optimizer_output"]
+            if output.initial_eval_score is not None:
+                mlflow.log_metric("initial_eval_score", output.initial_eval_score)
+            if output.final_eval_score is not None:
+                mlflow.log_metric("final_eval_score", output.final_eval_score)
 
 
 def validate_train_data(train_data: list[dict[str, Any]]) -> None:

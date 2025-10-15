@@ -18,6 +18,7 @@ class BasePromptOptimizer(ABC):
         eval_fn: _EvalFunc,
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
+        enable_tracking: bool = True,
     ) -> PromptOptimizerOutput:
         """
         Optimize the target prompts using the given evaluation function,
@@ -31,6 +32,7 @@ class BasePromptOptimizer(ABC):
                 include the inputs and outputs fields with dict values.
             target_prompts: The target prompt templates to use. The key is the prompt template
                 name and the value is the prompt template.
+            enable_tracking: If True (default), automatically log optimization progress.
 
         Returns:
             The outputs of the prompt adapter that includes the optimized prompts
