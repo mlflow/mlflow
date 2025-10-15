@@ -279,7 +279,7 @@ def _build_eval_fn(
         try:
             with ThreadPoolExecutor(
                 max_workers=MLFLOW_GENAI_EVAL_MAX_WORKERS.get(),
-                thread_name_prefix="MLflowPromptAdaptation",
+                thread_name_prefix="MLflowPromptOptimization",
             ) as executor:
                 futures = [executor.submit(_run_single, record) for record in dataset]
                 results = [future.result() for future in futures]

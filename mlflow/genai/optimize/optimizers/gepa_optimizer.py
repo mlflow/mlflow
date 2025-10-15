@@ -102,7 +102,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             enable_tracking: If True (default), automatically log optimization progress.
 
         Returns:
-            The outputs of the prompt adapter that includes the optimized prompts
+            The outputs of the prompt optimizer that includes the optimized prompts
             as a dict (prompt template name -> prompt template).
         """
         from mlflow.metrics.genai.model_utils import _parse_model_uri
