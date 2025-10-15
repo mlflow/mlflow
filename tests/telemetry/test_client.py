@@ -16,7 +16,7 @@ from mlflow.telemetry.client import (
     TelemetryClient,
     get_telemetry_client,
 )
-from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent, ImportMlflowEvent
+from mlflow.telemetry.events import CreateLoggedModelEvent, CreateRunEvent
 from mlflow.telemetry.schemas import Record, SourceSDK, Status
 from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
@@ -837,10 +837,7 @@ def test_disable_events(mock_requests):
         ):
             mlflow.initialize_logged_model(name="model", tags={"key": "value"})
             telemetry_client.flush()
-            assert len(mock_requests) == 1
-            validate_telemetry_record(
-                telemetry_client, mock_requests, ImportMlflowEvent.name, check_params=False
-            )
+            assert len(mock_requests) == 0
 
             with mlflow.start_run():
                 pass

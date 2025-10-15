@@ -1580,12 +1580,14 @@ def spark_session_with_registry_uri(request):
         yield spark
 
 
-def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
+def test_registry_uri_from_spark_conf(
+    spark_session_with_registry_uri, monkeypatch: pytest.MonkeyPatch
+):
     assert mlflow.get_registry_uri() == "http://custom.uri"
     # The MLFLOW_REGISTRY_URI environment variable should still take precedence over the
     # spark conf if present
-    with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
-        assert mlflow.get_registry_uri() == "something-else"
+    monkeypatch.setenv(MLFLOW_REGISTRY_URI.name, "something-else")
+    assert mlflow.get_registry_uri() == "something-else"
 
 
 def test_set_experiment_thread_safety(tmp_path):

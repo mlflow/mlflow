@@ -1934,11 +1934,12 @@ class SqlScorerVersion(Base):
         from mlflow.entities.scorer import ScorerVersion
 
         return ScorerVersion(
-            experiment_id=self.scorer.experiment_id,
+            experiment_id=str(self.scorer.experiment_id),
             scorer_name=self.scorer.scorer_name,
             scorer_version=self.scorer_version,
             serialized_scorer=self.serialized_scorer,
             creation_time=self.creation_time,
+            scorer_id=self.scorer_id,
         )
 
 

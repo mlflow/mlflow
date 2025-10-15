@@ -71,12 +71,19 @@ def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
         return None
 
     # Check if the object contains messages with OpenAI ChatCompletion format
-    if messages := obj.get("messages"):
+    if (messages := obj.get("messages")) and isinstance(messages, list):
         return [item for item in messages if _is_message(item)]
 
     # Check if the object contains a message in OpenAI ChatCompletion response format (choices)
-    if (choices := obj.get("choices")) and len(choices) > 0:
-        return [choices[0].get("message")]
+    if (
+        (choices := obj.get("choices"))
+        and isinstance(choices, list)
+        and len(choices) > 0
+        and isinstance(choices[0], dict)
+        and (msg := choices[0].get("message"))
+        and _is_message(msg)
+    ):
+        return [msg]
 
     # Check if the object contains a message in OpenAI Responses API request format
     if (input := obj.get("input")) and isinstance(input, list):
@@ -94,12 +101,10 @@ def _try_extract_messages(obj: dict[str, Any]) -> list[dict[str, Any]] | None:
 
 
 def _is_message(item: Any) -> bool:
-    if not isinstance(item, dict):
-        return False
-    return "role" in item and "content" in item
+    return isinstance(item, dict) and "role" in item and "content" in item
 
 
-def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any] | None:
+def _get_last_message(messages: list[dict[str, Any]], role: str) -> dict[str, Any]:
     """
     Return last message with the given role.
     If the messages don't include a message with the given role, return the last one.
