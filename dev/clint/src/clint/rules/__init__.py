@@ -24,6 +24,7 @@ from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.mock_patch_as_decorator import MockPatchAsDecorator
 from clint.rules.mock_patch_dict_environ import MockPatchDictEnviron
 from clint.rules.multi_assign import MultiAssign
+from clint.rules.nested_mock_patch import NestedMockPatch
 from clint.rules.no_class_based_tests import NoClassBasedTests
 from clint.rules.no_rst import NoRst
 from clint.rules.no_shebang import NoShebang
@@ -74,6 +75,7 @@ __all__ = [
     "MlflowClassName",
     "MockPatchDictEnviron",
     "MockPatchAsDecorator",
+    "NestedMockPatch",
     "NoClassBasedTests",
     "NoRst",
     "NoShebang",

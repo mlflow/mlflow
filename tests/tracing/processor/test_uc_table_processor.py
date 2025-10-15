@@ -88,19 +88,21 @@ def test_trace_id_generation_with_uc_schema():
     trace_id = 12345
     span = create_mock_otel_span(trace_id=trace_id, span_id=1, parent_id=None, start_time=5_000_000)
 
-    with mock.patch(
-        "mlflow.tracing.processor.uc_table.get_active_spans_table_name",
-        return_value="catalog1.schema1.spans_table",
-    ):
-        with mock.patch(
+    with (
+        mock.patch(
+            "mlflow.tracing.processor.uc_table.get_active_spans_table_name",
+            return_value="catalog1.schema1.spans_table",
+        ),
+        mock.patch(
             "mlflow.tracing.processor.uc_table.generate_trace_id_v4",
             return_value="trace:/catalog1.schema1/12345",
-        ) as mock_generate_trace_id:
-            processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
-            processor.on_start(span)
+        ) as mock_generate_trace_id,
+    ):
+        processor = DatabricksUCTableSpanProcessor(span_exporter=mock.MagicMock())
+        processor.on_start(span)
 
-            # Verify generate_trace_id_v4 was called with correct arguments
-            mock_generate_trace_id.assert_called_once_with(span, "catalog1.schema1")
+        # Verify generate_trace_id_v4 was called with correct arguments
+        mock_generate_trace_id.assert_called_once_with(span, "catalog1.schema1")
 
 
 def test_on_end():
