@@ -61,7 +61,7 @@ def list_scorers(experiment_id: str, output: str) -> None:
         click.echo(_create_table(table, headers=["Scorer Name"]))
 
 
-@commands.command("create-llm-judge")
+@commands.command("register-llm-judge")
 @click.option(
     "--name",
     "-n",
@@ -98,27 +98,30 @@ def list_scorers(experiment_id: str, output: str) -> None:
     required=True,
     help="Experiment ID to register the judge in. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
-def create_llm_judge(name: str, instructions: str, model: str | None, experiment_id: str) -> None:
+def register_llm_judge(name: str, instructions: str, model: str | None, experiment_id: str) -> None:
     """
-    Create and register an LLM judge scorer for the specified experiment.
+    Register an LLM judge scorer in the specified experiment.
+
+    This command creates an LLM judge using natural language instructions and registers
+    it in an experiment for use in evaluation workflows.
 
     Examples:
 
     \b
-    # Create a basic quality judge
-    mlflow scorers create-llm-judge -n quality_judge \\
+    # Register a basic quality judge
+    mlflow scorers register-llm-judge -n quality_judge \\
         -i "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." -x 123
 
     \b
-    # Create a judge with custom model
-    mlflow scorers create-llm-judge -n custom_judge \\
+    # Register a judge with custom model
+    mlflow scorers register-llm-judge -n custom_judge \\
         -i "Check whether {{ outputs }} is professional and formal. \\
             Rate pass, fail, or na" -m "openai:/gpt-4" -x 123
 
     \b
     # Using environment variable
     export MLFLOW_EXPERIMENT_ID=123
-    mlflow scorers create-llm-judge -n my_judge -i "Check whether {{ outputs }} contains PII"
+    mlflow scorers register-llm-judge -n my_judge -i "Check whether {{ outputs }} contains PII"
     """
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges import make_judge

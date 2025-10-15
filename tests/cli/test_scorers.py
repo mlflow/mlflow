@@ -223,7 +223,7 @@ def test_create_judge_basic(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "test_judge",
             "--instructions",
@@ -247,7 +247,7 @@ def test_create_judge_with_model(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "custom_model_judge",
             "--instructions",
@@ -276,7 +276,7 @@ def test_create_judge_short_options(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "-n",
             "short_options_judge",
             "-i",
@@ -299,7 +299,7 @@ def test_create_judge_with_env_var(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "env_var_judge",
             "--instructions",
@@ -326,7 +326,7 @@ def test_create_judge_with_env_var(runner, experiment):
     ],
 )
 def test_create_judge_missing_required_params(runner, args, missing_param):
-    result = runner.invoke(commands, ["create-llm-judge"] + args)
+    result = runner.invoke(commands, ["register-llm-judge"] + args)
 
     assert result.exit_code != 0
     # Click typically shows "Missing option" for required parameters
@@ -337,7 +337,7 @@ def test_create_judge_invalid_prompt(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "invalid_judge",
             "--instructions",
@@ -360,7 +360,7 @@ def test_create_judge_special_characters_in_name(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "judge-with_special.chars",
             "--instructions",
@@ -384,7 +384,7 @@ def test_create_judge_duplicate_registration(runner, experiment):
     result1 = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "duplicate_judge",
             "--instructions",
@@ -403,7 +403,7 @@ def test_create_judge_duplicate_registration(runner, experiment):
     result2 = runner.invoke(
         commands,
         [
-            "create-llm-judge",
+            "register-llm-judge",
             "--name",
             "duplicate_judge",
             "--instructions",

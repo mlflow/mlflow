@@ -24,7 +24,6 @@ async def client() -> AsyncIterator[Client]:
 async def test_list_tools(client: Client):
     tools = await client.list_tools()
     assert sorted(t.name for t in tools) == [
-        "create_llm_judge",
         "delete_assessment",
         "delete_trace_tag",
         "delete_traces",
@@ -34,6 +33,7 @@ async def test_list_tools(client: Client):
         "list_scorers",
         "log_expectation",
         "log_feedback",
+        "register_llm_judge",
         "search_traces",
         "set_trace_tag",
         "update_assessment",
