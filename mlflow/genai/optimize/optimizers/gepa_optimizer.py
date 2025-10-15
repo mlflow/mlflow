@@ -202,8 +202,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         }
         if Version(gepa.__version__) < Version("0.10.0"):
             kwargs.pop("use_mlflow")
-        else:
-            gepa_result = gepa.optimize(**kwargs)
+        gepa_result = gepa.optimize(**kwargs)
 
         optimized_prompts = gepa_result.best_candidate
         initial_score, final_score = self._extract_eval_scores(gepa_result)
