@@ -223,10 +223,10 @@ def test_create_judge_basic(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "test_judge",
-            "--prompt",
+            "--instructions",
             "Evaluate {{ outputs }}",
             "--experiment-id",
             experiment,
@@ -247,10 +247,10 @@ def test_create_judge_with_model(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "custom_model_judge",
-            "--prompt",
+            "--instructions",
             "Check {{ inputs }} and {{ outputs }}",
             "--model",
             "openai:/gpt-4",
@@ -276,10 +276,10 @@ def test_create_judge_short_options(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "-n",
             "short_options_judge",
-            "-p",
+            "-i",
             "Evaluate {{ outputs }}",
             "-x",
             experiment,
@@ -299,10 +299,10 @@ def test_create_judge_with_env_var(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "env_var_judge",
-            "--prompt",
+            "--instructions",
             "Check {{ outputs }}",
         ],
         env={"MLFLOW_EXPERIMENT_ID": experiment},
@@ -320,13 +320,13 @@ def test_create_judge_with_env_var(runner, experiment):
 @pytest.mark.parametrize(
     ("args", "missing_param"),
     [
-        (["--prompt", "test", "--experiment-id", "123"], "name"),
-        (["--name", "test", "--experiment-id", "123"], "prompt"),
-        (["--name", "test", "--prompt", "test"], "experiment-id"),
+        (["--instructions", "test", "--experiment-id", "123"], "name"),
+        (["--name", "test", "--experiment-id", "123"], "instructions"),
+        (["--name", "test", "--instructions", "test"], "experiment-id"),
     ],
 )
 def test_create_judge_missing_required_params(runner, args, missing_param):
-    result = runner.invoke(commands, ["create-judge"] + args)
+    result = runner.invoke(commands, ["create-llm-judge"] + args)
 
     assert result.exit_code != 0
     # Click typically shows "Missing option" for required parameters
@@ -337,10 +337,10 @@ def test_create_judge_invalid_prompt(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "invalid_judge",
-            "--prompt",
+            "--instructions",
             "This has no template variables",
             "--experiment-id",
             experiment,
@@ -360,10 +360,10 @@ def test_create_judge_special_characters_in_name(runner, experiment):
     result = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "judge-with_special.chars",
-            "--prompt",
+            "--instructions",
             "Evaluate {{ outputs }}",
             "--experiment-id",
             experiment,
@@ -384,10 +384,10 @@ def test_create_judge_duplicate_registration(runner, experiment):
     result1 = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "duplicate_judge",
-            "--prompt",
+            "--instructions",
             "Evaluate {{ outputs }}",
             "--experiment-id",
             experiment,
@@ -403,10 +403,10 @@ def test_create_judge_duplicate_registration(runner, experiment):
     result2 = runner.invoke(
         commands,
         [
-            "create-judge",
+            "create-llm-judge",
             "--name",
             "duplicate_judge",
-            "--prompt",
+            "--instructions",
             "Evaluate {{ outputs }}",
             "--experiment-id",
             experiment,

@@ -61,7 +61,7 @@ def list_scorers(experiment_id: str, output: str) -> None:
         click.echo(_create_table(table, headers=["Scorer Name"]))
 
 
-@commands.command("create-judge")
+@commands.command("create-llm-judge")
 @click.option(
     "--name",
     "-n",
@@ -70,13 +70,14 @@ def list_scorers(experiment_id: str, output: str) -> None:
     help="Name for the judge scorer",
 )
 @click.option(
-    "--prompt",
-    "-p",
+    "--instructions",
+    "-i",
     type=click.STRING,
     required=True,
     help=(
         "Natural language instructions for evaluation. Must contain at least one "
-        "template variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}."
+        "template variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}. "
+        "See the make_judge documentation for the interpretation of these variables."
     ),
 )
 @click.option(
@@ -97,33 +98,33 @@ def list_scorers(experiment_id: str, output: str) -> None:
     required=True,
     help="Experiment ID to register the judge in. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
-def create_judge(name: str, prompt: str, model: str | None, experiment_id: str) -> None:
+def create_llm_judge(name: str, instructions: str, model: str | None, experiment_id: str) -> None:
     """
-    Create and register a judge scorer for the specified experiment.
+    Create and register an LLM judge scorer for the specified experiment.
 
     Examples:
 
     \b
     # Create a basic quality judge
-    mlflow scorers create-judge -n quality_judge \\
-        -p "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." -x 123
+    mlflow scorers create-llm-judge -n quality_judge \\
+        -i "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." -x 123
 
     \b
     # Create a judge with custom model
-    mlflow scorers create-judge -n custom_judge \
-        -p "Check whether {{ outputs }} is professional and formal. \
+    mlflow scorers create-llm-judge -n custom_judge \\
+        -i "Check whether {{ outputs }} is professional and formal. \\
             Rate pass, fail, or na" -m "openai:/gpt-4" -x 123
 
     \b
     # Using environment variable
     export MLFLOW_EXPERIMENT_ID=123
-    mlflow scorers create-judge -n my_judge -p "Check whether {{ outputs }} contains PII"
+    mlflow scorers create-llm-judge -n my_judge -i "Check whether {{ outputs }} contains PII"
     """
     from mlflow.exceptions import MlflowException
     from mlflow.genai.judges import make_judge
 
     try:
-        judge = make_judge(name=name, instructions=prompt, model=model)
+        judge = make_judge(name=name, instructions=instructions, model=model)
         registered_judge = judge.register(experiment_id=experiment_id)
         click.echo(
             f"Successfully created and registered judge scorer '{registered_judge.name}' "
