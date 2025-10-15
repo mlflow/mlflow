@@ -16,7 +16,11 @@ from mlflow.genai.optimize.types import (
     EvaluationResultRecord,
     PromptOptimizationResult,
 )
-from mlflow.genai.optimize.util import create_metric_from_scorers, validate_train_data, prompt_optimization_autolog
+from mlflow.genai.optimize.util import (
+    create_metric_from_scorers,
+    prompt_optimization_autolog,
+    validate_train_data,
+)
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
