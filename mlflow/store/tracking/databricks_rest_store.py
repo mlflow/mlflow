@@ -424,7 +424,7 @@ class DatabricksTracingRestStore(RestStore):
 
         # TODO: check server version
 
-        endpoint = f"/api/2.0/tracing/otel{OTLP_TRACES_PATH}"
+        endpoint = f"/api/2.0/otel{OTLP_TRACES_PATH}"
         try:
             config = get_databricks_workspace_client_config(tracking_uri)
         except Exception as e:
