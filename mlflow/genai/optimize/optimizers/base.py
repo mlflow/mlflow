@@ -27,7 +27,7 @@ class BasePromptOptimizer(ABC):
         Args:
             eval_fn: The evaluation function that takes candidate prompts as a dict
                 (prompt template name -> prompt template) and a dataset as a list of dicts,
-                and returns a list of EvaluationResultRecord.
+                and returns a list of EvaluationResultRecord. Note that eval_fn is not thread-safe.
             train_data: The dataset to use for optimization. Each record should
                 include the inputs and outputs fields with dict values.
             target_prompts: The target prompt templates to use. The key is the prompt template

@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any
 
 import pydantic
 
+from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
+
 if TYPE_CHECKING:
     from mlflow.types.llm import ChatMessage
 
@@ -1344,7 +1346,7 @@ class Equivalence(BuiltInScorer):
     `mlflow.genai.evaluate` or `mlflow.genai.optimize_prompts` for evaluation.
 
     Args:
-        name: The name of the scorer. Defaults to "output_equivalence".
+        name: The name of the scorer. Defaults to "equivalence".
         model: {{ model }}
 
     Example (direct usage):
@@ -1384,20 +1386,14 @@ class Equivalence(BuiltInScorer):
         result = mlflow.genai.evaluate(data=data, scorers=[Equivalence()])
     """
 
-    name: str = "output_equivalence"
+    name: str = "equivalence"
     model: str | None = None
     required_columns: set[str] = {"outputs"}
 
     @property
     def instructions(self) -> str:
         """Get the instructions of what this scorer evaluates."""
-        return (
-            "Compare {{outputs}} against {{expectations}}. "
-            "Evaluate if they are both semantically equivalent or convey the same meaning, "
-            "and if the output format matches the expected format "
-            "(e.g., JSON structure, list format, sentence structure). "
-            "Return 'yes' if they match in both content and format, 'no' if they don't."
-        )
+        return EQUIVALENCE_PROMPT_INSTRUCTIONS
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
@@ -1454,8 +1450,8 @@ class Equivalence(BuiltInScorer):
             Feedback object with 'yes'/'no' value and rationale
         """
         from mlflow.genai.judges.builtin import _sanitize_feedback
-        from mlflow.genai.judges.prompts.output_equivalence import (
-            OUTPUT_EQUIVALENCE_FEEDBACK_NAME,
+        from mlflow.genai.judges.prompts.equivalence import (
+            EQUIVALENCE_FEEDBACK_NAME,
             get_prompt,
         )
 
@@ -1513,7 +1509,7 @@ class Equivalence(BuiltInScorer):
         # Use LLM judge for semantic equivalence
 
         model = self.model or get_default_model()
-        assessment_name = self.name or OUTPUT_EQUIVALENCE_FEEDBACK_NAME
+        assessment_name = self.name or EQUIVALENCE_FEEDBACK_NAME
 
         prompt = get_prompt(
             output=outputs_str,

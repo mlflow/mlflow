@@ -11,8 +11,8 @@ from mlflow.genai.optimize.types import (
 _MIGRATION_GUIDE = """
     Migration guide:
         The ``optimize_prompt()`` API has been replaced by
-        :py:func:`mlflow.genai.optimize_prompts()`, which provides a more flexible
-        and powerful optimization capabilities.
+        :py:func:`mlflow.genai.optimize_prompts()`, which provides more flexible
+        optimization capabilities with a joint optimization of prompts in an arbitrary function.
 
         **Old API (removed):**
 

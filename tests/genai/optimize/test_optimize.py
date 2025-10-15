@@ -1,5 +1,3 @@
-import json
-
 import pandas as pd
 import pytest
 
@@ -15,7 +13,7 @@ class MockPromptAdapter(BasePromptOptimizer):
     def __init__(self, reflection_model="openai:/gpt-4o-mini"):
         self.model_name = reflection_model
 
-    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking=True):
+    def optimize(self, eval_fn, train_data, target_prompts):
         optimized_prompts = {}
         for prompt_name, template in target_prompts.items():
             # Simple optimization: add "Be precise and accurate. " prefix
@@ -95,8 +93,8 @@ def sample_summarization_fn(text):
     return f"Summary of: {text[:20]}..."
 
 
-@mlflow.genai.scorers.scorer(name="output_equivalence")
-def output_equivalence(outputs, expectations):
+@mlflow.genai.scorers.scorer(name="equivalence")
+def equivalence(outputs, expectations):
     return 1.0 if outputs == expectations["expected_response"] else 0.0
 
 
@@ -110,7 +108,7 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
@@ -137,7 +135,7 @@ def test_adapt_prompts_multiple_prompts(
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 2
@@ -157,7 +155,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
             self.model_name = "openai:/gpt-4o-mini"
             self.eval_fn_calls = []
 
-        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+        def optimize(self, eval_fn, dataset, target_prompts):
             # Test that eval_fn works correctly
             test_prompts = {
                 "test_translation_prompt": "Prompt Candidate: "
@@ -202,7 +200,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(testing_adapter.eval_fn_calls) == 1
@@ -224,7 +222,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
@@ -237,7 +235,7 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
         def __init__(self):
             self.model_name = "test/custom-model"
 
-        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+        def optimize(self, eval_fn, dataset, target_prompts):
             return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     testing_adapter = TestAdapter()
@@ -249,76 +247,10 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
-
-
-def test_optimize_prompts_enable_tracking_enabled(sample_translation_prompt, sample_dataset):
-    mock_optimizer = MockPromptAdapter()
-
-    result = optimize_prompts(
-        predict_fn=sample_predict_fn,
-        train_data=sample_dataset,
-        prompt_uris=[
-            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
-        ],
-        optimizer=mock_optimizer,
-        scorers=[output_equivalence],
-        enable_tracking=True,
-    )
-
-    assert len(result.optimized_prompts) == 1
-
-    run = mlflow.last_active_run()
-    assert run is not None
-
-    assert run.data.params["optimizer"] == "MockPromptAdapter"
-    assert run.data.params["num_prompts"] == "1"
-    assert run.data.params["num_training_samples"] == "3"
-
-    assert "mlflow.linkedPrompts" in run.data.tags
-
-    linked_prompts = json.loads(run.data.tags["mlflow.linkedPrompts"])
-
-    optimized_prompt = result.optimized_prompts[0]
-    output_prompt_found = any(
-        p["name"] == optimized_prompt.name and p["version"] == str(optimized_prompt.version)
-        for p in linked_prompts
-    )
-    assert output_prompt_found
-
-    assert "initial_eval_score" in run.data.metrics
-    assert "final_eval_score" in run.data.metrics
-
-    # Verify dataset was logged as input
-    assert len(run.inputs.dataset_inputs) == 1
-    dataset_input = run.inputs.dataset_inputs[0]
-    assert dataset_input.tags[0].value == "training"  # context tag
-
-
-def test_optimize_prompts_enable_tracking_disabled(sample_translation_prompt, sample_dataset):
-    mock_optimizer = MockPromptAdapter()
-
-    experiment = mlflow.get_experiment_by_name("Default")
-    runs_before = len(mlflow.search_runs([experiment.experiment_id]))
-
-    result = optimize_prompts(
-        predict_fn=sample_predict_fn,
-        train_data=sample_dataset,
-        prompt_uris=[
-            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
-        ],
-        optimizer=mock_optimizer,
-        scorers=[output_equivalence],
-        enable_tracking=False,  # Explicitly disable tracking
-    )
-
-    assert len(result.optimized_prompts) == 1
-
-    runs_after = len(mlflow.search_runs([experiment.experiment_id]))
-    assert runs_after == runs_before
 
 
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
@@ -337,7 +269,7 @@ def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dat
             self.model_name = "openai:/gpt-4o-mini"
             self.captured_scores = []
 
-        def optimize(self, eval_fn, dataset, target_prompts, enable_tracking=True):
+        def optimize(self, eval_fn, dataset, target_prompts):
             # Run eval_fn and capture the scores
             results = eval_fn(target_prompts, dataset)
             self.captured_scores = [r.score for r in results]
