@@ -159,6 +159,7 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
+    # TODO: Add dataset validation
     converted_train_data = _convert_eval_set_to_df(train_data).to_dict("records")
     validate_train_data(converted_train_data)
 

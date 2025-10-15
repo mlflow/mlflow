@@ -2,7 +2,6 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -94,8 +93,8 @@ def sample_summarization_fn(text):
     return f"Summary of: {text[:20]}..."
 
 
-@mlflow.genai.scorers.scorer(name="output_equivalence")
-def output_equivalence(outputs, expectations):
+@mlflow.genai.scorers.scorer(name="equivalence")
+def equivalence(outputs, expectations):
     return 1.0 if outputs == expectations["expected_response"] else 0.0
 
 
@@ -109,7 +108,7 @@ def test_adapt_prompts_single_prompt(sample_translation_prompt, sample_dataset):
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
@@ -136,7 +135,7 @@ def test_adapt_prompts_multiple_prompts(
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 2
@@ -201,7 +200,7 @@ def test_adapt_prompts_eval_function_behavior(sample_translation_prompt, sample_
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(testing_adapter.eval_fn_calls) == 1
@@ -223,7 +222,7 @@ def test_adapt_prompts_with_list_dataset(sample_translation_prompt, sample_summa
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=mock_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
@@ -248,7 +247,7 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
             f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
         ],
         optimizer=testing_adapter,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 1
