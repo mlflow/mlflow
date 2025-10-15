@@ -90,7 +90,7 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
     mock_gepa_module.optimize.return_value = mock_result
     mock_gepa_module.EvaluationBatch = MagicMock()
     adapter = GepaPromptOptimizer(
-        reflection_model="openai/gpt-4o-mini", max_metric_calls=50, display_progress_bar=True
+        reflection_model="openai:/gpt-4o-mini", max_metric_calls=50, display_progress_bar=True
     )
 
     with patch.dict(sys.modules, mock_modules):
