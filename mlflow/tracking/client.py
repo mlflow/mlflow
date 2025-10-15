@@ -892,9 +892,12 @@ class MlflowClient:
 
                 client = MlflowClient()
 
-                # Unlink multiple traces from a run
+                # Unlink multiple V4 traces from a run
                 client.unlink_traces_from_run(
-                    trace_ids=["trace_123", "trace_456", "trace_789"],
+                    trace_ids=[
+                        "trace://catalog.schema/abc123",
+                        "trace://catalog.schema/def456",
+                    ],
                     run_id="run_abc",
                 )
         """
