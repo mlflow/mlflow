@@ -619,6 +619,32 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
+    def _group_traces_by_location(
+        self, trace_ids: list[str]
+    ) -> tuple[list[str], dict[str, list[str]]]:
+        """
+        Group trace IDs by location to separate V3 and V4 traces.
+
+        Args:
+            trace_ids: List of trace IDs (can be V3 or V4 format).
+
+        Returns:
+            A tuple of (v3_trace_ids, v4_traces_by_location) where:
+            - v3_trace_ids: List of V3 trace IDs (without location prefix)
+            - v4_traces_by_location: Dict mapping location_id to list of OTEL trace IDs
+        """
+        v3_trace_ids: list[str] = []
+        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
+
+        for trace_id in trace_ids:
+            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
+            if location_id is None:
+                v3_trace_ids.append(trace_id)
+            else:
+                v4_traces_by_location[location_id].append(otel_trace_id)
+
+        return v3_trace_ids, v4_traces_by_location
+
     def _batch_link_traces_to_run(
         self, location_id: str, otel_trace_ids: list[str], run_id: str
     ) -> None:
@@ -665,6 +691,7 @@ class DatabricksTracingRestStore(RestStore):
             )
         )
         endpoint = f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location_id}/unlink-from-run/batchDelete"
+        # Note: The batchDelete endpoint uses DELETE method according to the proto definition
         self._call_endpoint(BatchUnlinkTraceFromRun, req_body, endpoint=endpoint)
 
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
@@ -679,16 +706,7 @@ class DatabricksTracingRestStore(RestStore):
             return
 
         # Group traces by location (None for V3 traces)
-        # For V3 traces, store original IDs; for V4 traces, store OTEL trace IDs
-        v3_trace_ids: list[str] = []
-        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
-
-        for trace_id in trace_ids:
-            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
-            if location_id is None:
-                v3_trace_ids.append(trace_id)
-            else:
-                v4_traces_by_location[location_id].append(otel_trace_id)
+        v3_trace_ids, v4_traces_by_location = self._group_traces_by_location(trace_ids)
 
         # Link V3 traces
         if v3_trace_ids:
@@ -697,6 +715,31 @@ class DatabricksTracingRestStore(RestStore):
         # Link V4 traces grouped by location
         for location_id, otel_trace_ids in v4_traces_by_location.items():
             self._batch_link_traces_to_run(location_id, otel_trace_ids, run_id)
+
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing trace-to-run relationships.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+        """
+        if not trace_ids:
+            return
+
+        # Group traces by location (None for V3 traces)
+        v3_trace_ids, v4_traces_by_location = self._group_traces_by_location(trace_ids)
+
+        # V3 unlink is not supported - only V4 traces can be unlinked
+        if v3_trace_ids:
+            raise MlflowException(
+                "Unlinking V3 traces from runs is not supported. Only V4 traces (with UC "
+                f"schema locations) can be unlinked. Unsupported trace IDs: {v3_trace_ids}"
+            )
+
+        # Unlink V4 traces grouped by location
+        for location_id, otel_trace_ids in v4_traces_by_location.items():
+            self._batch_unlink_traces_from_run(location_id, otel_trace_ids, run_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
