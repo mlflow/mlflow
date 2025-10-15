@@ -1,4 +1,5 @@
 import json
+from typing import Literal
 
 import click
 
@@ -31,7 +32,7 @@ def commands():
     default="table",
     help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
 )
-def list_scorers(experiment_id: str, output: str) -> None:
+def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
     """
     List all registered scorers, including LLM judges, for the specified experiment.
 
