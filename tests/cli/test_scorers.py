@@ -334,22 +334,23 @@ def test_create_judge_missing_required_params(runner, args, missing_param):
 
 
 def test_create_judge_invalid_prompt(runner, experiment):
-    result = runner.invoke(
-        commands,
-        [
-            "register-llm-judge",
-            "--name",
-            "invalid_judge",
-            "--instructions",
-            "This has no template variables",
-            "--experiment-id",
-            experiment,
-        ],
-    )
+    from mlflow.exceptions import MlflowException
 
-    # Should fail because make_judge validates that instructions contain at least one variable
-    assert result.exit_code != 0
-    assert "template" in result.output.lower() or "variable" in result.output.lower()
+    # Should raise MlflowException because make_judge validates that instructions
+    # contain at least one variable
+    with pytest.raises(MlflowException, match="[Tt]emplate.*variable"):
+        runner.invoke(
+            commands,
+            [
+                "register-llm-judge",
+                "--name",
+                "invalid_judge",
+                "--instructions",
+                "This has no template variables",
+                "--experiment-id",
+                experiment,
+            ],
+        )
 
 
 def test_create_judge_special_characters_in_name(runner, experiment):

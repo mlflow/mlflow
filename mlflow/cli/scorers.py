@@ -3,6 +3,7 @@ import json
 import click
 
 from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID
+from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import list_scorers as list_scorers_api
 from mlflow.utils.string_utils import _create_table
 
@@ -123,15 +124,9 @@ def register_llm_judge(name: str, instructions: str, model: str | None, experime
     export MLFLOW_EXPERIMENT_ID=123
     mlflow scorers register-llm-judge -n my_judge -i "Check whether {{ outputs }} contains PII"
     """
-    from mlflow.exceptions import MlflowException
-    from mlflow.genai.judges import make_judge
-
-    try:
-        judge = make_judge(name=name, instructions=instructions, model=model)
-        registered_judge = judge.register(experiment_id=experiment_id)
-        click.echo(
-            f"Successfully created and registered judge scorer '{registered_judge.name}' "
-            f"in experiment {experiment_id}"
-        )
-    except MlflowException as e:
-        raise click.ClickException(str(e))
+    judge = make_judge(name=name, instructions=instructions, model=model)
+    registered_judge = judge.register(experiment_id=experiment_id)
+    click.echo(
+        f"Successfully created and registered judge scorer '{registered_judge.name}' "
+        f"in experiment {experiment_id}"
+    )
