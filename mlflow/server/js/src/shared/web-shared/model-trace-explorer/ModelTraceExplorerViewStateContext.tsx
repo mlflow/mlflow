@@ -78,6 +78,12 @@ export const ModelTraceExplorerViewStateProvider = ({
     setActiveTab(defaultActiveTab);
   }, [selectedNode]);
 
+  useEffect(() => {
+    if (!assessmentsPaneEnabled && assessmentsPaneExpanded) {
+      setAssessmentsPaneExpanded(false);
+    }
+  }, [assessmentsPaneEnabled, assessmentsPaneExpanded]);
+
   const value = useMemo(
     () => ({
       rootNode,
