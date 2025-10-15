@@ -1,8 +1,9 @@
 import json
 
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+
 
 # TODO: Remove tag based linking once we migrate to LinkPromptsToTraces endpoint
 def update_linked_prompts_tag(current_tag_value: str | None, prompt_versions: list[PromptVersion]):
@@ -32,7 +33,6 @@ def update_linked_prompts_tag(current_tag_value: str | None, prompt_versions: li
             )
     else:
         parsed_prompts_tag_value = []
-
 
     new_prompt_entries = [
         {"name": prompt_version.name, "version": str(prompt_version.version)}

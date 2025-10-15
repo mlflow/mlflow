@@ -1,9 +1,11 @@
 import json
 
 import pytest
+
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.prompt import update_linked_prompts_tag
+
 
 def test_update_linked_prompts_tag():
     pv1 = PromptVersion(name="test_prompt", version=1, template="Test template")
