@@ -23,8 +23,8 @@ def validate_train_data(train_data: list[dict[str, Any]]) -> None:
 
         # Check that at least one of outputs or expectations is present and not None
         # We explicitly check for None to allow falsy values like False, 0, or empty strings
-        has_outputs = "outputs" in record and record["outputs"] is not None
-        has_expectations = "expectations" in record and record["expectations"] is not None
+        has_outputs = record.get("outputs") is not None
+        has_expectations = record.get("expectations") is not None
 
         if not has_outputs and not has_expectations:
             raise ValueError(
