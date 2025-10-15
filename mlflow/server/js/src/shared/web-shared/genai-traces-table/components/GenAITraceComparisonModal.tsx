@@ -49,18 +49,34 @@ export const TraceComparisonModal = ({
       footer={null}
       dangerouslySetAntdProps={{ width: '95%' }}
     >
-      <div css={{ display: 'flex', gap: theme.spacing.lg, overflow: 'auto', height: '100%' }}>
-        {modelTraces.length === 0 ? (
-          <Typography.Text>
-            {intl.formatMessage({ defaultMessage: 'Loading traces…', description: 'Loading traces message' })}
-          </Typography.Text>
-        ) : (
-          modelTraces.map((modelTrace, index) => (
-            <div key={traces[index].evaluationId} css={{ flex: 1, height: '100%', overflow: 'auto' }}>
-              <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="summary" isInComparisonView />
-            </div>
-          ))
-        )}
+      <div css={{ height: '100%', overflow: 'auto' }}>
+        <div
+          css={{
+            display: 'flex',
+            gap: theme.spacing.lg,
+            minHeight: '100%',
+            flexWrap: 'nowrap',
+          }}
+        >
+          {modelTraces.length === 0 ? (
+            <Typography.Text>
+              {intl.formatMessage({ defaultMessage: 'Loading traces…', description: 'Loading traces message' })}
+            </Typography.Text>
+          ) : (
+            modelTraces.map((modelTrace, index) => (
+              <div
+                key={traces[index].evaluationId}
+                css={{
+                  flex: '1 1 0',
+                  minHeight: '100%',
+                  minWidth: 0,
+                }}
+              >
+                <ModelTraceExplorer modelTrace={modelTrace} initialActiveView="summary" isInComparisonView />
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </Modal>
   );

@@ -68,18 +68,7 @@ export const ModelTraceExplorerSummaryView = ({ modelTrace }: { modelTrace: Mode
   }
 
   if (isInComparisonView) {
-    return (
-      <div css={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
-        {assessmentsPaneEnabled && assessmentsPaneExpanded && (
-          <div css={{ borderBottom: `1px solid ${theme.colors.border}`, maxHeight: '50%', overflowY: 'auto' }}>
-            <AssessmentsPane assessments={allAssessments} traceId={rootNode.traceId} activeSpanId={undefined} />
-          </div>
-        )}
-        <div css={{ flex: '1 1 0%', minHeight: 0, overflow: 'auto', display: 'flex', flexDirection: 'column' }}>
-          <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />
-        </div>
-      </div>
-    );
+    return <ModelTraceExplorerSummarySpans rootNode={rootNode} intermediateNodes={intermediateNodes} />;
   }
 
   return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
