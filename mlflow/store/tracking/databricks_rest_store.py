@@ -619,9 +619,7 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
-    def _group_traces_by_location(
-        self, trace_ids: list[str]
-    ) -> tuple[list[str], dict[str, list[str]]]:
+    def _group_traces_by_location(self, trace_ids: list[str]) -> dict[str | None, list[str]]:
         """
         Group trace IDs by location to separate V3 and V4 traces.
 
@@ -629,21 +627,20 @@ class DatabricksTracingRestStore(RestStore):
             trace_ids: List of trace IDs (can be V3 or V4 format).
 
         Returns:
-            A tuple of (v3_trace_ids, v4_traces_by_location) where:
-            - v3_trace_ids: List of V3 trace IDs (without location prefix)
-            - v4_traces_by_location: Dict mapping location_id to list of OTEL trace IDs
+            Dict mapping location to list of trace IDs where:
+            - None key: List of V3 trace IDs (without location prefix)
+            - str keys: Location IDs (e.g., "catalog.schema") mapping to OTEL trace IDs
         """
-        v3_trace_ids: list[str] = []
-        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
+        traces_by_location: dict[str | None, list[str]] = defaultdict(list)
 
         for trace_id in trace_ids:
             location_id, otel_trace_id = parse_trace_id_v4(trace_id)
             if location_id is None:
-                v3_trace_ids.append(trace_id)
+                traces_by_location[None].append(trace_id)
             else:
-                v4_traces_by_location[location_id].append(otel_trace_id)
+                traces_by_location[location_id].append(otel_trace_id)
 
-        return v3_trace_ids, v4_traces_by_location
+        return traces_by_location
 
     def _batch_link_traces_to_run(
         self, location_id: str, otel_trace_ids: list[str], run_id: str
@@ -704,13 +701,13 @@ class DatabricksTracingRestStore(RestStore):
         if not trace_ids:
             return
 
-        v3_trace_ids, v4_traces_by_location = self._group_traces_by_location(trace_ids)
+        traces_by_location = self._group_traces_by_location(trace_ids)
 
-        if v3_trace_ids:
-            super().link_traces_to_run(v3_trace_ids, run_id)
-
-        for location_id, otel_trace_ids in v4_traces_by_location.items():
-            self._batch_link_traces_to_run(location_id, otel_trace_ids, run_id)
+        for location_id, trace_ids_for_location in traces_by_location.items():
+            if location_id is None:
+                super().link_traces_to_run(trace_ids_for_location, run_id)
+            else:
+                self._batch_link_traces_to_run(location_id, trace_ids_for_location, run_id)
 
     def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
         """
@@ -723,16 +720,17 @@ class DatabricksTracingRestStore(RestStore):
         if not trace_ids:
             return
 
-        v3_trace_ids, v4_traces_by_location = self._group_traces_by_location(trace_ids)
+        traces_by_location = self._group_traces_by_location(trace_ids)
 
-        if v3_trace_ids:
-            raise MlflowException(
-                "Unlinking V3 traces from runs is not supported. Only V4 traces (with UC "
-                f"schema locations) can be unlinked. Unsupported trace IDs: {v3_trace_ids}"
-            )
-
-        for location_id, otel_trace_ids in v4_traces_by_location.items():
-            self._batch_unlink_traces_from_run(location_id, otel_trace_ids, run_id)
+        for location_id, trace_ids_for_location in traces_by_location.items():
+            if location_id is None:
+                raise MlflowException(
+                    "Unlinking V3 traces from runs is not supported. Only V4 traces (with UC "
+                    "schema locations) can be unlinked. Unsupported trace IDs: "
+                    f"{trace_ids_for_location}"
+                )
+            else:
+                self._batch_unlink_traces_from_run(location_id, trace_ids_for_location, run_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
