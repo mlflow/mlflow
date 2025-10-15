@@ -56,7 +56,9 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
             try:
                 self._client.log_spans(location, spans)
             except Exception as e:
-                if not self._has_raised_span_export_error:
+                if self._has_raised_span_export_error:
+                    _logger.debug(f"Failed to log spans to the trace server: {e}", exc_info=True)
+                else:
                     _logger.warning(f"Failed to log spans to the trace server: {e}")
                     self._has_raised_span_export_error = True
 
