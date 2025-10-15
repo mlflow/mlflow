@@ -31,6 +31,7 @@ from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
+    output_to_responses_items_stream,
 )
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
@@ -1254,3 +1255,24 @@ def test_prep_msgs_for_cc_llm(responses_input, cc_msgs):
 def test_prep_msgs_for_cc_llm_empty_arguments(responses_input, cc_msgs):
     result = ResponsesAgent.prep_msgs_for_cc_llm(responses_input)
     assert result == cc_msgs
+
+
+def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
+    chunks_with_mixed_validity = [
+        {"choices": None, "id": "msg-1"},
+        {"choices": [], "id": "msg-2"},
+        {"choices": [{"delta": {"content": "valid"}}], "id": "msg-3"},
+        {"choices": None, "id": "msg-4"},
+        {"choices": [{"delta": {"content": " content"}}], "id": "msg-5"},
+    ]
+
+    events = list(output_to_responses_items_stream(iter(chunks_with_mixed_validity)))
+
+    # Should only process chunks with valid choices
+    # Expected: 2 delta events + 1 done event (content gets aggregated)
+    assert len(events) == 3
+    assert events[0].type == "response.output_text.delta"
+    assert events[0].delta == "valid"
+    assert events[1].type == "response.output_text.delta"
+    assert events[1].delta == " content"
+    assert events[2].type == "response.output_item.done"
