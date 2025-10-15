@@ -272,7 +272,7 @@ def test_optimize_prompts_warns_on_unused_prompt(
             f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
         ],
         optimizer=mock_optimizer,
-        scorers=[output_equivalence],
+        scorers=[equivalence],
     )
 
     assert len(result.optimized_prompts) == 2
