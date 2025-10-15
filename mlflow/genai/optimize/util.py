@@ -1,5 +1,5 @@
 import functools
-from contextlib import contextmanager
+from contextlib import contextmanager, nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
@@ -34,7 +34,10 @@ def prompt_optimization_autolog(
     """
     import mlflow.data
 
-    with mlflow.start_run() if mlflow.active_run() is None else mlflow.active_run() as run:
+    active_run = mlflow.active_run()
+    run_context = mlflow.start_run() if active_run is None else nullcontext(active_run)
+
+    with run_context as run:
         client = MlflowClient()
         run_id = run.info.run_id
 

@@ -1,4 +1,5 @@
 import sys
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -39,7 +40,7 @@ def sample_target_prompts():
 
 @pytest.fixture
 def mock_eval_fn():
-    def eval_fn(candidate_prompts, dataset):
+    def eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]):
         results = []
         for record in dataset:
             results.append(
@@ -74,7 +75,11 @@ def test_gepa_optimizer_initialization_with_custom_params():
     assert optimizer.display_progress_bar is True
 
 
-def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_eval_fn):
+def test_gepa_optimizer_optimize(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
     mock_gepa_module = MagicMock()
     mock_modules = {
         "gepa": mock_gepa_module,
@@ -122,7 +127,9 @@ def test_gepa_optimizer_optimize(sample_train_data, sample_target_prompts, mock_
 
 
 def test_gepa_optimizer_optimize_with_custom_reflection_model(
-    sample_train_data, sample_target_prompts, mock_eval_fn
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
 ):
     mock_gepa_module = MagicMock()
     mock_modules = {
@@ -152,7 +159,9 @@ def test_gepa_optimizer_optimize_with_custom_reflection_model(
 
 
 def test_gepa_optimizer_optimize_model_name_parsing(
-    sample_train_data, sample_target_prompts, mock_eval_fn
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
 ):
     mock_gepa_module = MagicMock()
     mock_modules = {
@@ -179,7 +188,11 @@ def test_gepa_optimizer_optimize_model_name_parsing(
     assert call_kwargs["reflection_lm"] == "openai/gpt-4o"
 
 
-def test_gepa_optimizer_import_error(sample_train_data, sample_target_prompts, mock_eval_fn):
+def test_gepa_optimizer_import_error(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
     with patch.dict("sys.modules", {"gepa": None}):
         optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
@@ -191,7 +204,9 @@ def test_gepa_optimizer_import_error(sample_train_data, sample_target_prompts, m
             )
 
 
-def test_gepa_optimizer_single_record_dataset(sample_target_prompts, mock_eval_fn):
+def test_gepa_optimizer_single_record_dataset(
+    sample_target_prompts: dict[str, str], mock_eval_fn: Any
+):
     single_record_data = [
         {
             "inputs": {"question": "What is 2+2?"},
@@ -225,7 +240,9 @@ def test_gepa_optimizer_single_record_dataset(sample_target_prompts, mock_eval_f
 
 
 def test_gepa_optimizer_custom_adapter_evaluate(
-    sample_train_data, sample_target_prompts, mock_eval_fn
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
 ):
     mock_gepa_module = MagicMock()
     mock_modules = {
@@ -254,7 +271,9 @@ def test_gepa_optimizer_custom_adapter_evaluate(
     assert result.optimized_prompts == sample_target_prompts
 
 
-def test_make_reflective_dataset_with_traces(sample_target_prompts, mock_eval_fn):
+def test_make_reflective_dataset_with_traces(
+    sample_target_prompts: dict[str, str], mock_eval_fn: Any
+):
     mock_gepa_module = MagicMock()
     mock_modules = {
         "gepa": mock_gepa_module,

@@ -1,3 +1,5 @@
+from typing import Any
+
 import pandas as pd
 import pytest
 
@@ -8,13 +10,20 @@ from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import scorer
+from mlflow.models.model import PromptVersion
 
 
 class MockPromptOptimizer(BasePromptOptimizer):
     def __init__(self, reflection_model="openai:/gpt-4o-mini"):
         self.model_name = reflection_model
 
-    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking=True):
+    def optimize(
+        self,
+        eval_fn: Any,
+        train_data: list[dict[str, Any]],
+        target_prompts: dict[str, str],
+        enable_tracking: bool = True,
+    ) -> PromptOptimizerOutput:
         optimized_prompts = {}
         for prompt_name, template in target_prompts.items():
             # Simple optimization: add "Be precise and accurate. " prefix
@@ -31,7 +40,7 @@ class MockPromptOptimizer(BasePromptOptimizer):
 
 
 @pytest.fixture
-def sample_translation_prompt():
+def sample_translation_prompt() -> PromptVersion:
     return register_prompt(
         name="test_translation_prompt",
         template="Translate the following text to {{language}}: {{input_text}}",
@@ -39,7 +48,7 @@ def sample_translation_prompt():
 
 
 @pytest.fixture
-def sample_summarization_prompt():
+def sample_summarization_prompt() -> PromptVersion:
     return register_prompt(
         name="test_summarization_prompt",
         template="Summarize this text: {{text}}",
@@ -47,7 +56,7 @@ def sample_summarization_prompt():
 
 
 @pytest.fixture
-def sample_dataset():
+def sample_dataset() -> pd.DataFrame:
     return pd.DataFrame(
         {
             "inputs": [
@@ -65,7 +74,7 @@ def sample_dataset():
 
 
 @pytest.fixture
-def sample_summarization_dataset():
+def sample_summarization_dataset() -> list[dict[str, Any]]:
     return [
         {
             "inputs": {
@@ -90,7 +99,7 @@ def sample_predict_fn(input_text: str, language: str) -> str:
     return translations.get((input_text, language), f"translated_{input_text}")
 
 
-def sample_summarization_fn(text):
+def sample_summarization_fn(text: str) -> str:
     return f"Summary of: {text[:20]}..."
 
 
@@ -99,7 +108,9 @@ def equivalence(outputs, expectations):
     return 1.0 if outputs == expectations["expected_response"] else 0.0
 
 
-def test_optimize_prompts_single_prompt(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_single_prompt(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
     mock_optimizer = MockPromptOptimizer()
 
     result = optimize_prompts(
@@ -124,7 +135,9 @@ def test_optimize_prompts_single_prompt(sample_translation_prompt, sample_datase
 
 
 def test_optimize_prompts_multiple_prompts(
-    sample_translation_prompt, sample_summarization_prompt, sample_dataset
+    sample_translation_prompt: PromptVersion,
+    sample_summarization_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
 ):
     mock_optimizer = MockPromptOptimizer()
 
@@ -150,7 +163,9 @@ def test_optimize_prompts_multiple_prompts(
         assert "Be precise and accurate." in prompt.template
 
 
-def test_optimize_prompts_eval_function_behavior(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_eval_function_behavior(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
     class TestingOptimizer(BasePromptOptimizer):
         def __init__(self):
             self.model_name = "openai:/gpt-4o-mini"
@@ -211,7 +226,7 @@ def test_optimize_prompts_eval_function_behavior(sample_translation_prompt, samp
 
 
 def test_optimize_prompts_with_list_dataset(
-    sample_translation_prompt, sample_summarization_dataset
+    sample_translation_prompt: PromptVersion, sample_summarization_dataset: list[dict[str, Any]]
 ):
     mock_optimizer = MockPromptOptimizer()
 
@@ -233,7 +248,9 @@ def test_optimize_prompts_with_list_dataset(
     assert result.final_eval_score == 0.9
 
 
-def test_optimize_prompts_with_model_name(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_with_model_name(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
     class TestOptimizer(BasePromptOptimizer):
         def __init__(self):
             self.model_name = "test/custom-model"
@@ -257,7 +274,10 @@ def test_optimize_prompts_with_model_name(sample_translation_prompt, sample_data
 
 
 def test_optimize_prompts_warns_on_unused_prompt(
-    sample_translation_prompt, sample_summarization_prompt, sample_dataset, capsys
+    sample_translation_prompt: PromptVersion,
+    sample_summarization_prompt: PromptVersion,
+    sample_dataset: pd.DataFrame,
+    capsys,
 ):
     mock_optimizer = MockPromptOptimizer()
 
@@ -285,7 +305,9 @@ def test_optimize_prompts_warns_on_unused_prompt(
     assert "test_summarization_prompt" in captured.err
 
 
-def test_optimize_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_with_custom_scorers(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
     # Create a custom scorer for case-insensitive matching
     @scorer(name="case_insensitive_match")
     def case_insensitive_match(outputs, expectations):
@@ -370,7 +392,10 @@ def test_optimize_prompts_with_custom_scorers(sample_translation_prompt, sample_
     ],
 )
 def test_optimize_prompts_validation_errors(
-    sample_translation_prompt, train_data, error_type, error_match
+    sample_translation_prompt: PromptVersion,
+    train_data: list[dict[str, Any]],
+    error_type: str,
+    error_match: str,
 ):
     error_class = MlflowException if error_type == "MlflowException" else ValueError
 
@@ -386,7 +411,9 @@ def test_optimize_prompts_validation_errors(
         )
 
 
-def test_optimize_prompts_with_chat_prompt(sample_translation_prompt, sample_dataset):
+def test_optimize_prompts_with_chat_prompt(
+    sample_translation_prompt: PromptVersion, sample_dataset: pd.DataFrame
+):
     chat_prompt = register_prompt(
         name="test_chat_prompt",
         template=[{"role": "user", "content": "{{input_text}}"}],
