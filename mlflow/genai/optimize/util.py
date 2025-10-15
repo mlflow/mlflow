@@ -139,7 +139,7 @@ def create_metric_from_scorers(
         if isinstance(score, (int, float, bool)):
             return float(score)
         elif isinstance(score, Feedback) and isinstance(score.value, CategoricalRating):
-            # Convert CategoricalRating to numeric: YES=1.0, NO=0.0, UNKNOWN=0.5
+            # Convert CategoricalRating to numeric: YES=1.0, NO=0.0
             return 1.0 if score.value == CategoricalRating.YES else 0.0
         return None
 

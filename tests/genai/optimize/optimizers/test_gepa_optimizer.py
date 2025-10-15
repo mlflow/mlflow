@@ -252,3 +252,105 @@ def test_gepa_optimizer_custom_adapter_evaluate(
     assert "adapter" in call_kwargs
     assert call_kwargs["adapter"] is not None
     assert result.optimized_prompts == sample_target_prompts
+
+
+def test_make_reflective_dataset_with_traces(sample_target_prompts, mock_eval_fn):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    mock_gepa_module.GEPAAdapter = object
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with patch.dict(sys.modules, mock_modules):
+
+        captured_adapter = None
+
+        def mock_optimize_fn(**kwargs):
+            nonlocal captured_adapter
+            captured_adapter = kwargs["adapter"]
+            mock_result = Mock()
+            mock_result.best_candidate = sample_target_prompts
+            mock_result.val_aggregate_scores = []
+            return mock_result
+
+        mock_gepa_module.optimize = mock_optimize_fn
+
+        # Call optimize to create the inner adapter
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=[{"inputs": {"question": "test"}, "outputs": "test"}],
+            target_prompts=sample_target_prompts,
+        )
+
+    # Now test make_reflective_dataset with the captured adapter
+    mock_trace = Mock()
+    mock_span1 = Mock()
+    mock_span1.name = "llm_call"
+    mock_span1.inputs = {"prompt": "What is 2+2?"}
+    mock_span1.outputs = {"response": "4"}
+
+    mock_span2 = Mock()
+    mock_span2.name = "retrieval"
+    mock_span2.inputs = {"query": "math"}
+    mock_span2.outputs = {"documents": ["doc1", "doc2"]}
+
+    mock_trace.data.spans = [mock_span1, mock_span2]
+
+    # Create mock trajectories
+    mock_trajectory1 = Mock()
+    mock_trajectory1.trace = mock_trace
+    mock_trajectory1.inputs = {"question": "What is 2+2?"}
+    mock_trajectory1.outputs = "4"
+    mock_trajectory1.expectations = {"expected_response": "4"}
+
+    mock_trajectory2 = Mock()
+    mock_trajectory2.trace = None
+    mock_trajectory2.inputs = {"question": "What is the capital of France?"}
+    mock_trajectory2.outputs = "Paris"
+    mock_trajectory2.expectations = {"expected_response": "Paris"}
+
+    # Create mock evaluation batch
+    mock_eval_batch = Mock()
+    mock_eval_batch.trajectories = [mock_trajectory1, mock_trajectory2]
+    mock_eval_batch.scores = [0.9, 0.7]
+
+    # Test make_reflective_dataset
+    candidate = {"system_prompt": "You are helpful"}
+    components_to_update = ["system_prompt", "instruction"]
+
+    result = captured_adapter.make_reflective_dataset(
+        candidate, mock_eval_batch, components_to_update
+    )
+
+    # Verify result structure
+    assert isinstance(result, dict)
+    assert "system_prompt" in result
+    assert "instruction" in result
+
+    system_data = result["system_prompt"]
+    assert len(system_data) == 2
+    assert system_data[0]["component_name"] == "system_prompt"
+    assert system_data[0]["current_text"] == "You are helpful"
+    assert system_data[0]["score"] == 0.9
+    assert system_data[0]["inputs"] == {"question": "What is 2+2?"}
+    assert system_data[0]["outputs"] == "4"
+    assert system_data[0]["expectations"] == {"expected_response": "4"}
+    assert system_data[0]["index"] == 0
+
+    # Verify trace spans
+    assert len(system_data[0]["trace"]) == 2
+    assert system_data[0]["trace"][0]["name"] == "llm_call"
+    assert system_data[0]["trace"][0]["inputs"] == {"prompt": "What is 2+2?"}
+    assert system_data[0]["trace"][0]["outputs"] == {"response": "4"}
+    assert system_data[0]["trace"][1]["name"] == "retrieval"
+
+    # Verify second record (no trace)
+    assert system_data[1]["trace"] == []
+    assert system_data[1]["score"] == 0.7
+    assert system_data[1]["inputs"] == {"question": "What is the capital of France?"}
+    assert system_data[1]["outputs"] == "Paris"
+    assert system_data[1]["expectations"] == {"expected_response": "Paris"}

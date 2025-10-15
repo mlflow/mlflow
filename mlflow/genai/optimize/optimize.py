@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import mlflow
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
 )
@@ -24,6 +25,7 @@ from mlflow.genai.optimize.util import (
 from mlflow.genai.prompts import load_prompt, register_prompt
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY
 from mlflow.telemetry.events import PromptOptimizationEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils import gorilla
@@ -172,7 +174,6 @@ def optimize_prompts(
                 aggregation=weighted_objective,
             )
     """
-    # TODO: Add dataset validation
     train_data_df = _convert_eval_set_to_df(train_data)
     converted_train_data = train_data_df.to_dict("records")
     validate_train_data(converted_train_data)
@@ -185,6 +186,8 @@ def optimize_prompts(
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
     target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
+    if not all(prompt.is_text_prompt for prompt in target_prompts):
+        raise MlflowException("Only text prompts can be optimized")
 
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
@@ -245,7 +248,7 @@ def _build_eval_fn(
             if template_name in candidate_prompts:
                 used_prompts.add(template_name)
                 return candidate_prompts[template_name]
-            return self.template
+            return self._tags.get(PROMPT_TEXT_TAG_KEY, "")
 
         patch = _wrap_patch(PromptVersion, "template", _template_patch)
 

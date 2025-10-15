@@ -382,3 +382,18 @@ def test_optimize_prompts_validation_errors(
             optimizer=MockPromptAdapter(),
             scorers=[equivalence],
         )
+
+
+def test_optimize_prompts_with_chat_prompt(sample_translation_prompt, sample_dataset):
+    chat_prompt = register_prompt(
+        name="test_chat_prompt",
+        template=[{"role": "user", "content": "{{input_text}}"}],
+    )
+    with pytest.raises(MlflowException, match="Only text prompts can be optimized"):
+        optimize_prompts(
+            predict_fn=sample_predict_fn,
+            train_data=sample_dataset,
+            prompt_uris=[f"prompts:/{chat_prompt.name}/{chat_prompt.version}"],
+            optimizer=MockPromptAdapter(),
+            scorers=[equivalence],
+        )

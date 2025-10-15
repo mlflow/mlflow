@@ -160,7 +160,7 @@ result = mlflow.genai.optimize_prompts(
 optimized_prompt = result.optimized_prompts[0]
 print(f"Optimized prompt registered as version {optimized_prompt.version}")
 print(f"Template: {optimized_prompt.template}")
-print(f"Score: {result.score}")
+print(f"Score: {result.final_eval_score}")
 ```
 
 Transform manual prompt engineering into systematic, data-driven optimization with automatic performance tracking. Learn more in the [Optimize Prompts](/genai/prompt-registry/optimize-prompts) guide.

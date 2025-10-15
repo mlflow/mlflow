@@ -312,7 +312,7 @@ class MyCustomOptimizer(BasePromptOptimizer):
     def __init__(self, model_name: str):
         self.model_name = model_name
 
-    def optimize(self, eval_fn, train_data, target_prompts):
+    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
         # Your custom optimization logic
         optimized_prompts = {}
         for prompt_name, prompt_template in target_prompts.items():

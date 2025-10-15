@@ -1,4 +1,5 @@
 import logging
+import math
 from abc import abstractmethod
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
@@ -1361,14 +1362,14 @@ class Equivalence(BuiltInScorer):
             outputs=42,
             expectations={"expected_response": 42},
         )
-        print(assessment)  # value: 'pass', rationale: 'Exact numerical match'
+        print(assessment)  # value: ategoricalRating.YES, rationale: 'Exact numerical match'
 
         # Text equivalence
         assessment = Equivalence()(
             outputs="The capital is Paris",
             expectations={"expected_response": "Paris is the capital"},
         )
-        print(assessment)  # value: 'pass' (semantically equivalent)
+        print(assessment)  # value: CategoricalRating.YES (semantically equivalent)
 
     Example (with evaluate):
 
@@ -1481,7 +1482,7 @@ class Equivalence(BuiltInScorer):
         if isinstance(actual_output, (int, float, bool)) and isinstance(
             expected_output, (int, float, bool)
         ):
-            if actual_output == expected_output:
+            if math.isclose(actual_output, expected_output):
                 return Feedback(
                     name=self.name,
                     value=CategoricalRating.YES,

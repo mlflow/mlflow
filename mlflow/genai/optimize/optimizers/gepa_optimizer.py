@@ -174,13 +174,26 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                     trajectories = eval_batch.trajectories
 
                     for i, (trajectory, score) in enumerate(zip(trajectories, eval_batch.scores)):
-                        trace_str = trajectory.trace.to_json() if trajectory.trace else ""
+                        trace = trajectory.trace
+                        spans = []
+                        if trace:
+                            spans = [
+                                {
+                                    "name": span.name,
+                                    "inputs": span.inputs,
+                                    "outputs": span.outputs,
+                                }
+                                for span in trace.data.spans
+                            ]
+
                         component_data.append(
                             {
                                 "component_name": component_name,
                                 "current_text": candidate.get(component_name, ""),
-                                "trace": trace_str,
+                                "trace": spans,
                                 "score": score,
+                                "inputs": trajectory.inputs,
+                                "outputs": trajectory.outputs,
                                 "expectations": trajectory.expectations,
                                 "index": i,
                             }

@@ -380,7 +380,7 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
         def __init__(self):
             self.model_name = "openai:/gpt-4o-mini"
 
-        def optimize(self, eval_fn, train_data, target_prompts):
+        def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
             return PromptOptimizerOutput(optimized_prompts=target_prompts)
 
     sample_prompt = mlflow.genai.register_prompt(
@@ -416,7 +416,7 @@ def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClie
             "optimizer_type": "MockAdapter",
             "prompt_count": 1,
             "scorer_count": 1,
-            "custom_objective": False,
+            "custom_aggregation": False,
         },
     )
 

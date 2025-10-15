@@ -208,8 +208,8 @@ class PromptOptimizationEvent(Event):
         except TypeError:
             result["scorer_count"] = None
 
-        # Track if custom objective is provided
-        result["custom_objective"] = arguments.get("objective") is not None
+        # Track if custom aggregation is provided
+        result["custom_aggregation"] = arguments.get("aggregation") is not None
 
         return result
 

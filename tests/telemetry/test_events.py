@@ -155,7 +155,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer_type": "MockOptimizer",
                 "prompt_count": 1,
                 "scorer_count": None,
-                "custom_objective": False,
+                "custom_aggregation": False,
             },
         ),
         # Multiple prompt URIs with custom scorers
@@ -170,7 +170,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer_type": "CustomAdapter",
                 "prompt_count": 2,
                 "scorer_count": 1,
-                "custom_objective": False,
+                "custom_aggregation": False,
             },
         ),
         # Custom objective with multiple scorers
@@ -185,7 +185,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer_type": "TestAdapter",
                 "prompt_count": 1,
                 "scorer_count": 3,
-                "custom_objective": True,
+                "custom_aggregation": True,
             },
         ),
         # No optimizer provided - optimizer_type should be None
@@ -200,7 +200,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer_type": None,
                 "prompt_count": 1,
                 "scorer_count": None,
-                "custom_objective": False,
+                "custom_aggregation": False,
             },
         ),
     ],
