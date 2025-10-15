@@ -169,6 +169,58 @@ class GeminiAdapter(ProviderAdapter):
         return gemini_payload
 
     @classmethod
+    def _convert_function_call_to_openai_choice(
+        cls, function_call: dict[str, Any], finish_reason: str, choice_idx: int, stream: bool,
+    ):
+        # convert gemini model responded "function call" struct to Openai choice / choice chunk
+        # struct.
+        # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
+        func_name = function_call["name"]
+        func_arguments = json.dumps(function_call["args"])
+        call_id = function_call.get("id")
+        if call_id is None:
+            # Gemini model response might not contain function call id,
+            # in order to make it compatible with Openai chat protocol,
+            # we need to generate a unique call id.
+            call_id = "call_" + hashlib.md5(
+                f"{func_name}/{func_arguments}".encode("utf-8"),
+                usedforsecurity=False,
+            ).hexdigest()
+
+        if stream:
+            return chat_schema.StreamChoice(
+                index=choice_idx,
+                delta=chat_schema.StreamDelta(
+                    role="assistant",
+                    tool_calls=[chat_schema.ToolCallDelta(
+                        index=0,
+                        id=call_id,
+                        function=Function(
+                            name=func_name,
+                            arguments=func_arguments,
+                        ),
+                        type="function",
+                    )],
+                ),
+                finish_reason=finish_reason,
+            )
+        return chat_schema.Choice(
+            index=choice_idx,
+            message=chat_schema.ResponseMessage(
+                role="assistant",
+                tool_calls=[ToolCall(
+                    id=call_id,
+                    function=Function(
+                        name=func_name,
+                        arguments=func_arguments,
+                    ),
+                    type="function",
+                )],
+            ),
+            finish_reason=finish_reason,
+        )
+
+    @classmethod
     def model_to_chat(cls, resp, config):
         # Documentation: https://ai.google.dev/api/generate-content
         #
@@ -200,33 +252,9 @@ class GeminiAdapter(ProviderAdapter):
 
             if parts := candidate.get("content", {}).get("parts", None):
                 if function_call := parts[0].get("functionCall", None):
-                    func_name = function_call["name"]
-                    func_arguments = json.dumps(function_call["args"])
-                    call_id = function_call.get("id")
-                    if call_id is None:
-                        # Gemini model response might not contain function call id,
-                        # in order to make it compatible with Openai chat protocol,
-                        # we need to generate a unique call id.
-                        call_id = "call_" + hashlib.md5(
-                            f"{func_name}/{func_arguments}".encode("utf-8"),
-                            usedforsecurity=False,
-                        ).hexdigest()
-
                     choices.append(
-                        chat_schema.Choice(
-                            index=idx,
-                            message=chat_schema.ResponseMessage(
-                                role="assistant",
-                                tool_calls=[ToolCall(
-                                    id=call_id,
-                                    function=Function(
-                                        name=func_name,
-                                        arguments=func_arguments,
-                                    ),
-                                    type="function",
-                                )],
-                            ),
-                            finish_reason=finish_reason,
+                        GeminiAdapter._convert_function_call_to_openai_choice(
+                            function_call, finish_reason, idx, False
                         )
                     )
 
@@ -285,12 +313,25 @@ class GeminiAdapter(ProviderAdapter):
         choices = []
         for idx, cand in enumerate(resp.get("candidates", [])):
             parts = cand.get("content", {}).get("parts", [])
-            delta_text = parts[0].get("text", "") if parts else ""
+            finish_reason = cand.get("finishReason")
 
+            if parts:
+                if function_call := parts[0].get("functionCall", None):
+                    # for gemini model streaming response,
+                    # the function call message is not split into chunks
+                    # it still contains the full function call arguments data.
+                    choices.append(
+                        GeminiAdapter._convert_function_call_to_openai_choice(
+                            function_call, finish_reason, idx, True
+                        )
+                    )
+                    continue
+
+            delta_text = parts[0].get("text", "") if parts else ""
             choices.append(
                 chat_schema.StreamChoice(
                     index=idx,
-                    finish_reason=cand.get("finishReason"),
+                    finish_reason=finish_reason,
                     delta=chat_schema.StreamDelta(
                         role="assistant",
                         content=delta_text,
