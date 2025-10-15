@@ -673,12 +673,6 @@ class DatabricksTracingRestStore(RestStore):
         """
         Link multiple traces to a run by creating trace-to-run relationships.
 
-        This method handles both V3 and V4 trace formats:
-        - V4 traces (format: trace:/catalog.schema/id) use the batch V4 endpoint
-        - V3 traces use the V3 endpoint via the parent class
-        - Supports traces from multiple locations by grouping them and making separate batch calls
-        - Supports mixing V3 and V4 traces in a single request
-
         Args:
             trace_ids: List of trace IDs to link to the run.
             run_id: ID of the run to link traces to.

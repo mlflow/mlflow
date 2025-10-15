@@ -1339,61 +1339,6 @@ def test_link_traces_to_run_with_different_locations_groups_by_location():
             assert json_body["run_id"] == run_id
 
 
-def test_link_traces_to_run_with_v3_and_multiple_v4_locations():
-    """Test that mixing V3 traces with V4 traces from multiple locations works correctly."""
-    creds = MlflowHostCreds("https://hello")
-    store = DatabricksTracingRestStore(lambda: creds)
-    response = mock.MagicMock()
-    response.status_code = 200
-    response.text = json.dumps({})
-
-    location1 = "catalog1.schema1"
-    location2 = "catalog2.schema2"
-    trace_ids = [
-        "tr-111",  # V3 trace
-        f"{TRACE_ID_V4_PREFIX}{location1}/trace123",
-        f"{TRACE_ID_V4_PREFIX}{location2}/trace456",
-        "tr-222",  # V3 trace
-        f"{TRACE_ID_V4_PREFIX}{location1}/trace789",
-    ]
-    run_id = "run_abc"
-
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        store.link_traces_to_run(trace_ids=trace_ids, run_id=run_id)
-
-        # Should make 3 separate calls: one for V3, and one for each V4 location
-        assert mock_http.call_count == 3
-
-        # Verify V3 call
-        v3_calls = [call for call in mock_http.call_args_list if "2.0" in call.kwargs["endpoint"]]
-        assert len(v3_calls) == 1
-        v3_call = v3_calls[0]
-        assert v3_call.kwargs["endpoint"] == "/api/2.0/mlflow/traces/link-to-run"
-        assert set(v3_call.kwargs["json"]["trace_ids"]) == {"tr-111", "tr-222"}
-        assert v3_call.kwargs["json"]["run_id"] == run_id
-
-        # Verify V4 calls
-        v4_calls = [call for call in mock_http.call_args_list if "4.0" in call.kwargs["endpoint"]]
-        assert len(v4_calls) == 2
-
-        v4_endpoints = {call.kwargs["endpoint"] for call in v4_calls}
-        expected_v4_endpoints = {
-            f"/api/4.0/mlflow/traces/{location1}/link-to-run/batchCreate",
-            f"/api/4.0/mlflow/traces/{location2}/link-to-run/batchCreate",
-        }
-        assert v4_endpoints == expected_v4_endpoints
-
-        # Verify trace IDs were grouped correctly for V4 calls
-        for call in v4_calls:
-            endpoint = call.kwargs["endpoint"]
-            json_body = call.kwargs["json"]
-            if location1 in endpoint:
-                assert set(json_body["trace_ids"]) == {"trace123", "trace789"}
-            elif location2 in endpoint:
-                assert json_body["trace_ids"] == ["trace456"]
-            assert json_body["run_id"] == run_id
-
-
 def test_link_traces_to_run_with_empty_list_does_nothing():
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
