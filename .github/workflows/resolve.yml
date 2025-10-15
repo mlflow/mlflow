@@ -1,0 +1,200 @@
+name: resolve
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - .github/workflows/resolve.yml
+      - .claude/commands/resolve.md
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    timeout-minutes: 30
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == 'mlflow/mlflow')
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/resolve'))
+    steps:
+      - name: React to comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const { comment } = context.payload;
+
+            await github.rest.reactions.createForIssueComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              content: 'rocket'
+            });
+
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const updatedBody = `${comment.body}\n\n---\n🚀 [Resolve workflow started](${workflowUrl})`;
+
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: comment.id,
+              body: updatedBody
+            });
+
+      - name: Check authorization for issue comment
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: "⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored."
+            });
+
+            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
+
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Get PR information
+        id: pr-info
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const prNumber = ${{ github.event.pull_request.number || github.event.issue.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`;
+
+            const commentBody = process.env.COMMENT_BODY || '';
+            const prompt = commentBody.replace(/^\/resolve\s*/, '').trim();
+
+            core.setOutput('pr_number', prNumber);
+            core.setOutput('pr_url', prUrl);
+            core.setOutput('prompt', prompt);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repository', pr.head.repo.full_name);
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ steps.pr-info.outputs.head_repository }}
+          ref: ${{ steps.pr-info.outputs.head_ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+
+      - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
+
+      - name: Set up pre-commit
+        run: |
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v
+
+      - name: Install Claude CLI
+        run: npm install -g @anthropic-ai/claude-code@2.0.15
+
+      - name: Set up GitHub MCP server
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude mcp add github \
+            -e GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}" \
+            -- docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN ghcr.io/github/github-mcp-server
+
+      - name: Record initial HEAD
+        id: initial-head
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Run Claude resolve command
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ steps.pr-info.outputs.pr_url }}
+          PROMPT: ${{ steps.pr-info.outputs.prompt }}
+        run: |
+          RESOLVE_CMD="/resolve $PR_URL"
+          if [ -n "$PROMPT" ]; then
+            RESOLVE_CMD="$RESOLVE_CMD $PROMPT"
+          fi
+
+          echo "Running command: $RESOLVE_CMD"
+          timeout 10m claude --print "$RESOLVE_CMD" || true
+
+      - name: Push changes if commit was created
+        id: push-changes
+        run: |
+          INITIAL_HEAD="${{ steps.initial-head.outputs.sha }}"
+          CURRENT_HEAD="$(git rev-parse HEAD)"
+
+          if [ "$INITIAL_HEAD" != "$CURRENT_HEAD" ]; then
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+            echo "New commit detected, pushing changes..."
+            git push
+          else
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "No new commits, skipping push."
+          fi
+
+      - name: Update original comment with result
+        if: always() && github.event_name == 'issue_comment'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          HAS_CHANGES: ${{ steps.push-changes.outputs.has_changes }}
+          WORKFLOW_CONCLUSION: ${{ job.status }}
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const commentId = context.payload.comment.id;
+            const hasChanges = process.env.HAS_CHANGES === 'true';
+            const workflowStatus = process.env.WORKFLOW_CONCLUSION;
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            // Refetch the comment to get the latest body
+            const { data: comment } = await github.rest.issues.getComment({
+              owner,
+              repo,
+              comment_id: commentId
+            });
+
+            let resultMessage;
+            if (workflowStatus !== 'success') {
+              resultMessage = `⚠️ Workflow encountered an error.`;
+            } else if (hasChanges) {
+              resultMessage = `✅ Review comments have been addressed and changes have been pushed.`;
+            } else {
+              resultMessage = `ℹ️ No changes were made. Either all comments were already addressed or no actionable feedback was found.`;
+            }
+
+            const updatedBody = `${comment.body}\n\n${resultMessage}`;
+
+            await github.rest.issues.updateComment({
+              owner,
+              repo,
+              comment_id: commentId,
+              body: updatedBody
+            });
