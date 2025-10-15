@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 from typing import AsyncIterable
 
@@ -12,6 +13,8 @@ from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
 from mlflow.gateway.schemas import chat, completions
 from mlflow.types.chat import Function, ToolCallDelta
+
+_logger = logging.getLogger(__name__)
 
 
 class AnthropicAdapter(ProviderAdapter):
@@ -82,16 +85,17 @@ class AnthropicAdapter(ProviderAdapter):
                         ],
                     }
                 )
+            else:
+                _logger.info(f"Discarded unknown message: {m}")
+
         payload["messages"] = converted_messages
 
         # The range of Anthropic's temperature is 0-1, but ours is 0-2, so we halve it
         if "temperature" in payload:
             payload["temperature"] = 0.5 * payload["temperature"]
 
-        tools = payload.pop("tools", None)
-
         # convert tool definition to Anthropic format
-        if tools:
+        if tools := payload.pop("tools", None):
             converted_tools = []
             for tool in tools:
                 if tool["type"] != "function":
