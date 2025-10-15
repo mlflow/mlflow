@@ -71,8 +71,8 @@ ContentType = Annotated[str | ContentPartsList, Field(union_mode="left_to_right"
 
 
 class Function(BaseModel):
-    name: str
-    arguments: str
+    name: str | None = None
+    arguments: str | None = None
 
     def to_tool_call(self, id=None) -> ToolCall:
         if id is None:
@@ -195,9 +195,17 @@ class ChatUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class ToolCallDelta(BaseModel):
+    index: int
+    id: str | None = None
+    type: str | None = None
+    function: Function
+
+
 class ChatChoiceDelta(BaseModel):
     role: str | None = None
     content: str | None = None
+    tool_calls: list[ToolCallDelta] | None = None
 
 
 class ChatChunkChoice(BaseModel):

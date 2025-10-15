@@ -213,12 +213,14 @@ async def test_gemini_completions():
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     )
 
-    with mock.patch("time.time", return_value=1234567890):
-        with mock.patch(
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
             "aiohttp.ClientSession.post",
             return_value=MockAsyncResponse(fake_completion_response()),
-        ) as mock_post:
-            response = await provider.completions(completions.RequestPayload(**payload))
+        ) as mock_post,
+    ):
+        response = await provider.completions(completions.RequestPayload(**payload))
 
     expected_choices = [
         completions.Choice(
@@ -315,12 +317,14 @@ async def test_gemini_chat():
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     )
 
-    with mock.patch("time.time", return_value=1234567890):
-        with mock.patch(
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
             "aiohttp.ClientSession.post",
             return_value=MockAsyncResponse(fake_chat_response()),
-        ) as mock_post:
-            response = await provider.chat(chat.RequestPayload(**payload))
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
 
     expected_choices = [
         chat.Choice(
@@ -435,7 +439,15 @@ async def test_gemini_chat_stream(resp):
             "created": 1,
             "model": "gemini-2.0-flash",
             "choices": [
-                {"index": 0, "finish_reason": None, "delta": {"role": "assistant", "content": "a"}}
+                {
+                    "index": 0,
+                    "finish_reason": None,
+                    "delta": {
+                        "role": "assistant",
+                        "content": "a",
+                        "tool_calls": None,
+                    },
+                }
             ],
         },
         {
@@ -447,7 +459,11 @@ async def test_gemini_chat_stream(resp):
                 {
                     "index": 0,
                     "finish_reason": "stop",
-                    "delta": {"role": "assistant", "content": "b"},
+                    "delta": {
+                        "role": "assistant",
+                        "content": "b",
+                        "tool_calls": None,
+                    },
                 }
             ],
         },

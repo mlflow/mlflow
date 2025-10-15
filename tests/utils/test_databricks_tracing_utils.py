@@ -1,5 +1,4 @@
 import json
-from unittest import mock
 
 from google.protobuf.timestamp_pb2 import Timestamp
 
@@ -23,7 +22,12 @@ from mlflow.entities.trace_location import (
 from mlflow.protos import assessments_pb2
 from mlflow.protos import databricks_tracing_pb2 as pb
 from mlflow.protos.assessments_pb2 import AssessmentSource as ProtoAssessmentSource
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_ID_V4_PREFIX,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+)
 from mlflow.tracing.utils import TraceMetadataKey, add_size_stats_to_trace_metadata
 from mlflow.utils.databricks_tracing_utils import (
     assessment_to_proto,
@@ -31,8 +35,6 @@ from mlflow.utils.databricks_tracing_utils import (
     inference_table_location_to_proto,
     mlflow_experiment_location_to_proto,
     trace_from_proto,
-    trace_info_to_dict,
-    trace_info_to_proto,
     trace_location_from_proto,
     trace_location_to_proto,
     trace_to_proto,
@@ -158,7 +160,7 @@ def test_trace_location_from_proto_inference_table():
     assert trace_location.inference_table.full_table_name == "test_catalog.test_schema.test_table"
 
 
-def test_trace_info_to_proto():
+def test_trace_info_to_v4_proto():
     otel_trace_id = "2efb31387ff19263f92b2c0a61b0a8bc"
     trace_id = f"trace:/catalog.schema/{otel_trace_id}"
     trace_info = TraceInfo(
@@ -173,7 +175,7 @@ def test_trace_info_to_proto():
         client_request_id="client_request_id",
         tags={"key": "value"},
     )
-    proto_trace_info = trace_info_to_proto(trace_info)
+    proto_trace_info = trace_info.to_proto()
     assert proto_trace_info.trace_id == otel_trace_id
     assert proto_trace_info.trace_location.uc_schema.catalog_name == "catalog"
     assert proto_trace_info.trace_location.uc_schema.schema_name == "schema"
@@ -220,7 +222,7 @@ def test_trace_to_proto_and_from_proto():
     assert proto_trace_v4.trace_info.trace_location.uc_schema.schema_name == "schema"
     assert len(proto_trace_v4.spans) == len(trace.data.spans)
 
-    reconstructed_trace = trace_from_proto(proto_trace_v4)
+    reconstructed_trace = trace_from_proto(proto_trace_v4, location_id="catalog.schema")
 
     assert reconstructed_trace.info.trace_id == trace_id
     assert reconstructed_trace.info.trace_location.uc_schema.catalog_name == "catalog"
@@ -236,6 +238,42 @@ def test_trace_to_proto_and_from_proto():
     assert reconstructed_span.inputs == original_span.inputs
     assert reconstructed_span.outputs == original_span.outputs
     assert reconstructed_span.get_attribute("custom") == original_span.get_attribute("custom")
+
+
+def test_trace_from_proto_with_location_preserves_v4_trace_id():
+    with mlflow.start_span() as span:
+        otel_trace_id = span.trace_id.removeprefix("tr-")
+        uc_schema = "catalog.schema"
+        trace_id_v4 = f"{TRACE_ID_V4_PREFIX}{uc_schema}/{otel_trace_id}"
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, trace_id_v4)
+        mlflow_span = span.to_immutable_span()
+
+    # Create trace with v4 trace ID
+    trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id_v4,
+            trace_location=TraceLocation.from_databricks_uc_schema(
+                catalog_name="catalog", schema_name="schema"
+            ),
+            request_time=0,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mlflow_span]),
+    )
+
+    # Convert to proto
+    proto_trace = trace_to_proto(trace)
+
+    # Reconstruct with location parameter
+    reconstructed_trace = trace_from_proto(proto_trace, location_id=uc_schema)
+
+    # Verify that all spans have the correct v4 trace_id format
+    for reconstructed_span in reconstructed_trace.data.spans:
+        assert reconstructed_span.trace_id == trace_id_v4
+        assert reconstructed_span.trace_id.startswith(TRACE_ID_V4_PREFIX)
+        # Verify the REQUEST_ID attribute is also in v4 format
+        request_id = reconstructed_span.get_attribute("mlflow.traceRequestId")
+        assert request_id == trace_id_v4
 
 
 def test_trace_info_from_proto_handles_uc_schema_location():
@@ -262,40 +300,6 @@ def test_trace_info_from_proto_handles_uc_schema_location():
     assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
     assert trace_info.trace_metadata["other_key"] == "other_value"
     assert trace_info.tags == {"test_tag": "test_value"}
-
-
-def test_trace_info_to_dict():
-    trace_info = TraceInfo(
-        trace_id="test_trace_id",
-        trace_location=TraceLocation.from_databricks_uc_schema(
-            catalog_name="catalog", schema_name="schema"
-        ),
-        request_time=0,
-        state=TraceState.OK,
-        request_preview="request",
-        response_preview="response",
-        client_request_id="client_request_id",
-        tags={"key": "value"},
-    )
-    assert trace_info_to_dict(trace_info) == {
-        "trace_id": "test_trace_id",
-        "trace_location": {
-            "type": "UC_SCHEMA",
-            "uc_schema": {
-                "catalog_name": "catalog",
-                "schema_name": "schema",
-                # Default table names
-                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
-                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
-            },
-        },
-        "request_time": mock.ANY,
-        "state": "OK",
-        "request_preview": "request",
-        "response_preview": "response",
-        "client_request_id": "client_request_id",
-        "tags": {"key": "value"},
-    }
 
 
 def test_add_size_stats_to_trace_metadata_for_v4_trace():

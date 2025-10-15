@@ -141,6 +141,7 @@ mlflow.client.MlflowClient.start_span
 mlflow.client.MlflowClient.start_trace
 mlflow.client.MlflowClient.test_webhook
 mlflow.client.MlflowClient.transition_model_version_stage
+mlflow.client.MlflowClient.unlink_traces_from_run
 mlflow.client.MlflowClient.update_model_version
 mlflow.client.MlflowClient.update_registered_model
 mlflow.client.MlflowClient.update_run
@@ -1349,6 +1350,7 @@ mlflow.types.chat.ParamProperty
 mlflow.types.chat.ParamType
 mlflow.types.chat.TextContentPart
 mlflow.types.chat.ToolCall
+mlflow.types.chat.ToolCallDelta
 mlflow.types.llm.ChatChoice
 mlflow.types.llm.ChatChoiceDelta
 mlflow.types.llm.ChatChoiceLogProbs
