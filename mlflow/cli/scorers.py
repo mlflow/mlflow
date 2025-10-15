@@ -36,20 +36,20 @@ def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
     """
     List all registered scorers, including LLM judges, for the specified experiment.
 
+    \b
     Examples:
 
-    \b
-    # List scorers in table format (default)
-    mlflow scorers list --experiment-id 123
+    .. code-block:: bash
 
-    \b
-    # List scorers in JSON format
-    mlflow scorers list --experiment-id 123 --output json
+        # List scorers in table format (default)
+        mlflow scorers list --experiment-id 123
 
-    \b
-    # Using environment variable
-    export MLFLOW_EXPERIMENT_ID=123
-    mlflow scorers list
+        # List scorers in JSON format
+        mlflow scorers list --experiment-id 123 --output json
+
+        # Using environment variable
+        export MLFLOW_EXPERIMENT_ID=123
+        mlflow scorers list
     """
     scorers = list_scorers_api(experiment_id=experiment_id)
     scorer_names = [scorer.name for scorer in scorers]
@@ -77,9 +77,9 @@ def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
     type=click.STRING,
     required=True,
     help=(
-        "Natural language instructions for evaluation. Must contain at least one "
-        "template variable: {{ inputs }}, {{ outputs }}, {{ expectations }}, or {{ trace }}. "
-        "See the make_judge documentation for the interpretation of these variables."
+        "Instructions for evaluation. Must contain at least one template variable: "
+        "``{{ inputs }}``, ``{{ outputs }}``, ``{{ expectations }}``, or ``{{ trace }}``. "
+        "See the make_judge documentation for variable interpretations."
     ),
 )
 @click.option(
@@ -88,7 +88,7 @@ def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
     type=click.STRING,
     required=False,
     help=(
-        "Model identifier to use for evaluation (e.g., 'openai:/gpt-4'). "
+        "Model identifier to use for evaluation (e.g., ``openai:/gpt-4``). "
         "If not provided, uses the default model."
     ),
 )
@@ -105,25 +105,28 @@ def register_llm_judge(name: str, instructions: str, model: str | None, experime
     Register an LLM judge scorer in the specified experiment.
 
     This command creates an LLM judge using natural language instructions and registers
-    it in an experiment for use in evaluation workflows.
+    it in an experiment for use in evaluation workflows. The instructions must contain at
+    least one template variable (``{{ inputs }}``, ``{{ outputs }}``, ``{{ expectations }}``,
+    or ``{{ trace }}``) to define what the judge will evaluate.
 
+    \b
     Examples:
 
-    \b
-    # Register a basic quality judge
-    mlflow scorers register-llm-judge -n quality_judge \\
-        -i "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." -x 123
+    .. code-block:: bash
 
-    \b
-    # Register a judge with custom model
-    mlflow scorers register-llm-judge -n custom_judge \\
-        -i "Check whether {{ outputs }} is professional and formal. \\
-            Rate pass, fail, or na" -m "openai:/gpt-4" -x 123
+        # Register a basic quality judge
+        mlflow scorers register-llm-judge -n quality_judge \\
+            -i "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." -x 123
 
-    \b
-    # Using environment variable
-    export MLFLOW_EXPERIMENT_ID=123
-    mlflow scorers register-llm-judge -n my_judge -i "Check whether {{ outputs }} contains PII"
+        # Register a judge with custom model
+        mlflow scorers register-llm-judge -n custom_judge \\
+            -i "Check whether {{ outputs }} is professional and formal. Rate pass, fail, or na" \\
+            -m "openai:/gpt-4" -x 123
+
+        # Using environment variable
+        export MLFLOW_EXPERIMENT_ID=123
+        mlflow scorers register-llm-judge -n my_judge \\
+            -i "Check whether {{ outputs }} contains PII"
     """
     judge = make_judge(name=name, instructions=instructions, model=model)
     registered_judge = judge.register(experiment_id=experiment_id)
