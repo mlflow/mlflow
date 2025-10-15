@@ -1232,6 +1232,21 @@ class AbstractStore:
             MlflowException: If more than 100 traces are provided.
         """
 
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If the operation is not supported or fails.
+        """
+        raise NotImplementedError(
+            f"Unlinking traces from runs is not implemented for {self.__class__.__name__}."
+        )
+
     def calculate_trace_filter_correlation(
         self,
         experiment_ids: list[str],
