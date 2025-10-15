@@ -15,10 +15,6 @@ class Event:
         return None
 
 
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
-
-
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
