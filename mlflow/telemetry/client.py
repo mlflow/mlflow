@@ -19,8 +19,7 @@ from mlflow.telemetry.constant import (
     RETRYABLE_ERRORS,
     UNRECOVERABLE_ERRORS,
 )
-from mlflow.telemetry.events import ImportMlflowEvent
-from mlflow.telemetry.schemas import Record, Status, TelemetryConfig, TelemetryInfo, get_source_sdk
+from mlflow.telemetry.schemas import Record, TelemetryConfig, TelemetryInfo, get_source_sdk
 from mlflow.telemetry.utils import _get_config_url, _log_error, is_telemetry_disabled
 from mlflow.utils.logging_utils import should_suppress_logs_in_thread, suppress_logs_in_thread
 
@@ -63,18 +62,6 @@ class TelemetryClient:
                 if self.config is None:
                     self._is_stopped = True
                     _set_telemetry_client(None)
-                else:
-                    # send the import record immediately after config is fetched
-                    # do not add if config is None
-                    self.add_record(
-                        Record(
-                            event_name=ImportMlflowEvent.name,
-                            timestamp_ns=time.time_ns(),
-                            status=Status.SUCCESS,
-                            duration_ms=0,
-                        ),
-                        send_immediately=True,
-                    )
                 self._is_config_fetched = True
             except Exception:
                 self._is_stopped = True
@@ -124,7 +111,7 @@ class TelemetryClient:
                 _log_error(f"Failed to get telemetry config: {e}")
                 return
 
-    def add_record(self, record: Record, send_immediately: bool = False):
+    def add_record(self, record: Record):
         """
         Add a record to be batched and sent to the telemetry server.
         """
@@ -139,7 +126,7 @@ class TelemetryClient:
 
             # Only send if we've reached the batch size;
             # time-based sending is handled by the consumer thread.
-            if send_immediately or len(self._pending_records) >= self._batch_size:
+            if len(self._pending_records) >= self._batch_size:
                 self._send_batch()
 
     def _send_batch(self):
