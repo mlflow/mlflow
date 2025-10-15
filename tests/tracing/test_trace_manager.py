@@ -218,12 +218,7 @@ def test_get_root_span_id():
 
 
 def test_register_prompt():
-    prompt_version = PromptVersion(
-        name="test_prompt",
-        version=1,
-        template="Test template",
-        creation_timestamp=1234567890,
-    )
+    prompt_version = PromptVersion(name="test_prompt", version=1, template="Test template")
 
     trace_manager = InMemoryTraceManager.get_instance()
     request_id_1 = "tr-1"
@@ -237,12 +232,8 @@ def test_register_prompt():
     ]
 
     # Adding multiple prompts to the same trace
-    prompt_version_2 = PromptVersion(
-        name="test_prompt_2",
-        version=2,
-        template="Test template 2",
-        creation_timestamp=1234567890,
-    )
+    prompt_version_2 = PromptVersion(name="test_prompt_2", version=2, template="Test template 2")
+
     trace_manager.register_prompt(request_id_1, prompt_version_2)
     assert trace.prompts == [prompt_version, prompt_version_2]
     assert json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY]) == [
@@ -264,17 +255,10 @@ def test_register_prompt_thread_safety():
     request_id_1 = "tr-1"
     trace_manager.register_trace(12345, create_test_trace_info(request_id_1, "test"))
     prompt_versions = [
-        PromptVersion(
-            name=f"test_prompt_{i}",
-            version=i,
-            template=f"Test template {i}",
-            creation_timestamp=1234567890,
-        )
+        PromptVersion(name=f"test_prompt_{i}", version=i, template=f"Test template {i}")
         for i in range(10)
     ]
-    trace_id = "trace_123"
 
-    # Register prompts from 2 different threads
     def register_prompt(prompt_version):
         trace_manager.register_prompt(request_id_1, prompt_version)
 

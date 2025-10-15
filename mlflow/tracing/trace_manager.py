@@ -1,5 +1,4 @@
 import contextlib
-import json
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -9,6 +8,7 @@ from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
 
@@ -118,25 +118,12 @@ class InMemoryTraceManager:
             # LinkPromptsToTraces endpoint is implemented in the backend.
             # TODO: Remove this once LinkPromptsToTraces endpoint is implemented in the backend.
             try:
-                self._update_linked_prompts_tag(trace_id, prompt)
+                current_tag = self._traces[trace_id].info.tags.get(LINKED_PROMPTS_TAG_KEY)
+                updated_tag = update_linked_prompts_tag(current_tag, [prompt])
+                self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag
             except Exception:
                 _logger.debug(f"Failed to update prompts tag for trace {trace_id}", exc_info=True)
-
-    def _update_linked_prompts_tag(self, trace_id: str, prompt: PromptVersion):
-        trace_info = self._traces[trace_id].info
-        new_prompt_entry = {"name": prompt.name, "version": str(prompt.version)}
-
-        if current_tag_value := trace_info.tags.get(LINKED_PROMPTS_TAG_KEY):
-            parsed_prompts_tag_value = json.loads(current_tag_value)
-        else:
-            parsed_prompts_tag_value = []
-
-        if new_prompt_entry in parsed_prompts_tag_value:
-            return
-
-        parsed_prompts_tag_value.append(new_prompt_entry)
-        updated_tag_value = json.dumps(parsed_prompts_tag_value)
-        self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag_value
+                raise
 
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[_Trace | None, None, None]:
