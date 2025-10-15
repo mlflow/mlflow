@@ -164,6 +164,16 @@ This automatically creates a dataset with:
 - `inputs`: The input variables (`text` in this case)
 - `outputs`: The actual outputs from your source model (`gpt-5`)
 
+You can view the created dataset in the MLflow UI by navigating to:
+
+1. **Experiments** tab → Select your experiment
+2. **Evaluations** tab → View your evaluation runs
+3. **Dataset** tab → Inspect the input/output pairs
+
+The dataset view shows all the inputs and outputs collected from your traces, making it easy to verify the training data before optimization.
+
+![](/images/evaluation_dataset_ui.png)
+
 ### Step 3: Switch Model
 
 Switch your LM to the target model:
@@ -181,18 +191,6 @@ def predict_fn(text: str) -> str:
 ```
 
 You might notice the target model doesn't follow the format as consistently as the source model.
-
-### Viewing the Dataset in MLflow UI
-
-You can view the created dataset in the MLflow UI by navigating to:
-
-1. **Experiments** tab → Select your experiment
-2. **Evaluations** tab → View your evaluation runs
-3. **Dataset** tab → Inspect the input/output pairs
-
-The dataset view shows all the inputs and outputs collected from your traces, making it easy to verify the training data before optimization.
-
-![](/images/evaluation_dataset_ui.png)
 
 ### Step 4: Optimize Prompts for Target Model
 
