@@ -1258,9 +1258,6 @@ def test_prep_msgs_for_cc_llm_empty_arguments(responses_input, cc_msgs):
 
 
 def test_cc_stream_to_responses_stream_handles_multiple_invalid_chunks():
-    """Test that _cc_stream_to_responses_stream correctly handles chunks with empty or
-    None choices.
-    """
     chunks_with_mixed_validity = [
         {"choices": None, "id": "msg-1"},
         {"choices": [], "id": "msg-2"},
