@@ -1386,7 +1386,10 @@ def test_unlink_traces_from_run_with_v3_trace_ids_raises_error():
     trace_ids = ["tr-123", "tr-456"]
     run_id = "run_abc"
 
-    with pytest.raises(MlflowException, match="Unlinking V3 traces from runs is not supported"):
+    with pytest.raises(
+        MlflowException,
+        match="Unlinking traces from runs is only supported for traces with UC schema",
+    ):
         store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
 
 
@@ -1401,7 +1404,10 @@ def test_unlink_traces_from_run_with_mixed_v3_v4_trace_ids_raises_error():
     run_id = "run_abc"
 
     # Should raise error because V3 traces are not supported for unlinking
-    with pytest.raises(MlflowException, match="Unlinking V3 traces from runs is not supported"):
+    with pytest.raises(
+        MlflowException,
+        match="Unlinking traces from runs is only supported for traces with UC schema",
+    ):
         store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
 
 

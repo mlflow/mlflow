@@ -634,11 +634,8 @@ class DatabricksTracingRestStore(RestStore):
         traces_by_location: dict[str | None, list[str]] = defaultdict(list)
 
         for trace_id in trace_ids:
-            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
-            if location_id is None:
-                traces_by_location[None].append(trace_id)
-            else:
-                traces_by_location[location_id].append(otel_trace_id)
+            location_id, trace_id = parse_trace_id_v4(trace_id)
+            traces_by_location[location_id].append(trace_id)
 
         return traces_by_location
 
@@ -724,9 +721,8 @@ class DatabricksTracingRestStore(RestStore):
 
         if v3_trace_ids := traces_by_location.pop(None, []):
             raise MlflowException(
-                "Unlinking V3 traces from runs is not supported. Only V4 traces (with UC "
-                "schema locations) can be unlinked. Unsupported trace IDs: "
-                f"{v3_trace_ids}"
+                "Unlinking traces from runs is only supported for traces with UC schema "
+                f"locations. Unsupported trace IDs: {v3_trace_ids}"
             )
 
         for location_id, batch_trace_ids in traces_by_location.items():
