@@ -71,8 +71,8 @@ ContentType = Annotated[str | ContentPartsList, Field(union_mode="left_to_right"
 
 
 class Function(BaseModel):
-    name: str
-    arguments: str
+    name: str | None = None
+    arguments: str | None = None
 
     def to_tool_call(self, id=None) -> ToolCall:
         if id is None:
