@@ -951,12 +951,6 @@ def test_log_spans_to_uc_table_empty_spans():
     assert result == []
 
 
-def test_log_spans_to_uc_table_empty_spans():
-    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-    result = store.log_spans("catalog.schema.table", [], tracking_uri="databricks")
-    assert result == []
-
-
 @mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
 @mock.patch("mlflow.store.tracking.databricks_rest_store.http_request")
 @pytest.mark.parametrize("diff_trace_id", [True, False])
