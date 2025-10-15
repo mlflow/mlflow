@@ -20,7 +20,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 
 import userEventFactory from '@testing-library/user-event';
 import invariant from 'invariant';
-import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../utils/MetricsUtils';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../utils/MetricsUtils';
 import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
 import { MlflowService } from '../../sdk/MlflowService';
 
@@ -200,7 +200,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for the auto-refresh interval
     await act(async () => {
-      jest.advanceTimersByTime(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL);
     });
 
     await waitFor(() => {
@@ -214,7 +214,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for some time (less than full auto refresh interval)
     await act(async () => {
-      jest.advanceTimersByTime(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL / 2);
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 2);
     });
 
     await waitFor(() => {
@@ -239,7 +239,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for the remainder of the auto-refresh interval
     await act(async () => {
-      jest.advanceTimersByTime(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL / 2);
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 2);
     });
 
     await waitFor(() => {
@@ -250,7 +250,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for the full auto-refresh interval
     await act(async () => {
-      jest.advanceTimersByTime(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL);
     });
 
     await waitFor(() => {
@@ -268,7 +268,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for the full auto-refresh interval
     await act(async () => {
-      jest.advanceTimersByTime(EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      jest.advanceTimersByTime(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL);
     });
 
     // The next call for "metric_2" should be sent but none for "metric_1"
@@ -282,7 +282,7 @@ describe('RunViewMetricCharts - autorefresh', () => {
 
     // Wait for 10 full auto-refresh intervals
     await act(async () => {
-      jest.advanceTimersByTime(10 * EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      jest.advanceTimersByTime(10 * EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL);
     });
 
     // We should get no new calls

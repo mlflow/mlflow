@@ -216,7 +216,7 @@ class Routes {
     experimentIds: string[],
     plotMetricKeys: string[] | null = null,
     plotLayout: any = {},
-    selectedXAxis: 'wall' | 'step' | 'relative' = 'relative',
+    selectedXAxis: 'wall' | 'step' | 'relative' = 'step',
     yAxisLogScale = false,
     lineSmoothness = 1,
     showPoint = false,

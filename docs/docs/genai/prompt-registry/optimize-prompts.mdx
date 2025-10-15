@@ -7,15 +7,19 @@ import { APILink } from "@site/src/components/APILink";
 
 # Optimize Prompts (Experimental)
 
-MLflow provides the <APILink fn="mlflow.genai.optimize_prompts" /> API to automatically improve your prompts using evaluation metrics and training data. This feature helps you enhance prompt quality by leveraging the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm, which uses iterative refinement and LLM-based reflection to systematically improve prompts.
+MLflow offers the <APILink fn="mlflow.genai.optimize_prompts" /> API, enabling you to automatically improve your prompts using evaluation metrics and training data. This powerful feature allows you to enhance prompt effectiveness across any agent framework by applying prompt optimization algorithms, reducing manual effort and ensuring consistent quality.
+
+Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
 
 :::tip Key Benefits
 
 - **Automatic Improvement**: Optimize prompts based on evaluation metrics without manual tuning
-- **Data-Driven**: Uses your training data and custom scorers to guide optimization
-- **Flexible Evaluation**: Support for custom scorers and objective functions
+- **Data-Driven Optimization**: Uses your training data and custom scorers to guide optimization
+- **Framework Agnostic**: Works with any agent framework, providing broad compatibility
+- **Joint Optimization**: Enable the simultaneous refinement of multiple prompts for best overall performance
+- **Flexible Evaluation**: Support for custom scorers and aggregation function
 - **Version Control**: Automatically registers optimized prompts in MLflow Prompt Registry
-- **Extensible**: Plug in custom optimization algorithms by extending base classes
+- **Extensible**: Plug in custom optimization algorithms by extending the base class
 
 :::
 
@@ -165,7 +169,7 @@ The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following co
     </tr>
     <tr>
       <td><strong>Optimizer</strong></td>
-      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" />)</td>
+      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>)</td>
     </tr>
   </tbody>
 </table>
@@ -298,7 +302,7 @@ result = mlflow.genai.optimize_prompts(
 
 ### Custom Optimization Algorithm
 
-Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" />:
+Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >`BasePromptOptimizer`</APILink>:
 
 ```python
 from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
@@ -447,7 +451,7 @@ result = mlflow.genai.optimize_prompts(
 
 ## Result Object
 
-The API returns a <APILink fn="mlflow.genai.optimize.PromptOptimizationResult" /> object:
+The API returns a <APILink fn="mlflow.genai.optimize.PromptOptimizationResult" >`PromptOptimizationResult`</APILink> object:
 
 ```python
 result = mlflow.genai.optimize_prompts(...)

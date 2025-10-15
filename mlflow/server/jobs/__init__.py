@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 from dataclasses import dataclass
 from types import FunctionType
 from typing import Any, Callable, ParamSpec, TypeVar
@@ -7,11 +8,20 @@ from typing import Any, Callable, ParamSpec, TypeVar
 from mlflow.entities._job import Job as JobEntity
 from mlflow.exceptions import MlflowException
 from mlflow.server.handlers import _get_job_store
+from mlflow.utils.environment import _PythonEnv
 
 _logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+_ALLOWED_JOB_FUNCTION_LIST = [
+    # Putting all allowed job function in the list
+]
+
+if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
+    _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
 
 
 class TransientError(RuntimeError):
@@ -32,36 +42,64 @@ class TransientError(RuntimeError):
 class JobFunctionMetadata:
     fn_fullname: str
     max_workers: int
-    use_process: bool
     transient_error_classes: list[type[Exception]] | None = None
+    python_env: _PythonEnv | None = None
 
 
 def job(
     max_workers: int,
-    use_process: bool = True,
     transient_error_classes: list[type[Exception]] | None = None,
+    python_version: str | None = None,
+    pip_requirements: list[str] | None = None,
 ) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     The decorator for the custom job function for setting max parallel workers that
     the job function can use.
+    Each job is executed in an individual subprocess.
 
     Args:
         max_workers: The maximum number of workers that are allowed to run the jobs
             using this job function.
-        use_process: (optional) Specify whether to run the job in an individual process.
-            If the job uses environment variables (e.g. API keys),
-            it should be run in an individual process to isolate the environment variable settings.
-            Default value is True.
         transient_error_classes: (optional) Specify a list of classes that are regarded as
             transient error classes.
+        python_version: (optional) The required python version to run the job function.
+        pip_requirements: (optional) The required pip requirements to run the job function,
+            relative file references such as "-r requirements.txt" are not supported.
     """
+    from mlflow.utils import PYTHON_VERSION
+    from mlflow.utils.requirements_utils import _parse_requirements
+    from mlflow.version import VERSION
+
+    if not python_version and not pip_requirements:
+        python_env = None
+    else:
+        python_version = python_version or PYTHON_VERSION
+        try:
+            pip_requirements = [
+                req.req_str for req in _parse_requirements(pip_requirements, is_constraint=False)
+            ]
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid pip_requirements for job function: {pip_requirements}, "
+                f"parsing error: {e!r}"
+            )
+        if mlflow_home := os.environ.get("MLFLOW_HOME"):
+            # Append MLflow dev version dependency (for testing)
+            pip_requirements += [mlflow_home]
+        else:
+            pip_requirements += [f"mlflow=={VERSION}"]
+
+        python_env = _PythonEnv(
+            python=python_version,
+            dependencies=pip_requirements,
+        )
 
     def decorator(fn: Callable[P, R]) -> Callable[P, R]:
         fn._job_fn_metadata = JobFunctionMetadata(
             fn_fullname=f"{fn.__module__}.{fn.__name__}",
             max_workers=max_workers,
-            use_process=use_process,
             transient_error_classes=transient_error_classes,
+            python_env=python_env,
         )
         return fn
 
@@ -108,18 +146,23 @@ def submit_job(
         _validate_function_parameters,
     )
 
-    _check_requirements()
-
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
             "Mlflow server job execution feature is not enabled, please set "
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
 
+    _check_requirements()
+
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
 
     func_fullname = f"{function.__module__}.{function.__name__}"
+
+    if func_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
+        raise MlflowException.invalid_parameter_value(
+            f"The function {func_fullname} is not in the allowed job function list"
+        )
 
     if not hasattr(function, "_job_fn_metadata"):
         raise MlflowException(

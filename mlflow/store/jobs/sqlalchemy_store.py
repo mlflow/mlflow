@@ -37,8 +37,7 @@ class SqlAlchemyJobStore(AbstractJobStore):
         self.db_uri = db_uri
         self.db_type = extract_db_type_from_uri(db_uri)
         self.engine = mlflow.store.db.utils.create_sqlalchemy_engine_with_retry(db_uri)
-        if not mlflow.store.db.utils._all_tables_exist(self.engine):
-            mlflow.store.db.utils._initialize_tables(self.engine)
+        mlflow.store.db.utils._safe_initialize_tables(self.engine)
 
         SessionMaker = sqlalchemy.orm.sessionmaker(bind=self.engine)
         self.ManagedSessionMaker = mlflow.store.db.utils._get_managed_session_maker(
@@ -88,11 +87,37 @@ class SqlAlchemyJobStore(AbstractJobStore):
     def start_job(self, job_id: str) -> None:
         """
         Start a job by setting its status to RUNNING.
+        Only succeeds if the job is currently in PENDING state.
 
         Args:
             job_id: The ID of the job to start
+
+        Raises:
+            MlflowException: If job is not in PENDING state or doesn't exist
         """
-        self._update_job(job_id, JobStatus.RUNNING)
+        with self.ManagedSessionMaker() as session:
+            # Atomic update: only transition from PENDING to RUNNING
+            rows_updated = (
+                session.query(SqlJob)
+                .filter(SqlJob.id == job_id, SqlJob.status == JobStatus.PENDING.to_int())
+                .update(
+                    {
+                        SqlJob.status: JobStatus.RUNNING.to_int(),
+                        SqlJob.last_update_time: get_current_time_millis(),
+                    }
+                )
+            )
+
+            if rows_updated == 0:
+                job = session.query(SqlJob).filter(SqlJob.id == job_id).one_or_none()
+                if job is None:
+                    raise MlflowException(
+                        f"Job with ID {job_id} not found", error_code=RESOURCE_DOES_NOT_EXIST
+                    )
+                raise MlflowException(
+                    f"Job {job_id} is in {JobStatus.from_int(job.status)} state, "
+                    "cannot start (must be PENDING)"
+                )
 
     def reset_job(self, job_id: str) -> None:
         """

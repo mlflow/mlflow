@@ -9,7 +9,7 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
+from mlflow.entities import EvaluationDataset, Expectation, Feedback, Metric, Param, RunTag
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
@@ -20,6 +20,7 @@ from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, Responses
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     AlignJudgeEvent,
+    AutologgingEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -290,7 +291,40 @@ def test_log_assessment(mock_requests, mock_telemetry_client: TelemetryClient):
         )
 
         mlflow.log_assessment(trace_id=span.trace_id, assessment=feedback)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, LogAssessmentEvent.name)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
+    )
+    mlflow.log_feedback(trace_id=span.trace_id, value=0.9, name="faithfulness")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
+    )
+
+    with mlflow.start_span(name="test_span2") as span:
+        expectation = Expectation(
+            name="expected_answer",
+            value="MLflow",
+        )
+
+        mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
+    )
+    mlflow.log_expectation(trace_id=span.trace_id, value="MLflow", name="expected_answer")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
+    )
 
 
 def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -676,21 +710,25 @@ def test_invoke_custom_judge_model(
         ),
     ):
         if use_native_provider:
-            with mock.patch.object(
-                __import__("mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]),
-                "score_model_on_payload",
-                return_value=mock_response,
-            ):
-                with mock.patch.object(
+            with (
+                mock.patch.object(
+                    __import__(
+                        "mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]
+                    ),
+                    "score_model_on_payload",
+                    return_value=mock_response,
+                ),
+                mock.patch.object(
                     __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
                     "get_endpoint_type",
                     return_value="llm/v1/chat",
-                ):
-                    invoke_judge_model(
-                        model_uri=model_uri,
-                        prompt="Test prompt",
-                        assessment_name="test_assessment",
-                    )
+                ),
+            ):
+                invoke_judge_model(
+                    model_uri=model_uri,
+                    prompt="Test prompt",
+                    assessment_name="test_assessment",
+                )
         else:
             with (
                 mock.patch(
@@ -769,3 +807,20 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
     )
+
+
+def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
+    try:
+        mlflow.openai.autolog()
+
+        mlflow.autolog()
+        mock_telemetry_client.flush()
+        data = [record["data"] for record in mock_requests]
+        params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+        assert (
+            json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+            in params
+        )
+        assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    finally:
+        mlflow.autolog(disable=True)

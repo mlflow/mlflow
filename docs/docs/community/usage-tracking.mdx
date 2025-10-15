@@ -137,11 +137,6 @@ For events with None in the `Tracked Parameters` column, only the event name is 
   </thead>
   <tbody>
     <tr>
-      <td>import_mlflow</td>
-      <td>None</td>
-      <td>None</td>
-    </tr>
-    <tr>
       <td>create_experiment</td>
       <td>Created Experiment ID (random uuid or integer)</td>
       <td>`{"experiment_id": "0"}`</td>
@@ -183,8 +178,8 @@ For events with None in the `Tracked Parameters` column, only the event name is 
     </tr>
     <tr>
       <td>log_assessment</td>
-      <td>None</td>
-      <td>None</td>
+      <td>Type of the assessment and source</td>
+      <td>`{"type": "feedback", "source_type": "CODE"}`</td>
     </tr>
     <tr>
       <td>evaluate</td>
@@ -240,6 +235,11 @@ For events with None in the `Tracked Parameters` column, only the event name is 
       <td>align_judge</td>
       <td>Number of traces provided and optimizer type</td>
       <td>`{"trace_count": 100, "optimizer_type": "AlignmentOptimizer"}`</td>
+    </tr>
+    <tr>
+      <td>autologging</td>
+      <td>Flavor and metadata</td>
+      <td>`{"flavor": "openai", "log_traces": True, "disable": False}`</td>
     </tr>
   </tbody>
 </Table>

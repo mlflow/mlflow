@@ -8,7 +8,7 @@ from mlflow.gateway.config import (
     AWSBaseConfig,
     AWSIdAndKey,
     AWSRole,
-    RouteConfig,
+    EndpointConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
@@ -336,7 +336,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
         mock_client.return_value.assume_role = mock_assume_role
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         provider.get_bedrock_client()
 
@@ -394,7 +394,7 @@ async def test_bedrock_request_response(
         expected["model"] = config["model"]["name"]
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == expected

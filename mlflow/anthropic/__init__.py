@@ -5,6 +5,8 @@ from mlflow.anthropic.autolog import (
     patched_class_call,
     patched_claude_sdk_init,
 )
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "anthropic"
@@ -58,3 +60,6 @@ def autolog(
         )
     except ImportError:
         _logger.debug("Claude Agent SDK not installed, skipping Claude Code SDK patching")
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
