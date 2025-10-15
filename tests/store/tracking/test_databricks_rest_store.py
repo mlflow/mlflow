@@ -280,7 +280,7 @@ def test_get_trace_info_missing_warehouse_id():
                 "message": "Could not resolve a SQL warehouse ID. Please provide one.",
             }
         ),
-    ) as mock_call:
+    ):
         with pytest.raises(MlflowException, match="SQL warehouse ID is required for "):
             store.get_trace_info("trace:/catalog.schema/1234567890")
 
