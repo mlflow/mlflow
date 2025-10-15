@@ -110,7 +110,9 @@ def create_judge(name: str, prompt: str, model: str | None, experiment_id: str) 
 
     \b
     # Create a judge with custom model
-    mlflow scorers create-judge -n custom_judge -p "Check whether {{ outputs }} is professional and formal. Return pass/fail/na" -m "openai:/gpt-4" -x 123
+    mlflow scorers create-judge -n custom_judge \
+        -p "Check whether {{ outputs }} is professional and formal. \
+            Rate pass, fail, or na" -m "openai:/gpt-4" -x 123
 
     \b
     # Using environment variable

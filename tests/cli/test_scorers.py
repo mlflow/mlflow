@@ -5,7 +5,7 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli.scorers import commands
-from mlflow.genai.scorers import scorer
+from mlflow.genai.scorers import list_scorers, scorer
 from mlflow.utils.string_utils import _create_table
 
 
@@ -238,8 +238,6 @@ def test_create_judge_basic(runner, experiment):
     assert experiment in result.output
 
     # Verify judge was registered
-    from mlflow.genai.scorers import list_scorers
-
     scorers = list_scorers(experiment_id=experiment)
     scorer_names = [s.name for s in scorers]
     assert "test_judge" in scorer_names
@@ -265,8 +263,6 @@ def test_create_judge_with_model(runner, experiment):
     assert "Successfully created and registered" in result.output
 
     # Verify judge was registered with correct model
-    from mlflow.genai.scorers import list_scorers
-
     scorers = list_scorers(experiment_id=experiment)
     scorer_names = [s.name for s in scorers]
     assert "custom_model_judge" in scorer_names
@@ -294,8 +290,6 @@ def test_create_judge_short_options(runner, experiment):
     assert "Successfully created and registered" in result.output
 
     # Verify judge was registered
-    from mlflow.genai.scorers import list_scorers
-
     scorers = list_scorers(experiment_id=experiment)
     scorer_names = [s.name for s in scorers]
     assert "short_options_judge" in scorer_names
@@ -318,8 +312,6 @@ def test_create_judge_with_env_var(runner, experiment):
     assert "Successfully created and registered" in result.output
 
     # Verify judge was registered
-    from mlflow.genai.scorers import list_scorers
-
     scorers = list_scorers(experiment_id=experiment)
     scorer_names = [s.name for s in scorers]
     assert "env_var_judge" in scorer_names
@@ -362,8 +354,6 @@ def test_create_judge_invalid_prompt(runner, experiment):
 
 def test_create_judge_special_characters_in_name(runner, experiment):
     # Verify experiment has no judges initially
-    from mlflow.genai.scorers import list_scorers
-
     scorers = list_scorers(experiment_id=experiment)
     assert len(scorers) == 0
 
@@ -404,8 +394,6 @@ def test_create_judge_duplicate_registration(runner, experiment):
         ],
     )
     assert result1.exit_code == 0
-
-    from mlflow.genai.scorers import list_scorers
 
     scorers = list_scorers(experiment_id=experiment)
     assert len(scorers) == 1
