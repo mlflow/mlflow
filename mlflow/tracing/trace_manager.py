@@ -7,6 +7,8 @@ from typing import Generator, Sequence
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.utils.prompt import update_linked_prompts_tag
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
 
@@ -109,7 +111,19 @@ class InMemoryTraceManager:
             prompt: The prompt version to be registered.
         """
         with self._lock:
-            self._traces[trace_id].prompts.append(prompt)
+            if prompt not in self._traces[trace_id].prompts:
+                self._traces[trace_id].prompts.append(prompt)
+
+            # NB: Set prompt URIs in trace tags for linking. This is a short-term solution until
+            # LinkPromptsToTraces endpoint is implemented in the backend.
+            # TODO: Remove this once LinkPromptsToTraces endpoint is implemented in the backend.
+            try:
+                current_tag = self._traces[trace_id].info.tags.get(LINKED_PROMPTS_TAG_KEY)
+                updated_tag = update_linked_prompts_tag(current_tag, [prompt])
+                self._traces[trace_id].info.tags[LINKED_PROMPTS_TAG_KEY] = updated_tag
+            except Exception:
+                _logger.debug(f"Failed to update prompts tag for trace {trace_id}", exc_info=True)
+                raise
 
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[_Trace | None, None, None]:

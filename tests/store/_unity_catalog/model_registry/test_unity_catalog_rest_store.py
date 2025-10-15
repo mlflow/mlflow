@@ -2709,9 +2709,6 @@ def test_link_prompts_to_trace_success(store):
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
-        mock.patch(
-            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
-        ) as mock_super_call,
     ):
         # Setup
         mock_get_endpoint.return_value = (
@@ -2726,9 +2723,6 @@ def test_link_prompts_to_trace_success(store):
 
         # Execute
         store.link_prompts_to_trace(prompt_versions, trace_id)
-
-        # Verify parent method was called
-        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
 
         # Verify API call was made
         mock_edit_call.assert_called_once()
