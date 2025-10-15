@@ -149,7 +149,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer": type("MockOptimizer", (), {})(),
                 "prompt_uris": ["prompts:/test/1"],
                 "scorers": None,
-                "objective": None,
+                "aggregation": None,
             },
             {
                 "optimizer_type": "MockOptimizer",
@@ -164,7 +164,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer": type("CustomAdapter", (), {})(),
                 "prompt_uris": ["prompts:/test/1", "prompts:/test/2"],
                 "scorers": [Mock()],
-                "objective": None,
+                "aggregation": None,
             },
             {
                 "optimizer_type": "CustomAdapter",
@@ -179,7 +179,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer": type("TestAdapter", (), {})(),
                 "prompt_uris": ["prompts:/test/1"],
                 "scorers": [Mock(), Mock(), Mock()],
-                "objective": lambda scores: sum(scores.values()),
+                "aggregation": lambda scores: sum(scores.values()),
             },
             {
                 "optimizer_type": "TestAdapter",
@@ -194,7 +194,7 @@ def test_align_judge_parse_params(arguments, expected_params):
                 "optimizer": None,
                 "prompt_uris": ["prompts:/test/1"],
                 "scorers": None,
-                "objective": None,
+                "aggregation": None,
             },
             {
                 "optimizer_type": None,
