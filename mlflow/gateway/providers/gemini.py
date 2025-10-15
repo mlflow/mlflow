@@ -101,13 +101,18 @@ class GeminiAdapter(ProviderAdapter):
                 if tool_calls := message.get("tool_calls"):
                     for tool_call in tool_calls:
                         if tool_call["type"] == "function":
-                            call_id_to_function_name_map[tool_call["id"]] = \
-                                tool_call["function"]["name"]
-                        gemini_function_calls.append({"functionCall": {
-                            "id": tool_call["id"],
-                            "name": tool_call["function"]["name"],
-                            "args": json.loads(tool_call["function"]["arguments"]),
-                        }})
+                            call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
+                                "name"
+                            ]
+                        gemini_function_calls.append(
+                            {
+                                "functionCall": {
+                                    "id": tool_call["id"],
+                                    "name": tool_call["function"]["name"],
+                                    "args": json.loads(tool_call["function"]["arguments"]),
+                                }
+                            }
+                        )
                 if gemini_function_calls:
                     contents.append({"role": role, "parts": gemini_function_calls})
                 else:
@@ -118,17 +123,21 @@ class GeminiAdapter(ProviderAdapter):
                 system_message["parts"].append({"text": message["content"]})
             elif role == "tool":
                 call_id = message["tool_call_id"]
-                contents.append({
-                    "role": "function",
-                    "parts": [{
-                        "functionResponse": {
-                            "id": call_id,
-                            # the function name field is required by Gemini request format
-                            "name": call_id_to_function_name_map[call_id],
-                            "response": json.loads(message["content"])
-                        }
-                    }]
-                })
+                contents.append(
+                    {
+                        "role": "function",
+                        "parts": [
+                            {
+                                "functionResponse": {
+                                    "id": call_id,
+                                    # the function name field is required by Gemini request format
+                                    "name": call_id_to_function_name_map[call_id],
+                                    "response": json.loads(message["content"]),
+                                }
+                            }
+                        ],
+                    }
+                )
 
         gemini_payload = {"contents": contents}
 
@@ -163,15 +172,17 @@ class GeminiAdapter(ProviderAdapter):
                     }
                 )
 
-            gemini_payload["tools"] = [{
-                "functionDeclarations": function_declarations
-            }]
+            gemini_payload["tools"] = [{"functionDeclarations": function_declarations}]
 
         return gemini_payload
 
     @classmethod
     def _convert_function_call_to_openai_choice(
-        cls, function_call: dict[str, Any], finish_reason: str, choice_idx: int, stream: bool,
+        cls,
+        function_call: dict[str, Any],
+        finish_reason: str,
+        choice_idx: int,
+        stream: bool,
     ):
         # convert gemini model responded "function call" struct to Openai choice / choice chunk
         # struct.
@@ -183,25 +194,30 @@ class GeminiAdapter(ProviderAdapter):
             # Gemini model response might not contain function call id,
             # in order to make it compatible with Openai chat protocol,
             # we need to generate a unique call id.
-            call_id = "call_" + hashlib.md5(
-                f"{func_name}/{func_arguments}".encode("utf-8"),
-                usedforsecurity=False,
-            ).hexdigest()
+            call_id = (
+                "call_"
+                + hashlib.md5(
+                    f"{func_name}/{func_arguments}".encode(),
+                    usedforsecurity=False,
+                ).hexdigest()
+            )
 
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
-                    tool_calls=[chat_schema.ToolCallDelta(
-                        index=0,
-                        id=call_id,
-                        function=Function(
-                            name=func_name,
-                            arguments=func_arguments,
-                        ),
-                        type="function",
-                    )],
+                    tool_calls=[
+                        chat_schema.ToolCallDelta(
+                            index=0,
+                            id=call_id,
+                            function=Function(
+                                name=func_name,
+                                arguments=func_arguments,
+                            ),
+                            type="function",
+                        )
+                    ],
                 ),
                 finish_reason=finish_reason,
             )
@@ -209,14 +225,16 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
-                tool_calls=[ToolCall(
-                    id=call_id,
-                    function=Function(
-                        name=func_name,
-                        arguments=func_arguments,
-                    ),
-                    type="function",
-                )],
+                tool_calls=[
+                    ToolCall(
+                        id=call_id,
+                        function=Function(
+                            name=func_name,
+                            arguments=func_arguments,
+                        ),
+                        type="function",
+                    )
+                ],
             ),
             finish_reason=finish_reason,
         )

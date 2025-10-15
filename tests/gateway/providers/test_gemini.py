@@ -428,42 +428,27 @@ async def test_gemini_chat_function_calling():
     payload = chat_function_calling_payload()
 
     expected_payload = {
-      "contents": [
-        {
-          "role": "user",
-          "parts": [
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]}
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
             {
-              "text": "What's the weather like in Singapore today?"
-            }
-          ]
-        }
-      ],
-      "generationConfig": {
-        "temperature": 0.5,
-        "candidateCount": 1
-      },
-      "tools": [
-        {
-          "functionDeclarations": [
-            {
-              "name": "get_weather",
-              "description": "Get current temperature for a given location.",
-              "parametersJsonSchema": {
-                "properties": {
-                  "location": {
-                    "type": "string",
-                    "description": "The name of a city"
-                  }
-                },
-                "type": "object",
-                "required": [
-                  "location"
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
                 ]
-              }
             }
-          ]
-        }
-      ]
+        ],
     }
 
     expected_url = (
@@ -480,27 +465,23 @@ async def test_gemini_chat_function_calling():
         response = await provider.chat(chat.RequestPayload(**payload))
 
     expected_response = {
-      "id": "gemini-chat-1234567890",
-      "object": "chat.completion",
-      "created": 1234567890,
-      "model": "gemini-2.0-flash",
-      "choices": [
-        {
-          "index": 0,
-          "message": {
-            "role": "assistant",
-            "content": "Why did the chicken cross the road? To get to the other side.",
-            "tool_calls": None,
-            "refusal": None,
-          },
-          "finish_reason": "stop"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": 6,
-        "completion_tokens": 12,
-        "total_tokens": 18
-      }
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": "Why did the chicken cross the road? To get to the other side.",
+                    "tool_calls": None,
+                    "refusal": None,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 6, "completion_tokens": 12, "total_tokens": 18},
     }
 
     assert jsonable_encoder(response) == expected_response
@@ -517,25 +498,28 @@ async def test_gemini_chat_function_calling_second_turn():
     provider = GeminiProvider(EndpointConfig(**config))
     payload = chat_function_calling_payload()
 
-    payload["messages"].extend([{
-        "role": "assistant",
-        "tool_calls": [
-          {
-            "id": "call_001",
-            "function": {
-              "arguments": "{\"location\": \"Singapore\"}",
-              "name": "get_weather"
+    payload["messages"].extend(
+        [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
             },
-            "type": "function"
-          }
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": '{"temperature": 31.2, "condition": "sunny"}',
+            },
         ]
-      },
-      {
-        "role": "tool",
-        "tool_call_id": "call_001",
-        "content": "{\"temperature\": 31.2, \"condition\": \"sunny\"}"
-      }
-    ])
+    )
 
     expected_url = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
@@ -546,7 +530,12 @@ async def test_gemini_chat_function_calling_second_turn():
             {
                 "content": {
                     "parts": [
-                        {"text": "The weather in Singapore today is sunny with a temperature of 31.2 degrees."}
+                        {
+                            "text": (
+                                "The weather in Singapore today is sunny with a "
+                                "temperature of 31.2 degrees."
+                            )
+                        }
                     ]
                 },
                 "finishReason": "stop",
@@ -563,95 +552,78 @@ async def test_gemini_chat_function_calling_second_turn():
         response = await provider.chat(chat.RequestPayload(**payload))
 
     assert jsonable_encoder(response) == {
-      "id": "gemini-chat-1234567890",
-      "object": "chat.completion",
-      "created": 1234567890,
-      "model": "gemini-2.0-flash",
-      "choices": [
-        {
-          "index": 0,
-          "message": {
-            "role": "assistant",
-            "content": "The weather in Singapore today is sunny with a temperature of 31.2 degrees.",
-            "tool_calls": None,
-            "refusal": None
-          },
-          "finish_reason": "stop"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": None,
-        "completion_tokens": None,
-        "total_tokens": None,
-      }
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "The weather in Singapore today is sunny with "
+                        "a temperature of 31.2 degrees."
+                    ),
+                    "tool_calls": None,
+                    "refusal": None,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
     }
 
     expected_payload = {
-      "contents": [
-        {
-          "role": "user",
-          "parts": [
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]},
             {
-              "text": "What's the weather like in Singapore today?"
-            }
-          ]
-        },
-        {
-          "role": "model",
-          "parts": [
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "args": {"location": "Singapore"},
+                        }
+                    }
+                ],
+            },
             {
-              "functionCall": {
-                "id": "call_001",
-                "name": "get_weather",
-                "args": {
-                  "location": "Singapore"
-                }
-              }
-            }
-          ]
-        },
-        {
-          "role": "function",
-          "parts": [
+                "role": "function",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "response": {"temperature": 31.2, "condition": "sunny"},
+                        }
+                    }
+                ],
+            },
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
             {
-              "functionResponse": {
-                "id": "call_001",
-                "name": "get_weather",
-                "response": {
-                  "temperature": 31.2,
-                  "condition": "sunny"
-                }
-              }
-            }
-          ]
-        }
-      ],
-      "generationConfig": {
-        "temperature": 0.5,
-        "candidateCount": 1
-      },
-      "tools": [
-        {
-          "functionDeclarations": [
-            {
-              "name": "get_weather",
-              "description": "Get current temperature for a given location.",
-              "parametersJsonSchema": {
-                "properties": {
-                  "location": {
-                    "type": "string",
-                    "description": "The name of a city"
-                  }
-                },
-                "type": "object",
-                "required": [
-                  "location"
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
                 ]
-              }
             }
-          ]
-        }
-      ]
+        ],
     }
 
     mock_post.assert_called_once_with(
@@ -755,7 +727,7 @@ def chat_function_calling_stream_response():
     return [
         b'data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "get_weather", '
         b'"args": {"location": "Singapore"}}}],"role": "model"},"finishReason": "STOP","index": 0'
-        b'}]}\n',
+        b"}]}\n",
         b"\n",
         b"data: [DONE]\n",
     ]
@@ -777,33 +749,33 @@ async def test_gemini_chat_function_calling_stream():
         chunks = [jsonable_encoder(chunk) async for chunk in stream]
 
     assert chunks == [
-      {
-        "id": "gemini-chat-stream-1",
-        "object": "chat.completion.chunk",
-        "created": 1,
-        "model": "gemini-2.0-flash",
-        "choices": [
-          {
-            "index": 0,
-            "finish_reason": "STOP",
-            "delta": {
-              "role": "assistant",
-              "content": None,
-              "tool_calls": [
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
                 {
-                  "index": 0,
-                  "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
-                  "type": "function",
-                  "function": {
-                    "name": "get_weather",
-                    "arguments": "{\"location\": \"Singapore\"}"
-                  }
+                    "index": 0,
+                    "finish_reason": "STOP",
+                    "delta": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "Singapore"}',
+                                },
+                            }
+                        ],
+                    },
                 }
-              ]
-            }
-          }
-        ]
-      }
+            ],
+        }
     ]
 
     mock_build_client.assert_called_once()
