@@ -203,13 +203,13 @@ def _build_eval_fn(
     def eval_fn(
         candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]
     ) -> list[EvaluationResultRecord]:
-        accessed_prompts = set()
+        used_prompts = set()
 
         @property
         def _template_patch(self) -> str:
             template_name = self.name
             if template_name in candidate_prompts:
-                accessed_prompts.add(template_name)
+                used_prompts.add(template_name)
                 return candidate_prompts[template_name]
             return self.template
 
@@ -248,8 +248,7 @@ def _build_eval_fn(
                 results = [future.result() for future in futures]
 
             # Check for unused prompts and warn
-            unused_prompts = set(candidate_prompts.keys()) - accessed_prompts
-            if unused_prompts:
+            if unused_prompts := set(candidate_prompts.keys()) - used_prompts:
                 _logger.warning(
                     "The following prompts were not used during evaluation: "
                     f"{sorted(unused_prompts)}. This may indicate that predict_fn is "

@@ -261,7 +261,7 @@ def test_optimize_prompts_warns_on_unused_prompt(
     # Create predict_fn that only uses translation prompt, not summarization prompt
     def predict_fn_single_prompt(input_text, language):
         prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
-        prompt.template
+        prompt.format(input_text=input_text, language=language)
         return sample_predict_fn(input_text=input_text, language=language)
 
     result = optimize_prompts(
@@ -278,12 +278,8 @@ def test_optimize_prompts_warns_on_unused_prompt(
     assert len(result.optimized_prompts) == 2
 
     captured = capsys.readouterr()
-    assert "prompts were not used during evaluation" in captured.err, (
-        "Expected warning about unused prompts not found in stderr"
-    )
-    assert "test_summarization_prompt" in captured.err, (
-        "Expected 'test_summarization_prompt' in warning message"
-    )
+    assert "prompts were not used during evaluation" in captured.err
+    assert "test_summarization_prompt" in captured.err
 
 
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
