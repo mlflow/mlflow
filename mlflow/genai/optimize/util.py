@@ -1,13 +1,15 @@
 import functools
 from contextlib import contextmanager
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
-from mlflow.prompt.registry_utils import PromptVersion
 from mlflow.tracking.client import MlflowClient
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @contextmanager
@@ -15,8 +17,7 @@ def prompt_optimization_autolog(
     optimizer_name: str,
     num_prompts: int,
     num_training_samples: int,
-    input_prompts: list[PromptVersion],
-    train_data_df,
+    train_data_df: "pd.DataFrame",
 ):
     """
     Context manager for autologging prompt optimization runs.
@@ -25,7 +26,6 @@ def prompt_optimization_autolog(
         optimizer_name: Name of the optimizer being used
         num_prompts: Number of prompts being optimized
         num_training_samples: Number of training samples
-        input_prompts: List of input PromptVersion objects
         train_data_df: Training data as a pandas DataFrame
 
     Yields:
@@ -45,9 +45,6 @@ def prompt_optimization_autolog(
         # Log training dataset as run input
         dataset = mlflow.data.from_pandas(train_data_df, source="prompt_optimization_train_data")
         mlflow.log_input(dataset, context="training")
-
-        for prompt in input_prompts:
-            client.link_prompt_version_to_run(run_id=run_id, prompt=prompt)
 
         results = {}
         yield results

@@ -42,7 +42,7 @@ def optimize_prompts(
     optimizer: BasePromptOptimizer,
     scorers: list[Scorer],
     aggregation: AggregationFn | None = None,
-    create_run: bool = True,
+    enable_tracking: bool = True,
 ) -> PromptOptimizationResult:
     """
     Automatically optimize prompts using evaluation metrics and training data.
@@ -83,12 +83,12 @@ def optimize_prompts(
             scorer outputs. Takes a dict mapping scorer names to scores and returns a float
             value (greater is better). If None and all scorers return numerical values,
             uses sum of scores by default.
-        create_run: If True (default), automatically creates an MLflow run and logs:
+        enable_tracking: If True (default), automatically creates an MLflow run and logs:
             - The optimization scores (initial, final, improvement)
             - Links to the input prompt versions
             - Links to the optimized prompt versions
             - The optimizer name and parameters
-            If False, no MLflow run is created.
+            If False, no MLflow run is created and no tracking occurs.
 
     Returns:
         The optimization result object that includes the optimized prompts
@@ -177,17 +177,7 @@ def optimize_prompts(
     metric_fn = create_metric_from_scorers(scorers, aggregation)
     eval_fn = _build_eval_fn(predict_fn, metric_fn)
 
-    # Load prompts outside of any active run context to avoid auto-linking
-    # them to an outer run. We'll explicitly link them in the context manager below.
-    outer_run = mlflow.active_run()
-    if outer_run:
-        mlflow.end_run()
-    try:
-        target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
-    finally:
-        # Restore the outer run if it existed
-        if outer_run:
-            mlflow.start_run(run_id=outer_run.info.run_id, nested=False)
+    target_prompts = [load_prompt(prompt_uri) for prompt_uri in prompt_uris]
 
     target_prompts_dict = {prompt.name: prompt.template for prompt in target_prompts}
 
@@ -196,13 +186,14 @@ def optimize_prompts(
             optimizer_name=optimizer.__class__.__name__,
             num_prompts=len(target_prompts),
             num_training_samples=len(converted_train_data),
-            input_prompts=target_prompts,
             train_data_df=train_data_df,
         )
-        if create_run
+        if enable_tracking
         else nullcontext({})
     ) as log_results:
-        optimizer_output = optimizer.optimize(eval_fn, converted_train_data, target_prompts_dict)
+        optimizer_output = optimizer.optimize(
+            eval_fn, converted_train_data, target_prompts_dict, enable_tracking
+        )
 
         optimized_prompts = [
             register_prompt(name=prompt_name, template=prompt)

@@ -85,6 +85,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
         eval_fn: _EvalFunc,
         train_data: list[dict[str, Any]],
         target_prompts: dict[str, str],
+        enable_tracking: bool = True,
     ) -> PromptOptimizerOutput:
         """
         Optimize the target prompts using GEPA algorithm.
@@ -97,6 +98,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                 include the inputs and outputs fields with dict values.
             target_prompts: The target prompt templates to use. The key is the prompt template
                 name and the value is the prompt template.
+            enable_tracking: If True (default), automatically log optimization progress.
 
         Returns:
             The outputs of the prompt adapter that includes the optimized prompts
@@ -110,12 +112,6 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             raise ImportError(
                 "GEPA is not installed. Please install it with: pip install 'gepa>=0.10.0'"
             ) from e
-
-        if Version(gepa.__version__) < Version("0.10.0"):
-            raise ImportError(
-                f"GEPA version {gepa.__version__} is installed, but version >=0.10.0 is required. "
-                "Please upgrade with: pip install --upgrade 'gepa>=0.10.0'"
-            )
 
         provider, model = _parse_model_uri(self.reflection_model)
 
@@ -195,15 +191,19 @@ class GepaPromptOptimizer(BasePromptOptimizer):
 
         adapter = MlflowGEPAAdapter(eval_fn, target_prompts)
 
-        gepa_result = gepa.optimize(
-            seed_candidate=target_prompts,
-            trainset=train_data,
-            adapter=adapter,
-            reflection_lm=f"{provider}/{model}",
-            max_metric_calls=self.max_metric_calls,
-            display_progress_bar=self.display_progress_bar,
-            use_mlflow=True,
-        )
+        kwargs = {
+            "seed_candidate": target_prompts,
+            "trainset": train_data,
+            "adapter": adapter,
+            "reflection_lm": f"{provider}/{model}",
+            "max_metric_calls": self.max_metric_calls,
+            "display_progress_bar": self.display_progress_bar,
+            "use_mlflow": enable_tracking,
+        }
+        if Version(gepa.__version__) < Version("0.10.0"):
+            kwargs.pop("use_mlflow")
+        else:
+            gepa_result = gepa.optimize(**kwargs)
 
         optimized_prompts = gepa_result.best_candidate
         initial_score, final_score = self._extract_eval_scores(gepa_result)
