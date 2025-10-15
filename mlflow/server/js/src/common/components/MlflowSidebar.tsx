@@ -2,6 +2,7 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  HomeIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
@@ -22,6 +23,8 @@ import {
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
+const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
+
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
@@ -41,6 +44,15 @@ export function MlflowSidebar() {
   });
 
   const menuItems = [
+    {
+      key: 'home',
+      icon: <HomeIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.rootRoute,
+        isActive: isHomeActive,
+        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+      },
+    },
     {
       key: 'experiments',
       icon: <BeakerIcon />,
@@ -122,12 +134,14 @@ export function MlflowSidebar() {
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content side="right" sideOffset={theme.spacing.sm} align="start">
-          {menuItems.map(({ key, icon, dropdownProps }) => (
-            <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
-              <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
-              {dropdownProps.children}
-            </DropdownMenu.Item>
-          ))}
+          {menuItems
+            .filter((item) => item.dropdownProps !== undefined)
+            .map(({ key, icon, dropdownProps }) => (
+              <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
+                <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
+                {dropdownProps.children}
+              </DropdownMenu.Item>
+            ))}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 

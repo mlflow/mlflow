@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/). You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2](https://dspy.ai/api/optimizers/MIPROv2/) and [GEPA](https://dspy.ai/api/optimizers/GEPA/) algorithms. You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
 
 :::tip Key Benefits
 
@@ -58,7 +58,7 @@ In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to p
     <tr>
       <td><strong>Optimizer Config</strong><br/><small>Optimization settings</small></td>
       <td>
-        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_show_examples=2<br/>)</code></pre>
+        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_shot_examples=2<br/>)</code></pre>
       </td>
     </tr>
   </tbody>
@@ -87,7 +87,8 @@ os.environ["OPENAI_API_KEY"] = "<YOUR_OPENAI_API_KEY>"
 
 
 # Define a custom scorer function to evaluate prompt performance with the @scorer decorator.
-# The scorer function for optimization can take inputs, outputs, and expectations.
+# The scorer function for optimization can take inputs, outputs, and expectations arguments, but not the trace argument.
+# Note that the DSPy/MIPROv2 optimizer requires metrics to receive outputs as a dict.
 @scorer
 def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
     return expectations["answer"] == outputs["answer"]
@@ -167,7 +168,7 @@ result = mlflow.genai.optimize_prompt(
     scorers=[exact_match],
     optimizer_config=OptimizerConfig(
         num_instruction_candidates=8,
-        max_few_show_examples=2,
+        max_few_shot_examples=2,
     ),
 )
 
@@ -180,7 +181,7 @@ After the optimization process is completed, you can visit the MLflow Prompt Reg
 
 ![Optimized Prompt](/images/llms/optimize-prompt/registered_prompt.png)
 
-Note that the optimized prompt of <APILink fn="mlflow.genai.optimize_prompt" /> expects the output to be a JSON string.
+Note that the optimized prompt of **DSPy/MIPROv2** optimizer expects the output to be a JSON string.
 Therefore, you need to parse the output using `json.loads` in your application. See [Load and Use the Prompt](/genai/prompt-registry/#4-load-and-use-the-prompt) for how to load the optimized prompt.
 
 ```python
@@ -205,15 +206,15 @@ def predict(question: str, prompt_uri: str) -> str:
 
 You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
 
-- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2") or a custom optimizer class. Default: "DSPy/MIPROv2"
+- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2", "DSPy/GEPA") or a custom optimizer class. Default: "DSPy/MIPROv2"
 - **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
-- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
-- **optimizer_llm**: The LLM to use for optimization. Default: None (uses target LLM)
+- **max_few_shot_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
+- **optimizer_llm**: The LLM to use for optimization. For GEPA, this is used as the reflection LM (recommended: a stronger model like GPT-4). Default: None (uses target LLM)
 - **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
 - **verbose**: Whether to show optimizer logs during optimization. Default: False
 - **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
 
-See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
+See <APILink fn="mlflow.genai.OptimizerConfig" >OptimizerConfig</APILink> for more details.
 
 ## Custom Optimizers
 
@@ -294,7 +295,7 @@ class CustomDSPyOptimizer(DSPyPromptOptimizer):
         # Example using DSPy's BootstrapFewShot optimizer
         optimizer = dspy.BootstrapFewShot(
             metric=metric,
-            max_bootstrapped_demos=self.optimizer_config.max_few_show_examples,
+            max_bootstrapped_demos=self.optimizer_config.max_few_shot_examples,
         )
 
         # Compile the program

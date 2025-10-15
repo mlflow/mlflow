@@ -13,6 +13,7 @@ import functools
 import json
 import os
 import re
+from pathlib import Path
 from typing import Annotated, Any, Literal
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -61,32 +62,68 @@ def fetch_pr_diff(owner: str, repo: str, pull_number: int) -> str:
     return github_api_request(url, accept_header="application/vnd.github.v3.diff")
 
 
-def filter_python_diff(full_diff: str) -> str:
+def should_exclude_file(file_path: str) -> bool:
+    """
+    Determine if a file should be excluded from the diff.
+
+    Excludes:
+    - .py and .pyi files in mlflow/protos/
+    - Auto-generated lock files
+      - uv.lock
+      - yarn.lock
+      - package-lock.json
+    - .java files
+    - .ipynb files
+    """
+    path = Path(file_path)
+
+    # Check if it's a Python file in mlflow/protos/
+    if path.suffix in {".py", ".pyi"} and path.is_relative_to("mlflow/protos"):
+        return True
+
+    # Check for auto-generated lock files
+    if path.name in {"uv.lock", "yarn.lock", "package-lock.json"}:
+        return True
+
+    # Check for Java files
+    if path.suffix == ".java":
+        return True
+
+    # Check for Jupyter notebook files
+    if path.suffix == ".ipynb":
+        return True
+
+    return False
+
+
+def filter_diff(full_diff: str) -> str:
     lines = full_diff.split("\n")
-    python_diff: list[str] = []
-    in_python_file = False
+    filtered_diff: list[str] = []
+    in_included_file = False
     for line in lines:
         if line.startswith("diff --git"):
             # Extract file path from: diff --git a/path/to/file.py b/path/to/file.py
             if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
                 file_path = match.group(2)  # Use the 'b/' path (new file path)
-                in_python_file = file_path.endswith(".py") and not file_path.startswith(
-                    "mlflow/protos/"
-                )
+                # Exclude deleted files (where b/ path is dev/null)
+                if file_path == "dev/null":
+                    in_included_file = False
+                else:
+                    in_included_file = not should_exclude_file(file_path)
             else:
-                in_python_file = False
+                in_included_file = False
 
-            if in_python_file:
-                python_diff.append(line)
-        elif in_python_file:
-            python_diff.append(line)
+            if in_included_file:
+                filtered_diff.append(line)
+        elif in_included_file:
+            filtered_diff.append(line)
 
     # Add line numbers to the diff
     result_lines: list[str] = []
     old_line = 0
     new_line = 0
 
-    for line in python_diff:
+    for line in filtered_diff:
         if line.startswith("@@"):
             # Parse hunk header: @@ -old_start,old_count +new_start,new_count @@
             match = re.match(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@", line)
@@ -128,7 +165,8 @@ def fetch_diff(
     pull_number: Annotated[int, "Pull request number"],
 ) -> str:
     """
-    Fetch the diff of Python files in a pull request, and display it with line numbers.
+    Fetch the diff of a pull request, excluding certain file types,
+    and display it with line numbers.
 
     Example output:
 
@@ -148,7 +186,7 @@ def fetch_diff(
     ```
     """
     full_diff = fetch_pr_diff(owner, repo, pull_number)
-    return filter_python_diff(full_diff)
+    return filter_diff(full_diff)
 
 
 def fetch_pr_head_commit(owner: str, repo: str, pull_number: int) -> str:
@@ -195,6 +233,10 @@ def add_pr_review_comment(
             "'file' indicates the entire file"
         ),
     ] = "line",
+    in_reply_to: Annotated[
+        int | None,
+        "The ID of the review comment to reply to. Use this to create a threaded reply",
+    ] = None,
 ) -> str:
     """
     Add a review comment to a pull request.
@@ -217,6 +259,8 @@ def add_pr_review_comment(
         data["start_side"] = start_side
     if subject_type == "file":
         data["subject_type"] = subject_type
+    if in_reply_to is not None:
+        data["in_reply_to"] = in_reply_to
 
     result = github_api_request(url, method="POST", data=data)
     return f"Comment added successfully: {result.get('html_url')}"

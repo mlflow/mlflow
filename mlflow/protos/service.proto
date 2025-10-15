@@ -6,6 +6,7 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
@@ -585,19 +586,6 @@ service MlflowService {
     };
   }
 
-  // Get Trace (returning a TraceInfoV3). Differences between GetTraceInfoV4 and GetTraceInfoV3
-  // are location in the request path, which describes where the Trace is stored.
-  rpc getTraceInfoV4 (GetTraceInfoV4) returns (GetTraceInfoV4.Response) {
-    option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{location}/{trace_id}/info",
-        since {major: 4, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get TraceInfo v4",
-    };
-  }
 
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
@@ -2139,23 +2127,6 @@ message GetTraceInfoV3 {
   }
 }
 
-message GetTraceInfoV4 {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the trace to fetch. Must be provided.
-  optional string trace_id = 1 [(validate_required) = true];
-
-  // Location of the trace to fetch from. Must be provided.
-  optional string location = 2 [(validate_required) = true];
-
-  // Optional SQL warehouse ID for fetching trace data.
-  optional string sql_warehouse_id = 3;
-
-  message Response {
-    optional Trace trace = 1;
-  }
-
-}
 
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
@@ -2358,6 +2329,7 @@ message SetTraceTagV3 {
   reserved 1;reserved "request_id";
 }
 
+
 message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2399,7 +2371,6 @@ message TraceLocation {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
-    UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
 
@@ -2413,15 +2384,9 @@ message TraceLocation {
     optional string full_table_name = 1;
   }
 
-  message UCSchemaLocation {
-    optional string catalog_name = 1;
-    optional string schema_name = 2;
-  }
-
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
-    UCSchemaLocation uc_schema = 4;
   }
 }
 
@@ -2503,6 +2468,7 @@ message StartTraceV3 {
     optional Trace trace = 1;
   }
 }
+
 
 message LinkTracesToRun {
   // IDs of the traces to link to the run.
@@ -3082,6 +3048,16 @@ message RegisterScorer {
   message Response {
     // The new version number for the scorer.
     optional int32 version = 1;
+    // The unique identifier for the scorer.
+    optional string scorer_id = 2;
+    // The experiment ID (same as request).
+    optional string experiment_id = 3;
+    // The scorer name (same as request).
+    optional string name = 4;
+    // The serialized scorer string (same as request).
+    optional string serialized_scorer = 5;
+    // The creation time of the scorer version (in milliseconds since epoch).
+    optional int64 creation_time = 6;
   }
 }
 
@@ -3158,4 +3134,6 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+  // The unique identifier for the scorer.
+  optional string scorer_id = 6;
 }

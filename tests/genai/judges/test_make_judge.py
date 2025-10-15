@@ -26,7 +26,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.instructions_judge.constants import JUDGE_BASE_PROMPT
-from mlflow.genai.judges.utils import _LITELLM_PROVIDERS, _NATIVE_PROVIDERS, validate_judge_model
+from mlflow.genai.judges.utils import _NATIVE_PROVIDERS, validate_judge_model
 from mlflow.genai.scorers.base import Scorer, ScorerKind, SerializedScorer
 from mlflow.genai.scorers.registry import _get_scorer_store
 from mlflow.tracing.utils import build_otel_context
@@ -257,7 +257,7 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         )
 
 
-@pytest.mark.parametrize("provider", _LITELLM_PROVIDERS)
+@pytest.mark.parametrize("provider", {"vertexai", "cohere", "replicate", "groq", "together"})
 def test_litellm_provider_requires_litellm(monkeypatch, provider):
     monkeypatch.setitem(sys.modules, "litellm", None)
 
@@ -908,9 +908,9 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
 
     store = _get_scorer_store()
     version = store.register_scorer(experiment, judge)
-    assert version == 1
+    assert version.scorer_version == 1
 
-    retrieved_scorer = store.get_scorer(experiment, "test_judge", version)
+    retrieved_scorer = store.get_scorer(experiment, "test_judge", version.scorer_version)
     assert retrieved_scorer is not None
     assert isinstance(retrieved_scorer, InstructionsJudge)
     assert retrieved_scorer.name == "test_judge"
@@ -973,7 +973,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
         model="openai:/gpt-4o",
     )
     version2 = store.register_scorer(experiment, judge_v2)
-    assert version2 == 2
+    assert version2.scorer_version == 2
 
     versions = store.list_scorer_versions(experiment, "test_judge")
     assert len(versions) == 2
@@ -1013,9 +1013,9 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
 
     store = _get_scorer_store()
     version = store.register_scorer(experiment, judge)
-    assert version == 1
+    assert version.scorer_version == 1
 
-    retrieved_judge = store.get_scorer(experiment, "reserved_judge", version)
+    retrieved_judge = store.get_scorer(experiment, "reserved_judge", version.scorer_version)
     assert isinstance(retrieved_judge, InstructionsJudge)
     assert retrieved_judge.instructions == instructions_with_reserved
     assert retrieved_judge.template_variables == {"inputs", "outputs", "expectations"}

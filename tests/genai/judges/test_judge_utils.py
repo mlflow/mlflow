@@ -1,11 +1,14 @@
 import json
+from dataclasses import dataclass
 from typing import Any
 from unittest import mock
 
 import litellm
 import pytest
 import requests
+from litellm import RetryPolicy
 from litellm.types.utils import ModelResponse
+from pydantic import BaseModel, Field
 
 from mlflow.entities.assessment import AssessmentSourceType
 from mlflow.entities.trace import Trace
@@ -20,7 +23,9 @@ from mlflow.genai.judges.utils import (
     CategoricalRating,
     InvokeDatabricksModelOutput,
     _invoke_databricks_model,
+    _invoke_litellm,
     _parse_databricks_model_response,
+    _process_tool_calls,
     add_output_format_instructions,
     call_chat_completions,
     format_prompt,
@@ -79,8 +84,6 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
 
         feedback = invoke_judge_model(**kwargs)
 
-    from litellm import RetryPolicy
-
     expected_retries = 10 if num_retries is None else num_retries
     expected_retry_policy = RetryPolicy(
         TimeoutErrorRetries=expected_retries,
@@ -99,41 +102,26 @@ def test_invoke_judge_model_successful_with_litellm(num_retries, mock_response):
     assert msg.role == "user"
     assert msg.content == "Evaluate this response"
 
-    mock_litellm.assert_called_once_with(
-        model="openai/gpt-4",
-        messages=mock.ANY,  # We check the messages separately above
-        tools=None,
-        tool_choice=None,
-        response_format={
-            "type": "json_schema",
-            "json_schema": {
-                "name": "judge_evaluation",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "result": {"type": "string", "description": "The evaluation rating/result"},
-                        "rationale": {
-                            "type": "string",
-                            "description": "Detailed explanation for the evaluation",
-                        },
-                    },
-                    "required": ["result", "rationale"],
-                    "additionalProperties": False,
-                },
-            },
-        },
-        retry_policy=expected_retry_policy,
-        retry_strategy="exponential_backoff_retry",
-        max_retries=0,
-        drop_params=True,
-    )
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == "openai/gpt-4"
+    assert call_kwargs["tools"] is None
+    assert call_kwargs["tool_choice"] is None
+    assert call_kwargs["retry_policy"] == expected_retry_policy
+    assert call_kwargs["retry_strategy"] == "exponential_backoff_retry"
+    assert call_kwargs["max_retries"] == 0
+    assert call_kwargs["drop_params"] is True
+
+    response_format = call_kwargs["response_format"]
+    assert issubclass(response_format, BaseModel)
+    assert "result" in response_format.model_fields
+    assert "rationale" in response_format.model_fields
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "The response meets all criteria."
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_with_chat_messages(mock_response):
@@ -163,6 +151,7 @@ def test_invoke_judge_model_with_chat_messages(mock_response):
 
     assert feedback.name == "quality_check"
     assert feedback.value == CategoricalRating.YES
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_successful_with_native_provider():
@@ -182,7 +171,7 @@ def test_invoke_judge_model_successful_with_native_provider():
 
     mock_score_model_on_payload.assert_called_once_with(
         model_uri="openai:/gpt-4",
-        payload=[{"role": "user", "content": "Evaluate this response"}],
+        payload="Evaluate this response",
         endpoint_type="llm/v1/chat",
     )
 
@@ -191,6 +180,7 @@ def test_invoke_judge_model_successful_with_native_provider():
     assert feedback.rationale == "The response meets all criteria."
     assert feedback.source.source_type == AssessmentSourceType.LLM_JUDGE
     assert feedback.source.source_id == "openai:/gpt-4"
+    assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_with_unsupported_provider():
@@ -245,7 +235,7 @@ def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
 
         mock_list_tools.return_value = [mock_tool1, mock_tool2]
 
-        invoke_judge_model(
+        feedback = invoke_judge_model(
             model_uri="openai:/gpt-4",
             prompt="Evaluate this response",
             assessment_name="quality_check",
@@ -260,6 +250,7 @@ def test_invoke_judge_model_with_trace_passes_tools(mock_trace, mock_response):
         {"name": "list_spans", "description": "List spans"},
     ]
     assert call_kwargs["tool_choice"] == "auto"
+    assert feedback.trace_id == "test-trace"
 
 
 def test_invoke_judge_model_tool_calling_loop(mock_trace):
@@ -325,6 +316,7 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "The trace looks good."
+    assert feedback.trace_id == "test-trace"
 
 
 def test_add_output_format_instructions():
@@ -392,6 +384,7 @@ def test_invoke_judge_model_retries_without_response_format_on_bad_request(
         # Should still return valid feedback
         assert feedback.name == "test"
         assert feedback.value == CategoricalRating.YES
+        assert feedback.trace_id is None
 
 
 def test_invoke_judge_model_stops_trying_response_format_after_failure():
@@ -485,6 +478,7 @@ def test_invoke_judge_model_caches_capabilities_globally():
         # Should have been called twice (initial fail + retry)
         assert mock_litellm.call_count == 2
         assert feedback1.name == "test1"
+        assert feedback1.trace_id is None  # No trace provided, should be None
 
         # Verify capability was cached
         assert _MODEL_RESPONSE_FORMAT_CAPABILITIES.get("openai/gpt-4") is False
@@ -505,6 +499,7 @@ def test_invoke_judge_model_caches_capabilities_globally():
         assert "response_format" not in call_kwargs
 
         assert feedback2.name == "test2"
+        assert feedback2.trace_id is None  # No trace provided, should be None
 
 
 def test_unsupported_response_format_handling_supports_multiple_threads():
@@ -976,7 +971,17 @@ def test_record_failure_telemetry_with_databricks_agents() -> None:
         mock_job_run_id.assert_called_once()
 
 
-def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+@pytest.mark.parametrize("with_trace", [False, True])
+def test_invoke_judge_model_databricks_success_not_in_databricks(
+    model_uri: str, expected_model_name: str, with_trace: bool, mock_trace
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -992,23 +997,38 @@ def test_invoke_judge_model_databricks_success_not_in_databricks() -> None:
             ),
         ) as mock_invoke_db,
     ):
-        feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
-            prompt="Test prompt",
-            assessment_name="test_assessment",
-        )
+        kwargs = {
+            "model_uri": model_uri,
+            "prompt": "Test prompt",
+            "assessment_name": "test_assessment",
+        }
+        if with_trace:
+            kwargs["trace"] = mock_trace
+
+        feedback = invoke_judge_model(**kwargs)
 
         mock_invoke_db.assert_called_once_with(
-            model_name="test-model", prompt="Test prompt", num_retries=10
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
         )
         mock_in_db.assert_called_once()
 
     assert feedback.name == "test_assessment"
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good response"
+    assert feedback.trace_id == ("test-trace" if with_trace else None)
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
 
 
-def test_invoke_judge_model_databricks_success_in_databricks() -> None:
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_success_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1028,7 +1048,7 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
         ) as mock_success_telemetry,
     ):
         feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
+            model_uri=model_uri,
             prompt="Test prompt",
             assessment_name="test_assessment",
         )
@@ -1037,18 +1057,58 @@ def test_invoke_judge_model_databricks_success_in_databricks() -> None:
         mock_success_telemetry.assert_called_once_with(
             request_id="req-456",
             model_provider="databricks",
-            endpoint_name="test-model",
+            endpoint_name=expected_model_name,
             num_prompt_tokens=15,
             num_completion_tokens=8,
         )
-        mock_invoke_db.assert_called_once()
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.NO
     assert feedback.rationale == "Bad response"
+    assert feedback.trace_id is None
 
 
-def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
+@pytest.mark.parametrize(
+    "model_uri", ["databricks:/test-model", "endpoints:/databricks-gpt-oss-120b"]
+)
+def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
+    with mock.patch(
+        "mlflow.genai.judges.utils._invoke_databricks_model",
+        return_value=InvokeDatabricksModelOutput(
+            response='{"result": "yes", "rationale": "Great response"}',
+            request_id="req-789",
+            num_prompt_tokens=4,
+            num_completion_tokens=2,
+        ),
+    ) as mock_invoke_db:
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    expected_model_name = (
+        "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
+    )
+    mock_invoke_db.assert_called_once_with(
+        model_name=expected_model_name, prompt="Test prompt", num_retries=10
+    )
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_failure_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1064,7 +1124,7 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
     ):
         with pytest.raises(MlflowException, match="Model invocation failed"):
             invoke_judge_model(
-                model_uri="databricks:/test-model",
+                model_uri=model_uri,
                 prompt="Test prompt",
                 assessment_name="test_assessment",
             )
@@ -1072,11 +1132,13 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
         # Verify failure telemetry was called
         mock_failure_telemetry.assert_called_once_with(
             model_provider="databricks",
-            endpoint_name="test-model",
+            endpoint_name=expected_model_name,
             error_code="UNKNOWN",
             error_message=mock.ANY,  # Check that error message contains the exception
         )
-        mock_invoke_db.assert_called_once()
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
         # Verify error message contains the traceback
@@ -1084,7 +1146,16 @@ def test_invoke_judge_model_databricks_failure_in_databricks() -> None:
         assert "Model invocation failed" in call_args["error_message"]
 
 
-def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_telemetry_error_handling(
+    model_uri: str, expected_model_name: str
+) -> None:
     with (
         mock.patch(
             "mlflow.genai.judges.utils._is_in_databricks",
@@ -1106,17 +1177,26 @@ def test_invoke_judge_model_databricks_telemetry_error_handling() -> None:
     ):
         # Should still return feedback despite telemetry failure
         feedback = invoke_judge_model(
-            model_uri="databricks:/test-model",
+            model_uri=model_uri,
             prompt="Test prompt",
             assessment_name="test_assessment",
         )
 
-        mock_success_telemetry.assert_called_once()
-        mock_invoke_db.assert_called_once()
+        mock_success_telemetry.assert_called_once_with(
+            request_id="req-789",
+            model_provider="databricks",
+            endpoint_name=expected_model_name,
+            num_prompt_tokens=5,
+            num_completion_tokens=3,
+        )
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name, prompt="Test prompt", num_retries=10
+        )
         mock_in_db.assert_called_once()
 
     assert feedback.value == CategoricalRating.YES
     assert feedback.rationale == "Good"
+    assert feedback.trace_id is None
 
 
 # Tests for call_chat_completions function
@@ -1148,12 +1228,10 @@ def mock_databricks_rag_eval():
         ("user prompt only", None),
     ],
 )
-@mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
-def test_call_chat_completions_success(
-    mock_check, user_prompt, system_prompt, mock_databricks_rag_eval
-):
+def test_call_chat_completions_success(user_prompt, system_prompt, mock_databricks_rag_eval):
     """Test successful call to call_chat_completions with different prompt combinations."""
     with (
+        mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed"),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
         mock.patch("mlflow.genai.judges.utils.VERSION", "1.0.0"),
     ):
@@ -1175,15 +1253,15 @@ def test_call_chat_completions_success(
         assert result.output == "test response"
 
 
-@mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed")
-def test_call_chat_completions_client_error(mock_check, mock_databricks_rag_eval):
+def test_call_chat_completions_client_error(mock_databricks_rag_eval):
     """Test call_chat_completions when managed RAG client raises an error."""
     mock_databricks_rag_eval["rag_client"].get_chat_completions_result.side_effect = RuntimeError(
         "RAG client failed"
     )
 
-    with mock.patch.dict(
-        "sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}
+    with (
+        mock.patch("mlflow.genai.judges.utils._check_databricks_agents_installed"),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
@@ -1197,7 +1275,6 @@ def test_get_default_optimizer():
 
 @pytest.mark.parametrize("env_var_value", ["3", None])
 def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
-    """Test that completion iteration limit is enforced."""
     if env_var_value is not None:
         monkeypatch.setenv("MLFLOW_JUDGE_MAX_ITERATIONS", env_var_value)
         expected_limit = int(env_var_value)
@@ -1247,3 +1324,336 @@ def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, 
         assert f"Completion iteration limit of {expected_limit} exceeded" in error_msg
         assert "model is not powerful enough" in error_msg
         assert mock_litellm.call_count == expected_limit
+
+
+def test_invoke_litellm_basic():
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}]
+    )
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        result = _invoke_litellm(
+            litellm_model_uri="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=5,
+            response_format=None,
+            include_response_format=False,
+        )
+
+    assert result == mock_response
+    mock_litellm.assert_called_once()
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["model"] == "openai/gpt-4"
+    assert call_kwargs["tools"] is None
+    assert call_kwargs["tool_choice"] is None
+    assert call_kwargs["max_retries"] == 0
+    assert call_kwargs["drop_params"] is True
+    assert "response_format" not in call_kwargs
+
+
+def test_invoke_litellm_with_tools():
+    mock_response = ModelResponse(choices=[{"message": {"content": "response"}}])
+    tools = [{"name": "test_tool", "description": "A test tool"}]
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        result = _invoke_litellm(
+            litellm_model_uri="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=tools,
+            num_retries=3,
+            response_format=None,
+            include_response_format=False,
+        )
+
+    assert result == mock_response
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert call_kwargs["tools"] == tools
+    assert call_kwargs["tool_choice"] == "auto"
+
+
+def test_invoke_litellm_with_response_format():
+    class TestSchema(BaseModel):
+        result: str = Field(description="The result")
+
+    mock_response = ModelResponse(choices=[{"message": {"content": '{"result": "yes"}'}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        result = _invoke_litellm(
+            litellm_model_uri="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=3,
+            response_format=TestSchema,
+            include_response_format=True,
+        )
+
+    assert result == mock_response
+    call_kwargs = mock_litellm.call_args.kwargs
+    assert "response_format" in call_kwargs
+    assert call_kwargs["response_format"] == TestSchema
+
+
+def test_process_tool_calls_success(mock_trace):
+    mock_tool_call = mock.Mock()
+    mock_tool_call.id = "call_123"
+    mock_tool_call.function.name = "test_tool"
+    mock_tool_call.function.arguments = '{"arg": "value"}'
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = {"result": "success"}
+
+        result = _process_tool_calls(tool_calls=[mock_tool_call], trace=mock_trace)
+
+    assert len(result) == 1
+    assert isinstance(result[0], litellm.Message)
+    assert result[0].role == "tool"
+    assert result[0].tool_call_id == "call_123"
+    assert result[0].name == "test_tool"
+    assert json.loads(result[0].content) == {"result": "success"}
+
+
+def test_process_tool_calls_with_error(mock_trace):
+    mock_tool_call = mock.Mock()
+    mock_tool_call.id = "call_456"
+    mock_tool_call.function.name = "failing_tool"
+    mock_tool_call.function.arguments = "{}"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.side_effect = RuntimeError("Tool execution failed")
+
+        result = _process_tool_calls(tool_calls=[mock_tool_call], trace=mock_trace)
+
+    assert len(result) == 1
+    assert result[0].role == "tool"
+    assert result[0].tool_call_id == "call_456"
+    assert "Error: Tool execution failed" in result[0].content
+
+
+def test_process_tool_calls_multiple(mock_trace):
+    mock_tool_call_1 = mock.Mock()
+    mock_tool_call_1.id = "call_1"
+    mock_tool_call_1.function.name = "tool_1"
+    mock_tool_call_1.function.arguments = "{}"
+
+    mock_tool_call_2 = mock.Mock()
+    mock_tool_call_2.id = "call_2"
+    mock_tool_call_2.function.name = "tool_2"
+    mock_tool_call_2.function.arguments = "{}"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.side_effect = [{"result": "first"}, {"result": "second"}]
+
+        result = _process_tool_calls(
+            tool_calls=[mock_tool_call_1, mock_tool_call_2], trace=mock_trace
+        )
+
+    assert len(result) == 2
+    assert result[0].tool_call_id == "call_1"
+    assert result[1].tool_call_id == "call_2"
+    assert json.loads(result[0].content) == {"result": "first"}
+    assert json.loads(result[1].content) == {"result": "second"}
+
+
+def test_process_tool_calls_with_dataclass(mock_trace):
+    @dataclass
+    class ToolResult:
+        status: str
+        count: int
+
+    mock_tool_call = mock.Mock()
+    mock_tool_call.id = "call_789"
+    mock_tool_call.function.name = "dataclass_tool"
+    mock_tool_call.function.arguments = "{}"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = ToolResult(status="ok", count=42)
+
+        result = _process_tool_calls(tool_calls=[mock_tool_call], trace=mock_trace)
+
+    assert len(result) == 1
+    assert result[0].role == "tool"
+    content = json.loads(result[0].content)
+    assert content == {"status": "ok", "count": 42}
+
+
+def test_process_tool_calls_with_string_result(mock_trace):
+    mock_tool_call = mock.Mock()
+    mock_tool_call.id = "call_str"
+    mock_tool_call.function.name = "string_tool"
+    mock_tool_call.function.arguments = "{}"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.return_value = "Plain string result"
+
+        result = _process_tool_calls(tool_calls=[mock_tool_call], trace=mock_trace)
+
+    assert len(result) == 1
+    assert result[0].role == "tool"
+    assert result[0].content == "Plain string result"
+
+
+def test_process_tool_calls_mixed_success_and_error(mock_trace):
+    mock_tool_call_1 = mock.Mock()
+    mock_tool_call_1.id = "call_success"
+    mock_tool_call_1.function.name = "success_tool"
+    mock_tool_call_1.function.arguments = "{}"
+
+    mock_tool_call_2 = mock.Mock()
+    mock_tool_call_2.id = "call_error"
+    mock_tool_call_2.function.name = "error_tool"
+    mock_tool_call_2.function.arguments = "{}"
+
+    with mock.patch(
+        "mlflow.genai.judges.tools.registry._judge_tool_registry.invoke"
+    ) as mock_invoke:
+        mock_invoke.side_effect = [{"result": "success"}, RuntimeError("Failed")]
+
+        result = _process_tool_calls(
+            tool_calls=[mock_tool_call_1, mock_tool_call_2], trace=mock_trace
+        )
+
+    assert len(result) == 2
+    assert result[0].tool_call_id == "call_success"
+    assert json.loads(result[0].content) == {"result": "success"}
+    assert result[1].tool_call_id == "call_error"
+    assert "Error: Failed" in result[1].content
+
+
+def test_invoke_litellm_exception_propagation():
+    with mock.patch(
+        "litellm.completion",
+        side_effect=litellm.RateLimitError(
+            message="Rate limit exceeded", model="openai/gpt-4", llm_provider="openai"
+        ),
+    ):
+        with pytest.raises(litellm.RateLimitError, match="Rate limit exceeded"):
+            _invoke_litellm(
+                litellm_model_uri="openai/gpt-4",
+                messages=[litellm.Message(role="user", content="Test")],
+                tools=[],
+                num_retries=3,
+                response_format=None,
+                include_response_format=False,
+            )
+
+
+def test_invoke_litellm_retry_policy_configured():
+    mock_response = ModelResponse(choices=[{"message": {"content": "test"}}])
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_litellm:
+        _invoke_litellm(
+            litellm_model_uri="openai/gpt-4",
+            messages=[litellm.Message(role="user", content="Test")],
+            tools=[],
+            num_retries=7,
+            response_format=None,
+            include_response_format=False,
+        )
+
+    call_kwargs = mock_litellm.call_args.kwargs
+    retry_policy = call_kwargs["retry_policy"]
+    assert isinstance(retry_policy, RetryPolicy)
+    assert retry_policy.TimeoutErrorRetries == 7
+    assert retry_policy.RateLimitErrorRetries == 7
+    assert retry_policy.InternalServerErrorRetries == 7
+    assert retry_policy.BadRequestErrorRetries == 0
+    assert retry_policy.AuthenticationErrorRetries == 0
+
+
+def test_invoke_litellm_and_handle_tools_with_context_window_exceeded(mock_trace):
+    context_error = litellm.ContextWindowExceededError(
+        message="Context window exceeded", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    pruned_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "OK"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[context_error, pruned_response],
+        ) as mock_litellm,
+        mock.patch(
+            "mlflow.genai.judges.utils._prune_messages_exceeding_context_window_length"
+        ) as mock_prune,
+        mock.patch("litellm.get_max_tokens", return_value=8000),
+    ):
+        mock_prune.return_value = [litellm.Message(role="user", content="Pruned")]
+
+        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
+
+        result = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Very long message" * 100)],
+            trace=None,
+            num_retries=3,
+        )
+
+    assert mock_litellm.call_count == 2
+    mock_prune.assert_called_once()
+    assert result == '{"result": "yes", "rationale": "OK"}'
+
+
+def test_invoke_litellm_and_handle_tools_integration(mock_trace):
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {"id": "call_123", "function": {"name": "test_tool", "arguments": "{}"}}
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    final_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Good"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[tool_call_response, final_response],
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "test_tool"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = {"trace_data": "some data"}
+
+        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
+
+        result = _invoke_litellm_and_handle_tools(
+            provider="openai",
+            model_name="gpt-4",
+            messages=[ChatMessage(role="user", content="Test with trace")],
+            trace=mock_trace,
+            num_retries=3,
+        )
+
+    assert mock_litellm.call_count == 2
+    mock_invoke.assert_called_once()
+    assert result == '{"result": "yes", "rationale": "Good"}'
+
+    second_call_messages = mock_litellm.call_args_list[1].kwargs["messages"]
+    assert len(second_call_messages) == 3
+    assert second_call_messages[1].role == "assistant"
+    assert second_call_messages[2].role == "tool"
+    assert "trace_data" in second_call_messages[2].content

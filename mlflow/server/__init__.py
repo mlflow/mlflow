@@ -50,12 +50,25 @@ PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
+MLFLOW_HUEY_INSTANCE_KEY = "_MLFLOW_HUEY_INSTANCE_KEY"
 
 REL_STATIC_DIR = "js/build"
 
 app = Flask(__name__, static_folder=REL_STATIC_DIR)
 IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
+is_running_as_server = (
+    "gunicorn" in sys.modules
+    or "uvicorn" in sys.modules
+    or "waitress" in sys.modules
+    or os.getenv(BACKEND_STORE_URI_ENV_VAR)
+    or os.getenv(SERVE_ARTIFACTS_ENV_VAR)
+)
+
+if is_running_as_server:
+    from mlflow.server import security
+
+    security.init_security_middleware(app)
 
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
@@ -391,23 +404,40 @@ def _run_server(
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         # The `HUEY_STORAGE_PATH_ENV_VAR` is used by both MLflow server handler workers and
         # huey job runner (huey_consumer).
-        env_map[HUEY_STORAGE_PATH_ENV_VAR] = os.path.join(tempfile.mkdtemp(), "mlflow-huey.db")
+        env_map[HUEY_STORAGE_PATH_ENV_VAR] = (
+            tempfile.mkdtemp(dir="/dev/shm")  # Use in-memory file system if possible
+            if os.path.exists("/dev/shm")
+            else tempfile.mkdtemp()
+        )
+
+    if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
+        from mlflow.server.jobs.utils import _check_requirements
+
+        try:
+            _check_requirements(file_store_path)
+        except Exception as e:
+            raise MlflowException(
+                f"MLflow job runner requirements checking failed (root error: {e!s}). "
+                "If you don't need MLflow job runner, you can disable it by setting "
+                "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'false'."
+            )
+
     server_proc = _exec_cmd(
         full_command, extra_env=env_map, capture_output=False, synchronous=False
     )
 
     if MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
-        try:
-            import huey  # noqa: F401
-        except ImportError:
-            _logger.warning(
-                "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed. "
-                "Skip launching the job runner."
-            )
-            return
+        from mlflow.environment_variables import MLFLOW_TRACKING_URI
+        from mlflow.server.jobs.utils import _launch_job_runner
 
-        from mlflow.server.jobs import _launch_job_backend
-
-        _launch_job_backend(file_store_path, env_map, server_proc.pid)
+        _launch_job_runner(
+            {
+                **env_map,
+                # Set tracking URI environment variable for job runner
+                # so that all job processes inherits it.
+                MLFLOW_TRACKING_URI.name: f"http://{host}:{port}",
+            },
+            server_proc.pid,
+        )
 
     server_proc.wait()

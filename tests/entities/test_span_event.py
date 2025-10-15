@@ -23,7 +23,6 @@ def test_from_exception():
     ],
 )
 def test_span_event_to_otel_proto_conversion(event_attrs):
-    """Test SpanEvent to OTel proto conversion."""
     # Create span event
     event = SpanEvent(
         name="test_event",
@@ -32,7 +31,7 @@ def test_span_event_to_otel_proto_conversion(event_attrs):
     )
 
     # Convert to OTel proto
-    otel_proto_event = event._to_otel_proto()
+    otel_proto_event = event.to_otel_proto()
 
     # Verify fields
     assert otel_proto_event.name == "test_event"

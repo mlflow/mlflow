@@ -1,0 +1,687 @@
+// This file contains the proto definition for communicating with the Databricks tracking server.
+// The message definition should be kept in (mostly) sync with the MLflow service definition.
+syntax = "proto2";
+
+package mlflow.databricks;
+
+import "assessments.proto";
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
+
+option py_generic_services = true;
+
+service DatabricksTrackingService {
+  rpc createTraceInfo (CreateTraceInfo) returns (TraceInfo) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location_id}/{trace_info.trace_id}/info"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Trace Info v4",
+    };
+  }
+
+  // Get complete traces with spans for given trace identifiers.
+  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location_id}/batchGet",
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Traces V4",
+    };
+  }
+
+  // Get Trace Info
+  rpc getTraceInfo (GetTraceInfo) returns (GetTraceInfo.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location}/{trace_id}/info",
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get TraceInfo",
+    };
+  }
+
+  // Set a tag on a trace. Tags are mutable and can be updated as desired.
+  rpc setTraceTag(SetTraceTag) returns (SetTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Set Trace Tag",
+    };
+  }
+
+  // Delete a tag from a trace.
+  rpc deleteTraceTag(DeleteTraceTag) returns (DeleteTraceTag.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location_id}/{trace_id}/tags/{key}"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Trace Tag",
+    };
+  }
+
+  // Search traces
+  rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST",
+          path: "/mlflow/traces/search"
+          since { major: 4, minor: 0 },
+        }
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Search Traces",
+      };
+  }
+
+  // =============================================================================
+  // Enablement RPCs
+  // =============================================================================
+
+  rpc createTraceUCStorageLocation (CreateTraceUCStorageLocation) returns (CreateTraceUCStorageLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/location"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Trace UC Storage Location",
+    };
+  }
+
+  rpc linkExperimentToUCTraceLocation (LinkExperimentToUCTraceLocation) returns (LinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{experiment_id}/link-location"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Experiment to UC Trace Location",
+    };
+  }
+
+  rpc unlinkExperimentToUCTraceLocation (UnLinkExperimentToUCTraceLocation) returns (UnLinkExperimentToUCTraceLocation.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{experiment_id}/unlink-location"
+        since { major: 4, minor: 0 },
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Unlink Experiment to UC Trace Location",
+    };
+  }
+
+  // =============================================================================
+  // Assessment RPCs
+  // =============================================================================
+
+  // Create an assessment associated with a trace.
+  rpc createAssessment (CreateAssessment) returns (CreateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Create Assessment",
+    };
+  }
+
+  // Get an assessment.
+  rpc getAssessment (GetAssessment) returns (GetAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Assessment",
+    };
+  }
+
+  // Update an assessment.
+  rpc updateAssessment (UpdateAssessment) returns (UpdateAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/traces/{location_id}/{assessment.trace_id}/assessments/{assessment.assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Update Assessment",
+    };
+  }
+
+  // Delete an assessment.
+  rpc deleteAssessment (DeleteAssessment) returns (DeleteAssessment.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location_id}/{trace_id}/assessments/{assessment_id}"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Delete Assessment",
+    };
+  }
+
+  // =============================================================================
+  // Trace-to-Run Linking RPCs
+  // =============================================================================
+
+  // Link traces to a run by creating internal trace-to-run relationships.
+  // This API allows associating multiple traces with a single run for evaluation and labeling workflows.
+  rpc batchLinkTraceToRun (BatchLinkTraceToRun) returns (BatchLinkTraceToRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location_id}/link-to-run/batchCreate"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Traces to Run",
+    };
+  }
+
+  // Unlink traces from a run by removing the internal trace-to-run relationships.
+  // This API allows batch edit of relationship across multiple traces with a single run.
+  rpc batchUnlinkTraceFromRun (BatchUnlinkTraceFromRun) returns (BatchUnlinkTraceFromRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location_id}/unlink-from-run/batchDelete"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Unlink Traces from Run",
+    };
+  }
+}
+
+message UCSchemaLocation {
+  optional string catalog_name = 1;
+  optional string schema_name = 2;
+  // spans table name, only for output
+  optional string otel_spans_table_name = 3;
+  // logs table name, only for output
+  optional string otel_logs_table_name = 4;
+}
+
+message MlflowExperimentLocation {
+  // MLflow experiment ID which is the ACL container holding the trace.
+  optional string experiment_id = 1;
+}
+
+message InferenceTableLocation {
+  // Full inference table name in the form of catalog.schema.table_name
+  optional string full_table_name = 1;
+}
+
+// The location where the traces was stored and produced
+message TraceLocation {
+
+  enum TraceLocationType {
+    TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
+    MLFLOW_EXPERIMENT = 1;
+    INFERENCE_TABLE = 2;
+    UC_SCHEMA = 3;
+  }
+  optional TraceLocationType type = 1;
+
+  oneof identifier {
+    MlflowExperimentLocation mlflow_experiment = 2;
+    InferenceTableLocation inference_table = 3;
+    UCSchemaLocation uc_schema = 4;
+  }
+}
+
+
+message TraceInfo {
+  // The primary key associated with the trace
+  optional string trace_id = 1;
+
+  // Client supplied request ID associated with the trace. This could be used to identify the trace/request from an
+  // external system that produced the trace.
+  optional string client_request_id = 2;
+
+  optional TraceLocation trace_location = 3;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the input of the root
+  // span. This preview value is truncated to 10KB while the full request is stored in the trace data in blob storage.
+  optional string request_preview = 4;
+
+  // A preview of the request to the model/agent represented as a JSON string. This is equivalent to the output of the root
+  // span. This preview value is truncated to 10KB while the full response is stored in the trace data in blob storage.
+  optional string response_preview = 5;
+
+  // Start time of the trace
+  optional google.protobuf.Timestamp request_time = 6;
+
+  // Execution time of the trace
+  optional google.protobuf.Duration execution_duration = 7;
+
+  // Execution state of the trace at the time that it was logged.
+  enum State {
+    STATE_UNSPECIFIED = 0;
+
+    // The operation being traced was successful.
+    OK = 1;
+
+    // The operation being traced failed.
+    ERROR = 2;
+
+    // The operation being traced is still in progress. This is useful for incremental/distributed tracing logging in
+    // contrast with when the full trace is logged only upon its completion.
+    IN_PROGRESS = 3;
+  }
+  optional State state = 8;
+
+  // Metadata associated with the trace.
+  // Examples include:
+  // - run_id: The ID of the mlflow Run (i.e. evaluation job) that produced the trace. May not be
+  //           applicable in certain situations such as if the trace was created via interactive vibe checks)
+  // - model_id: The ID of the associated model that produced the trace.
+  // - dataset_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - dataset_record_id: The ID of the mlflow Dataset (usually used together with dataset_record_id)
+  // - session_id: The ID of the session (e.g. chat conversation) where the request came from
+  map<string, string> trace_metadata = 9;
+
+  repeated Assessment assessments = 10;
+
+  // Mutable, user-defined tags for the trace, e.g. "question_topic": "DBSQL"
+  map<string, string> tags = 11;
+}
+
+message CreateTraceInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID of the trace.
+  optional string location_id = 1 [(validate_required) = true];
+
+  // The information for the trace being created.
+  optional TraceInfo trace_info = 2 [(validate_required) = true];
+
+  message Response {
+    // The created trace information.
+    optional TraceInfo trace_info = 1;
+  }
+}
+
+message TracePath {
+  // location of the trace
+  optional TraceLocation trace_location = 1 [(validate_required) = true];
+
+  // ID of the trace.
+  optional string trace_id = 2 [(validate_required) = true];
+}
+
+message Trace {
+  optional TraceInfo trace_info = 1;
+  repeated opentelemetry.proto.trace.v1.Span spans = 2;
+}
+
+message BatchGetTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID to search on (e.g. "main.catalog" for UC schema).
+  optional string location_id  = 1 [(validate_required) = true];
+
+  // The trace IDs to fetch. They must all be located in the same location specified by location_id.
+  repeated string trace_ids = 2;
+
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    // The fetched trace information.
+    repeated Trace traces = 1;
+  }
+}
+
+message GetTraceInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Location of the trace to fetch from. Must be provided.
+  optional string location = 2 [(validate_required) = true];
+
+  // Optional SQL warehouse ID for fetching trace data.
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    optional Trace trace = 1;
+  }
+
+}
+
+message SetTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // The location ID (experiment_id or catalog.schema).
+  optional string location_id = 2 [(validate_required) = true];
+
+  // Name of the tag. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string key = 3 [(validate_required) = true];
+
+  // String value of the tag being logged. Maximum size depends on storage backend.
+  // All storage backends are guaranteed to support key values up to 250 bytes in size.
+  optional string value = 4;
+
+  message Response {
+  }
+}
+
+message DeleteTraceTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace on which to set a tag.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // The location ID (experiment_id or catalog.schema).
+  optional string location_id = 2 [(validate_required) = true];
+
+  // Name of the tag to delete.
+  optional string key = 3 [(validate_required) = true];
+
+  // Optional SQL warehouse ID for setting trace tag.
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+  }
+}
+
+message SearchTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // A list of trace locations to search over.
+  repeated TraceLocation locations = 1;
+
+  // A filter expression over trace attributes and tags that allows returning a subset of
+  // traces. The syntax is a subset of SQL that supports ANDing together binary operations
+  // Example: ``trace.status = 'OK' and trace.timestamp_ms > 1711089570679``.
+  optional string filter = 2;
+
+  // Maximum number of traces desired. Max threshold is 500.
+  optional int32 max_results = 3 [default = 100];
+
+  // List of columns for ordering the results, e.g. ``["timestamp_ms DESC"]``.
+  repeated string order_by = 4;
+
+  // Optional SQL warehouse ID for searching traces.
+  optional string sql_warehouse_id = 5;
+
+  // Token indicating the page of traces to fetch.
+  optional string page_token = 6;
+
+  message Response {
+    // Information about traces that match the search criteria.
+    repeated TraceInfo trace_infos = 1;
+    optional string next_page_token = 2;
+  }
+}
+
+
+// =============================================================================
+// Enablement API Messages
+// =============================================================================
+
+message CreateTraceUCStorageLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  oneof location {
+    UCSchemaLocation uc_schema = 1;
+  }
+
+  // SQL warehouse ID for creating views and querying
+  optional string sql_warehouse_id = 2 [(validate_required) = true];
+
+  message Response {
+    optional UCSchemaLocation uc_schema = 1;
+  }
+}
+
+message LinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The experiment ID to link the location
+  optional string experiment_id = 1 [(validate_required) = true];
+  
+  // Location to link.
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+message UnLinkExperimentToUCTraceLocation {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Experiment ID to unlink from
+  optional string experiment_id = 1 [(validate_required) = true];
+
+  // Location to unlink.
+  oneof location {
+    UCSchemaLocation uc_schema = 2;
+  }
+
+  message Response {}
+}
+
+// =============================================================================
+// Assessment API Messages
+// =============================================================================
+// Note: We import assessment types from assessments.proto and extend Assessment
+// with trace_location field for Databricks-specific use cases.
+
+// Data and metadata for an assessment of a trace.
+message Assessment {
+  // Unique ID of the assessment.
+  // NB: This is not marked as required field via "validate_required", because the message is
+  //  used in the context of creating a new assessment, where the ID is not known.
+  optional string assessment_id = 1;
+
+  // Name of the assessment. The name must not contain ".".
+  optional string assessment_name = 2 [(validate_required) = true];
+
+  // ID of the trace this assessment is associated with.
+  optional string trace_id = 3 [(validate_required) = true];
+
+  // Location of the trace this assessment is associated with.
+  optional TraceLocation trace_location = 4;
+
+  // ID of the span if the assessment is for a particular span (optional).
+  optional string span_id = 5;
+
+  // The source this assessment came from.
+  optional assessments.AssessmentSource source = 6;
+
+  // The creation time of this assessment.
+  optional google.protobuf.Timestamp create_time = 7;
+
+  // The last update time of this assessment.
+  optional google.protobuf.Timestamp last_update_time = 8;
+
+  // An Assessment can either be human/code/judge Feedback, human-generated Expectation, or an error.
+  // The name of the Feedback or Expectation must be the same with the assessment_name.
+  oneof value {
+    // The feedback on the trace from this assessment.
+    assessments.Feedback feedback = 9;
+    // A representation of the guidelines and/or expected response from the agent.
+    assessments.Expectation expectation = 10;
+  }
+
+  // Justification for the assessment.
+  optional string rationale = 11;
+
+  // Additional metadata describing the assessment and store additional information,
+  // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
+  map<string, string> metadata = 12;
+
+  // The ID of the assessment which this assessment overrides.
+  optional string overrides = 13;
+
+  // Whether this assessment is valid (i.e. has not been superseded)
+  // defaults to true, and is set to false if a new superseding assessment
+  // is created.
+  optional bool valid = 14 [
+    default = true
+  ];
+}
+
+// Create an assessment.
+message CreateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location ID (experiment_id or catalog.schema)
+  // This must match the trace_location supplied in the assessment field.
+  optional string location_id = 1 [(validate_required) = true];
+  // Assessment to create
+  optional Assessment assessment = 2 [(validate_required) = true];
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 3;
+
+  message Response {
+    // The created assessment.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Get an assessment.
+message GetAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Trace ID
+  optional string trace_id = 2 [(validate_required) = true];
+  // Assessment ID to retrieve
+  optional string assessment_id = 3 [(validate_required) = true];
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The requested assessment.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Update an assessment.
+message UpdateAssessment {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Assessment with updated fields
+  optional Assessment assessment = 2 [(validate_required) = true];
+  // Field mask specifying which fields to update
+  //
+  // Valid field names to update are:
+  //    `assessment_name`,
+  //    `span_id`,
+  //    `source`,
+  //    `feedback`,
+  //    `expectation`,
+  //    `rationale`,
+  //    `metadata`,
+  //    `overrides`, and
+  //    `valid`.
+  optional google.protobuf.FieldMask update_mask = 3 [(validate_required) = true];
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 4;
+
+  message Response {
+    // The assessment after the update.
+    optional Assessment assessment = 1;
+  }
+}
+
+// Delete an assessment.
+message DeleteAssessment{
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Location ID (experiment_id or catalog.schema)
+  optional string location_id = 1 [(validate_required) = true];
+  // Trace ID
+  optional string trace_id = 2 [(validate_required) = true];
+  // Assessment ID to delete
+  optional string assessment_id = 3 [(validate_required) = true];
+  // SQL warehouse ID for UC queries
+  optional string sql_warehouse_id = 4;
+
+  message Response {}
+}
+
+// =============================================================================
+// Trace-to-Run Linking API Messages
+// =============================================================================
+
+// Link traces to a run by creating internal trace-to-run relationships.
+message BatchLinkTraceToRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID (experiment_id or catalog.schema) where the traces are stored.
+  optional string location_id = 1 [(validate_required) = true];
+
+  // IDs of the traces to link to the run.
+  // The maximum number of trace IDs that can be linked in a single request is 100.
+  repeated string trace_ids = 2;
+
+  // ID of the run to link the traces to.
+  optional string run_id = 3 [(validate_required) = true];
+
+  message Response {
+    // Empty response
+  }
+}
+
+// Unlink traces from a run by removing the internal trace-to-run relationships.
+message BatchUnlinkTraceFromRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID (experiment_id or catalog.schema) where the traces are stored.
+  optional string location_id = 1 [(validate_required) = true];
+
+  // IDs of the traces to unlink from the run.
+  // The maximum number of trace IDs that can be unlinked in a single request is 100.
+  repeated string trace_ids = 2;
+
+  // ID of the run to unlink the traces from.
+  optional string run_id = 3 [(validate_required) = true];
+
+  message Response {
+    // Empty response
+  }
+}

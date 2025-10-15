@@ -23,14 +23,18 @@ from mlflow.entities.assessment import Expectation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
 )
 
-from tests.tracing.helper import V2_TRACE_DICT, create_test_trace_info
+from tests.tracing.helper import (
+    V2_TRACE_DICT,
+    create_test_trace_info,
+    create_test_trace_info_with_uc_table,
+)
 
 
 def _test_model(datetime=datetime.now()):
@@ -84,7 +88,6 @@ def test_json_deserialization(monkeypatch):
             "request_preview": '{"x": 2, "y": 5}',
             "response_preview": "8",
             "trace_metadata": {
-                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
                 "mlflow.source.name": mock.ANY,
@@ -95,6 +98,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.user": mock.ANY,
                 "mlflow.trace.sizeBytes": mock.ANY,
                 "mlflow.trace.sizeStats": mock.ANY,
+                "mlflow.trace_schema.version": "3",
             },
             "tags": {
                 "mlflow.traceName": "predict",
@@ -107,14 +111,14 @@ def test_json_deserialization(monkeypatch):
                     "name": "predict",
                     "trace_id": mock.ANY,
                     "span_id": mock.ANY,
-                    "parent_span_id": "",
+                    "parent_span_id": None,
                     "start_time_unix_nano": trace.data.spans[0].start_time_ns,
                     "end_time_unix_nano": trace.data.spans[0].end_time_ns,
+                    "events": [],
                     "status": {
-                        "code": "STATUS_CODE_OK",
+                        "code": "OK",
                         "message": "",
                     },
-                    "trace_state": "",
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"UNKNOWN"',
@@ -130,11 +134,11 @@ def test_json_deserialization(monkeypatch):
                     "parent_span_id": mock.ANY,
                     "start_time_unix_nano": trace.data.spans[1].start_time_ns,
                     "end_time_unix_nano": trace.data.spans[1].end_time_ns,
+                    "events": [],
                     "status": {
-                        "code": "STATUS_CODE_OK",
+                        "code": "OK",
                         "message": "",
                     },
-                    "trace_state": "",
                     "attributes": {
                         "mlflow.traceRequestId": json.dumps(trace.info.request_id),
                         "mlflow.spanType": '"LLM"',
@@ -265,6 +269,12 @@ def test_trace_pandas_dataframe_columns():
     )
     assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
 
+    t = Trace(
+        info=create_test_trace_info_with_uc_table("a", "catalog", "schema"),
+        data=TraceData(),
+    )
+    assert Trace.pandas_dataframe_columns() == list(t.to_pandas_dataframe_row())
+
 
 @pytest.mark.parametrize(
     ("span_type", "name", "expected"),
@@ -332,7 +342,7 @@ def test_from_v2_dict():
     assert len(trace.data.spans) == 2
 
     # Verify that schema version was updated from "2" to current version during V2 to V3 conversion
-    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "2"
 
     # Verify that other metadata was preserved
     assert trace.info.trace_metadata["mlflow.traceInputs"] == '{"x": 2, "y": 5}'

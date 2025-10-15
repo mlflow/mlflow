@@ -4,7 +4,7 @@ import logging
 from functools import lru_cache
 from typing import Any, Union
 
-from google.protobuf.json_format import MessageToDict, ParseDict
+from google.protobuf.json_format import ParseDict
 from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
@@ -22,7 +22,7 @@ from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     build_otel_context,
@@ -30,6 +30,8 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
     generate_mlflow_trace_id_from_otel_trace_id,
+    generate_trace_id_v4_from_otel_trace_id,
+    parse_trace_id_v4,
 )
 from mlflow.tracing.utils.otlp import (
     _decode_otel_proto_anyvalue,
@@ -222,17 +224,28 @@ class Span:
         return self._attributes.get(key)
 
     def to_dict(self) -> dict[str, Any]:
-        d = MessageToDict(
-            self.to_proto(),
-            preserving_proto_field_name=True,
-        )
-        # Casting fields types as MessageToDict convert everything to string
-        d["start_time_unix_nano"] = self.start_time_ns
-        d["end_time_unix_nano"] = self.end_time_ns
-        for i, event in enumerate(d.get("events", [])):
-            event["time_unix_nano"] = self.events[i].timestamp
-            event["attributes"] = self.events[i].attributes
-        return d
+        return {
+            "trace_id": self.trace_id,
+            "span_id": self.span_id,
+            "parent_span_id": self.parent_id,
+            "name": self.name,
+            "start_time_unix_nano": self.start_time_ns,
+            "end_time_unix_nano": self.end_time_ns,
+            "events": [
+                {
+                    "name": event.name,
+                    "time_unix_nano": event.timestamp,
+                    "attributes": event.attributes,
+                }
+                for event in self.events
+            ],
+            "status": {
+                "code": self.status.status_code.value,
+                "message": self.status.description,
+            },
+            # save the dumped attributes so they can be loaded correctly when deserializing
+            "attributes": {k: self._span.attributes.get(k) for k in self.attributes.keys()},
+        }
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "Span":
@@ -249,27 +262,39 @@ class Span:
             if Span._is_span_v2_schema(data):
                 return cls.from_dict_v2(data)
 
-            trace_id = _decode_id_from_byte(data["trace_id"])
-            span_id = _decode_id_from_byte(data["span_id"])
-            # Parent ID always exists in proto (empty string) even if the span is a root span.
-            parent_id = (
-                _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
-            )
+            if _is_base64_encoded(data["trace_id"]):
+                otel_trace_id = _decode_id_from_byte(data["trace_id"])
+                span_id = _decode_id_from_byte(data["span_id"])
+                # Parent ID always exists in proto (empty string) even if the span is a root span.
+                parent_id = (
+                    _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
+                )
+                status = SpanStatus(
+                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                )
+            else:
+                otel_trace_id = decode_id(
+                    parse_trace_id_v4(data["trace_id"])[1].removeprefix(TRACE_REQUEST_ID_PREFIX)
+                )
+                span_id = decode_id(data["span_id"])
+                parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
+                status = SpanStatus(
+                    status_code=SpanStatusCode(data["status"]["code"]),
+                    description=data["status"].get("message"),
+                )
 
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
 
             otel_span = OTelReadableSpan(
                 name=data["name"],
-                context=build_otel_context(trace_id, span_id),
-                parent=build_otel_context(trace_id, parent_id) if parent_id else None,
+                context=build_otel_context(otel_trace_id, span_id),
+                parent=build_otel_context(otel_trace_id, parent_id) if parent_id else None,
                 start_time=int(data["start_time_unix_nano"]),
                 end_time=end_time_ns,
                 attributes=data["attributes"],
-                status=SpanStatus(
-                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message"),
-                ).to_otel_status(),
+                status=status.to_otel_status(),
                 # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
                 # Resource.create(), which introduces a significant overhead in some environments.
                 # https://github.com/mlflow/mlflow/issues/15625
@@ -351,7 +376,7 @@ class Span:
         )
 
     @classmethod
-    def _from_otel_proto(cls, otel_proto_span) -> "Span":
+    def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
         """
         Create a Span from an OpenTelemetry protobuf span.
         This is an internal method used for receiving spans via OTel protocol.
@@ -370,6 +395,11 @@ class Span:
         else:
             status_code = OTelStatusCode.UNSET
 
+        mlflow_trace_id = (
+            generate_trace_id_v4_from_otel_trace_id(trace_id, location_id)
+            if location_id
+            else generate_mlflow_trace_id_from_otel_trace_id(trace_id)
+        )
         otel_span = OTelReadableSpan(
             name=otel_proto_span.name,
             context=build_otel_context(trace_id, span_id),
@@ -377,12 +407,12 @@ class Span:
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
             attributes={
+                # Include the MLflow trace request ID only if it's not already present in attributes
+                SpanAttributeKey.REQUEST_ID: mlflow_trace_id,
                 **{
                     attr.key: _decode_otel_proto_anyvalue(attr.value)
                     for attr in otel_proto_span.attributes
                 },
-                # Include the MLflow trace request ID
-                SpanAttributeKey.REQUEST_ID: generate_mlflow_trace_id_from_otel_trace_id(trace_id),
             },
             status=OTelStatus(status_code, otel_proto_span.status.message or None),
             events=[
@@ -401,7 +431,7 @@ class Span:
 
         return cls(otel_span)
 
-    def _to_otel_proto(self) -> OTelProtoSpan:
+    def to_otel_proto(self) -> OTelProtoSpan:
         """
         Convert to OpenTelemetry protobuf span format for OTLP export.
         This is an internal method used by the REST store for logging spans.
@@ -429,7 +459,7 @@ class Span:
             _set_otel_proto_anyvalue(attr.value, value)
 
         for event in self.events:
-            otel_event = event._to_otel_proto()
+            otel_event = event.to_otel_proto()
             otel_span.events.append(otel_event)
 
         return otel_span
@@ -449,6 +479,14 @@ def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
     # Decoding the base64 encoded trace or span ID to bytes and then converting it to int.
     bytes = base64.b64decode(trace_or_span_id_b64)
     return int.from_bytes(bytes, byteorder="big", signed=False)
+
+
+def _is_base64_encoded(trace_or_span_id: str) -> bool:
+    try:
+        base64.b64decode(trace_or_span_id, validate=True)
+        return True
+    except Exception:
+        return False
 
 
 class LiveSpan(Span):

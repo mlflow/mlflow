@@ -1,10 +1,7 @@
-import contextlib
 import importlib.metadata
 import importlib.util
 import inspect
-import io
 import logging
-import os
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from packaging.version import Version
@@ -142,7 +139,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         self,
         prompt: PromptVersion,
         program: "dspy.Module",
-        metric: Callable[["dspy.Example"], float],
+        metric: Callable[["dspy.Example", "dspy.Example", Any], float],
         train_data: list["dspy.Example"],
         eval_data: list["dspy.Example"],
     ) -> OptimizerOutput:
@@ -205,7 +202,7 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
         output_fields: dict[str, type],
         scorers: list[Scorer],
         objective: ObjectiveFn | None = None,
-    ) -> Callable[["dspy.Example"], float]:
+    ) -> Callable[["dspy.Example", "dspy.Example", Any], float]:
         def metric(example: "dspy.Example", pred: "dspy.Example", trace=None) -> float:
             scores = {}
             inputs = {key: example.get(key) for key in input_fields.keys()}
@@ -259,24 +256,3 @@ class DSPyPromptOptimizer(BasePromptOptimizer):
 
         with dspy.context(lm=lm):
             return extractor(prompt=template).instruction
-
-    @contextlib.contextmanager
-    def _maybe_suppress_stdout_stderr(self):
-        """Context manager for redirecting stdout/stderr based on verbose setting.
-        If verbose is False, redirects output to devnull or StringIO.
-        If verbose is True, doesn't redirect output.
-        """
-        if not self.optimizer_config.verbose:
-            try:
-                output_sink = open(os.devnull, "w")  # noqa: SIM115
-            except (OSError, IOError):
-                output_sink = io.StringIO()
-
-            with output_sink:
-                with (
-                    contextlib.redirect_stdout(output_sink),
-                    contextlib.redirect_stderr(output_sink),
-                ):
-                    yield
-        else:
-            yield

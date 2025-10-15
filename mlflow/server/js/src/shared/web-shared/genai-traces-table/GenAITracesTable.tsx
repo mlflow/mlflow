@@ -111,24 +111,7 @@ function GenAiTracesTableImpl({
   const currentEvaluationResults = applyTraceInfoV3ToEvalEntry(oldEvalResults);
   const compareToEvaluationResults = applyTraceInfoV3ToEvalEntry(oldCompareToEvalResults || []);
 
-  // Eventually we should just take traceActions that user passes in
-  // once exportToEval is moved to traceActions as well.
-  const fullTraceActions: TraceActions = useMemo(() => {
-    const exportToEvalAction = exportToEvalsInstanceEnabled
-      ? {
-          exportToEvals: {
-            exportToEvalsInstanceEnabled,
-            getTrace,
-          },
-        }
-      : {};
-    return {
-      ...traceActions,
-      ...exportToEvalAction,
-    };
-  }, [traceActions, exportToEvalsInstanceEnabled, getTrace]);
-
-  const enableTableRowSelection: boolean = Object.keys(fullTraceActions).length > 0;
+  const enableTableRowSelection: boolean = Object.keys(traceActions ?? {}).length > 0;
 
   const [selectedEvaluationId, setSelectedEvaluationId] = useActiveEvaluation();
 
@@ -488,7 +471,7 @@ function GenAiTracesTableImpl({
                   experimentId={experimentId}
                   selectedTraces={selectedTraces}
                   setRowSelection={setRowSelection}
-                  traceActions={fullTraceActions}
+                  traceActions={traceActions}
                   traceInfos={undefined}
                 />
               </TableFilterLayout>
