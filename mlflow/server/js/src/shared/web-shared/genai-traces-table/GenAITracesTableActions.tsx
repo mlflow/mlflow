@@ -63,19 +63,12 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
 
   return (
     <>
-      <Button
-        componentId="mlflow.genai-traces-table.compare-traces"
-        disabled={selectedTraces.length < 2}
-        onClick={handleOpenCompare}
-        css={{ marginRight: 8 }}
-      >
-        {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
-      </Button>
       <TraceActionsDropdown
         experimentId={experimentId}
         selectedTraces={selectedTraces}
         traceActions={traceActions}
         setRowSelection={setRowSelection ?? table?.setRowSelection}
+        onCompare={handleOpenCompare}
       />
       {showCompareModal && (
         <TraceComparisonModal
@@ -93,10 +86,11 @@ interface TraceActionsDropdownProps {
   selectedTraces: RunEvaluationTracesDataEntry[];
   traceActions?: TraceActions;
   setRowSelection: React.Dispatch<React.SetStateAction<RowSelectionState>> | undefined;
+  onCompare?: () => void;
 }
 
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
-  const { experimentId, selectedTraces, traceActions, setRowSelection } = props;
+  const { experimentId, selectedTraces, traceActions, setRowSelection, onCompare } = props;
   const intl = useIntl();
   const [showDatasetModal, setShowDatasetModal] = useState(false);
   const [showLabelingSessionModal, setShowLabelingSessionModal] = useState(false);
@@ -136,6 +130,8 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
   const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
+
+  const canCompare = selectedTraces.length >= 2;
 
   if (noActionsAvailable) {
     return null;
@@ -179,6 +175,13 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
         )}
         <DropdownMenu.Content>
+          <DropdownMenu.Item
+            componentId="mlflow.genai-traces-table.compare-traces"
+            onClick={onCompare}
+            disabled={!canCompare}
+          >
+            {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
+          </DropdownMenu.Item>
           {(hasEditTagsAction || hasDeleteAction) && (
             <>
               {hasExportAction && <DropdownMenu.Separator />}

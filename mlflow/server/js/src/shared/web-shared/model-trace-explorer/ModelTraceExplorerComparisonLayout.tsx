@@ -1,13 +1,7 @@
 import { useMemo, useCallback, type ReactNode } from 'react';
 import type React from 'react';
 
-import {
-  Button,
-  ChevronDownIcon,
-  ChevronRightIcon,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { Button, ChevronDownIcon, ChevronRightIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentsPane } from './assessments-pane/AssessmentsPane';
@@ -25,18 +19,10 @@ export const ModelTraceExplorerComparisonLayout = ({
   onScroll?: (event: React.UIEvent<HTMLDivElement>) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    rootNode,
-    nodeMap,
-    assessmentsPaneExpanded,
-    setAssessmentsPaneExpanded,
-    assessmentsPaneEnabled,
-  } = useModelTraceExplorerViewState();
+  const { rootNode, nodeMap, assessmentsPaneExpanded, setAssessmentsPaneExpanded, assessmentsPaneEnabled } =
+    useModelTraceExplorerViewState();
 
-  const allAssessments = useMemo(
-    () => Object.values(nodeMap).flatMap((node) => node.assessments),
-    [nodeMap],
-  );
+  const allAssessments = useMemo(() => Object.values(nodeMap).flatMap((node) => node.assessments), [nodeMap]);
 
   const shouldRenderAssessments = assessmentsPaneEnabled && rootNode;
 
@@ -96,7 +82,6 @@ export const ModelTraceExplorerComparisonLayout = ({
                 css={{
                   border: `1px solid ${theme.colors.border}`,
                   borderRadius: theme.borders.borderRadiusMd,
-                  maxHeight: '40%',
                   overflowY: 'auto',
                 }}
               >
