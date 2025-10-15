@@ -422,8 +422,6 @@ class DatabricksTracingRestStore(RestStore):
                 "`tracking_uri` must be provided to log spans to with Databricks tracking server."
             )
 
-        # TODO: check server version
-
         endpoint = f"/api/2.0/otel{OTLP_TRACES_PATH}"
         try:
             config = get_databricks_workspace_client_config(tracking_uri)
