@@ -1098,3 +1098,22 @@ class TrackingServiceClient:
             )
 
         return self.store.link_traces_to_run(trace_ids, run_id)
+
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Raises:
+            MlflowException: If run_id is empty.
+        """
+        if not trace_ids:
+            return
+
+        if not run_id:
+            raise MlflowException.invalid_parameter_value("run_id cannot be empty")
+
+        return self.store.unlink_traces_from_run(trace_ids, run_id)
