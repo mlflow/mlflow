@@ -2,6 +2,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimize import optimize_prompts
 from mlflow.genai.optimize.optimizers.base import BasePromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -253,6 +254,35 @@ def test_adapt_prompts_with_model_name(sample_translation_prompt, sample_dataset
     assert len(result.optimized_prompts) == 1
 
 
+def test_optimize_prompts_warns_on_unused_prompt(
+    sample_translation_prompt, sample_summarization_prompt, sample_dataset, capsys
+):
+    mock_optimizer = MockPromptAdapter()
+
+    # Create predict_fn that only uses translation prompt, not summarization prompt
+    def predict_fn_single_prompt(input_text, language):
+        prompt = mlflow.genai.load_prompt("prompts:/test_translation_prompt/1")
+        prompt.format(input_text=input_text, language=language)
+        return sample_predict_fn(input_text=input_text, language=language)
+
+    result = optimize_prompts(
+        predict_fn=predict_fn_single_prompt,
+        train_data=sample_dataset,
+        prompt_uris=[
+            f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}",
+            f"prompts:/{sample_summarization_prompt.name}/{sample_summarization_prompt.version}",
+        ],
+        optimizer=mock_optimizer,
+        scorers=[equivalence],
+    )
+
+    assert len(result.optimized_prompts) == 2
+
+    captured = capsys.readouterr()
+    assert "prompts were not used during evaluation" in captured.err
+    assert "test_summarization_prompt" in captured.err
+
+
 def test_adapt_prompts_with_custom_scorers(sample_translation_prompt, sample_dataset):
     # Create a custom scorer for case-insensitive matching
     @scorer(name="case_insensitive_match")
@@ -350,5 +380,5 @@ def test_optimize_prompts_validation_errors(
                 f"prompts:/{sample_translation_prompt.name}/{sample_translation_prompt.version}"
             ],
             optimizer=MockPromptAdapter(),
-            scorers=[output_equivalence],
+            scorers=[equivalence],
         )
