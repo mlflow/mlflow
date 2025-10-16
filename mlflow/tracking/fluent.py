@@ -25,6 +25,7 @@ from mlflow.entities import (
     Metric,
     Param,
     Run,
+    RunInputs,
     RunStatus,
     RunTag,
     ViewType,
@@ -977,11 +978,12 @@ def log_metric(
         with mlflow.start_run():
             mlflow.log_metric("mse", 2500.00, synchronous=False)
     """
-    run_id = run_id or _get_or_start_run().info.run_id
+    run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
+    run_id = run.info.run_id
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     model_id = model_id or get_active_model_id()
     _log_inputs_for_metrics_if_necessary(
-        run_id,
+        run,
         [
             Metric(
                 key=key,
@@ -1000,7 +1002,7 @@ def log_metric(
     model_ids = (
         [model_id]
         if model_id is not None
-        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+        else (_get_model_ids_for_new_metric_if_exist(run, step) or [None])
     )
     for model_id in model_ids:
         return MlflowClient().log_metric(
@@ -1017,22 +1019,34 @@ def log_metric(
 
 
 def _log_inputs_for_metrics_if_necessary(
-    run_id, metrics: list[Metric], datasets: list["Dataset"] | None = None
+    run: Run, metrics: list[Metric], datasets: list["Dataset"] | None = None
 ) -> None:
     client = MlflowClient()
-    run = client.get_run(run_id)
+    input_model_ids = (
+        {i.model_id for i in run.inputs.model_inputs}
+        if run.inputs and run.inputs.model_inputs
+        else set()
+    )
+    output_model_ids = (
+        {o.model_id for o in run.outputs.model_outputs}
+        if run.outputs and run.outputs.model_outputs
+        else set()
+    )
+    run_datasets = (
+        [(inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs]
+        if run.inputs
+        else []
+    )
     datasets = datasets or []
+    models_to_log = []
+    datasets_to_log = []
     for metric in metrics:
-        input_model_ids = [i.model_id for i in (run.inputs and run.inputs.model_inputs) or []]
-        output_model_ids = [o.model_id for o in (run.outputs and run.outputs.model_outputs) or []]
         if (
             metric.model_id is not None
-            and metric.model_id not in input_model_ids + output_model_ids
+            and metric.model_id not in input_model_ids | output_model_ids
         ):
-            client.log_inputs(run_id, models=[LoggedModelInput(model_id=metric.model_id)])
-        if (metric.dataset_name, metric.dataset_digest) not in [
-            (inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs
-        ]:
+            models_to_log.append(LoggedModelInput(model_id=metric.model_id))
+        if datasets and (metric.dataset_name, metric.dataset_digest) not in run_datasets:
             matching_dataset = next(
                 (
                     dataset
@@ -1043,15 +1057,18 @@ def _log_inputs_for_metrics_if_necessary(
                 None,
             )
             if matching_dataset is not None:
-                client.log_inputs(
-                    run_id,
-                    datasets=[DatasetInput(matching_dataset._to_mlflow_entity(), tags=[])],
-                )
+                datasets_to_log.append(DatasetInput(matching_dataset._to_mlflow_entity(), tags=[]))
+    if models_to_log or datasets_to_log:
+        client.log_inputs(run.info.run_id, models=models_to_log, datasets=datasets_to_log)
+        # update in-memory run inputs to avoid duplicate logging
+        if run.inputs is None:
+            run._inputs = RunInputs(dataset_inputs=datasets_to_log, model_inputs=models_to_log)
+        else:
+            run._inputs._model_inputs.extend(models_to_log)
+            run._inputs._dataset_inputs.extend(datasets_to_log)
 
 
-def _get_model_ids_for_new_metric_if_exist(run_id: str, metric_step: str) -> list[str]:
-    client = MlflowClient()
-    run = client.get_run(run_id)
+def _get_model_ids_for_new_metric_if_exist(run: Run, metric_step: str) -> list[str]:
     outputs = run.outputs.model_outputs if run.outputs else []
     model_outputs_at_step = [mo for mo in outputs if mo.step == metric_step]
     return [mo.model_id for mo in model_outputs_at_step]
@@ -1110,7 +1127,8 @@ def log_metrics(
         with mlflow.start_run():
             mlflow.log_metrics(metrics, synchronous=False)
     """
-    run_id = run_id or _get_or_start_run().info.run_id
+    run = _get_or_start_run() if run_id is None else MlflowClient().get_run(run_id)
+    run_id = run.info.run_id
     timestamp = timestamp or get_current_time_millis()
     step = step or 0
     dataset_name = dataset.name if dataset is not None else None
@@ -1119,7 +1137,7 @@ def log_metrics(
     model_ids = (
         [model_id]
         if model_id is not None
-        else (_get_model_ids_for_new_metric_if_exist(run_id, step) or [None])
+        else (_get_model_ids_for_new_metric_if_exist(run, step) or [None])
     )
     metrics_arr = [
         Metric(
@@ -1136,7 +1154,7 @@ def log_metrics(
         for model_id in model_ids
     ]
     _log_inputs_for_metrics_if_necessary(
-        run_id, metrics_arr, [dataset] if dataset is not None else None
+        run, metrics_arr, [dataset] if dataset is not None else None
     )
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
