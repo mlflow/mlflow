@@ -100,10 +100,9 @@ class GeminiAdapter(ProviderAdapter):
                 gemini_function_calls = []
                 if tool_calls := message.get("tool_calls"):
                     for tool_call in tool_calls:
-                        if tool_call["type"] == "function":
-                            call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
-                                "name"
-                            ]
+                        call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
+                            "name"
+                        ]
                         gemini_function_calls.append(
                             {
                                 "functionCall": {
@@ -125,7 +124,7 @@ class GeminiAdapter(ProviderAdapter):
                 call_id = message["tool_call_id"]
                 contents.append(
                     {
-                        "role": "function",
+                        "role": "user",
                         "parts": [
                             {
                                 "functionResponse": {
@@ -179,7 +178,7 @@ class GeminiAdapter(ProviderAdapter):
     @classmethod
     def _convert_function_call_to_openai_choice(
         cls,
-        function_call: dict[str, Any],
+        content_parts: list[dict[str, Any]],
         finish_reason: str,
         choice_idx: int,
         stream: bool,
@@ -187,37 +186,49 @@ class GeminiAdapter(ProviderAdapter):
         # convert gemini model responded "function call" struct to Openai choice / choice chunk
         # struct.
         # Gemini doc: https://ai.google.dev/api/caching#FunctionCall
-        func_name = function_call["name"]
-        func_arguments = json.dumps(function_call["args"])
-        call_id = function_call.get("id")
-        if call_id is None:
-            # Gemini model response might not contain function call id,
-            # in order to make it compatible with Openai chat protocol,
-            # we need to generate a unique call id.
-            call_id = (
-                "call_"
-                + hashlib.md5(
-                    f"{func_name}/{func_arguments}".encode(),
-                    usedforsecurity=False,
-                ).hexdigest()
-            )
 
+        tool_calls = []
+        for part in content_parts:
+            function_call = part["functionCall"]
+            func_name = function_call["name"]
+            func_arguments = json.dumps(function_call["args"])
+            call_id = function_call.get("id")
+            if call_id is None:
+                # Gemini model response might not contain function call id,
+                # in order to make it compatible with Openai chat protocol,
+                # we need to generate a unique call id.
+                call_id = (
+                    "call_"
+                    + hashlib.md5(
+                        f"{func_name}/{func_arguments}".encode(),
+                        usedforsecurity=False,
+                    ).hexdigest()
+                )
+            if stream:
+                tool_calls.append(chat_schema.ToolCallDelta(
+                    index=0,
+                    id=call_id,
+                    function=Function(
+                        name=func_name,
+                        arguments=func_arguments,
+                    ),
+                    type="function",
+                ))
+            else:
+                tool_calls.append(ToolCall(
+                    id=call_id,
+                    function=Function(
+                        name=func_name,
+                        arguments=func_arguments,
+                    ),
+                    type="function",
+                ))
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
                 delta=chat_schema.StreamDelta(
                     role="assistant",
-                    tool_calls=[
-                        chat_schema.ToolCallDelta(
-                            index=0,
-                            id=call_id,
-                            function=Function(
-                                name=func_name,
-                                arguments=func_arguments,
-                            ),
-                            type="function",
-                        )
-                    ],
+                    tool_calls=tool_calls,
                 ),
                 finish_reason=finish_reason,
             )
@@ -225,16 +236,7 @@ class GeminiAdapter(ProviderAdapter):
             index=choice_idx,
             message=chat_schema.ResponseMessage(
                 role="assistant",
-                tool_calls=[
-                    ToolCall(
-                        id=call_id,
-                        function=Function(
-                            name=func_name,
-                            arguments=func_arguments,
-                        ),
-                        type="function",
-                    )
-                ],
+                tool_calls=tool_calls,
             ),
             finish_reason=finish_reason,
         )
@@ -273,11 +275,11 @@ class GeminiAdapter(ProviderAdapter):
                 if function_call := parts[0].get("functionCall", None):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            function_call, finish_reason, idx, False
+                            parts, finish_reason, idx, False
                         )
                     )
 
-                elif content := parts[0].get("text", None):
+                elif content := parts[0].get("text"):
                     choices.append(
                         chat_schema.Choice(
                             index=idx,
@@ -341,7 +343,7 @@ class GeminiAdapter(ProviderAdapter):
                     # it still contains the full function call arguments data.
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
-                            function_call, finish_reason, idx, True
+                            parts, finish_reason, idx, True
                         )
                     )
                     continue

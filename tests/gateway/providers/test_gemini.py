@@ -594,7 +594,7 @@ async def test_gemini_chat_function_calling_second_turn():
                 ],
             },
             {
-                "role": "function",
+                "role": "user",
                 "parts": [
                     {
                         "functionResponse": {
