@@ -4,18 +4,38 @@ import { Table } from "@site/src/components/Table";
 
 # Backend Stores
 
-The backend store is a core component in [MLflow Tracking](/ml/tracking) where MLflow stores metadata for
-[Runs](/ml/tracking#runs), models and experiments such as:
+The backend store is a core component in MLflow that stores metadata for
+Runs, models, traces, and experiments such as:
 
-- Model ID
 - Run ID
+- Model ID
+- Trace ID
+- Tags
 - Start & end time
 - Parameters
 - Metrics
-- Code version (only if you launch runs from an [MLflow Project](/ml/projects)).
-- Source file name (only if you launch runs from an [MLflow Project](/ml/projects)).
 
-Note that large model artifacts such as model weight files are stored in [artifact store](/ml/tracking/artifact-stores).
+Large model artifacts such as model weight files are stored in the [artifact store](/self-hosting/architecture/artifact-store).
+
+## Types of Backend Stores
+
+### Relational Database (**Recommended**)
+
+MLflow supports different databases through SQLAlchemy, including `sqlite`, `postgresql`, `mysql`, and `mssql`. This option provides better performance through indexing and is easier to scale to larger volumes of data than the file system backend..
+
+SQLite is the easiest way to use to database backend. To use it, simply add `--backend-store-uri sqlite:///my.db` when starting MLflow. A database file will be created for you and it will be used to store your tracking data.
+
+### Local File System (**Deprecated Soon**)
+
+By default, MLflow stores metadata in local files in the `./mlruns` directory. This is for the pure sake of simplicity.
+For better performance and reliability, we always recommend using a database backend.
+
+:::warning[TO BE DEPRECATED SOON]
+
+File system backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow.
+We recommend using the database backend instead. Database backend will also be the default option soon.
+
+:::
 
 ## Configure Backend Store
 
@@ -24,10 +44,16 @@ You can configure the location by passing the desired **tracking URI** to MLflow
 
 - Set the `MLFLOW_TRACKING_URI` environment variable.
 - Call <APILink fn="mlflow.set_tracking_uri" /> in your code.
-- If you are running a [Tracking Server](/ml/tracking#tracking_server), you can set the `tracking_uri` option when starting the server, like `mlflow server --backend-store-uri sqlite:///mydb.sqlite`
+- If you are running a [Tracking Server](/self-hosting/architecture/tracking-server), you can set the `tracking_uri` option when starting the server, like `mlflow server --backend-store-uri sqlite:///mydb.sqlite`
 
 Continue to the next section for the supported format of tracking URLs.
-Also visit [this guidance](/ml/tracking#tracking_setup) for how to set up the backend store properly for your workflow.
+Also visit [this guidance](/self-hosting/architecture/tracking-server) for how to set up the backend store properly for your workflow.
+
+:::warning important
+
+The default file backend works fine for small use cases where you only want to log less than 1000 runs, metrics, and traces. Otherwise, we **highly recommend using a database backend** for better performance and reliability.
+
+:::
 
 ## Supported Store Types
 
@@ -35,11 +61,10 @@ MLflow supports the following types of tracking URI for backend stores:
 
 - Local file path (specified as `file:/my/local/dir`), where data is just directly stored locally to a system disk where your code is executing.
 - A Database, encoded as `<dialect>+<driver>://<username>:<password>@<host>:<port>/<database>`. MLflow supports the dialects `mysql`, `mssql`, `sqlite`, and `postgresql`. For more details, see [SQLAlchemy database uri](https://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls).
-- HTTP server (specified as `https://my-server:5000`), which is a server hosting an [MLflow tracking server](/ml/tracking#tracking_server).
+- HTTP server (specified as `https://my-server:5000`), which is a server hosting an [MLflow tracking server](/self-hosting/architecture/tracking-server).
 - Databricks workspace (specified as `databricks` or as `databricks://<profileName>`, a [Databricks CLI profile](https://github.com/databricks/databricks-cli#installation)).
   Refer to Access the MLflow tracking server from outside Databricks [[AWS]](http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html)
-  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server), or [the quickstart](/ml/tracking/quickstart) to
-  easily get started with hosted MLflow on the Databricks Free Trial.
+  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server).
 
 :::warning database-requirements
 **Database-Backed Store Requirements**
@@ -133,3 +158,9 @@ After installing LibYAML, you need to reinstall PyYAML:
 # Reinstall PyYAML
 pip --no-cache-dir install --force-reinstall -I pyyaml
 ```
+
+:::note
+
+We generally recommend using a database backend to get better performance.
+
+:::
