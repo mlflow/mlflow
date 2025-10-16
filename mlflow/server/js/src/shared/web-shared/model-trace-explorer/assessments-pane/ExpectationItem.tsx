@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { createElement, useState } from 'react';
 import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
@@ -9,6 +9,7 @@ import { ExpectationValuePreview } from './ExpectationValuePreview';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { getSourceIcon } from './AssessmentItemHeader';
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -23,12 +24,6 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
   const parsedValue = getParsedExpectationValue(expectation.expectation);
-
-  const sourceDisplay = expectation.source
-    ? typeof expectation.source === 'string'
-      ? expectation.source
-      : `${expectation.source.source_type || 'Unknown'} (${expectation.source.source_id || 'N/A'})`
-    : null;
 
   return (
     <div
@@ -64,38 +59,48 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
           onCancel={() => setIsEditing(false)}
         />
       ) : (
-        <div
-          css={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: theme.spacing.xs,
-          }}
-        >
-          <div
-            css={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsExpanded(!isExpanded);
-            }}
-          >
-            {isExpanded ? <ChevronDownIcon css={{ fontSize: 16 }} /> : <ChevronRightIcon css={{ fontSize: 16 }} />}
-          </div>
-          <div css={{ flex: 1, minWidth: 0 }}>
-            {isExpanded ? (
-              <div>
-                <Typography.Text css={{ display: 'block', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                  {typeof parsedValue === 'string' ? parsedValue : JSON.stringify(parsedValue, null, 2)}
-                </Typography.Text>
-                {/* FIX: Use sourceDisplay instead of expectation.source directly */}
-                {sourceDisplay && (
-                  <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginTop: theme.spacing.sm }}>
-                    Source: {sourceDisplay}
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          {expectation.source && (
+            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+              {createElement(getSourceIcon(expectation.source))}
+              <Typography.Text size="sm" color="secondary">
+                {expectation.source.source_id}
+              </Typography.Text>
+            </div>
+          )}
+          <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
+            <div
+              css={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsExpanded(!isExpanded);
+              }}
+            >
+              {isExpanded ? (
+                <ChevronDownIcon css={{ fontSize: 16 }} />
+              ) : (
+                <ChevronRightIcon css={{ fontSize: 16 }} />
+              )}
+            </div>
+            <div css={{ flex: 1, minWidth: 0 }}>
+              {isExpanded ? (
+                <div
+                  css={{
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                    borderRadius: theme.borders.borderRadiusMd,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  <Typography.Text>
+                    {typeof parsedValue === 'string' ? parsedValue : JSON.stringify(parsedValue, null, 2)}
                   </Typography.Text>
-                )}
-              </div>
-            ) : (
-              <ExpectationValuePreview parsedValue={parsedValue} />
-            )}
+                </div>
+              ) : (
+                <ExpectationValuePreview parsedValue={parsedValue} singleLine />
+              )}
+            </div>
           </div>
         </div>
       )}

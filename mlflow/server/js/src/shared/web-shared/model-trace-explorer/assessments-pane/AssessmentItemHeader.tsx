@@ -8,7 +8,7 @@ import { AssessmentSourceName } from './AssessmentSourceName';
 import { timeSinceStr } from './AssessmentsPane.utils';
 import type { Assessment } from '../ModelTrace.types';
 
-const getSourceIcon = (source: Assessment['source']) => {
+export const getSourceIcon = (source: Assessment['source']) => {
   switch (source.source_type) {
     case 'HUMAN':
       return UserIcon;
