@@ -988,7 +988,7 @@ def test_log_spans_to_uc_table_success(
     # Verify calls
     mock_get_config.assert_called_once_with("databricks")
     mock_http_request.assert_called_once()
-    mock_verify.assert_called_once_with(mock_response, "/api/2.0/tracing/otel/v1/traces")
+    mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
 
     # Verify HTTP request details
     call_kwargs = mock_http_request.call_args
