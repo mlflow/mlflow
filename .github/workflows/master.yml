@@ -353,7 +353,7 @@ jobs:
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          uv --no-sync run pytest tests/pyfunc/test_spark_connect.py
+          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run tests on pydantic v1
       #   run: |
