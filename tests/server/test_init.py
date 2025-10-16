@@ -1,3 +1,4 @@
+import shutil
 import sys
 from unittest import mock
 
@@ -195,10 +196,16 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
 def test_run_server_with_jobs_without_uv(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     with mock.patch("sys.platform", return_value="linux"):
-        with pytest.raises(
-            MlflowException,
-            match="MLflow job backend requires 'uv' package"
-        ):
+        original_which = shutil.which
+
+        def patched_which(cmd):
+            if cmd == "uv":
+                return None
+            return original_which(cmd)
+
+        monkeypatch.setattr(shutil, "which", patched_which)
+
+        with pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"):
             server._run_server(
                 file_store_path="",
                 registry_store_uri="",
