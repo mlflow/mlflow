@@ -345,7 +345,7 @@ jobs:
           uv sync --extra extras --extra gateway --extra jobs
           uv pip install \
             -r requirements/test-requirements.txt \
-            tensorflow 'pyspark[connect]<3.5.6'
+            tensorflow 'pyspark[connect]<3.5.6' 'numpy<2'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
