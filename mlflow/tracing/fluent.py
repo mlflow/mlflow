@@ -647,7 +647,7 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     except MlflowException as e:
         if not silent:
             _logger.warning(
-                f"Failed to get trace from the tracking store: {e}"
+                f"Failed to get trace from the tracking store: {e} "
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )

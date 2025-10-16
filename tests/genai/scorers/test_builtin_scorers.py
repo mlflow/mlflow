@@ -12,6 +12,7 @@ from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
     Correctness,
+    Equivalence,
     ExpectationsGuidelines,
     Guidelines,
     RelevanceToQuery,
@@ -475,7 +476,7 @@ def test_safety_with_custom_model(monkeypatch: pytest.MonkeyPatch):
         assert kwargs["assessment_name"] == "safety"
 
         assert result.name == "safety"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         assert result.rationale == "Safe content"
 
 
@@ -538,6 +539,33 @@ def test_correctness():
     )
 
 
+def test_equivalence():
+    # Test with default model
+    scorer = Equivalence()
+
+    # Test exact numerical match
+    result = scorer(outputs=42, expectations={"expected_response": 42})
+    assert result.name == "equivalence"
+    assert result.value == CategoricalRating.YES
+    assert "Exact numerical match" in result.rationale
+
+    # Test exact string match
+    result = scorer(outputs="Paris", expectations={"expected_response": "Paris"})
+    assert result.value == CategoricalRating.YES
+    assert "Exact string match" in result.rationale
+
+    # Test numerical mismatch
+    result = scorer(outputs=42, expectations={"expected_response": 43})
+    assert result.value == CategoricalRating.NO
+    assert "Values do not match" in result.rationale
+
+    # Test with custom name and model
+    scorer_custom = Equivalence(name="custom_output_equiv", model="openai:/gpt-4o-mini")
+    result = scorer_custom(outputs=100, expectations={"expected_response": 100})
+    assert result.name == "custom_output_equiv"
+    assert result.value == CategoricalRating.YES
+
+
 @pytest.mark.parametrize("tracking_uri", ["file://test", "databricks"])
 def test_get_all_scorers_oss(tracking_uri):
     mlflow.set_tracking_uri(tracking_uri)
@@ -545,7 +573,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (7 if tracking_uri == "databricks" else 5)
+    assert len(scorers) == (8 if tracking_uri == "databricks" else 6)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -601,6 +629,12 @@ def test_correctness_get_input_fields():
     assert field_names == ["inputs", "outputs", "expectations"]
 
 
+def test_equivalence_get_input_fields():
+    output_equiv = Equivalence(name="test")
+    field_names = [field.name for field in output_equiv.get_input_fields()]
+    assert field_names == ["outputs", "expectations"]
+
+
 def create_simple_trace(inputs=None, outputs=None):
     @mlflow.trace(name="test_span", span_type=SpanType.CHAIN)
     def _create(question):
@@ -624,6 +658,25 @@ def test_correctness_with_trace():
         assert result.name == "correctness"
         assert result.value is True
         mock_is_correct.assert_called_once()
+
+
+def test_equivalence_with_trace():
+    trace = create_simple_trace(outputs="Paris")
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_response",
+        value="Paris",
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    scorer = Equivalence()
+    result = scorer(trace=trace_with_expectations)
+
+    assert result.name == "equivalence"
+    assert result.value == CategoricalRating.YES
+    assert "Exact string match" in result.rationale
 
 
 def test_guidelines_with_trace():
@@ -652,7 +705,7 @@ def test_relevance_to_query_with_trace():
         result = scorer(trace=trace)
 
         assert result.name == "relevance_to_query"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_is_context_relevant.assert_called_once()
 
 
@@ -672,7 +725,7 @@ def test_safety_with_trace():
         result = scorer(trace=trace)
 
         assert result.name == "safety"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_safety.assert_called_once()
 
 
@@ -799,6 +852,21 @@ def test_correctness_with_override_outputs():
         assert call_args[1]["expected_response"] == "Custom expected"
 
 
+def test_equivalence_with_override_outputs():
+    trace = create_simple_trace(outputs="Original output")
+    scorer = Equivalence()
+
+    result = scorer(
+        trace=trace,
+        outputs="Custom output",
+        expectations={"expected_response": "Custom output"},
+    )
+
+    assert result.name == "equivalence"
+    assert result.value == CategoricalRating.YES
+    assert "Exact string match" in result.rationale
+
+
 def test_relevance_mixed_override():
     with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
         mock_is_context_relevant.return_value = Feedback(
@@ -810,7 +878,7 @@ def test_relevance_mixed_override():
         result = scorer(trace=trace, inputs={"question": "New question"})
 
         assert result.name == "relevance_to_query"
-        assert result.value == "yes"
+        assert result.value == CategoricalRating.YES
         mock_is_context_relevant.assert_called_once()
         call_args = mock_is_context_relevant.call_args
         assert call_args[1]["request"] == "{'question': 'New question'}"
@@ -834,7 +902,7 @@ def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
             result = scorer(trace=trace_with_only_inputs)
 
             assert result.name == "safety"
-            assert result.value == "yes"
+            assert result.value == CategoricalRating.YES
 
             mock_extract.assert_called_once()
             call_args = mock_extract.call_args
@@ -889,6 +957,23 @@ def test_correctness_default_extracts_from_trace():
         assert result.name == "correctness"
         assert result.value is True
         mock_is_correct.assert_called_once()
+
+
+def test_equivalence_default_extracts_from_trace():
+    trace = create_simple_trace(outputs="MLflow is a platform")
+
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id, name="expected_response", value="MLflow is a platform"
+    )
+
+    trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
+
+    scorer = Equivalence()
+    result = scorer(trace=trace_with_expectations)
+
+    assert result.name == "equivalence"
+    assert result.value == CategoricalRating.YES
+    assert "Exact string match" in result.rationale
 
 
 def test_backwards_compatibility():

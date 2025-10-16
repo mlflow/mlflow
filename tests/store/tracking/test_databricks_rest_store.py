@@ -41,6 +41,7 @@ from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
@@ -266,6 +267,23 @@ def test_get_trace_info_fallback_to_v3():
 
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
+
+
+def test_get_trace_info_missing_warehouse_id():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+    with mock.patch.object(
+        RestStore,
+        "_call_endpoint",
+        side_effect=RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "Could not resolve a SQL warehouse ID. Please provide one.",
+            }
+        ),
+    ):
+        with pytest.raises(MlflowException, match="SQL warehouse ID is required for "):
+            store.get_trace_info("trace:/catalog.schema/1234567890")
 
 
 def test_set_trace_tag():

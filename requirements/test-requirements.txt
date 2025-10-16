@@ -36,6 +36,8 @@ Flask-WTF<2
 polars>=1
 # required for testing mlflow.genai.optimize_prompt
 dspy
+# required for testing mlflow.genai.optimize.optimizers
+gepa
 # required for testing mlflow.server.jobs
 huey<3,>=2.5.0
 # required for testing mlflow.store.tracking.databricks_rest_store
