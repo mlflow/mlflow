@@ -203,8 +203,8 @@ def test_run_server_with_jobs_without_uv(monkeypatch):
         return original_which(cmd)
 
     with (
-        mock.patch("sys.platform", return_value="linux"),
-        mock.patch("shutil.which", side_effect=patched_which),
+        mock.patch("sys.platform", return_value="linux") as sys_patch,
+        mock.patch("shutil.which", side_effect=patched_which) as which_patch,
         pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"),
     ):
         server._run_server(
@@ -217,3 +217,5 @@ def test_run_server_with_jobs_without_uv(monkeypatch):
             host="",
             port="",
         )
+        assert sys_patch.assert_called_once()
+        assert which_patch.assert_called_once()
