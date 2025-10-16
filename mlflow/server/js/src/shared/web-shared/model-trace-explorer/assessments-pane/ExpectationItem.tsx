@@ -21,13 +21,13 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
-  
+
   const parsedValue = getParsedExpectationValue(expectation.expectation);
 
-  const sourceDisplay = expectation.source 
-    ? (typeof expectation.source === 'string' 
-        ? expectation.source 
-        : `${expectation.source.source_type || 'Unknown'} (${expectation.source.source_id || 'N/A'})`)
+  const sourceDisplay = expectation.source
+    ? typeof expectation.source === 'string'
+      ? expectation.source
+      : `${expectation.source.source_type || 'Unknown'} (${expectation.source.source_id || 'N/A'})`
     : null;
 
   return (
@@ -71,18 +71,14 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
             gap: theme.spacing.xs,
           }}
         >
-          <div 
+          <div
             css={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}
             onClick={(e) => {
               e.stopPropagation();
               setIsExpanded(!isExpanded);
             }}
           >
-            {isExpanded ? (
-              <ChevronDownIcon css={{ fontSize: 16 }} />
-            ) : (
-              <ChevronRightIcon css={{ fontSize: 16 }} />
-            )}
+            {isExpanded ? <ChevronDownIcon css={{ fontSize: 16 }} /> : <ChevronRightIcon css={{ fontSize: 16 }} />}
           </div>
           <div css={{ flex: 1, minWidth: 0 }}>
             {isExpanded ? (
