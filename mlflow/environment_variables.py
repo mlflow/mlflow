@@ -876,9 +876,10 @@ MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREH
 
 #: Timeout in seconds for polling trace tag updates to ensure backend consistency.
 #: Polling uses exponential backoff starting at 0.5s and doubling each retry.
-#: (default: ``10.0``)
+#: When set to None, polling is disabled and operations return immediately.
+#: (default: ``None``)
 MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS = _EnvironmentVariable(
-    "MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS", float, 10.0
+    "MLFLOW_TRACE_TAG_POLL_TIMEOUT_SECONDS", float, None
 )
 
 #: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
