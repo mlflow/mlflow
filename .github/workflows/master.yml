@@ -242,13 +242,15 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community '.[mlserver]'
+          uv sync --extra mlserver
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            'pyspark<3.5.6' langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
