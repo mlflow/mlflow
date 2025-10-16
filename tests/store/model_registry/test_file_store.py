@@ -1842,3 +1842,59 @@ def test_create_model_version_with_model_id_and_no_run_id(store):
 
         mvd = store.get_model_version(name=mv.name, version=mv.version)
         assert mvd.run_id == mock_run_id
+
+
+def test_update_model_version_with_model_id_and_metrics(store):
+    from mlflow.entities.logged_model_parameter import LoggedModelParameter
+    from mlflow.entities.metric import Metric
+
+    name = "test_model_with_model_id_and_metrics"
+    store.create_registered_model(name)
+
+    mock_run_id = "mock-run-id-789"
+    mock_logged_model = mock.MagicMock()
+    mock_logged_model.source_run_id = mock_run_id
+    mock_logged_model.metrics = [
+        Metric(
+            key="execution_time",
+            value=33.74682,
+            timestamp=1760606180996,
+            step=0,
+            run_id=mock_run_id,
+            model_id="test-model-id-789",
+            dataset_name=None,
+            dataset_digest=None,
+        )
+    ]
+    mock_logged_model.params = [LoggedModelParameter(key="learning_rate", value="0.001")]
+
+    with mock.patch("mlflow.tracking.client.MlflowClient") as mock_client_class:
+        mock_client = mock.MagicMock()
+        mock_client_class.return_value = mock_client
+        mock_client.get_logged_model.return_value = mock_logged_model
+
+        mv = store.create_model_version(
+            name=name,
+            source="/absolute/path/to/source",
+            run_id=None,
+            model_id="test-model-id-789",
+        )
+
+        assert mv.run_id == mock_run_id
+
+        mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert mvd.run_id == mock_run_id
+        assert mvd.metrics == mock_logged_model.metrics
+        assert mvd.params == mock_logged_model.params
+
+        updated_mvd = store.update_model_version(
+            name=mv.name,
+            version=mv.version,
+            description="Test description with metrics",
+        )
+        assert updated_mvd.description == "Test description with metrics"
+
+        retrieved_mvd = store.get_model_version(name=mv.name, version=mv.version)
+        assert retrieved_mvd.description == "Test description with metrics"
+        assert retrieved_mvd.metrics == mock_logged_model.metrics
+        assert retrieved_mvd.params == mock_logged_model.params
