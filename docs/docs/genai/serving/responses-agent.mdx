@@ -678,6 +678,18 @@ ResponsesAgent works with structured schemas for requests and responses, check <
 2. **Schema Validation**: Verify input/output formats match expected schemas
 3. **Model Logging Issues**: User `models from code` feature to log the model
 4. **Missing traces**: Enable tracing by `mlflow.<flavor>.autolog` or manual tracing with `mlflow.start_span`
+5. **Timeout errors on long-running agent predictions**: If predictions take several minutes (e.g., agents with complex tool calling), increase `MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT` (default: 600s) to prevent premature timeouts:
+
+   ```python
+   import os
+
+   os.environ["MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT"] = "1200"  # 20 minutes
+
+   from mlflow.deployments import get_deploy_client
+
+   client = get_deploy_client("databricks")
+   response = client.predict(endpoint="my-agent", inputs=data)
+   ```
 
 ### Debugging
 

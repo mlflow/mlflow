@@ -487,3 +487,39 @@ def test_predict():
         resp = client.predict(endpoint="test", inputs={})
         mock_request.assert_called_once()
         assert resp == {"foo": "bar"}
+
+
+def test_predict_with_retry_timeout_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT", "900")
+    client = get_deploy_client("databricks")
+    mock_resp = mock.Mock()
+    mock_resp.json.return_value = {"foo": "bar"}
+    mock_resp.url = os.environ["DATABRICKS_HOST"]
+    mock_resp.status_code = 200
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_resp) as mock_http:
+        resp = client.predict(endpoint="test", inputs={})
+        mock_http.assert_called_once()
+        call_kwargs = mock_http.call_args[1]
+        assert call_kwargs["retry_timeout_seconds"] == 900
+        assert resp == {"foo": "bar"}
+
+
+def test_predict_stream_with_retry_timeout_env_var(monkeypatch):
+    monkeypatch.setenv("MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT", "900")
+    client = get_deploy_client("databricks")
+    mock_resp = mock.Mock()
+    mock_resp.iter_lines.return_value = [
+        "data: " + '{"id": "1", "choices": [{"delta": {"content": "Hello"}}]}',
+        "data: [DONE]",
+    ]
+    mock_resp.url = os.environ["DATABRICKS_HOST"]
+    mock_resp.status_code = 200
+    mock_resp.encoding = "utf-8"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_resp) as mock_http:
+        chunks = list(client.predict_stream(endpoint="test", inputs={}))
+        mock_http.assert_called_once()
+        call_kwargs = mock_http.call_args[1]
+        assert call_kwargs["retry_timeout_seconds"] == 900
+        assert len(chunks) == 1

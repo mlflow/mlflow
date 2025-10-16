@@ -562,6 +562,14 @@ MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
 )
 
+#: Specifies the overall retry timeout (in seconds) for deployment predict operations. This controls
+#: how long the client will retry before giving up entirely. For long-running agent predictions
+#: that may take several minutes, increase this value to prevent premature timeout and retries.
+#: (default: ``600``)
+MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT", int, 600
+)
+
 MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
