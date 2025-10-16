@@ -179,7 +179,7 @@ export default function GitHubIssues({
             )}
           </div>
           <a
-            href={`https://github.com/${repo}/issues/new?labels=${label}`}
+            href={`https://github.com/${repo}/issues/new?template=feature_request_template.yaml`}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.newButton}
