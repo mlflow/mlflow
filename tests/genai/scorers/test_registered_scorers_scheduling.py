@@ -1,5 +1,5 @@
 from typing import Generator
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -459,3 +459,69 @@ def test_stop_sets_sql_warehouse_id_tag_when_env_var_set(monkeypatch) -> None:
         mock_client.set_experiment_tag.assert_called_with(
             "exp_202", "mlflow.monitoring.sqlWarehouseId", "test_warehouse_101"
         )
+
+
+def test_register_requires_sql_warehouse_id_when_zerobus_enabled() -> None:
+    """Test that register raises error when zerobus is enabled but SQL warehouse ID is not set."""
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        mock_experiment = Mock()
+        mock_experiment.tags = {"mlflow.experiment.databricksTraceStorageTable": "some_table"}
+        mock_client.get_experiment.return_value = mock_experiment
+
+        with pytest.raises(
+            MlflowException,
+            match="MLFLOW_TRACING_SQL_WAREHOUSE_ID environment variable must be set",
+        ):
+            length_check.register(experiment_id="exp_with_zerobus")
+
+
+def test_register_succeeds_when_zerobus_enabled_and_sql_warehouse_id_set(monkeypatch) -> None:
+    """Test that register succeeds when zerobus is enabled and SQL warehouse ID is set."""
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "warehouse_123")
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        mock_experiment = Mock()
+        mock_experiment.tags = {"mlflow.experiment.databricksTraceStorageTable": "some_table"}
+        mock_client.get_experiment.return_value = mock_experiment
+
+        # Should not raise an error
+        result = length_check.register(experiment_id="exp_with_zerobus")
+        assert result is not None
+
+
+def test_register_succeeds_when_zerobus_not_enabled_and_no_sql_warehouse_id() -> None:
+    """Test that register succeeds when zerobus is not enabled even without SQL warehouse ID."""
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        mock_experiment = Mock()
+        mock_experiment.tags = {}  # No zerobus tag
+        mock_client.get_experiment.return_value = mock_experiment
+
+        # Should not raise an error
+        result = length_check.register(experiment_id="exp_without_zerobus")
+        assert result is not None
+
+
+def test_register_handles_zerobus_check_exception_gracefully() -> None:
+    """Test that register continues when zerobus check raises exception."""
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        # Simulate an exception during experiment retrieval
+        mock_client.get_experiment.side_effect = Exception("Connection error")
+
+        # Should not raise an error (exception is caught and treated as zerobus not enabled)
+        result = length_check.register(experiment_id="exp_123")
+        assert result is not None

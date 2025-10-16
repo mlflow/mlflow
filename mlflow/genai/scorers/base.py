@@ -1,7 +1,6 @@
 import functools
 import inspect
 import logging
-import os
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, TypeAlias
@@ -12,6 +11,7 @@ import mlflow
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
@@ -533,6 +533,15 @@ class Scorer(BaseModel):
             if new_scorer._cached_dump is not None:
                 new_scorer._cached_dump["name"] = name
 
+        # Check if zerobus is enabled and require SQL warehouse ID
+        if self._is_zerobus_enabled(experiment_id):
+            if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None:
+                raise MlflowException.invalid_parameter_value(
+                    "MLFLOW_TRACING_SQL_WAREHOUSE_ID environment variable must be set when "
+                    "registering a scorer for an experiment with zerobus enabled "
+                    "(mlflow.experiment.databricksTraceStorageTable tag present)."
+                )
+
         # Set SQL warehouse ID tag if environment variable exists
         self._set_sql_warehouse_id_tag(experiment_id)
 
@@ -800,6 +809,40 @@ class Scorer(BaseModel):
                 f"Got {model}."
             )
 
+    def _is_zerobus_enabled(self, experiment_id: str | None = None) -> bool:
+        """
+        Check if zerobus is enabled for the experiment by checking for the
+        mlflow.experiment.databricksTraceStorageTable tag.
+
+        Args:
+            experiment_id: The ID of the MLflow experiment. If None, uses the currently active
+                experiment.
+
+        Returns:
+            True if zerobus is enabled (tag exists), False otherwise.
+        """
+        try:
+            from mlflow.tracking import MlflowClient
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            if experiment_id is None:
+                experiment_id = _get_experiment_id()
+
+            if experiment_id is None:
+                return False
+
+            client = MlflowClient()
+            experiment = client.get_experiment(experiment_id)
+
+            if experiment is None:
+                return False
+
+            # Check if the tag exists in the experiment's tags
+            return "mlflow.experiment.databricksTraceStorageTable" in (experiment.tags or {})
+        except Exception:
+            # If anything goes wrong, assume zerobus is not enabled
+            return False
+
     def _set_sql_warehouse_id_tag(self, experiment_id: str | None = None) -> None:
         """
         Set the mlflow.monitoring.sqlWarehouseId experiment tag if the environment variable exists.
@@ -808,7 +851,7 @@ class Scorer(BaseModel):
             experiment_id: The ID of the MLflow experiment. If None, uses the currently active
                 experiment.
         """
-        sql_warehouse_id = os.getenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID")
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
         if sql_warehouse_id is not None:
             from mlflow.tracking import MlflowClient
             from mlflow.tracking.fluent import _get_experiment_id
