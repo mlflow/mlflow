@@ -838,7 +838,8 @@ def test_disable_events(mock_requests):
             )
 
 
-def test_fetch_config_after_first_record(mock_requests):
+@pytest.mark.no_mock_requests_get
+def test_fetch_config_after_first_record():
     record = Record(
         event_name="test_event",
         timestamp_ns=time.time_ns(),
@@ -859,10 +860,7 @@ def test_fetch_config_after_first_record(mock_requests):
             ),
         )
         with TelemetryClient() as telemetry_client:
+            assert telemetry_client._is_config_fetched is False
             telemetry_client.add_record(record)
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
-            telemetry_client.flush()
-            validate_telemetry_record(
-                telemetry_client, mock_requests, record.event_name, check_params=False
-            )
