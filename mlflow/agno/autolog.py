@@ -129,40 +129,83 @@ def _get_span_type(instance) -> str:
     try:
         from agno.agent import Agent
         from agno.models.base import Model
-        from agno.storage.base import Storage
         from agno.team import Team
         from agno.tools.function import FunctionCall
-
     except ImportError:
         return SpanType.UNKNOWN
+
+    storage_types = ()
+
+    try:
+        # Agno version below 2 uses storage.base
+        from agno.storage.base import Storage
+    except ImportError:
+        try:
+            # Agno version 2+ uses db.base
+            import agno.db.base as db_base
+        except ImportError:
+            pass
+        else:
+            candidates: list[type[Any]] = []
+            for attr in ("BaseDb", "AsyncBaseDb"):
+                cls = getattr(db_base, attr, None)
+                if cls is not None:
+                    candidates.append(cls)
+            storage_types = tuple(candidates)
+    else:
+        storage_types = (Storage,)
+
     if isinstance(instance, (Agent, Team)):
         return SpanType.AGENT
     if isinstance(instance, FunctionCall):
         return SpanType.TOOL
-    if isinstance(instance, Storage):
+    if storage_types and isinstance(instance, storage_types):
         return SpanType.MEMORY
     if isinstance(instance, Model):
         return SpanType.LLM
     return SpanType.UNKNOWN
 
 
+# Agno version >=2 uses Metrics object, but version <2 uses dictionary
 def _parse_usage(result) -> dict[str, int] | None:
     usage = getattr(result, "metrics", None) or getattr(result, "session_metrics", None)
     if not usage:
         return None
 
+    def _get_value(container, key):
+        if isinstance(container, dict):
+            return container.get(key)
+        return getattr(container, key, None)
+
+    def _coerce(value):
+        if value is None:
+            return 0
+        if isinstance(value, (list, tuple)):
+            return sum(value)
+        return int(value)
+
     return {
-        TokenUsageKey.INPUT_TOKENS: sum(usage.get("input_tokens")),
-        TokenUsageKey.OUTPUT_TOKENS: sum(usage.get("output_tokens")),
-        TokenUsageKey.TOTAL_TOKENS: sum(usage.get("total_tokens")),
+        TokenUsageKey.INPUT_TOKENS: _coerce(_get_value(usage, "input_tokens")),
+        TokenUsageKey.OUTPUT_TOKENS: _coerce(_get_value(usage, "output_tokens")),
+        TokenUsageKey.TOTAL_TOKENS: _coerce(_get_value(usage, "total_tokens")),
     }
 
 
+# Agno version>=2 uses run.agent.RunOutput and run.workflow.TeamRunOutput,
+# but version <2 uses run.response.RunResponse and run.team.TeamRunResponse
 def _set_span_outputs(span: LiveSpan, result: Any) -> None:
-    from agno.run.response import RunResponse
-    from agno.run.team import TeamRunResponse
+    try:
+        from agno.run.response import RunResponse
+        from agno.run.team import TeamRunResponse
 
-    if isinstance(result, (RunResponse, TeamRunResponse)):
+        response_types = (RunResponse, TeamRunResponse)
+    except ImportError:
+        from agno.run.agent import RunOutput
+        from agno.run.workflow import TeamRunOutput
+
+        response_types = (RunOutput, TeamRunOutput)
+
+    if response_types and isinstance(result, response_types):
         span.set_outputs(result.to_dict())
     else:
         span.set_outputs(result)

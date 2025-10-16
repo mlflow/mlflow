@@ -3,14 +3,27 @@ import logging
 import pkgutil
 
 from agno.models.base import Model
-from agno.storage.base import Storage
 
 _logger = logging.getLogger(__name__)
 
 
 def discover_storage_backends():
-    # 1. Import all storage modules
-    import agno.storage as pkg
+    try:
+        from agno.storage.base import Storage
+
+        storage_package = "agno.storage"
+        storage_bases = (Storage,)
+    except ImportError:
+        try:
+            from agno.db.base import AsyncBaseDb, BaseDb
+        except ImportError:
+            return []
+        else:
+            storage_package = "agno.db"
+            storage_bases = tuple(cls for cls in (BaseDb, AsyncBaseDb) if cls is not None)
+            if not storage_bases:
+                return []
+    pkg = importlib.import_module(storage_package)
 
     for _, modname, _ in pkgutil.iter_modules(pkg.__path__):
         try:
@@ -25,7 +38,13 @@ def discover_storage_backends():
             yield sub
             yield from all_subclasses(sub)
 
-    return list(all_subclasses(Storage))
+    discovered = []
+    for base in storage_bases:
+        for cls in all_subclasses(base):
+            if cls not in discovered:
+                discovered.append(cls)
+
+    return discovered
 
 
 def find_model_subclasses():
