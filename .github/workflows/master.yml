@@ -342,17 +342,19 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install tensorflow 'pyspark[connect]'
+          uv sync --extra extras --extra gateway --extra jobs
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          pytest tests/pyfunc/test_spark_connect.py
+          uv run pytest tests/pyfunc/test_spark_connect.py
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run tests on pydantic v1
       #   run: |
