@@ -76,12 +76,11 @@ def mock_requests_get(request):
 
 @pytest.fixture
 def mock_telemetry_client(mock_requests_get, mock_requests):
-    client = TelemetryClient()
-    # ensure config is fetched before the test
-    client._config_thread.join(timeout=1)
-    yield client
-    # TODO: add a context manager to always clean up the threads for tests
-    client._clean_up()
+    with TelemetryClient() as client:
+        client.activate()
+        # ensure config is fetched before the test
+        client._config_thread.join(timeout=1)
+        yield client
 
 
 @pytest.fixture(autouse=True)
