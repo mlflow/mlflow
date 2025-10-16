@@ -19,7 +19,8 @@ class MosaicMLProvider(BaseProvider):
         super().__init__(config)
         warnings.warn(
             "MosaicML provider is deprecated and will be removed in a future MLflow version.",
-            category=FutureWarning, stacklevel=2,
+            category=FutureWarning,
+            stacklevel=2,
         )
         if config.model.config is None or not isinstance(config.model.config, MosaicMLConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
