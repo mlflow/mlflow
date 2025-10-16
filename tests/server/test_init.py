@@ -190,3 +190,22 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         capture_output=False,
         synchronous=False,
     )
+
+
+def test_run_server_with_jobs_without_uv(monkeypatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    with mock.patch("sys.platform", return_value="linux"):
+        with pytest.raises(
+            MlflowException,
+            match="MLflow job backend requires 'uv' package"
+        ):
+            server._run_server(
+                file_store_path="",
+                registry_store_uri="",
+                default_artifact_root="",
+                serve_artifacts="",
+                artifacts_only="",
+                artifacts_destination="",
+                host="",
+                port="",
+            )
