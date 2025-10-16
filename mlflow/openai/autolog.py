@@ -407,10 +407,9 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
         if isinstance(content, list):
             text_parts = []
             for item in content:
-                if isinstance(item, dict):
-                    # Extract text from text items only.
-                    if item.get("type") == "text" and "text" in item:
-                        text_parts.append(item["text"])
+                # Extract text from text items only.
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item:
+                    text_parts.append(item["text"])
             return "".join(text_parts)
         return content
 
