@@ -847,20 +847,23 @@ def test_fetch_config_after_first_record():
         duration_ms=0,
     )
 
-    with mock.patch("mlflow.telemetry.client.requests.get") as mock_requests_get:
-        mock_requests_get.return_value = mock.Mock(
-            status_code=200,
-            json=mock.Mock(
-                return_value={
-                    "mlflow_version": VERSION,
-                    "disable_telemetry": False,
-                    "ingestion_url": "http://localhost:9999",
-                    "rollout_percentage": 70,
-                }
-            ),
-        )
+    mock_response = mock.Mock(
+        status_code=200,
+        json=mock.Mock(
+            return_value={
+                "mlflow_version": VERSION,
+                "disable_telemetry": False,
+                "ingestion_url": "http://localhost:9999",
+                "rollout_percentage": 70,
+            }
+        ),
+    )
+    with mock.patch(
+        "mlflow.telemetry.client.requests.get", return_value=mock_response
+    ) as mock_requests_get:
         with TelemetryClient() as telemetry_client:
             assert telemetry_client._is_config_fetched is False
             telemetry_client.add_record(record)
             telemetry_client._config_thread.join(timeout=1)
             assert telemetry_client._is_config_fetched is True
+        mock_requests_get.assert_called_once()
