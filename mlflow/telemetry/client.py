@@ -47,7 +47,6 @@ class TelemetryClient:
         self._consumer_threads = []
         self._is_config_fetched = False
         self.config = None
-        self._fetch_config()
 
     def __enter__(self):
         return self
@@ -241,6 +240,10 @@ class TelemetryClient:
                 return
 
             self._set_up_threads()
+
+            # only fetch config when activating to avoid fetching when
+            # no records are added
+            self._fetch_config()
 
             # Callback to ensure remaining tasks are processed before program exit
             if not self._atexit_callback_registered:
