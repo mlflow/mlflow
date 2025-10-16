@@ -1281,6 +1281,7 @@ mlflow.tracing.disable_notebook_display
 mlflow.tracing.enable
 mlflow.tracing.enable_notebook_display
 mlflow.tracing.reset
+mlflow.tracing.set_databricks_monitoring_sql_warehouse_id
 mlflow.tracing.set_destination
 mlflow.tracing.set_experiment_trace_location
 mlflow.tracing.set_span_chat_tools
