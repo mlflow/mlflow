@@ -1,5 +1,5 @@
 import errno
-import importlib
+import importlib.util
 import inspect
 import json
 import logging
