@@ -14,7 +14,7 @@ export const TraceComparisonModal = ({
 }: {
   traces: RunEvaluationTracesDataEntry[];
   onClose: () => void;
-  getTrace?: (requestId?: string, traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -27,7 +27,12 @@ export const TraceComparisonModal = ({
         setModelTraces([]);
         return;
       }
-      const results = await Promise.all(traces.map((trace) => getTrace(trace.evaluationId, trace.traceInfo?.trace_id)));
+      const results = await Promise.all(
+        traces.map((trace) => {
+          const traceId = trace.traceInfo?.trace_id ?? trace.requestId ?? trace.evaluationId;
+          return getTrace(traceId);
+        }),
+      );
       if (!cancelled) {
         setModelTraces(results.filter((t): t is ModelTrace => Boolean(t)));
       }

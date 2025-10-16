@@ -68,7 +68,7 @@ describe('TraceComparisonModal', () => {
       },
     } as ModelTrace;
     const getTrace = jest
-      .fn<Promise<ModelTrace | undefined>, [string | undefined, string | undefined]>()
+      .fn<Promise<ModelTrace | undefined>, [string | undefined]>()
       .mockResolvedValueOnce(resolvedTrace)
       .mockResolvedValueOnce(undefined);
 
@@ -76,8 +76,8 @@ describe('TraceComparisonModal', () => {
 
     await waitFor(() => expect(getTrace).toHaveBeenCalledTimes(2));
 
-    expect(getTrace).toHaveBeenNthCalledWith(1, 'eval-1', 'trace-1');
-    expect(getTrace).toHaveBeenNthCalledWith(2, 'eval-2', 'trace-2');
+    expect(getTrace).toHaveBeenNthCalledWith(1, 'trace-1');
+    expect(getTrace).toHaveBeenNthCalledWith(2, 'trace-2');
 
     await waitFor(() => expect(screen.getAllByTestId('model-trace-explorer')).toHaveLength(1));
 
