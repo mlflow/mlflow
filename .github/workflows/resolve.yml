@@ -1,0 +1,199 @@
+name: resolve
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - .github/workflows/resolve.yml
+      - .claude/commands/resolve.md
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+    timeout-minutes: 30
+    if: >
+      github.event_name == 'pull_request'
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       startsWith(github.event.comment.body, '/resolve'))
+    steps:
+      - name: React to comment
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { appendToComment } = require('./.github/workflows/utils.js');
+            const { comment } = context.payload;
+
+            await github.rest.reactions.createForIssueComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              content: 'rocket'
+            });
+
+            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            await appendToComment(context, github, comment.id, `🚀 [Resolve workflow started](${workflowUrl})`);
+
+      - name: Check authorization for issue comment
+        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { appendToComment } = require('./.github/workflows/utils.js');
+            const commentId = context.payload.comment.id;
+
+            await appendToComment(context, github, commentId, '⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored.');
+
+            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
+
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Get PR information
+        id: pr-info
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const prNumber = ${{ github.event.pull_request.number || github.event.issue.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`;
+
+            core.setOutput('pr_url', prUrl);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repository', pr.head.repo.full_name);
+
+      - name: Extract optional prompt from comment
+        if: github.event_name == 'issue_comment'
+        id: prompt
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
+          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ steps.pr-info.outputs.head_repository }}
+          ref: ${{ steps.pr-info.outputs.head_ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Set up pre-commit
+        run: |
+          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit run install-bin -a -v
+
+      - name: Install Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.0.15
+
+      - name: Set up GitHub MCP server
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          claude mcp add github \
+            -e GITHUB_PERSONAL_ACCESS_TOKEN="${GITHUB_TOKEN}" \
+            -e GITHUB_READ_ONLY=1 \
+            -- docker run -i --rm -e GITHUB_PERSONAL_ACCESS_TOKEN -e GITHUB_READ_ONLY ghcr.io/github/github-mcp-server:v0.18.0
+
+      - name: Run Claude resolve command
+        id: claude-fix
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PR_URL: ${{ steps.pr-info.outputs.pr_url }}
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
+        run: |
+          # Test to ensure the token is valid
+          claude --allowed-tools mcp__github__pull_request_read --print "What is the title of $PR_URL?"
+
+          RESOLVE_CMD="/resolve $PR_URL"
+          if [ -n "$PROMPT" ]; then
+            RESOLVE_CMD="$RESOLVE_CMD $PROMPT"
+          fi
+
+          # Capture output to a file
+          OUTPUT_FILE="/tmp/claude_output.json"
+          timeout 10m claude --print --output-format json "$RESOLVE_CMD" > "$OUTPUT_FILE" 2>&1 || true
+
+          # Display output in workflow logs (pretty print if valid JSON)
+          echo "=== Claude Output ==="
+          if jq empty "$OUTPUT_FILE" 2>/dev/null; then
+            jq . "$OUTPUT_FILE"
+          else
+            cat "$OUTPUT_FILE"
+          fi
+          echo "===================="
+
+          # Save output for later use
+          OUTPUT=$(cat "$OUTPUT_FILE")
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Update original comment with result
+        if: always() && github.event_name == 'issue_comment'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          WORKFLOW_CONCLUSION: ${{ job.status }}
+          CLAUDE_OUTPUT: ${{ steps.claude-fix.outputs.output }}
+        with:
+          script: |
+            const { appendToComment } = require('./.github/workflows/utils.js');
+            const commentId = context.payload.comment.id;
+            const workflowStatus = process.env.WORKFLOW_CONCLUSION;
+            const claudeOutput = process.env.CLAUDE_OUTPUT || '';
+
+            const statusMessage = workflowStatus !== 'success'
+              ? `⚠️ Workflow encountered an error.`
+              : `✅ Workflow completed successfully.`;
+
+            let resultMessage = statusMessage;
+
+            // Extract and display Claude's result and raw output
+            if (claudeOutput) {
+              let detailsContent = '';
+              let prettyJson = claudeOutput;
+
+              try {
+                const parsed = JSON.parse(claudeOutput);
+                if (parsed.result) {
+                  detailsContent += `${parsed.result}\n\n`;
+                }
+                // Pretty print the JSON with 2-space indentation
+                prettyJson = JSON.stringify(parsed, null, 2);
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
+
+              // Add raw JSON (pretty printed)
+              detailsContent += `**Raw Output:**\n\n\`\`\`json\n${prettyJson}\n\`\`\``;
+
+              resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${detailsContent}\n\n</details>`;
+            }
+
+            await appendToComment(context, github, commentId, resultMessage);
