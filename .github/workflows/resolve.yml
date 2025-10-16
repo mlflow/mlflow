@@ -26,7 +26,6 @@ jobs:
        github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/resolve'))
     outputs:
-      pr_url: ${{ steps.pr-info.outputs.pr_url }}
       head_ref: ${{ steps.pr-info.outputs.head_ref }}
       head_repository: ${{ steps.pr-info.outputs.head_repository }}
       prompt: ${{ steps.prompt.outputs.prompt }}
@@ -75,9 +74,6 @@ jobs:
               pull_number: prNumber
             });
 
-            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`;
-
-            core.setOutput('pr_url', prUrl);
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('head_repository', pr.head.repo.full_name);
 
@@ -140,10 +136,13 @@ jobs:
         id: claude-fix
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          PR_URL: ${{ needs.authorize.outputs.pr_url }}
+          REPOSITORY: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ needs.authorize.outputs.prompt }}
         run: |
-          # Test to ensure the token is valid
+          PR_URL="https://github.com/${REPOSITORY}/pull/${PR_NUMBER}"
+
+          # Test to ensure the token is valid and the mcp server is set up correctly
           claude --allowed-tools mcp__github__pull_request_read --print "What is the title of $PR_URL?"
 
           RESOLVE_CMD="/resolve $PR_URL"
