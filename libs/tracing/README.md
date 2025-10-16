@@ -27,7 +27,7 @@ The MLflow Trace package is designed to work with a remote hosted MLflow server 
 - [Databricks](https://docs.databricks.com/machine-learning/mlflow/managed-mlflow.html) - Databricks offers a FREE, fully managed MLflow server as a part of their platform. This is the easiest way to get started with MLflow tracing, without having to set up any infrastructure.
 - [Amazon SageMaker](https://aws.amazon.com/sagemaker-ai/experiments/) - MLflow on Amazon SageMaker is a fully managed service offered as part of the SageMaker platform by AWS, including tracing and other MLflow features such as model registry.
 - [Nebius](https://nebius.com/) - Nebius, a cutting-edge cloud platform for GenAI explorers, offers a fully managed MLflow server.
-- [Self-hosting](https://mlflow.org/docs/latest/tracking/#tracking_setup) - MLflow is a fully open-source project, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
+- [Self-hosting](https://mlflow.org/docs/latest/tracking) - MLflow is a fully open-source project, allowing you to self-host your own MLflow server and keep your data private. This is a great option if you want to have full control over your data and infrastructure.
 
 ## 🚀 Getting Started
 

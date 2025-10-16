@@ -21,7 +21,7 @@ workflow:
 Starting the tracking server is as simple as running the following command:
 
 ```bash
-mlflow server --host 127.0.0.1 --port 8080
+mlflow server --host 127.0.0.1 --port 8080 --backend-store-uri sqlite:///mlflow.db
 ```
 
 Once the server starts running, you should see the following output:
@@ -35,6 +35,12 @@ INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
 
 There are many options to configure the server, refer to [Configure Server](#configure-server) for more details.
 
+:::info
+
+The `--backend-store-uri` option is not mandatory, but highly recommended. MLflow uses a local filesystem for storing the metadata by default. The above option overrides this to uses a database backend, which provides much better performance and reliability in general. The file backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow. For different database type such as PostgreSQL, check out [Backend Store](/self-hosting/architecture/backend-store).
+
+:::
+
 :::warning important
 The server listens on http://localhost:5000 by default and only accepts
 connections from the local machine. To let the server accept connections
@@ -45,7 +51,7 @@ Docker container**.
 
 MLflow 3.5.0+ includes built-in security middleware to protect against DNS rebinding
 and CORS attacks. When using `--host 0.0.0.0`, configure the `--allowed-hosts` option
-to specify which domains can access your server. See [Security Configuration](/ml/tracking/server/security)
+to specify which domains can access your server. See [Security Configuration](/self-hosting/security/network)
 for details.
 :::
 
@@ -54,8 +60,7 @@ for details.
 Once the tracking server is started, connect your local clients by setting the `MLFLOW_TRACKING_URI` environment variable to the
 server's URI, along with its scheme and port (for example, `http://10.0.0.1:5000`) or call <APILink fn="mlflow.set_tracking_uri" />.
 
-The <APILink fn="mlflow.start_run" />, <APILink fn="mlflow.log_param" />, and <APILink fn="mlflow.log_metric" /> calls
-then make API requests to your remote tracking server.
+MLflow APIs like <APILink fn="mlflow.start_run" />, <APILink fn="mlflow.log_param" />, <APILink fn="mlflow.start_trace" /> make API requests to your remote tracking server and log the data.
 
 <Tabs>
   <TabItem default label="Python" value="python">
@@ -65,9 +70,35 @@ then make API requests to your remote tracking server.
     remote_server_uri = "..."  # set to your server URI, e.g. http://127.0.0.1:8080
     mlflow.set_tracking_uri(remote_server_uri)
     mlflow.set_experiment("/my-experiment")
+
+    # Logging a run
     with mlflow.start_run():
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
+
+    # Logging a trace
+    with mlflow.start_span(name="test_trace") as span:
+        span.set_inputs({"x": 1, "y": 2})
+        span.set_outputs(3)
+    ```
+
+  </TabItem>
+  <TabItem label="TypeScript" value="typescript">
+    ```typescript
+    import * as mlflow from "mlflow-tracing";
+
+    mlflow.init({
+        trackingUri: "<your-tracking-server-uri>",
+        experimentId: "<your-experiment-id>",
+    });
+
+    const myFunc = mlflow.trace(
+        (a: number, b: number) => {
+            return a + b;
+        },
+        { name: 'my-func' }
+    )
+    myFunc(1, 2);
     ```
 
   </TabItem>
@@ -98,14 +129,9 @@ then make API requests to your remote tracking server.
   </TabItem>
 </Tabs>
 
-:::note
-On Databricks, the experiment name in <APILink fn="mlflow.set_experiment" /> must be a valid absolute path in the workspace
-(e.g., `/Workspace/Users/mlflow-experiments/my-experiment`).
-:::
-
 ## Configure Server
 
-This section describes how to configure the tracking server for some common use cases. Please run `mlflow server --help` for the full list of command line options.
+This section describes how to configure the tracking server for some common use cases. The section requires you to have a basic knowledge about the tracking server architecture, please visit [Architecture Overview](/self-hosting/architecture/overview) if you are not familiar with it yet.
 
 ### Backend Store
 
@@ -113,10 +139,15 @@ By default, the tracking server logs runs metadata to the local filesystem under
 You can configure the different backend store by adding `--backend-store-uri` option:
 
 ```bash title="Example"
+# Default: local file system
+mlflow server
+# SQLite: create a SQLite database `my.db` in the current directory
 mlflow server --backend-store-uri sqlite:///my.db
+# PostgreSQL: connect to an existing PostgreSQL database
+mlflow server --backend-store-uri postgresql://username:password@host:port/database
 ```
 
-This will create a SQLite database `my.db` in the current directory, and logging requests from clients will be pointed to this database.
+We **recommend using a database backend** in general, because it provides better performance and reliability than the default file backend.
 
 ### Remote artifacts store \{#tracking-server-artifact-store}
 
@@ -136,7 +167,7 @@ With this setting, MLflow server works as a proxy for accessing remote artifacts
 
 :::warning important
 If you are using remote storage, you have to configure the credentials for the server to access the artifacts. Be aware of that The MLflow artifact proxied
-access service enables users to have an _assumed role of access to all artifacts_ that are accessible to the Tracking Server. Refer [Manage Access](/ml/tracking/artifact-stores#artifacts-stores-manage-access) for further details.
+access service enables users to have an _assumed role of access to all artifacts_ that are accessible to the Tracking Server. Refer [Manage Access](/self-hosting/architecture/artifact-store#artifacts-stores-manage-access) for further details.
 :::
 
 The tracking server resolves the uri `mlflow-artifacts:/` in tracking request from the client to an otherwise
@@ -172,7 +203,7 @@ If the MLflow server is _not configured_ with the `--serve-artifacts` option, th
 to the artifact store. It does not proxy these through the tracking server by default.
 
 For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
-see [Artifact Stores documentation](/ml/tracking/artifact-stores#artifacts-stores-manage-access).
+see [Artifact Stores documentation](/self-hosting/architecture/artifact-store#artifacts-stores-manage-access).
 :::
 
 :::note
@@ -242,7 +273,7 @@ mlflow server --host 0.0.0.0 \
   --cors-allowed-origins "https://app.company.com"
 ```
 
-For detailed configuration options, see [Security Configuration](/ml/tracking/server/security/configuration).
+For detailed configuration options, see [Security Configuration](/self-hosting/security/network).
 
 ### Authentication and Encryption
 
@@ -269,7 +300,7 @@ You can pass authentication headers to MLflow using these environment variables:
   (see [requests main interface](https://requests.readthedocs.io/en/master/api)).
   This can be used to use a (self-signed) client certificate.
 
-For notebook integration and UI embedding options, see [UI Access & Notebooks](/ml/tracking/server/security/ui-access).
+For notebook integration and UI embedding options, see [Network Security](/self-hosting/security/network) configuration.
 
 ## Tracking Server versioning
 
@@ -298,11 +329,9 @@ export MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX="^mlflow-artifacts:/.
 mlflow server --host 0.0.0.0 --port 5000
 ```
 
-### Usage
-
 When this environment variable is set, the tracking server will validate the `source` parameter in model version creation requests against the specified regular expression pattern. If the source doesn't match the pattern, the request will be rejected with an error.
 
-#### Example: Restricting to MLflow Artifacts
+### Example: Restricting to MLflow Artifacts
 
 To only allow model versions from MLflow artifacts storage:
 
@@ -334,7 +363,7 @@ client.create_model_version(
 )  # Raises MlflowException: Invalid model version source
 ```
 
-#### Example: Restricting to Specific S3 Buckets
+### Example: Restricting to Specific S3 Buckets
 
 To only allow model versions from specific S3 buckets:
 
@@ -360,6 +389,20 @@ But reject sources like:
 - The regular expression is applied using Python's `re.search()` function.
 - Use standard regular expression syntax for pattern matching.
   :::
+
+## Fetching Server Version
+
+The version of MLflow running on the server can be found by querying the `/version` endpoint.
+This can be used to check that the client-side version of MLflow is up-to-date with a remote tracking server prior to running experiments.
+For example:
+
+```python
+import requests
+import mlflow
+
+response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
+assert response.text == mlflow.__version__  # Checking for a strict version match
+```
 
 ## Handling timeout when uploading/downloading large artifacts
 
@@ -417,3 +460,7 @@ mlflow server --gunicorn-opts "--timeout=120" ...
 ```
 
 See the [uvicorn settings documentation](https://www.uvicorn.org/settings/) for more configuration options.
+
+## Full List of Command Line Options
+
+Please run `mlflow server --help` for the full list of command line options.
