@@ -16,13 +16,14 @@ def discover_storage_backends():
     except ImportError:
         try:
             from agno.db.base import AsyncBaseDb, BaseDb
-        except ImportError:
-            return []
-        else:
+
             storage_package = "agno.db"
             storage_bases = tuple(cls for cls in (BaseDb, AsyncBaseDb) if cls is not None)
             if not storage_bases:
                 return []
+        except ImportError:
+            return []
+
     pkg = importlib.import_module(storage_package)
 
     for _, modname, _ in pkgutil.iter_modules(pkg.__path__):
