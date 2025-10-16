@@ -195,23 +195,25 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
 
 def test_run_server_with_jobs_without_uv(monkeypatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
-    with mock.patch("sys.platform", return_value="linux"):
-        original_which = shutil.which
+    original_which = shutil.which
 
-        def patched_which(cmd):
-            if cmd == "uv":
-                return None
-            return original_which(cmd)
+    def patched_which(cmd):
+        if cmd == "uv":
+            return None
+        return original_which(cmd)
 
-        with mock.patch("shutil.which", side_effect=patched_which):
-            with pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"):
-                server._run_server(
-                    file_store_path="",
-                    registry_store_uri="",
-                    default_artifact_root="",
-                    serve_artifacts="",
-                    artifacts_only="",
-                    artifacts_destination="",
-                    host="",
-                    port="",
-                )
+    with (
+        mock.patch("sys.platform", return_value="linux"),
+        mock.patch("shutil.which", side_effect=patched_which),
+        pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
