@@ -1,6 +1,3 @@
-from mlflow.exceptions import MlflowException
-from mlflow.tracking import MlflowClient
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
 
@@ -10,13 +7,24 @@ def set_databricks_monitoring_sql_warehouse_id(
 ) -> None:
     """
     Set the SQL warehouse ID used for Databricks production monitoring on traces logged to the given
-    MLflow experiment. This only has an effect for experiments with zerobus enabled.
+    MLflow experiment. This only has an effect for experiments with UC schema as trace location.
 
     Args:
         sql_warehouse_id: The SQL warehouse ID to use for monitoring.
         experiment_id: The MLflow experiment ID. If not provided, the current active experiment
             will be used.
     """
+    import mlflow
+    from mlflow.exceptions import MlflowException
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    tracking_uri = mlflow.get_tracking_uri()
+    if tracking_uri != "databricks":
+        raise MlflowException(
+            "This function is only supported when the tracking URI is set to 'databricks'. "
+            f"Current tracking URI: {tracking_uri}"
+        )
+
     resolved_experiment_id = experiment_id or _get_experiment_id()
 
     if not resolved_experiment_id:
@@ -26,7 +34,7 @@ def set_databricks_monitoring_sql_warehouse_id(
             "using mlflow.set_experiment()."
         )
 
-    client = MlflowClient()
+    client = mlflow.MlflowClient()
     client.set_experiment_tag(
         resolved_experiment_id, "mlflow.monitoring.sqlWarehouseId", sql_warehouse_id
     )
