@@ -306,6 +306,7 @@ Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.Bas
 
 ```python
 from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
+from mlflow.genai.scorers import Correctness
 
 
 class MyCustomOptimizer(BasePromptOptimizer):
@@ -330,6 +331,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     prompt_uris=[prompt.uri],
     optimizer=MyCustomOptimizer(model_name="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
 )
 ```
 
@@ -338,6 +340,9 @@ result = mlflow.genai.optimize_prompts(
 Optimize multiple prompts together:
 
 ```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+
 # Register multiple prompts
 plan_prompt = mlflow.genai.register_prompt(
     name="plan",
@@ -376,6 +381,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     prompt_uris=[plan_prompt.uri, answer_prompt.uri],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
 )
 
 # Access optimized prompts
