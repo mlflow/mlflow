@@ -217,7 +217,6 @@ jobs:
               resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${detailsContent}\n\n</details>`;
             }
 
-            // Inline appendToComment logic
             const { data: currentComment } = await github.rest.issues.getComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
