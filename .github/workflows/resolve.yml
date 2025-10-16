@@ -27,6 +27,36 @@ jobs:
        github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/resolve'))
     steps:
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Get PR information
+        id: pr-info
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const prNumber = ${{ github.event.pull_request.number || github.event.issue.number }};
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`;
+
+            core.setOutput('pr_url', prUrl);
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repository', pr.head.repo.full_name);
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ steps.pr-info.outputs.head_repository }}
+          ref: ${{ steps.pr-info.outputs.head_ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
@@ -57,30 +87,6 @@ jobs:
 
             throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
 
-      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
-        id: app-token
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - name: Get PR information
-        id: pr-info
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const prNumber = ${{ github.event.pull_request.number || github.event.issue.number }};
-            const { data: pr } = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: prNumber
-            });
-
-            const prUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/pull/${prNumber}`;
-
-            core.setOutput('pr_url', prUrl);
-            core.setOutput('head_ref', pr.head.ref);
-            core.setOutput('head_repository', pr.head.repo.full_name);
-
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
         id: prompt
@@ -89,12 +95,6 @@ jobs:
         run: |
           PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
           echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
-
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ steps.pr-info.outputs.head_repository }}
-          ref: ${{ steps.pr-info.outputs.head_ref }}
-          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
