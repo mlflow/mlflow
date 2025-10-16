@@ -456,25 +456,23 @@ async def test_gemini_chat_function_calling():
     )
 
     resp = {
-      "candidates": [
-        {
-          "content": {
-            "parts": [
-              {
-                "functionCall": {
-                  "name": "get_weather",
-                  "args": {
-                    "location": "Singapore"
-                  }
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_weather",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                    ],
+                    "role": "model",
                 },
-              },
-            ],
-            "role": "model"
-          },
-          "finishReason": "STOP",
-          "index": 0,
-        }
-      ]
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
     }
 
     with (
@@ -487,36 +485,36 @@ async def test_gemini_chat_function_calling():
         response = await provider.chat(chat.RequestPayload(**payload))
 
     expected_response = {
-      "id": "gemini-chat-1234567890",
-      "object": "chat.completion",
-      "created": 1234567890,
-      "model": "gemini-2.0-flash",
-      "choices": [
-        {
-          "index": 0,
-          "message": {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-              {
-                "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
-                "type": "function",
-                "function": {
-                  "name": "get_weather",
-                  "arguments": "{\"location\": \"Singapore\"}"
-                }
-              }
-            ],
-            "refusal": None
-          },
-          "finish_reason": "STOP"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": None,
-        "completion_tokens": None,
-        "total_tokens": None,
-      }
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        }
+                    ],
+                    "refusal": None,
+                },
+                "finish_reason": "STOP",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
     }
 
     assert jsonable_encoder(response) == expected_response
@@ -564,40 +562,36 @@ async def test_gemini_chat_multi_function_calling():
                     },
                 },
             },
-        ]
+        ],
     }
     expected_url = (
         "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
     )
 
     resp = {
-      "candidates": [
-        {
-          "content": {
-            "parts": [
-              {
-                "functionCall": {
-                  "name": "get_temperature",
-                  "args": {
-                    "location": "Singapore"
-                  }
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_temperature",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                        {
+                            "functionCall": {
+                                "name": "get_humidity",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                    ],
+                    "role": "model",
                 },
-              },
-                {
-                    "functionCall": {
-                        "name": "get_humidity",
-                        "args": {
-                            "location": "Singapore"
-                        }
-                    },
-                },
-            ],
-            "role": "model"
-          },
-          "finishReason": "STOP",
-          "index": 0,
-        }
-      ]
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
     }
 
     with (
@@ -610,44 +604,40 @@ async def test_gemini_chat_multi_function_calling():
         response = await provider.chat(chat.RequestPayload(**payload))
 
     expected_response = {
-      "id": "gemini-chat-1234567890",
-      "object": "chat.completion",
-      "created": 1234567890,
-      "model": "gemini-2.0-flash",
-      "choices": [
-        {
-          "index": 0,
-          "message": {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-              {
-                "id": "call_e03eff58ce9e84e7ee3153e687f71dd3",
-                "type": "function",
-                "function": {
-                  "name": "get_temperature",
-                  "arguments": "{\"location\": \"Singapore\"}"
-                }
-              },
-              {
-                "id": "call_de04a6aa496c33afdd792f8424259d12",
-                "type": "function",
-                "function": {
-                  "name": "get_humidity",
-                  "arguments": "{\"location\": \"Singapore\"}"
-                }
-              }
-            ],
-            "refusal": None
-          },
-          "finish_reason": "STOP"
-        }
-      ],
-      "usage": {
-        "prompt_tokens": None,
-        "completion_tokens": None,
-        "total_tokens": None
-      }
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_e03eff58ce9e84e7ee3153e687f71dd3",
+                            "type": "function",
+                            "function": {
+                                "name": "get_temperature",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        },
+                        {
+                            "id": "call_de04a6aa496c33afdd792f8424259d12",
+                            "type": "function",
+                            "function": {
+                                "name": "get_humidity",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        },
+                    ],
+                    "refusal": None,
+                },
+                "finish_reason": "STOP",
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
     }
 
     assert jsonable_encoder(response) == expected_response

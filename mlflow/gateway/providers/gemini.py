@@ -205,24 +205,28 @@ class GeminiAdapter(ProviderAdapter):
                     ).hexdigest()
                 )
             if stream:
-                tool_calls.append(chat_schema.ToolCallDelta(
-                    index=0,
-                    id=call_id,
-                    function=Function(
-                        name=func_name,
-                        arguments=func_arguments,
-                    ),
-                    type="function",
-                ))
+                tool_calls.append(
+                    chat_schema.ToolCallDelta(
+                        index=0,
+                        id=call_id,
+                        function=Function(
+                            name=func_name,
+                            arguments=func_arguments,
+                        ),
+                        type="function",
+                    )
+                )
             else:
-                tool_calls.append(ToolCall(
-                    id=call_id,
-                    function=Function(
-                        name=func_name,
-                        arguments=func_arguments,
-                    ),
-                    type="function",
-                ))
+                tool_calls.append(
+                    ToolCall(
+                        id=call_id,
+                        function=Function(
+                            name=func_name,
+                            arguments=func_arguments,
+                        ),
+                        type="function",
+                    )
+                )
         if stream:
             return chat_schema.StreamChoice(
                 index=choice_idx,
@@ -272,7 +276,7 @@ class GeminiAdapter(ProviderAdapter):
                 finish_reason = "length"
 
             if parts := candidate.get("content", {}).get("parts", None):
-                if function_call := parts[0].get("functionCall", None):
+                if parts[0].get("functionCall", None):
                     choices.append(
                         GeminiAdapter._convert_function_call_to_openai_choice(
                             parts, finish_reason, idx, False
@@ -337,7 +341,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cand.get("finishReason")
 
             if parts:
-                if function_call := parts[0].get("functionCall", None):
+                if parts[0].get("functionCall", None):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.
