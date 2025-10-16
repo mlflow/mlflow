@@ -1,6 +1,7 @@
 import functools
 import inspect
 import logging
+import os
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, Callable, Literal, TypeAlias
@@ -532,6 +533,9 @@ class Scorer(BaseModel):
             if new_scorer._cached_dump is not None:
                 new_scorer._cached_dump["name"] = name
 
+        # Set SQL warehouse ID tag if environment variable exists
+        self._set_sql_warehouse_id_tag(experiment_id)
+
         store.register_scorer(experiment_id, new_scorer)
 
         if isinstance(store, DatabricksStore):
@@ -603,6 +607,9 @@ class Scorer(BaseModel):
             )
 
         scorer_name = name or self.name
+
+        # Set SQL warehouse ID tag if environment variable exists
+        self._set_sql_warehouse_id_tag(experiment_id)
 
         # Update the scorer on the server
         return DatabricksStore.update_registered_scorer(
@@ -678,6 +685,9 @@ class Scorer(BaseModel):
 
         scorer_name = name or self.name
 
+        # Set SQL warehouse ID tag if environment variable exists
+        self._set_sql_warehouse_id_tag(experiment_id)
+
         # Update the scorer on the server
         return DatabricksStore.update_registered_scorer(
             name=scorer_name,
@@ -736,6 +746,9 @@ class Scorer(BaseModel):
 
         self._check_can_be_registered()
 
+        # Set SQL warehouse ID tag if environment variable exists
+        self._set_sql_warehouse_id_tag(experiment_id)
+
         scorer_name = name or self.name
         return self.update(
             name=scorer_name,
@@ -786,6 +799,28 @@ class Scorer(BaseModel):
                 "specify a model value starting with `databricks:/`. "
                 f"Got {model}."
             )
+
+    def _set_sql_warehouse_id_tag(self, experiment_id: str | None = None) -> None:
+        """
+        Set the mlflow.monitoring.sqlWarehouseId experiment tag if the environment variable exists.
+
+        Args:
+            experiment_id: The ID of the MLflow experiment. If None, uses the currently active
+                experiment.
+        """
+        sql_warehouse_id = os.getenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID")
+        if sql_warehouse_id is not None:
+            from mlflow.tracking import MlflowClient
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            if experiment_id is None:
+                experiment_id = _get_experiment_id()
+
+            if experiment_id is not None:
+                client = MlflowClient()
+                client.set_experiment_tag(
+                    experiment_id, "mlflow.monitoring.sqlWarehouseId", sql_warehouse_id
+                )
 
 
 @experimental(version="3.0.0")

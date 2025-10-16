@@ -1,3 +1,4 @@
+from typing import Generator
 from unittest.mock import patch
 
 import pytest
@@ -8,7 +9,7 @@ from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 
 
 @pytest.fixture(autouse=True)
-def mock_databricks_tracking_uri():
+def mock_databricks_tracking_uri() -> Generator[None, None, None]:
     with patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
     ):
@@ -16,18 +17,18 @@ def mock_databricks_tracking_uri():
 
 
 @scorer
-def length_check(outputs):
+def length_check(outputs: str) -> bool:
     """Check if response is adequately detailed"""
     return len(str(outputs)) > 100
 
 
 @scorer
-def serialization_scorer(outputs) -> bool:
+def serialization_scorer(outputs: str) -> bool:
     """Scorer for serialization tests"""
     return len(outputs) > 5
 
 
-def test_scorer_register():
+def test_scorer_register() -> None:
     """Test registering a scorer."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
@@ -51,7 +52,7 @@ def test_scorer_register():
     assert call_args["filter_string"] is None
 
 
-def test_scorer_register_default_name():
+def test_scorer_register_default_name() -> None:
     """Test registering with default name."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
@@ -62,7 +63,7 @@ def test_scorer_register_default_name():
     assert mock_add.call_args.kwargs["name"] == "length_check"
 
 
-def test_scorer_start():
+def test_scorer_start() -> None:
     """Test starting a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
@@ -103,12 +104,12 @@ def test_scorer_start():
 
 
 @pytest.mark.parametrize("sample_rate", [0, -0.1])
-def test_scorer_start_with_zero_sample_rate_raises_error(sample_rate):
+def test_scorer_start_with_zero_sample_rate_raises_error(sample_rate: float) -> None:
     with pytest.raises(MlflowException, match="sample rate must be greater than 0"):
         length_check.start(sampling_config=ScorerSamplingConfig(sample_rate=sample_rate))
 
 
-def test_scorer_start_not_registered():
+def test_scorer_start_not_registered() -> None:
     """Test starting a scorer that isn't registered."""
     my_scorer = length_check
 
@@ -122,7 +123,7 @@ def test_scorer_start_not_registered():
     assert mock_update.called
 
 
-def test_scorer_update():
+def test_scorer_update() -> None:
     """Test updating a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
@@ -154,7 +155,7 @@ def test_scorer_update():
     assert call_args["filter_string"] == "old filter"
 
 
-def test_scorer_stop():
+def test_scorer_stop() -> None:
     """Test stopping a scorer."""
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
@@ -175,7 +176,7 @@ def test_scorer_stop():
     assert mock_update.call_args.kwargs["sample_rate"] == 0.0
 
 
-def test_scorer_register_with_experiment_id():
+def test_scorer_register_with_experiment_id() -> None:
     """Test registering a scorer with experiment_id."""
     my_scorer = length_check
     with patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add:
@@ -187,7 +188,7 @@ def test_scorer_register_with_experiment_id():
     assert call_args["name"] == "test_scorer"
 
 
-def test_scorer_start_with_name_param():
+def test_scorer_start_with_name_param() -> None:
     """Test starting a scorer using name parameter."""
     my_scorer = length_check
     # Scorer doesn't need name modification
@@ -211,7 +212,7 @@ def test_scorer_start_with_name_param():
     assert call_args["name"] == "different_name"
 
 
-def test_scorer_update_with_all_params():
+def test_scorer_update_with_all_params() -> None:
     my_scorer = length_check
     my_scorer = my_scorer._create_copy()
     my_scorer.name = "original_name"
@@ -238,7 +239,7 @@ def test_scorer_update_with_all_params():
     assert call_args["filter_string"] == "new_filter"
 
 
-def test_builtin_scorer_register():
+def test_builtin_scorer_register() -> None:
     """Test registering a builtin scorer with custom name."""
     guidelines_scorer = Guidelines(guidelines="Be helpful")
 
@@ -267,7 +268,7 @@ def test_builtin_scorer_register():
     assert original_dump_after["name"] == "guidelines"
 
 
-def test_builtin_scorer_update():
+def test_builtin_scorer_update() -> None:
     guidelines_scorer = Guidelines(guidelines="Be helpful")
     guidelines_scorer = guidelines_scorer._create_copy()
     guidelines_scorer.name = "my_guidelines"
@@ -286,7 +287,7 @@ def test_builtin_scorer_update():
     assert updated.guidelines == "Be helpful"  # Original field preserved
 
 
-def test_all_methods_are_immutable():
+def test_all_methods_are_immutable() -> None:
     """Test that all methods return new instances and don't modify the original."""
     original = length_check
 
@@ -331,13 +332,13 @@ def test_all_methods_are_immutable():
         assert original._sampling_config.sample_rate == 0.1  # Unchanged
 
 
-def test_class_scorer_cannot_be_registered():
+def test_class_scorer_cannot_be_registered() -> None:
     """Test that class-based scorers cannot be registered."""
 
     class CustomScorer(Scorer):
         name: str = "custom"
 
-        def __call__(self, outputs):
+        def __call__(self, outputs: str) -> bool:
             return True
 
     custom_scorer = CustomScorer()
@@ -356,7 +357,7 @@ def test_class_scorer_cannot_be_registered():
         custom_scorer.stop()
 
 
-def test_register_with_custom_name_updates_serialization():
+def test_register_with_custom_name_updates_serialization() -> None:
     """Test that registering with a custom name properly updates serialization data."""
     # Use the pre-defined scorer to avoid source extraction issues
     test_scorer = serialization_scorer
@@ -382,3 +383,79 @@ def test_register_with_custom_name_updates_serialization():
     # Verify the server was called with the correct name
     mock_add.assert_called_once()
     assert mock_add.call_args.kwargs["name"] == "custom_test_name"
+
+
+def test_register_sets_sql_warehouse_id_tag_when_env_var_set(monkeypatch) -> None:
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test_warehouse_123")
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        length_check.register(experiment_id="exp_456")
+        mock_client.set_experiment_tag.assert_called_once_with(
+            "exp_456", "mlflow.monitoring.sqlWarehouseId", "test_warehouse_123"
+        )
+
+
+def test_register_does_not_set_tag_when_env_var_not_set() -> None:
+    with (
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_client = mock_client_class.return_value
+        length_check.register(experiment_id="exp_789")
+        mock_client.set_experiment_tag.assert_not_called()
+
+
+def test_start_sets_sql_warehouse_id_tag_when_env_var_set(monkeypatch) -> None:
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test_warehouse_456")
+    with (
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
+        ) as mock_update,
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_update.return_value = length_check._create_copy()
+        mock_client = mock_client_class.return_value
+        length_check.start(
+            experiment_id="exp_123", sampling_config=ScorerSamplingConfig(sample_rate=0.5)
+        )
+        mock_client.set_experiment_tag.assert_called_once_with(
+            "exp_123", "mlflow.monitoring.sqlWarehouseId", "test_warehouse_456"
+        )
+
+
+def test_update_sets_sql_warehouse_id_tag_when_env_var_set(monkeypatch) -> None:
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test_warehouse_789")
+    with (
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
+        ) as mock_update,
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_update.return_value = length_check._create_copy()
+        mock_client = mock_client_class.return_value
+        length_check.update(
+            experiment_id="exp_999", sampling_config=ScorerSamplingConfig(sample_rate=0.7)
+        )
+        mock_client.set_experiment_tag.assert_called_once_with(
+            "exp_999", "mlflow.monitoring.sqlWarehouseId", "test_warehouse_789"
+        )
+
+
+def test_stop_sets_sql_warehouse_id_tag_when_env_var_set(monkeypatch) -> None:
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", "test_warehouse_101")
+    with (
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.update_registered_scorer"
+        ) as mock_update,
+        patch("mlflow.tracking.MlflowClient") as mock_client_class,
+    ):
+        mock_update.return_value = length_check._create_copy()
+        mock_client = mock_client_class.return_value
+        length_check.stop(experiment_id="exp_202")
+        # stop calls update internally, so the tag should be set
+        mock_client.set_experiment_tag.assert_called_with(
+            "exp_202", "mlflow.monitoring.sqlWarehouseId", "test_warehouse_101"
+        )
