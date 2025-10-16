@@ -15,27 +15,37 @@ def test_set_databricks_monitoring_sql_warehouse_id_requires_databricks_tracking
 
 
 def test_set_databricks_monitoring_sql_warehouse_id_with_explicit_experiment_id():
-    mock_client = mock.MagicMock()
+    mock_store = mock.MagicMock()
     with (
         mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
-        mock.patch("mlflow.MlflowClient", return_value=mock_client),
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils._get_store",
+            return_value=mock_store,
+        ),
     ):
         set_databricks_monitoring_sql_warehouse_id(
             sql_warehouse_id="warehouse123", experiment_id="exp456"
         )
-        mock_client.set_experiment_tag.assert_called_once_with(
-            "exp456", "mlflow.monitoring.sqlWarehouseId", "warehouse123"
-        )
+        mock_store.set_experiment_tag.assert_called_once()
+        call_args = mock_store.set_experiment_tag.call_args
+        assert call_args[0][0] == "exp456"
+        assert call_args[0][1].key == "mlflow.monitoring.sqlWarehouseId"
+        assert call_args[0][1].value == "warehouse123"
 
 
 def test_set_databricks_monitoring_sql_warehouse_id_with_default_experiment_id():
-    mock_client = mock.MagicMock()
+    mock_store = mock.MagicMock()
     with (
         mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
-        mock.patch("mlflow.MlflowClient", return_value=mock_client),
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils._get_store",
+            return_value=mock_store,
+        ),
         mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="default_exp"),
     ):
         set_databricks_monitoring_sql_warehouse_id(sql_warehouse_id="warehouse789")
-        mock_client.set_experiment_tag.assert_called_once_with(
-            "default_exp", "mlflow.monitoring.sqlWarehouseId", "warehouse789"
-        )
+        mock_store.set_experiment_tag.assert_called_once()
+        call_args = mock_store.set_experiment_tag.call_args
+        assert call_args[0][0] == "default_exp"
+        assert call_args[0][1].key == "mlflow.monitoring.sqlWarehouseId"
+        assert call_args[0][1].value == "warehouse789"

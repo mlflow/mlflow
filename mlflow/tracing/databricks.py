@@ -15,7 +15,9 @@ def set_databricks_monitoring_sql_warehouse_id(
             will be used.
     """
     import mlflow
+    from mlflow.entities import ExperimentTag
     from mlflow.exceptions import MlflowException
+    from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id
 
     tracking_uri = mlflow.get_tracking_uri()
@@ -34,7 +36,8 @@ def set_databricks_monitoring_sql_warehouse_id(
             "using mlflow.set_experiment()."
         )
 
-    client = mlflow.MlflowClient()
-    client.set_experiment_tag(
-        resolved_experiment_id, "mlflow.monitoring.sqlWarehouseId", sql_warehouse_id
+    store = _get_store()
+    store.set_experiment_tag(
+        resolved_experiment_id,
+        ExperimentTag("mlflow.monitoring.sqlWarehouseId", sql_warehouse_id),
     )
