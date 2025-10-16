@@ -86,8 +86,6 @@ jobs:
           # Ensure `databricks-connect` and `databricks-agents` are not installed
           pip uninstall -y databricks-connect databricks-agents
           pip install --no-deps --force-reinstall pyspark
-          # install uv==0.8.18 to meet tool.uv requirements in pyproject.toml
-          pip install uv==0.8.18
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
