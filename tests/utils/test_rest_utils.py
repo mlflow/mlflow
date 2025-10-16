@@ -905,7 +905,7 @@ def test_deployment_client_timeout_propagation(monkeypatch):
             "http://my-host",  # host
             None,  # token
             None,  # databricks_auth_profile
-            retry_timeout_seconds=None,
+            retry_timeout_seconds=600,
             timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
         )
 
