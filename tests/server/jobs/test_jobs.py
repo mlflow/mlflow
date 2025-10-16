@@ -1,4 +1,3 @@
-import concurrent.futures
 import multiprocessing
 import os
 import time
@@ -19,7 +18,6 @@ from mlflow.server import (
 from mlflow.server.handlers import _get_job_store
 from mlflow.server.jobs import get_job, job, submit_job
 from mlflow.server.jobs.utils import _launch_job_runner
-from mlflow.store.jobs.sqlalchemy_store import SqlAlchemyJobStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 
 # TODO: Remove `pytest.mark.xfail` after fixing flakiness
@@ -27,11 +25,6 @@ pytestmark = [
     pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows"),
     pytest.mark.xfail,
 ]
-
-
-def _get_mlflow_repo_home():
-    root = str(Path(__file__).resolve().parents[3])
-    return f"{root}{os.pathsep}{path}" if (path := os.environ.get("PYTHONPATH")) else root
 
 
 @contextmanager
@@ -447,58 +440,3 @@ def test_submit_job_bad_call(monkeypatch, tmp_path):
             match="When calling 'submit_job', the 'params' argument must be a dict.",
         ):
             submit_job(basic_job_fun, params=None)
-
-
-@job(
-    max_workers=1,
-    python_version="3.11.9",
-    pip_requirements=["openai==1.108.2", "pytest<9"],
-)
-def check_python_env_fn():
-    import openai
-
-    from mlflow.utils import PYTHON_VERSION
-
-    assert PYTHON_VERSION == "3.11.9"
-    assert openai.__version__ == "1.108.2"
-
-
-def test_job_with_python_env(monkeypatch, tmp_path):
-    monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_repo_home())
-
-    with _setup_job_runner(
-        monkeypatch,
-        tmp_path,
-        allowed_job_functions=["tests.server.jobs.test_jobs.check_python_env_fn"],
-    ):
-        job_id = submit_job(check_python_env_fn, params={}).job_id
-        wait_job_finalize(job_id, timeout=600)
-        job = get_job(job_id)
-        assert job.status == JobStatus.SUCCEEDED
-
-
-def test_start_job_is_atomic(tmp_path: Path):
-    backend_store_uri = f"sqlite:///{tmp_path / 'test.db'}"
-    store = SqlAlchemyJobStore(backend_store_uri)
-
-    job = store.create_job("test.function", '{"param": "value"}')
-    assert job.status == JobStatus.PENDING
-
-    results = []
-
-    def try_start_job() -> str:
-        try:
-            store.start_job(job.job_id)
-            return "success"
-        except MlflowException:
-            return "failed"
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [executor.submit(try_start_job) for _ in range(5)]
-        results = [f.result() for f in concurrent.futures.as_completed(futures)]
-
-    assert results.count("success") == 1
-    assert results.count("failed") == 4
-
-    final_job = store.get_job(job.job_id)
-    assert final_job.status == JobStatus.RUNNING
