@@ -152,7 +152,7 @@ jobs:
 
           # Capture output to a file
           OUTPUT_FILE="/tmp/claude_output.json"
-          timeout 10m claude --print --output-format json "$RESOLVE_CMD" > "$OUTPUT_FILE" 2>&1 || true
+          timeout 10m claude --print --output-format json "$RESOLVE_CMD" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="
@@ -168,6 +168,18 @@ jobs:
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Push changes
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+        run: |
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            echo "Running git push in dry-run mode (pull_request event)"
+            git push --dry-run
+          else
+            echo "Pushing changes to remote"
+            git push
+          fi
 
   report:
     needs: [authorize, resolve]
