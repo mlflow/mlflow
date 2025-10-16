@@ -14,6 +14,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, RestException, get_error_code
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
+    BAD_REQUEST,
     ENDPOINT_NOT_FOUND,
     INVALID_PARAMETER_VALUE,
     ErrorCode,
@@ -85,6 +86,40 @@ class DatabricksTracingRestStore(RestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
+
+    def _call_endpoint(
+        self,
+        api,
+        json_body=None,
+        endpoint=None,
+        retry_timeout_seconds=None,
+        response_proto=None,
+    ):
+        try:
+            return super()._call_endpoint(
+                api,
+                json_body=json_body,
+                endpoint=endpoint,
+                retry_timeout_seconds=retry_timeout_seconds,
+                response_proto=response_proto,
+            )
+        except RestException as e:
+            if (
+                e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                and "Could not resolve a SQL warehouse ID" in e.message
+            ):
+                raise MlflowException(
+                    message=(
+                        "SQL warehouse ID is required for accessing traces in UC tables.\n"
+                        f"Please set the {MLFLOW_TRACING_SQL_WAREHOUSE_ID.name} environment "
+                        "variable to your SQL warehouse ID.\n"
+                        "```\nexport MLFLOW_TRACING_SQL_WAREHOUSE_ID=<your_sql_warehouse_id>\n```\n"
+                        "See https://docs.databricks.com/compute/sql-warehouse for how to "
+                        "set up a SQL warehouse and get its ID."
+                    ),
+                    error_code=BAD_REQUEST,
+                ) from e
+            raise
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
