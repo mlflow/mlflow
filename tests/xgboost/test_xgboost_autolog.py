@@ -792,6 +792,7 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
         }
     )
 
+
 def test_xgb_autolog_filter_none_parameters(bst_params, dtrain):
     mlflow.xgboost.autolog(log_none_parameters=True)
     xgb.train(bst_params, dtrain)
