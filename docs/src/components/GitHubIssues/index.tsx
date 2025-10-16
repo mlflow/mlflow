@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
+import { Search, ArrowUpDown, Plus, MessageSquare } from 'lucide-react';
 import styles from './styles.module.css';
 
 interface GitHubIssue {
@@ -140,9 +141,7 @@ export default function GitHubIssues({
         <h3 className={styles.title}>Feature requests</h3>
         <div className={styles.headerActions}>
           <div className={styles.searchBox}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" className={styles.searchIcon}>
-              <path d="M10.68 11.74a6 6 0 01-7.922-8.982 6 6 0 018.982 7.922l3.04 3.04a.749.749 0 01-.326 1.275.749.749 0 01-.734-.215l-3.04-3.04zm-1.423-1.423a4.5 4.5 0 10-6.364-6.364 4.5 4.5 0 006.364 6.364z" />
-            </svg>
+            <Search size={16} className={styles.searchIcon} />
             <input
               type="text"
               placeholder="Search..."
@@ -153,9 +152,7 @@ export default function GitHubIssues({
           </div>
           <div className={styles.sortDropdown} ref={sortMenuRef}>
             <button className={styles.sortButton} onClick={() => setShowSortMenu(!showSortMenu)}>
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M3 4.5h10M3 8h6M3 11.5h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <ArrowUpDown size={16} />
               {sortBy === 'reactions' ? 'Upvotes' : 'Recent'}
             </button>
             {showSortMenu && (
@@ -182,14 +179,12 @@ export default function GitHubIssues({
             )}
           </div>
           <a
-            href={`https://github.com/${repo}/issues/new?template=feature_request_template.yaml`}
+            href={`https://github.com/${repo}/issues/new?labels=${label}`}
             target="_blank"
             rel="noopener noreferrer"
             className={styles.newButton}
           >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2.5a.75.75 0 01.75.75v4h4a.75.75 0 010 1.5h-4v4a.75.75 0 01-1.5 0v-4h-4a.75.75 0 010-1.5h4v-4A.75.75 0 018 2.5z" />
-            </svg>
+            <Plus size={16} />
             New
           </a>
         </div>
@@ -219,9 +214,7 @@ export default function GitHubIssues({
                   <>
                     <span className={styles.separator}>•</span>
                     <span className={styles.comments}>
-                      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-                        <path d="M1.75 1A1.75 1.75 0 000 2.75v8.5C0 12.216.784 13 1.75 13H3v1.543a1.457 1.457 0 002.487 1.03L8.061 13h6.189A1.75 1.75 0 0016 11.25v-8.5A1.75 1.75 0 0014.25 1H1.75z" />
-                      </svg>
+                      <MessageSquare size={14} />
                       {issue.comments}
                     </span>
                   </>
