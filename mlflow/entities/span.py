@@ -24,7 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
-    TraceJSONEncoder,
+    _dump_span_attribute_value,
     build_otel_context,
     decode_id,
     encode_span_id,
@@ -271,7 +271,7 @@ class Span:
                 )
                 status = SpanStatus(
                     status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message"),
+                    description=data["status"].get("message", ""),
                 )
             else:
                 otel_trace_id = decode_id(
@@ -281,7 +281,7 @@ class Span:
                 parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
                 status = SpanStatus(
                     status_code=SpanStatusCode(data["status"]["code"]),
-                    description=data["status"].get("message"),
+                    description=data["status"].get("message", ""),
                 )
 
             end_time_ns = data.get("end_time_unix_nano")
@@ -354,7 +354,9 @@ class Span:
         otel_status = self._span.status
         status = ProtoSpan.Status(
             code=otel_status.status_code.value,
-            message=otel_status.description,
+            # set default value to empty string to ensure span dictionary
+            # format is consistent between serialization and deserialization
+            message=otel_status.description or "",
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
 
@@ -406,11 +408,12 @@ class Span:
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
+            # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: mlflow_trace_id,
+                SpanAttributeKey.REQUEST_ID: _dump_span_attribute_value(mlflow_trace_id),
                 **{
-                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    attr.key: _dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
             },
@@ -895,7 +898,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
+        self._span.set_attribute(key, _dump_span_attribute_value(value))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):
