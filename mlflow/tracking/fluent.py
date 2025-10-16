@@ -1022,8 +1022,16 @@ def _log_inputs_for_metrics_if_necessary(
     run: Run, metrics: list[Metric], datasets: list["Dataset"] | None = None
 ) -> None:
     client = MlflowClient()
-    input_model_ids = [i.model_id for i in (run.inputs and run.inputs.model_inputs) or []]
-    output_model_ids = [o.model_id for o in (run.outputs and run.outputs.model_outputs) or []]
+    input_model_ids = (
+        {i.model_id for i in run.inputs.model_inputs}
+        if run.inputs and run.inputs.model_inputs
+        else set()
+    )
+    output_model_ids = (
+        {o.model_id for o in run.outputs.model_outputs}
+        if run.outputs and run.outputs.model_outputs
+        else set()
+    )
     run_datasets = (
         [(inp.dataset.name, inp.dataset.digest) for inp in run.inputs.dataset_inputs]
         if run.inputs
@@ -1035,7 +1043,7 @@ def _log_inputs_for_metrics_if_necessary(
     for metric in metrics:
         if (
             metric.model_id is not None
-            and metric.model_id not in input_model_ids + output_model_ids
+            and metric.model_id not in input_model_ids | output_model_ids
         ):
             models_to_log.append(LoggedModelInput(model_id=metric.model_id))
         if datasets and (metric.dataset_name, metric.dataset_digest) not in run_datasets:
