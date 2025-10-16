@@ -1,5 +1,102 @@
 # CHANGELOG
 
+## 3.5.0 (2025-10-16)
+
+MLflow 3.5.0 includes several major features and improvements
+
+Major new features:
+
+- [Tracking] Update docs for claude code SDK tracing (#18026, @smoorjani)
+- [Docs] Add documentation for Analyze Experiment MCP/CLI command (#17978, @nsthorat)
+
+Features:
+
+- [Prompts] Introduce flexible prompt optimization API and add instruction for model switching (#18183, @TomeHirata)
+- [Tracing / Tracking] Add `unlink_traces_from_run` batch operation (#18316, @harupy)
+- [Tracing] Add batch trace link/unlink operations to DatabricksTracingRestStore (#18295, @harupy)
+- [Evaluation] Allow passing empty scorer list for manual result comparison (#18265, @B-Step62)
+- [Evaluation / Tracing] Log assessments to DSPy eval traces (#18136, @B-Step62)
+- [Tracking] Use sampling data for run comparison (#17645, @lkuo)
+- [Prompts] Support GEPA in mlflow.genai.optimize_prompt (#18031, @TomeHirata)
+- [Evaluation] Add support for trace inputs to built-in scorers (#17943, @BenWilson2)
+- [UI] In product onboarding 0 (#18098, @B-Step62)
+- [Tracking] Add a security middleware layer to MLflow Tracking Server (#17910, @BenWilson2)
+- [UI] Delete parent child run together (#18052, @joelrobin18)
+- [Tracking] Crewai Token Count + Doc Update (#16373, @joelrobin18)
+- [Evaluation / Tracing / Tracking] Job backend: Support setting a list for transient error classes (#18112, @WeichenXu123)
+- [Tracking] Claude Code SDK Autologging  (#18022, @smoorjani)
+- [Evaluation / Tracking] Job backend: Add Job search endpoint, for front-end code to search jobs by function / params / job status (#18070, @WeichenXu123)
+- [Tracking] Job backend: add last_update_time column for job table, for counting job pending / execution time (#18071, @WeichenXu123)
+- [Evaluation / Tracing / Tracking] Job backend: allow explicitly setting job function to run in an individual process (#18049, @WeichenXu123)
+- [Evaluation] Allow disable eval sample check (#18032, @B-Step62)
+- [Evaluation / Tracing / Tracking] Job backend: Create individual execution pool for each job function (#18012, @WeichenXu123)
+- [UI] Prompt Registry Chat UI (#17334, @joelrobin18)
+- [Prompts] Add prompt registry support to MLflow webhooks (#17640, @harupy)
+- [Tracing] Add support for reading values from Env variable (#17792, @joelrobin18)
+- [Tracking] Mistral tracing improvement (#16370, @joelrobin18)
+- [Evaluation] Add synonym handling for built-in scorers (#17980, @BenWilson2)
+- [Evaluation] Add span timing tool for Agent Judges (#17948, @BenWilson2)
+- [Tracking] Job execution backend (#17676, @WeichenXu123)
+- [Evaluation] Reduce verbosity of SIMBA optimizer logs when aligning judges (#17795, @BenWilson2)
+- [Tracking] Gemini token count (#16248, @joelrobin18)
+- [] Gemini streaming (#16249, @joelrobin18)
+- [Tracking] Adds optional 'outputs' column for evaluation dataset record (#17735, @WeichenXu123)
+- [Evaluation] Add `__repr__` for Judges (#17794, @BenWilson2)
+- [UI] Added move to top, move to bottom for charts (#17742, @joelrobin18)
+
+Bug fixes:
+
+- [UI] UI fix (#18281, @joelrobin18)
+- [] Fix false warning from span logging (#18276, @B-Step62)
+- [Model Registry / Tracking] Fix: creating model version from non-dbx tracking -> dbx uc registry (#18244, @austinwarner-8451)
+- [] Chat Completion Arguments Fix (#18248, @aravind-segu)
+- [Tracing] Fix parent run resolution mechanism for LangChain (#17273, @B-Step62)
+- [Tracking] Dspy run display fix (#18137, @B-Step62)
+- [Tracing] Add client-side retry for get_trace (#18224, @B-Step62)
+- [] URL-encode trace tag keys in delete_trace_tag to prevent 404 errors (#18232, @copilot-swe-agent)
+- [Evaluation] Add atomicity to job_start API  (#18226, @BenWilson2)
+- [Tracing] Fix Otel dual export (#18163, @B-Step62)
+- [Prompts] Fix error suppression during prompt alias resolution when `allow_missing` is set (#17541, @mr-brobot)
+- [Tracing] Suppress false alert from span logging (#18092, @B-Step62)
+- [Evaluation] Fix an issue with trace ingest for outputs into merge_records() API (#18047, @BenWilson2)
+- [Scoring] Fix endpoints error in judge (#18048, @joelrobin18)
+- [Models] Fix Dataset issue (#18081, @joelrobin18)
+- [Tracing] Fix Otel resource attribute failed to propagate (#18019, @xiaosha007)
+- [Tracing / Tracking] Job backend: Set tracking uri environment variable for job runner (#18073, @WeichenXu123)
+- [Evaluation] Fix judge regression (#18039, @B-Step62)
+- [Tracing] Fix DSPy prompt display (#17988, @B-Step62)
+- [] Fix webhook delivery to exit early for model registry FileStore instances (#18015, @copilot-swe-agent)
+- [Build] Fix `mlflow server` exiting immediately when optional `huey` package is missing (#18016, @harupy)
+- [Model Registry] Fix registry URI instantiation for artifact download (#17982, @arpitjasa-db)
+- [Model Registry] Include original error details in Unity Catalog model copy failure messages (#17997, @harupy)
+- [Tracing] Fix usage aggregation to avoid ancestor duplication (#17921, @TomeHirata)
+- [Tracking] fix: allow list of types in tools JSON Schema (OpenAI autolog) (#17908, @fedem96)
+- [Evaluation] Judges bug fix - use non-empty user message for compatibility with Anthropic & related models (#17935, @dbczumar)
+- [Tracking] Fix claude code autologging inputs not showing up (#17858, @smoorjani)
+- [Tracking] Fix: Runs with 0-valued metrics don't appear in experiment list contour plots (#17916, @WeichenXu123)
+- [] Forward dataset name and digest to PolarsDataset's `to_evaluation_dataset` method (#17886, @sadelcarpio)
+- [Tracing] Fix double counting strands tracing (#17855, @joelrobin18)
+- [Tracing] Fix `to_predict_fn` to handle traces without tags field (#17784, @harupy)
+
+Documentation updates:
+
+- [Docs] Add github feature requests on the GenAI doc (#18342, @TomeHirata)
+- [Docs] Self-host documentation (#17986, @B-Step62)
+- [Evaluation] Add deprecation notice for custom prompt judge (#18287, @smoorjani)
+- [Docs] Fix Postgres 18+ mount path in documentation (index.mdx only) (#18192, @soyun11)
+- [Docs] Fix: correct typo in variable name from max_few_show_examples to max_few_shot_examples  (#18246, @srinathmkce)
+- [Docs] replace single quotes with double quotes for Windows compatibility (#18266, @PavithraNelluri)
+- [Tracking] Update docs for claude code SDK tracing (#18026, @smoorjani)
+- [Docs] Add documentation for Analyze Experiment MCP/CLI command (#17978, @nsthorat)
+- [Model Registry] Fixes a typo in the documentation (#18038, @EddieMG)
+- [Docs] Doc update for Typescript SDK contribution (#17995, @joelrobin18)
+- [Docs] Overhaul scorer doc (#17930, @B-Step62)
+- [Docs] Add default optimizer docs (#17814, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#18349, #18338, #18241, #18319, #18309, #18292, #18280, #18239, #18236, #17786, #18003, #17970, #17898, #17765, #17667, @serena-ruan; #18346, #17882, @dbrx-euirim; #18306, #18208, #18165, #18110, #18109, #18108, #18107, #18105, #18104, #18100, #18099, #18155, #18079, #18082, #18078, #18077, #18083, #18030, #18001, #17999, #17712, #17785, #17756, #17729, #17731, #17733, @daniellok-db; #18339, #18291, #18222, #18210, #18124, #18101, #18054, #18053, #18007, #17922, #17823, #17822, #17805, #17789, #17750, #17752, #17760, #17758, #17688, #17689, #17693, #17675, #17673, #17656, #17674, @harupy; #18331, #18308, #18303, #18146, @smoorjani; #18315, #18279, #18310, #18187, #18225, #18277, #18193, #18223, #18209, #18200, #18178, #17574, #18021, #18006, #17944, @B-Step62; #18290, #17946, #17627, @bbqiu; #18274, @Ninja3047; #18204, #17868, #17866, #17833, #17826, #17835, @TomeHirata; #18273, #18043, #17928, #17931, #17936, #17937, @dbczumar; #18185, #18180, #18174, #18170, #18167, #18164, #18168, #18166, #18162, #18160, #18159, #18157, #18156, #18154, #18148, #18145, #18135, #18143, #18142, #18139, #18132, #18130, #18119, #18117, #18115, #18102, #18075, #18046, #18062, #18042, #18051, #18036, #18027, #18014, #18011, #18009, #18004, #17903, #18000, #18002, #17973, #17993, #17989, #17984, #17968, #17966, #17967, #17962, #17977, #17976, #17972, #17965, #17964, #17963, #17969, #17971, #17939, #17926, #17924, #17915, #17911, #17912, #17904, #17902, #17900, #17897, #17892, #17889, #17888, #17885, #17884, #17878, #17874, #17873, #17871, #17870, #17865, #17860, #17861, #17859, #17857, #17856, #17854, #17853, #17851, #17849, #17850, #17847, #17845, #17846, #17844, #17843, #17842, #17838, #17836, #17834, #17831, #17824, #17828, #17819, #17825, #17817, #17821, #17809, #17807, #17808, #17803, #17800, #17799, #17797, #17793, #17790, #17772, #17771, #17769, #17770, #17753, #17762, #17747, #17749, #17745, #17740, #17734, #17732, #17726, #17723, #17722, #17721, #17719, #17720, #17718, #17716, #17713, #17715, #17710, #17709, #17708, #17707, #17705, #17697, #17701, #17698, #17696, #17695, @copilot-swe-agent; #18151, #18153, #17983, #18040, #17981, #17841, #17818, #17776, #17781, @BenWilson2; #18068, @alkispoly-db; #18133, @kevin-lyn; #17105, #17717, @joelrobin18; #17879, @lkuo; #17996, #17945, #17913, @WeichenXu123
+
 ## 3.5.0rc0 (2025-10-08)
 
 MLflow 3.5.0rc0 includes several major features and improvements
