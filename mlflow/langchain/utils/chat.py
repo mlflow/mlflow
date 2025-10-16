@@ -194,6 +194,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     def _gen_converted_chunk(message_content, message_id, finish_reason):
         transformed_response = ChatCompletionChunk(
             id=message_id,
+            object="chat.completion.chunk",
             created=int(time.time()),
             model="",
             choices=[
