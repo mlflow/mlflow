@@ -70,6 +70,8 @@ def test_setup_logging_creates_logger(monkeypatch, tmp_path):
 
 
 def test_custom_logging_level():
+    setup_logging()
+
     assert CLAUDE_TRACING_LEVEL > logging.INFO
     assert CLAUDE_TRACING_LEVEL < logging.WARNING
     assert logging.getLevelName(CLAUDE_TRACING_LEVEL) == "CLAUDE_TRACING"
