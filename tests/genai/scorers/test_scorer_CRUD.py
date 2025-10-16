@@ -81,12 +81,7 @@ def test_mlflow_backend_scorer_operations():
     mlflow.delete_experiment(experiment_id)
 
 
-@patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
-@patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer")
-@patch("mlflow.genai.scorers.registry.DatabricksStore.list_scheduled_scorers")
-@patch("mlflow.genai.scorers.registry.DatabricksStore.get_scheduled_scorer")
-@patch("mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer")
-def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, mock_add, _):
+def test_databricks_backend_scorer_operations():
     """Test all scorer operations with Databricks backend"""
 
     # Mock the scheduled scorer responses
@@ -96,45 +91,59 @@ def test_databricks_backend_scorer_operations(mock_delete, mock_get, mock_list, 
     mock_scheduled_scorer.sample_rate = 0.5
     mock_scheduled_scorer.filter_string = "test_filter"
 
-    mock_list.return_value = [mock_scheduled_scorer]
-    mock_get.return_value = mock_scheduled_scorer
-    mock_delete.return_value = None
+    with (
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.list_scheduled_scorers",
+            return_value=[mock_scheduled_scorer],
+        ) as mock_list,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.get_scheduled_scorer",
+            return_value=mock_scheduled_scorer,
+        ) as mock_get,
+        patch(
+            "mlflow.genai.scorers.registry.DatabricksStore.delete_scheduled_scorer",
+            return_value=None,
+        ) as mock_delete,
+    ):
+        # Test register operation
+        @scorer
+        def test_databricks_scorer(outputs) -> bool:
+            return len(outputs) > 0
 
-    # Test register operation
-    @scorer
-    def test_databricks_scorer(outputs) -> bool:
-        return len(outputs) > 0
+        assert test_databricks_scorer.status == ScorerStatus.UNREGISTERED
+        registered_scorer = test_databricks_scorer.register(experiment_id="exp_123")
+        assert registered_scorer.name == "test_databricks_scorer"
+        assert registered_scorer.status == ScorerStatus.STOPPED
 
-    assert test_databricks_scorer.status == ScorerStatus.UNREGISTERED
-    registered_scorer = test_databricks_scorer.register(experiment_id="exp_123")
-    assert registered_scorer.name == "test_databricks_scorer"
-    assert registered_scorer.status == ScorerStatus.STOPPED
+        # Verify add_registered_scorer was called during registration
+        mock_add.assert_called_once_with(
+            name="test_databricks_scorer",
+            scorer=ANY,
+            sample_rate=0.0,
+            filter_string=None,
+            experiment_id="exp_123",
+        )
 
-    # Verify add_registered_scorer was called during registration
-    mock_add.assert_called_once_with(
-        name="test_databricks_scorer",
-        scorer=ANY,
-        sample_rate=0.0,
-        filter_string=None,
-        experiment_id="exp_123",
-    )
+        # Test list operation
+        scorers = list_scorers(experiment_id="exp_123")
 
-    # Test list operation
-    scorers = list_scorers(experiment_id="exp_123")
+        assert scorers[0].name == "test_databricks_scorer"
+        assert scorers[0]._sampling_config == ScorerSamplingConfig(
+            sample_rate=0.5, filter_string="test_filter"
+        )
 
-    assert scorers[0].name == "test_databricks_scorer"
-    assert scorers[0]._sampling_config == ScorerSamplingConfig(
-        sample_rate=0.5, filter_string="test_filter"
-    )
+        assert len(scorers) == 1
+        mock_list.assert_called_once_with("exp_123")
 
-    assert len(scorers) == 1
-    mock_list.assert_called_once_with("exp_123")
+        # Test get operation
+        retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
+        assert retrieved_scorer.name == "test_databricks_scorer"
+        mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
 
-    # Test get operation
-    retrieved_scorer = get_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-    assert retrieved_scorer.name == "test_databricks_scorer"
-    mock_get.assert_called_once_with("test_databricks_scorer", "exp_123")
-
-    # Test delete operation
-    delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
-    mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
+        # Test delete operation
+        delete_scorer(name="test_databricks_scorer", experiment_id="exp_123")
+        mock_delete.assert_called_once_with("exp_123", "test_databricks_scorer")
