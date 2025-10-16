@@ -135,25 +135,24 @@ def _get_span_type(instance) -> str:
         return SpanType.UNKNOWN
 
     storage_types = ()
-
     try:
         # Agno version below 2 uses storage.base
         from agno.storage.base import Storage
+
+        storage_types = (Storage,)
     except ImportError:
         try:
             # Agno version 2+ uses db.base
             import agno.db.base as db_base
-        except ImportError:
-            pass
-        else:
-            candidates: list[type[Any]] = []
+
+            candidates = []
             for attr in ("BaseDb", "AsyncBaseDb"):
                 cls = getattr(db_base, attr, None)
                 if cls is not None:
                     candidates.append(cls)
             storage_types = tuple(candidates)
-    else:
-        storage_types = (Storage,)
+        except ImportError:
+            pass
 
     if isinstance(instance, (Agent, Team)):
         return SpanType.AGENT
