@@ -216,4 +216,4 @@ def test_run_server_with_jobs_without_uv(monkeypatch):
             host="",
             port="",
         )
-    which_patch.assert_called_once()
+    which_patch.assert_called_once_with("uv")
