@@ -1,5 +1,5 @@
 import errno
-import importlib.util
+import importlib
 import inspect
 import json
 import logging
@@ -443,7 +443,7 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
             "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed"
         )
 
-    if importlib.util.find_spec("uv") is None:
+    if shutil.which("uv") is None:
         raise MlflowException(
             "MLflow job backend requires 'uv' package but it is not installed."
         )
