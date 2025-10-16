@@ -497,7 +497,9 @@ def test_predict_with_retry_timeout_env_var(monkeypatch):
     mock_resp.url = os.environ["DATABRICKS_HOST"]
     mock_resp.status_code = 200
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_resp) as mock_http:
+    with mock.patch(
+        "mlflow.deployments.databricks.http_request", return_value=mock_resp
+    ) as mock_http:
         resp = client.predict(endpoint="test", inputs={})
         mock_http.assert_called_once()
         call_kwargs = mock_http.call_args[1]
@@ -517,7 +519,9 @@ def test_predict_stream_with_retry_timeout_env_var(monkeypatch):
     mock_resp.status_code = 200
     mock_resp.encoding = "utf-8"
 
-    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=mock_resp) as mock_http:
+    with mock.patch(
+        "mlflow.deployments.databricks.http_request", return_value=mock_resp
+    ) as mock_http:
         chunks = list(client.predict_stream(endpoint="test", inputs={}))
         mock_http.assert_called_once()
         call_kwargs = mock_http.call_args[1]

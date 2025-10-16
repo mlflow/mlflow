@@ -105,21 +105,3 @@ print(response)
 ```
 
 And there you have it! You've successfully set up your first gateway server and served three OpenAI models.
-
-## Troubleshooting
-
-### Timeout errors for long-running predictions
-
-If you encounter timeout errors when querying endpoints with long-running operations (e.g., agent predictions that take several minutes), increase the retry timeout:
-
-```python
-import os
-
-# Set retry timeout to 15 minutes for long-running agent predictions
-os.environ["MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT"] = "900"
-
-from mlflow.deployments import get_deploy_client
-
-client = get_deploy_client("databricks")
-response = client.predict(endpoint="my-agent-endpoint", inputs=data)
-```
