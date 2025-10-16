@@ -1,11 +1,13 @@
 import json
+from typing import Any
 
 import pytest
 from click.testing import CliRunner
 
 import mlflow
 from mlflow.cli.scorers import commands
-from mlflow.genai.scorers import scorer
+from mlflow.exceptions import MlflowException
+from mlflow.genai.scorers import list_scorers, scorer
 from mlflow.utils.string_utils import _create_table
 
 
@@ -81,7 +83,11 @@ def test_list_command_params():
 
 
 def test_list_scorers_table_output(
-    runner, experiment, correctness_scorer, safety_scorer, relevance_scorer
+    runner: CliRunner,
+    experiment: str,
+    correctness_scorer: Any,
+    safety_scorer: Any,
+    relevance_scorer: Any,
 ):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
     safety_scorer.register(experiment_id=experiment, name="Safety")
@@ -101,7 +107,11 @@ def test_list_scorers_table_output(
 
 
 def test_list_scorers_json_output(
-    runner, experiment, correctness_scorer, safety_scorer, relevance_scorer
+    runner: CliRunner,
+    experiment: str,
+    correctness_scorer: Any,
+    safety_scorer: Any,
+    relevance_scorer: Any,
 ):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
     safety_scorer.register(experiment_id=experiment, name="Safety")
@@ -121,7 +131,9 @@ def test_list_scorers_json_output(
         ("json", {"scorers": []}),
     ],
 )
-def test_list_scorers_empty_experiment(runner, experiment, output_format, expected_output):
+def test_list_scorers_empty_experiment(
+    runner: CliRunner, experiment: str, output_format: str, expected_output: Any
+):
     args = ["list", "--experiment-id", experiment]
     if output_format == "json":
         args.extend(["--output", "json"])
@@ -137,7 +149,9 @@ def test_list_scorers_empty_experiment(runner, experiment, output_format, expect
         assert result.output.strip() == expected_output
 
 
-def test_list_scorers_with_experiment_id_env_var(runner, experiment, correctness_scorer):
+def test_list_scorers_with_experiment_id_env_var(
+    runner: CliRunner, experiment: str, correctness_scorer: Any
+):
     correctness_scorer.register(experiment_id=experiment, name="Correctness")
 
     result = runner.invoke(commands, ["list"], env={"MLFLOW_EXPERIMENT_ID": experiment})
@@ -146,21 +160,23 @@ def test_list_scorers_with_experiment_id_env_var(runner, experiment, correctness
     assert "Correctness" in result.output
 
 
-def test_list_scorers_missing_experiment_id(runner):
+def test_list_scorers_missing_experiment_id(runner: CliRunner):
     result = runner.invoke(commands, ["list"])
 
     assert result.exit_code != 0
     assert "experiment-id" in result.output.lower() or "experiment_id" in result.output.lower()
 
 
-def test_list_scorers_invalid_output_format(runner, experiment):
+def test_list_scorers_invalid_output_format(runner: CliRunner, experiment: str):
     result = runner.invoke(commands, ["list", "--experiment-id", experiment, "--output", "invalid"])
 
     assert result.exit_code != 0
     assert "invalid" in result.output.lower() or "choice" in result.output.lower()
 
 
-def test_list_scorers_special_characters_in_names(runner, experiment, generic_scorer):
+def test_list_scorers_special_characters_in_names(
+    runner: CliRunner, experiment: str, generic_scorer: Any
+):
     generic_scorer.register(experiment_id=experiment, name="Scorer With Spaces")
     generic_scorer.register(experiment_id=experiment, name="Scorer.With.Dots")
     generic_scorer.register(experiment_id=experiment, name="Scorer-With-Dashes")
@@ -179,7 +195,9 @@ def test_list_scorers_special_characters_in_names(runner, experiment, generic_sc
     "output_format",
     ["table", "json"],
 )
-def test_list_scorers_single_scorer(runner, experiment, generic_scorer, output_format):
+def test_list_scorers_single_scorer(
+    runner: CliRunner, experiment: str, generic_scorer: Any, output_format: str
+):
     generic_scorer.register(experiment_id=experiment, name="OnlyScorer")
 
     args = ["list", "--experiment-id", experiment]
@@ -200,7 +218,9 @@ def test_list_scorers_single_scorer(runner, experiment, generic_scorer, output_f
     "output_format",
     ["table", "json"],
 )
-def test_list_scorers_long_names(runner, experiment, generic_scorer, output_format):
+def test_list_scorers_long_names(
+    runner: CliRunner, experiment: str, generic_scorer: Any, output_format: str
+):
     long_name = "VeryLongScorerNameThatShouldNotBeTruncatedEvenIfItIsReallyReallyLong"
     generic_scorer.register(experiment_id=experiment, name=long_name)
 
@@ -217,3 +237,205 @@ def test_list_scorers_long_names(runner, experiment, generic_scorer, output_form
     else:
         # Full name should be present
         assert long_name in result.output
+
+
+def test_create_judge_basic(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "test_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered judge scorer 'test_judge'" in result.output
+    assert experiment in result.output
+
+    # Verify judge was registered
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "test_judge" in scorer_names
+
+
+def test_create_judge_with_model(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "custom_model_judge",
+            "--instructions",
+            "Check {{ inputs }} and {{ outputs }}",
+            "--model",
+            "openai:/gpt-4",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # Verify judge was registered with correct model
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "custom_model_judge" in scorer_names
+
+    # Get the judge and verify it uses the specified model
+    judge = next(s for s in scorers if s.name == "custom_model_judge")
+    assert judge.model == "openai:/gpt-4"
+
+
+def test_create_judge_short_options(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "-n",
+            "short_options_judge",
+            "-i",
+            "Evaluate {{ outputs }}",
+            "-x",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # Verify judge was registered
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "short_options_judge" in scorer_names
+
+
+def test_create_judge_with_env_var(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "env_var_judge",
+            "--instructions",
+            "Check {{ outputs }}",
+        ],
+        env={"MLFLOW_EXPERIMENT_ID": experiment},
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # Verify judge was registered
+    scorers = list_scorers(experiment_id=experiment)
+    scorer_names = [s.name for s in scorers]
+    assert "env_var_judge" in scorer_names
+
+
+@pytest.mark.parametrize(
+    ("args", "missing_param"),
+    [
+        (["--instructions", "test", "--experiment-id", "123"], "name"),
+        (["--name", "test", "--experiment-id", "123"], "instructions"),
+        (["--name", "test", "--instructions", "test"], "experiment-id"),
+    ],
+)
+def test_create_judge_missing_required_params(
+    runner: CliRunner, args: list[str], missing_param: str
+):
+    result = runner.invoke(commands, ["register-llm-judge"] + args)
+
+    assert result.exit_code != 0
+    # Click typically shows "Missing option" for required parameters
+    assert "missing" in result.output.lower() or "required" in result.output.lower()
+
+
+def test_create_judge_invalid_prompt(runner: CliRunner, experiment: str):
+    # Should raise MlflowException because make_judge validates that instructions
+    # contain at least one variable
+    with pytest.raises(MlflowException, match="[Tt]emplate.*variable"):
+        runner.invoke(
+            commands,
+            [
+                "register-llm-judge",
+                "--name",
+                "invalid_judge",
+                "--instructions",
+                "This has no template variables",
+                "--experiment-id",
+                experiment,
+            ],
+        )
+
+
+def test_create_judge_special_characters_in_name(runner: CliRunner, experiment: str):
+    # Verify experiment has no judges initially
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 0
+
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "judge-with_special.chars",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    # Verify experiment has exactly one judge
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "judge-with_special.chars"
+
+
+def test_create_judge_duplicate_registration(runner: CliRunner, experiment: str):
+    # Create a judge
+    result1 = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "duplicate_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+    assert result1.exit_code == 0
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "duplicate_judge"
+
+    # Register the same judge again with same name - should succeed (replaces the old one)
+    result2 = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "duplicate_judge",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+    assert result2.exit_code == 0
+
+    # Verify there is still only one judge (the new one replaced the old one)
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    assert scorers[0].name == "duplicate_judge"
