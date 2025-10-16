@@ -17,7 +17,7 @@ def test_set_databricks_monitoring_sql_warehouse_id_requires_databricks_tracking
 def test_set_databricks_monitoring_sql_warehouse_id_with_explicit_experiment_id():
     mock_store = mock.MagicMock()
     with (
-        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
         mock.patch(
             "mlflow.tracking._tracking_service.utils._get_store",
             return_value=mock_store,
@@ -36,7 +36,7 @@ def test_set_databricks_monitoring_sql_warehouse_id_with_explicit_experiment_id(
 def test_set_databricks_monitoring_sql_warehouse_id_with_default_experiment_id():
     mock_store = mock.MagicMock()
     with (
-        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
         mock.patch(
             "mlflow.tracking._tracking_service.utils._get_store",
             return_value=mock_store,

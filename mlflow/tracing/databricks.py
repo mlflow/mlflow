@@ -1,4 +1,3 @@
-import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
@@ -18,10 +17,11 @@ def set_databricks_monitoring_sql_warehouse_id(
             will be used.
     """
     from mlflow.entities import ExperimentTag
+    from mlflow.tracking import get_tracking_uri
     from mlflow.tracking._tracking_service.utils import _get_store
     from mlflow.tracking.fluent import _get_experiment_id
 
-    tracking_uri = mlflow.get_tracking_uri()
+    tracking_uri = get_tracking_uri()
     if not is_databricks_uri(tracking_uri):
         raise MlflowException(
             "This function is only supported when the tracking URI is set to 'databricks'. "
