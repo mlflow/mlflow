@@ -4,7 +4,7 @@ from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 
 
-@experimental(version="3.6.0")
+@experimental(version="3.5.0")
 def set_databricks_monitoring_sql_warehouse_id(
     sql_warehouse_id: str, experiment_id: str | None = None
 ) -> None:
