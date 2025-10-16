@@ -1,185 +1,374 @@
 import sys
+from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
-import pandas as pd
 import pytest
 
-from mlflow.genai import register_prompt
-from mlflow.genai.optimize.optimizers import _GEPAOptimizer
-from mlflow.genai.optimize.types import LLMParams, OptimizerConfig, OptimizerOutput
-from mlflow.genai.scorers import scorer
+from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
+from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
 
 
 @pytest.fixture
-def sample_data():
-    return pd.DataFrame(
+def sample_train_data():
+    return [
         {
-            "inputs": [
-                {"input_text": "Hello", "language": "Spanish"},
-                {"input_text": "World", "language": "French"},
-            ],
-            "expectations": [{"translation": "Hola"}, {"translation": "Monde"}],
-        }
-    )
+            "inputs": {"question": "What is 2+2?"},
+            "outputs": "4",
+        },
+        {
+            "inputs": {"question": "What is the capital of France?"},
+            "outputs": "Paris",
+        },
+        {
+            "inputs": {"question": "What is 3*3?"},
+            "outputs": "9",
+        },
+        {
+            "inputs": {"question": "What color is the sky?"},
+            "outputs": "Blue",
+        },
+    ]
 
 
 @pytest.fixture
-def sample_prompt():
-    return register_prompt(
-        name="test_gepa_prompt",
-        template="Translate the following text to {{language}}: {{input_text}}",
-    )
+def sample_target_prompts():
+    return {
+        "system_prompt": "You are a helpful assistant.",
+        "instruction": "Answer the following question: {{question}}",
+    }
 
 
-class MockGEPAAdapter:
-    pass
+@pytest.fixture
+def mock_eval_fn():
+    def eval_fn(candidate_prompts: dict[str, str], dataset: list[dict[str, Any]]):
+        results = []
+        for record in dataset:
+            results.append(
+                EvaluationResultRecord(
+                    inputs=record["inputs"],
+                    outputs="outputs",
+                    expectations=record["outputs"],
+                    score=0.8,
+                    trace={"info": "mock trace"},
+                )
+            )
+        return results
 
-
-@scorer
-def sample_scorer(inputs, outputs, expectations):
-    return 1.0
+    return eval_fn
 
 
 def test_gepa_optimizer_initialization():
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-    assert optimizer is not None
-    assert optimizer.optimizer_config is not None
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+    assert optimizer.reflection_model == "openai:/gpt-4o"
+    assert optimizer.max_metric_calls == 100
+    assert optimizer.display_progress_bar is False
 
 
-def test_gepa_optimizer_requires_gepa_package(sample_data):
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    with patch.dict(sys.modules, {"gepa": None}):
-        with pytest.raises(ImportError, match="GEPA is not installed"):
-            optimizer.optimize(
-                prompt=Mock(template="test"),
-                target_llm_params=LLMParams(model_name="openai/gpt-4"),
-                train_data=sample_data,
-                scorers=[sample_scorer],
-            )
+def test_gepa_optimizer_initialization_with_custom_params():
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o",
+        max_metric_calls=100,
+        display_progress_bar=True,
+    )
+    assert optimizer.reflection_model == "openai:/gpt-4o"
+    assert optimizer.max_metric_calls == 100
+    assert optimizer.display_progress_bar is True
 
 
-def test_gepa_optimizer_basic_flow(sample_data, sample_prompt):
-    # Mock GEPA module
-    mock_gepa = MagicMock()
+def test_gepa_optimizer_optimize(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
     mock_result = Mock()
-    mock_result.best_candidate = {"prompt": "Optimized prompt template"}
-    mock_result.val_aggregate_scores = [0.5, 0.8, 0.95]
-    mock_gepa.optimize.return_value = mock_result
+    mock_result.best_candidate = {
+        "system_prompt": "You are a highly skilled assistant.",
+        "instruction": "Please answer this question carefully: {{question}}",
+    }
+    mock_result.val_aggregate_scores = [0.5, 0.6, 0.8, 0.9]  # Mock scores for testing
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    optimizer = GepaPromptOptimizer(
+        reflection_model="openai:/gpt-4o-mini", max_metric_calls=50, display_progress_bar=True
+    )
 
-    mock_gepa.GEPAAdapter = MockGEPAAdapter
-
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    with patch.dict(sys.modules, {"gepa": mock_gepa}):
+    with patch.dict(sys.modules, mock_modules):
         result = optimizer.optimize(
-            prompt=sample_prompt,
-            target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-            train_data=sample_data,
-            scorers=[sample_scorer],
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
         )
 
     # Verify result
-    assert isinstance(result, OptimizerOutput)
-    assert result.optimized_prompt == "Optimized prompt template"
-    assert result.final_eval_score == 0.95
-    assert result.initial_eval_score == 0.5
-    assert result.optimizer_name == "GEPA"
+    assert isinstance(result, PromptOptimizerOutput)
+    assert result.optimized_prompts == mock_result.best_candidate
+    assert "system_prompt" in result.optimized_prompts
+    assert "instruction" in result.optimized_prompts
+    # Verify scores are extracted
+    assert result.initial_eval_score == 0.5  # First score
+    assert result.final_eval_score == 0.9  # Max score
 
-    # Verify GEPA was called
-    mock_gepa.optimize.assert_called_once()
-    call_kwargs = mock_gepa.optimize.call_args.kwargs
-    assert call_kwargs["seed_candidate"] == {"prompt": sample_prompt.template}
-    assert "adapter" in call_kwargs
+    # Verify GEPA was called with correct parameters
+    mock_gepa_module.optimize.assert_called_once()
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+
+    assert call_kwargs["seed_candidate"] == sample_target_prompts
+    assert call_kwargs["adapter"] is not None
+    assert call_kwargs["max_metric_calls"] == 50
+    assert call_kwargs["reflection_lm"] == "openai/gpt-4o-mini"
+    assert call_kwargs["display_progress_bar"] is True
+    assert len(call_kwargs["trainset"]) == 4
 
 
-def test_gepa_optimizer_with_eval_data(sample_data, sample_prompt):
-    mock_gepa = MagicMock()
+def test_gepa_optimizer_optimize_with_custom_reflection_model(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
     mock_result = Mock()
-    mock_result.best_candidate = {"prompt": "Optimized prompt"}
-    mock_result.val_aggregate_scores = [0.6, 0.9]
-    mock_gepa.optimize.return_value = mock_result
-    mock_gepa.GEPAAdapter = MockGEPAAdapter
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
 
-    eval_data = sample_data.copy()
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    with patch.dict(sys.modules, {"gepa": mock_gepa}):
-        optimizer.optimize(
-            prompt=sample_prompt,
-            target_llm_params=LLMParams(model_name="openai/gpt-4"),
-            train_data=sample_data,
-            scorers=[sample_scorer],
-            eval_data=eval_data,
-        )
-
-    call_kwargs = mock_gepa.optimize.call_args.kwargs
-    assert call_kwargs["valset"] is not None
-    assert len(call_kwargs["valset"]) == len(eval_data)
-
-
-def test_gepa_optimizer_with_reflection_lm(sample_data, sample_prompt):
-    mock_gepa = MagicMock()
-    mock_result = Mock()
-    mock_result.best_candidate = {"prompt": "Optimized"}
-    mock_result.val_aggregate_scores = [0.7, 0.85]
-    mock_gepa.optimize.return_value = mock_result
-    mock_gepa.GEPAAdapter = MockGEPAAdapter
-
-    config = OptimizerConfig(
-        optimizer_llm=LLMParams(model_name="anthropic/claude-3-5-sonnet-20241022")
+    optimizer = GepaPromptOptimizer(
+        reflection_model="anthropic:/claude-3-5-sonnet-20241022",
     )
-    optimizer = _GEPAOptimizer(config)
 
-    with patch.dict(sys.modules, {"gepa": mock_gepa}):
+    with patch.dict(sys.modules, mock_modules):
         optimizer.optimize(
-            prompt=sample_prompt,
-            target_llm_params=LLMParams(model_name="openai/gpt-4o"),
-            train_data=sample_data,
-            scorers=[sample_scorer],
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
         )
 
-    call_kwargs = mock_gepa.optimize.call_args.kwargs
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
     assert call_kwargs["reflection_lm"] == "anthropic/claude-3-5-sonnet-20241022"
 
 
-def test_display_optimization_result_improved(capsys):
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    optimizer._display_optimization_result(initial_score=0.5, final_score=0.9)
-
-    captured = capsys.readouterr()
-    assert "Initial score: 0.5" in captured.err
-    assert "Final score: 0.9" in captured.err
-    assert "+0.4000" in captured.err
-
-
-def test_display_optimization_result_stable(capsys):
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    optimizer._display_optimization_result(initial_score=0.8, final_score=0.8)
-
-    captured = capsys.readouterr()
-    assert "Score remained stable at: 0.8" in captured.err
-
-
-def test_display_optimization_result_no_initial(capsys):
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
-    optimizer._display_optimization_result(initial_score=None, final_score=0.9)
-
-    captured = capsys.readouterr()
-    assert "Final score: 0.9" in captured.err
-    assert "Initial score" not in captured.err
-
-
-def test_extract_eval_scores():
-    optimizer = _GEPAOptimizer(OptimizerConfig())
-
+def test_gepa_optimizer_optimize_model_name_parsing(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
     mock_result = Mock()
-    mock_result.val_aggregate_scores = [0.5, 0.7, 0.9, 0.85]
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
 
-    initial_score, final_score = optimizer._extract_eval_scores(mock_result)
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
 
-    assert initial_score == 0.5  # First score
-    assert final_score == 0.9  # Max score
+    with patch.dict(sys.modules, mock_modules):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
+        )
+
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+    assert call_kwargs["reflection_lm"] == "openai/gpt-4o"
+
+
+def test_gepa_optimizer_import_error(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    with patch.dict("sys.modules", {"gepa": None}):
+        optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+        with pytest.raises(ImportError, match="GEPA is not installed"):
+            optimizer.optimize(
+                eval_fn=mock_eval_fn,
+                train_data=sample_train_data,
+                target_prompts=sample_target_prompts,
+            )
+
+
+def test_gepa_optimizer_single_record_dataset(
+    sample_target_prompts: dict[str, str], mock_eval_fn: Any
+):
+    single_record_data = [
+        {
+            "inputs": {"question": "What is 2+2?"},
+            "outputs": "4",
+        }
+    ]
+
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_result = Mock()
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with patch.dict(sys.modules, mock_modules):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=single_record_data,
+            target_prompts=sample_target_prompts,
+        )
+
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+    assert len(call_kwargs["trainset"]) == 1
+
+
+def test_gepa_optimizer_custom_adapter_evaluate(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_result = Mock()
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with patch.dict(sys.modules, mock_modules):
+        result = optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
+        )
+
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+    assert "adapter" in call_kwargs
+    assert call_kwargs["adapter"] is not None
+    assert result.optimized_prompts == sample_target_prompts
+
+
+def test_make_reflective_dataset_with_traces(
+    sample_target_prompts: dict[str, str], mock_eval_fn: Any
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_gepa_module.EvaluationBatch = MagicMock()
+    mock_gepa_module.GEPAAdapter = object
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with patch.dict(sys.modules, mock_modules):
+        captured_adapter = None
+
+        def mock_optimize_fn(**kwargs):
+            nonlocal captured_adapter
+            captured_adapter = kwargs["adapter"]
+            mock_result = Mock()
+            mock_result.best_candidate = sample_target_prompts
+            mock_result.val_aggregate_scores = []
+            return mock_result
+
+        mock_gepa_module.optimize = mock_optimize_fn
+
+        # Call optimize to create the inner adapter
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=[{"inputs": {"question": "test"}, "outputs": "test"}],
+            target_prompts=sample_target_prompts,
+        )
+
+    # Now test make_reflective_dataset with the captured adapter
+    mock_trace = Mock()
+    mock_span1 = Mock()
+    mock_span1.name = "llm_call"
+    mock_span1.inputs = {"prompt": "What is 2+2?"}
+    mock_span1.outputs = {"response": "4"}
+
+    mock_span2 = Mock()
+    mock_span2.name = "retrieval"
+    mock_span2.inputs = {"query": "math"}
+    mock_span2.outputs = {"documents": ["doc1", "doc2"]}
+
+    mock_trace.data.spans = [mock_span1, mock_span2]
+
+    # Create mock trajectories
+    mock_trajectory1 = Mock()
+    mock_trajectory1.trace = mock_trace
+    mock_trajectory1.inputs = {"question": "What is 2+2?"}
+    mock_trajectory1.outputs = "4"
+    mock_trajectory1.expectations = {"expected_response": "4"}
+
+    mock_trajectory2 = Mock()
+    mock_trajectory2.trace = None
+    mock_trajectory2.inputs = {"question": "What is the capital of France?"}
+    mock_trajectory2.outputs = "Paris"
+    mock_trajectory2.expectations = {"expected_response": "Paris"}
+
+    # Create mock evaluation batch
+    mock_eval_batch = Mock()
+    mock_eval_batch.trajectories = [mock_trajectory1, mock_trajectory2]
+    mock_eval_batch.scores = [0.9, 0.7]
+
+    # Test make_reflective_dataset
+    candidate = {"system_prompt": "You are helpful"}
+    components_to_update = ["system_prompt", "instruction"]
+
+    result = captured_adapter.make_reflective_dataset(
+        candidate, mock_eval_batch, components_to_update
+    )
+
+    # Verify result structure
+    assert isinstance(result, dict)
+    assert "system_prompt" in result
+    assert "instruction" in result
+
+    system_data = result["system_prompt"]
+    assert len(system_data) == 2
+    assert system_data[0]["component_name"] == "system_prompt"
+    assert system_data[0]["current_text"] == "You are helpful"
+    assert system_data[0]["score"] == 0.9
+    assert system_data[0]["inputs"] == {"question": "What is 2+2?"}
+    assert system_data[0]["outputs"] == "4"
+    assert system_data[0]["expectations"] == {"expected_response": "4"}
+    assert system_data[0]["index"] == 0
+
+    # Verify trace spans
+    assert len(system_data[0]["trace"]) == 2
+    assert system_data[0]["trace"][0]["name"] == "llm_call"
+    assert system_data[0]["trace"][0]["inputs"] == {"prompt": "What is 2+2?"}
+    assert system_data[0]["trace"][0]["outputs"] == {"response": "4"}
+    assert system_data[0]["trace"][1]["name"] == "retrieval"
+
+    # Verify second record (no trace)
+    assert system_data[1]["trace"] == []
+    assert system_data[1]["score"] == 0.7
+    assert system_data[1]["inputs"] == {"question": "What is the capital of France?"}
+    assert system_data[1]["outputs"] == "Paris"
+    assert system_data[1]["expectations"] == {"expected_response": "Paris"}
