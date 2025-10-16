@@ -77,14 +77,14 @@ no additional explanation.
 
 This approach is ideal when:
 
-- **Downgrading Models**: Moving from `gpt-5` → `gpt-5-mini` to reduce costs
+- **Downgrading Models**: Moving from `gpt-5` → `gpt-4o-mini` to reduce costs
 - **Switching Providers**: Changing from OpenAI to Anthropic or vice versa
 - **Performance Optimization**: Moving to faster models while maintaining quality
 - **You Have Existing Outputs**: Your current system already produces good results
 
 ## Quick Start: Model Migration Workflow
 
-Here's a complete example of migrating from `gpt-5` to `gpt-5-mini` while maintaining output consistency:
+Here's a complete example of migrating from `gpt-5` to `gpt-4o-mini` while maintaining output consistency:
 
 ### Step 1: Capture Outputs from Original Model
 
@@ -111,7 +111,6 @@ def predict_fn_base_model(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
         model="gpt-5",  # Original model
         messages=[{"role": "user", "content": prompt.format(text=text)}],
-        temperature=0,
     )
     return completion.choices[0].message.content.lower()
 
@@ -183,7 +182,7 @@ Switch your LM to the target model:
 @mlflow.trace
 def predict_fn(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-5-mini",  # Target model
+        model="gpt-4o-mini",  # Target model
         messages=[{"role": "user", "content": prompt.format(text=text)}],
         temperature=0,
     )
@@ -211,7 +210,7 @@ optimized_prompt = result.optimized_prompts[0]
 print(f"Optimized template: {optimized_prompt.template}")
 ```
 
-The optimized prompt will include additional instructions to help `gpt-5-mini` match the behavior of `gpt-5`:
+The optimized prompt will include additional instructions to help `gpt-4o-mini` match the behavior of `gpt-5`:
 
 ```
 Optimized template:
@@ -245,7 +244,7 @@ optimized = mlflow.genai.load_prompt(optimized_prompt.uri)
 @mlflow.trace
 def predict_fn_optimized(text: str) -> str:
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-5-mini",
+        model="gpt-4o-mini",
         messages=[{"role": "user", "content": optimized.format(text=text)}],
         temperature=0,
     )
