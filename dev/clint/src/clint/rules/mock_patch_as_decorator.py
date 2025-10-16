@@ -11,7 +11,6 @@ class MockPatchAsDecorator(Rule):
     # Files are sorted by violation count (descending) to prioritize migration
     IGNORED_FILES = {
         "tests/utils/test_databricks_utils.py",  # 10
-        "tests/genai/scorers/test_scorer_CRUD.py",  # 5
         "tests/store/tracking/test_databricks_rest_store.py",  # 4
     }
 
