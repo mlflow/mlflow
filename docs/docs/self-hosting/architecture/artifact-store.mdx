@@ -5,13 +5,13 @@ import { APILink } from "@site/src/components/APILink";
 
 The artifact store is a core component in [MLflow Tracking](/ml/tracking) where MLflow stores (typically large) artifacts
 for each run such as model weights (e.g. a pickled scikit-learn model), images (e.g. PNGs), model and data files (e.g. [Parquet](https://parquet.apache.org/) file).
-Note that metadata like parameters, metrics, and tags are stored in a [backend store](/ml/tracking/backend-stores) (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
+Note that metadata like parameters, metrics, and tags are stored in a [backend store](/self-hosting/architecture/backend-store) (e.g., PostGres, MySQL, or MSSQL Database), the other component of the MLflow Tracking.
 
 ## Configuring an Artifact Store
 
 MLflow by default stores artifacts in a local (file system) `./mlruns` directory, but also supports various locations suitable for large data:
 Amazon S3, Azure Blob Storage, Google Cloud Storage, SFTP server, and NFS. You can connect those remote storages via the MLflow Tracking server.
-See [tracking server setup](/ml/tracking/server#tracking-server-artifact-store) and the specific section for your storage in [supported storages](/ml/tracking/artifact-stores#artifacts-store-supported-storages) for guidance on
+See [tracking server setup](/self-hosting/architecture/tracking-server#tracking-server-artifact-store) and the specific section for your storage in [supported storages](/self-hosting/architecture/artifact-store#artifacts-store-supported-storages) for guidance on
 how to connect to the remote storage of your choice.
 
 ### Managing Artifact Store Access \{#artifacts-stores-manage-access}

@@ -6,22 +6,18 @@ last_update:
 
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Connect Your Development Environment to MLflow
 
 This guide shows you how to connect your development environment to an MLflow Experiment. You can run MLflow on your local machine, self-host the open source MLflow service, or use a managed offering, such as Databricks Managed MLflow.
-
-:::note[MLflow Experiments]
-An MLflow Experiment is the container for your GenAI application. Learn more about Experiments in the [MLflow documentation](/ml/tracking).
-:::
 
 ## Prerequisites
 
 <Tabs>
   <TabItem value="oss" label="OSS MLflow">
 
-    - **Python Environment**: Python 3.8+ with pip installed
-    - **Local or Remote Server**: Access to run MLflow tracking server
+    - **Python Environment**: Python 3.9+ with pip installed
 
   </TabItem>
   <TabItem value="managed" label="Databricks">
@@ -29,7 +25,7 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
     - **Databricks Workspace**: Access to a Databricks workspace
 
     :::note[Authentication Methods]
-    This guide describes using a Databricks Personal Access Token. MLflow also works with the other [Databricks-supported authentication methods](https://docs.databricks.com/aws/en/dev-tools/auth).
+    This guide describes using a Databricks Personal Access Token. MLflow also works with the other <ins>[Databricks-supported authentication methods](https://docs.databricks.com/aws/en/dev-tools/auth)</ins>.
     :::
 
   </TabItem>
@@ -37,20 +33,34 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
 
 ## Setup Instructions
 
+<TabsWrapper>
 <Tabs>
   <TabItem value="oss" label="OSS MLflow">
 
-        ### Step 1: Install MLflow
-
-        Install MLflow for local development:
+        #### Step 1: Install MLflow
 
         ```bash
         pip install --upgrade "mlflow>=3.1"
         ```
 
-        ### Step 2: Start MLflow Tracking Server
+        <br/>
 
-        **Option A: Local Tracking (Default)**
+        #### Step 2: Configure Tracking
+
+        MLflow supports different backends for tracking your experiment data. Choose one of the following options to get started. Refer to the [Self Hosting Guide](/self-hosting) for detailed setup and configurations.
+
+        **Option A: Database (Recommended)**
+
+        Set the tracking URI to a local database URI (e.g., `sqlite:///mlflow.db`). This is recommended option for quickstart and local development.
+
+        ```python
+        import mlflow
+
+        mlflow.set_tracking_uri("sqlite:///mlflow.db")
+        mlflow.set_experiment("my-genai-experiment")
+        ```
+
+        **Option B: File System**
 
         MLflow will automatically use local file storage if no tracking URI is specified:
 
@@ -61,15 +71,16 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
         mlflow.set_experiment("my-genai-experiment")
         ```
 
-        **Option B: Remote Tracking Server**
+        :::warning[TO BE DEPRECATED SOON]
 
-        Start a remote MLflow tracking server:
+          File system backend is in Keep-the-Light-On (KTLO) mode and will not receive most of the new features in MLflow.
+          We recommend using the database backend instead. Database backend will also be the default option soon.
 
-        ```bash
-        # Start MLflow server (in a separate terminal)
-        mlflow server --host 0.0.0.0 --port 5000
-        ```
+        :::
 
+        **Option C: Remote Tracking Server**
+
+        Start a remote MLflow tracking server following the [Self Hosting Guide](/self-hosting).
         Then configure your client to use the remote server:
 
         ```python
@@ -80,44 +91,16 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
         mlflow.set_experiment("my-genai-experiment")
         ```
 
-        **Option C: Database Backend**
-
-        For production use, configure MLflow with a database backend:
+        Alternatively, you can configure the tracking URI and experiment using environment variables:
 
         ```bash
-        # Example with PostgreSQL
-        mlflow server \
-            --backend-store-uri postgresql://user:password@localhost:5432/mlflow \
-            --default-artifact-root s3://my-mlflow-bucket/artifacts \
-            --host 0.0.0.0 \
-            --port 5000
+        export MLFLOW_TRACKING_URI="http://localhost:5000"
+        export MLFLOW_EXPERIMENT_NAME="my-genai-experiment"
         ```
 
-        ### Step 3: Configure Environment (Optional)
+        <br/>
 
-        For consistent configuration across your team, use environment variables:
-
-        ```bash
-        # .env file
-        MLFLOW_TRACKING_URI=http://localhost:5000
-        MLFLOW_EXPERIMENT_NAME=my-genai-experiment
-        ```
-
-        Load in your Python code:
-
-        ```python
-        import os
-        from dotenv import load_dotenv
-        import mlflow
-
-        load_dotenv()
-
-        # Set tracking URI and experiment
-        mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI", "file:./mlruns"))
-        mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "default"))
-        ```
-
-        ### Step 4: Verify Your Connection
+        #### Step 3: Verify Your Connection
 
         Create a test file and run this code:
 
@@ -134,12 +117,35 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
             print("✓ Successfully connected to MLflow!")
         ```
 
-        ### Step 5: Access MLflow UI
+        <br/>
 
-        Open your browser to view the MLflow UI:
+        #### Step 4: Access MLflow UI
 
-        - **Local tracking**: `http://localhost:5000` (if running mlflow server)
-        - **File-based tracking**: Run `mlflow ui` in your project directory, then go to `http://localhost:5000`
+        If you are using local tracking (option A or B), run the following command and access the MLflow UI at `http://localhost:5000`.
+
+        ```bash
+        # For Option A
+        mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+        # For Option B
+        mlflow ui --port 5000
+        ```
+
+        If you have the remote tracking server running (option C), access the MLflow UI at the same URI.
+
+
+        :::info[ACCESS DENIED?]
+
+          When using the remove tracking server, you may hit an access denied error when accessing the MLflow UI
+          from a browser.
+
+          > Invalid Host header - possible DNS rebinding attack detected
+
+          The common cause for this error is the tracking server does not allow requests from your origin to
+          prevent clickjacking attacks. You need to set up an allowlist of CORS origins in the tracking server
+          configuration in this case.
+          Refer to the <ins>[Network Security Guide](/self-hosting/security/network#cors-origins)</ins> for more details.
+
+        :::
 
       </TabItem>
 
@@ -153,11 +159,15 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
     pip install --upgrade "mlflow[databricks]>=3.1"
     ```
 
+    <br/>
+
     #### Step 2: Create an MLflow Experiment
 
     1. Open your Databricks workspace
     2. Go to **Experiments** in the left sidebar under **Machine Learning**
     3. At the top of the Experiments page, click on **New GenAI Experiment**
+
+    <br/>
 
     #### Step 3: Configure Authentication
 
@@ -222,10 +232,11 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
 
     Databricks runtimes include MLflow, but for the best experience with GenAI capabilities, update to the latest version:
 
-    ```
+    ```bash
     %pip install --upgrade "mlflow[databricks]>=3.1"
     dbutils.library.restartPython()
     ```
+    <br/>
 
     #### Step 2: Create a Notebook
 
@@ -235,9 +246,13 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
     2. Go to **New** at the top of the left sidebar
     3. Click **Notebook**
 
+    <br/>
+
     #### Step 3: Configure Authentication
 
     No additional authentication configuration is needed when working within a Databricks Notebook. The notebook automatically has access to your workspace and the associated MLflow Experiment.
+
+    <br/>
 
     #### Step 4: Verify Your Connection
 
@@ -254,6 +269,7 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
 
   </TabItem>
 </Tabs>
+</TabsWrapper>
 
 ## Next Steps
 
