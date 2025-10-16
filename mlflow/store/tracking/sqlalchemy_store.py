@@ -17,7 +17,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, case, exists, func, or_, sql, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.future import select
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, joinedload
 
 import mlflow.store.db.utils
 from mlflow.entities import (
@@ -36,6 +36,8 @@ from mlflow.entities import (
     RunTag,
     ScorerVersion,
     SourceType,
+    Trace,
+    TraceData,
     TraceInfo,
     ViewType,
     _DatasetSummary,
@@ -55,7 +57,7 @@ from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, MlflowNotImplementedException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -101,7 +103,12 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    TRACKING_STORE,
+    TraceMetadataKey,
+    TraceTagKey,
+)
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2527,10 +2534,10 @@ class SqlAlchemyStore(AbstractStore):
                 response_preview=trace_info.response_preview,
             )
 
-            sql_trace_info.tags = [
+            tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ]
-            sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, trace_id))
+            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
@@ -2547,6 +2554,17 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
+                db_sql_trace_info = (
+                    session.query(SqlTraceInfo)
+                    .filter(SqlTraceInfo.request_id == trace_id)
+                    .one_or_none()
+                )
+                if db_sql_trace_info:
+                    for tag in db_sql_trace_info.tags:
+                        if tag.key not in tags:
+                            sql_trace_info.tags.append(
+                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
+                            )
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3272,7 +3290,15 @@ class SqlAlchemyStore(AbstractStore):
                     client_request_id=None,
                 )
                 # Add the artifact location tag that's required for search_traces to work
-                sql_trace_info.tags = [self._get_trace_artifact_location_tag(experiment, trace_id)]
+                tags = [
+                    SqlTraceTag(
+                        key=TraceTagKey.SPANS_LOCATION,
+                        value=TRACKING_STORE,
+                        request_id=trace_id,
+                    ),
+                    self._get_trace_artifact_location_tag(experiment, trace_id),
+                ]
+                sql_trace_info.tags = tags
                 session.add(sql_trace_info)
                 try:
                     session.flush()
@@ -3325,6 +3351,12 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
                 # Skip session synchronization for performance - we don't use the object afterward
+                synchronize_session=False,
+            )
+            session.query(SqlTraceTag).filter(
+                SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
+            ).update(
+                {"value": TRACKING_STORE},
                 synchronize_session=False,
             )
 
@@ -3385,6 +3417,67 @@ class SqlAlchemyStore(AbstractStore):
                     # UNSET is unexpected in production but we handle it gracefully.
                     return TraceState.OK.value
         return None
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Get complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: The trace IDs to get.
+            location: Location of the trace. Should be None for SQLAlchemy backend.
+
+        Returns:
+            List of Trace objects for the given trace IDs.
+        """
+        if not all(trace_id.startswith(TRACE_REQUEST_ID_PREFIX) for trace_id in trace_ids):
+            raise MlflowException.invalid_parameter_value(
+                "Invalid trace IDs for the tracking store. Expected format: "
+                f"{TRACE_REQUEST_ID_PREFIX}<trace_id>"
+            )
+
+        if not trace_ids:
+            return []
+
+        traces = []
+        order_case = case(
+            {trace_id: idx for idx, trace_id in enumerate(trace_ids)},
+            value=SqlTraceInfo.request_id,
+        )
+        with self.ManagedSessionMaker() as session:
+            # Load traces and their spans in one go
+            sql_trace_infos = (
+                session.query(SqlTraceInfo)
+                .options(joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id.in_(trace_ids))
+                .order_by(order_case)
+                .all()
+            )
+
+            traces = []
+            for sql_trace_info in sql_trace_infos:
+                trace_info = sql_trace_info.to_mlflow_entity()
+                # if the tag doesn't exist then the trace is not stored in the tracking store,
+                # we should rely on the artifact repo to get the trace data
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != TRACKING_STORE:
+                    # TODO: raise a better exception, currently it's captured in handler
+                    # and load data from artifact repo instead
+                    raise MlflowNotImplementedException()
+                spans = [
+                    Span.from_dict(json.loads(sql_span.content))
+                    for sql_span in sorted(
+                        sql_trace_info.spans,
+                        key=lambda s: (
+                            # Root spans come first, then sort by start time
+                            0 if s.parent_span_id is None else 1,
+                            s.start_time_unix_nano,
+                        ),
+                    )
+                ]
+                # TODO: extract inputs/outputs if not existing
+                trace = Trace(info=trace_info, data=TraceData(spans=spans))
+                traces.append(trace)
+
+            return traces
 
     #######################################################################################
     # Entity Association Methods

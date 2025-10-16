@@ -317,9 +317,16 @@ class Trace(_MlflowObject):
     def to_proto(self):
         """
         Convert into a proto object to sent to the MLflow backend.
-
-        NB: The Trace definition in MLflow backend doesn't include the `data` field,
-            but rather only contains TraceInfoV3.
         """
 
-        return ProtoTrace(trace_info=self.info.to_proto())
+        return ProtoTrace(
+            trace_info=self.info.to_proto(),
+            spans=[span.to_otel_proto() for span in self.data.spans],
+        )
+
+    @classmethod
+    def from_proto(cls, proto: ProtoTrace) -> "Trace":
+        return cls(
+            info=TraceInfo.from_proto(proto.trace_info),
+            data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
+        )
