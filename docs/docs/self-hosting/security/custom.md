@@ -5,19 +5,40 @@ MLflow's authentication system is designed to be extensible. You can use custom 
 ### Using a Plugin
 
 If your organization desires more advanced authentication logic
-(e.g., token-based authentication), it is possible to install a third party plugin or to create your own plugin. For example, you can install the [mlflow-oidc-auth](https://github.com/mlflow/mlflow-oidc-auth) plugin to enable OIDC-based SSO.
+(e.g., token-based authentication), it is possible to install a third party plugin or to create your own plugin. For example, you can install the [mlflow-oidc-auth](https://github.com/mlflow-oidc/mlflow-oidc-auth) plugin to enable OIDC-based SSO.
 
 Your plugin should be an installable Python package. It should include an app factory that extends the MLflow app and, optionally, implement a client to manage permissions.
 The app factory function name will be passed to the `--app` argument in Flask CLI.
 See https://flask.palletsprojects.com/en/latest/cli/#application-discovery for more information.
 
 ```python title="Example: my_auth/__init__.py"
-from flask import Flask
+from flask import Flask, Response, request
+from werkzeug.datastructures import Authorization
+
 from mlflow.server import app
+from mlflow.server.handlers import catch_mlflow_exception
+
+
+def authenticate_request_custom() -> Authorization | Response:
+    """Custom auth logic for your organization."""
+    ...
+
+
+@catch_mlflow_exception
+def _before_request():
+    if request.path.startswith("/public"):
+        return
+
+    authorization = authenticate_request_custom()
+    if isinstance(authorization, Response):
+        return authorization
+
+    # Perform additional authorization checks with the Authorization object as needed.
 
 
 def create_app(app: Flask = app):
-    app.add_url_rule(...)
+    app.add_url_rule("/api/custom-auth/login", view_func=..., methods=["POST"])
+    app.before_request(_before_request)
     return app
 
 
