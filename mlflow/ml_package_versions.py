@@ -307,7 +307,7 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "onnx"
         },
         "models": {
-            "minimum": "1.15.0",
+            "minimum": "1.17.0",
             "maximum": "1.19.0"
         }
     },
