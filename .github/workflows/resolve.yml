@@ -27,11 +27,34 @@ jobs:
        github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/resolve'))
     steps:
-      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
-        id: app-token
+      - name: React to comment and check authorization
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          script: |
+            const { comment } = context.payload;
+            const isAuthorized = comment.user.login === 'harupy';
+
+            let message;
+            if (isAuthorized) {
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              message = `🚀 [Resolve workflow started](${workflowUrl})`;
+            } else {
+              message = '⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored.';
+            }
+
+            const updatedBody = `${comment.body}\n\n---\n${message}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              body: updatedBody,
+            });
+
+            if (!isAuthorized) {
+              throw new Error("Unauthorized user attempted to trigger workflow: " + comment.user.login);
+            }
 
       - name: Get PR information
         id: pr-info
@@ -53,41 +76,17 @@ jobs:
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('head_repository', pr.head.repo.full_name);
 
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: ${{ steps.pr-info.outputs.head_repository }}
           ref: ${{ steps.pr-info.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
-
-      - name: React to comment
-        if: ${{ github.event_name == 'issue_comment' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const { appendToComment } = require('./.github/workflows/utils.js');
-            const { comment } = context.payload;
-
-            await github.rest.reactions.createForIssueComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: comment.id,
-              content: 'rocket'
-            });
-
-            const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
-            await appendToComment(context, github, comment.id, `🚀 [Resolve workflow started](${workflowUrl})`);
-
-      - name: Check authorization for issue comment
-        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            const { appendToComment } = require('./.github/workflows/utils.js');
-            const commentId = context.payload.comment.id;
-
-            await appendToComment(context, github, commentId, '⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored.');
-
-            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
 
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
