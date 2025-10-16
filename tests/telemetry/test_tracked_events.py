@@ -15,8 +15,6 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
-from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
-from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
@@ -374,40 +372,53 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.genai.optimize import optimize_prompts
+    from mlflow.genai.optimize.optimizers import BasePromptOptimizer
+    from mlflow.genai.optimize.types import PromptOptimizerOutput
+
+    class MockAdapter(BasePromptOptimizer):
+        def __init__(self):
+            self.model_name = "openai:/gpt-4o-mini"
+
+        def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
+
     sample_prompt = mlflow.genai.register_prompt(
-        name="test_translation_prompt",
-        template="Translate the following text to {{language}}: {{input_text}}",
+        name="test_prompt_for_adaptation",
+        template="Translate {{input_text}} to {{language}}",
     )
-    sample_data = pd.DataFrame(
+
+    sample_data = [
+        {"inputs": {"input_text": "Hello", "language": "Spanish"}, "outputs": "Hola"},
+        {"inputs": {"input_text": "World", "language": "French"}, "outputs": "Monde"},
+    ]
+
+    @mlflow.genai.scorers.scorer
+    def exact_match_scorer(outputs, expectations):
+        return 1.0 if outputs == expectations["expected_response"] else 0.0
+
+    def predict_fn(input_text, language):
+        mlflow.genai.load_prompt(f"prompts:/{sample_prompt.name}/{sample_prompt.version}")
+        return "translated"
+
+    optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_data,
+        prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
+        optimizer=MockAdapter(),
+        scorers=[exact_match_scorer],
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        PromptOptimizationEvent.name,
         {
-            "inputs": [
-                {"input_text": "Hello", "language": "Spanish"},
-                {"input_text": "World", "language": "French"},
-            ],
-            "expectations": [{"translation": "Hola"}, {"translation": "Monde"}],
-        }
+            "optimizer_type": "MockAdapter",
+            "prompt_count": 1,
+            "scorer_count": 1,
+            "custom_aggregation": False,
+        },
     )
-
-    @scorer
-    def sample_scorer(inputs, outputs, expectations):
-        return 1.0
-
-    with mock.patch(
-        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
-        return_value=OptimizerOutput(
-            final_eval_score=1.0,
-            initial_eval_score=0.5,
-            optimizer_name="DSPy/MIPROv2",
-            optimized_prompt="optimized",
-        ),
-    ):
-        mlflow.genai.optimize_prompt(
-            target_llm_params=LLMParams(model_name="test/model"),
-            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
-            train_data=sample_data,
-            scorers=[sample_scorer],
-        )
-    validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
 
 
 def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):

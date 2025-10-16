@@ -342,9 +342,9 @@ def _to_dict(obj: Any) -> dict[str, Any]:
 def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
-    Only consider the last retrieval span in the trace if there are multiple retrieval spans.
-    If the trace does not have a retrieval span, return None.
-    ⚠️ Warning: Please make sure to not throw exception. If fails, return None.
+    Extracts all top-level retrieval spans from the trace if there are multiple retrieval spans.
+    If the trace does not have a retrieval span, return an empty dictionary.
+    ⚠️ Warning: Please make sure to not throw exception. If fails, return an empty dictionary.
     """
     if trace is None or trace.data is None:
         return {}

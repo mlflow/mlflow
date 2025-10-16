@@ -233,6 +233,10 @@ def add_pr_review_comment(
             "'file' indicates the entire file"
         ),
     ] = "line",
+    in_reply_to: Annotated[
+        int | None,
+        "The ID of the review comment to reply to. Use this to create a threaded reply",
+    ] = None,
 ) -> str:
     """
     Add a review comment to a pull request.
@@ -255,6 +259,8 @@ def add_pr_review_comment(
         data["start_side"] = start_side
     if subject_type == "file":
         data["subject_type"] = subject_type
+    if in_reply_to is not None:
+        data["in_reply_to"] = in_reply_to
 
     result = github_api_request(url, method="POST", data=data)
     return f"Comment added successfully: {result.get('html_url')}"

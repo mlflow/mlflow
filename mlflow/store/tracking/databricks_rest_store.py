@@ -11,9 +11,10 @@ from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_TRACING_SQL_WAREHOUSE_ID,
 )
-from mlflow.exceptions import MlflowException, RestException, get_error_code
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
+    BAD_REQUEST,
     ENDPOINT_NOT_FOUND,
     INVALID_PARAMETER_VALUE,
     ErrorCode,
@@ -60,6 +61,7 @@ from mlflow.utils.rest_utils import (
     get_single_assessment_endpoint_v4,
     get_single_trace_endpoint_v4,
     http_request,
+    verify_rest_response,
 )
 
 DATABRICKS_UC_TABLE_HEADER = "X-Databricks-UC-Table-Name"
@@ -85,6 +87,40 @@ class DatabricksTracingRestStore(RestStore):
 
     def __init__(self, get_host_creds):
         super().__init__(get_host_creds)
+
+    def _call_endpoint(
+        self,
+        api,
+        json_body=None,
+        endpoint=None,
+        retry_timeout_seconds=None,
+        response_proto=None,
+    ):
+        try:
+            return super()._call_endpoint(
+                api,
+                json_body=json_body,
+                endpoint=endpoint,
+                retry_timeout_seconds=retry_timeout_seconds,
+                response_proto=response_proto,
+            )
+        except RestException as e:
+            if (
+                e.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
+                and "Could not resolve a SQL warehouse ID" in e.message
+            ):
+                raise MlflowException(
+                    message=(
+                        "SQL warehouse ID is required for accessing traces in UC tables.\n"
+                        f"Please set the {MLFLOW_TRACING_SQL_WAREHOUSE_ID.name} environment "
+                        "variable to your SQL warehouse ID.\n"
+                        "```\nexport MLFLOW_TRACING_SQL_WAREHOUSE_ID=<your_sql_warehouse_id>\n```\n"
+                        "See https://docs.databricks.com/compute/sql-warehouse for how to "
+                        "set up a SQL warehouse and get its ID."
+                    ),
+                    error_code=BAD_REQUEST,
+                ) from e
+            raise
 
     def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
@@ -439,12 +475,8 @@ class DatabricksTracingRestStore(RestStore):
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
-        host_creds = self.get_host_creds()
-        # avoid using databricks sdk for this request since we need special handling
-        # for the protobuf response
-        host_creds.use_databricks_sdk = False
         response = http_request(
-            host_creds=host_creds,
+            host_creds=self.get_host_creds(),
             endpoint=endpoint,
             method="POST",
             data=request.SerializeToString(),
@@ -454,36 +486,8 @@ class DatabricksTracingRestStore(RestStore):
                 **config.authenticate(),
             },
         )
-        self._verify_trace_response(response, endpoint)
+        verify_rest_response(response, endpoint)
         return spans
-
-    def _verify_trace_response(self, response, endpoint):
-        # v1/traces endpoint returns empty response for successful requests
-        if response.status_code == 200 and response.text.strip() == "":
-            response._content = b"{}"
-            return response
-
-        # Handle non-200 status codes
-        if response.status_code != 200:
-            try:
-                from google.rpc import status_pb2
-
-                # OTLP traces endpoint returns a protobuf status message
-                error_status = status_pb2.Status()
-                error_status.ParseFromString(response.content)
-            except Exception:
-                raise MlflowException(
-                    f"API request to endpoint {endpoint} "
-                    f"failed with error code {response.status_code}. "
-                    f"Response body: '{response.text}'",
-                    error_code=get_error_code(response.status_code),
-                )
-            else:
-                raise RestException(
-                    {"error_code": response.status_code, "message": error_status.message}
-                )
-
-        return response
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -619,6 +623,26 @@ class DatabricksTracingRestStore(RestStore):
         else:
             return super().delete_assessment(trace_id, assessment_id)
 
+    def _group_traces_by_location(self, trace_ids: list[str]) -> dict[str | None, list[str]]:
+        """
+        Group trace IDs by location to separate V3 and V4 traces.
+
+        Args:
+            trace_ids: List of trace IDs (can be V3 or V4 format).
+
+        Returns:
+            Dict mapping location to list of trace IDs where:
+            - None key: List of V3 trace IDs (without location prefix)
+            - str keys: Location IDs (e.g., "catalog.schema") mapping to OTEL trace IDs
+        """
+        traces_by_location: dict[str | None, list[str]] = defaultdict(list)
+
+        for trace_id in trace_ids:
+            location_id, trace_id = parse_trace_id_v4(trace_id)
+            traces_by_location[location_id].append(trace_id)
+
+        return traces_by_location
+
     def _batch_link_traces_to_run(
         self, location_id: str, otel_trace_ids: list[str], run_id: str
     ) -> None:
@@ -678,25 +702,35 @@ class DatabricksTracingRestStore(RestStore):
         if not trace_ids:
             return
 
-        # Group traces by location (None for V3 traces)
-        # For V3 traces, store original IDs; for V4 traces, store OTEL trace IDs
-        v3_trace_ids: list[str] = []
-        v4_traces_by_location: dict[str, list[str]] = defaultdict(list)
+        traces_by_location = self._group_traces_by_location(trace_ids)
 
-        for trace_id in trace_ids:
-            location_id, otel_trace_id = parse_trace_id_v4(trace_id)
+        for location_id, batch_trace_ids in traces_by_location.items():
             if location_id is None:
-                v3_trace_ids.append(trace_id)
+                super().link_traces_to_run(batch_trace_ids, run_id)
             else:
-                v4_traces_by_location[location_id].append(otel_trace_id)
+                self._batch_link_traces_to_run(location_id, batch_trace_ids, run_id)
 
-        # Link V3 traces
-        if v3_trace_ids:
-            super().link_traces_to_run(v3_trace_ids, run_id)
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing trace-to-run relationships.
 
-        # Link V4 traces grouped by location
-        for location_id, otel_trace_ids in v4_traces_by_location.items():
-            self._batch_link_traces_to_run(location_id, otel_trace_ids, run_id)
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+        """
+        if not trace_ids:
+            return
+
+        traces_by_location = self._group_traces_by_location(trace_ids)
+
+        if v3_trace_ids := traces_by_location.pop(None, []):
+            raise MlflowException(
+                "Unlinking traces from runs is only supported for traces with UC schema "
+                f"locations. Unsupported trace IDs: {v3_trace_ids}"
+            )
+
+        for location_id, batch_trace_ids in traces_by_location.items():
+            self._batch_unlink_traces_from_run(location_id, batch_trace_ids, run_id)
 
     def _append_sql_warehouse_id_param(self, endpoint: str) -> str:
         if sql_warehouse_id := MLFLOW_TRACING_SQL_WAREHOUSE_ID.get():
