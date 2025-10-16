@@ -201,7 +201,7 @@ onnx:
       pip install dist/*manylinux*.whl
 
   models:
-    minimum: "1.15.0"
+    minimum: "1.17.0"
     maximum: "1.19.0"
     requirements:
       ">= 0.0.0": ["onnxruntime", "onnxscript", "torch", "scikit-learn"]
