@@ -13,19 +13,24 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  resolve:
+  authorize:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-      pull-requests: write
       issues: write
-    timeout-minutes: 30
+      pull-requests: read
+    timeout-minutes: 5
     if: >
       github.event_name == 'pull_request'
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
        startsWith(github.event.comment.body, '/resolve'))
+    outputs:
+      pr_url: ${{ steps.pr-info.outputs.pr_url }}
+      head_ref: ${{ steps.pr-info.outputs.head_ref }}
+      head_repository: ${{ steps.pr-info.outputs.head_repository }}
+      prompt: ${{ steps.prompt.outputs.prompt }}
+      comment_id: ${{ github.event.comment.id }}
     steps:
       - name: React to comment and check authorization
         if: ${{ github.event_name == 'issue_comment' }}
@@ -76,18 +81,6 @@ jobs:
             core.setOutput('head_ref', pr.head.ref);
             core.setOutput('head_repository', pr.head.repo.full_name);
 
-      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
-        id: app-token
-        with:
-          app-id: ${{ secrets.APP_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-        with:
-          repository: ${{ steps.pr-info.outputs.head_repository }}
-          ref: ${{ steps.pr-info.outputs.head_ref }}
-          token: ${{ steps.app-token.outputs.token }}
-
       - name: Extract optional prompt from comment
         if: github.event_name == 'issue_comment'
         id: prompt
@@ -96,6 +89,27 @@ jobs:
         run: |
           PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
           echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+
+  resolve:
+    needs: authorize
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    timeout-minutes: 30
+    outputs:
+      claude_output: ${{ steps.claude-fix.outputs.output }}
+    steps:
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ needs.authorize.outputs.head_repository }}
+          ref: ${{ needs.authorize.outputs.head_ref }}
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
         run: |
@@ -126,8 +140,8 @@ jobs:
         id: claude-fix
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          PR_URL: ${{ steps.pr-info.outputs.pr_url }}
-          PROMPT: ${{ steps.prompt.outputs.prompt }}
+          PR_URL: ${{ needs.authorize.outputs.pr_url }}
+          PROMPT: ${{ needs.authorize.outputs.prompt }}
         run: |
           # Test to ensure the token is valid
           claude --allowed-tools mcp__github__pull_request_read --print "What is the title of $PR_URL?"
@@ -156,20 +170,27 @@ jobs:
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
+  report:
+    needs: [authorize, resolve]
+    if: always() && github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    timeout-minutes: 5
+    steps:
       - name: Update original comment with result
-        if: always() && github.event_name == 'issue_comment'
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
-          WORKFLOW_CONCLUSION: ${{ job.status }}
-          CLAUDE_OUTPUT: ${{ steps.claude-fix.outputs.output }}
+          COMMENT_ID: ${{ needs.authorize.outputs.comment_id }}
+          RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
+          CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
           script: |
-            const { appendToComment } = require('./.github/workflows/utils.js');
-            const commentId = context.payload.comment.id;
-            const workflowStatus = process.env.WORKFLOW_CONCLUSION;
+            const commentId = parseInt(process.env.COMMENT_ID, 10);
+            const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
             const claudeOutput = process.env.CLAUDE_OUTPUT || '';
 
-            const statusMessage = workflowStatus !== 'success'
+            const statusMessage = resolveJobStatus !== 'success'
               ? `⚠️ Workflow encountered an error.`
               : `✅ Workflow completed successfully.`;
 
@@ -197,4 +218,18 @@ jobs:
               resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${detailsContent}\n\n</details>`;
             }
 
-            await appendToComment(context, github, commentId, resultMessage);
+            // Inline appendToComment logic
+            const { data: currentComment } = await github.rest.issues.getComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+            });
+
+            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: commentId,
+              body: updatedBody,
+            });
