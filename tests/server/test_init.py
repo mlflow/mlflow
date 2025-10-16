@@ -203,16 +203,15 @@ def test_run_server_with_jobs_without_uv(monkeypatch):
                 return None
             return original_which(cmd)
 
-        monkeypatch.setattr(shutil, "which", patched_which)
-
-        with pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"):
-            server._run_server(
-                file_store_path="",
-                registry_store_uri="",
-                default_artifact_root="",
-                serve_artifacts="",
-                artifacts_only="",
-                artifacts_destination="",
-                host="",
-                port="",
-            )
+        with mock.patch("shutil.which", side_effect=patched_which):
+            with pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"):
+                server._run_server(
+                    file_store_path="",
+                    registry_store_uri="",
+                    default_artifact_root="",
+                    serve_artifacts="",
+                    artifacts_only="",
+                    artifacts_destination="",
+                    host="",
+                    port="",
+                )
