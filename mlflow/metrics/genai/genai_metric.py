@@ -362,6 +362,7 @@ def make_genai_metric(
     model: str | None = _get_default_model(),
     grading_context_columns: str | list[str] | None = None,
     include_input: bool = True,
+    grading_system_prompt_template: PromptTemplate | str | list[str] | None = None,
     parameters: dict[str, Any] | None = None,
     aggregations: list[str] | None = None,
     greater_is_better: bool = True,
@@ -391,6 +392,9 @@ def make_genai_metric(
             :py:func:`mlflow.evaluate()`. They can also be the name of other evaluated metrics.
         include_input: (Optional) Whether to include the input
             when computing the metric.
+        grading_system_prompt_template: (Optional) Prompt template used to instruct the grading
+            model. When not provided, MLflow's default template for the selected ``version`` is
+            used. The value can be provided as a string, a list of strings, or a ``PromptTemplate``.
         parameters: (Optional) Parameters for the LLM used to compute the metric. By default, we
             set the temperature to 0.0, max_tokens to 200, and top_p to 1.0. We recommend
             setting the temperature to 0.0 for the LLM used as a judge to ensure consistent results.
@@ -486,6 +490,11 @@ def make_genai_metric(
         "grading_context_columns": grading_context_columns,
         "include_input": include_input,
         "parameters": parameters,
+        "grading_system_prompt_template": (
+            grading_system_prompt_template.template_strs
+            if isinstance(grading_system_prompt_template, PromptTemplate)
+            else grading_system_prompt_template
+        ),
         "aggregations": aggregations,
         "greater_is_better": greater_is_better,
         "max_workers": max_workers,
@@ -547,14 +556,21 @@ def make_genai_metric(
             error_code=INTERNAL_ERROR,
         ) from None
 
-    evaluation_context = evaluation_model_class_module(
-        name,
-        definition,
-        grading_prompt,
-        examples,
-        model,
-        *(parameters,) if parameters is not None else (),
-    ).to_dict()
+    evaluation_model_kwargs = {
+        "name": name,
+        "definition": definition,
+        "grading_prompt": grading_prompt,
+        "examples": examples,
+        "model": model,
+    }
+
+    if parameters is not None:
+        evaluation_model_kwargs["parameters"] = parameters
+
+    if grading_system_prompt_template is not None:
+        evaluation_model_kwargs["grading_system_prompt_template"] = grading_system_prompt_template
+
+    evaluation_context = evaluation_model_class_module(**evaluation_model_kwargs).to_dict()
 
     def eval_fn(
         predictions: "pd.Series",
