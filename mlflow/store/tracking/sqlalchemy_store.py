@@ -57,7 +57,7 @@ from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.exceptions import MlflowException, MlflowNotImplementedException
+from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -3459,9 +3459,9 @@ class SqlAlchemyStore(AbstractStore):
                 # if the tag doesn't exist then the trace is not stored in the tracking store,
                 # we should rely on the artifact repo to get the trace data
                 if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != TRACKING_STORE:
-                    # TODO: raise a better exception, currently it's captured in handler
+                    # This check is required so that the handler can capture the exception
                     # and load data from artifact repo instead
-                    raise MlflowNotImplementedException()
+                    raise MlflowTracingException("Trace data not stored in tracking store")
                 spans = [
                     Span.from_dict(json.loads(sql_span.content))
                     for sql_span in sorted(
