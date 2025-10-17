@@ -100,7 +100,16 @@ def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
     required=True,
     help="Experiment ID to register the judge in. Can be set via MLFLOW_EXPERIMENT_ID env var.",
 )
-def register_llm_judge(name: str, instructions: str, model: str | None, experiment_id: str) -> None:
+@click.option(
+    "--description",
+    "-d",
+    type=click.STRING,
+    required=False,
+    help="Description of what the judge evaluates.",
+)
+def register_llm_judge(
+    name: str, instructions: str, model: str | None, experiment_id: str, description: str | None
+) -> None:
     """
     Register an LLM judge scorer in the specified experiment.
 
@@ -123,12 +132,17 @@ def register_llm_judge(name: str, instructions: str, model: str | None, experime
             -i "Check whether {{ outputs }} is professional and formal. Rate pass, fail, or na" \\
             -m "openai:/gpt-4" -x 123
 
+        # Register a judge with description
+        mlflow scorers register-llm-judge -n quality_judge \\
+            -i "Evaluate if {{ outputs }} answers {{ inputs }}. Return yes or no." \\
+            -d "Evaluates response quality and relevance" -x 123
+
         # Using environment variable
         export MLFLOW_EXPERIMENT_ID=123
         mlflow scorers register-llm-judge -n my_judge \\
             -i "Check whether {{ outputs }} contains PII"
     """
-    judge = make_judge(name=name, instructions=instructions, model=model)
+    judge = make_judge(name=name, instructions=instructions, model=model, description=description)
     registered_judge = judge.register(experiment_id=experiment_id)
     click.echo(
         f"Successfully created and registered judge scorer '{registered_judge.name}' "

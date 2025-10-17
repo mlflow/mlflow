@@ -447,3 +447,75 @@ def test_create_judge_duplicate_registration(runner: CliRunner, experiment: str)
     scorers = list_scorers(experiment_id=experiment)
     assert len(scorers) == 1
     assert scorers[0].name == "duplicate_judge"
+
+
+def test_create_judge_with_description(runner: CliRunner, experiment: str):
+    description = "Evaluates response quality and relevance"
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "judge_with_desc",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--description",
+            description,
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    judge = scorers[0]
+    assert judge.name == "judge_with_desc"
+    assert judge.description == description
+
+
+def test_create_judge_with_description_short_flag(runner: CliRunner, experiment: str):
+    description = "Checks for PII in outputs"
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "-n",
+            "pii_judge",
+            "-i",
+            "Check {{ outputs }}",
+            "-d",
+            description,
+            "-x",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    scorers = list_scorers(experiment_id=experiment)
+    judge = next(s for s in scorers if s.name == "pii_judge")
+    assert judge.description == description
+
+
+def test_create_judge_without_description(runner: CliRunner, experiment: str):
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "judge_no_desc",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    scorers = list_scorers(experiment_id=experiment)
+    judge = next(s for s in scorers if s.name == "judge_no_desc")
+    assert judge.description is None
