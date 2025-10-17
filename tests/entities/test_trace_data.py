@@ -188,7 +188,7 @@ def test_intermediate_outputs_from_spans():
 
     assert trace.data.intermediate_outputs == {
         "retrieved_documents": ["document 1", "document 2"],
-        "llm_1": "Hi, this is LLM 1",
+        "llm": "Hi, this is LLM 1",
         "llm_2": "Hi, this is LLM 2",
     }
 

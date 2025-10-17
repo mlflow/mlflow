@@ -217,7 +217,10 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     for span in spans:
         if count := span_name_counter.get(span._original_name):
             span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
+            # only rename starting from the second duplicate, to be consistent with the case
+            # each span is exported individually and deduplication doesn't apply to the first span.
+            if count > 1:
+                span._span._name = f"{span._original_name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
