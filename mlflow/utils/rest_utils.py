@@ -384,6 +384,26 @@ def _validate_backoff_factor(backoff_factor):
         )
 
 
+def validate_deployment_timeout_config(timeout, retry_timeout_seconds):
+    """
+    Validate that total retry timeout is not less than single request timeout.
+
+    Args:
+        timeout: Maximum time for a single HTTP request (in seconds)
+        retry_timeout_seconds: Maximum time for all retry attempts combined (in seconds)
+    """
+    if timeout is not None and retry_timeout_seconds is not None:
+        if retry_timeout_seconds < timeout:
+            _logger.warning(
+                f"MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT ({retry_timeout_seconds}s) is set "
+                f"lower than MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT ({timeout}s). This means the "
+                "total retry timeout could expire before a single request completes, causing "
+                "premature failures. For long-running predictions, ensure "
+                "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT >= MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT. "
+                f"Recommended: Set MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT to at least {timeout}s."
+            )
+
+
 def _time_sleep(seconds: float) -> None:
     """
     This function is specifically mocked in `test_rest_utils.py` to test the backoff logic in

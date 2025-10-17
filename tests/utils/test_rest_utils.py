@@ -927,3 +927,31 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
         http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
         headers = mock_request.call_args.kwargs["headers"]
         assert "x-databricks-traffic-id" not in headers
+
+
+@pytest.mark.parametrize(
+    ("timeout", "retry_timeout_seconds", "should_warn"),
+    [
+        (300, 120, True),
+        (120, 600, False),
+        (300, 300, False),
+        (None, 120, False),
+        (300, None, False),
+        (None, None, False),
+    ],
+)
+def test_validate_deployment_timeout_config(timeout, retry_timeout_seconds, should_warn):
+    from mlflow.utils.rest_utils import validate_deployment_timeout_config
+
+    with mock.patch("mlflow.utils.rest_utils._logger.warning") as mock_warning:
+        validate_deployment_timeout_config(
+            timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
+        )
+        if should_warn:
+            mock_warning.assert_called_once()
+            warning_msg = mock_warning.call_args[0][0]
+            assert "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT" in warning_msg
+            assert f"({retry_timeout_seconds}s)" in warning_msg
+            assert f"({timeout}s)" in warning_msg
+        else:
+            mock_warning.assert_not_called()

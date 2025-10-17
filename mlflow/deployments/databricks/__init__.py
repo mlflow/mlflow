@@ -8,15 +8,19 @@ from mlflow.deployments.constants import (
     MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
 )
 from mlflow.environment_variables import (
-    MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT,
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
 from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.rest_utils import (
+    augmented_raise_for_status,
+    http_request,
+    validate_deployment_timeout_config,
+)
 
 
 class DatabricksEndpoint(AttrDict):
@@ -130,6 +134,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         timeout: int | None = None,
         retry_timeout_seconds: int | None = None,
     ):
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -160,6 +166,8 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         timeout: int | None = None,
         retry_timeout_seconds: int | None = None,
     ) -> Iterator[str]:
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -248,7 +256,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body=inputs,
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
-            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
     def predict_stream(
@@ -308,7 +316,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body={**inputs, "stream": True},
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
-            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_RETRY_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
         for line in chunk_line_iter:
