@@ -70,11 +70,13 @@ def _mark_int64_fields(proto_message):
             # Skip all non-int64 fields.
             continue
 
-        json_dict[field.name] = (
-            [ftype(v) for v in value]
-            if field.label == FieldDescriptor.LABEL_REPEATED
-            else ftype(value)
-        )
+        # Use is_repeated property (preferred) with fallback to deprecated label
+        try:
+            is_repeated = field.is_repeated
+        except AttributeError:
+            is_repeated = field.label == FieldDescriptor.LABEL_REPEATED
+
+        json_dict[field.name] = [ftype(v) for v in value] if is_repeated else ftype(value)
     return json_dict
 
 
