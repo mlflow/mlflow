@@ -47,7 +47,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import (
     MlflowException,
-    MlflowNotImplementedException,
+    MlflowTracingException,
     _UnsupportedMultipartUploadException,
 )
 from mlflow.models import Model
@@ -3129,7 +3129,7 @@ def get_trace_artifact_handler():
                 "Failed to get trace data from tracking store. Please check the request_id."
             )
         trace_data = traces[0].data.to_dict()
-    except MlflowNotImplementedException:
+    except MlflowTracingException:
         trace_info = _get_tracking_store().get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
