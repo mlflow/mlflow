@@ -247,6 +247,48 @@ def test_list_scorers_long_names(
         assert long_name in result.output
 
 
+def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
+    from mlflow.genai.judges import make_judge
+
+    judge1 = make_judge(
+        name="quality_judge",
+        instructions="Evaluate {{ outputs }}",
+        description="Evaluates response quality",
+    )
+    judge1.register(experiment_id=experiment)
+
+    judge2 = make_judge(
+        name="safety_judge",
+        instructions="Check {{ outputs }}",
+        description="Checks for safety issues",
+    )
+    judge2.register(experiment_id=experiment)
+
+    judge3 = make_judge(
+        name="no_desc_judge",
+        instructions="Evaluate {{ outputs }}",
+    )
+    judge3.register(experiment_id=experiment)
+
+    result_json = runner.invoke(
+        commands, ["list", "--experiment-id", experiment, "--output", "json"]
+    )
+    assert result_json.exit_code == 0
+    output_json = json.loads(result_json.output)
+
+    assert len(output_json["scorers"]) == 3
+    scorers_by_name = {s["name"]: s for s in output_json["scorers"]}
+
+    assert scorers_by_name["no_desc_judge"]["description"] is None
+    assert scorers_by_name["quality_judge"]["description"] == "Evaluates response quality"
+    assert scorers_by_name["safety_judge"]["description"] == "Checks for safety issues"
+
+    result_table = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    assert result_table.exit_code == 0
+    assert "Evaluates response quality" in result_table.output
+    assert "Checks for safety issues" in result_table.output
+
+
 def test_create_judge_basic(runner: CliRunner, experiment: str):
     result = runner.invoke(
         commands,
@@ -498,24 +540,3 @@ def test_create_judge_with_description_short_flag(runner: CliRunner, experiment:
     scorers = list_scorers(experiment_id=experiment)
     judge = next(s for s in scorers if s.name == "pii_judge")
     assert judge.description == description
-
-
-def test_create_judge_without_description(runner: CliRunner, experiment: str):
-    result = runner.invoke(
-        commands,
-        [
-            "register-llm-judge",
-            "--name",
-            "judge_no_desc",
-            "--instructions",
-            "Evaluate {{ outputs }}",
-            "--experiment-id",
-            experiment,
-        ],
-    )
-
-    assert result.exit_code == 0
-
-    scorers = list_scorers(experiment_id=experiment)
-    judge = next(s for s in scorers if s.name == "judge_no_desc")
-    assert judge.description is None
