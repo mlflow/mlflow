@@ -11,7 +11,9 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # Deep Learning Quickstart
 
-In this example, we demonstrate how to use MLflow to track deep learning experiments with Pytorch. By combining MLflow
+<ImageBox src="/images/tutorials/introductory/deep-learning/ui-system-metrics.png" alt="MLflow UI System metrics page" width="80%" />
+
+In this tutorial, we demonstrate how to use MLflow to track deep learning experiments with Pytorch. By combining MLflow
 
 * Save **checkpoints** with metrics.
 * Visualize the **loss curve** during training.
@@ -79,6 +81,7 @@ Define a simple MLP model with 2 hidden layers.
 ```python
 import torch.nn as nn
 
+
 class NeuralNetwork(nn.Module):
     def __init__(self):
         super().__init__()
@@ -95,6 +98,7 @@ class NeuralNetwork(nn.Module):
         x = self.flatten(x)
         logits = self.linear_relu_stack(x)
         return logits
+
 
 model = NeuralNetwork().to(device)
 ```
