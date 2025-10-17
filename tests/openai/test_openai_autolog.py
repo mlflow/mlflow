@@ -18,7 +18,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 
-from tests.openai.mock_openai import EMPTY_CHOICES
+from tests.openai.mock_openai import EMPTY_CHOICES, LIST_CONTENT
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
@@ -351,6 +351,39 @@ async def test_chat_completions_streaming_empty_choices(client):
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
+
+
+@pytest.mark.asyncio
+async def test_chat_completions_streaming_with_list_content(client):
+    # Test streaming with Databricks-style list content in chunks.
+    mlflow.openai.autolog()
+    stream = client.chat.completions.create(
+        messages=[{"role": "user", "content": LIST_CONTENT}],
+        model="gpt-4o-mini",
+        stream=True,
+    )
+
+    if client._is_async:
+        chunks = []
+        async for chunk in await stream:
+            chunks.append(chunk)
+    else:
+        chunks = list(stream)
+
+    assert len(chunks) == 2
+    assert chunks[0].choices[0].delta.content == [{"type": "text", "text": "Hello"}]
+    assert chunks[1].choices[0].delta.content == [{"type": "text", "text": " world"}]
+
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    assert trace is not None
+    assert trace.info.status == "OK"
+    assert len(trace.data.spans) == 1
+    span = trace.data.spans[0]
+    assert span.span_type == SpanType.CHAT_MODEL
+
+    # Verify the reconstructed message content is correct (text extracted from list)
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["choices"][0]["message"]["content"] == "Hello world"
 
 
 @pytest.mark.asyncio
