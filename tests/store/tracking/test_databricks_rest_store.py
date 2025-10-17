@@ -990,21 +990,19 @@ def test_log_spans_to_uc_table_success(diff_trace_id):
         # Execute
         store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
-        # Verify calls
-        mock_get_config.assert_called_once_with("databricks")
-        mock_http_request.assert_called_once()
-        mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
+    # Verify calls
+    mock_get_config.assert_called_once_with("databricks")
+    mock_http_request.assert_called_once()
+    mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
 
-        # Verify HTTP request details
-        call_kwargs = mock_http_request.call_args
-        assert call_kwargs[1]["method"] == "POST"
-        assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/v1/traces"
-        assert "Content-Type" in call_kwargs[1]["extra_headers"]
-        assert call_kwargs[1]["extra_headers"]["Content-Type"] == "application/x-protobuf"
-        assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
-        assert (
-            call_kwargs[1]["extra_headers"]["X-Databricks-UC-Table-Name"] == "catalog.schema.spans"
-        )
+    # Verify HTTP request details
+    call_kwargs = mock_http_request.call_args
+    assert call_kwargs[1]["method"] == "POST"
+    assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/v1/traces"
+    assert "Content-Type" in call_kwargs[1]["extra_headers"]
+    assert call_kwargs[1]["extra_headers"]["Content-Type"] == "application/x-protobuf"
+    assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
+    assert call_kwargs[1]["extra_headers"]["X-Databricks-UC-Table-Name"] == "catalog.schema.spans"
 
 
 def test_log_spans_to_uc_table_config_error():
