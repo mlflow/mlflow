@@ -98,22 +98,23 @@ class GeminiAdapter(ProviderAdapter):
                     role = "model"
 
                 gemini_function_calls = []
-                if tool_calls := message.get("tool_calls"):
-                    for tool_call in tool_calls:
-                        call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
-                            "name"
-                        ]
-                        gemini_function_calls.append(
-                            {
-                                "functionCall": {
-                                    "id": tool_call["id"],
-                                    "name": tool_call["function"]["name"],
-                                    "args": json.loads(tool_call["function"]["arguments"]),
+                if role == "model":
+                    if tool_calls := message.get("tool_calls"):
+                        for tool_call in tool_calls:
+                            call_id_to_function_name_map[tool_call["id"]] = tool_call["function"][
+                                "name"
+                            ]
+                            gemini_function_calls.append(
+                                {
+                                    "functionCall": {
+                                        "id": tool_call["id"],
+                                        "name": tool_call["function"]["name"],
+                                        "args": json.loads(tool_call["function"]["arguments"]),
+                                    }
                                 }
-                            }
-                        )
+                            )
                 if gemini_function_calls:
-                    contents.append({"role": role, "parts": gemini_function_calls})
+                    contents.append({"role": "model", "parts": gemini_function_calls})
                 else:
                     contents.append({"role": role, "parts": [{"text": message["content"]}]})
             elif role == "system":
