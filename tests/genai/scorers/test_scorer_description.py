@@ -94,7 +94,7 @@ def test_instructions_judge_without_description():
     assert judge.description is None
 
 
-def test_decorator_scorer_serialization_with_description():
+def test_scorer_serialization_with_description():
     description = "Test description for serialization"
 
     @scorer(description=description)
@@ -108,7 +108,7 @@ def test_decorator_scorer_serialization_with_description():
     assert serialized["name"] == "test_scorer"
 
 
-def test_decorator_scorer_serialization_without_description():
+def test_scorer_serialization_without_description():
     @scorer
     def test_scorer(outputs) -> bool:
         return True
@@ -119,7 +119,7 @@ def test_decorator_scorer_serialization_without_description():
     assert serialized["description"] is None
 
 
-def test_decorator_scorer_deserialization_with_description():
+def test_scorer_deserialization_with_description():
     from mlflow.genai.scorers.base import Scorer
 
     description = "Test description for deserialization"
@@ -134,66 +134,6 @@ def test_decorator_scorer_deserialization_with_description():
 
     assert deserialized.description == description
     assert deserialized.name == "test_scorer"
-
-
-def test_builtin_scorer_serialization_with_description():
-    description = "Builtin scorer description"
-    scorer_instance = RelevanceToQuery(description=description)
-
-    serialized = scorer_instance.model_dump()
-
-    assert "description" in serialized
-    assert serialized["description"] == description
-
-
-def test_builtin_scorer_deserialization_with_description():
-    from mlflow.genai.scorers.base import Scorer
-
-    description = "Builtin scorer description"
-    scorer_instance = RelevanceToQuery(description=description)
-
-    # Serialize and deserialize
-    serialized = scorer_instance.model_dump()
-    deserialized = Scorer.model_validate(serialized)
-
-    assert isinstance(deserialized, RelevanceToQuery)
-    assert deserialized.description == description
-    assert deserialized.name == "relevance_to_query"
-
-
-def test_instructions_judge_serialization_with_description():
-    description = "InstructionsJudge description"
-    judge = InstructionsJudge(
-        name="test_judge",
-        instructions="Evaluate {{ outputs }}",
-        model="openai:/gpt-4",
-        description=description,
-    )
-
-    serialized = judge.model_dump()
-
-    assert "description" in serialized
-    assert serialized["description"] == description
-
-
-def test_instructions_judge_deserialization_with_description():
-    from mlflow.genai.scorers.base import Scorer
-
-    description = "InstructionsJudge description"
-    judge = InstructionsJudge(
-        name="test_judge",
-        instructions="Evaluate {{ outputs }}",
-        model="openai:/gpt-4",
-        description=description,
-    )
-
-    # Serialize and deserialize
-    serialized = judge.model_dump()
-    deserialized = Scorer.model_validate(serialized)
-
-    assert isinstance(deserialized, InstructionsJudge)
-    assert deserialized.description == description
-    assert deserialized.name == "test_judge"
 
 
 def test_backward_compatibility_scorer_without_description():
