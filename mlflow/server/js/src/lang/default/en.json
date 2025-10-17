@@ -2605,6 +2605,10 @@
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "QravWY": {
+    "defaultMessage": "Optimize Prompt",
+    "description": "Title of the optimize prompt modal"
+  },
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
@@ -3631,6 +3635,10 @@
     "defaultMessage": "Fail",
     "description": "Failing evaluation status in the evaluations table."
   },
+  "c0ljd6": {
+    "defaultMessage": "MLflow documentation",
+    "description": "Link to MLflow documentation"
+  },
   "c0slEY": {
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
@@ -4475,6 +4483,10 @@
     "defaultMessage": "Cancel",
     "description": "Experiment page > artifact compare view > \"add new row\" modal cancel button label"
   },
+  "k/fDlw": {
+    "defaultMessage": "Optimize",
+    "description": "A label for a button to display the modal with instructions to optimize the prompt"
+  },
   "k0l8lF": {
     "defaultMessage": "Boolean",
     "description": "Boolean select menu option for assessment data type"
@@ -4994,6 +5006,9 @@
   "pDK3Ha": {
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
+  },
+  "pEpM/g": {
+    "defaultMessage": "See {mlflowLink} for more details."
   },
   "pEpexK": {
     "defaultMessage": "Clear filters",
@@ -5626,6 +5641,10 @@
   "wcSVYI": {
     "defaultMessage": "Are you sure you want to save and close without adding \"{tag}\"",
     "description": "Key-value tag editor modal > Unsaved tag message"
+  },
+  "wciksY": {
+    "defaultMessage": "Here's how to optimize your prompt with your dataset in your Python code:",
+    "description": "Description of how to optimize a prompt with a dataset in Python"
   },
   "wh+Eos": {
     "defaultMessage": "Create prompt",
