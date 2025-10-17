@@ -27,6 +27,7 @@ from mlflow.types.chat import (
     Function,  # noqa F401
     FunctionToolDefinition,
     ToolCall,  # noqa F401
+    ToolCallDelta,  # noqa F401
 )
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
