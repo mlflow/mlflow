@@ -48,8 +48,6 @@ module.exports = async ({ github, context }) => {
   const hasChanges = gitStatus.trim() !== "";
 
   const branchName = `uv-lock-update-${getTimestamp()}`;
-  exec("git", ["config", "user.name", "mlflow-app[bot]"]);
-  exec("git", ["config", "user.email", "mlflow-app[bot]@users.noreply.github.com"]);
   exec("git", ["checkout", "-b", branchName]);
   // `git add` succeeds even if there are no changes
   exec("git", ["add", "uv.lock"]);

@@ -2,13 +2,10 @@ name: "app-checkout"
 description: "Creates a GitHub App token, checks out a repository, and configures git identity as mlflow-app[bot]"
 inputs:
   repository:
-    description: "Repository name with owner. For example, mlflow/mlflow"
     required: false
   ref:
-    description: "The branch, tag or SHA to checkout"
     required: false
   fetch-depth:
-    description: "Number of commits to fetch. 0 indicates all history for all branches and tags"
     required: false
     default: "1"
 runs:
