@@ -234,8 +234,8 @@ class CloudArtifactRepository(ArtifactRepository):
                         ArtifactCredentialType.AZURE_SAS_URI,
                         ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
                     ):
-                        for staged_upload, write_credential_info in zip(
-                            files_needing_credentials, write_credential_infos
+                        for idx, (staged_upload, write_credential_info) in enumerate(
+                            zip(files_needing_credentials, write_credential_infos)
                         ):
                             upload_future = self.thread_pool.submit(
                                 self._upload_to_cloud,
@@ -245,6 +245,8 @@ class CloudArtifactRepository(ArtifactRepository):
                             )
                             upload_future.result()
                             inflight_uploads[staged_upload.src_file_path] = upload_future
+                            if idx < len(files_needing_credentials) - 1:
+                                time.sleep(0.1)
 
                     else:
                         small_file_futures = {}

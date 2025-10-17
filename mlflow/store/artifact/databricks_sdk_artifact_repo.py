@@ -1,6 +1,7 @@
 import importlib.metadata
 import logging
 import posixpath
+import time
 from concurrent.futures import Future
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -107,8 +108,10 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
             files_to_upload.append((f, posixpath.join(*paths) if paths else None))
 
         if len(files_to_upload) > 1:
-            for file_path, file_artifact_path in files_to_upload:
+            for idx, (file_path, file_artifact_path) in enumerate(files_to_upload):
                 self.log_artifact(local_file=file_path, artifact_path=file_artifact_path)
+                if idx < len(files_to_upload) - 1:
+                    time.sleep(0.1)
         else:
             futures: list[Future[None]] = []
             with self._create_thread_pool() as executor:
