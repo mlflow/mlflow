@@ -58,9 +58,9 @@ def test_deduplicate_span_names():
     deduplicate_span_names_in_place(spans)
 
     assert [span.name for span in spans] == [
-        "red_1",
+        "red",
         "red_2",
-        "blue_1",
+        "blue",
         "red_3",
         "green",
         "blue_2",
