@@ -127,7 +127,12 @@ class OpenAIAdapter(ProviderAdapter):
                     index=c["index"],
                     finish_reason=c["finish_reason"],
                     delta=chat.StreamDelta(
-                        role=c["delta"].get("role"), content=c["delta"].get("content")
+                        role=c["delta"].get("role"),
+                        content=c["delta"].get("content"),
+                        tool_calls=(
+                            (calls := c["delta"].get("tool_calls"))
+                            and [chat.ToolCallDelta(**c) for c in calls]
+                        )
                     ),
                 )
                 for c in resp["choices"]
