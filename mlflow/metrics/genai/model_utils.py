@@ -182,10 +182,10 @@ def _call_llm_provider_api(
 
 def _get_provider_instance(provider: str, model: str) -> "BaseProvider":
     """Get the provider instance for the given provider name and the model name."""
-    from mlflow.gateway.config import Provider, RouteConfig
+    from mlflow.gateway.config import EndpointConfig, Provider
 
     def _get_route_config(config):
-        return RouteConfig(
+        return EndpointConfig(
             name=provider,
             endpoint_type="llm/v1/chat",
             model={

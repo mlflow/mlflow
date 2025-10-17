@@ -1,5 +1,3 @@
-"""Tests for SIMBAAlignmentOptimizer."""
-
 from importlib import reload
 from unittest.mock import MagicMock, patch
 

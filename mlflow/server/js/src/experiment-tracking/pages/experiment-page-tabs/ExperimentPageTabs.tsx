@@ -34,6 +34,10 @@ const ExperimentEvaluationRunsPage = React.lazy(
   () => import('../experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
 );
 
+const ExperimentEvaluationDatasetsPage = React.lazy(
+  () => import('../experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage'),
+);
+
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
   const { theme } = useDesignSystemTheme();
@@ -189,6 +193,7 @@ const ExperimentPageTabsImpl = () => {
             {activeTab === ExperimentPageTabName.Runs && <ExperimentRunsPage />}
             {activeTab === ExperimentPageTabName.Models && <ExperimentLoggedModelListPage />}
             {activeTab === ExperimentPageTabName.EvaluationRuns && <ExperimentEvaluationRunsPage />}
+            {activeTab === ExperimentPageTabName.Datasets && <ExperimentEvaluationDatasetsPage />}
           </>
         )}
       </React.Suspense>

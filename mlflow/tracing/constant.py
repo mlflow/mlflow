@@ -106,3 +106,10 @@ DATABRICKS_OUTPUT_KEY = "databricks_output"
 
 # Assessment constants
 ASSESSMENT_ID_PREFIX = "a-"
+
+
+# Maximum number of seconds to retry getting a trace from the v4 endpoint.
+# V4 traces have some delay in propagation after the log_spans call returns success response.
+# To make sure get_trace API does not fail due to this delay, we retry up to a reasonable timeout.
+# Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
+GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15

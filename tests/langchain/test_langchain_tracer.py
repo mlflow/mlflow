@@ -5,7 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 from unittest.mock import MagicMock
 
-import langchain
 import pydantic
 import pytest
 from langchain.chains.llm import LLMChain
@@ -22,7 +21,6 @@ from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import Document as MlflowDocument
@@ -513,10 +511,6 @@ def test_tracer_thread_safe():
     assert all(len(trace.data.spans) == 1 for trace in traces)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="ChatPromptTemplate expecting dict input",
-)
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
@@ -584,10 +578,6 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     mock_logger.warning.assert_not_called()
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="ChatPromptTemplate expecting dict input",
-)
 def test_tracer_with_manual_traces():
     # Validate if the callback works properly when outer and inner spans
     # are created by fluent APIs.

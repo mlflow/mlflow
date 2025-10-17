@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunOutputs,
     RunStatus,
     RunTag,
+    ScorerVersion,
     SourceType,
     TraceInfo,
     ViewType,
@@ -129,6 +130,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_dataset_inputs,
@@ -1876,7 +1878,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1913,7 +1915,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model(self, model_id):
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1923,7 +1925,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1934,7 +1936,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1951,7 +1953,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def delete_logged_model_tag(self, model_id: str, key: str) -> None:
         with self.ManagedSessionMaker() as session:
-            logged_model = session.query(SqlLoggedModel).get(model_id)
+            logged_model = session.get(SqlLoggedModel, model_id)
             if not logged_model:
                 self._raise_model_not_found(model_id)
 
@@ -1969,7 +1971,9 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1979,7 +1983,7 @@ class SqlAlchemyStore(AbstractStore):
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2025,10 +2029,11 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_scorer_version)
+            session.flush()
 
-            return new_version
+            return sql_scorer_version.to_mlflow_entity()
 
-    def list_scorers(self, experiment_id):
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
@@ -2079,14 +2084,13 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
 
             return scorers
 
-    def get_scorer(self, experiment_id, name, version=None):
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -2150,7 +2154,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_scorer_version.to_mlflow_entity()
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
         Delete a scorer for an experiment.
 
@@ -2215,7 +2219,7 @@ class SqlAlchemyStore(AbstractStore):
             if version is None:
                 session.delete(scorer)
 
-    def list_scorer_versions(self, experiment_id, name):
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -2575,13 +2579,13 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2594,13 +2598,14 @@ class SqlAlchemyStore(AbstractStore):
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, search traces associated with the given model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
             satisfy the search expressions and a pagination token for the next page of results.
         """
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
         self._validate_max_results_param(max_results)
 
         with self.ManagedSessionMaker() as session:
@@ -2645,11 +2650,11 @@ class SqlAlchemyStore(AbstractStore):
                 stmt = stmt.outerjoin(j)
 
             offset = SearchTraceUtils.parse_start_offset_from_page_token(page_token)
-            experiment_ids = [int(e) for e in experiment_ids]
+            locations = [int(e) for e in locations]
 
             # Build the filter conditions
             filter_conditions = [
-                SqlTraceInfo.experiment_id.in_(experiment_ids),
+                SqlTraceInfo.experiment_id.in_(locations),
                 *attribute_filters,
             ]
 
@@ -3205,13 +3210,15 @@ class SqlAlchemyStore(AbstractStore):
             joint_count=joint_count,
         )
 
-    def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:
         """
         Log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should be experiment ID of an MLflow
+                experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
+            tracking_uri: The tracking URI to use. Default to None.
 
         Returns:
             List of logged Span entities.
@@ -3252,13 +3259,13 @@ class SqlAlchemyStore(AbstractStore):
             # If trace doesn't exist, create it
             if sql_trace_info is None:
                 # Get experiment to add artifact location tag
-                experiment = self.get_experiment(experiment_id)
+                experiment = self.get_experiment(location)
 
                 # Create trace info for this new trace. We need to establish the trace
                 # before we can add spans to it, as spans have a foreign key to trace_info.
                 sql_trace_info = SqlTraceInfo(
                     request_id=trace_id,
-                    experiment_id=experiment_id,
+                    experiment_id=location,
                     timestamp_ms=min_start_ms,
                     execution_time_ms=((max_end_ms - min_start_ms) if max_end_ms else None),
                     status=trace_status,
@@ -3342,12 +3349,13 @@ class SqlAlchemyStore(AbstractStore):
 
         return spans
 
-    async def log_spans_async(self, experiment_id: str, spans: list[Span]) -> list[Span]:
+    async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
         Asynchronously log multiple span entities to the tracking store.
 
         Args:
-            experiment_id: The experiment ID to log spans to.
+            location: The location to log spans to. It should be experiment ID of an MLflow
+                experiment.
             spans: List of Span entities to log. All spans must belong to the same trace.
 
         Returns:
@@ -3357,7 +3365,7 @@ class SqlAlchemyStore(AbstractStore):
             MlflowException: If spans belong to different traces.
         """
         # TODO: Implement proper async support
-        return self.log_spans(experiment_id, spans)
+        return self.log_spans(location, spans)
 
     def _get_trace_status_from_root_span(self, spans: list[Span]) -> str | None:
         """
@@ -3753,10 +3761,14 @@ class SqlAlchemyStore(AbstractStore):
                     if key not in schema["inputs"]:
                         schema["inputs"][key] = self._infer_field_type(value)
 
-            if outputs := record.get("outputs"):
-                for key, value in outputs.items():
-                    if key not in schema["outputs"]:
-                        schema["outputs"][key] = self._infer_field_type(value)
+            if (outputs := record.get("outputs")) is not None:
+                if isinstance(outputs, dict):
+                    for key, value in outputs.items():
+                        if key not in schema["outputs"]:
+                            schema["outputs"][key] = self._infer_field_type(value)
+                else:
+                    if not schema["outputs"]:
+                        schema["outputs"] = self._infer_field_type(outputs)
 
             if expectations := record.get("expectations"):
                 for key, value in expectations.items():

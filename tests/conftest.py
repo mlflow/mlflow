@@ -82,7 +82,7 @@ def pytest_addoption(parser):
     )
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config):
     config.addinivalue_line("markers", "requires_ssh")
     config.addinivalue_line("markers", "notrackingurimock")
     config.addinivalue_line("markers", "allow_infer_pip_requirements_fallback")
@@ -95,6 +95,14 @@ def pytest_configure(config):
     labels = fetch_pr_labels() or []
     if "fail-fast" in labels:
         config.option.maxfail = 1
+
+    # Register SQLAlchemy LegacyAPIWarning filter only if sqlalchemy is available
+    try:
+        import sqlalchemy  # noqa: F401
+
+        config.addinivalue_line("filterwarnings", "error::sqlalchemy.exc.LegacyAPIWarning")
+    except ImportError:
+        pass
 
 
 @pytest.hookimpl(tryfirst=True)
@@ -383,6 +391,23 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
         terminalreporter.write("\n\n::endgroup::\n")
         terminalreporter.write("\n")
 
+    if (
+        # `uv run` was used to run tests
+        "UV" in os.environ
+        # Tests failed because of missing dependencies
+        and (errors := terminalreporter.stats.get("error"))
+        and any(re.search(r"ModuleNotFoundError|ImportError", str(e.longrepr)) for e in errors)
+    ):
+        terminalreporter.write("\n")
+        terminalreporter.section("HINTS", yellow=True)
+        terminalreporter.write(
+            "To run tests with additional packages, use:\n"
+            "  uv run --with <package> pytest ...\n\n"
+            "For multiple packages:\n"
+            "  uv run --with <package1> --with <package2> pytest ...\n\n",
+            yellow=True,
+        )
+
     # If there are failed tests, display a command to run them
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
@@ -468,12 +493,9 @@ def remote_backend_for_tracing_sdk_test():
             [
                 "uv",
                 "run",
-                "--with",
+                "--directory",
                 # Install from the dev version
                 mlflow_root,
-                "--python",
-                # Get current python version
-                f"{sys.version_info.major}.{sys.version_info.minor}",
                 "mlflow",
                 "server",
                 "--port",

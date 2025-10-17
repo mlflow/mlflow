@@ -144,7 +144,7 @@ repos:
         name: check-init-py
         entry: uv run --only-group lint dev/check_init_py.py
         language: system
-        files: '^mlflow/.*\.py$'
+        files: '^(mlflow|tests)/.*\.py$'
         stages: [pre-commit]
         require_serial: true
         pass_filenames: false

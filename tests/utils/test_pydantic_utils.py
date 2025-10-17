@@ -1,5 +1,9 @@
 """
 NB: This test file is executed with both pydantic v1 and v2 in the CI.
+
+The pydantic_utils module provides compatibility helpers to work with both
+pydantic v1 and v2, and these tests verify that the helpers work correctly
+across both versions.
 """
 
 from pydantic import BaseModel

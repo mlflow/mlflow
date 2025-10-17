@@ -8,7 +8,10 @@ import pytest
 import requests
 
 from mlflow.deployments.databricks import DatabricksDeploymentClient
-from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
+    MLFLOW_HTTP_REQUEST_TIMEOUT,
+)
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
@@ -87,62 +90,58 @@ def test_call_endpoints_raises_exceptions():
             call_endpoints(host_only, endpoints, "", response_proto)
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_hostonly(request):
+def test_http_request_hostonly():
     host_only = MlflowHostCreds("http://my-host")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_cleans_hostname(request):
+def test_http_request_cleans_hostname():
     # Add a trailing slash, should be removed.
     host_only = MlflowHostCreds("http://my-host/")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_with_basic_auth(request):
+def test_http_request_with_basic_auth():
     host_only = MlflowHostCreds("http://my-host", username="user", password="pass")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    headers = DefaultRequestHeaderProvider().request_headers()
-    headers["Authorization"] = "Basic dXNlcjpwYXNz"
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        headers=headers,
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        headers = DefaultRequestHeaderProvider().request_headers()
+        headers["Authorization"] = "Basic dXNlcjpwYXNz"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            headers=headers,
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_with_aws_sigv4(request, monkeypatch):
+def test_http_request_with_aws_sigv4(monkeypatch):
     """This test requires the "requests_auth_aws_sigv4" package to be installed"""
 
     from requests_auth_aws_sigv4 import AWSSigV4
@@ -153,143 +152,139 @@ def test_http_request_with_aws_sigv4(request, monkeypatch):
     aws_sigv4 = MlflowHostCreds("http://my-host", aws_sigv4=True)
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(aws_sigv4, "/my/endpoint", "GET")
 
     class AuthMatcher:
         def __eq__(self, other):
             return isinstance(other, AWSSigV4)
 
-    request.assert_called_once_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=mock.ANY,
-        headers=mock.ANY,
-        timeout=mock.ANY,
-        auth=AuthMatcher(),
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(aws_sigv4, "/my/endpoint", "GET")
+        mock_request.assert_called_once_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=mock.ANY,
+            headers=mock.ANY,
+            timeout=mock.ANY,
+            auth=AuthMatcher(),
+        )
 
 
-@mock.patch("requests.Session.request")
-@mock.patch("mlflow.tracking.request_auth.registry.fetch_auth")
-def test_http_request_with_auth(fetch_auth, request):
+def test_http_request_with_auth():
     mock_fetch_auth = {"test_name": "test_auth_value"}
-    fetch_auth.return_value = mock_fetch_auth
     auth = "test_auth_name"
     host_only = MlflowHostCreds("http://my-host", auth=auth)
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
+    with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
+        mock.patch(
+            "mlflow.tracking.request_auth.registry.fetch_auth", return_value=mock_fetch_auth
+        ) as mock_fetch_auth_call,
+    ):
+        http_request(host_only, "/my/endpoint", "GET")
 
-    fetch_auth.assert_called_with(auth)
+        mock_fetch_auth_call.assert_called_with(auth)
 
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=mock.ANY,
-        headers=mock.ANY,
-        timeout=mock.ANY,
-        auth=mock_fetch_auth,
-    )
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=mock.ANY,
+            headers=mock.ANY,
+            timeout=mock.ANY,
+            auth=mock_fetch_auth,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_with_token(request):
+def test_http_request_with_token():
     host_only = MlflowHostCreds("http://my-host", token="my-token")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    headers = DefaultRequestHeaderProvider().request_headers()
-    headers["Authorization"] = "Bearer my-token"
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        headers=headers,
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        headers = DefaultRequestHeaderProvider().request_headers()
+        headers["Authorization"] = "Bearer my-token"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            headers=headers,
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_with_insecure(request):
+def test_http_request_with_insecure():
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=False,
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=False,
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_client_cert_path(request):
+def test_http_request_client_cert_path():
     host_only = MlflowHostCreds("http://my-host", client_cert_path="/some/path")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        cert="/some/path",
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            cert="/some/path",
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_server_cert_path(request):
+def test_http_request_server_cert_path():
     host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
-    http_request(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify="/some/path",
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify="/some/path",
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_with_content_type_header(request):
+def test_http_request_with_content_type_header():
     host_only = MlflowHostCreds("http://my-host", token="my-token")
     response = mock.MagicMock()
     response.status_code = 200
-    request.return_value = response
     extra_headers = {"Content-Type": "text/plain"}
-    http_request(host_only, "/my/endpoint", "GET", extra_headers=extra_headers)
-    headers = DefaultRequestHeaderProvider().request_headers()
-    headers["Authorization"] = "Bearer my-token"
-    headers["Content-Type"] = "text/plain"
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=True,
-        headers=headers,
-        timeout=120,
-    )
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(host_only, "/my/endpoint", "GET", extra_headers=extra_headers)
+        headers = DefaultRequestHeaderProvider().request_headers()
+        headers["Authorization"] = "Bearer my-token"
+        headers["Content-Type"] = "text/plain"
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=True,
+            headers=headers,
+            timeout=120,
+        )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_request_headers(request):
+def test_http_request_request_headers():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
@@ -297,14 +292,15 @@ def test_http_request_request_headers(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
-    with mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True):
+    response = mock.MagicMock()
+    response.status_code = 200
+    with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
+        mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
+    ):
         host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        request.return_value = response
         http_request(host_only, "/my/endpoint", "GET")
-        request.assert_called_with(
+        mock_request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
             allow_redirects=True,
@@ -314,8 +310,7 @@ def test_http_request_request_headers(request):
         )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_request_headers_default(request):
+def test_http_request_request_headers_default():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
@@ -323,7 +318,17 @@ def test_http_request_request_headers_default(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
+    host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+    default_headers = DefaultRequestHeaderProvider().request_headers()
+    expected_headers = {
+        _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
+        _CLIENT_VERSION: "{} {}".format(default_headers[_CLIENT_VERSION], "test_client_version"),
+    }
+
+    response = mock.MagicMock()
+    response.status_code = 200
     with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
         mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
         mock.patch.object(
             PluginRequestHeaderProvider,
@@ -331,20 +336,8 @@ def test_http_request_request_headers_default(request):
             return_value={_USER_AGENT: "test_user_agent", _CLIENT_VERSION: "test_client_version"},
         ),
     ):
-        host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
-        default_headers = DefaultRequestHeaderProvider().request_headers()
-        expected_headers = {
-            _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
-            _CLIENT_VERSION: "{} {}".format(
-                default_headers[_CLIENT_VERSION], "test_client_version"
-            ),
-        }
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        request.return_value = response
         http_request(host_only, "/my/endpoint", "GET")
-        request.assert_called_with(
+        mock_request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
             allow_redirects=True,
@@ -354,8 +347,7 @@ def test_http_request_request_headers_default(request):
         )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_request_headers_default_and_extra_header(request):
+def test_http_request_request_headers_default_and_extra_header():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
     from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
@@ -363,7 +355,18 @@ def test_http_request_request_headers_default_and_extra_header(request):
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
     # perform the integration test.
+    host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
+    default_headers = DefaultRequestHeaderProvider().request_headers()
+    expected_headers = {
+        _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
+        _CLIENT_VERSION: "{} {}".format(default_headers[_CLIENT_VERSION], "test_client_version"),
+        "header": "value",
+    }
+
+    response = mock.MagicMock()
+    response.status_code = 200
     with (
+        mock.patch("requests.Session.request", return_value=response) as mock_request,
         mock.patch.object(PluginRequestHeaderProvider, "in_context", return_value=True),
         mock.patch.object(
             PluginRequestHeaderProvider,
@@ -375,21 +378,8 @@ def test_http_request_request_headers_default_and_extra_header(request):
             },
         ),
     ):
-        host_only = MlflowHostCreds("http://my-host", server_cert_path="/some/path")
-        default_headers = DefaultRequestHeaderProvider().request_headers()
-        expected_headers = {
-            _USER_AGENT: "{} {}".format(default_headers[_USER_AGENT], "test_user_agent"),
-            _CLIENT_VERSION: "{} {}".format(
-                default_headers[_CLIENT_VERSION], "test_client_version"
-            ),
-            "header": "value",
-        }
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        request.return_value = response
         http_request(host_only, "/my/endpoint", "GET")
-        request.assert_called_with(
+        mock_request.assert_called_with(
             "GET",
             "http://my-host/my/endpoint",
             allow_redirects=True,
@@ -429,44 +419,40 @@ def test_ignore_tls_verification_not_server_cert_path():
         )
 
 
-@mock.patch("requests.Session.request")
-def test_http_request_wrapper(request):
+def test_http_request_wrapper():
     host_only = MlflowHostCreds("http://my-host", ignore_tls_verification=True)
     response = mock.MagicMock()
     response.status_code = 200
     response.text = "{}"
-    request.return_value = response
-    http_request_safe(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=False,
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
-    response.text = "non json"
-    request.return_value = response
-    http_request_safe(host_only, "/my/endpoint", "GET")
-    request.assert_called_with(
-        "GET",
-        "http://my-host/my/endpoint",
-        allow_redirects=True,
-        verify=False,
-        headers=DefaultRequestHeaderProvider().request_headers(),
-        timeout=120,
-    )
-    response.status_code = 400
-    response.text = ""
-    request.return_value = response
-    with pytest.raises(MlflowException, match="Response body"):
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
         http_request_safe(host_only, "/my/endpoint", "GET")
-    response.text = (
-        '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
-    )
-    request.return_value = response
-    with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=False,
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
+        response.text = "non json"
         http_request_safe(host_only, "/my/endpoint", "GET")
+        mock_request.assert_called_with(
+            "GET",
+            "http://my-host/my/endpoint",
+            allow_redirects=True,
+            verify=False,
+            headers=DefaultRequestHeaderProvider().request_headers(),
+            timeout=120,
+        )
+        response.status_code = 400
+        response.text = ""
+        with pytest.raises(MlflowException, match="Response body"):
+            http_request_safe(host_only, "/my/endpoint", "GET")
+        response.text = (
+            '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Node type not supported"}'
+        )
+        with pytest.raises(RestException, match="RESOURCE_DOES_NOT_EXIST: Node type not supported"):
+            http_request_safe(host_only, "/my/endpoint", "GET")
 
 
 def test_numpy_encoder():
@@ -922,3 +908,22 @@ def test_deployment_client_timeout_propagation(monkeypatch):
             retry_timeout_seconds=None,
             timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
         )
+
+
+def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch):
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Test with env var set
+    monkeypatch.setenv(_MLFLOW_DATABRICKS_TRAFFIC_ID.name, "test-traffic-id-12345")
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert headers["x-databricks-traffic-id"] == "test-traffic-id-12345"
+
+    # Test without env var set
+    monkeypatch.delenv(_MLFLOW_DATABRICKS_TRAFFIC_ID.name)
+    with mock.patch("requests.Session.request", return_value=response) as mock_request:
+        http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
+        headers = mock_request.call_args.kwargs["headers"]
+        assert "x-databricks-traffic-id" not in headers

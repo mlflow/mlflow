@@ -11,6 +11,8 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
     TRUNCATION_SUFFIX,
     SpanAttributeKey,
     TraceMetadataKey,
@@ -78,6 +80,8 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
         if span.parent is None:
             trace_info = self._start_trace(span)
+            if trace_info is None:
+                return
             trace_id = trace_info.trace_id
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
@@ -113,6 +117,8 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
         metadata = self._env_metadata.copy()
+
+        metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         # Note `mlflow.active_run()` can only get thread-local active run,

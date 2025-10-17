@@ -295,17 +295,18 @@ class Scorer(BaseModel):
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
         # Recreate the original function from source code
-        recreated_func = recreate_function(
-            serialized.call_source, serialized.call_signature, serialized.original_func_name
-        )
-
-        if not recreated_func:
+        try:
+            recreated_func = recreate_function(
+                serialized.call_source, serialized.call_signature, serialized.original_func_name
+            )
+        except Exception as e:
             raise MlflowException.invalid_parameter_value(
                 f"Failed to recreate function from source code. "
                 f"Scorer was created with MLflow version: "
                 f"{serialized.mlflow_version or 'unknown'}, "
                 f"serialization version: {serialized.serialization_version or 'unknown'}. "
-                f"Current MLflow version: {mlflow.__version__}"
+                f"Current MLflow version: {mlflow.__version__}. "
+                f"Error: {e}"
             )
 
         # Apply the scorer decorator to recreate the scorer

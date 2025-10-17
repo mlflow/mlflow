@@ -1,5 +1,3 @@
-"""Simplified tests for mlflow.claude_code.cli module."""
-
 import pytest
 from click.testing import CliRunner
 
