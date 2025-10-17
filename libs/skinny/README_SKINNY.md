@@ -39,7 +39,7 @@ MLflow is an open-source developer platform to build AI/LLM applications and mod
 <div align="center">
    <div>
       <a href="https://mlflow.org/"><strong>Website</strong></a> ·
-      <a href="https://mlflow.org/docs/latest/index.html"><strong>Docs</strong></a> ·
+      <a href="https://mlflow.org/docs/latest"><strong>Docs</strong></a> ·
       <a href="https://github.com/mlflow/mlflow/issues/new/choose"><strong>Feature Request</strong></a> ·
       <a href="https://mlflow.org/blog"><strong>News</strong></a> ·
       <a href="https://www.youtube.com/@mlflowoss"><strong>YouTube</strong></a> ·
@@ -277,7 +277,7 @@ Then navigate to the "Traces" tab in the MLflow UI to find the trace records Ope
 
 ## 💭 Support
 
-- For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest/index.html).
+- For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
 - In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).

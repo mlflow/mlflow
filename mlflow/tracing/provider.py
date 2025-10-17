@@ -11,6 +11,7 @@ import contextvars
 import functools
 import json
 import logging
+import os
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -21,6 +22,11 @@ from opentelemetry.sdk.trace import SpanProcessor, TracerProvider
 from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
+from mlflow.entities.trace_location import (
+    MlflowExperimentLocation,
+    TraceLocationBase,
+    UCSchemaLocation,
+)
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
@@ -28,12 +34,7 @@ from mlflow.environment_variables import (
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import (
-    Databricks,
-    MlflowExperiment,
-    TraceDestination,
-    UserTraceDestinationRegistry,
-)
+from mlflow.tracing.destination import TraceDestination, UserTraceDestinationRegistry
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import (
@@ -189,41 +190,83 @@ def detach_span_from_context(token: contextvars.Token):
     context_api.detach(token)
 
 
-def set_destination(destination: TraceDestination, *, context_local: bool = False):
+def set_destination(destination: TraceLocationBase, *, context_local: bool = False):
     """
-    Set a custom span destination to which MLflow will export the traces.
+    Set a custom span location to which MLflow will export the traces.
 
     A destination specified by this function will take precedence over
     other configurations, such as tracking URI, OTLP environment variables.
 
     Args:
-        destination: A ``TraceDestination`` object that specifies the destination of the trace data.
+        destination: A trace location object that specifies the location of the trace data.
+            Currently, the following locations are supported:
+
+            - :py:class:`~mlflow.entities.trace_location.MlflowExperimentLocation`: Logs traces to
+                an MLflow experiment.
+            - :py:class:`~mlflow.entities.trace_location.UCSchemaLocation`: Logs traces to a
+                Databricks Unity Catalog schema. Only available in Databricks.
+
         context_local: If False (default), the destination is set globally. If True, the destination
             is isolated per async task or thread, providing isolation in concurrent applications.
 
     Example:
 
+        **Logging traces to MLflow Experiment:**
+
         .. code-block:: python
 
-            import mlflow
+            from mlflow.entities.trace_location import MlflowExperimentLocation
+
+            mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id="123"))
+
+        Note: This has the same effect as setting the active MLflow experiment via the
+        ``MLFLOW_EXPERIMENT_ID`` environment variable or the ``mlflow.set_experiment`` API,
+        but with narrower scope.
+
+        **Logging traces to Databricks Unity Catalog:**
+
+        .. code-block:: python
+
+            from mlflow.entities.trace_location import UCSchemaLocation
+
+            mlflow.tracing.set_destination(
+                UCSchemaLocation(catalog_name="catalog", schema_name="schema")
+            )
+
+        **Isolate the destination between async tasks or threads:**
+
+        .. code-block:: python
+
             from mlflow.tracing.destination import Databricks
 
-            # Setting the destination globally
-            mlflow.tracing.set_destination(Databricks(experiment_id="123"))
+            mlflow.tracing.set_destination(
+                MlflowExperimentLocation(experiment_id="123"),
+                context_local=True,
+            )
 
-            # Setting the destination with async task isolation
-            mlflow.tracing.set_destination(Databricks(experiment_id="456"), context_local=True)
+        The destination set with the ``context_local`` flag will only be effective within the
+        current async task or thread. This is particularly useful when you want to send traces
+        to different destinations from a multi-tenant application.
 
-            # Reset the destination (to an active experiment as default)
+        ** Reset the destination:**
+
+        .. code-block:: python
+
             mlflow.tracing.reset()
+
     """
-    if not isinstance(destination, TraceDestination):
+    if isinstance(destination, TraceDestination):
+        # NB: Deprecation warnings are issued in the constructor of the destination classes
+        # so we don't need to issue a warning here.
+        destination = destination.to_location()
+
+    if not isinstance(destination, TraceLocationBase):
         raise MlflowException.invalid_parameter_value(
             f"Invalid destination type: {type(destination)}. "
-            "The destination must be an instance of TraceDestination."
+            "The destination must be an instance of TraceLocation."
         )
 
-    if isinstance(destination, Databricks) and (
+    if isinstance(destination, UCSchemaLocation) and (
         mlflow.get_tracking_uri() is None or not mlflow.get_tracking_uri().startswith("databricks")
     ):
         mlflow.set_tracking_uri("databricks")
@@ -288,9 +331,16 @@ def _setup_tracer_provider(disabled=False):
     suppress_warning("opentelemetry.sdk.trace", "Setting attribute on ended span")
     suppress_warning("opentelemetry.sdk.trace", "Calling end() on an ended span")
 
-    # Setting an empty resource to avoid triggering resource aggregation, which causes
-    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=_get_trace_sampler())
+    # NB: If otel resource env vars are set explicitly, don't create an empty resource
+    # so that they are propagated to otel spans.
+    otel_service_name = os.getenv("OTEL_SERVICE_NAME")
+    otel_resource_attributes = os.getenv("OTEL_RESOURCE_ATTRIBUTES")
+    resource = None
+    if not otel_service_name and not otel_resource_attributes:
+        # Setting an empty resource to avoid triggering resource aggregation, which causes
+        # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+        resource = Resource.get_empty()
+    tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
@@ -352,16 +402,25 @@ def _get_span_processors(disabled: bool = False) -> list[SpanProcessor]:
     #  2. They can register their implementation to the registry via entry points.
     #  3. MLflow will pick the implementation based on given destination id.
     trace_destination = _MLFLOW_TRACE_USER_DESTINATION.get()
-    if trace_destination and isinstance(trace_destination, (MlflowExperiment, Databricks)):
-        if is_in_databricks_model_serving_environment():
-            _logger.info(
-                "Traces will be sent to the destination set by `mlflow.tracing.set_destination` "
-                "API. To enable saving traces to both MLflow experiment and inference table, "
-                "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
-                "instead."
-            )
-        processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
-        processors.append(processor)
+    if trace_destination:
+        # in PrPr, users must set the destination to UCSchemaLocation to export traces to UC
+        if isinstance(trace_destination, UCSchemaLocation):
+            from mlflow.tracing.export.uc_table import DatabricksUCTableSpanExporter
+            from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
+
+            exporter = DatabricksUCTableSpanExporter(tracking_uri=mlflow.get_tracking_uri())
+            processor = DatabricksUCTableSpanProcessor(span_exporter=exporter)
+            processors.append(processor)
+        elif isinstance(trace_destination, (MlflowExperimentLocation)):
+            if is_in_databricks_model_serving_environment():
+                _logger.info(
+                    "Traces will be sent to the destination set by `mlflow.tracing.set_destination`"
+                    " API. To enable saving traces to both MLflow experiment and inference table, "
+                    "remove this API call from your model and set `MLFLOW_EXPERIMENT_ID` env var "
+                    "instead."
+                )
+            processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
+            processors.append(processor)
     elif is_in_databricks_model_serving_environment():
         if not is_mlflow_tracing_enabled_in_model_serving():
             return processors

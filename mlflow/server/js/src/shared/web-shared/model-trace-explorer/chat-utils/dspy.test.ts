@@ -22,7 +22,8 @@ const MOCK_DSPY_OUTPUT = [
 
 describe('normalizeConversation', () => {
   it('should handle dspy input', () => {
-    expect(normalizeConversation(MOCK_DSPY_INPUT, 'dspy')).toEqual([
+    const conv = normalizeConversation(MOCK_DSPY_INPUT, 'dspy');
+    expect(conv).toEqual([
       expect.objectContaining({
         role: 'system',
         content: expect.stringContaining('Your input fields are:'),
@@ -32,14 +33,18 @@ describe('normalizeConversation', () => {
         content: expect.stringContaining('[[ ## passage ## ]]'),
       }),
     ]);
+    // Ensure single newlines are converted to hard breaks for markdown rendering
+    expect(conv?.[0].content).toContain('  \n');
   });
 
   it('should handle dspy output', () => {
-    expect(normalizeConversation(MOCK_DSPY_OUTPUT, 'dspy')).toEqual([
+    const conv = normalizeConversation(MOCK_DSPY_OUTPUT, 'dspy');
+    expect(conv).toEqual([
       expect.objectContaining({
         content: expect.stringContaining('[[ ## reasoning ## ]]'),
         role: 'assistant',
       }),
     ]);
+    expect(conv?.[0].content).toContain('  \n');
   });
 });

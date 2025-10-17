@@ -242,8 +242,6 @@ def test_copy_model_version_unity_catalog_migration_download_failure(store, samp
 def test_copy_model_version_unity_catalog_registered_model_already_exists(
     store, sample_model_version
 ):
-    """Test copy_model_version when Unity Catalog registered model already exists"""
-
     dst_name = "catalog.schema.existing_model"
 
     # Mock multiple dependencies in a single context manager

@@ -1,5 +1,7 @@
+import hashlib
 import logging
 import os
+import tempfile
 import time
 from contextlib import contextmanager
 
@@ -50,6 +52,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlInput,
     SqlInputTag,
+    SqlJob,
     SqlLatestMetric,
     SqlMetric,
     SqlParam,
@@ -100,6 +103,7 @@ def _all_tables_exist(engine):
         SqlTraceMetadata.__tablename__,
         SqlScorer.__tablename__,
         SqlScorerVersion.__tablename__,
+        SqlJob.__tablename__,
     }
 
 
@@ -107,6 +111,23 @@ def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
+
+
+def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
+    from mlflow.utils.file_utils import ExclusiveFileLock
+
+    if os.name == "nt":
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
+        return
+
+    url_hash = hashlib.md5(
+        str(engine.url).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
 
 
 def _get_latest_schema_revision():

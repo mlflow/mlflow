@@ -427,10 +427,6 @@ def test_get_model_version_by_alias(store, creds):
     )
 
 
-@mock.patch(
-    "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
-    1,
-)
 def test_await_model_version_creation_pending(store):
     pending_mv = ModelVersion(
         name="Model 1",
@@ -439,6 +435,10 @@ def test_await_model_version_creation_pending(store):
         status=ModelVersionStatus.to_string(ModelVersionStatus.PENDING_REGISTRATION),
     )
     with (
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS",
+            1,
+        ),
         mock.patch.object(store, "get_model_version", return_value=pending_mv),
         pytest.raises(MlflowException, match="Exceeded max wait time"),
     ):

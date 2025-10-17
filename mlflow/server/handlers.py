@@ -1,5 +1,4 @@
 # Define all the service endpoint handlers here.
-import bisect
 import io
 import json
 import logging
@@ -128,7 +127,6 @@ from mlflow.protos.service_pb2 import (
     GetScorer,
     GetTraceInfo,
     GetTraceInfoV3,
-    GetTraceInfoV4,
     LinkTracesToRun,
     ListArtifacts,
     ListLoggedModelArtifacts,
@@ -184,8 +182,7 @@ from mlflow.store.jobs.abstract_store import AbstractJobStore
 from mlflow.store.model_registry.abstract_store import AbstractStore as AbstractModelRegistryStore
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
-from mlflow.store.tracking.rest_store import RestStore
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -233,7 +230,6 @@ _artifact_repo = None
 STATIC_PREFIX_ENV_VAR = "_MLFLOW_STATIC_PREFIX"
 MAX_RUNS_GET_METRIC_HISTORY_BULK = 100
 MAX_RESULTS_PER_RUN = 2500
-MAX_RESULTS_GET_METRIC_HISTORY = 25000
 
 
 class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
@@ -261,7 +257,7 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
     @classmethod
     def _get_databricks_rest_store(cls, store_uri, artifact_uri):
-        return RestStore(partial(get_databricks_host_creds, store_uri))
+        return DatabricksTracingRestStore(partial(get_databricks_host_creds, store_uri))
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):
@@ -651,7 +647,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if field.name not in flask_request.args:
                 continue
 
-            if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+            # Use is_repeated property (preferred) with fallback to deprecated label
+            try:
+                is_repeated = field.is_repeated
+            except AttributeError:
+                is_repeated = field.label == descriptor.FieldDescriptor.LABEL_REPEATED
+
+            if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
                 request_json[field.name] = flask_request.args.get(field.name)
@@ -1407,29 +1409,6 @@ def get_metric_history_bulk_handler():
     }
 
 
-def _get_sampled_steps_from_steps(
-    start_step: int, end_step: int, max_results: int, all_steps: list[int]
-) -> set[int]:
-    # NOTE: all_steps should be sorted before
-    # being passed to this function
-    start_idx = bisect.bisect_left(all_steps, start_step)
-    end_idx = bisect.bisect_right(all_steps, end_step)
-    if end_idx - start_idx <= max_results:
-        return set(all_steps[start_idx:end_idx])
-
-    num_steps = end_idx - start_idx
-    interval = num_steps / max_results
-    sampled_steps = []
-
-    for i in range(0, max_results):
-        idx = start_idx + int(i * interval)
-        if idx < num_steps:
-            sampled_steps.append(all_steps[idx])
-
-    sampled_steps.append(all_steps[end_idx - 1])
-    return set(sampled_steps)
-
-
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def get_metric_history_bulk_interval_handler():
@@ -1472,68 +1451,29 @@ def get_metric_history_bulk_interval_impl(request_message):
     run_ids = request_message.run_ids
     metric_key = request_message.metric_key
     max_results = int(args.get("max_results", MAX_RESULTS_PER_RUN))
+    start_step = args.get("start_step")
+    end_step = args.get("end_step")
+    if start_step is not None and end_step is not None:
+        start_step = int(start_step)
+        end_step = int(end_step)
+        if start_step > end_step:
+            raise MlflowException.invalid_parameter_value(
+                "end_step must be greater than start_step. "
+                f"Found start_step={start_step} and end_step={end_step}."
+            )
+    elif start_step is not None or end_step is not None:
+        raise MlflowException.invalid_parameter_value(
+            "If either start step or end step are specified, both must be specified."
+        )
 
     store = _get_tracking_store()
-
-    def _get_sampled_steps(run_ids, metric_key, max_results):
-        # cannot fetch from request_message as the default value is 0
-        start_step = args.get("start_step")
-        end_step = args.get("end_step")
-
-        # perform validation before any data fetching occurs
-        if start_step is not None and end_step is not None:
-            start_step = int(start_step)
-            end_step = int(end_step)
-            if start_step > end_step:
-                raise MlflowException.invalid_parameter_value(
-                    "end_step must be greater than start_step. "
-                    f"Found start_step={start_step} and end_step={end_step}."
-                )
-        elif start_step is not None or end_step is not None:
-            raise MlflowException.invalid_parameter_value(
-                "If either start step or end step are specified, both must be specified."
-            )
-
-        # get a list of all steps for all runs. this is necessary
-        # because we can't assume that every step was logged, so
-        # sampling needs to be done on the steps that actually exist
-        all_runs = [
-            [m.step for m in store.get_metric_history(run_id, metric_key)] for run_id in run_ids
-        ]
-
-        # save mins and maxes to be added back later
-        all_mins_and_maxes = {step for run in all_runs if run for step in [min(run), max(run)]}
-        all_steps = sorted({step for sublist in all_runs for step in sublist})
-
-        # init start and end step if not provided in args
-        if start_step is None and end_step is None:
-            start_step = 0
-            end_step = all_steps[-1] if all_steps else 0
-
-        # remove any steps outside of the range
-        all_mins_and_maxes = {step for step in all_mins_and_maxes if start_step <= step <= end_step}
-
-        # doing extra iterations here shouldn't badly affect performance,
-        # since the number of steps at this point should be relatively small
-        # (MAX_RESULTS_PER_RUN + len(all_mins_and_maxes))
-        sampled_steps = _get_sampled_steps_from_steps(start_step, end_step, max_results, all_steps)
-        return sorted(sampled_steps.union(all_mins_and_maxes))
-
-    def _default_history_bulk_interval_impl():
-        steps = _get_sampled_steps(run_ids, metric_key, max_results)
-        metrics_with_run_ids = []
-        for run_id in run_ids:
-            metrics_with_run_ids.extend(
-                store.get_metric_history_bulk_interval_from_steps(
-                    run_id=run_id,
-                    metric_key=metric_key,
-                    steps=steps,
-                    max_results=MAX_RESULTS_GET_METRIC_HISTORY,
-                )
-            )
-        return metrics_with_run_ids
-
-    metrics_with_run_ids = _default_history_bulk_interval_impl()
+    metrics_with_run_ids = store.get_metric_history_bulk_interval(
+        run_ids=run_ids,
+        metric_key=metric_key,
+        max_results=max_results,
+        start_step=start_step,
+        end_step=end_step,
+    )
 
     response_message = GetMetricHistoryBulkInterval.Response()
     response_message.metrics.extend([m.to_proto() for m in metrics_with_run_ids])
@@ -2975,18 +2915,6 @@ def _get_trace_info_v3(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_trace_info_v4(location: str, trace_id: str) -> Response:
-    """
-    A request handler for `GET /mlflow/traces/{location}/{trace_id}/info` to retrieve
-    an existing TraceInfo record from tracking store.
-    """
-    trace_info = _get_tracking_store().get_trace_info(f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}")
-    response_message = GetTraceInfoV4.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -3010,7 +2938,7 @@ def _search_traces_v3():
             experiment_ids.append(location.mlflow_experiment.experiment_id)
 
     traces, token = _get_tracking_store().search_traces(
-        experiment_ids=experiment_ids,
+        locations=experiment_ids,
         filter_string=request_message.filter,
         max_results=request_message.max_results,
         order_by=request_message.order_by,
@@ -3638,13 +3566,18 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    version = _get_tracking_store().register_scorer(
+    scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
     )
     response_message = RegisterScorer.Response()
-    response_message.version = version
+    response_message.version = scorer_version.scorer_version
+    response_message.scorer_id = scorer_version.scorer_id
+    response_message.experiment_id = scorer_version.experiment_id
+    response_message.name = scorer_version.scorer_name
+    response_message.serialized_scorer = scorer_version._serialized_scorer
+    response_message.creation_time = scorer_version.creation_time
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -4113,8 +4046,6 @@ HANDLERS = {
     SetTraceTagV3: _set_trace_tag_v3,
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
-    # MLflow Tracing APIs (V4)
-    GetTraceInfoV4: _get_trace_info_v4,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

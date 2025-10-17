@@ -91,7 +91,6 @@ from mlflow.server.handlers import (
     _get_request_message,
     _get_scorer,
     _get_trace_artifact_repo,
-    _get_trace_info_v4,
     _list_scorer_versions,
     _list_scorers,
     _list_webhooks,
@@ -127,9 +126,8 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
-from mlflow.store.tracking.rest_store import RestStore
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.validation import MAX_BATCH_LOG_REQUEST_SIZE
@@ -1373,18 +1371,31 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
         experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
     )
 
-    mock_tracking_store.register_scorer.return_value = 1
+    mock_scorer_version = ScorerVersion(
+        experiment_id=experiment_id,
+        scorer_name=name,
+        scorer_version=1,
+        serialized_scorer=serialized_scorer,
+        creation_time=1234567890,
+        scorer_id="test-scorer-id",
+    )
+    mock_tracking_store.register_scorer.return_value = mock_scorer_version
 
     resp = _register_scorer()
 
-    # Verify the tracking store was called with correct arguments
     mock_tracking_store.register_scorer.assert_called_once_with(
         experiment_id, name, serialized_scorer
     )
 
-    # Verify the response
     response_data = json.loads(resp.get_data())
-    assert response_data == {"version": 1}
+    assert response_data == {
+        "version": 1,
+        "scorer_id": "test-scorer-id",
+        "experiment_id": experiment_id,
+        "name": name,
+        "serialized_scorer": serialized_scorer,
+        "creation_time": 1234567890,
+    }
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):
@@ -1706,7 +1717,7 @@ def test_databricks_tracking_store_registration():
 
     # Test that the correct store type is returned for databricks scheme
     store = registry.get_store("databricks", artifact_uri=None)
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
 
     # Verify that the store was created with the right get_host_creds function
     # The RestStore should have a get_host_creds attribute that is a partial function
@@ -1859,31 +1870,6 @@ def test_deprecated_search_traces_v2_empty_page_token(
     call_kwargs = mock_tracking_store.search_traces.call_args.kwargs
     assert call_kwargs.get("page_token") is None
     assert call_kwargs.get("max_results") == 10
-
-
-def test_get_trace_info_v4_handler(mock_tracking_store):
-    trace_id = "test-trace-123"
-    location = "catalog.schema"
-    full_v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
-
-    mock_trace_info = TraceInfo(
-        trace_id=trace_id,
-        trace_location=EntityTraceLocation.from_uc_schema(
-            catalog_name="catalog", schema_name="schema"
-        ),
-        request_time=1234567890,
-        execution_duration=5000,
-        state=TraceState.OK,
-        trace_metadata={"test": "metadata"},
-        tags={"test": "tag"},
-    )
-
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
-
-    response = _get_trace_info_v4(location, trace_id)
-
-    mock_tracking_store.get_trace_info.assert_called_once_with(full_v4_trace_id)
-    assert response is not None
 
 
 def test_search_logged_models_empty_page_token(mock_get_request_message, mock_tracking_store):

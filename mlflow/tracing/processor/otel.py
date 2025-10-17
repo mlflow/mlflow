@@ -42,10 +42,17 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
             self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelReadableSpan, parent_context=None):
-        if self._should_register_traces and not span.parent:
-            trace_info = self._create_trace_info(span)
-            span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_info.trace_id))
-            self._trace_manager.register_trace(trace_info.trace_id, trace_info)
+        if self._should_register_traces:
+            if not span.parent:
+                trace_info = self._create_trace_info(span)
+                trace_id = trace_info.trace_id
+                self._trace_manager.register_trace(span.context.trace_id, trace_info)
+            else:
+                trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(
+                    span.context.trace_id
+                )
+
+            span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 
         super().on_start(span, parent_context)
 

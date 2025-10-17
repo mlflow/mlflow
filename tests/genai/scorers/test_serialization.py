@@ -94,8 +94,6 @@ def test_simple_scorer_round_trip():
 
 
 def test_custom_name_and_aggregations_round_trip():
-    """Test round-trip with custom name and aggregations."""
-
     @scorer(name="length_check", aggregations=["mean", "max"])
     def my_scorer(inputs, outputs):
         return len(outputs) > len(inputs)
@@ -116,8 +114,6 @@ def test_custom_name_and_aggregations_round_trip():
 
 
 def test_multiple_parameters_round_trip():
-    """Test round-trip with multiple parameters."""
-
     @scorer
     def multi_param_scorer(inputs, outputs, expectations):
         return outputs.startswith(inputs) and len(outputs) > expectations.get("min_length", 0)

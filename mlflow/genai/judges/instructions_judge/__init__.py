@@ -28,9 +28,9 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
-    extract_expectations_from_trace,
-    extract_inputs_from_trace,
-    extract_outputs_from_trace,
+    resolve_expectations_from_trace,
+    resolve_inputs_from_trace,
+    resolve_outputs_from_trace,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -236,28 +236,6 @@ class InstructionsJudge(Judge):
                 f"appear in the instructions: {self.template_variables}"
             )
 
-    def _resolve_inputs_from_trace(self, inputs: Any | None, trace: Trace) -> Any | None:
-        """Extract inputs from trace if not provided and template requires it."""
-        if inputs is None and self._TEMPLATE_VARIABLE_INPUTS in self.template_variables:
-            return extract_inputs_from_trace(trace)
-        return inputs
-
-    def _resolve_outputs_from_trace(self, outputs: Any | None, trace: Trace) -> Any | None:
-        """Extract outputs from trace if not provided and template requires it."""
-        if outputs is None and self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables:
-            return extract_outputs_from_trace(trace)
-        return outputs
-
-    def _resolve_expectations_from_trace(
-        self, expectations: dict[str, Any] | None, trace: Trace
-    ) -> dict[str, Any] | None:
-        """Extract human expectations from trace if not provided and template requires it."""
-        if expectations is None and self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables:
-            from mlflow.entities.assessment_source import AssessmentSourceType
-
-            return extract_expectations_from_trace(trace, source=AssessmentSourceType.HUMAN)
-        return expectations
-
     def _build_system_message(self, is_trace_based: bool) -> str:
         """Build the system message based on whether this is trace-based or field-based."""
         output_fields = self.get_output_fields()
@@ -377,9 +355,21 @@ class InstructionsJudge(Judge):
         original_expectations = expectations
 
         if trace is not None:
-            inputs = self._resolve_inputs_from_trace(inputs, trace)
-            outputs = self._resolve_outputs_from_trace(outputs, trace)
-            expectations = self._resolve_expectations_from_trace(expectations, trace)
+            inputs = resolve_inputs_from_trace(
+                inputs,
+                trace,
+                extract_if_none=self._TEMPLATE_VARIABLE_INPUTS in self.template_variables,
+            )
+            outputs = resolve_outputs_from_trace(
+                outputs,
+                trace,
+                extract_if_none=self._TEMPLATE_VARIABLE_OUTPUTS in self.template_variables,
+            )
+            expectations = resolve_expectations_from_trace(
+                expectations,
+                trace,
+                extract_if_none=self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables,
+            )
 
         self._check_required_parameters(inputs, outputs, expectations, trace)
         self._warn_unused_parameters(

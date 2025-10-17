@@ -32,6 +32,7 @@ env:
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
   _MLFLOW_TESTING_TELEMETRY: "true"
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality
@@ -218,8 +219,6 @@ jobs:
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
-  # It takes 9 ~ 10 minutes to run tests in `tests/models`. To make CI finish faster,
-  # run these tests in a separate job.
   models:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -241,18 +240,16 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community '.[mlserver]'
+          uv sync --extra mlserver
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            'pyspark<3.5.6' langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
-  # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
-  # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
-  # When the shap cross version tests are passing in a new release version of shap, this pin should
-  # be removed.
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -273,16 +270,18 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          uv sync --extra extras --extra jobs --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            torch transformers 'pyspark<3.5.6' langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
-          pytest tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -341,17 +340,19 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install tensorflow 'pyspark[connect]'
+          uv sync --extra extras --extra gateway --extra jobs
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            tensorflow 'pyspark[connect]<3.5.6'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          pytest tests/pyfunc/test_spark_connect.py
+          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run tests on pydantic v1
       #   run: |

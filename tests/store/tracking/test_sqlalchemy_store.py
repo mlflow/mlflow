@@ -41,6 +41,7 @@ from mlflow.entities import (
     trace_location,
 )
 from mlflow.entities.assessment import ExpectationValue, FeedbackValue
+from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
@@ -98,7 +99,6 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
-    TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -4066,42 +4066,46 @@ class TextClauseMatcher:
         return self.text == other.text
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MYSQL
-    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+        )
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MSSQL
-    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+        )
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MYSQL
-    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
+        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MSSQL
-    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+        )
 
 
 def test_get_attribute_name():
@@ -4416,7 +4420,6 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info.request_metadata == {
         "rq1": "foo",
         "rq2": "bar",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
@@ -4447,7 +4450,6 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
         "rq1": "updated",
         "rq2": "bar",
         "rq3": "baz",
-        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "tag1": "updated",
@@ -4477,7 +4479,7 @@ def test_start_trace(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
@@ -7789,6 +7791,98 @@ def test_sql_dataset_record_merge():
         assert record6.tags == {"env": "test", "version": "1.0"}
 
 
+def test_sql_dataset_record_wrapping_unwrapping():
+    from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+
+    entity = DatasetRecord(
+        dataset_record_id="rec1",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs="string output",
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record = SqlEvaluationDatasetRecord.from_mlflow_entity(entity, "input_hash_123")
+
+    assert sql_record.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "string output"}
+
+    unwrapped_entity = sql_record.to_mlflow_entity()
+    assert unwrapped_entity.outputs == "string output"
+
+    entity2 = DatasetRecord(
+        dataset_record_id="rec2",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=[1, 2, 3],
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record2 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity2, "input_hash_456")
+    assert sql_record2.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: [1, 2, 3]}
+
+    unwrapped_entity2 = sql_record2.to_mlflow_entity()
+    assert unwrapped_entity2.outputs == [1, 2, 3]
+
+    entity3 = DatasetRecord(
+        dataset_record_id="rec3",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=42,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record3 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity3, "input_hash_789")
+    assert sql_record3.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: 42}
+
+    unwrapped_entity3 = sql_record3.to_mlflow_entity()
+    assert unwrapped_entity3.outputs == 42
+
+    entity4 = DatasetRecord(
+        dataset_record_id="rec4",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs={"result": "answer"},
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record4 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity4, "input_hash_abc")
+    assert sql_record4.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"result": "answer"}}
+
+    unwrapped_entity4 = sql_record4.to_mlflow_entity()
+    assert unwrapped_entity4.outputs == {"result": "answer"}
+
+    entity5 = DatasetRecord(
+        dataset_record_id="rec5",
+        dataset_id="ds1",
+        inputs={"q": "test"},
+        outputs=None,
+        created_time=1000,
+        last_update_time=1000,
+    )
+
+    sql_record5 = SqlEvaluationDatasetRecord.from_mlflow_entity(entity5, "input_hash_def")
+    assert sql_record5.outputs is None
+
+    unwrapped_entity5 = sql_record5.to_mlflow_entity()
+    assert unwrapped_entity5.outputs is None
+
+    sql_record6 = SqlEvaluationDatasetRecord()
+    sql_record6.outputs = {"old": "data"}
+
+    sql_record6.merge({"outputs": "new string output"})
+    assert sql_record6.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: "new string output"}
+
+    sql_record7 = SqlEvaluationDatasetRecord()
+    sql_record7.outputs = None
+
+    sql_record7.merge({"outputs": {"new": "dict"}})
+    assert sql_record7.outputs == {DATASET_RECORD_WRAPPED_OUTPUT_KEY: {"new": "dict"}}
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [False, True])
 async def test_log_spans_default_trace_status_in_progress(store: SqlAlchemyStore, is_async: bool):
@@ -7983,7 +8077,6 @@ async def test_log_spans_updates_in_progress_trace_status_from_root_span(
 async def test_log_spans_updates_state_unspecified_trace_status_from_root_span(
     store: SqlAlchemyStore, is_async: bool
 ):
-    """Test that trace status is updated from root span on subsequent logs."""
     experiment_id = store.create_experiment("test_unspecified_update")
     # Generate a proper MLflow trace ID in the format "tr-<32-char-hex>"
     trace_id = f"tr-{uuid.uuid4().hex}"

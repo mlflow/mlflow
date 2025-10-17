@@ -45,6 +45,13 @@ Remember the host and port name that your MLflow tracking server is assigned. Yo
 this information in the next section of this tutorial!
 :::
 
+:::info Security Note
+Starting with MLflow 3.5.0, the server includes built-in security features using industry-standard middleware libraries
+to protect against DNS rebinding and CORS attacks. By default, it only accepts connections from localhost.
+If you need to expose your server to other machines, see the [MLflow Server Security Guide](/self-hosting/security/network)
+for proper configuration.
+:::
+
 Congratulations! Your MLflow environment is now set up and ready to go. As you progress, you'll
 explore the myriad of functionalities MLflow has to offer, streamlining and enhancing your machine learning workflows.
 

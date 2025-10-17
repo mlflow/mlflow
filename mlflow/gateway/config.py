@@ -4,7 +4,7 @@ import os
 import pathlib
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 import yaml
@@ -32,6 +32,9 @@ _logger = logging.getLogger(__name__)
 
 if IS_PYDANTIC_V2_OR_NEWER:
     from pydantic import SerializeAsAny
+
+if TYPE_CHECKING:
+    from mlflow.deployments.server.config import Endpoint
 
 
 class Provider(str, Enum):
@@ -65,7 +68,7 @@ class TogetherAIConfig(ConfigModel):
         return _resolve_api_key_from_input(value)
 
 
-class RouteType(str, Enum):
+class EndpointType(str, Enum):
     LLM_V1_COMPLETIONS = "llm/v1/completions"
     LLM_V1_CHAT = "llm/v1/chat"
     LLM_V1_EMBEDDINGS = "llm/v1/embeddings"
@@ -342,9 +345,9 @@ class LimitsConfig(ConfigModel):
     limits: list[Limit] | None = []
 
 
-class RouteConfig(AliasedConfigModel):
+class EndpointConfig(AliasedConfigModel):
     name: str
-    endpoint_type: RouteType
+    endpoint_type: EndpointType
     model: Model
     limit: Limit | None = None
 
@@ -380,7 +383,7 @@ class RouteConfig(AliasedConfigModel):
         if (
             model
             and model.provider == "mosaicml"
-            and route_type == RouteType.LLM_V1_CHAT
+            and route_type == EndpointType.LLM_V1_CHAT
             and not is_valid_mosiacml_chat_model(model.name)
         ):
             raise MlflowException.invalid_parameter_value(
@@ -397,7 +400,7 @@ class RouteConfig(AliasedConfigModel):
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):
-        if value in RouteType._value2member_map_:
+        if value in EndpointType._value2member_map_:
             return value
         raise MlflowException.invalid_parameter_value(f"The route_type '{value}' is not supported.")
 
@@ -418,11 +421,11 @@ class RouteConfig(AliasedConfigModel):
 
         return value
 
-    def to_route(self) -> "Route":
-        return Route(
+    def _to_legacy_route(self) -> "_LegacyRoute":
+        return _LegacyRoute(
             name=self.name,
             route_type=self.endpoint_type,
-            model=RouteModelInfo(
+            model=EndpointModelInfo(
                 name=self.model.name,
                 provider=self.model.provider,
             ),
@@ -430,8 +433,34 @@ class RouteConfig(AliasedConfigModel):
             limit=self.limit,
         )
 
+    def to_endpoint(self) -> "Endpoint":
+        from mlflow.deployments.server.config import Endpoint
 
-class RouteModelInfo(ResponseModel):
+        return Endpoint(
+            name=self.name,
+            endpoint_type=self.endpoint_type,
+            model=EndpointModelInfo(
+                name=self.model.name,
+                provider=self.model.provider,
+            ),
+            endpoint_url=f"{MLFLOW_GATEWAY_ROUTE_BASE}{self.name}{MLFLOW_QUERY_SUFFIX}",
+            limit=self.limit,
+        )
+
+
+class RouteDestinationConfig(ConfigModel):
+    name: str
+    traffic_percentage: int
+
+
+class TrafficRouteConfig(ConfigModel):
+    name: str
+    task_type: EndpointType
+    destinations: list[RouteDestinationConfig]
+    routing_strategy: Literal["TRAFFIC_SPLIT"] = "TRAFFIC_SPLIT"
+
+
+class EndpointModelInfo(ResponseModel):
     name: str | None = None
     # Use `str` instead of `Provider` enum to allow gateway backends such as Databricks to
     # support new providers without breaking the gateway client.
@@ -451,10 +480,10 @@ _ROUTE_EXTRA_SCHEMA = {
 }
 
 
-class Route(ConfigModel):
+class _LegacyRoute(ConfigModel):
     name: str
     route_type: str
-    model: RouteModelInfo
+    model: EndpointModelInfo
     route_url: str
     limit: Limit | None = None
 
@@ -477,10 +506,11 @@ class Route(ConfigModel):
 
 
 class GatewayConfig(AliasedConfigModel):
-    endpoints: list[RouteConfig]
+    endpoints: list[EndpointConfig]
+    routes: list[TrafficRouteConfig] | None = None
 
 
-def _load_route_config(path: str | Path) -> GatewayConfig:
+def _load_gateway_config(path: str | Path) -> GatewayConfig:
     """
     Reads the gateway configuration yaml file from the storage location and returns an instance
     of the configuration RouteConfig class
@@ -514,6 +544,6 @@ def _validate_config(config_path: str) -> GatewayConfig:
         raise MlflowException.invalid_parameter_value(f"{config_path} does not exist")
 
     try:
-        return _load_route_config(config_path)
-    except ValidationError as e:
+        return _load_gateway_config(config_path)
+    except Exception as e:
         raise MlflowException.invalid_parameter_value(f"Invalid gateway configuration: {e}") from e

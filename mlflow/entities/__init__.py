@@ -52,6 +52,7 @@ from mlflow.entities.trace_location import (
     MlflowExperimentLocation,
     TraceLocation,
     TraceLocationType,
+    UCSchemaLocation,
 )
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.view_type import ViewType
@@ -96,6 +97,7 @@ __all__ = [
     "TraceLocationType",
     "MlflowExperimentLocation",
     "InferenceTableLocation",
+    "UCSchemaLocation",
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",

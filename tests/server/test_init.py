@@ -1,3 +1,5 @@
+import os
+import shutil
 import sys
 from unittest import mock
 
@@ -123,8 +125,9 @@ def test_build_uvicorn_command_with_env_file():
     assert env_file_path_idx < app_name_idx
 
 
-def test_run_server(mock_exec_cmd):
+def test_run_server(mock_exec_cmd, monkeypatch):
     """Make sure this runs."""
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -139,8 +142,9 @@ def test_run_server(mock_exec_cmd):
     mock_exec_cmd.assert_called_once()
 
 
-def test_run_server_win32(mock_exec_cmd):
+def test_run_server_win32(mock_exec_cmd, monkeypatch):
     """Make sure this runs."""
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="win32"):
         server._run_server(
             file_store_path="",
@@ -156,7 +160,6 @@ def test_run_server_win32(mock_exec_cmd):
 
 
 def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
-    """Test running server with uvicorn."""
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
@@ -189,3 +192,30 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         capture_output=False,
         synchronous=False,
     )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows")
+def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
+    original_which = shutil.which
+
+    def patched_which(cmd):
+        if cmd == "uv":
+            return None
+        return original_which(cmd)
+
+    with (
+        mock.patch("shutil.which", side_effect=patched_which) as which_patch,
+        pytest.raises(MlflowException, match="MLflow job backend requires 'uv'"),
+    ):
+        server._run_server(
+            file_store_path="",
+            registry_store_uri="",
+            default_artifact_root="",
+            serve_artifacts="",
+            artifacts_only="",
+            artifacts_destination="",
+            host="",
+            port="",
+        )
+    which_patch.assert_called_once_with("uv")
