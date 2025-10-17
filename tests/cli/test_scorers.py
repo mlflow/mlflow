@@ -100,7 +100,10 @@ def test_list_scorers_table_output(
     # Construct expected table output (scorers are returned in alphabetical order)
     # Note: click.echo() adds a trailing newline
     expected_table = (
-        _create_table([["Correctness"], ["RelevanceToQuery"], ["Safety"]], headers=["Scorer Name"])
+        _create_table(
+            [["Correctness", ""], ["RelevanceToQuery", ""], ["Safety", ""]],
+            headers=["Scorer Name", "Description"],
+        )
         + "\n"
     )
     assert result.output == expected_table
@@ -121,7 +124,12 @@ def test_list_scorers_json_output(
 
     assert result.exit_code == 0
     output_json = json.loads(result.output)
-    assert set(output_json["scorers"]) == {"Correctness", "Safety", "RelevanceToQuery"}
+    expected_scorers = [
+        {"name": "Correctness", "description": None},
+        {"name": "RelevanceToQuery", "description": None},
+        {"name": "Safety", "description": None},
+    ]
+    assert output_json["scorers"] == expected_scorers
 
 
 @pytest.mark.parametrize(
@@ -209,7 +217,7 @@ def test_list_scorers_single_scorer(
 
     if output_format == "json":
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": ["OnlyScorer"]}
+        assert output_json == {"scorers": [{"name": "OnlyScorer", "description": None}]}
     else:
         assert "OnlyScorer" in result.output
 
@@ -233,7 +241,7 @@ def test_list_scorers_long_names(
 
     if output_format == "json":
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": [long_name]}
+        assert output_json == {"scorers": [{"name": long_name, "description": None}]}
     else:
         # Full name should be present
         assert long_name in result.output

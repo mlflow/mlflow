@@ -52,15 +52,15 @@ def list_scorers(experiment_id: str, output: Literal["table", "json"]) -> None:
         mlflow scorers list
     """
     scorers = list_scorers_api(experiment_id=experiment_id)
-    scorer_names = [scorer.name for scorer in scorers]
+    scorer_data = [{"name": scorer.name, "description": scorer.description} for scorer in scorers]
 
     if output == "json":
-        result = {"scorers": scorer_names}
+        result = {"scorers": scorer_data}
         click.echo(json.dumps(result, indent=2))
     else:
         # Table output format
-        table = [[name] for name in scorer_names]
-        click.echo(_create_table(table, headers=["Scorer Name"]))
+        table = [[s["name"], s["description"] or ""] for s in scorer_data]
+        click.echo(_create_table(table, headers=["Scorer Name", "Description"]))
 
 
 @commands.command("register-llm-judge")
