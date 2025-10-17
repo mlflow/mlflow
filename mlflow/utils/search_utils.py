@@ -1580,6 +1580,7 @@ class SearchTraceUtils(SearchUtils):
         "end_time",
         "end_time_ms",
         "status",
+        "client_request_id",
         # The following keys are mapped to tags or metadata
         "name",
         "run_id",
@@ -1608,11 +1609,8 @@ class SearchTraceUtils(SearchUtils):
         "end_time",
     }
 
-    # For now, don't support LIKE/ILIKE operators for trace search because it may
-    # cause performance issues with large attributes and tags. We can revisit this
-    # decision if we find a way to support them efficiently.
-    VALID_TAG_COMPARATORS = {"!=", "="}
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
     VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
@@ -1643,7 +1641,13 @@ class SearchTraceUtils(SearchUtils):
     # Supported span attributes
     _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status", "content"}
 
-    SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
+    SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {
+        "name",
+        "status",
+        "request_id",
+        "run_id",
+        "client_request_id",
+    }
 
     # Some search keys are defined differently in the DB models.
     # E.g. "name" is mapped to TraceTagKey.TRACE_NAME
