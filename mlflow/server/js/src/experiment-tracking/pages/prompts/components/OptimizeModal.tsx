@@ -69,7 +69,7 @@ result = mlflow.genai.optimize_prompts(
     train_data=dataset,
     prompt_uris=["prompts:/${promptName}/${promptVersion}"],
     optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(), Safety()],
+    scorers=[Correctness(model="openai:/gpt-5")), Safety(model="openai:/gpt-5"))],
 )
 
 # Open the prompt registry page to check the new prompt
