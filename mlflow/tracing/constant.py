@@ -21,6 +21,7 @@ class TraceMetadataKey:
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "mlflow.eval.requestId"
+    SPANS_LOCATION = "mlflow.trace.spansLocation"
 
 
 class TokenUsageKey:
@@ -113,3 +114,6 @@ ASSESSMENT_ID_PREFIX = "a-"
 # To make sure get_trace API does not fail due to this delay, we retry up to a reasonable timeout.
 # Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
 GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
+
+# Spans location
+TRACKING_STORE = "tracking_store"
