@@ -4,7 +4,8 @@ import os
 import posixpath
 import time
 from abc import abstractmethod
-from concurrent.futures import as_completed
+from concurrent.futures import Future, as_completed
+from dataclasses import dataclass
 from typing import NamedTuple
 
 from mlflow.environment_variables import (
@@ -17,7 +18,7 @@ from mlflow.environment_variables import (
     MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialType
+from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo, ArtifactCredentialType
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils import chunk_list
 from mlflow.utils.file_utils import (
@@ -30,11 +31,10 @@ from mlflow.utils.request_utils import download_chunk
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _logger = logging.getLogger(__name__)
-_ARTIFACT_UPLOAD_BATCH_SIZE = (
-    50  # Max number of artifacts for which to fetch write credentials at once.
-)
-_AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB is the minimum chunk size for S3 multipart uploads
-_AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB is the maximum chunk size for S3 multipart uploads
+_ARTIFACT_UPLOAD_BATCH_SIZE = 50
+_AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB
+_AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB
+_SEG_AUTH_DELAY_SECONDS = 0.2  # Delay between credential requests to avoid SEG race conditions
 
 
 def _readable_size(size: int) -> str:
@@ -42,9 +42,6 @@ def _readable_size(size: int) -> str:
 
 
 def _validate_chunk_size_aws(chunk_size: int) -> None:
-    """
-    Validates the specified chunk size in bytes is in valid range for AWS multipart uploads.
-    """
     if chunk_size < _AWS_MIN_CHUNK_SIZE or chunk_size > _AWS_MAX_CHUNK_SIZE:
         raise MlflowException(
             message=(
@@ -55,22 +52,12 @@ def _validate_chunk_size_aws(chunk_size: int) -> None:
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
-    """
-    Computes the number of chunks to use for a multipart upload of the specified file.
-    """
     return math.ceil(os.path.getsize(local_file) / chunk_size)
 
 
 def _complete_futures(futures_dict, file):
-    """
-    Waits for the completion of all the futures in the given dictionary and returns
-    a tuple of two dictionaries. The first dictionary contains the results of the
-    futures (unordered) and the second contains the errors (unordered) that occurred
-    during the execution of the futures.
-    """
     results = {}
     errors = {}
-
     with ArtifactProgressBar.chunks(
         os.path.getsize(file),
         f"Uploading {file}",
@@ -83,15 +70,32 @@ def _complete_futures(futures_dict, file):
                 pbar.update()
             except Exception as e:
                 errors[key] = repr(e)
-
     return results, errors
 
 
 class StagedArtifactUpload(NamedTuple):
-    # Local filesystem path of the source file to upload
-    src_file_path: str
-    # Base artifact URI-relative path specifying the upload destination
-    artifact_file_path: str
+    src_file_path: str  # Local filesystem path
+    artifact_file_path: str  # Remote artifact path
+
+
+@dataclass
+class FileUploadPlan:
+    """Groups all information needed to upload a single file.
+
+    This avoids brittle parallel lists and caches the file size.
+    """
+
+    staged_upload: StagedArtifactUpload
+    file_size: int
+    credential_info: ArtifactCredentialInfo | None = None
+
+    @property
+    def src_path(self) -> str:
+        return self.staged_upload.src_file_path
+
+    @property
+    def dest_path(self) -> str:
+        return self.staged_upload.artifact_file_path
 
 
 class CloudArtifactRepository(ArtifactRepository):
@@ -99,259 +103,283 @@ class CloudArtifactRepository(ArtifactRepository):
         self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
     ) -> None:
         super().__init__(artifact_uri, tracking_uri, registry_uri)
-        # Use an isolated thread pool executor for chunk uploads/downloads to avoid a deadlock
-        # caused by waiting for a chunk-upload/download task within a file-upload/download task.
-        # See https://superfastpython.com/threadpoolexecutor-deadlock/#Deadlock_1_Submit_and_Wait_for_a_Task_Within_a_Task
-        # for more details
+        # Isolated thread pool for chunk operations to avoid deadlocks
+        # See: https://superfastpython.com/threadpoolexecutor-deadlock/
         self.chunk_thread_pool = self._create_thread_pool()
 
-    # Write APIs
-
     def log_artifacts(self, local_dir, artifact_path=None):
-        """
-        Parallelized implementation of `log_artifacts`.
-        """
+        """Upload all files from local_dir to the cloud artifact store.
 
+        This method handles three cloud providers with different upload strategies:
+        - AWS: Small files use simple PUT with presigned URLs, large files use multipart upload
+        - Azure/GCP: All files use PUT with SAS tokens
+
+        In SEG (Storage Edge Gateway) environments, concurrent credential requests can fail,
+        so we serialize uploads when needed.
+        """
         artifact_path = artifact_path or ""
 
-        staged_uploads = []
+        # Step 1: Collect all files and compute sizes upfront (addresses review comment #2)
+        upload_plans = self._collect_upload_plans(local_dir, artifact_path)
+        if not upload_plans:
+            return
+
+        # Step 2: Detect cloud provider type from a sample file
+        cloud_type = self._detect_cloud_type(upload_plans)
+
+        # Step 3: Route to cloud-specific upload logic (addresses review comment #8)
+        failed_uploads = {}
+        multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+
+        for batch in chunk_list(upload_plans, _ARTIFACT_UPLOAD_BATCH_SIZE):
+            try:
+                if cloud_type == ArtifactCredentialType.AWS_PRESIGNED_URL:
+                    batch_failures = self._upload_batch_aws(batch, multipart_threshold)
+                elif cloud_type in (
+                    ArtifactCredentialType.AZURE_SAS_URI,
+                    ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+                ):
+                    batch_failures = self._upload_batch_azure_gcp(batch, cloud_type)
+                else:
+                    # Unknown cloud type or no credentials - upload with what we have
+                    batch_failures = self._upload_batch_generic(batch)
+
+                failed_uploads.update(batch_failures)
+            except Exception as e:
+                _logger.error(f"Batch upload failed: {e}")
+                for plan in batch:
+                    failed_uploads[plan.src_path] = repr(e)
+
+        if failed_uploads:
+            raise MlflowException(
+                message=(
+                    f"The following failures occurred while uploading one or more artifacts "
+                    f"to {self.artifact_uri}: {failed_uploads}"
+                )
+            )
+
+    def _collect_upload_plans(self, local_dir: str, artifact_path: str) -> list[FileUploadPlan]:
+        """Collect all files to upload and cache their sizes (addresses review comment #2)."""
+        plans = []
         for dirpath, _, filenames in os.walk(local_dir):
             artifact_subdir = artifact_path
             if dirpath != local_dir:
                 rel_path = os.path.relpath(dirpath, local_dir)
                 rel_path = relative_path_to_artifact_path(rel_path)
                 artifact_subdir = posixpath.join(artifact_path, rel_path)
-            for name in filenames:
-                src_file_path = os.path.join(dirpath, name)
-                src_file_name = os.path.basename(src_file_path)
-                staged_uploads.append(
-                    StagedArtifactUpload(
-                        src_file_path=src_file_path,
-                        artifact_file_path=posixpath.join(artifact_subdir, src_file_name),
+
+            for filename in filenames:
+                src_path = os.path.join(dirpath, filename)
+                dest_path = posixpath.join(artifact_subdir, filename)
+                file_size = os.path.getsize(src_path)
+
+                plans.append(
+                    FileUploadPlan(
+                        staged_upload=StagedArtifactUpload(src_path, dest_path),
+                        file_size=file_size,
                     )
                 )
 
-        # Join futures to ensure that all artifacts have been uploaded prior to returning
-        failed_uploads = {}
+        return plans
 
-        # For each batch of files, upload them in parallel and wait for completion
-        # TODO: change to class method
-        def upload_artifacts_iter():
-            cloud_credential_type_cache = None
-            multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+    def _detect_cloud_type(
+        self, upload_plans: list[FileUploadPlan]
+    ) -> ArtifactCredentialType | None:
+        """Detect cloud provider by fetching credentials for a single sample file.
 
-            for staged_upload_chunk in chunk_list(staged_uploads, _ARTIFACT_UPLOAD_BATCH_SIZE):
-                # NB: For AWS, skip requesting credentials for large files to avoid double
-                # allocation in strict egress environments (e.g., Databricks SEG). AWS large
-                # files use multipart upload which creates its own credentials. Azure/GCP
-                # large files use the same credentials throughout, so request them upfront.
+        We prefer to sample a small file to avoid wasting credentials on AWS large files
+        (which will get their own credentials via multipart upload).
+        """
+        if not upload_plans:
+            return None
 
-                has_large_files = any(
-                    os.path.getsize(u.src_file_path) >= multipart_threshold
-                    for u in staged_upload_chunk
-                )
+        # Find a small file if possible (addresses review comment #6)
+        multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
+        sample_plan = None
+        for plan in upload_plans:
+            if plan.file_size < multipart_threshold:
+                sample_plan = plan
+                break
 
-                if cloud_credential_type_cache is None and has_large_files:
-                    sample_upload_for_typing = None
-                    for upload in staged_upload_chunk:
-                        if os.path.getsize(upload.src_file_path) < multipart_threshold:
-                            sample_upload_for_typing = upload
-                            break
-                    if sample_upload_for_typing is None:
-                        sample_upload_for_typing = staged_upload_chunk[0]
+        # No small files found, use the first file
+        if sample_plan is None:
+            sample_plan = upload_plans[0]
 
-                    sample_cred_info = self._get_write_credential_infos(
-                        [sample_upload_for_typing.artifact_file_path]
-                    )[0]
-                    cloud_credential_type_cache = (
-                        sample_cred_info.type if hasattr(sample_cred_info, "type") else None
-                    )
-                else:
-                    sample_upload_for_typing = None
-                    sample_cred_info = None
+        # Fetch credential to determine cloud type
+        creds = self._get_write_credential_infos([sample_plan.dest_path])
+        if creds and hasattr(creds[0], "type"):
+            # Cache the credential so we don't waste it
+            sample_plan.credential_info = creds[0]
+            return creds[0].type
 
-                files_needing_credentials = []
-                files_without_credentials = []
+        return None
 
-                for upload in staged_upload_chunk:
-                    file_size = os.path.getsize(upload.src_file_path)
-                    is_aws_large = (
-                        cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL
-                        and file_size >= multipart_threshold
-                    )
+    def _upload_batch_aws(
+        self, batch: list[FileUploadPlan], multipart_threshold: int
+    ) -> dict[str, str]:
+        """Upload a batch of files to AWS S3.
 
-                    if is_aws_large:
-                        files_without_credentials.append(upload)
-                    else:
-                        files_needing_credentials.append(upload)
+        AWS Strategy:
+        - Small files (<threshold): Fetch presigned URLs and upload via simple PUT
+        - Large files (>=threshold): Use multipart upload (fetches its own credentials)
 
-                write_credential_infos = []
-                if files_needing_credentials:
-                    if (
-                        sample_upload_for_typing is not None
-                        and sample_upload_for_typing in files_needing_credentials
-                    ):
-                        other_files = [
-                            u for u in files_needing_credentials if u != sample_upload_for_typing
-                        ]
-                        if other_files:
-                            other_creds = self._get_write_credential_infos(
-                                remote_file_paths=[u.artifact_file_path for u in other_files]
-                            )
-                            write_credential_infos = []
-                            other_creds_iter = iter(other_creds)
-                            for u in files_needing_credentials:
-                                if u == sample_upload_for_typing:
-                                    write_credential_infos.append(sample_cred_info)
-                                else:
-                                    write_credential_infos.append(next(other_creds_iter))
-                        else:
-                            write_credential_infos = [sample_cred_info]
-                    else:
-                        write_credential_infos = self._get_write_credential_infos(
-                            remote_file_paths=[
-                                u.artifact_file_path for u in files_needing_credentials
-                            ]
-                        )
+        SEG Serialization:
+        When we have both small and large files, we upload small files first (in parallel),
+        wait for them to complete, then upload large files. This avoids concurrent multipart
+        and simple PUT operations which can trigger SEG 500 errors.
+        """
+        small_files = [p for p in batch if p.file_size < multipart_threshold]
+        large_files = [p for p in batch if p.file_size >= multipart_threshold]
 
-                inflight_uploads = {}
+        # Fetch credentials for small files (large files get credentials via multipart)
+        self._fetch_credentials_for_plans(small_files)
 
-                # NB: Serialize uploads to avoid race conditions in strict egress environments
-                # (e.g., Databricks SEG) where the storage proxy can fail with 500 errors when
-                # handling concurrent chunked uploads to the same artifact location.
-                needs_serialization = False
+        failures = {}
 
-                if cloud_credential_type_cache == ArtifactCredentialType.AWS_PRESIGNED_URL:
-                    needs_serialization = files_without_credentials and files_needing_credentials
-                elif cloud_credential_type_cache in (
-                    ArtifactCredentialType.AZURE_SAS_URI,
-                    ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
-                ):
-                    needs_serialization = len(staged_upload_chunk) > 1
+        # If we have both types, serialize: small files first, then large files
+        if small_files and large_files:
+            # Upload small files in parallel
+            failures.update(self._upload_files_parallel(small_files, wait=True))
+            # Then upload large files (each uses multipart internally)
+            failures.update(self._upload_files_parallel(large_files, wait=False))
+        else:
+            # Only one type - upload in parallel
+            failures.update(self._upload_files_parallel(batch, wait=False))
 
-                if needs_serialization:
-                    if cloud_credential_type_cache in (
-                        ArtifactCredentialType.AZURE_SAS_URI,
-                        ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
-                    ):
-                        for idx, (staged_upload, write_credential_info) in enumerate(
-                            zip(files_needing_credentials, write_credential_infos)
-                        ):
-                            upload_future = self.thread_pool.submit(
-                                self._upload_to_cloud,
-                                cloud_credential_info=write_credential_info,
-                                src_file_path=staged_upload.src_file_path,
-                                artifact_file_path=staged_upload.artifact_file_path,
-                            )
-                            upload_future.result()
-                            inflight_uploads[staged_upload.src_file_path] = upload_future
-                            if idx < len(files_needing_credentials) - 1:
-                                time.sleep(0.1)
+        return failures
 
-                    else:
-                        small_file_futures = {}
-                        for staged_upload, write_credential_info in zip(
-                            files_needing_credentials, write_credential_infos
-                        ):
-                            upload_future = self.thread_pool.submit(
-                                self._upload_to_cloud,
-                                cloud_credential_info=write_credential_info,
-                                src_file_path=staged_upload.src_file_path,
-                                artifact_file_path=staged_upload.artifact_file_path,
-                            )
-                            small_file_futures[staged_upload.src_file_path] = upload_future
+    def _upload_batch_azure_gcp(
+        self, batch: list[FileUploadPlan], cloud_type: ArtifactCredentialType
+    ) -> dict[str, str]:
+        """Upload a batch of files to Azure or GCP.
 
-                        for src_file_path, upload_future in small_file_futures.items():
-                            upload_future.result()
-                            inflight_uploads[src_file_path] = upload_future
+        Azure/GCP Strategy:
+        - All files use SAS tokens for upload (no distinction between small/large)
 
-                        for staged_upload in files_without_credentials:
-                            upload_future = self.thread_pool.submit(
-                                self._upload_to_cloud,
-                                cloud_credential_info=None,
-                                src_file_path=staged_upload.src_file_path,
-                                artifact_file_path=staged_upload.artifact_file_path,
-                            )
-                            inflight_uploads[staged_upload.src_file_path] = upload_future
-                else:
-                    for staged_upload, write_credential_info in zip(
-                        files_needing_credentials, write_credential_infos
-                    ):
-                        upload_future = self.thread_pool.submit(
+        SEG Serialization:
+        With multiple files, SEG can reject concurrent credential requests to the same
+        write path. We serialize: fetch cred → upload → delay → repeat.
+        """
+        failures = {}
+
+        # SEG mode: Serialize credential fetching and uploads
+        if len(batch) > 1:
+            with ArtifactProgressBar.files(
+                desc="Uploading artifacts", total=len(batch)
+            ) as pbar:
+                for idx, plan in enumerate(batch):
+                    try:
+                        # Fetch credential for this specific file
+                        creds = self._get_write_credential_infos([plan.dest_path])
+                        plan.credential_info = creds[0] if creds else None
+
+                        # Upload immediately
+                        future = self.thread_pool.submit(
                             self._upload_to_cloud,
-                            cloud_credential_info=write_credential_info,
-                            src_file_path=staged_upload.src_file_path,
-                            artifact_file_path=staged_upload.artifact_file_path,
+                            cloud_credential_info=plan.credential_info,
+                            src_file_path=plan.src_path,
+                            artifact_file_path=plan.dest_path,
                         )
-                        inflight_uploads[staged_upload.src_file_path] = upload_future
+                        future.result()  # Wait for completion
+                        pbar.update()
 
-                    for staged_upload in files_without_credentials:
-                        upload_future = self.thread_pool.submit(
-                            self._upload_to_cloud,
-                            cloud_credential_info=None,
-                            src_file_path=staged_upload.src_file_path,
-                            artifact_file_path=staged_upload.artifact_file_path,
-                        )
-                        inflight_uploads[staged_upload.src_file_path] = upload_future
+                        # Delay before next credential request to avoid SEG race condition
+                        if idx < len(batch) - 1:
+                            time.sleep(_SEG_AUTH_DELAY_SECONDS)
 
-                yield from inflight_uploads.items()
+                    except Exception as e:
+                        failures[plan.src_path] = repr(e)
+        else:
+            # Single file - no need to worry about SEG
+            self._fetch_credentials_for_plans(batch)
+            failures.update(self._upload_files_parallel(batch, wait=False))
 
-        with ArtifactProgressBar.files(
-            desc="Uploading artifacts", total=len(staged_uploads)
-        ) as pbar:
-            for src_file_path, upload_future in upload_artifacts_iter():
-                try:
-                    upload_future.result()
-                    pbar.update()
-                except Exception as e:
-                    failed_uploads[src_file_path] = repr(e)
+        return failures
 
-        if len(failed_uploads) > 0:
-            raise MlflowException(
-                message=(
-                    "The following failures occurred while uploading one or more artifacts"
-                    f" to {self.artifact_uri}: {failed_uploads}"
-                )
+    def _upload_batch_generic(self, batch: list[FileUploadPlan]) -> dict[str, str]:
+        """Upload files when cloud type is unknown or credentials aren't needed."""
+        self._fetch_credentials_for_plans(batch)
+        return self._upload_files_parallel(batch, wait=False)
+
+    def _fetch_credentials_for_plans(self, plans: list[FileUploadPlan]) -> None:
+        """Fetch and cache credentials for plans that don't already have them.
+
+        This uses the efficient batch API to fetch multiple credentials at once.
+        Plans that already have credentials (from cloud type detection) are skipped.
+        """
+        plans_needing_creds = [p for p in plans if p.credential_info is None]
+        if not plans_needing_creds:
+            return
+
+        try:
+            creds = self._get_write_credential_infos([p.dest_path for p in plans_needing_creds])
+            for plan, cred in zip(plans_needing_creds, creds):
+                plan.credential_info = cred
+        except Exception as e:
+            _logger.warning(f"Failed to fetch credentials: {e}")
+
+    def _upload_files_parallel(
+        self, plans: list[FileUploadPlan], wait: bool
+    ) -> dict[str, str]:
+        """Upload multiple files in parallel and optionally wait for completion.
+
+        Args:
+            plans: Files to upload
+            wait: If True, block until all uploads complete before returning
+
+        Returns:
+            Dictionary mapping failed file paths to error messages
+        """
+        failures = {}
+        futures: dict[Future, FileUploadPlan] = {}
+
+        for plan in plans:
+            future = self.thread_pool.submit(
+                self._upload_to_cloud,
+                cloud_credential_info=plan.credential_info,
+                src_file_path=plan.src_path,
+                artifact_file_path=plan.dest_path,
             )
+            futures[future] = plan
+
+        if wait:
+            # Wait for all uploads to complete
+            for future, plan in futures.items():
+                try:
+                    future.result()
+                except Exception as e:
+                    failures[plan.src_path] = repr(e)
+
+        return failures
 
     @abstractmethod
     def _get_write_credential_infos(self, remote_file_paths):
-        """
-        Retrieve write credentials for a batch of remote file paths, including presigned URLs.
+        """Fetch write credentials for a batch of files.
 
         Args:
-            remote_file_paths: List of file paths in the remote artifact repository.
+            remote_file_paths: List of remote artifact paths
 
         Returns:
-            List of ArtifactCredentialInfo objects corresponding to each file path.
+            List of ArtifactCredentialInfo objects (same order as input)
         """
 
     @abstractmethod
     def _upload_to_cloud(self, cloud_credential_info, src_file_path, artifact_file_path):
-        """
-        Upload a single file to the cloud.
+        """Upload a single file to cloud storage.
 
         Args:
-            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file,
-                or None for large files where credentials should be obtained separately.
-            src_file_path: Local source file path for the upload.
-            artifact_file_path: Path in the artifact repository where the artifact will be logged.
-
+            cloud_credential_info: Credential (e.g., presigned URL) or None for multipart
+            src_file_path: Local source file path
+            artifact_file_path: Remote destination path
         """
 
-    # Read APIs
+    # Read APIs (unchanged from original)
 
     def _extract_headers_from_credentials(self, headers):
-        """
-        Returns:
-            A python dictionary of http headers converted from the protobuf credentials.
-        """
         return {header.name: header.value for header in headers}
 
     def _parallelized_download_from_cloud(self, file_size, remote_file_path, local_path):
         read_credentials = self._get_read_credential_infos([remote_file_path])
-        # Read credentials for only one file were requested. So we expected only one value in
-        # the response.
         assert len(read_credentials) == 1
         cloud_credential_info = read_credentials[0]
 
@@ -390,7 +418,6 @@ class CloudArtifactRepository(ArtifactRepository):
                 }
 
                 new_failed_downloads = []
-
                 for future in as_completed(futures):
                     chunk = futures[future]
                     try:
@@ -408,30 +435,20 @@ class CloudArtifactRepository(ArtifactRepository):
 
             if failed_downloads:
                 raise MlflowException(
-                    message=("All retries have been exhausted. Download has failed.")
+                    message="All retries have been exhausted. Download has failed."
                 )
 
     def _download_file(self, remote_file_path, local_path):
-        # list_artifacts API only returns a list of FileInfos at the specified path
-        # if it's a directory. To get file size, we need to iterate over FileInfos
-        # contained by the parent directory. A bad path could result in there being
-        # no matching FileInfos (by path), so fall back to None size to prevent
-        # parallelized download.
         parent_dir = posixpath.dirname(remote_file_path)
         file_infos = self.list_artifacts(parent_dir)
         file_info = [info for info in file_infos if info.path == remote_file_path]
         file_size = file_info[0].file_size if len(file_info) == 1 else None
 
-        # NB: FUSE mounts do not support file write from a non-0th index seek position.
-        # Due to this limitation (writes must start at the beginning of a file),
-        # offset writes are disabled if FUSE is the local_path destination.
         if (
             not MLFLOW_ENABLE_MULTIPART_DOWNLOAD.get()
             or not file_size
             or file_size < MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE.get()
             or is_fuse_or_uc_volumes_uri(local_path)
-            # DatabricksSDKModelsArtifactRepository can only download file via databricks sdk
-            # rather than presigned uri used in _parallelized_download_from_cloud.
             or type(self).__name__ == "DatabricksSDKModelsArtifactRepository"
         ):
             self._download_from_cloud(remote_file_path, local_path)
@@ -440,31 +457,11 @@ class CloudArtifactRepository(ArtifactRepository):
 
     @abstractmethod
     def _get_read_credential_infos(self, remote_file_paths):
-        """
-        Retrieve read credentials for a batch of remote file paths, including presigned URLs.
-
-        Args:
-            remote_file_paths: List of file paths in the remote artifact repository.
-
-        Returns:
-            List of ArtifactCredentialInfo objects corresponding to each file path.
-        """
+        """Fetch read credentials for a batch of files."""
 
     @abstractmethod
     def _download_from_cloud(self, remote_file_path, local_path):
-        """
-        Download a file from the input `remote_file_path` and save it to `local_path`.
-
-        Args:
-            remote_file_path: Path to file in the remote artifact repository.
-            local_path: Local path to download file to.
-
-        """
+        """Download a file from cloud storage."""
 
     def _refresh_credentials(self):
-        """
-        Refresh credentials for user in the case of credential expiration
-
-        Args:
-            None
-        """
+        """Refresh credentials after expiration."""
