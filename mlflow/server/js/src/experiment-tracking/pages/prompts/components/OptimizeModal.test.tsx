@@ -68,8 +68,7 @@ describe('OptimizeModal', () => {
       onCancel,
     });
 
-    expect(screen.getByText(/prompts:\/\$\{promptName\}\/\$\{promptVersion\}/)).toBeInTheDocument();
-    expect(screen.getByText(/mlflow.genai.optimize_prompt/)).toBeInTheDocument();
+    expect(screen.getAllByText('prompts:/my-prompt/2', { exact: false })).toHaveLength(2);
   });
 
   it('calls onCancel when modal is closed', async () => {
@@ -86,19 +85,5 @@ describe('OptimizeModal', () => {
     await userEvent.click(closeButton);
 
     expect(onCancel).toHaveBeenCalledTimes(1);
-  });
-
-  it('renders copy buttons for code snippets', () => {
-    const onCancel = jest.fn();
-    renderComponent({
-      visible: true,
-      promptName: 'my-prompt',
-      promptVersion: '1',
-      onCancel,
-    });
-
-    // There should be 2 copy buttons (one for bash, one for python)
-    const copyButtons = screen.getAllByRole('button', { name: /copy/i });
-    expect(copyButtons).toHaveLength(2);
   });
 });

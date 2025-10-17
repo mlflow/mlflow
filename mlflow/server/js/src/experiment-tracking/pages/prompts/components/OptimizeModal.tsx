@@ -54,7 +54,7 @@ from mlflow.genai import datasets
 EVAL_DATASET_NAME='<YOUR DATASET NAME>' # Replace with your dataset
 dataset = datasets.get_dataset(EVAL_DATASET_NAME)
 
-# Replace with your prediction function
+# Define your prediction function
 def predict_fn(question: str) -> str:
     prompt = mlflow.genai.load_prompt("prompts:/${promptName}/${promptVersion}")
     completion = openai.OpenAI().chat.completions.create(
@@ -64,7 +64,7 @@ def predict_fn(question: str) -> str:
     return completion.choices[0].message.content
 
 # Optimize your prompt
-result = mlflow.genai.optimize_prompt(
+result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     prompt_uris=["prompts:/${promptName}/${promptVersion}"],
