@@ -1,4 +1,4 @@
-import { createElement, useState } from 'react';
+import { useState } from 'react';
 import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
@@ -9,7 +9,7 @@ import { ExpectationValuePreview } from './ExpectationValuePreview';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { getSourceIcon } from './AssessmentItemHeader';
+import { getSourceIcon } from './utils';
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -24,6 +24,7 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
   const parsedValue = getParsedExpectationValue(expectation.expectation);
+  const SourceIcon = getSourceIcon(expectation.source);
 
   return (
     <div
@@ -60,14 +61,12 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
         />
       ) : (
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          {expectation.source && (
-            <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              {createElement(getSourceIcon(expectation.source))}
+          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <SourceIcon/> 
               <Typography.Text size="sm" color="secondary">
                 {expectation.source.source_id}
               </Typography.Text>
             </div>
-          )}
           <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
             <div
               css={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}
