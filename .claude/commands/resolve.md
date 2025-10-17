@@ -1,14 +1,5 @@
 ---
-allowed-tools:
-  - mcp__github__pull_request_read
-  - mcp__github__get_issue_comments
-  - mcp__github__get_me
-  - Read
-  - Edit
-  - Write
-  - Glob
-  - Grep
-  - Bash
+allowed-tools: mcp__github__pull_request_read, mcp__github__get_issue_comments, mcp__github__get_me, Read, Edit, Write, Glob, Grep, Bash
 argument-hint: <pr_url> [prompt]
 description: Resolve PR review comments by examining feedback and making necessary code updates
 ---
