@@ -132,7 +132,7 @@ class OpenAIAdapter(ProviderAdapter):
                         tool_calls=(
                             (calls := c["delta"].get("tool_calls"))
                             and [chat.ToolCallDelta(**c) for c in calls]
-                        )
+                        ),
                     ),
                 )
                 for c in resp["choices"]
