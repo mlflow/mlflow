@@ -86,8 +86,6 @@ jobs:
           # Ensure `databricks-connect` and `databricks-agents` are not installed
           pip uninstall -y databricks-connect databricks-agents
           pip install --no-deps --force-reinstall pyspark
-          # install uv==0.8.18 to meet tool.uv requirements in pyproject.toml
-          pip install uv==0.8.18
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -242,13 +240,15 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install pyspark langchain langchain-community '.[mlserver]'
+          uv sync --extra mlserver
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            'pyspark<3.5.6' langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -340,17 +340,20 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh
-          pip install tensorflow 'pyspark[connect]'
+          uv sync --extra extras --extra gateway --extra jobs
+          uv pip install \
+            --reinstall-package numpy \
+            -r requirements/test-requirements.txt \
+            tensorflow 'pyspark[connect]<3.5.6'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
-          pytest tests/pyfunc/test_spark_connect.py
+          uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
       # TODO: Remove this step once support for pydantic v1 is dropped
       # - name: Run tests on pydantic v1
       #   run: |

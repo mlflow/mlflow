@@ -16,7 +16,10 @@ export interface HomeNewsItemDefinition {
   link: string;
   componentId: string;
   thumbnail: {
-    gradient: string;
+    gradient: {
+      light: string;
+      dark: string;
+    };
     label?: ReactNode;
     icon?: ComponentType<{ className?: string; css?: any }>;
   };

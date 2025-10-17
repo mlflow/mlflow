@@ -22,6 +22,9 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
         # Override this to False since spans are logged to UC table instead of artifacts.
         self._should_log_spans_to_artifacts = False
 
+        # Track if we've raised an error for span export to avoid raising it multiple times.
+        self._has_raised_span_export_error = False
+
     def _export_spans_incrementally(self, spans: Sequence[ReadableSpan]) -> None:
         """
         Export spans incrementally as they complete.
@@ -50,7 +53,14 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
                 )
             )
         else:
-            self._client.log_spans(location, spans)
+            try:
+                self._client.log_spans(location, spans)
+            except Exception as e:
+                if self._has_raised_span_export_error:
+                    _logger.debug(f"Failed to log spans to the trace server: {e}", exc_info=True)
+                else:
+                    _logger.warning(f"Failed to log spans to the trace server: {e}")
+                    self._has_raised_span_export_error = True
 
     def _should_enable_async_logging(self) -> bool:
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()

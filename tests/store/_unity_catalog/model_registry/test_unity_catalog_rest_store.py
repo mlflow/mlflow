@@ -2683,12 +2683,14 @@ def test_link_prompt_version_to_model_sets_tag(store):
         mock_tracking_store.get_logged_model.return_value = logged_model
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_model("test_prompt", "1", model_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_model("test_prompt", "1", model_id)
 
         # Verify the tag was set
         mock_tracking_store.set_logged_model_tags.assert_called_once()
@@ -2711,9 +2713,6 @@ def test_link_prompts_to_trace_success(store):
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
-        mock.patch(
-            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
-        ) as mock_super_call,
     ):
         # Setup
         mock_get_endpoint.return_value = (
@@ -2728,9 +2727,6 @@ def test_link_prompts_to_trace_success(store):
 
         # Execute
         store.link_prompts_to_trace(prompt_versions, trace_id)
-
-        # Verify parent method was called
-        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
 
         # Verify API call was made
         mock_edit_call.assert_called_once()
@@ -2816,12 +2812,14 @@ def test_link_prompt_version_to_run_sets_tag(store):
         mock_tracking_store.get_run.return_value = run
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_run("test_prompt", "1", run_id)
 
         # Verify the tag was set
         mock_tracking_store.set_tag.assert_called_once()

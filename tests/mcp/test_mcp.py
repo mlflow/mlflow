@@ -33,6 +33,7 @@ async def test_list_tools(client: Client):
         "list_scorers",
         "log_expectation",
         "log_feedback",
+        "register_llm_judge",
         "search_traces",
         "set_trace_tag",
         "update_assessment",

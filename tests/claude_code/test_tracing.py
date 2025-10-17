@@ -1,9 +1,12 @@
+import importlib
 import json
 import logging
+from pathlib import Path
 
 import pytest
 
 import mlflow
+import mlflow.claude_code.tracing as tracing_module
 from mlflow.claude_code.tracing import (
     CLAUDE_TRACING_LEVEL,
     get_hook_response,
@@ -67,9 +70,38 @@ def test_setup_logging_creates_logger(monkeypatch, tmp_path):
 
 
 def test_custom_logging_level():
+    setup_logging()
+
     assert CLAUDE_TRACING_LEVEL > logging.INFO
     assert CLAUDE_TRACING_LEVEL < logging.WARNING
     assert logging.getLevelName(CLAUDE_TRACING_LEVEL) == "CLAUDE_TRACING"
+
+
+def test_get_logger_lazy_initialization(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.chdir(tmp_path)
+
+    # Force reload to reset the module state
+    importlib.reload(tracing_module)
+
+    log_dir = tmp_path / ".claude" / "mlflow"
+
+    # Before calling get_logger(), the log directory should NOT exist
+    assert not log_dir.exists()
+
+    # Call get_logger() for the first time - this should trigger initialization
+    logger1 = tracing_module.get_logger()
+
+    # After calling get_logger(), the log directory SHOULD exist
+    assert log_dir.exists()
+    assert log_dir.is_dir()
+
+    # Verify logger was created properly
+    assert logger1 is not None
+    assert logger1.name == "mlflow.claude_code.tracing"
+
+    # Call get_logger() again - should return the same logger instance
+    logger2 = tracing_module.get_logger()
+    assert logger2 is logger1
 
 
 # ============================================================================

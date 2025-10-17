@@ -15,10 +15,6 @@ class Event:
         return None
 
 
-class ImportMlflowEvent(Event):
-    name: str = "import_mlflow"
-
-
 class CreateExperimentEvent(Event):
     name: str = "create_experiment"
 
@@ -44,6 +40,19 @@ class StartTraceEvent(Event):
 
 class LogAssessmentEvent(Event):
     name: str = "log_assessment"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        from mlflow.entities.assessment import Expectation, Feedback
+
+        assessment = arguments.get("assessment")
+        if assessment is None:
+            return None
+
+        if isinstance(assessment, Expectation):
+            return {"type": "expectation", "source_type": assessment.source.source_type}
+        elif isinstance(assessment, Feedback):
+            return {"type": "feedback", "source_type": assessment.source.source_type}
 
 
 class EvaluateEvent(Event):
@@ -174,6 +183,35 @@ class CreateWebhookEvent(Event):
 
 class PromptOptimizationEvent(Event):
     name: str = "prompt_optimization"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        result = {}
+
+        # Track the optimizer type used
+        if optimizer := arguments.get("optimizer"):
+            result["optimizer_type"] = type(optimizer).__name__
+        else:
+            result["optimizer_type"] = None
+
+        # Track the number of prompts being optimized
+        prompt_uris = arguments.get("prompt_uris") or []
+        try:
+            result["prompt_count"] = len(prompt_uris)
+        except TypeError:
+            result["prompt_count"] = None
+
+        # Track if custom scorers are provided and how many
+        scorers = arguments.get("scorers")
+        try:
+            result["scorer_count"] = len(scorers)
+        except TypeError:
+            result["scorer_count"] = None
+
+        # Track if custom aggregation is provided
+        result["custom_aggregation"] = arguments.get("aggregation") is not None
+
+        return result
 
 
 class LogDatasetEvent(Event):
