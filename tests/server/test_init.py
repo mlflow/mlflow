@@ -195,7 +195,7 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="MLflow job execution is not supported on Windows")
-def test_run_server_with_jobs_without_uv(monkeypatch):
+def test_run_server_with_jobs_without_uv(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "true")
     original_which = shutil.which
 
