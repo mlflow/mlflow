@@ -588,6 +588,7 @@ service MlflowService {
   }
 
   // Get complete traces with spans for given trace identifiers.
+  // This API is for OSS MLflow only for traces in v3.
   rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
     option (rpc) = {
       endpoints: [{
