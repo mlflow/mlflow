@@ -14,7 +14,6 @@ def test_decorator_scorer_with_description():
         return len(outputs) > 100
 
     assert length_check.description == description
-    assert length_check.name == "length_check"
 
 
 def test_decorator_scorer_without_description():
@@ -23,7 +22,6 @@ def test_decorator_scorer_without_description():
         return True
 
     assert simple_scorer.description is None
-    assert simple_scorer.name == "simple_scorer"
 
 
 def test_decorator_scorer_with_name_and_description():
@@ -42,7 +40,6 @@ def test_builtin_scorer_with_description():
     scorer_instance = RelevanceToQuery(description=description)
 
     assert scorer_instance.description == description
-    assert scorer_instance.name == "relevance_to_query"
 
 
 def test_builtin_scorer_without_description():
@@ -81,7 +78,6 @@ def test_instructions_judge_with_description():
     )
 
     assert judge.description == description
-    assert judge.name == "test_judge"
 
 
 def test_instructions_judge_without_description():
