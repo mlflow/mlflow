@@ -576,7 +576,7 @@ class Linter(ast.NodeVisitor):
 
         # Check all decorators, not just the first one
         for deco in node.decorator_list:
-            if rules.MockPatchAsDecorator.check([deco], self.resolver, self.path):
+            if rules.MockPatchAsDecorator.check([deco], self.resolver):
                 self._check(Location.from_node(deco), rules.MockPatchAsDecorator())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:

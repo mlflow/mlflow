@@ -647,7 +647,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if field.name not in flask_request.args:
                 continue
 
-            if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+            # Use is_repeated property (preferred) with fallback to deprecated label
+            try:
+                is_repeated = field.is_repeated
+            except AttributeError:
+                is_repeated = field.label == descriptor.FieldDescriptor.LABEL_REPEATED
+
+            if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
                 request_json[field.name] = flask_request.args.get(field.name)
