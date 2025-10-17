@@ -342,7 +342,6 @@ jobs:
         run: |
           uv sync --extra extras --extra gateway --extra jobs
           uv pip install \
-            --reinstall-package numpy \
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]<3.5.6'
       - uses: ./.github/actions/show-versions
