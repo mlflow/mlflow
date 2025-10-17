@@ -22,7 +22,7 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
-          label: 'Set Up MLflow'
+          label: 'Set Up MLflow',
         },
         {
           type: 'doc',

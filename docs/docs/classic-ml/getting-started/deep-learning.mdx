@@ -15,12 +15,11 @@ import ImageBox from "@site/src/components/ImageBox";
 
 In this tutorial, we demonstrate how to use MLflow to track deep learning experiments with Pytorch. By combining MLflow
 
-* Save **checkpoints** with metrics.
-* Visualize the **loss curve** during training.
-* Monitor **system metrics** such as GPU utilization, memory footprint, disk usage, network, etc.
-* Record **hyperparameters** and optimizer settings.
-* Snapshot **library versions** for reproducibility.
-
+- Save **checkpoints** with metrics.
+- Visualize the **loss curve** during training.
+- Monitor **system metrics** such as GPU utilization, memory footprint, disk usage, network, etc.
+- Record **hyperparameters** and optimizer settings.
+- Snapshot **library versions** for reproducibility.
 
 ## Prerequisites: Set up MLflow and Pytorch
 
@@ -46,7 +45,6 @@ mlflow.set_experiment("Deep Learning Experiment")
 mlflow.config.enable_system_metrics_logging()
 mlflow.config.set_system_metrics_sampling_interval(1)
 ```
-
 
 ## Step 2: Prepare the dataset
 
@@ -137,7 +135,7 @@ with mlflow.start_run() as run:
 
     for epoch in range(params["epochs"]):
         model.train()
-        train_loss, correct, total = 0, 0, 0
+        train_loss = correct, total = 0, 0, 0
 
         for batch_idx, (data, target) in enumerate(train_loader):
             data, target = data.to(device), target.to(device)
@@ -229,7 +227,6 @@ The "Experiments" section shows a list of (recently created) experiments. Click 
 
 Click the Run in the table to view the details of the run. The overview page shows metadata such as the run duration, start time, training parameters, tags, etc. Navigate to the **Model metrics** and **System metrics** tabs to view the performance and system metrics logged during training.
 
-
 <Tabs>
   <TabItem value="overview" label="Overview">
     <ImageBox src="/images/tutorials/introductory/deep-learning/ui-run-overview.png" alt="MLflow UI Overview page" />
@@ -241,7 +238,6 @@ Click the Run in the table to view the details of the run. The overview page sho
     <ImageBox src="/images/tutorials/introductory/deep-learning/ui-system-metrics.png" alt="MLflow UI System metrics page" />
   </TabItem>
 </Tabs>
-
 
 ## Step 6: Load back the model and run inference
 

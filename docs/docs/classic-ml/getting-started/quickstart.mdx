@@ -83,12 +83,12 @@ lr.fit(X_train, y_train)
 
 With just one line of additional code `mlflow.sklearn.autolog()`, now you get the best of both worlds: you can focus on training the model, and MLflow will take care of the rest:
 
-* Saving the trained model.
-* Recording the model's performance metrics during training, such as accuracy, precision, AUC curve.
-* Logging hyperparameter values used to train the model.
-* Track metadata such as input data format, user, timestamp, etc.
+- Saving the trained model.
+- Recording the model's performance metrics during training, such as accuracy, precision, AUC curve.
+- Logging hyperparameter values used to train the model.
+- Track metadata such as input data format, user, timestamp, etc.
 
-To learn more about autologging and supported  libraries, see the [Autologging](/ml/tracking/autolog/) documentation.
+To learn more about autologging and supported libraries, see the [Autologging](/ml/tracking/autolog/) documentation.
 
 ## Step 4 - View the Run in the MLflow UI
 
@@ -120,11 +120,9 @@ The model page displays similar metadata such as performance metrics, hyper para
 
 <ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png" alt="MLflow UI Model detail page" />
 
-
 ## Step 5 - Log a model and metadata manually
 
 Now we learned how to log a model training run with MLflow autologging. Let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
-
 
 The steps that we will take are:
 
