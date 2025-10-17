@@ -90,6 +90,7 @@ jobs:
     needs: authorize
     runs-on: ubuntu-latest
     permissions:
+      issues: read
       pull-requests: read
     timeout-minutes: 30
     outputs:

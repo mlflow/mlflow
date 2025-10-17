@@ -1,5 +1,14 @@
 ---
-allowed-tools: mcp__github__pull_request_read, mcp__github__get_me, Read, Edit, Write, Glob, Grep, Bash
+allowed-tools:
+  - mcp__github__pull_request_read
+  - mcp__github__get_issue_comments
+  - mcp__github__get_me
+  - Read
+  - Edit
+  - Write
+  - Glob
+  - Grep
+  - Bash
 argument-hint: <pr_url> [prompt]
 description: Resolve PR review comments by examining feedback and making necessary code updates
 ---
@@ -31,7 +40,7 @@ Automatically fetch and address PR review comments. This command examines review
 ## Instructions
 
 1. Parse the PR URL to extract owner, repo, and PR number
-2. Fetch all review comments using `mcp__github__pull_request_read` with `method="get_review_comments"`
+2. Fetch review comments using `mcp__github__pull_request_read` with `method="get_review_comments"` and `mcp__github__get_issue_comments` with `issue_number=<pr_number>`
 3. **Filter out resolved comments**: Skip any comments that have already been marked as resolved
 4. Apply any additional filtering from the optional prompt (e.g., focus on specific files or issue types)
 5. For each unresolved review comment:
