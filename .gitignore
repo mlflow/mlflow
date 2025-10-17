@@ -129,6 +129,7 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
-# ignore everything in .claude except commands folder
+# ignore everything in .claude
 .claude/
+# except commands
 !.claude/commands/
