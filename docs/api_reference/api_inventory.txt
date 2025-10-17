@@ -481,6 +481,7 @@ mlflow.entities.SpanType
 mlflow.entities.Trace
 mlflow.entities.Trace.from_dict
 mlflow.entities.Trace.from_json
+mlflow.entities.Trace.from_proto
 mlflow.entities.Trace.pandas_dataframe_columns
 mlflow.entities.Trace.search_assessments
 mlflow.entities.Trace.search_spans
