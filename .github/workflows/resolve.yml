@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  authorize:
+  verify:
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -31,20 +31,23 @@ jobs:
       prompt: ${{ steps.prompt.outputs.prompt }}
       comment_id: ${{ github.event.comment.id }}
     steps:
-      - name: React to comment and check authorization
+      - name: Check authorization
         if: ${{ github.event_name == 'issue_comment' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
             const { comment } = context.payload;
-            const isAuthorized = comment.user.login === 'harupy';
+
+            // Check user association - only allow OWNER, MEMBER, or COLLABORATOR
+            const authorAssociation = comment.author_association;
+            const isAllowed = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(authorAssociation);
 
             let message;
-            if (isAuthorized) {
+            if (isAllowed) {
               const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
               message = `🚀 [Resolve workflow started](${workflowUrl})`;
             } else {
-              message = '⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored.';
+              message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
             }
 
             const updatedBody = `${comment.body}\n\n---\n${message}`;
@@ -56,8 +59,8 @@ jobs:
               body: updatedBody,
             });
 
-            if (!isAuthorized) {
-              throw new Error("Unauthorized user attempted to trigger workflow: " + comment.user.login);
+            if (!isAllowed) {
+              throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
             }
 
       - name: Get PR information
@@ -87,7 +90,7 @@ jobs:
           echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
 
   resolve:
-    needs: authorize
+    needs: verify
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -104,8 +107,8 @@ jobs:
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ needs.authorize.outputs.head_repository }}
-          ref: ${{ needs.authorize.outputs.head_ref }}
+          repository: ${{ needs.verify.outputs.head_repository }}
+          ref: ${{ needs.verify.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
@@ -139,7 +142,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-          PROMPT: ${{ needs.authorize.outputs.prompt }}
+          PROMPT: ${{ needs.verify.outputs.prompt }}
         run: |
           PR_URL="https://github.com/${REPOSITORY}/pull/${PR_NUMBER}"
 
@@ -182,8 +185,8 @@ jobs:
             git push
           fi
 
-  report:
-    needs: [authorize, resolve]
+  notify:
+    needs: [verify, resolve]
     if: always() && github.event_name == 'issue_comment'
     runs-on: ubuntu-latest
     permissions:
@@ -193,7 +196,7 @@ jobs:
       - name: Update original comment with result
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
-          COMMENT_ID: ${{ needs.authorize.outputs.comment_id }}
+          COMMENT_ID: ${{ needs.verify.outputs.comment_id }}
           RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
           CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
