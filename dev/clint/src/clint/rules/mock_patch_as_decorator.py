@@ -1,5 +1,4 @@
 import ast
-from pathlib import Path
 
 from clint.resolver import Resolver
 from clint.rules.base import Rule
@@ -14,9 +13,7 @@ class MockPatchAsDecorator(Rule):
         )
 
     @staticmethod
-    def check(
-        decorator_list: list[ast.expr], resolver: Resolver, file_path: Path | None = None
-    ) -> ast.expr | None:
+    def check(decorator_list: list[ast.expr], resolver: Resolver) -> ast.expr | None:
         """
         Returns the decorator node if it is a `@mock.patch` or `@patch` decorator.
         """
