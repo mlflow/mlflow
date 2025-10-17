@@ -140,12 +140,12 @@ jobs:
           - If the diff includes changes to .py files:
             1. Read `dev/guides/python.md` to understand **all** rules and their exceptions
             2. **Create a checklist** of each style guide rule with its exceptions before reviewing
-            3. For each rule that has exceptions, explicitly note what IS and ISN'T a violation
-            4. Use this checklist to ensure all rules are applied consistently, especially the exception cases
+            2. For each rule that has exceptions, explicitly note what IS and ISN'T a violation
+            3. Use this checklist to ensure all rules are applied consistently, especially the exception cases
 
           ## 2. Review for Style Guide Violations
           - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Apply each rule from your checklist to the changed lines, respecting noted exceptions
+          - Apply each rule from the checklist to the changed lines
           - Ignore unchanged/context lines and pre-existing code
 
           ## 3. Review for Bugs and Code Quality Issues
