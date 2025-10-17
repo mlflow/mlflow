@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, ChevronRightIcon, ChevronDownIcon, Button } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { AssessmentActionsOverflowMenu } from './AssessmentActionsOverflowMenu';
 import { AssessmentDeleteModal } from './AssessmentDeleteModal';
@@ -10,6 +10,7 @@ import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { ExpectationAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { getSourceIcon } from './utils';
+import { AssessmentSourceName } from './AssessmentSourceName';
 
 export const ExpectationItem = ({ expectation }: { expectation: ExpectationAssessment }) => {
   const { theme } = useDesignSystemTheme();
@@ -60,33 +61,31 @@ export const ExpectationItem = ({ expectation }: { expectation: ExpectationAsses
           onCancel={() => setIsEditing(false)}
         />
       ) : (
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
-          <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-            <SourceIcon/> 
-              <Typography.Text size="sm" color="secondary">
-                {expectation.source.source_id}
-              </Typography.Text>
-            </div>
-          <div css={{ display: 'flex', alignItems: 'flex-start', gap: theme.spacing.xs }}>
-            <div
-              css={{ paddingTop: 2, flexShrink: 0, cursor: 'pointer' }}
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsExpanded(!isExpanded);
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+          <div css={{ display: 'flex', alignItems: 'center' }}>
+            <SourceIcon
+              size={theme.typography.fontSizeSm}
+              css={{
+                padding: 2,
+                backgroundColor: theme.colors.actionIconBackgroundHover,
+                borderRadius: theme.borders.borderRadiusFull,
               }}
-            >
-              {isExpanded ? (
-                <ChevronDownIcon css={{ fontSize: 16 }} />
-              ) : (
-                <ChevronRightIcon css={{ fontSize: 16 }} />
-              )}
-            </div>
+            />
+            <AssessmentSourceName source={expectation.source} />
+          </div>
+          <div css={{ display: 'flex', alignItems: isExpanded ? 'flex-start' : 'center', gap: theme.spacing.xs }}>
+            <Button
+              componentId="shared.model-trace-explorer.toggle-expectation-expanded"
+              size="small"
+              icon={isExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+              onClick={() => setIsExpanded(!isExpanded)}
+            />
             <div css={{ flex: 1, minWidth: 0 }}>
               {isExpanded ? (
                 <div
                   css={{
                     backgroundColor: theme.colors.backgroundSecondary,
-                    padding: theme.spacing.sm,
+                    padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
                     borderRadius: theme.borders.borderRadiusMd,
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
