@@ -341,7 +341,7 @@ class GeminiAdapter(ProviderAdapter):
             finish_reason = cand.get("finishReason")
 
             if parts:
-                if parts[0].get("functionCall", None):
+                if parts[0].get("functionCall"):
                     # for gemini model streaming response,
                     # the function call message is not split into chunks
                     # it still contains the full function call arguments data.
