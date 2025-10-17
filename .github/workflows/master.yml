@@ -248,7 +248,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
 
   evaluate:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -278,10 +278,10 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          uv run pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
-          uv run pytest tests/evaluate/test_default_evaluator_delta.py
+          uv run --no-sync pytest tests/evaluate/test_default_evaluator_delta.py
 
   genai:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
