@@ -951,11 +951,8 @@ const config: Config = {
               '/getting-started/intro-quickstart',
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
+              '/getting-started/intro-quickstart/notebooks/tracking_quickstart'
             ],
-          },
-          {
-            to: '/ml/tracking/quickstart/notebooks/tracking_quickstart',
-            from: ['/getting-started/intro-quickstart/notebooks/tracking_quickstart'],
           },
           {
             to: '/ml/tracking/system-metrics',

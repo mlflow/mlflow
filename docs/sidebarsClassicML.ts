@@ -440,18 +440,8 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'MLflow Tracking',
           items: [
             {
-              type: 'category',
-              label: 'Quickstart ⚡',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracking/quickstart/notebooks/tracking_quickstart-ipynb',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'tracking/quickstart/index',
-              },
+              type: 'doc',
+              id: 'tracking/quickstart/index',
             },
             {
               type: 'doc',
