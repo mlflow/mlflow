@@ -88,7 +88,7 @@ jobs:
 
       - name: Install codex
         run: |
-          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.40.0/codex-x86_64-unknown-linux-musl.tar.gz
+          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.46.0/codex-x86_64-unknown-linux-musl.tar.gz
           tar -xzf codex.tar.gz
           mv codex-x86_64-unknown-linux-musl codex
           chmod +x codex
@@ -175,8 +175,9 @@ jobs:
       - name: Run codex
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
-          ./codex login --api-key "${{ secrets.OPENAI_API_KEY }}"
+          printenv OPENAI_API_KEY | ./codex login --with-api-key
           # Use timeout in case codex hangs
           timeout 20m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true
