@@ -138,16 +138,14 @@ jobs:
           ## 1. Prepare for Review
           - Use `fetch_diff` tool to fetch the PR diff
           - If the diff includes changes to .py files:
-            1. Read `dev/guides/python.md` thoroughly
-            2. **Create an internal checklist** of each style guide rule with its exceptions before reviewing
+            1. Read `dev/guides/python.md` to understand **all** rules and their exceptions
+            2. **Create a checklist** of each style guide rule with its exceptions before reviewing
             3. For each rule that has exceptions, explicitly note what IS and ISN'T a violation
             4. Use this checklist to ensure all rules are applied consistently, especially the exception cases
 
-          Critical: Pay special attention to exception sections in the style guide - these explicitly allow certain patterns that would otherwise violate a rule. Do NOT flag code that matches an allowed exception.
-
           ## 2. Review for Style Guide Violations
           - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Check for style guide violations: Code that doesn't follow project style guidelines
+          - Apply each rule from your checklist to the changed lines, respecting noted exceptions
           - Ignore unchanged/context lines and pre-existing code
 
           ## 3. Review for Bugs and Code Quality Issues
