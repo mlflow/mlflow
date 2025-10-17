@@ -142,7 +142,7 @@ jobs:
             2. **Create a checklist listing each** style guide rule with its exceptions before reviewing
             3. Use this checklist to ensure all rules are checked consistently
 
-          ## 2. Review for Style Guide Violations
+          ## 2. Review for Style Guide Violations (if applicable)
           - Carefully examine ONLY the changed lines (added or modified) in the diff
           - Go through each rule in your checklist one by one and check it against the changed lines
           - Ignore unchanged/context lines and pre-existing code
