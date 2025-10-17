@@ -2,95 +2,59 @@
 sidebar_position: 3
 ---
 
+import Link from "@docusaurus/Link";
 import { CardGroup, PageCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
 
 # Getting Started with MLflow
 
-If you're new to MLflow or seeking a refresher on its core functionalities, the
-quickstart tutorials here are the perfect starting point. They will guide you
-step-by-step through fundamental concepts, focusing purely on a task that will maximize your understanding of
-how to use MLflow to solve a particular task.
+If you're new to MLflow or seeking a refresher on its core functionalities, these
+quickstart tutorials here are the perfect starting point. Jump into the tutorial that best suits your needs and get started with MLflow.
 
 
-## Getting Started Guides
+## Experiment Tracking Quickstart
 
-### MLflow Tracking
+This tutorial walk through the basic experiment tracking capabilities of MLflow by training a simple scikit-learn model. If you are new to MLflow, this is a great place to start.
 
-[MLflow Tracking](/tracking) is one of the primary service components of MLflow. In these guides, you will gain an understanding of what MLflow Tracking can do to
-enhance your MLOps related activities while building ML models.
+[→ Getting Started with MLflow](/classic-ml/getting-started/quickstart)
 
-![The basics of MLflow tracking](/images/tutorials/introductory/tracking-basics.png "The basics of MLflow tracking")
+<Link href="/ml/getting-started/quickstart">
+<ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-home.png" alt="MLflow UI Home page" width="80%"/>
+</Link>
 
-In these introductory guides to MLflow Tracking, you will learn how to leverage MLflow to:
 
-- **Log** training statistics (loss, accuracy, etc.) and hyperparameters for a model
-- **Log** (save) a model for later retrieval
-- **Register** a model using the [MLflow Model Registry](/model-registry) to enable deployment
-- **Load** the model and use it for inference
+## LLMOps and GenAI Quickstart
 
-In the process of learning these key concepts, you will be exposed to the [MLflow Tracking APIs](/tracking/tracking-api), the MLflow Tracking UI, and learn how to add metadata associated with
-a model training event to an MLflow run.
+This tutorial walk through the basic LLMOps and GenAI capabilities of MLflow, such as tracing (observability), evaluation, and prompt management. If you are AI practitioner looking to build production-ready GenAI applications, start here.
 
-<CardGroup>
-  <PageCard link="/getting-started/intro-quickstart" headerText="MLFlow Tracking Quickstart Guide" text="Learn the basics of MLflow Tracking in a fast-paced guide with a focus on seeing your first model in the MLflow UI" />
-</CardGroup>
+[→ Getting Started with MLflow for GenAI](/genai/getting-started)
 
-### Autologging Basics
+<Link href="/genai/getting-started">
+<ImageBox src="/images/llms/tracing/tracing-top.gif" alt="MLflow GenAI Quickstart" width="80%" />
+</Link>
 
-A great way to get started with MLflow is to use the autologging feature. Autologging automatically logs your model, metrics, examples, signature, and parameters
-with only a single line of code for many of the most popular ML libraries in the Python ecosystem.
+## Hyperparameter Tuning Tutorial
 
-<div class="center-div" style={{ width: "80%" }}>
-  ![The basics of MLflow tracking](/images/tutorials/introductory/autologging-intro.png "The basics of MLflow tracking")
-</div>
+MLflow's experiment tracking capabilities have a strong synergy with large-scale hyperparameter tuning. This tutorial guides you through the process of running hyperparameter tuning jobs with MLflow and Optuna, and effectively compare and select the best model.
 
-In this brief tutorial, you'll learn how to leverage MLflow's autologging feature to simplify your model logging activities.
+[→ Getting Started with Hyperparameter Tuning](/classic-ml/getting-started/hyperparameter-tuning)
 
-<CardGroup>
-  <PageCard link="/tracking/autolog" headerText="MLflow Autologging Quickstart" text="Get started with logging to MLflow with the high-level autologging API in a fast-paced guide" />
-</CardGroup>
-<br />
+<Link href="/classic-ml/getting-started/hyperparameter-tuning">
+  <ImageBox src="/images/tutorials/introductory/hyperparameter-tuning/ui-compare-metrics.png" alt="MLflow UI Comparison page" width="80%" />
+</Link>
 
-### Run Comparison Basics
 
-This quickstart tutorial focuses on the MLflow UI's run comparison feature and provides a step-by-step walkthrough of registering the best model found from a
-hyperparameter tuning execution. After locally serving the registered model, a brief example of preparing a model for remote [deployment](/deployment)
-by containerizing the model using Docker is covered.
+## Deep Learning Tutorial
 
-![The basics of MLflow run comparison](/images/tutorials/introductory/intro-run-comparison.png "The basics of MLflow run comparison")
+MLflow offers smooth integration with popular deep learning frameworks, such as PyTorch and TensorFlow. In this tutorial, we train a simple deep learning model with PyTorch, and demonstrate how MLflow can help you track training process and system metrics such as GPU utilization.
 
-<CardGroup>
-  <PageCard link="/getting-started/quickstart-2" headerText="MLflow Run Comparison Quickstart" text="Get started with using the MLflow UI to compare runs and register a model for deployment" />
-</CardGroup>
-<br />
+[→ Deep Learning Tutorial](/classic-ml/getting-started/deep-learning)
 
-### Tracking Server Quickstart
 
-This quickstart tutorial walks through different types of [MLflow Tracking Servers](/tracking/server) and how to use them to log
-your MLflow experiments.
+<Link href="/classic-ml/getting-started/deep-learning">
+  <ImageBox src="/images/tutorials/introductory/deep-learning/ui-model-metrics.png" alt="MLflow UI Model metrics page" width="80%" />
+</Link>
+>
 
-<CardGroup>
-  <PageCard link="/getting-started/tracking-server-overview" headerText="5 Minute Tracking Server Overview" text="Learn how to log MLflow experiments with different tracking servers" />
-</CardGroup>
-<br />
 
-### Model Registry Quickstart
 
-This quickstart tutorial walks through registering a model in the MLflow model registry and how to
-retrieve registered models.
-
-<CardGroup>
-  <PageCard link="/getting-started/registering-first-model/" headerText="5 Minute Model Registry Overview" text="Learn how to log MLflow models to the model registry" />
-</CardGroup>
-
-## Further Learning - What's Next?
-
-Now that you have the essentials under your belt, below are some recommended collections of tutorial and guide content that will help to broaden your
-understanding of MLflow and its APIs.
-
-- **Tracking** - Learn more about the MLflow tracking APIs by [reading the tracking guide](/tracking).
-- **GenAI** - Discover how you can leverage cutting-edge advanced LLMs to power your GenAI applications by [reading the GenAI guide](/genai).
-- **MLflow Deployment** - Follow the comprehensive [guide on model deployment](/deployment) to learn how to deploy your MLflow models to a variety of deployment targets.
-- **Model Registry** - Learn about the [MLflow Model Registry](/model-registry) and how it can help you manage the lifecycle of your ML models.
-- **Deep Learning Library Integrations** - From PyTorch to TensorFlow and more, learn about the integrated deep learning capabilities in MLflow by [reading the deep learning guide](/deep-learning).
-- **Traditional ML** - Learn about the [traditional ML capabilities](/traditional-ml) in MLflow and how they can help you manage your traditional ML workflows.

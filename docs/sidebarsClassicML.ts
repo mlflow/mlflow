@@ -36,32 +36,6 @@ const sidebarsClassicML: SidebarsConfig = {
           type: 'doc',
           id: 'getting-started/deep-learning',
         },
-        {
-          type: 'category',
-          label: 'Model Registry Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step1-register-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step2-explore-registered-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step3-load-model',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'getting-started/registering-first-model/index',
-          },
-        },
-        {
-          type: 'doc',
-          id: 'getting-started/tracking-server-overview/index',
-        },
       ],
       link: {
         type: 'doc',
