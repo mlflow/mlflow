@@ -1,7 +1,7 @@
 import json
 import time
-from typing import Any, AsyncGenerator, AsyncIterable
 import warnings
+from typing import Any, AsyncGenerator, AsyncIterable
 
 from mlflow.gateway.config import CohereConfig, EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
