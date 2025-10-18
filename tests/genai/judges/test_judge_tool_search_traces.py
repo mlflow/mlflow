@@ -84,6 +84,8 @@ def test_convert_assessments_to_tool_types_with_feedback() -> None:
         span_id="span-2",
         value="positive",
         error=error,
+        overrides="old-assess-id",
+        valid=False,
     )
     feedback.rationale = "Feedback rationale"
     feedback.assessment_id = "assess-2"
@@ -102,6 +104,8 @@ def test_convert_assessments_to_tool_types_with_feedback() -> None:
     assert result[0].error_code == "VALIDATION_ERROR"
     assert result[0].error_message == "Invalid input"
     assert result[0].stack_trace == "Stack trace here"
+    assert result[0].overrides == "old-assess-id"
+    assert result[0].valid is False
 
 
 def test_convert_assessments_to_tool_types_with_feedback_no_error() -> None:
@@ -123,6 +127,8 @@ def test_convert_assessments_to_tool_types_with_feedback_no_error() -> None:
     assert result[0].error_code is None
     assert result[0].error_message is None
     assert result[0].stack_trace is None
+    assert result[0].overrides is None
+    assert result[0].valid is True
 
 
 def test_convert_assessments_to_tool_types_mixed() -> None:

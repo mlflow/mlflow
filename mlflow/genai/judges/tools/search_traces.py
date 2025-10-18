@@ -59,6 +59,8 @@ def _convert_assessments_to_tool_types(
                     error_code=assessment.error.error_code if assessment.error else None,
                     error_message=assessment.error.error_message if assessment.error else None,
                     stack_trace=assessment.error.stack_trace if assessment.error else None,
+                    overrides=assessment.overrides,
+                    valid=assessment.valid,
                 )
             )
     return tool_types
