@@ -166,6 +166,7 @@ const RunViewEvaluationsTabInner = ({
         showExportTracesToDatasetsModal,
         setShowExportTracesToDatasetsModal,
         renderExportTracesToDatasetsModal,
+        getTrace,
       },
       editTags: {
         showEditTagsModalForTrace,

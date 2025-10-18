@@ -9,6 +9,7 @@ import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelT
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
+import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
@@ -28,6 +29,7 @@ export const ModelTraceExplorerSummarySpans = ({
   const exceptions = getSpanExceptionEvents(rootNode);
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
+  const { isInComparisonView } = useModelTraceExplorerViewState();
 
   const inputList = createListFromObject(rootInputs);
   const outputList = createListFromObject(rootOutputs);
@@ -41,7 +43,7 @@ export const ModelTraceExplorerSummarySpans = ({
         minHeight: 0,
         padding: theme.spacing.md,
         paddingTop: theme.spacing.sm,
-        overflow: 'auto',
+        overflow: isInComparisonView ? 'visible' : 'auto',
         minWidth: SUMMARY_SPANS_MIN_WIDTH,
       }}
     >
@@ -67,7 +69,7 @@ export const ModelTraceExplorerSummarySpans = ({
               />
             </SegmentedControlButton>
           </SegmentedControlGroup>
-          <AssessmentPaneToggle />
+          {!isInComparisonView && <AssessmentPaneToggle />}
         </div>
       </div>
       {hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}

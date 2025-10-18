@@ -10,6 +10,7 @@ import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
 import type { RunEvaluationTracesDataEntry, TraceActions, TraceInfoV3 } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, convertTraceInfoV3ToModelTraceInfo, getRowIdFromTrace } from './utils/TraceUtils';
+import { TraceComparisonModal } from './components/GenAITraceComparisonModal';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -25,6 +26,8 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
   const { traceActions, experimentId, selectedTraces: selectedTracesFromProps, traceInfos, setRowSelection } = props;
 
   const { table, selectedRowIds } = useContext(GenAITracesTableContext);
+  const intl = useIntl();
+  const [showCompareModal, setShowCompareModal] = useState(false);
 
   const selectedTracesFromContext: RunEvaluationTracesDataEntry[] | undefined = useMemo(
     () =>
@@ -55,13 +58,26 @@ export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => 
 
   const selectedTraces: RunEvaluationTracesDataEntry[] = selectedTracesFromProps || selectedTracesFromContext;
 
+  const handleOpenCompare = useCallback(() => setShowCompareModal(true), []);
+  const handleCloseCompare = useCallback(() => setShowCompareModal(false), []);
+
   return (
-    <TraceActionsDropdown
-      experimentId={experimentId}
-      selectedTraces={selectedTraces}
-      traceActions={traceActions}
-      setRowSelection={setRowSelection ?? table?.setRowSelection}
-    />
+    <>
+      <TraceActionsDropdown
+        experimentId={experimentId}
+        selectedTraces={selectedTraces}
+        traceActions={traceActions}
+        setRowSelection={setRowSelection ?? table?.setRowSelection}
+        onCompare={handleOpenCompare}
+      />
+      {showCompareModal && (
+        <TraceComparisonModal
+          traces={selectedTraces}
+          onClose={handleCloseCompare}
+          getTrace={traceActions?.exportToEvals?.getTrace}
+        />
+      )}
+    </>
   );
 };
 
@@ -70,10 +86,11 @@ interface TraceActionsDropdownProps {
   selectedTraces: RunEvaluationTracesDataEntry[];
   traceActions?: TraceActions;
   setRowSelection: React.Dispatch<React.SetStateAction<RowSelectionState>> | undefined;
+  onCompare?: () => void;
 }
 
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
-  const { experimentId, selectedTraces, traceActions, setRowSelection } = props;
+  const { experimentId, selectedTraces, traceActions, setRowSelection, onCompare } = props;
   const intl = useIntl();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -108,6 +125,8 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
   const noActionsAvailable = !hasExportAction && !hasEditTagsAction && !hasDeleteAction;
+
+  const canCompare = selectedTraces.length >= 2;
 
   if (noActionsAvailable) {
     return null;
@@ -151,6 +170,13 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
         )}
         <DropdownMenu.Content>
+          <DropdownMenu.Item
+            componentId="mlflow.genai-traces-table.compare-traces"
+            onClick={onCompare}
+            disabled={!canCompare}
+          >
+            {intl.formatMessage({ defaultMessage: 'Compare', description: 'Compare traces button' })}
+          </DropdownMenu.Item>
           {hasExportAction && (
             <>
               <DropdownMenu.Group>
