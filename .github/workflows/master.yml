@@ -378,26 +378,13 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
-      - uses: ./.github/actions/cache-pip
       - name: Install python dependencies
         run: |
-          python -m venv .venv
-          source .venv/Scripts/activate
-          python -m pip install -U pip setuptools wheel
-          pip install tests/resources/mlflow-test-plugin
-          pip install '.[extras,genai]'
-          pip install pyspark
-          # Install Hugging Face datasets to test Hugging Face usage with MLflow dataset tracking
-          pip install datasets
-          # Install TensorFlow to test TensorFlow dataset usage with MLflow dataset tracking
-          pip install tensorflow
-          # Install torch and transformers to test metrics
-          pip install torch transformers
-          pip install -r requirements/test-requirements.txt
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
-          # test telemetry events
-          pip install openai
+          uv sync --extra extras --extra genai
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            'pyspark<3.5.6' datasets tensorflow torch transformers tf-keras openai \
+            tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
@@ -411,12 +398,11 @@ jobs:
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
         run: |
-          source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors \
             --ignore=tests/projects \
             --ignore=tests/examples \
