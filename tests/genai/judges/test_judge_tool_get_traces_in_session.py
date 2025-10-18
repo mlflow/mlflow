@@ -1,10 +1,3 @@
-"""
-Tests for GetTracesInSession.
-
-This module tests the functionality of the GetTracesInSession class,
-including successful trace retrieval, error handling, and parameter validation.
-"""
-
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -46,17 +39,15 @@ def test_get_traces_in_session_tool_get_definition() -> None:
     assert params["order_by"].type == "array"
 
 
-def create_mock_trace(
-    trace_id: str, experiment_id: str = "exp-123", session_id: str | None = None
-) -> Trace:
+def create_mock_trace(session_id: str | None = None) -> Trace:
     """Helper function to create mock trace objects."""
     tags = {}
     if session_id:
         tags["session.id"] = session_id
 
     trace_info = MlflowTraceInfo(
-        trace_id=trace_id,
-        trace_location=TraceLocation.from_experiment_id(experiment_id),
+        trace_id="current-trace",
+        trace_location=TraceLocation.from_experiment_id("exp-123"),
         request_time=1234567890,
         state=TraceState.OK,
         execution_duration=250,
@@ -71,7 +62,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
         tool = GetTracesInSession()
-        current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
+        current_trace = create_mock_trace("session-123")
 
         mock_search_tool = MagicMock()
         mock_result = [
@@ -119,7 +110,7 @@ def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
         tool = GetTracesInSession()
-        current_trace = create_mock_trace("current-trace", "exp-123", "session-456")
+        current_trace = create_mock_trace("session-456")
 
         mock_search_tool = MagicMock()
         mock_search_tool.invoke.return_value = []
@@ -138,7 +129,7 @@ def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
 def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
     """Test that tool raises error when no session.id is found in trace tags."""
     tool = GetTracesInSession()
-    current_trace = create_mock_trace("current-trace", "exp-123", session_id=None)
+    current_trace = create_mock_trace(session_id=None)
 
     with pytest.raises(MlflowException, match="No session.id found in trace tags") as exc_info:
         tool.invoke(current_trace)
@@ -149,7 +140,7 @@ def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
 def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
     """Test error when session.id has invalid format."""
     tool = GetTracesInSession()
-    current_trace = create_mock_trace("current-trace", "exp-123", "session@123!invalid")
+    current_trace = create_mock_trace("session@123!invalid")
 
     with pytest.raises(MlflowException, match="Invalid session ID format") as exc_info:
         tool.invoke(current_trace)
@@ -163,7 +154,7 @@ def test_get_traces_in_session_tool_invoke_empty_result() -> None:
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
         tool = GetTracesInSession()
-        current_trace = create_mock_trace("current-trace", "exp-123", "session-123")
+        current_trace = create_mock_trace("session-123")
 
         mock_search_tool = MagicMock()
         mock_search_tool.invoke.return_value = []
