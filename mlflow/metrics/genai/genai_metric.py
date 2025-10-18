@@ -194,6 +194,7 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
+@deprecated(since="3.4.0", impact=MIGRATION_GUIDE)
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: str | None = None,
@@ -353,6 +354,7 @@ def make_genai_metric_from_prompt(
     )
 
 
+@deprecated(since="3.4.0", impact=MIGRATION_GUIDE)
 def make_genai_metric(
     name: str,
     definition: str,
