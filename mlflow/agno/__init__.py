@@ -56,6 +56,8 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
             }
         )
 
+    async_method_names = {"arun"}
+
     for cls_path, methods in class_map.items():
         mod_name, cls_name = cls_path.rsplit(".", 1)
         try:
@@ -68,11 +70,11 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         for method_name in methods:
             try:
                 original = getattr(cls, method_name)
-                wrapper = (
-                    patched_async_class_call
-                    if inspect.iscoroutinefunction(original)
-                    else patched_class_call
-                )
+                is_async = inspect.iscoroutinefunction(original)
+                if not is_async and method_name in async_method_names:
+                    wrapper = patched_async_class_call
+                else:
+                    wrapper = patched_async_class_call if is_async else patched_class_call
                 safe_patch(FLAVOR_NAME, cls, method_name, wrapper)
             except AttributeError as exc:
                 _logger.debug(

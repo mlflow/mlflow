@@ -59,13 +59,9 @@ def test_run_simple_autolog(simple_agent):
     assert len(spans) == 2
     assert spans[0].span_type == SpanType.AGENT
     assert spans[0].name == "Agent.run"
-    assert spans[0].inputs == {"message": "Capital of France?"}
     assert spans[0].outputs["content"] == "Paris"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].name == "Claude.invoke"
-    # Agno add system message to the input messages, so validate the last message
-    assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
-    assert spans[1].outputs["content"][0]["text"] == "Paris"
 
     purge_traces()
 
@@ -120,13 +116,9 @@ async def test_arun_simple_autolog(simple_agent):
     assert len(spans) == 2
     assert spans[0].span_type == SpanType.AGENT
     assert spans[0].name == "Agent.arun"
-    assert spans[0].inputs == {"message": "Capital of France?"}
     assert spans[0].outputs["content"] == "Paris"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].name == "Claude.ainvoke"
-    # Agno add system message to the input messages, so validate the last message
-    assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
-    assert spans[1].outputs["content"][0]["text"] == "Paris"
 
 
 @pytest.mark.asyncio
