@@ -64,7 +64,7 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
     </div>
   );
 
-  const { openLogTracesDrawer } = useHomePageViewState();
+  const { openLogTracesDrawer, openRunEvaluationDrawer } = useHomePageViewState();
 
   if (action.id === 'log-traces') {
     return (
@@ -80,6 +80,28 @@ const GetStartedCard = ({ action }: { action: QuickAction }) => {
           font: 'inherit',
           textAlign: 'left',
         }}
+        data-component-id={action.componentId}
+      >
+        {card}
+      </button>
+    );
+  }
+
+  if (action.id === 'run-evaluation') {
+    return (
+      <button
+        type="button"
+        onClick={openRunEvaluationDrawer}
+        css={{
+          ...linkStyles,
+          border: 0,
+          padding: 0,
+          background: 'transparent',
+          cursor: 'pointer',
+          font: 'inherit',
+          textAlign: 'left',
+        }}
+        data-component-id={action.componentId}
       >
         {card}
       </button>
