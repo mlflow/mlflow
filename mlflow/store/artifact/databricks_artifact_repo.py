@@ -574,12 +574,22 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         to resource relative artifact file paths in the artifact repository.
 
         Args:
-            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file.
+            cloud_credential_info: ArtifactCredentialInfo object with presigned URL for the file,
+                or None for large files (>= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE) where
+                credentials will be obtained via multipart upload initiation.
             src_file_path: Local source file path for the upload.
             artifact_file_path: Path in the artifact repository, relative to the resource root path,
                 where the artifact will be logged.
 
         """
+        # NB: For AWS large files, credentials may be None to avoid double allocation in strict
+        # egress control environments (e.g., Databricks SEG). When None, we use multipart upload
+        # which creates its own credentials via CreateMultipartUpload API.
+        if cloud_credential_info is None:
+            _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
+            self._multipart_upload(src_file_path, artifact_file_path)
+            return
+
         if cloud_credential_info.type == ArtifactCredentialType.AZURE_SAS_URI:
             self._azure_upload_file(
                 cloud_credential_info,
@@ -595,7 +605,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 self._get_write_credential_infos,
             )
         elif cloud_credential_info.type == ArtifactCredentialType.AWS_PRESIGNED_URL:
-            if os.path.getsize(src_file_path) > MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
+            if os.path.getsize(src_file_path) >= MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get():
                 _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
                 self._multipart_upload(src_file_path, artifact_file_path)
             else:
