@@ -8,7 +8,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.get_traces_in_session import GetTracesInSession
-from mlflow.genai.judges.tools.types import TraceInfo
+from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.types.llm import ToolDefinition
 
@@ -66,7 +66,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
 
         mock_search_tool = MagicMock()
         mock_result = [
-            TraceInfo(
+            JudgeToolTraceInfo(
                 trace_id="trace-1",
                 request_time=1000,
                 state=TraceState.OK,
@@ -75,7 +75,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
                 execution_duration=100,
                 assessments=[],
             ),
-            TraceInfo(
+            JudgeToolTraceInfo(
                 trace_id="trace-2",
                 request_time=2000,
                 state=TraceState.OK,
@@ -91,7 +91,7 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
         result = tool.invoke(current_trace)
 
         assert len(result) == 2
-        assert all(isinstance(ti, TraceInfo) for ti in result)
+        assert all(isinstance(ti, JudgeToolTraceInfo) for ti in result)
         assert result[0].trace_id == "trace-1"
         assert result[0].request == "What is machine learning?"
         assert result[1].trace_id == "trace-2"

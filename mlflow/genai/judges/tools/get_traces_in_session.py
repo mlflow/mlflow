@@ -10,7 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.genai.judges.tools.search_traces import SearchTracesTool
-from mlflow.genai.judges.tools.types import TraceInfo
+from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 from mlflow.utils.annotations import experimental
@@ -36,8 +36,9 @@ class GetTracesInSession(JudgeTool):
                 description=(
                     "Retrieve traces from the same session for multi-turn evaluation. "
                     "Extracts the session ID from the current trace's tags and searches for other "
-                    "traces in the same session to provide conversational context. Returns a list "
-                    "of TraceInfo objects containing trace metadata, request, and response."
+                    "traces in the same session to provide conversational context. "
+                    "Returns a list of JudgeToolTraceInfo objects containing trace metadata, "
+                    "request, and response."
                 ),
                 parameters=ToolParamsSchema(
                     type="object",
@@ -67,7 +68,7 @@ class GetTracesInSession(JudgeTool):
         trace: Trace,
         max_results: int = 20,
         order_by: list[str] | None = None,
-    ) -> list[TraceInfo]:
+    ) -> list[JudgeToolTraceInfo]:
         """
         Retrieve traces from the same session.
 
@@ -77,7 +78,7 @@ class GetTracesInSession(JudgeTool):
             order_by: List of order by clauses for sorting results
 
         Returns:
-            List of TraceInfo objects containing trace metadata, request, and response
+            List of JudgeToolTraceInfo objects containing trace metadata, request, and response
 
         Raises:
             MlflowException: If session ID is not found or has invalid format

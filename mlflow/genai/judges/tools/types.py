@@ -45,8 +45,8 @@ class SpanInfo:
 
 @experimental(version="3.5.0")
 @dataclass
-class Expectation:
-    """Expectation for a trace."""
+class JudgeToolExpectation:
+    """Expectation for a trace (simplified for judge tools)."""
 
     name: str
     source: str
@@ -58,8 +58,8 @@ class Expectation:
 
 @experimental(version="3.5.0")
 @dataclass
-class Feedback:
-    """Feedback for a trace."""
+class JudgeToolFeedback:
+    """Feedback for a trace (simplified for judge tools)."""
 
     name: str
     source: str
@@ -74,8 +74,8 @@ class Feedback:
 
 @experimental(version="3.5.0")
 @dataclass
-class TraceInfo:
-    """Information about a single trace."""
+class JudgeToolTraceInfo:
+    """Information about a single trace (simplified for judge tools)."""
 
     trace_id: str
     request_time: int
@@ -83,4 +83,4 @@ class TraceInfo:
     request: str | None
     response: str | None
     execution_duration: int | None
-    assessments: list[Expectation | Feedback]
+    assessments: list[JudgeToolExpectation | JudgeToolFeedback]

@@ -15,9 +15,11 @@ from mlflow.entities.trace_location import TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.genai.judges.tools.constants import ToolNames
-from mlflow.genai.judges.tools.types import Expectation as ToolExpectation
-from mlflow.genai.judges.tools.types import Feedback as ToolFeedback
-from mlflow.genai.judges.tools.types import TraceInfo
+from mlflow.genai.judges.tools.types import (
+    JudgeToolExpectation,
+    JudgeToolFeedback,
+    JudgeToolTraceInfo,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.types.llm import (
     FunctionToolDefinition,
@@ -31,12 +33,12 @@ _logger = logging.getLogger(__name__)
 
 def _convert_assessments_to_tool_types(
     assessments: list[Assessment],
-) -> list[ToolExpectation | ToolFeedback]:
-    tool_types: list[ToolExpectation | ToolFeedback] = []
+) -> list[JudgeToolExpectation | JudgeToolFeedback]:
+    tool_types: list[JudgeToolExpectation | JudgeToolFeedback] = []
     for assessment in assessments:
         if isinstance(assessment, Expectation):
             tool_types.append(
-                ToolExpectation(
+                JudgeToolExpectation(
                     name=assessment.name,
                     source=assessment.source.source_type,
                     rationale=assessment.rationale,
@@ -47,7 +49,7 @@ def _convert_assessments_to_tool_types(
             )
         elif isinstance(assessment, Feedback):
             tool_types.append(
-                ToolFeedback(
+                JudgeToolFeedback(
                     name=assessment.name,
                     source=assessment.source.source_type,
                     rationale=assessment.rationale,
@@ -167,7 +169,7 @@ class SearchTracesTool(JudgeTool):
         filter_string: str | None = None,
         order_by: list[str] | None = None,
         max_results: int = 20,
-    ) -> list[TraceInfo]:
+    ) -> list[JudgeToolTraceInfo]:
         """
         Search for traces within the same experiment as the current trace.
 
@@ -179,7 +181,7 @@ class SearchTracesTool(JudgeTool):
             max_results: Maximum number of traces to return (default: 20)
 
         Returns:
-            List of TraceInfo objects containing trace metadata, request/response data,
+            List of JudgeToolTraceInfo objects containing trace metadata, request/response data,
             and assessments for each matching trace
 
         Raises:
@@ -229,7 +231,7 @@ class SearchTracesTool(JudgeTool):
                 _logger.warning(f"Failed to process trace {row.get('trace_id', 'unknown')}: {e}")
                 continue
 
-            trace_info = TraceInfo(
+            trace_info = JudgeToolTraceInfo(
                 trace_id=trace_obj.info.trace_id,
                 request_time=trace_obj.info.request_time,
                 state=trace_obj.info.state,

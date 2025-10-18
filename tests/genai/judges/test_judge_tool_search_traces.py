@@ -16,9 +16,11 @@ from mlflow.genai.judges.tools.search_traces import (
     _convert_assessments_to_tool_types,
     _get_experiment_id,
 )
-from mlflow.genai.judges.tools.types import Expectation as ToolExpectation
-from mlflow.genai.judges.tools.types import Feedback as ToolFeedback
-from mlflow.genai.judges.tools.types import TraceInfo as ToolTraceInfo
+from mlflow.genai.judges.tools.types import (
+    JudgeToolExpectation,
+    JudgeToolFeedback,
+    JudgeToolTraceInfo,
+)
 from mlflow.types.llm import ToolDefinition
 
 
@@ -59,7 +61,7 @@ def test_convert_assessments_to_tool_types_with_expectations() -> None:
     result = _convert_assessments_to_tool_types(expectations)
 
     assert len(result) == 1
-    assert isinstance(result[0], ToolExpectation)
+    assert isinstance(result[0], JudgeToolExpectation)
     assert result[0].name == "test_expectation"
     assert result[0].source == AssessmentSourceType.HUMAN
     assert result[0].rationale == "Expected to be true"
@@ -89,7 +91,7 @@ def test_convert_assessments_to_tool_types_with_feedback() -> None:
     result = _convert_assessments_to_tool_types(feedbacks)
 
     assert len(result) == 1
-    assert isinstance(result[0], ToolFeedback)
+    assert isinstance(result[0], JudgeToolFeedback)
     assert result[0].name == "test_feedback"
     assert result[0].source == AssessmentSourceType.LLM_JUDGE
     assert result[0].rationale == "Feedback rationale"
@@ -116,7 +118,7 @@ def test_convert_assessments_to_tool_types_with_feedback_no_error() -> None:
     result = _convert_assessments_to_tool_types(feedbacks)
 
     assert len(result) == 1
-    assert isinstance(result[0], ToolFeedback)
+    assert isinstance(result[0], JudgeToolFeedback)
     assert result[0].error_code is None
     assert result[0].error_message is None
     assert result[0].stack_trace is None
@@ -132,8 +134,8 @@ def test_convert_assessments_to_tool_types_mixed() -> None:
     result = _convert_assessments_to_tool_types(assessments)
 
     assert len(result) == 2
-    assert isinstance(result[0], ToolExpectation)
-    assert isinstance(result[1], ToolFeedback)
+    assert isinstance(result[0], JudgeToolExpectation)
+    assert isinstance(result[1], JudgeToolFeedback)
 
 
 def test_get_experiment_id_success() -> None:
@@ -270,7 +272,7 @@ def test_search_traces_tool_invoke_success(
         )
 
     assert len(result) == 2
-    assert isinstance(result[0], ToolTraceInfo)
+    assert isinstance(result[0], JudgeToolTraceInfo)
     assert result[0].trace_id == "trace-1"
     assert result[0].request == "request1"
     assert result[0].response == "response1"
