@@ -11,6 +11,7 @@ def make_judge(
     name: str,
     instructions: str,
     model: str | None = None,
+    description: str | None = None,
 ) -> Judge:
     """
 
@@ -27,6 +28,7 @@ def make_judge(
                       or {{ trace }} to reference evaluation data. Custom variables are not
                       supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+        description: A description of what the judge evaluates
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -92,4 +94,6 @@ def make_judge(
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
 
-    return InstructionsJudge(name=name, instructions=instructions, model=model)
+    return InstructionsJudge(
+        name=name, instructions=instructions, model=model, description=description
+    )

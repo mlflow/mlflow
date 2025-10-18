@@ -100,7 +100,10 @@ def test_list_scorers_table_output(
     # Construct expected table output (scorers are returned in alphabetical order)
     # Note: click.echo() adds a trailing newline
     expected_table = (
-        _create_table([["Correctness"], ["RelevanceToQuery"], ["Safety"]], headers=["Scorer Name"])
+        _create_table(
+            [["Correctness", ""], ["RelevanceToQuery", ""], ["Safety", ""]],
+            headers=["Scorer Name", "Description"],
+        )
         + "\n"
     )
     assert result.output == expected_table
@@ -121,7 +124,12 @@ def test_list_scorers_json_output(
 
     assert result.exit_code == 0
     output_json = json.loads(result.output)
-    assert set(output_json["scorers"]) == {"Correctness", "Safety", "RelevanceToQuery"}
+    expected_scorers = [
+        {"name": "Correctness", "description": None},
+        {"name": "RelevanceToQuery", "description": None},
+        {"name": "Safety", "description": None},
+    ]
+    assert output_json["scorers"] == expected_scorers
 
 
 @pytest.mark.parametrize(
@@ -209,7 +217,7 @@ def test_list_scorers_single_scorer(
 
     if output_format == "json":
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": ["OnlyScorer"]}
+        assert output_json == {"scorers": [{"name": "OnlyScorer", "description": None}]}
     else:
         assert "OnlyScorer" in result.output
 
@@ -233,10 +241,52 @@ def test_list_scorers_long_names(
 
     if output_format == "json":
         output_json = json.loads(result.output)
-        assert output_json == {"scorers": [long_name]}
+        assert output_json == {"scorers": [{"name": long_name, "description": None}]}
     else:
         # Full name should be present
         assert long_name in result.output
+
+
+def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
+    from mlflow.genai.judges import make_judge
+
+    judge1 = make_judge(
+        name="quality_judge",
+        instructions="Evaluate {{ outputs }}",
+        description="Evaluates response quality",
+    )
+    judge1.register(experiment_id=experiment)
+
+    judge2 = make_judge(
+        name="safety_judge",
+        instructions="Check {{ outputs }}",
+        description="Checks for safety issues",
+    )
+    judge2.register(experiment_id=experiment)
+
+    judge3 = make_judge(
+        name="no_desc_judge",
+        instructions="Evaluate {{ outputs }}",
+    )
+    judge3.register(experiment_id=experiment)
+
+    result_json = runner.invoke(
+        commands, ["list", "--experiment-id", experiment, "--output", "json"]
+    )
+    assert result_json.exit_code == 0
+    output_json = json.loads(result_json.output)
+
+    assert len(output_json["scorers"]) == 3
+    scorers_by_name = {s["name"]: s for s in output_json["scorers"]}
+
+    assert scorers_by_name["no_desc_judge"]["description"] is None
+    assert scorers_by_name["quality_judge"]["description"] == "Evaluates response quality"
+    assert scorers_by_name["safety_judge"]["description"] == "Checks for safety issues"
+
+    result_table = runner.invoke(commands, ["list", "--experiment-id", experiment])
+    assert result_table.exit_code == 0
+    assert "Evaluates response quality" in result_table.output
+    assert "Checks for safety issues" in result_table.output
 
 
 def test_create_judge_basic(runner: CliRunner, experiment: str):
@@ -439,3 +489,54 @@ def test_create_judge_duplicate_registration(runner: CliRunner, experiment: str)
     scorers = list_scorers(experiment_id=experiment)
     assert len(scorers) == 1
     assert scorers[0].name == "duplicate_judge"
+
+
+def test_create_judge_with_description(runner: CliRunner, experiment: str):
+    description = "Evaluates response quality and relevance"
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "--name",
+            "judge_with_desc",
+            "--instructions",
+            "Evaluate {{ outputs }}",
+            "--description",
+            description,
+            "--experiment-id",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Successfully created and registered" in result.output
+
+    scorers = list_scorers(experiment_id=experiment)
+    assert len(scorers) == 1
+    judge = scorers[0]
+    assert judge.name == "judge_with_desc"
+    assert judge.description == description
+
+
+def test_create_judge_with_description_short_flag(runner: CliRunner, experiment: str):
+    description = "Checks for PII in outputs"
+    result = runner.invoke(
+        commands,
+        [
+            "register-llm-judge",
+            "-n",
+            "pii_judge",
+            "-i",
+            "Check {{ outputs }}",
+            "-d",
+            description,
+            "-x",
+            experiment,
+        ],
+    )
+
+    assert result.exit_code == 0
+
+    scorers = list_scorers(experiment_id=experiment)
+    judge = next(s for s in scorers if s.name == "pii_judge")
+    assert judge.description == description
