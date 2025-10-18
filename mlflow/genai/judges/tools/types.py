@@ -70,6 +70,8 @@ class JudgeToolFeedback:
     error_code: str | None
     error_message: str | None
     stack_trace: str | None
+    overrides: str | None
+    valid: bool | None
 
 
 @experimental(version="3.5.0")
