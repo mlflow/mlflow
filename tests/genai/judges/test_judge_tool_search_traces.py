@@ -1,6 +1,5 @@
 from unittest import mock
 
-import pandas as pd
 import pytest
 
 from mlflow.entities.assessment import Expectation, Feedback
@@ -22,6 +21,8 @@ from mlflow.genai.judges.tools.types import (
     JudgeToolTraceInfo,
 )
 from mlflow.types.llm import ToolDefinition
+
+from tests.tracing.helper import create_mock_otel_span
 
 
 def test_search_traces_tool_name() -> None:
@@ -207,36 +208,29 @@ def mock_trace() -> Trace:
 
 
 @pytest.fixture
-def mock_search_traces_df() -> pd.DataFrame:
-    trace_data = [
-        {
-            "trace_id": "trace-1",
-            "trace": (
-                '{"info": {"trace_id": "trace-1", "experiment_id": "exp-456", '
-                '"request_time": 1000000000, "state": "OK", "execution_duration": 150}}'
-            ),
-            "request": "request1",
-            "response": "response1",
-        },
-        {
-            "trace_id": "trace-2",
-            "trace": (
-                '{"info": {"trace_id": "trace-2", "experiment_id": "exp-456", '
-                '"request_time": 1000000100, "state": "ERROR", "execution_duration": 200}}'
-            ),
-            "request": "request2",
-            "response": "response2",
-        },
-    ]
-    return pd.DataFrame(trace_data)
-
-
-def test_search_traces_tool_invoke_success(
-    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
-) -> None:
-    tool = SearchTracesTool()
+def mock_search_traces_list() -> list[Trace]:
+    from mlflow.entities.span import Span
+    from mlflow.entities.trace_data import TraceData
+    from mlflow.tracing.constant import SpanAttributeKey
 
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
+
+    # Create trace 1 with request and response in root span
+    otel_span1 = create_mock_otel_span(
+        trace_id=12345,
+        span_id=100,
+        name="root",
+        start_time=1000000000,
+        end_time=1000000150,
+        parent_id=None,
+    )
+    otel_span1.set_attributes(
+        {
+            SpanAttributeKey.INPUTS: "request1",
+            SpanAttributeKey.OUTPUTS: "response1",
+        }
+    )
+    span1 = Span(otel_span1)
     mock_trace1_info = TraceInfo(
         trace_id="trace-1",
         trace_location=TraceLocation.from_experiment_id("exp-456"),
@@ -245,8 +239,25 @@ def test_search_traces_tool_invoke_success(
         execution_duration=150,
         assessments=[Expectation(name="quality", source=source, value=True)],
     )
-    mock_trace1 = Trace(info=mock_trace1_info, data=None)
+    mock_trace1_data = TraceData(spans=[span1])
+    mock_trace1 = Trace(info=mock_trace1_info, data=mock_trace1_data)
 
+    # Create trace 2 with request and response in root span
+    otel_span2 = create_mock_otel_span(
+        trace_id=12345,
+        span_id=101,
+        name="root",
+        start_time=1000000100,
+        end_time=1000000300,
+        parent_id=None,
+    )
+    otel_span2.set_attributes(
+        {
+            SpanAttributeKey.INPUTS: "request2",
+            SpanAttributeKey.OUTPUTS: "response2",
+        }
+    )
+    span2 = Span(otel_span2)
     mock_trace2_info = TraceInfo(
         trace_id="trace-2",
         trace_location=TraceLocation.from_experiment_id("exp-456"),
@@ -255,20 +266,26 @@ def test_search_traces_tool_invoke_success(
         execution_duration=200,
         assessments=[],
     )
-    mock_trace2 = Trace(info=mock_trace2_info, data=None)
+    mock_trace2_data = TraceData(spans=[span2])
+    mock_trace2 = Trace(info=mock_trace2_info, data=mock_trace2_data)
 
-    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_df) as mock_search:
-        with mock.patch.object(Trace, "from_json", side_effect=[mock_trace1, mock_trace2]):
-            result = tool.invoke(
-                mock_trace, filter_string='attributes.status = "OK"', max_results=10
-            )
+    return [mock_trace1, mock_trace2]
+
+
+def test_search_traces_tool_invoke_success(
+    mock_trace: Trace, mock_search_traces_list: list[Trace]
+) -> None:
+    tool = SearchTracesTool()
+
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, filter_string='attributes.status = "OK"', max_results=10)
 
         mock_search.assert_called_once_with(
             locations=["exp-456"],
             filter_string='attributes.status = "OK"',
             order_by=["timestamp ASC"],
             max_results=10,
-            extract_fields=["trace_id", "trace", "request", "response"],
+            return_type="list",
         )
 
     assert len(result) == 2
@@ -287,89 +304,46 @@ def test_search_traces_tool_invoke_success(
 
 
 def test_search_traces_tool_invoke_with_order_by(
-    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+    mock_trace: Trace, mock_search_traces_list: list[Trace]
 ) -> None:
     tool = SearchTracesTool()
 
-    mock_trace1_info = TraceInfo(
-        trace_id="trace-1",
-        trace_location=TraceLocation.from_experiment_id("exp-456"),
-        request_time=1000000000,
-        state=TraceState.OK,
-        execution_duration=150,
-        assessments=[],
-    )
-    mock_trace1 = Trace(info=mock_trace1_info, data=None)
-
-    mock_trace2_info = TraceInfo(
-        trace_id="trace-2",
-        trace_location=TraceLocation.from_experiment_id("exp-456"),
-        request_time=1000000100,
-        state=TraceState.ERROR,
-        execution_duration=200,
-        assessments=[],
-    )
-    mock_trace2 = Trace(info=mock_trace2_info, data=None)
-
-    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_df) as mock_search:
-        with mock.patch.object(Trace, "from_json", side_effect=[mock_trace1, mock_trace2]):
-            result = tool.invoke(
-                mock_trace, order_by=["timestamp DESC", "trace_id ASC"], max_results=5
-            )
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, order_by=["timestamp DESC", "trace_id ASC"], max_results=5)
 
         mock_search.assert_called_once_with(
             locations=["exp-456"],
             filter_string=None,
             order_by=["timestamp DESC", "trace_id ASC"],
             max_results=5,
-            extract_fields=["trace_id", "trace", "request", "response"],
+            return_type="list",
         )
 
     assert len(result) == 2
 
 
 def test_search_traces_tool_invoke_default_order_by(
-    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
+    mock_trace: Trace, mock_search_traces_list: list[Trace]
 ) -> None:
     tool = SearchTracesTool()
 
-    mock_trace1_info = TraceInfo(
-        trace_id="trace-1",
-        trace_location=TraceLocation.from_experiment_id("exp-456"),
-        request_time=1000000000,
-        state=TraceState.OK,
-        execution_duration=150,
-        assessments=[],
-    )
-    mock_trace1 = Trace(info=mock_trace1_info, data=None)
-
-    mock_trace2_info = TraceInfo(
-        trace_id="trace-2",
-        trace_location=TraceLocation.from_experiment_id("exp-456"),
-        request_time=1000000100,
-        state=TraceState.ERROR,
-        execution_duration=200,
-        assessments=[],
-    )
-    mock_trace2 = Trace(info=mock_trace2_info, data=None)
-
-    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_df) as mock_search:
-        with mock.patch.object(Trace, "from_json", side_effect=[mock_trace1, mock_trace2]):
-            result = tool.invoke(mock_trace)
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace)
 
         mock_search.assert_called_once()
         call_kwargs = mock_search.call_args[1]
         assert call_kwargs["order_by"] == ["timestamp ASC"]
         assert call_kwargs["max_results"] == 20
+        assert call_kwargs["return_type"] == "list"
 
     assert len(result) == 2
 
 
 def test_search_traces_tool_invoke_empty_results(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
-    empty_df = pd.DataFrame(columns=["trace_id", "trace", "request", "response"])
+    empty_list: list[Trace] = []
 
-    with mock.patch("mlflow.search_traces", return_value=empty_df):
+    with mock.patch("mlflow.search_traces", return_value=empty_list):
         result = tool.invoke(mock_trace)
 
     assert len(result) == 0
@@ -387,55 +361,41 @@ def test_search_traces_tool_invoke_search_fails(mock_trace: Trace) -> None:
 def test_search_traces_tool_invoke_invalid_trace_json(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
 
-    invalid_df = pd.DataFrame(
-        {
-            "trace_id": ["trace-1", "trace-2"],
-            "trace": ["invalid-json", '{"info": {}}'],
-            "request": ["req1", "req2"],
-            "response": ["resp1", "resp2"],
-        }
+    # Create traces with missing required attributes to trigger exceptions
+    invalid_trace1_info = TraceInfo(
+        trace_id="trace-1",
+        trace_location=TraceLocation.from_experiment_id("exp-456"),
+        request_time=1000000000,
+        state=TraceState.OK,
     )
+    # Create a trace without data to trigger an exception when accessing data.request
+    invalid_trace1 = Trace(info=invalid_trace1_info, data=None)
 
-    with mock.patch("mlflow.search_traces", return_value=invalid_df):
-        result = tool.invoke(mock_trace)
-
-    assert len(result) == 0
-
-
-def test_search_traces_tool_invoke_partial_failure(
-    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
-) -> None:
-    tool = SearchTracesTool()
-
-    corrupted_df = mock_search_traces_df.copy()
-    corrupted_df.loc[0, "trace"] = "corrupted-json"
-
-    mock_trace2_info = TraceInfo(
+    invalid_trace2_info = TraceInfo(
         trace_id="trace-2",
         trace_location=TraceLocation.from_experiment_id("exp-456"),
         request_time=1000000100,
-        state=TraceState.ERROR,
-        execution_duration=200,
-        assessments=[],
+        state=TraceState.OK,
     )
-    mock_trace2 = Trace(info=mock_trace2_info, data=None)
+    invalid_trace2 = Trace(info=invalid_trace2_info, data=None)
 
-    with mock.patch("mlflow.search_traces", return_value=corrupted_df):
-        with mock.patch.object(
-            Trace, "from_json", side_effect=[ValueError("Corrupted JSON"), mock_trace2]
-        ):
-            result = tool.invoke(mock_trace)
+    invalid_list = [invalid_trace1, invalid_trace2]
 
-    assert len(result) == 1
-    assert result[0].trace_id == "trace-2"
+    with mock.patch("mlflow.search_traces", return_value=invalid_list):
+        result = tool.invoke(mock_trace)
+
+    # Both traces should fail to process due to missing data
+    assert len(result) == 0
 
 
-def test_search_traces_tool_invoke_no_filter(
-    mock_trace: Trace, mock_search_traces_df: pd.DataFrame
-) -> None:
+def test_search_traces_tool_invoke_partial_failure(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
+    from mlflow.entities.span import Span
+    from mlflow.entities.trace_data import TraceData
+    from mlflow.tracing.constant import SpanAttributeKey
 
-    mock_trace1_info = TraceInfo(
+    # First trace will fail (missing data)
+    invalid_trace1_info = TraceInfo(
         trace_id="trace-1",
         trace_location=TraceLocation.from_experiment_id("exp-456"),
         request_time=1000000000,
@@ -443,9 +403,25 @@ def test_search_traces_tool_invoke_no_filter(
         execution_duration=150,
         assessments=[],
     )
-    mock_trace1 = Trace(info=mock_trace1_info, data=None)
+    invalid_trace1 = Trace(info=invalid_trace1_info, data=None)
 
-    mock_trace2_info = TraceInfo(
+    # Second trace will succeed
+    otel_span2 = create_mock_otel_span(
+        trace_id=12345,
+        span_id=102,
+        name="root",
+        start_time=1000000100,
+        end_time=1000000300,
+        parent_id=None,
+    )
+    otel_span2.set_attributes(
+        {
+            SpanAttributeKey.INPUTS: "request2",
+            SpanAttributeKey.OUTPUTS: "response2",
+        }
+    )
+    span2 = Span(otel_span2)
+    valid_trace2_info = TraceInfo(
         trace_id="trace-2",
         trace_location=TraceLocation.from_experiment_id("exp-456"),
         request_time=1000000100,
@@ -453,11 +429,26 @@ def test_search_traces_tool_invoke_no_filter(
         execution_duration=200,
         assessments=[],
     )
-    mock_trace2 = Trace(info=mock_trace2_info, data=None)
+    valid_trace2_data = TraceData(spans=[span2])
+    valid_trace2 = Trace(info=valid_trace2_info, data=valid_trace2_data)
 
-    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_df) as mock_search:
-        with mock.patch.object(Trace, "from_json", side_effect=[mock_trace1, mock_trace2]):
-            result = tool.invoke(mock_trace, filter_string=None)
+    partial_list = [invalid_trace1, valid_trace2]
+
+    with mock.patch("mlflow.search_traces", return_value=partial_list):
+        result = tool.invoke(mock_trace)
+
+    # Only the valid trace should be in results
+    assert len(result) == 1
+    assert result[0].trace_id == "trace-2"
+
+
+def test_search_traces_tool_invoke_no_filter(
+    mock_trace: Trace, mock_search_traces_list: list[Trace]
+) -> None:
+    tool = SearchTracesTool()
+
+    with mock.patch("mlflow.search_traces", return_value=mock_search_traces_list) as mock_search:
+        result = tool.invoke(mock_trace, filter_string=None)
 
         assert mock_search.call_args[1]["filter_string"] is None
 

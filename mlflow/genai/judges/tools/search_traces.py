@@ -208,12 +208,12 @@ class SearchTracesTool(JudgeTool):
         )
 
         try:
-            df = mlflow.search_traces(
+            trace_objs = mlflow.search_traces(
                 locations=locations,
                 filter_string=filter_string,
                 order_by=order_by,
                 max_results=max_results,
-                extract_fields=["trace_id", "trace", "request", "response"],
+                return_type="list",
             )
 
         except Exception as e:
@@ -224,23 +224,21 @@ class SearchTracesTool(JudgeTool):
 
         traces = []
 
-        for _, row in df.iterrows():
+        for trace_obj in trace_objs:
             try:
-                trace_obj = Trace.from_json(row["trace"])
+                trace_info = JudgeToolTraceInfo(
+                    trace_id=trace_obj.info.trace_id,
+                    request_time=trace_obj.info.request_time,
+                    state=trace_obj.info.state,
+                    request=trace_obj.data.request,
+                    response=trace_obj.data.response,
+                    execution_duration=trace_obj.info.execution_duration,
+                    assessments=_convert_assessments_to_tool_types(trace_obj.info.assessments),
+                )
+                traces.append(trace_info)
             except Exception as e:
-                _logger.warning(f"Failed to process trace {row.get('trace_id', 'unknown')}: {e}")
+                _logger.warning(f"Failed to process trace {trace_obj.info.trace_id}: {e}")
                 continue
-
-            trace_info = JudgeToolTraceInfo(
-                trace_id=trace_obj.info.trace_id,
-                request_time=trace_obj.info.request_time,
-                state=trace_obj.info.state,
-                request=row["request"],
-                response=row["response"],
-                execution_duration=trace_obj.info.execution_duration,
-                assessments=_convert_assessments_to_tool_types(trace_obj.info.assessments),
-            )
-            traces.append(trace_info)
 
         _logger.debug(f"Retrieved {len(traces)} traces")
         return traces
