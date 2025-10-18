@@ -35,6 +35,7 @@ class AmazonBedrockAnthropicAdapter(AnthropicAdapter):
             payload.get("max_tokens_to_sample", MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS),
             AWS_BEDROCK_ANTHROPIC_MAXIMUM_MAX_TOKENS,
         )
+        payload["anthropic_version"] = "bedrock-2023-05-31"
 
         # "model" keys are not supported in Bedrock"
         payload.pop("model", None)
