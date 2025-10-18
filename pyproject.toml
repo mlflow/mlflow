@@ -169,6 +169,8 @@ dev = [
   { include-group = "test" },
   { include-group = "build" },
   "mlflow-test-plugin",
+  # TODO: Remove this once 8.3.1 is released
+  "click!=8.3.0",
 ]
 lint = [
   "ruff==0.12.10",
