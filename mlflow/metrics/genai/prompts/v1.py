@@ -72,6 +72,17 @@ class EvaluationModel:
     examples: list[EvaluationExample] | None = None
     model: str = default_model
     parameters: dict[str, Any] = field(default_factory=lambda: default_parameters)
+    grading_system_prompt_template: PromptTemplate | str | list[str] | None = (
+        grading_system_prompt_template
+    )
+
+    def __post_init__(self):
+        if self.grading_system_prompt_template is None:
+            self.grading_system_prompt_template = grading_system_prompt_template
+        elif not isinstance(self.grading_system_prompt_template, PromptTemplate):
+            self.grading_system_prompt_template = PromptTemplate(
+                template_str=self.grading_system_prompt_template
+            )
 
     def to_dict(self):
         examples_str = (
@@ -82,7 +93,7 @@ class EvaluationModel:
 
         return {
             "model": self.model,
-            "eval_prompt": grading_system_prompt_template.partial_fill(
+            "eval_prompt": self.grading_system_prompt_template.partial_fill(
                 name=self.name,
                 definition=self.definition,
                 grading_prompt=self.grading_prompt,

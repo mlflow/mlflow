@@ -21,6 +21,7 @@ from mlflow.metrics.genai.metric_definitions import (
     faithfulness,
     relevance,
 )
+from mlflow.metrics.genai.prompt_template import PromptTemplate
 from mlflow.metrics.genai.prompts.v1 import (
     AnswerCorrectnessMetric,
     AnswerRelevanceMetric,
@@ -1209,6 +1210,7 @@ def test_log_make_genai_metric_fn_args(custom_metric):
         "model": "gateway:/gpt-4o-mini",
         "grading_context_columns": ["targets"],
         "include_input": True,
+        "grading_system_prompt_template": None,
         "parameters": {"temperature": 0.0},
         "aggregations": ["mean", "variance", "p90"],
         "greater_is_better": True,
@@ -1219,6 +1221,62 @@ def test_log_make_genai_metric_fn_args(custom_metric):
     }
 
     assert custom_metric.genai_metric_args == expected_genai_metric_args
+
+
+def test_custom_grading_system_prompt_template_with_string():
+    custom_template = (
+        "Custom evaluation instructions.\n"
+        "Input: {input}\n"
+        "Output: {output}\n"
+        "Definition: {definition}\n"
+        "Rubric: {grading_prompt}\n"
+        "Examples: {examples}\n"
+        "Context: {grading_context_columns}"
+    )
+
+    metric = make_genai_metric(
+        name="test_metric",
+        version="v1",
+        definition="Test definition",
+        grading_prompt="Score 1-5",
+        grading_system_prompt_template=custom_template,
+        model="openai:/gpt-4",
+        parameters={"temperature": 0.0},
+    )
+
+    assert metric is not None
+    assert metric.name == "test_metric"
+    assert metric.genai_metric_args["grading_system_prompt_template"] == custom_template
+    assert "Custom evaluation instructions" in metric.metric_details
+
+
+def test_custom_grading_system_prompt_template_with_prompt_template():
+    custom_template = PromptTemplate(
+        [
+            "Custom block A.\n",
+            "Input: {input}\n",
+            "Output: {output}\n",
+            "Definition: {definition}\n",
+            "Rubric: {grading_prompt}\n",
+            "Examples: {examples}\n",
+            "Context: {grading_context_columns}",
+        ]
+    )
+
+    metric = make_genai_metric(
+        name="prompt_metric",
+        version="v1",
+        definition="Prompt Template definition",
+        grading_prompt="Score 1-3",
+        grading_system_prompt_template=custom_template,
+        model="openai:/gpt-4",
+        parameters={"temperature": 0.0},
+    )
+
+    assert (
+        metric.genai_metric_args["grading_system_prompt_template"] == custom_template.template_strs
+    )
+    assert "Custom block A" in metric.metric_details
 
 
 @pytest.mark.parametrize(
