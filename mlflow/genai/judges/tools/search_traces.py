@@ -136,9 +136,35 @@ class SearchTracesTool(JudgeTool):
                         "filter_string": {
                             "type": "string",
                             "description": (
-                                "Optional filter string using MLflow search syntax "
-                                "(e.g., 'attributes.status = \"OK\"'). If not specified, "
-                                "all traces in the experiment are returned."
+                                "Optional filter string using SQL-like search syntax. "
+                                "If not specified, all traces are returned.\n\n"
+                                "SUPPORTED FIELDS:\n"
+                                "- Attributes: request_id, timestamp_ms, execution_time_ms, "
+                                "status, name, run_id\n"
+                                "- Tags: Use 'tags.' or 'tag.' prefix "
+                                "(e.g., tags.operation_type, tag.model_name)\n"
+                                "- Metadata: Use 'metadata.' prefix (e.g., metadata.run_id)\n"
+                                "- Use backticks for special characters: tags.`model-name`\n\n"
+                                "VALUE SYNTAX:\n"
+                                "- String values MUST be quoted: status = 'OK'\n"
+                                "- Numeric values don't need quotes: execution_time_ms > 1000\n"
+                                "- Tag and metadata values MUST be quoted as strings\n\n"
+                                "COMPARATORS:\n"
+                                "- Numeric (timestamp_ms, execution_time_ms): "
+                                ">, >=, =, !=, <, <=\n"
+                                "- String (name, status, request_id): =, !=, IN, NOT IN\n"
+                                "- Tags/Metadata: =, !=\n\n"
+                                "STATUS VALUES: 'OK', 'ERROR', 'IN_PROGRESS'\n\n"
+                                "EXAMPLES:\n"
+                                "- status = 'OK'\n"
+                                "- execution_time_ms > 1000\n"
+                                "- tags.model_name = 'gpt-4'\n"
+                                "- tags.`model-version` = 'v2' AND status = 'OK'\n"
+                                "- timestamp_ms >= 1234567890000 AND execution_time_ms < 5000\n"
+                                "- status IN ('OK', 'ERROR')\n"
+                                "- tags.environment = 'production' AND status = 'ERROR' "
+                                "AND execution_time_ms > 500\n"
+                                "- status = 'OK' AND tag.importance = 'high'"
                             ),
                             "default": None,
                         },
