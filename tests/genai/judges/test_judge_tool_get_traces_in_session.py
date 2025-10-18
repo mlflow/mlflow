@@ -14,7 +14,6 @@ from mlflow.types.llm import ToolDefinition
 
 
 def test_get_traces_in_session_tool_name() -> None:
-    """Test that the tool returns the correct name."""
     tool = GetTracesInSession()
     assert tool.name == "get_traces_in_session"
 
@@ -57,7 +56,6 @@ def create_mock_trace(session_id: str | None = None) -> Trace:
 
 
 def test_get_traces_in_session_tool_invoke_success() -> None:
-    """Test successful retrieval of traces in session."""
     with patch(
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
@@ -105,7 +103,6 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
 
 
 def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
-    """Test tool invocation with custom parameters."""
     with patch(
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
