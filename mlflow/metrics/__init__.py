@@ -31,13 +31,14 @@ from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
-
+from mlflow.utils.annotations import deprecated
 
 MIGRATION_GUIDE = (
     "Use the new GenAI evaluation functionality instead. See "
     "https://mlflow.org/docs/latest/genai/eval-monitor/legacy-llm-evaluation/ "
     "for the migration guide."
 )
+
 
 @deprecated(since="3.4.0", impact=MIGRATION_GUIDE)
 def latency() -> EvaluationMetric:

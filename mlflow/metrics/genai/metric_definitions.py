@@ -1,11 +1,13 @@
 from typing import Any
 
+from mlflow.emtrics import MIGRATION_GUIDE
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.genai_metric import make_genai_metric
 from mlflow.metrics.genai.utils import _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.class_utils import _get_class_from_string
 
 

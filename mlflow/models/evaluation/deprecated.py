@@ -1,9 +1,7 @@
 import functools
 import warnings
 
-import mlflow
 from mlflow.models.evaluation import evaluate as model_evaluate
-from mlflow.utils.uri import is_databricks_uri
 
 
 @functools.wraps(model_evaluate)

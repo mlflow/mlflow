@@ -10,6 +10,7 @@ from typing import Any
 import pandas as pd
 
 import mlflow
+from mlflow.emtrics import MIGRATION_GUIDE
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
@@ -25,6 +26,7 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.class_utils import _get_class_from_string
 from mlflow.version import VERSION
 
