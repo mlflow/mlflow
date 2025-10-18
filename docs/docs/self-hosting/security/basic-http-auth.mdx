@@ -1078,3 +1078,8 @@ MLFLOW_AUTH_CONFIG_PATH=/path/to/my_auth_config.ini mlflow server --app-name bas
 
 The database must be created before starting the MLflow server. The database schema will be created automatically
 when the server starts.
+
+:::note
+Auth migrations use a separate version table (`alembic_version_auth`) from tracking migrations (`alembic_version`).
+This allows you to safely use the same database for both tracking data and auth data without migration conflicts.
+:::

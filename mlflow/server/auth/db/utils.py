@@ -32,6 +32,6 @@ def migrate_if_needed(engine: Engine, revision: str) -> None:
     alembic_cfg = _get_alembic_config(engine.url.render_as_string(hide_password=False))
     script_dir = ScriptDirectory.from_config(alembic_cfg)
     with engine.begin() as conn:
-        context = MigrationContext.configure(conn)
+        context = MigrationContext.configure(conn, opts={"version_table": "alembic_version_auth"})
         if context.get_current_revision() != script_dir.get_current_head():
             upgrade(alembic_cfg, revision)
