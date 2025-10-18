@@ -16,6 +16,7 @@ members = [
     "mlflow",
     "mlflow-test-plugin",
 ]
+constraints = [{ name = "click", specifier = "!=8.3.0" }]
 
 [[package]]
 name = "adal"
@@ -3460,7 +3461,6 @@ dev = [
     { name = "black" },
     { name = "blacken-docs" },
     { name = "build" },
-    { name = "click" },
     { name = "clint" },
     { name = "mlflow-test-plugin" },
     { name = "mypy" },
@@ -3589,7 +3589,6 @@ dev = [
     { name = "black", specifier = "==23.7.0" },
     { name = "blacken-docs", specifier = "==1.18.0" },
     { name = "build" },
-    { name = "click", specifier = "!=8.3.0" },
     { name = "clint", editable = "dev/clint" },
     { name = "mlflow-test-plugin", editable = "tests/resources/mlflow-test-plugin" },
     { name = "mypy", specifier = "==1.17.1" },

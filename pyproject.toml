@@ -169,8 +169,6 @@ dev = [
   { include-group = "test" },
   { include-group = "build" },
   "mlflow-test-plugin",
-  # TODO: Remove this once 8.3.1 is released
-  "click!=8.3.0",
 ]
 lint = [
   "ruff==0.12.10",
@@ -196,6 +194,7 @@ build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
 required-version = "==0.8.18"
+constraint-dependencies = ["click!=8.3.0"]
 
 [tool.uv.pip]
 torch-backend = "cpu"
