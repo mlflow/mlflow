@@ -30,6 +30,7 @@ env:
   SPARK_LOCAL_IP: localhost
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
+  UV_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
   PYTHONUTF8: "1"
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
