@@ -189,7 +189,7 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
-            const output = process.env.REVIEW_OUTPUT.trim();
+            const output = (process.env.REVIEW_OUTPUT || '').trim();
 
             if (!output) {
               console.log('Output is empty, skipping append');
