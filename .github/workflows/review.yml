@@ -180,7 +180,7 @@ jobs:
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Append review output to comment
+      - name: Report review results
         if: ${{ github.event_name == 'issue_comment' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
@@ -202,7 +202,7 @@ jobs:
               comment_id: comment.id,
             });
 
-            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Review Output</summary>\n\n${output}\n\n</details>`;
+            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Review results</summary>\n\n${output}\n\n</details>`;
 
             await github.rest.issues.updateComment({
               owner,
