@@ -379,11 +379,22 @@ def _extract_retrieval_context_with_llm(
         Dictionary mapping span IDs to lists of retrieved chunks, in the same format
         as extract_retrieval_context_from_trace.
     """
+    from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
     from mlflow.genai.judges.utils import (
         get_chat_completions_with_structured_output,
         get_default_model,
     )
     from mlflow.types.llm import ChatMessage
+
+    model_uri = model or get_default_model()
+
+    # Skip LLM extraction if using Databricks default model (not yet supported for tool calling)
+    if model_uri == _DATABRICKS_DEFAULT_JUDGE_MODEL:
+        _logger.debug(
+            f"Skipping LLM-based retrieval extraction: model '{model_uri}' "
+            "does not support tool calling for trace analysis"
+        )
+        return {}
 
     try:
         messages = [
@@ -413,7 +424,7 @@ def _extract_retrieval_context_with_llm(
         ]
 
         result = get_chat_completions_with_structured_output(
-            model_uri=model or get_default_model(),
+            model_uri=model_uri,
             messages=messages,
             output_schema=RetrievedChunksForTrace,
             trace=trace,
@@ -438,20 +449,17 @@ def _extract_retrieval_context_with_llm(
                 parent_id = parent_map.get(parent_id)
             return False
 
-        filtered_extracted = {
+        return {
             span_id: chunks
             for span_id, chunks in extracted.items()
             if not has_retrieval_ancestor(span_id)
         }
 
-        _logger.info(
-            f"LLM extracted {len(extracted)} retrieval contexts, "
-            f"filtered to {len(filtered_extracted)} top-level spans"
-        )
-        return filtered_extracted
-
     except Exception as e:
-        _logger.warning(f"LLM-based retrieval extraction failed: {e}")
+        _logger.warning(
+            "Failed to extract retrieval context from trace using LLM: %s",
+            e,
+        )
         return {}
 
 
@@ -498,7 +506,6 @@ def extract_retrieval_context_from_trace(
             return retrieved
 
     # Step 2: Fall back to LLM extraction if programmatic extraction found nothing
-    _logger.info("Programmatic extraction found no retrieval contexts, attempting LLM extraction")
     return _extract_retrieval_context_with_llm(trace, model)
 
 
