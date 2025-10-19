@@ -21,6 +21,7 @@ concurrency:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   r:
@@ -87,8 +88,7 @@ jobs:
           pip install $(git rev-parse --show-toplevel)
           H2O_VERSION=$(Rscript -e "print(packageVersion('h2o'))" | grep -Eo '[0-9][0-9.]+')
           # test-keras-model.R fails with tensorflow>=2.13.0
-          # xgboost 3.1.0 has model format incompatibility issues
-          pip install 'xgboost<3.1.0' 'tensorflow<2.13.0' "h2o==$H2O_VERSION" "pydantic<3,>=1.0" "typing_extensions>=4.6.0"
+          pip install 'tensorflow<2.13.0' "h2o==$H2O_VERSION" "pydantic<3,>=1.0" "typing_extensions>=4.6.0"
           Rscript -e 'source(".install-mlflow-r.R", echo=TRUE)'
       - name: Run tests
         env:
