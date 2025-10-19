@@ -169,7 +169,6 @@ jobs:
 
       - name: Run codex
         id: run-codex
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
@@ -182,13 +181,15 @@ jobs:
           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Append review output to comment
-        if: ${{ github.event_name == 'issue_comment' && steps.run-codex.outcome == 'success' }}
+        if: ${{ github.event_name == 'issue_comment' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          REVIEW_OUTPUT: ${{ steps.run-codex.outputs.output }}
         with:
           script: |
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
-            const output = `${{ steps.run-codex.outputs.output }}`.trim();
+            const output = process.env.REVIEW_OUTPUT.trim();
 
             if (!output) {
               console.log('Output is empty, skipping append');
