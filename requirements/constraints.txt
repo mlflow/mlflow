@@ -16,3 +16,5 @@ pyspark<3.5.6
 # https://github.com/pallets/click/issues/3065
 # click 8.3.0 has a bug that causes tests to hang
 click!=8.3.0
+# xgboost 3.1.0 has model format incompatibility issues
+xgboost<3.1.0
