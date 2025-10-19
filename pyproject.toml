@@ -194,7 +194,13 @@ build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
 required-version = "==0.8.18"
-constraint-dependencies = ["click!=8.3.0", "langchain<1.0.0"]
+constraint-dependencies = [
+  "click!=8.3.0",
+  "langchain<1.0.0",
+  # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
+  # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
+  "xgboost<3.1.0",
+]
 
 [tool.uv.pip]
 torch-backend = "cpu"
