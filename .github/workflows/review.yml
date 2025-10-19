@@ -192,7 +192,7 @@ jobs:
             const output = (process.env.REVIEW_OUTPUT || '').trim();
 
             if (!output) {
-              console.log('Output is empty, skipping append');
+              console.log('Output is empty, skipping comment update');
               return;
             }
 
