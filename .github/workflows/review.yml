@@ -37,16 +37,8 @@ jobs:
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
 
-            // Add rocket reaction to the triggering comment
-            await github.rest.reactions.createForIssueComment({
-              owner,
-              repo,
-              comment_id: comment.id,
-              content: 'rocket'
-            });
-
             // Construct workflow URL
-            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
 
             // Append workflow link to the original comment
             const updatedBody = `${comment.body}\n\n---\n🚀 [Review workflow started](${workflowUrl})`;
