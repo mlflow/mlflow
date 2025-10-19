@@ -408,13 +408,23 @@ def _extract_retrieval_context_with_llm(
                     "- Spans with names like 'search', 'retrieval', 'query', 'rag', or similar "
                     "related to document or context retrieval\n"
                     "- Spans with outputs containing document chunks or context\n\n"
-                    "For each retrieval span found, return:\n"
-                    "- span_id: The ID of the span where retrieval occurred\n"
-                    "- chunks: List of retrieved documents, each with:\n"
-                    "  - content: The text content of the retrieved chunk (required)\n"
-                    "  - doc_uri: Optional source/URI of the document (only if clearly available "
-                    "in the span data; do not infer or make up)\n\n"
-                    "Return one entry per unique span_id."
+                    "You MUST return a JSON object with this EXACT structure:\n"
+                    "{\n"
+                    '  "retrieval_contexts": [\n'
+                    "    {\n"
+                    '      "span_id": "the span ID where retrieval occurred",\n'
+                    '      "chunks": [\n'
+                    "        {\n"
+                    '          "content": "text content of the chunk (required)",\n'
+                    '          "doc_uri": "source URI (optional, null if not available)"\n'
+                    "        }\n"
+                    "      ]\n"
+                    "    }\n"
+                    "  ]\n"
+                    "}\n\n"
+                    "Include one object per unique span_id in the retrieval_contexts array. "
+                    "Do not return a plain array - you must return an object with a "
+                    "retrieval_contexts field."
                 ),
             ),
             ChatMessage(
