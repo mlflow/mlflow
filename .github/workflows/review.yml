@@ -168,58 +168,41 @@ jobs:
           EOF
 
       - name: Run codex
+        id: run-codex
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
         run: |
           printenv OPENAI_API_KEY | ./codex login --with-api-key
-          # Use timeout in case codex hangs
-          # Capture stdout (final output) to a file while allowing stderr to stream
-          # Save exit code to determine if codex succeeded
-          set +e
-          timeout 20m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" > codex_output.txt
-          echo $? > codex_exit_code.txt
-          set -e
+          OUTPUT=$(timeout 20m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true)
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
-      - name: Append codex output to comment
-        if: ${{ github.event_name == 'issue_comment' && hashFiles('codex_output.txt') != '' }}
+      - name: Append review output to comment
+        if: ${{ github.event_name == 'issue_comment' && steps.run-codex.outcome == 'success' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            const fs = require('fs');
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
+            const output = `${{ steps.run-codex.outputs.output }}`.trim();
 
-            // Read the exit code to check if codex succeeded
-            const exitCode = fs.readFileSync('codex_exit_code.txt', 'utf8').trim();
-
-            // Only append output if codex succeeded (exit code 0)
-            if (exitCode !== '0') {
-              console.log(`Codex exited with code ${exitCode}, skipping output append`);
+            if (!output) {
+              console.log('Output is empty, skipping append');
               return;
             }
 
-            // Read the codex output
-            const codexOutput = fs.readFileSync('codex_output.txt', 'utf8').trim();
-
-            // Skip if output is empty
-            if (!codexOutput) {
-              console.log('Codex output is empty, skipping append');
-              return;
-            }
-
-            // Fetch the current comment
             const { data: currentComment } = await github.rest.issues.getComment({
               owner,
               repo,
               comment_id: comment.id,
             });
 
-            // Append the codex output with divider and details wrapper
-            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Codex Output</summary>\n\n${codexOutput}\n\n</details>`;
+            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Review Output</summary>\n\n${output}\n\n</details>`;
 
-            // Update the comment
             await github.rest.issues.updateComment({
               owner,
               repo,
