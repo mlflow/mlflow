@@ -21,6 +21,7 @@ concurrency:
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   r:
