@@ -10,6 +10,7 @@ from typing import Any, Callable
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
@@ -117,6 +118,9 @@ def http_request(
     headers = dict(**resolve_request_headers())
     if extra_headers:
         headers = dict(**headers, **extra_headers)
+
+    if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
+        headers["x-databricks-traffic-id"] = traffic_id
 
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
@@ -517,7 +521,7 @@ def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_i
     """
     Get the endpoint for a single assessment using the V4 API.
     """
-    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessment/{assessment_id}"
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessments/{assessment_id}"
 
 
 def get_logged_model_endpoint(model_id: str) -> str:

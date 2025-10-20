@@ -59,9 +59,7 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.requestPreview).toBe('{"input":"test"}');
       expect(createdTraceInfo.responsePreview).toBe('{"output":"result"}');
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
-      expect(createdTraceInfo.traceMetadata).toEqual({
-        'meta-key': 'meta-value'
-      });
+      expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
         'mlflow.artifactLocation': expect.any(String)

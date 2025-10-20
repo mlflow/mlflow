@@ -1256,13 +1256,6 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 
 
 @pytest.mark.usefixtures(test_mode_on.__name__)
-@mock.patch(
-    "mlflow.utils.autologging_utils.safety._VALIDATION_EXEMPT_ARGUMENTS",
-    [
-        ValidationExemptArgument("foo", "fit", lambda x: isinstance(x, int), 1, "x"),
-        ValidationExemptArgument("ml", "flow", lambda z: isinstance(z, list), 0, "cool"),
-    ],
-)
 @pytest.mark.parametrize(
     ("expectation", "al_name", "func_name", "user_args", "user_kwargs", "al_args", "al_kwargs"),
     [
@@ -1365,7 +1358,16 @@ def test_validate_args_throws_when_arg_types_or_values_are_changed():
 def test_validate_args_respects_validation_exemptions(
     expectation, al_name, func_name, user_args, user_kwargs, al_args, al_kwargs
 ):
-    with expectation:
+    with (
+        mock.patch(
+            "mlflow.utils.autologging_utils.safety._VALIDATION_EXEMPT_ARGUMENTS",
+            [
+                ValidationExemptArgument("foo", "fit", lambda x: isinstance(x, int), 1, "x"),
+                ValidationExemptArgument("ml", "flow", lambda z: isinstance(z, list), 0, "cool"),
+            ],
+        ),
+        expectation,
+    ):
         _validate_args(al_name, func_name, user_args, user_kwargs, al_args, al_kwargs)
 
 

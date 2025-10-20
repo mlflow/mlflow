@@ -635,11 +635,13 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
         tasks=[task_1],
         memory=True,
     )
-    with patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION):
-        with patch("openai.OpenAI") as client:
-            client().embeddings.create.return_value = _EMBEDDING
-            autolog()
-            crew.kickoff()
+    with (
+        patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION),
+        patch("openai.OpenAI") as client,
+    ):
+        client().embeddings.create.return_value = _EMBEDDING
+        autolog()
+        crew.kickoff()
 
     traces = get_traces()
     assert len(traces) == 1

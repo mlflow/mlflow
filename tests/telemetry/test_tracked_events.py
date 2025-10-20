@@ -9,19 +9,18 @@ from click.testing import CliRunner
 
 import mlflow
 from mlflow import MlflowClient
-from mlflow.entities import EvaluationDataset, Feedback, Metric, Param, RunTag
+from mlflow.entities import EvaluationDataset, Expectation, Feedback, Metric, Param, RunTag
 from mlflow.entities.trace import Trace
 from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.base import AlignmentOptimizer
-from mlflow.genai.optimize.types import LLMParams, OptimizerOutput
-from mlflow.genai.scorers import scorer
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
     AlignJudgeEvent,
+    AutologgingEvent,
     CreateDatasetEvent,
     CreateExperimentEvent,
     CreateLoggedModelEvent,
@@ -292,7 +291,40 @@ def test_log_assessment(mock_requests, mock_telemetry_client: TelemetryClient):
         )
 
         mlflow.log_assessment(trace_id=span.trace_id, assessment=feedback)
-    validate_telemetry_record(mock_telemetry_client, mock_requests, LogAssessmentEvent.name)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
+    )
+    mlflow.log_feedback(trace_id=span.trace_id, value=0.9, name="faithfulness")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "feedback", "source_type": "CODE"},
+    )
+
+    with mlflow.start_span(name="test_span2") as span:
+        expectation = Expectation(
+            name="expected_answer",
+            value="MLflow",
+        )
+
+        mlflow.log_assessment(trace_id=span.trace_id, assessment=expectation)
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
+    )
+    mlflow.log_expectation(trace_id=span.trace_id, value="MLflow", name="expected_answer")
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        LogAssessmentEvent.name,
+        {"type": "expectation", "source_type": "HUMAN"},
+    )
 
 
 def test_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -340,40 +372,53 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.genai.optimize import optimize_prompts
+    from mlflow.genai.optimize.optimizers import BasePromptOptimizer
+    from mlflow.genai.optimize.types import PromptOptimizerOutput
+
+    class MockAdapter(BasePromptOptimizer):
+        def __init__(self):
+            self.model_name = "openai:/gpt-4o-mini"
+
+        def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
+            return PromptOptimizerOutput(optimized_prompts=target_prompts)
+
     sample_prompt = mlflow.genai.register_prompt(
-        name="test_translation_prompt",
-        template="Translate the following text to {{language}}: {{input_text}}",
+        name="test_prompt_for_adaptation",
+        template="Translate {{input_text}} to {{language}}",
     )
-    sample_data = pd.DataFrame(
+
+    sample_data = [
+        {"inputs": {"input_text": "Hello", "language": "Spanish"}, "outputs": "Hola"},
+        {"inputs": {"input_text": "World", "language": "French"}, "outputs": "Monde"},
+    ]
+
+    @mlflow.genai.scorers.scorer
+    def exact_match_scorer(outputs, expectations):
+        return 1.0 if outputs == expectations["expected_response"] else 0.0
+
+    def predict_fn(input_text, language):
+        mlflow.genai.load_prompt(f"prompts:/{sample_prompt.name}/{sample_prompt.version}")
+        return "translated"
+
+    optimize_prompts(
+        predict_fn=predict_fn,
+        train_data=sample_data,
+        prompt_uris=[f"prompts:/{sample_prompt.name}/{sample_prompt.version}"],
+        optimizer=MockAdapter(),
+        scorers=[exact_match_scorer],
+    )
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        PromptOptimizationEvent.name,
         {
-            "inputs": [
-                {"input_text": "Hello", "language": "Spanish"},
-                {"input_text": "World", "language": "French"},
-            ],
-            "expectations": [{"translation": "Hola"}, {"translation": "Monde"}],
-        }
+            "optimizer_type": "MockAdapter",
+            "prompt_count": 1,
+            "scorer_count": 1,
+            "custom_aggregation": False,
+        },
     )
-
-    @scorer
-    def sample_scorer(inputs, outputs, expectations):
-        return 1.0
-
-    with mock.patch(
-        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
-        return_value=OptimizerOutput(
-            final_eval_score=1.0,
-            initial_eval_score=0.5,
-            optimizer_name="DSPy/MIPROv2",
-            optimized_prompt="optimized",
-        ),
-    ):
-        mlflow.genai.optimize_prompt(
-            target_llm_params=LLMParams(model_name="test/model"),
-            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
-            train_data=sample_data,
-            scorers=[sample_scorer],
-        )
-    validate_telemetry_record(mock_telemetry_client, mock_requests, PromptOptimizationEvent.name)
 
 
 def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
@@ -665,21 +710,25 @@ def test_invoke_custom_judge_model(
         ),
     ):
         if use_native_provider:
-            with mock.patch.object(
-                __import__("mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]),
-                "score_model_on_payload",
-                return_value=mock_response,
-            ):
-                with mock.patch.object(
+            with (
+                mock.patch.object(
+                    __import__(
+                        "mlflow.metrics.genai.model_utils", fromlist=["score_model_on_payload"]
+                    ),
+                    "score_model_on_payload",
+                    return_value=mock_response,
+                ),
+                mock.patch.object(
                     __import__("mlflow.metrics.genai.model_utils", fromlist=["get_endpoint_type"]),
                     "get_endpoint_type",
                     return_value="llm/v1/chat",
-                ):
-                    invoke_judge_model(
-                        model_uri=model_uri,
-                        prompt="Test prompt",
-                        assessment_name="test_assessment",
-                    )
+                ),
+            ):
+                invoke_judge_model(
+                    model_uri=model_uri,
+                    prompt="Test prompt",
+                    assessment_name="test_assessment",
+                )
         else:
             with (
                 mock.patch(
@@ -758,3 +807,20 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(
         mock_telemetry_client, mock_requests, AlignJudgeEvent.name, expected_params
     )
+
+
+def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
+    try:
+        mlflow.openai.autolog()
+
+        mlflow.autolog()
+        mock_telemetry_client.flush()
+        data = [record["data"] for record in mock_requests]
+        params = [event["params"] for event in data if event["event_name"] == AutologgingEvent.name]
+        assert (
+            json.dumps({"flavor": mlflow.openai.FLAVOR_NAME, "log_traces": True, "disable": False})
+            in params
+        )
+        assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
+    finally:
+        mlflow.autolog(disable=True)

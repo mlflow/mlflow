@@ -2650,13 +2650,8 @@ def test_link_prompt_version_to_model_success(store):
         assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_model_sets_tag(store):
     """Test that linking a prompt version to a model sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2666,7 +2661,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the logged model
         model_id = "model_123"
         logged_model = LoggedModel(
@@ -2681,12 +2683,14 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         mock_tracking_store.get_logged_model.return_value = logged_model
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_model("test_prompt", "1", model_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_model("test_prompt", "1", model_id)
 
         # Verify the tag was set
         mock_tracking_store.set_logged_model_tags.assert_called_once()
@@ -2709,9 +2713,6 @@ def test_link_prompts_to_trace_success(store):
     with (
         mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
         mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
-        mock.patch(
-            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
-        ) as mock_super_call,
     ):
         # Setup
         mock_get_endpoint.return_value = (
@@ -2726,9 +2727,6 @@ def test_link_prompts_to_trace_success(store):
 
         # Execute
         store.link_prompts_to_trace(prompt_versions, trace_id)
-
-        # Verify parent method was called
-        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
 
         # Verify API call was made
         mock_edit_call.assert_called_once()
@@ -2779,13 +2777,8 @@ def test_link_prompt_version_to_run_success(store):
         assert req_body["run_ids"] == ["run_123"]
 
 
-@mock.patch("mlflow.tracking._get_store")
-def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
+def test_link_prompt_version_to_run_sets_tag(store):
     """Test that linking a prompt version to a run sets the appropriate tag."""
-
-    # Setup mocks
-    mock_tracking_store = mock.Mock()
-    mock_get_tracking_store.return_value = mock_tracking_store
 
     # Mock the prompt version
     mock_prompt_version = PromptVersion(
@@ -2795,7 +2788,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         creation_timestamp=1234567890,
     )
 
-    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+    with (
+        mock.patch("mlflow.tracking._get_store") as mock_get_tracking_store,
+        mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version),
+    ):
+        # Setup mocks
+        mock_tracking_store = mock.Mock()
+        mock_get_tracking_store.return_value = mock_tracking_store
+
         # Mock the run
         run_id = "run_123"
         run_data = RunData(metrics=[], params=[], tags={})
@@ -2812,12 +2812,14 @@ def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
         mock_tracking_store.get_run.return_value = run
 
         # Mock the UC-specific API call to avoid real API calls
-        with mock.patch.object(store, "_edit_endpoint_and_call"):
-            with mock.patch.object(
+        with (
+            mock.patch.object(store, "_edit_endpoint_and_call"),
+            mock.patch.object(
                 store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
-            ):
-                # Execute
-                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+            ),
+        ):
+            # Execute
+            store.link_prompt_version_to_run("test_prompt", "1", run_id)
 
         # Verify the tag was set
         mock_tracking_store.set_tag.assert_called_once()

@@ -647,7 +647,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if field.name not in flask_request.args:
                 continue
 
-            if field.label == descriptor.FieldDescriptor.LABEL_REPEATED:
+            # Use is_repeated property (preferred) with fallback to deprecated label
+            try:
+                is_repeated = field.is_repeated
+            except AttributeError:
+                is_repeated = field.label == descriptor.FieldDescriptor.LABEL_REPEATED
+
+            if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
                 request_json[field.name] = flask_request.args.get(field.name)
@@ -3560,13 +3566,18 @@ def _register_scorer():
             "serialized_scorer": [_assert_required, _assert_string],
         },
     )
-    version = _get_tracking_store().register_scorer(
+    scorer_version = _get_tracking_store().register_scorer(
         request_message.experiment_id,
         request_message.name,
         request_message.serialized_scorer,
     )
     response_message = RegisterScorer.Response()
-    response_message.version = version
+    response_message.version = scorer_version.scorer_version
+    response_message.scorer_id = scorer_version.scorer_id
+    response_message.experiment_id = scorer_version.experiment_id
+    response_message.name = scorer_version.scorer_name
+    response_message.serialized_scorer = scorer_version._serialized_scorer
+    response_message.creation_time = scorer_version.creation_time
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response

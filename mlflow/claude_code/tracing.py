@@ -80,11 +80,15 @@ def setup_logging() -> logging.Logger:
     return logger
 
 
-_MODULE_LOGGER = setup_logging()
+_MODULE_LOGGER: logging.Logger | None = None
 
 
 def get_logger() -> logging.Logger:
     """Get the configured module logger."""
+    global _MODULE_LOGGER
+
+    if _MODULE_LOGGER is None:
+        _MODULE_LOGGER = setup_logging()
     return _MODULE_LOGGER
 
 

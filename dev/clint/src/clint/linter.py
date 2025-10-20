@@ -569,6 +569,16 @@ class Linter(ast.NodeVisitor):
         if deco := rules.PytestMarkRepeat.check(node.decorator_list, self.resolver):
             self._check(Location.from_node(deco), rules.PytestMarkRepeat())
 
+    def _mock_patch_as_decorator(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # Only check in test files
+        if not self.path.name.startswith("test_"):
+            return
+
+        # Check all decorators, not just the first one
+        for deco in node.decorator_list:
+            if rules.MockPatchAsDecorator.check([deco], self.resolver):
+                self._check(Location.from_node(deco), rules.MockPatchAsDecorator())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
@@ -576,6 +586,7 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
@@ -599,6 +610,7 @@ class Linter(ast.NodeVisitor):
         self._markdown_link(node)
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
+        self._mock_patch_as_decorator(node)
         self._redundant_test_docstring(node)
         self.stack.append(node)
         self._no_rst(node)
@@ -726,6 +738,9 @@ class Linter(ast.NodeVisitor):
         if self._is_in_test() and rules.TempDirInTest.check(node, self.resolver):
             self._check(Location.from_node(node), rules.TempDirInTest())
 
+        if self._is_in_test() and rules.MockPatchDictEnviron.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.MockPatchDictEnviron())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
@@ -763,6 +778,12 @@ class Linter(ast.NodeVisitor):
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
+
+    def visit_With(self, node: ast.With) -> None:
+        # Only check in test files
+        if self.path.name.startswith("test_") and rules.NestedMockPatch.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.NestedMockPatch())
+        self.generic_visit(node)
 
     def post_visit(self) -> None:
         if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):

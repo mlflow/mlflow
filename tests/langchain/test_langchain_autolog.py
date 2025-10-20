@@ -6,7 +6,6 @@ from operator import itemgetter
 from typing import Any
 from unittest import mock
 
-import langchain
 import pytest
 from langchain.chains.llm import LLMChain
 from langchain_core.callbacks.base import (
@@ -50,8 +49,6 @@ try:
 except ImportError:
     from langchain.text_splitter import CharacterTextSplitter
 
-
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities.trace_status import TraceStatus
@@ -253,10 +250,6 @@ def test_llmchain_autolog_no_optional_artifacts_by_default():
     assert len(spans) == 2
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Callback does not pass all messages in older versions",
-)
 def test_chat_model_autolog():
     mlflow.langchain.autolog()
     model = ChatOpenAI(model="gpt-4o-mini", temperature=0.9)
@@ -278,21 +271,13 @@ def test_chat_model_autolog():
     span = traces[0].data.spans[0]
     assert span.name == "ChatOpenAI"
     assert span.span_type == "CHAT_MODEL"
-    # LangChain uses pydantic V1 until LangChain v0.3.0
-    if Version(langchain.__version__) >= Version("0.3.0"):
-        assert span.inputs == [[msg.model_dump() for msg in messages]]
-    else:
-        assert span.inputs == [[msg.dict() for msg in messages]]
+    assert span.inputs == [[msg.model_dump() for msg in messages]]
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.3.0"),
-    reason="langchain-openai.ChatOpenAI requires LangChain >= 0.3.0",
-)
 def test_chat_model_bind_tool_autolog():
     from langchain.tools import tool
 
@@ -339,10 +324,6 @@ def test_chat_model_bind_tool_autolog():
 
 @skip_when_testing_trace_sdk
 @pytest.mark.skipif(not _LC_COMMUNITY_INSTALLED, reason="This test requires langchain_community")
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
 def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog()
 
@@ -833,10 +814,6 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="Old version of LangChain does not support usage metadata",
-)
 async def test_langchain_autolog_token_usage():
     mlflow.langchain.autolog()
 
@@ -1012,10 +989,6 @@ def test_langchain_auto_tracing_in_serving_runnable():
 
 
 @skip_when_testing_trace_sdk
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="ToolCall message is not available in older versions",
-)
 def test_langchain_auto_tracing_in_serving_agent():
     mlflow.langchain.autolog()
 

@@ -3,7 +3,6 @@ Internal job APIs for UI invocation
 """
 
 import json
-import os
 from typing import Any
 
 from fastapi import APIRouter, HTTPException
@@ -14,14 +13,6 @@ from mlflow.entities._job_status import JobStatus
 from mlflow.exceptions import MlflowException
 
 job_api_router = APIRouter(prefix="/ajax-api/3.0/jobs", tags=["Job"])
-
-
-_ALLOWED_JOB_FUNCTION_LIST = [
-    # Putting all allowed job function in the list
-]
-
-if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
-    _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
 
 
 class Job(BaseModel):
@@ -81,10 +72,6 @@ def submit_job(payload: SubmitJobPayload) -> Job:
 
     function_fullname = payload.function_fullname
     try:
-        if function_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
-            raise MlflowException.invalid_parameter_value(
-                f"The function {function_fullname} is not in the allowed job function list"
-            )
         function = _load_function(function_fullname)
         job = submit_job(function, payload.params, payload.timeout)
         return Job.from_job_entity(job)

@@ -16,3 +16,6 @@ pyspark<3.5.6
 # https://github.com/pallets/click/issues/3065
 # click 8.3.0 has a bug that causes tests to hang
 click!=8.3.0
+# xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
+# https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
+xgboost<3.1.0
