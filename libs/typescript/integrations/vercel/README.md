@@ -25,7 +25,6 @@ mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 
 If you don't have Python environment locally, MLflow also supports Docker deployment or managed services. See [Self-Hosting Guide](https://mlflow.org/docs/latest/self-hosting/index.html) for getting started.
 
-
 Instantiate MLflow SDK in your application:
 
 ```typescript
