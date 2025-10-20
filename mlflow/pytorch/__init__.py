@@ -688,7 +688,9 @@ def _load_pyfunc(path, model_config=None, weights_only=False):
             _load_model(path, device=device, weights_only=weights_only), device=device
         )
 
-    return _PyTorchWrapper(_load_model(path, device=device), device=device)
+    model_meta = Model.load(os.path.join(os.path.pardir(path), MLMODEL_FILE_NAME))
+
+    return _PyTorchWrapper(_load_model(path, device=device), device=device, signature=model_meta.signature)
 
 
 class _PyTorchWrapper:
@@ -697,9 +699,10 @@ class _PyTorchWrapper:
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, pytorch_model, device):
+    def __init__(self, pytorch_model, device, signature=None):
         self.pytorch_model = pytorch_model
         self.device = device
+        self.signature = signature
 
     def get_raw_model(self):
         """
@@ -727,7 +730,8 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            inp_data = data.to_numpy(dtype=np.float32)
+            if self.signature is None or self.signature.is_tensor_spec():
+                inp_data = data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
