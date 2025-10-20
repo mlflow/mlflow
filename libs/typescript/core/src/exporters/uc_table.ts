@@ -11,12 +11,7 @@ import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromUCSchema } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
-import {
-  SpanAttributeKey,
-  TRACE_ID_PREFIX,
-  TRACE_SCHEMA_VERSION,
-  TraceMetadataKey
-} from '../core/constants';
+import { SpanAttributeKey, TraceMetadataKey } from '../core/constants';
 import {
   convertHrTimeToMs,
   deduplicateSpanNamesInPlace,
@@ -25,15 +20,15 @@ import {
 import { getConfig, getUCSchemaFromConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 
-const TRACE_ID_V4_PREFIX = "trace:/"
+const TRACE_ID_V4_PREFIX = 'trace:/';
 
 /**
  * Generate a MLflow-compatible trace ID for the given span.
  * @param span The span to generate the trace ID for
  */
 function generateTraceIdV4(span: OTelSpan, ucSchema: string): string {
-  // NB: trace Id is already hex string in Typescript OpenTelemetry SDK
-  return TRACE_ID_V4_PREFIX + location + "/" + span.spanContext().traceId;
+  // NB: the OTLP span traceId is already a hex string in the OpenTelemetry SDK
+  return `${TRACE_ID_V4_PREFIX}${ucSchema}/${span.spanContext().traceId}`;
 }
 
 export class UCSchemaSpanProcessor implements SpanProcessor {
@@ -85,7 +80,7 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
     }
 
     // Set trace ID to the span
-    span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
+    span.setAttribute(SpanAttributeKey.TRACE_ID, traceId);
   }
 
   /**
@@ -155,7 +150,7 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
 
 export class UCSchemaSpanExporter implements SpanExporter {
   private _client: MlflowClient;
-  private _pendingExports: Set<Promise<void>> = new Set();
+  private _pendingExports: Set<Promise<unknown>> = new Set();
 
   constructor(client: MlflowClient) {
     this._client = client;
@@ -188,16 +183,15 @@ export class UCSchemaSpanExporter implements SpanExporter {
       return;
     }
 
-    const exportPromise = this._client.logSpans(ucSchema, spans)
-      .catch((error) => {
-        console.error(`Failed to export spans:`, error);
-      })
-      .finally(() => {
-        this._pendingExports.delete(exportPromise);
-      });
-
+    const exportPromise = this._client.logSpans(ucSchema, spans);
     this._pendingExports.add(exportPromise);
-    await exportPromise;
+    try {
+      await exportPromise;
+    } catch (error: unknown) {
+      console.error('Failed to export spans:', error);
+    } finally {
+      this._pendingExports.delete(exportPromise);
+    }
   }
 
   /**
@@ -208,14 +202,14 @@ export class UCSchemaSpanExporter implements SpanExporter {
   private async logTraceInfo(trace: Trace): Promise<void> {
     // Export trace to backend and track the promise
     const exportPromise = this._client.createTraceV4(trace.info);
-      .catch((error) => {
-        console.error(`Failed to export trace ${trace.info.traceId}:`, error);
-      })
-      .finally(() => {
-        this._pendingExports.delete(exportPromise);
-      });
-
     this._pendingExports.add(exportPromise);
+    try {
+      await exportPromise;
+    } catch (error: unknown) {
+      console.error(`Failed to export trace ${trace.info.traceId}:`, error);
+    } finally {
+      this._pendingExports.delete(exportPromise);
+    }
   }
 
   /**

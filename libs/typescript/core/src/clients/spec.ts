@@ -40,6 +40,24 @@ export namespace CreateTraceV4 {
   export type Response = Parameters<typeof TraceInfo.fromJson>[0];
 }
 
+/**
+ * Retrieve complete traces (metadata + spans) for a batch of trace IDs using the V4 API.
+ */
+export namespace BatchGetTracesV4 {
+  export const getEndpoint = (host: string, locationId: string) =>
+    `${host}/api/4.0/mlflow/traces/${locationId}/batchGet`;
+
+  export interface Request {
+    location_id: string;
+    trace_ids: string[];
+    sql_warehouse_id?: string;
+  }
+
+  export interface Response {
+    traces: Array<Parameters<typeof Trace.fromJson>[0]>;
+  }
+}
+
 
 /**
  * Get the TraceInfo entity for a given trace ID.
@@ -62,7 +80,6 @@ export namespace GetTraceInfoV3 {
 export namespace LogSpans {
   export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
   export const CONTENT_TYPE = 'application/x-protobuf';
-  export const DEFAULT_SPAN_TABLE_NAME = 'mlflow_experiment_trace_otel_spans';
 
   export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;
 
@@ -74,11 +91,11 @@ export namespace LogSpans {
    * @returns A headers object suitable for fetch/AJAX requests.
    */
   export const getHeaders = (
-    ucSchema: string,
+    location: string,
     databricksToken?: string
   ): Record<string, string> => {
     const headers: Record<string, string> = {
-      [LogSpans.DATABRICKS_UC_TABLE_HEADER]: `${ucSchema}.${LogSpans.DEFAULT_SPAN_TABLE_NAME}`,
+      [LogSpans.DATABRICKS_UC_TABLE_HEADER]: location,
       'Content-Type': LogSpans.CONTENT_TYPE,
     };
     if (databricksToken) {
