@@ -167,6 +167,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         secret_access_key=None,
         session_token=None,
         tracking_uri: str | None = None,
+        registry_uri: str | None = None,
     ) -> None:
         """
         Initialize an S3 artifact repository.
@@ -183,7 +184,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             tracking_uri: Optional URI for the MLflow tracking server.
                 If None, uses the current tracking URI context.
         """
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token

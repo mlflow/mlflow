@@ -41,8 +41,14 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     - DefaultAzureCredential is configured
     """
 
-    def __init__(self, artifact_uri: str, client=None, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        client=None,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT

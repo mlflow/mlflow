@@ -2,6 +2,7 @@ from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
+from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
@@ -783,21 +784,6 @@ class GetTraceInfoV3(_message.Message):
     trace_id: str
     def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
 
-class GetTraceInfoV4(_message.Message):
-    __slots__ = ("trace_id", "location", "sql_warehouse_id")
-    class Response(_message.Message):
-        __slots__ = ("trace",)
-        TRACE_FIELD_NUMBER: _ClassVar[int]
-        trace: Trace
-        def __init__(self, trace: _Optional[_Union[Trace, _Mapping]] = ...) -> None: ...
-    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
-    LOCATION_FIELD_NUMBER: _ClassVar[int]
-    SQL_WAREHOUSE_ID_FIELD_NUMBER: _ClassVar[int]
-    trace_id: str
-    location: str
-    sql_warehouse_id: str
-    def __init__(self, trace_id: _Optional[str] = ..., location: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
-
 class SearchTraces(_message.Message):
     __slots__ = ("experiment_ids", "filter", "max_results", "order_by", "page_token")
     class Response(_message.Message):
@@ -977,17 +963,15 @@ class Trace(_message.Message):
     def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
-    __slots__ = ("type", "mlflow_experiment", "inference_table", "uc_schema")
+    __slots__ = ("type", "mlflow_experiment", "inference_table")
     class TraceLocationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
         __slots__ = ()
         TRACE_LOCATION_TYPE_UNSPECIFIED: _ClassVar[TraceLocation.TraceLocationType]
         MLFLOW_EXPERIMENT: _ClassVar[TraceLocation.TraceLocationType]
         INFERENCE_TABLE: _ClassVar[TraceLocation.TraceLocationType]
-        UC_SCHEMA: _ClassVar[TraceLocation.TraceLocationType]
     TRACE_LOCATION_TYPE_UNSPECIFIED: TraceLocation.TraceLocationType
     MLFLOW_EXPERIMENT: TraceLocation.TraceLocationType
     INFERENCE_TABLE: TraceLocation.TraceLocationType
-    UC_SCHEMA: TraceLocation.TraceLocationType
     class MlflowExperimentLocation(_message.Message):
         __slots__ = ("experiment_id",)
         EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -998,22 +982,13 @@ class TraceLocation(_message.Message):
         FULL_TABLE_NAME_FIELD_NUMBER: _ClassVar[int]
         full_table_name: str
         def __init__(self, full_table_name: _Optional[str] = ...) -> None: ...
-    class UCSchemaLocation(_message.Message):
-        __slots__ = ("catalog_name", "schema_name")
-        CATALOG_NAME_FIELD_NUMBER: _ClassVar[int]
-        SCHEMA_NAME_FIELD_NUMBER: _ClassVar[int]
-        catalog_name: str
-        schema_name: str
-        def __init__(self, catalog_name: _Optional[str] = ..., schema_name: _Optional[str] = ...) -> None: ...
     TYPE_FIELD_NUMBER: _ClassVar[int]
     MLFLOW_EXPERIMENT_FIELD_NUMBER: _ClassVar[int]
     INFERENCE_TABLE_FIELD_NUMBER: _ClassVar[int]
-    UC_SCHEMA_FIELD_NUMBER: _ClassVar[int]
     type: TraceLocation.TraceLocationType
     mlflow_experiment: TraceLocation.MlflowExperimentLocation
     inference_table: TraceLocation.InferenceTableLocation
-    uc_schema: TraceLocation.UCSchemaLocation
-    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ..., uc_schema: _Optional[_Union[TraceLocation.UCSchemaLocation, _Mapping]] = ...) -> None: ...
+    def __init__(self, type: _Optional[_Union[TraceLocation.TraceLocationType, str]] = ..., mlflow_experiment: _Optional[_Union[TraceLocation.MlflowExperimentLocation, _Mapping]] = ..., inference_table: _Optional[_Union[TraceLocation.InferenceTableLocation, _Mapping]] = ...) -> None: ...
 
 class TraceInfoV3(_message.Message):
     __slots__ = ("trace_id", "client_request_id", "trace_location", "request", "response", "request_preview", "response_preview", "request_time", "execution_duration", "state", "trace_metadata", "assessments", "tags")
@@ -1522,10 +1497,20 @@ class RemoveDatasetFromExperiments(_message.Message):
 class RegisterScorer(_message.Message):
     __slots__ = ("experiment_id", "name", "serialized_scorer")
     class Response(_message.Message):
-        __slots__ = ("version",)
+        __slots__ = ("version", "scorer_id", "experiment_id", "name", "serialized_scorer", "creation_time")
         VERSION_FIELD_NUMBER: _ClassVar[int]
+        SCORER_ID_FIELD_NUMBER: _ClassVar[int]
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
+        CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
         version: int
-        def __init__(self, version: _Optional[int] = ...) -> None: ...
+        scorer_id: str
+        experiment_id: str
+        name: str
+        serialized_scorer: str
+        creation_time: int
+        def __init__(self, version: _Optional[int] = ..., scorer_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
@@ -1587,18 +1572,20 @@ class DeleteScorer(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class Scorer(_message.Message):
-    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "scorer_id")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_ID_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     scorer_name: str
     scorer_version: int
     serialized_scorer: str
     creation_time: int
-    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+    scorer_id: str
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

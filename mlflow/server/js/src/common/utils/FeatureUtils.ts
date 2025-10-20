@@ -45,7 +45,7 @@ export const isRunPageLoggedModelsTableEnabled = () => true;
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
@@ -127,4 +127,13 @@ export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
 
 export const shouldEnableTagGrouping = () => {
   return true;
+};
+
+/**
+ * Determines if the assessments pane should be disabled when trace info fetch fails.
+ * In OSS, we keep the pane enabled to avoid confusing users (showing stale data is better than nothing).
+ * In Databricks, we disable it because playground creates fake traces that can't have assessments.
+ */
+export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
+  return false;
 };

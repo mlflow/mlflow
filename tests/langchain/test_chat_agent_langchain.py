@@ -1,10 +1,3 @@
-import langchain
-import pytest
-from packaging.version import Version
-
-if Version(langchain.__version__) < Version("0.2.0"):
-    pytest.skip("Tests require langchain version 0.2.0 or higher", allow_module_level=True)
-
 import mlflow
 
 

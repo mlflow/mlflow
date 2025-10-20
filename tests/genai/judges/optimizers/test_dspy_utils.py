@@ -1,5 +1,3 @@
-"""Tests for DSPy utility functions."""
-
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -185,7 +183,6 @@ def test_trace_to_dspy_example_no_assessment(sample_trace_without_assessment, mo
 
 
 def test_create_dspy_signature(mock_judge):
-    """Test creating DSPy signature."""
     pytest.importorskip("dspy", reason="DSPy not installed")
 
     signature = create_dspy_signature(mock_judge)
@@ -219,7 +216,6 @@ def test_agreement_metric():
 
 
 def test_agreement_metric_error_handling():
-    """Test agreement metric error handling."""
     # Test with invalid inputs
     result = agreement_metric(None, None)
     assert result is False

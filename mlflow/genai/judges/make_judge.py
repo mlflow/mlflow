@@ -13,6 +13,11 @@ def make_judge(
     model: str | None = None,
 ) -> Judge:
     """
+
+    .. note::
+        As of MLflow 3.4.0, this function is deprecated in favor of `mlflow.genai.make_judge`
+        and may be removed in a future version.
+
     Create a custom MLflow judge instance.
 
     Args:

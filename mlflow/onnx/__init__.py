@@ -8,6 +8,7 @@ ONNX (native) format
     Produced for use by generic pyfunc-based deployment tools and batch inference.
 """
 
+# TEMPORARY: Trigger CI - remove this comment after CI runs
 import logging
 import os
 from pathlib import Path

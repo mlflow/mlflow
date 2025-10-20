@@ -100,11 +100,11 @@ async def export_traces(
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
-                    mlflow_span = Span._from_otel_proto(otel_proto_span)
+                    mlflow_span = Span.from_otel_proto(otel_proto_span)
                     mlflow_spans.append(mlflow_span)
                 except Exception:
                     raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        status_code=422,
                         detail="Cannot convert OpenTelemetry span to MLflow span",
                     )
 
@@ -120,7 +120,7 @@ async def export_traces(
             )
         except Exception as e:
             raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                status_code=422,
                 detail=f"Cannot store OpenTelemetry spans: {e}",
             )
 

@@ -153,3 +153,26 @@ def test_truncate_responses_api_output():
     )
 
     assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."
+
+
+@pytest.mark.parametrize(
+    "input_data",
+    [
+        {"messages": 123, "long_data": "a" * 50},
+        {"messages": []},
+        {"input": "string"},
+        {"output": 123},
+        {"choices": {"0": "value"}},
+        {"request": "string"},
+        {"choices": [{"message": "not a dict"}]},
+        {"choices": [{"message": {"role": "user"}}]},
+    ],
+)
+def test_truncate_invalid_messages(input_data):
+    input_str = json.dumps(input_data)
+    result = _get_truncated_preview(input_str, role="user")
+    if "long_data" in input_data:
+        assert len(result) == 50
+        assert result.startswith(input_str[:20])
+    else:
+        assert result == input_str
