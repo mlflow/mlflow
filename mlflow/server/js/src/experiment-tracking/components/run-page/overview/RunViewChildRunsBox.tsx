@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { KeyValueProperty } from '@databricks/web-shared/utils';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { MlflowService } from '../../../sdk/MlflowService';
 import type { RunInfoEntity } from '../../../types';
 import { EXPERIMENT_PARENT_ID_TAG } from '../../experiment-page/utils/experimentPage.common-utils';
 
-const EmptyValue = () => <Typography.Hint>—</Typography.Hint>;
-
 const PAGE_SIZE = 10;
 
 export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string; experimentId: string }) => {
   const { theme } = useDesignSystemTheme();
+  const intl = useIntl();
   const [childRuns, setChildRuns] = useState<RunInfoEntity[] | undefined>();
   const [nextPageToken, setNextPageToken] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
@@ -48,66 +48,78 @@ export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string
     loadChildRuns();
   }, [loadChildRuns]);
 
-  if (hasError) {
-    return (
-      <Typography.Text color="error">
-        <FormattedMessage
-          defaultMessage="Failed to load child runs"
-          description="Run page > Overview > Child runs error"
-        />
-      </Typography.Text>
-    );
+  if (childRuns !== undefined && childRuns.length === 0) {
+    return null;
   }
 
-  if (childRuns === undefined) {
-    return (
-      <ParagraphSkeleton
-        loading
-        label={
+  const renderValue = () => {
+    if (hasError) {
+      return (
+        <Typography.Text color="error">
           <FormattedMessage
-            defaultMessage="Child runs loading"
-            description="Run page > Overview > Child runs loading"
+            defaultMessage="Failed to load child runs"
+            description="Run page > Overview > Child runs error"
           />
-        }
-      />
-    );
-  }
+        </Typography.Text>
+      );
+    }
 
-  if (childRuns.length === 0) {
-    return <EmptyValue />;
-  }
+    if (childRuns === undefined) {
+      return (
+        <ParagraphSkeleton
+          loading
+          label={
+            <FormattedMessage
+              defaultMessage="Child runs loading"
+              description="Run page > Overview > Child runs loading"
+            />
+          }
+        />
+      );
+    }
+
+    return (
+      <div>
+        <div
+          css={{
+            display: 'flex',
+            flexDirection: 'row',
+            flexWrap: 'wrap',
+            gap: theme.spacing.sm,
+            padding: `${theme.spacing.sm}px 0`,
+          }}
+        >
+          {childRuns.map((info, index) => (
+            <Typography.Text key={info.runUuid} css={{ whiteSpace: 'nowrap' }}>
+              <Link to={Routes.getRunPageRoute(info.experimentId, info.runUuid)}>{info.runName}</Link>
+              {index < childRuns.length - 1 && ','}
+            </Typography.Text>
+          ))}
+        </div>
+        {nextPageToken && (
+          <div css={{ marginBottom: theme.spacing.sm }}>
+            <Button
+              componentId="mlflow.run_details.overview.child_runs.load_more_button"
+              size="small"
+              type="secondary"
+              onClick={() => loadChildRuns(nextPageToken)}
+              loading={isLoading}
+            >
+              <FormattedMessage defaultMessage="Load more" description="Run page > Overview > Child runs load more" />
+            </Button>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
-    <div>
-      <div
-        css={{
-          display: 'flex',
-          flexDirection: 'row',
-          flexWrap: 'wrap',
-          gap: theme.spacing.sm,
-          padding: `${theme.spacing.sm}px 0`,
-        }}
-      >
-        {childRuns.map((info, index) => (
-          <Typography.Text key={info.runUuid} css={{ whiteSpace: 'nowrap' }}>
-            <Link to={Routes.getRunPageRoute(info.experimentId, info.runUuid)}>{info.runName}</Link>
-            {index < childRuns.length - 1 && ','}
-          </Typography.Text>
-        ))}
-      </div>
-      {nextPageToken && (
-        <div css={{ marginBottom: theme.spacing.sm }}>
-          <Button
-            componentId="mlflow.run_details.overview.child_runs.load_more_button"
-            size="small"
-            type="primary"
-            onClick={() => loadChildRuns(nextPageToken)}
-            loading={isLoading}
-          >
-            <FormattedMessage defaultMessage="Load more" description="Run page > Overview > Child runs load more" />
-          </Button>
-        </div>
-      )}
-    </div>
+    <KeyValueProperty
+      keyValue={intl.formatMessage({
+        defaultMessage: 'Child runs',
+        description: 'Run page > Overview > Child runs',
+      })}
+      value={renderValue()}
+    />
   );
 };

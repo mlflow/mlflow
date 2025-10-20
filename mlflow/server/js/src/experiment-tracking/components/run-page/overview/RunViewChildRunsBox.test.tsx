@@ -1,4 +1,4 @@
-import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { RunViewChildRunsBox } from './RunViewChildRunsBox';
@@ -50,6 +50,9 @@ describe('RunViewChildRunsBox', () => {
 
     expect(screen.getByText('Child runs loading')).toBeInTheDocument();
 
+    // Check for the label
+    expect(await screen.findByText('Child runs')).toBeInTheDocument();
+
     const link = await screen.findByRole('link', { name: 'Child run 1' });
     expect(link).toHaveAttribute('href', `/experiments/${experimentId}/runs/child-1`);
     expect(screen.queryByText('Child runs loading')).not.toBeInTheDocument();
@@ -61,14 +64,21 @@ describe('RunViewChildRunsBox', () => {
     renderComponent();
 
     expect(await screen.findByText('Failed to load child runs')).toBeInTheDocument();
+    expect(screen.getByText('Child runs')).toBeInTheDocument();
   });
 
-  test('renders dash when no child runs are returned', async () => {
+  test('renders nothing when no child runs are returned', async () => {
     jest.mocked(MlflowService.searchRuns).mockResolvedValueOnce({ runs: [], next_page_token: undefined });
 
     renderComponent();
 
-    expect(await screen.findByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Child runs loading')).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.queryByText('Child runs loading')).not.toBeInTheDocument();
+    });
+
+    expect(screen.queryByText('Child runs')).not.toBeInTheDocument();
   });
 
   test('loads more runs when clicking the Load more button', async () => {
@@ -85,6 +95,7 @@ describe('RunViewChildRunsBox', () => {
 
     renderComponent();
 
+    expect(await screen.findByText('Child runs')).toBeInTheDocument();
     expect(await screen.findByRole('link', { name: 'Child run 1' })).toBeInTheDocument();
 
     const loadMore = screen.getByRole('button', { name: 'Load more' });
