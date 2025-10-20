@@ -679,16 +679,18 @@ def _load_pyfunc(path, model_config=None, weights_only=False):
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
+    model_meta = Model.load(os.path.join(os.path.pardir(path), MLMODEL_FILE_NAME))
+
     # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
     # `False` to `True`. this can cause pickle deserialization errors when loading
     # models, unless the model classes have been explicitly marked as safe using
     # `torch.serialization.add_safe_globals()`
     if Version(torch.__version__) >= Version("2.6.0"):
         return _PyTorchWrapper(
-            _load_model(path, device=device, weights_only=weights_only), device=device
+            _load_model(path, device=device, weights_only=weights_only),
+            device=device,
+            signature=model_meta.signature,
         )
-
-    model_meta = Model.load(os.path.join(os.path.pardir(path), MLMODEL_FILE_NAME))
 
     return _PyTorchWrapper(_load_model(path, device=device), device=device, signature=model_meta.signature)
 
@@ -730,7 +732,7 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            if self.signature is None or self.signature.is_tensor_spec():
+            if self.signature is None or self.signature.inputs.is_tensor_spec():
                 inp_data = data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
