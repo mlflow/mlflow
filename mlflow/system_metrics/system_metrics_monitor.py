@@ -76,13 +76,13 @@ class SystemMetricsMonitor:
         )
 
         self._run_id = run_id
-        self.mlflow_logger = BatchMetricsLogger(self._run_id)
         self._shutdown_event = threading.Event()
         self._process = None
         self._metrics_prefix = "system/"
         self.node_id = MLFLOW_SYSTEM_METRICS_NODE_ID.get() or node_id
         self._logging_step = self._get_next_logging_step(run_id) if resume_logging else 0
         self._tracking_uri = tracking_uri if tracking_uri else get_tracking_uri()
+        self.mlflow_logger = BatchMetricsLogger(self._run_id, tracking_uri=self._tracking_uri)
 
     def _get_next_logging_step(self, run_id):
         from mlflow.tracking.client import MlflowClient
