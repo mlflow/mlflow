@@ -124,6 +124,7 @@ print(response.choices[0].message)
 ```
 
 Streaming API is also supported:
+
 ```python
 from openai import OpenAI
 
@@ -148,7 +149,6 @@ for chunk in stream:
     print(chunk.choices[0].delta)
     print("****************")
 ```
-
 
 ### MLflow Deployments Client
 

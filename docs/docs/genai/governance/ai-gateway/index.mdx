@@ -156,17 +156,17 @@ MLflow AI Gateway supports a comprehensive range of LLM providers:
 
 | Provider              | Chat | Chat function calling | Completions | Embeddings | Notes                                    |
 | --------------------- | ---- | --------------------- | ----------- | ---------- | ---------------------------------------- |
-| OpenAI                | ✅   | ✅                    | ✅           | ✅         | GPT-3.5, GPT-4, text-embedding models    |
-| Azure OpenAI          | ✅   | ✅                    | ✅           | ✅         | Enterprise OpenAI with Azure integration |
-| Anthropic             | ✅   | ✅                    | ✅           | ❌         | Claude models via Anthropic API          |
-| Gemini                | ✅   | ✅                    | ✅           | ✅         | Gemini models via Gemini API             |
-| AWS Bedrock Claude    | ✅   | ✅                    | ✅           | ✅         | Claude models provided by AWS Bedrock    |
-| AWS Bedrock Titan     | ❌   | ❌                    | ✅           | ❌         | Titan models provided by AWS Bedrock     |
-| AWS Bedrock AI21      | ❌   | ❌                    | ✅           | ❌         | AI21 models provided by AWS Bedrock      |
-| MLflow Models         | ✅   | ❌                    | ✅           | ✅         | Your own deployed MLflow models          |
-| Cohere (deprecated)   | ✅   | ❌                    | ✅           | ✅         | Command and embedding models             |
-| PaLM (deprecated)     | ✅   | ❌                    | ✅           | ✅         | Google's PaLM models                     |
-| MosaicML (deprecated) | ✅   | ❌                    | ✅           | ❌         | MPT models and custom deployments        |
+| OpenAI                | ✅   | ✅                    | ✅          | ✅         | GPT-3.5, GPT-4, text-embedding models    |
+| Azure OpenAI          | ✅   | ✅                    | ✅          | ✅         | Enterprise OpenAI with Azure integration |
+| Anthropic             | ✅   | ✅                    | ✅          | ❌         | Claude models via Anthropic API          |
+| Gemini                | ✅   | ✅                    | ✅          | ✅         | Gemini models via Gemini API             |
+| AWS Bedrock Claude    | ✅   | ✅                    | ✅          | ✅         | Claude models provided by AWS Bedrock    |
+| AWS Bedrock Titan     | ❌   | ❌                    | ✅          | ❌         | Titan models provided by AWS Bedrock     |
+| AWS Bedrock AI21      | ❌   | ❌                    | ✅          | ❌         | AI21 models provided by AWS Bedrock      |
+| MLflow Models         | ✅   | ❌                    | ✅          | ✅         | Your own deployed MLflow models          |
+| Cohere (deprecated)   | ✅   | ❌                    | ✅          | ✅         | Command and embedding models             |
+| PaLM (deprecated)     | ✅   | ❌                    | ✅          | ✅         | Google's PaLM models                     |
+| MosaicML (deprecated) | ✅   | ❌                    | ✅          | ❌         | MPT models and custom deployments        |
 
 :::note
 MosaicML PaLM, and Cohere providers are deprecated, will be removed in a future MLflow version.
