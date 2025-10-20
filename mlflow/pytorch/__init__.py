@@ -752,8 +752,9 @@ class _PyTorchWrapper:
 
         device = self.device
         with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
-            preds = self.pytorch_model(input_tensor, **(params or {}))
+            if isinstance(inp_data, np.ndarray):
+                inp_data = torch.from_numpy(inp_data).to(device)
+            preds = self.pytorch_model(inp_data, **(params or {}))
             # if the predictions happened on a remote device, copy them back to
             # the host CPU for processing
             if device != _TORCH_CPU_DEVICE_NAME:
