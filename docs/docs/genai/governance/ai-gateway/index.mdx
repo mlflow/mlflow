@@ -154,16 +154,17 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
 
 MLflow AI Gateway supports a comprehensive range of LLM providers:
 
-| Provider      | Chat | Completions | Embeddings | Notes                                    |
-| ------------- | ---- | ----------- | ---------- | ---------------------------------------- |
-| OpenAI        | ✅   | ✅          | ✅         | GPT-3.5, GPT-4, text-embedding models    |
-| Azure OpenAI  | ✅   | ✅          | ✅         | Enterprise OpenAI with Azure integration |
-| Anthropic     | ✅   | ✅          | ❌         | Claude models via Anthropic API          |
-| Cohere        | ✅   | ✅          | ✅         | Command and embedding models             |
-| AWS Bedrock   | ✅   | ✅          | ✅         | Claude, Titan, and other Bedrock models  |
-| PaLM          | ✅   | ✅          | ✅         | Google's PaLM models                     |
-| MosaicML      | ✅   | ✅          | ❌         | MPT models and custom deployments        |
-| MLflow Models | ✅   | ✅          | ✅         | Your own deployed MLflow models          |
+| Provider              | Chat | Completions | Embeddings | Notes                                    |
+| --------------------- | ---- | ----------- | ---------- | ---------------------------------------- |
+| OpenAI                | ✅   | ✅          | ✅         | GPT-3.5, GPT-4, text-embedding models    |
+| Azure OpenAI          | ✅   | ✅          | ✅         | Enterprise OpenAI with Azure integration |
+| Anthropic             | ✅   | ✅          | ❌         | Claude models via Anthropic API          |
+| Gemini                | ✅   | ✅          | ✅         | Gemini models via Gemini API             |
+| Cohere (deprecated)   | ✅   | ✅          | ✅         | Command and embedding models             |
+| AWS Bedrock           | ✅   | ✅          | ✅         | Claude, Titan, and other Bedrock models  |
+| PaLM (deprecated)     | ✅   | ✅          | ✅         | Google's PaLM models                     |
+| MosaicML (deprecated) | ✅   | ✅          | ❌         | MPT models and custom deployments        |
+| MLflow Models         | ✅   | ✅          | ✅         | Your own deployed MLflow models          |
 
 :::note
 MosaicML PaLM, and Cohere providers are deprecated, will be removed in a future MLflow version.

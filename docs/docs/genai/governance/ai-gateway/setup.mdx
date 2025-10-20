@@ -91,6 +91,38 @@ endpoints:
 ```
 
 </TabItem>
+
+<TabItem value="route" label="Traffic route">
+
+```yaml
+endpoints:
+  - name: chat1
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-3.5-turbo
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+  - name: chat2
+    endpoint_type: llm/v1/chat
+    model:
+      provider: openai
+      name: gpt-4.1
+      config:
+        openai_api_key: $OPENAI_API_KEY
+
+routes:
+  - name: chat-route
+    task_type: llm/v1/chat
+    destinations:
+      - name: chat1
+        traffic_percentage: 80
+      - name: chat2
+        traffic_percentage: 20
+    routing_strategy: TRAFFIC_SPLIT
+
+</TabItem>
 </Tabs>
 </TabsWrapper>
 
@@ -150,10 +182,20 @@ http://localhost:5000/docs
 
 ### Test a Simple Request
 
-Send a test request to verify your endpoint configuration is working correctly:
+Send a test request to the chat endpoint to verify your endpoint configuration is working correctly:
 
 ```bash
 curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+Send a test request to the "chat-route" route to verify your route configuration is working correctly:
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat-route/invocations \
   -H "Content-Type: application/json" \
   -d '{
     "messages": [{"role": "user", "content": "Hello!"}]
