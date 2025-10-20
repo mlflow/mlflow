@@ -190,7 +190,7 @@ MLflow is natively integrated with many popular machine learning frameworks and 
 
 ### Experiment Tracking ([Doc](https://mlflow.org/docs/latest/ml/tracking/))
 
-The following examples trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
+The following example trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
 
 ```python
 import mlflow
@@ -273,12 +273,12 @@ response = OpenAI().chat.completions.create(
 )
 ```
 
-Then navigate to the "Traces" tab in the MLflow UI to find the trace records OpenAI query.
+Then navigate to the "Traces" tab in the MLflow UI to find the trace that records the OpenAI query.
 
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
-- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button at the right bottom.
+- In the documentation, you can ask the question to our AI-powered chat bot. Click on the **"Ask AI"** button in the bottom right corner.
 - Join the [virtual events](https://lu.ma/mlflow?k=c) like office hours and meetups.
 - To report a bug, file a documentation issue, or submit a feature request, please [open a GitHub issue](https://github.com/mlflow/mlflow/issues/new/choose).
 - For release announcements and other discussions, please subscribe to our mailing list (mlflow-users@googlegroups.com)
@@ -289,7 +289,7 @@ Then navigate to the "Traces" tab in the MLflow UI to find the trace records Ope
 We happily welcome contributions to MLflow!
 
 - Submit [bug reports](https://github.com/mlflow/mlflow/issues/new?template=bug_report_template.yaml) and [feature requests](https://github.com/mlflow/mlflow/issues/new?template=feature_request_template.yaml)
-- Contribute for [good-first-issues](https://github.com/mlflow/mlflow/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and [help-wanted](https://github.com/mlflow/mlflow/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
+- Contribute to [good-first-issues](https://github.com/mlflow/mlflow/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) and [help-wanted](https://github.com/mlflow/mlflow/issues?q=is%3Aissue+is%3Aopen+label%3A%22help+wanted%22)
 - Writing about MLflow and sharing your experience
 
 Please see our [contribution guide](CONTRIBUTING.md) to learn more about contributing to MLflow.
