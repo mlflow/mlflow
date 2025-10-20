@@ -666,6 +666,8 @@ langchain:
       echo "Testing langchain autolog and evaluation with langchain-community"
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
+
+      pytest tests/langchain/test_langchain_autolog.py
     test_tracing_sdk: true
 
 langgraph:
