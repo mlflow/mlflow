@@ -163,6 +163,10 @@ endpoints:
 </Tabs>
 </TabsWrapper>
 
+:::note
+MosaicML PaLM, and Cohere providers are deprecated, will be removed in a future MLflow version.
+:::
+
 ## Environment Variables
 
 Store API keys as environment variables for security:
@@ -261,7 +265,7 @@ endpoints:
 
 ### Traffic route
 
-Configure traffic route that can split incoming traffic to multiple endpoints:
+Add the `routes` configuration to split incoming traffic to multiple endpoints:
 
 ```yaml
 endpoints:
@@ -269,7 +273,7 @@ endpoints:
     endpoint_type: llm/v1/chat
     model:
       provider: openai
-      name: gpt-3.5-turbo
+      name: gpt-5
       config:
         openai_api_key: $OPENAI_API_KEY
 
@@ -291,6 +295,7 @@ routes:
         traffic_percentage: 20
     routing_strategy: TRAFFIC_SPLIT
 ```
+Currently, MLflow only support the `TRAFFIC_SPLIT` strategy which randomly route incoming requests based on the configured percentage.
 
 ## Dynamic Configuration Updates
 
