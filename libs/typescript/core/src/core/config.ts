@@ -37,9 +37,15 @@ export interface MLflowTracingConfig {
   trackingUri: string;
 
   /**
-   * The experiment ID where traces will be logged
+   * The experiment ID where traces will be logged. Required when you log traces to MLflow
+   * Tracking Server.
    */
-  experimentId: string;
+  experimentId?: string;
+
+  /**
+   * The Unity Catalog schema name to log the trace. Only available for Databricks.
+   */
+  ucSchema?: string;
 
   /**
    * The location of the Databricks config file, default to ~/.databrickscfg
@@ -139,16 +145,12 @@ let globalConfig: MLflowTracingConfig | null = null;
 export function init(config: MLflowTracingInitOptions): void {
   const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
   const experimentId = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
+  const ucSchema = config.ucSchema;
+
 
   if (!trackingUri) {
     throw new Error(
       'An MLflow Tracking URI is required, please provide the trackingUri option to init, or set the MLFLOW_TRACKING_URI environment variable'
-    );
-  }
-
-  if (!experimentId) {
-    throw new Error(
-      'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
     );
   }
 
@@ -170,10 +172,27 @@ export function init(config: MLflowTracingInitOptions): void {
     databricksConfigPath
   };
 
-  if (
-    effectiveConfig.trackingUri === 'databricks' ||
-    effectiveConfig.trackingUri?.startsWith('databricks://')
-  ) {
+
+  if (isDatabricksUri(trackingUri)) {
+    if (!experimentId || !ucSchema) {
+      throw new Error(
+        'An MLflow experiment ID or a Unity Catalog schema is required, please provide the ' +
+        'corresponding option to init, or set the MLFLOW_EXPERIMENT_ID environment variable.'
+      );
+    }
+  } else {
+    if (!experimentId) {
+      throw new Error(
+        'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+      );
+    }
+
+    if (ucSchema) {
+      throw new Error('The ucSchema option is only supported on Databricks.');
+    }
+  }
+
+  if (isDatabricksUri(effectiveConfig.trackingUri)) {
     const configPathToUse = effectiveConfig.databricksConfigPath;
 
     if (!effectiveConfig.host || !effectiveConfig.databricksToken) {
@@ -228,6 +247,10 @@ export function init(config: MLflowTracingInitOptions): void {
 
   // Initialize SDK with new configuration
   initializeSDK();
+}
+
+function isDatabricksUri(trackingUri: string): boolean {
+  return trackingUri === 'databricks' || trackingUri?.startsWith('databricks://')
 }
 
 /**

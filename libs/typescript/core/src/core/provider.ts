@@ -30,8 +30,16 @@ export function initializeSDK(): void {
       trackingServerUsername: hostConfig.trackingServerUsername,
       trackingServerPassword: hostConfig.trackingServerPassword
     });
-    const exporter = new MlflowSpanExporter(client);
-    processor = new MlflowSpanProcessor(exporter);
+
+    let processor;
+    if (hostConfig.ucSchema) {
+      const exporter = new UCSchemaSpanExporter();
+      processor = new UCSchemaSpanProcessor(exporter);
+    } else {
+      const exporter = new MlflowSpanExporter(client);
+      processor = new MlflowSpanProcessor(exporter);
+    }
+
     // Attempt to load optional integrations (e.g. mlflow-vercel) if installed.
     // This is required for triggering hook registeration
     void tryEnableOptionalIntegrations();
