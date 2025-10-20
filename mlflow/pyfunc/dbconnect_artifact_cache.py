@@ -121,7 +121,11 @@ class DBConnectArtifactCache:
             return single_candidate
 
         multi_driver_root = "/local_disk0/.ephemeral_nfs_multi_driver"
-        if os.path.isdir(multi_driver_root):
+        if (
+            os.environ.get("AETHER_MULTI_DRIVER_ENABLED", "false") == "true"
+            and os.environ.get("AETHER_MULTI_DRIVER_NOTEBOOK_LIBRARY_ENABLED", "false") == "true"
+            and os.path.isdir(multi_driver_root)
+        ):
             try:
                 children = sorted(os.listdir(multi_driver_root))
             except OSError:
