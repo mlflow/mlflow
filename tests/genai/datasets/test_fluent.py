@@ -399,15 +399,17 @@ def test_databricks_profile_uri_support():
             },
         ),
     ):
-        get_dataset(name="catalog.schema.table")
+        result = get_dataset(name="catalog.schema.table")
         sys.modules["databricks.agents.datasets"].get_dataset.assert_called_once_with(
             "catalog.schema.table"
         )
+        assert isinstance(result, EvaluationDataset)
 
-        create_dataset(name="catalog.schema.table2", experiment_id=["exp1"])
+        result2 = create_dataset(name="catalog.schema.table2", experiment_id=["exp1"])
         sys.modules["databricks.agents.datasets"].create_dataset.assert_called_once_with(
             "catalog.schema.table2", ["exp1"]
         )
+        assert isinstance(result2, EvaluationDataset)
 
         delete_dataset(name="catalog.schema.table3")
         sys.modules["databricks.agents.datasets"].delete_dataset.assert_called_once_with(
