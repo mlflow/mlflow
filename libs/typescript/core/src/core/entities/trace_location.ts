@@ -13,9 +13,14 @@ export enum TraceLocationType {
   MLFLOW_EXPERIMENT = 'MLFLOW_EXPERIMENT',
 
   /**
-   * Trace is stored in a Databricks inference table
+   * Trace is stored in a Databricks inference table (deprecated)
    */
-  INFERENCE_TABLE = 'INFERENCE_TABLE'
+  INFERENCE_TABLE = 'INFERENCE_TABLE',
+
+  /**
+   * Trace is stored in a Databricks Unity Catalog
+   */
+  UC_SCHEMA = 'UC_SCHEMA'
 }
 
 /**
@@ -29,13 +34,24 @@ export interface MlflowExperimentLocation {
 }
 
 /**
- * Interface representing a Databricks inference table location
+ * Interface representing a Databricks inference table location (deprecated)
  */
 export interface InferenceTableLocation {
   /**
    * The fully qualified name of the inference table where the trace is stored
    */
   fullTableName: string;
+}
+
+/**
+ * Interface representing a Databricks Unity Catalog Table location
+ */
+export interface UCSchemaLocation{
+  /**
+   * The Unity Catalog schema where the trace is stored
+   */
+  catalog_name: string;
+  schema_name: string;
 }
 
 /**
@@ -58,6 +74,12 @@ export interface TraceLocation {
    * Set this when the location type is Databricks Inference table
    */
   inferenceTable?: InferenceTableLocation;
+
+  /**
+   * The UC schema location
+   * Set this when the location type is Databricks Unity Catalog schema
+   */
+  ucSchema?: UCSchemaLocation;
 }
 
 /**
@@ -71,4 +93,19 @@ export function createTraceLocationFromExperimentId(experimentId: string): Trace
       experimentId: experimentId
     }
   };
+}
+
+/**
+ * Create a TraceLocation from a UC schema
+ * @param ucSchema The catalog and schema name in Databricks Unity Catalog
+ */
+export function createTraceLocationFromUCSchema(ucSchema: string): TraceLocation {
+  const [catalog_name, schema_name] = ucSchema.split(".");
+  return {
+    type: TraceLocationType.UC_SCHEMA,
+    ucSchema: {
+      catalog_name: catalog_name,
+      schema_name: schema_name,
+    }
+  }
 }

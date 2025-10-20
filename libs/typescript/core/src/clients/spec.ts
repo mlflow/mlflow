@@ -5,7 +5,8 @@
  * including request payloads and response structures for all trace-related endpoints.
  */
 
-import type { TraceInfo } from '../core/entities/trace_info';
+import { TraceInfo } from '../core/entities/trace_info';
+import { Trace } from '../core/entities/trace';
 import { ArtifactCredentialType } from './artifacts/databricks';
 
 /**
@@ -28,6 +29,19 @@ export namespace StartTraceV3 {
 }
 
 /**
+ * Create a new TraceInfo entity using the V4 API (UC-backed locations).
+ */
+export namespace CreateTraceV4 {
+  export const getEndpoint = (host: string, locationId: string, traceId: string) =>
+    `${host}/api/4.0/mlflow/traces/${locationId}/${traceId}/info`;
+
+  export type Request = Parameters<typeof TraceInfo.fromJson>[0];
+
+  export type Response = Parameters<typeof TraceInfo.fromJson>[0];
+}
+
+
+/**
  * Get the TraceInfo entity for a given trace ID.
  */
 export namespace GetTraceInfoV3 {
@@ -39,6 +53,40 @@ export namespace GetTraceInfoV3 {
       trace_info: Parameters<typeof TraceInfo.fromJson>[0];
     };
   }
+}
+
+/**
+ * Log spans to a UC-backed trace location using the Databricks OTLP proxy.
+ * The payload must be an OTLP ExportTraceServiceRequest encoded as protobuf.
+ */
+export namespace LogSpans {
+  export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
+  export const CONTENT_TYPE = 'application/x-protobuf';
+  export const DEFAULT_SPAN_TABLE_NAME = 'mlflow_experiment_trace_otel_spans';
+
+  export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;
+
+  /**
+   * Returns the HTTP headers required for logging spans to the Databricks OTLP proxy.
+   *
+   * @param ucSchema - The Unity Catalog schema name (required for UC logging)
+   * @param databricksToken - Optional Databricks personal access token. If provided, sets Authorization.
+   * @returns A headers object suitable for fetch/AJAX requests.
+   */
+  export const getHeaders = (
+    ucSchema: string,
+    databricksToken?: string
+  ): Record<string, string> => {
+    const headers: Record<string, string> = {
+      [LogSpans.DATABRICKS_UC_TABLE_HEADER]: `${ucSchema}.${LogSpans.DEFAULT_SPAN_TABLE_NAME}`,
+      'Content-Type': LogSpans.CONTENT_TYPE,
+    };
+    if (databricksToken) {
+      headers['Authorization'] = `Bearer ${databricksToken}`;
+    }
+    return headers;
+  };
+  // Request/response interfaces are defined by OTLP
 }
 
 /** Create Experiment (used for testing) */

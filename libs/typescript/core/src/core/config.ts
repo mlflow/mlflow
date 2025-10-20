@@ -3,6 +3,7 @@ import fs from 'fs';
 import os from 'os';
 import { parse as parseIni } from 'ini';
 import { initializeSDK } from './provider';
+import { createTraceLocationFromExperimentId, createTraceLocationFromUCSchema, InferenceTableLocation, MlflowExperimentLocation, UCSchemaLocation } from './entities/trace_location';
 
 /**
  * Default Databricks profile name
@@ -37,15 +38,15 @@ export interface MLflowTracingConfig {
   trackingUri: string;
 
   /**
-   * The experiment ID where traces will be logged. Required when you log traces to MLflow
-   * Tracking Server.
+   * The experiment ID where traces will be logged. Short-form of setting destination config
+   * with MlflowExperimentLocation(experimentId="...").
    */
   experimentId?: string;
 
   /**
-   * The Unity Catalog schema name to log the trace. Only available for Databricks.
+   * The location where traces will be logged.
    */
-  ucSchema?: string;
+  location?: MlflowExperimentLocation | UCSchemaLocation;
 
   /**
    * The location of the Databricks config file, default to ~/.databrickscfg
@@ -73,6 +74,20 @@ export interface MLflowTracingConfig {
   trackingServerPassword?: string;
 }
 
+
+export function getExperimentIdFromConfig(config: MLflowTracingConfig): string | null {
+  return (config.location as MlflowExperimentLocation)?.experimentId ?? null;
+}
+
+export function getUCSchemaFromConfig(config: MLflowTracingConfig): string | null {
+  if (config.location == null) {
+    return null;
+  }
+  if ("catalog_name" in config.location && "schema_name" in config.location) {
+    return `${config.location.catalog_name}.${config.location.schema_name}`;
+  }
+  return null;
+}
 /**
  * Initialization options for the MLflow tracing SDK. The trackingUri and experimentId
  * can be omitted and will be resolved from environment variables when available. Since
@@ -144,9 +159,11 @@ let globalConfig: MLflowTracingConfig | null = null;
  */
 export function init(config: MLflowTracingInitOptions): void {
   const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
-  const experimentId = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
-  const ucSchema = config.ucSchema;
-
+  const experimentId =
+    config.experimentId ??
+    (config.location && (config.location as any).experimentId) ??
+    process.env.MLFLOW_EXPERIMENT_ID;
+  const ucSchema = config.location && (config.location as any).ucSchema
 
   if (!trackingUri) {
     throw new Error(
@@ -162,17 +179,6 @@ export function init(config: MLflowTracingInitOptions): void {
     throw new Error('experimentId must be a string');
   }
 
-  const databricksConfigPath =
-    config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
-
-  const effectiveConfig: MLflowTracingConfig = {
-    ...config,
-    trackingUri,
-    experimentId,
-    databricksConfigPath
-  };
-
-
   if (isDatabricksUri(trackingUri)) {
     if (!experimentId || !ucSchema) {
       throw new Error(
@@ -183,7 +189,8 @@ export function init(config: MLflowTracingInitOptions): void {
   } else {
     if (!experimentId) {
       throw new Error(
-        'An MLflow experiment ID is required, please provide the experimentId option to init, or set the MLFLOW_EXPERIMENT_ID environment variable'
+        'An MLflow experiment ID is required, please provide the experimentId option to init ' +
+        'or set the MLFLOW_EXPERIMENT_ID environment variable'
       );
     }
 
@@ -191,6 +198,24 @@ export function init(config: MLflowTracingInitOptions): void {
       throw new Error('The ucSchema option is only supported on Databricks.');
     }
   }
+
+  const location =
+    ucSchema
+    ? createTraceLocationFromUCSchema(ucSchema).ucSchema
+    : createTraceLocationFromExperimentId(experimentId).mlflowExperiment
+
+
+  const databricksConfigPath =
+    config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
+
+  const effectiveConfig: MLflowTracingConfig = {
+    ...config,
+    trackingUri,
+    experimentId,
+    location,
+    databricksConfigPath
+  };
+
 
   if (isDatabricksUri(effectiveConfig.trackingUri)) {
     const configPathToUse = effectiveConfig.databricksConfigPath;

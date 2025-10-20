@@ -1,5 +1,6 @@
 import { trace, Tracer } from '@opentelemetry/api';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
+import { UCSchemaSpanExporter, UCSchemaSpanProcessor } from '../exporters/uc_table';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getConfig } from './config';
 import { MlflowClient } from '../clients';
@@ -32,8 +33,8 @@ export function initializeSDK(): void {
     });
 
     let processor;
-    if (hostConfig.ucSchema) {
-      const exporter = new UCSchemaSpanExporter();
+    if (hostConfig.location && (hostConfig.location as any).ucSchema) {
+      const exporter = new UCSchemaSpanExporter(client);
       processor = new UCSchemaSpanProcessor(exporter);
     } else {
       const exporter = new MlflowSpanExporter(client);

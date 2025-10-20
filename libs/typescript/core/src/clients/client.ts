@@ -1,6 +1,9 @@
+import { ReadableSpan } from '@opentelemetry/sdk-trace-base';
+import { JsonTraceSerializer } from '@opentelemetry/otlp-transformer';
+
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
+import { CreateExperiment, CreateTraceV4, DeleteExperiment, GetTraceInfoV3, LogSpans, StartTraceV3 } from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -60,6 +63,67 @@ export class MlflowClient {
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
+  }
+
+  // === TRACE LOGGING V4 METHODS (Databricks) ===
+  /**
+   * Create a new TraceInfo record using the V4 API (UC-backed locations).
+   * Endpoint: POST /api/4.0/mlflow/traces/{location_id}/{trace_id}/info
+   *
+   * @param traceInfo - The trace info to create
+   * @returns The created TraceInfo
+   */
+  async createTraceV4(traceInfo: TraceInfo): Promise<TraceInfo> {
+    const ucSchema = traceInfo.traceLocation.ucSchema!;
+    const location = `${ucSchema.catalog_name}.${ucSchema.schema_name}`
+    const url = CreateTraceV4.getEndpoint(this.host, location, traceInfo.traceId);
+    const payload: CreateTraceV4.Request = traceInfo.toJson();
+    const response = await makeRequest<CreateTraceV4.Response>(
+      'POST',
+      url,
+      getRequestHeaders(
+        this.databricksToken,
+        this.trackingServerUsername,
+        this.trackingServerPassword
+      ),
+      payload
+    );
+    return TraceInfo.fromJson(response);
+  }
+
+  /**
+   * Log spans to a UC-backed trace location using the Databricks OTLP proxy.
+   * Serializes the spans to OTLP format and sends them to the backend.
+   * Endpoint: POST /api/2.0/otel/v1/traces
+   *
+   * @param location - Fully qualified UC location, e.g., "catalog.schema"
+   * @param spans - Array of OpenTelemetry ReadableSpan objects to log
+   */
+  async logSpans(location: string, spans: ReadableSpan[]): Promise<void> {
+    if (spans.length === 0) {
+      return;
+    }
+
+    const url = LogSpans.getEndpoint(this.host);
+    const headers = LogSpans.getHeaders(location, this.databricksToken);
+
+    // Serialize spans to OTLP format using JsonTraceSerializer
+    const serialized = JsonTraceSerializer.serializeRequest(spans);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: serialized ? serialized.buffer as ArrayBuffer : undefined,
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(
+        `Failed to log spans: HTTP ${response.status} ${response.statusText}. ${errorText}`
+      );
+    }
+
+    // The response is expected to be empty (void)
   }
 
   // === TRACE RETRIEVAL METHODS ===
