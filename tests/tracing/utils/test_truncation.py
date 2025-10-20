@@ -199,7 +199,9 @@ def test_truncate_invalid_messages(input_data):
     ],
     ids=["short_structured_json", "agent_format_with_null_fields", "responses_agent_short"],
 )
-def test_truncate_structured_json_extracts_content(request_data, expected_content, should_not_contain):
+def test_truncate_structured_json_extracts_content(
+    request_data, expected_content, should_not_contain
+):
     input_str = json.dumps(request_data)
     result = _get_truncated_preview(input_str, role="user")
     assert result == expected_content
