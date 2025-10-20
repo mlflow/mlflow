@@ -55,11 +55,11 @@ EVAL_DATASET_NAME='<YOUR DATASET NAME>' # Replace with your dataset
 dataset = datasets.get_dataset(EVAL_DATASET_NAME)
 
 # Define your prediction function
-def predict_fn(question: str) -> str:
+def predict_fn(**kwargs) -> str:
     prompt = mlflow.genai.load_prompt("prompts:/${promptName}/${promptVersion}")
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-5-mini", # replace with your model
-        messages=[{"role": "user", "content": prompt.format(question=question)}],
+        model="gpt-5-mini", # Replace with your model
+        messages=[{"role": "user", "content": prompt.format(**kwargs)}],
     )
     return completion.choices[0].message.content
 
