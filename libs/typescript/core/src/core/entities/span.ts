@@ -72,6 +72,12 @@ export class Span implements ISpan {
   readonly _span: OTelSpan;
   readonly _attributesRegistry: SpanAttributesRegistry;
 
+  // Internal only flag to allow mutating the ended span. This is used to set the custom attributes
+  // from span processor's onEnd hook. The hook is invoked after the span is ended and OpenTelemetry
+  // blocks setting attributes on them by default. Set this flag to true to allow mutating the ended
+  // span.
+  allowMutatingEndedSpan: boolean = false;
+
   /**
    * Create a new MLflowSpan
    * @param span OpenTelemetry span
@@ -292,6 +298,7 @@ export class LiveSpan extends Span {
    * Set an attribute on the span
    * @param key Attribute key
    * @param value Attribute value
+   * @param force Whether to force the attribute to be set even if the span has ended
    */
   setAttribute(key: string, value: any): void {
     this._attributesRegistry.set(key, value, this.allowMutatingEndedSpan);

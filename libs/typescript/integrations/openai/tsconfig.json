@@ -9,7 +9,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "baseUrl": "../..",
+    "paths": {
+      "@test-helpers/*": ["tests/helpers/*"]
+    }
   },
   "include": ["src/**/*"]
 }
