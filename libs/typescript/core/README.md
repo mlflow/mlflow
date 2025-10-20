@@ -14,14 +14,14 @@ npm install mlflow-tracing
 
 ## Quickstart
 
-Start MLflow Tracking Server if you don't have one already:
+Start MLflow Tracking Server. If you have a local Python environment, you can run the following command:
 
 ```bash
 pip install mlflow
 mlflow server --backend-store-uri sqlite:///mlruns.db --port 5000
 ```
 
-Self-hosting MLflow server requires Python 3.10 or higher. If you don't have one, you can also use [managed MLflow service](https://mlflow.org/#get-started) for free to get started quickly.
+If you don't have Python environment locally, MLflow also supports Docker deployment or managed services. See [Self-Hosting Guide](https://mlflow.org/docs/latest/self-hosting/index.html) for getting started.
 
 Instantiate MLflow SDK in your application:
 
