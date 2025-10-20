@@ -679,7 +679,7 @@ def _load_pyfunc(path, model_config=None, weights_only=False):
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
-    model_meta = Model.load(os.path.join(os.path.pardir(path), MLMODEL_FILE_NAME))
+    model_meta = Model.load(os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME))
 
     # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
     # `False` to `True`. this can cause pickle deserialization errors when loading
@@ -692,7 +692,11 @@ def _load_pyfunc(path, model_config=None, weights_only=False):
             signature=model_meta.signature,
         )
 
-    return _PyTorchWrapper(_load_model(path, device=device), device=device, signature=model_meta.signature)
+    return _PyTorchWrapper(
+        _load_model(path, device=device),
+        device=device,
+        signature=model_meta.signature
+    )
 
 
 class _PyTorchWrapper:
