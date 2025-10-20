@@ -198,9 +198,9 @@ Your `predict_fn` must:
 
 - Accept inputs as keyword arguments matching the inputs field of the dataset
 - Load the template from MLflow prompt versions using one of the following methods:
-    - <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>
-    - <APILink fn="mlflow.entities.model_registry.PromptVersion.template">`PromptVersion.template`</APILink>
-    - <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.template">`PromptVersion.template`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink>
 - Return outputs in the same format as your training data (e.g., outputs = `{"answer": "xxx"}` if expectations = `{"expected_response": {"answer": "xxx"}}`)
 
 ```python
