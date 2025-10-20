@@ -738,6 +738,8 @@ class _PyTorchWrapper:
         if isinstance(data, pd.DataFrame):
             if self.signature is None or self.signature.inputs.is_tensor_spec():
                 inp_data = data.to_numpy(dtype=np.float32)
+            else:
+                inp_data = data
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
