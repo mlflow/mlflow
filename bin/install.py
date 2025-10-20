@@ -176,6 +176,11 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
 
 
 def main() -> None:
+    path = Path("/home/runner/work/_temp/mcp-server")
+    for p in path.rglob("*"):
+        if p.is_file():
+            print(p)
+            print(p.read_text())
     parser = argparse.ArgumentParser(description="Install binary tools for MLflow development")
     parser.add_argument(
         "-f",
