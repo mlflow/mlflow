@@ -178,7 +178,6 @@ MLflow is natively integrated with many popular machine learning frameworks and 
 
 The following example trains a simple regression model with scikit-learn, while enabling MLflow's [autologging](https://mlflow.org/docs/latest/tracking/autolog.html) feature for experiment tracking.
 
-
 ```python
 import mlflow
 
