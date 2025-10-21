@@ -17,7 +17,7 @@ import {
   deduplicateSpanNamesInPlace,
   aggregateUsageFromSpans
 } from '../core/utils';
-import { getConfig, getUCSchemaFromConfig } from '../core/config';
+import { getConfig, getUCSchemaLocationFromConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 
 const TRACE_ID_V4_PREFIX = 'trace:/';
@@ -47,19 +47,19 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
     const otelTraceId = span.spanContext().traceId;
 
     let traceId: string;
-    const ucSchema = getUCSchemaFromConfig(getConfig());
+    const location = getUCSchemaLocationFromConfig(getConfig());
 
-    if (!ucSchema) {
+    if (!location) {
       console.warn(`No Unity Catalog schema found. Skipping.`);
       return;
     }
 
     if (!span.parentSpanContext?.spanId) {
       // This is a root span
-      traceId = generateTraceIdV4(span, ucSchema);
+      traceId = generateTraceIdV4(span, `${location.catalog_name}.${location.schema_name}`);
       const trace_info = new TraceInfo({
         traceId: traceId,
-        traceLocation: createTraceLocationFromUCSchema(ucSchema),
+        traceLocation: createTraceLocationFromUCSchema(location.catalog_name, location.schema_name),
         requestTime: convertHrTimeToMs(span.startTime),
         executionDuration: 0,
         state: TraceState.IN_PROGRESS,
@@ -177,13 +177,13 @@ export class UCSchemaSpanExporter implements SpanExporter {
   }
 
   private async logSpans(spans: OTelReadableSpan[]): Promise<void> {
-    const ucSchema = getUCSchemaFromConfig(getConfig());
-    if (!ucSchema) {
+    const location = getUCSchemaLocationFromConfig(getConfig());
+    if (!location) {
       console.warn(`No Unity Catalog schema found. Skipping spans export.`);
       return;
     }
 
-    const exportPromise = this._client.logSpans(ucSchema, spans);
+    const exportPromise = this._client.logSpans(location, spans);
     this._pendingExports.add(exportPromise);
     try {
       await exportPromise;

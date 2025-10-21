@@ -79,12 +79,12 @@ export function getExperimentIdFromConfig(config: MLflowTracingConfig): string |
   return (config.location as MlflowExperimentLocation)?.experimentId ?? null;
 }
 
-export function getUCSchemaFromConfig(config: MLflowTracingConfig): string | null {
+export function getUCSchemaLocationFromConfig(config: MLflowTracingConfig): UCSchemaLocation | null {
   if (config.location == null) {
     return null;
   }
   if ("catalog_name" in config.location && "schema_name" in config.location) {
-    return `${config.location.catalog_name}.${config.location.schema_name}`;
+    return config.location as UCSchemaLocation;
   }
   return null;
 }
@@ -163,7 +163,9 @@ export function init(config: MLflowTracingInitOptions): void {
     config.experimentId ??
     (config.location && (config.location as any).experimentId) ??
     process.env.MLFLOW_EXPERIMENT_ID;
-  const ucSchema = config.location && (config.location as any).ucSchema
+
+  const catalog = config.location && (config.location as any).catalog_name;
+  const schema = config.location && (config.location as any).schema_name;
 
   if (!trackingUri) {
     throw new Error(
@@ -175,12 +177,8 @@ export function init(config: MLflowTracingInitOptions): void {
     throw new Error('trackingUri must be a string');
   }
 
-  if (typeof experimentId !== 'string') {
-    throw new Error('experimentId must be a string');
-  }
-
   if (isDatabricksUri(trackingUri)) {
-    if (!experimentId || !ucSchema) {
+    if (!experimentId && !(catalog && schema)) {
       throw new Error(
         'An MLflow experiment ID or a Unity Catalog schema is required, please provide the ' +
         'corresponding option to init, or set the MLFLOW_EXPERIMENT_ID environment variable.'
@@ -194,14 +192,14 @@ export function init(config: MLflowTracingInitOptions): void {
       );
     }
 
-    if (ucSchema) {
+    if (catalog || schema) {
       throw new Error('The ucSchema option is only supported on Databricks.');
     }
   }
 
   const location =
-    ucSchema
-    ? createTraceLocationFromUCSchema(ucSchema).ucSchema
+    catalog && schema
+    ? createTraceLocationFromUCSchema(catalog, schema).ucSchema
     : createTraceLocationFromExperimentId(experimentId).mlflowExperiment
 
 

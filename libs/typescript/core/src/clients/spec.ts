@@ -91,11 +91,11 @@ export namespace LogSpans {
    * @returns A headers object suitable for fetch/AJAX requests.
    */
   export const getHeaders = (
-    location: string,
+    spanTableName: string,
     databricksToken?: string
   ): Record<string, string> => {
     const headers: Record<string, string> = {
-      [LogSpans.DATABRICKS_UC_TABLE_HEADER]: location,
+      [LogSpans.DATABRICKS_UC_TABLE_HEADER]: spanTableName,
       'Content-Type': LogSpans.CONTENT_TYPE,
     };
     if (databricksToken) {

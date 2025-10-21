@@ -1,3 +1,6 @@
+const UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME = 'mlflow_experiment_trace_otel_spans';
+const UC_SCHEMA_DEFAULT_LOGS_TABLE_NAME = 'mlflow_experiment_trace_otel_logs';
+
 /**
  * Types of trace locations
  */
@@ -52,6 +55,8 @@ export interface UCSchemaLocation{
    */
   catalog_name: string;
   schema_name: string;
+  _otel_spans_table_name?: string;
+  _otel_logs_table_name?: string;
 }
 
 /**
@@ -87,6 +92,10 @@ export interface TraceLocation {
  * @param experimentId The ID of the MLflow experiment
  */
 export function createTraceLocationFromExperimentId(experimentId: string): TraceLocation {
+  if (typeof experimentId !== 'string') {
+    throw new Error('experimentId must be a string');
+  }
+
   return {
     type: TraceLocationType.MLFLOW_EXPERIMENT,
     mlflowExperiment: {
@@ -99,13 +108,40 @@ export function createTraceLocationFromExperimentId(experimentId: string): Trace
  * Create a TraceLocation from a UC schema
  * @param ucSchema The catalog and schema name in Databricks Unity Catalog
  */
-export function createTraceLocationFromUCSchema(ucSchema: string): TraceLocation {
-  const [catalog_name, schema_name] = ucSchema.split(".");
+export function createTraceLocationFromUCSchema(catalog: string, schema: string): TraceLocation {
+  if (typeof catalog !== 'string' || typeof schema !== 'string') {
+    throw new Error('catalog and schema names must be a string');
+  }
+
   return {
     type: TraceLocationType.UC_SCHEMA,
     ucSchema: {
-      catalog_name: catalog_name,
-      schema_name: schema_name,
+      catalog_name: catalog,
+      schema_name: schema,
     }
   }
+}
+
+
+export function getFullTableName(ucSchema: UCSchemaLocation): string {
+  if (ucSchema._otel_spans_table_name) {
+    return `${ucSchema.catalog_name}.${ucSchema.schema_name}.${ucSchema._otel_spans_table_name}`;
+  }
+  return `${ucSchema.catalog_name}.${ucSchema.schema_name}.${UC_SCHEMA_DEFAULT_SPANS_TABLE_NAME}`;
+}
+
+export function getLocationType(location: MlflowExperimentLocation | InferenceTableLocation |     UCSchemaLocation | undefined): TraceLocationType {
+  if (location == null) {
+    return TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED;
+  }
+  if ("experimentId" in location) {
+    return TraceLocationType.MLFLOW_EXPERIMENT;
+  }
+  if ("catalog_name" in location && "schema_name" in location) {
+    return TraceLocationType.UC_SCHEMA;
+  }
+  if ("fullTableName" in location) {
+    return TraceLocationType.INFERENCE_TABLE;
+  }
+  return TraceLocationType.TRACE_LOCATION_TYPE_UNSPECIFIED;
 }

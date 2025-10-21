@@ -71,6 +71,11 @@ export const TRACE_SCHEMA_VERSION = '3';
 export const TRACE_ID_PREFIX = 'tr-';
 
 /**
+ * The prefix for MLflow trace IDs v4
+ */
+export const TRACE_ID_V4_PREFIX = 'trace:/';
+
+/**
  * The default name for spans if the name is not provided when starting a span
  */
 export const DEFAULT_SPAN_NAME = 'span';

@@ -7,6 +7,8 @@ import { CreateExperiment, CreateTraceV4, DeleteExperiment, GetTraceInfoV3, LogS
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
+import { getFullTableName, UCSchemaLocation } from '../core/entities/trace_location';
+import { parseTraceIdV4 } from '../core/utils';
 
 /**
  * Client for MLflow tracing operations
@@ -74,9 +76,12 @@ export class MlflowClient {
    * @returns The created TraceInfo
    */
   async createTraceV4(traceInfo: TraceInfo): Promise<TraceInfo> {
-    const ucSchema = traceInfo.traceLocation.ucSchema!;
-    const location = `${ucSchema.catalog_name}.${ucSchema.schema_name}`
-    const url = CreateTraceV4.getEndpoint(this.host, location, traceInfo.traceId);
+    const [location, traceId] = parseTraceIdV4(traceInfo.traceId);
+
+    if (location == null || traceId == null) {
+      throw new Error(`Invalid trace ID format for v4 API: ${traceInfo.traceId}`);
+    }
+    const url = CreateTraceV4.getEndpoint(this.host, location, traceId);
     const payload: CreateTraceV4.Request = traceInfo.toJson();
     const response = await makeRequest<CreateTraceV4.Response>(
       'POST',
@@ -99,13 +104,14 @@ export class MlflowClient {
    * @param location - Fully qualified UC location, e.g., "catalog.schema"
    * @param spans - Array of OpenTelemetry ReadableSpan objects to log
    */
-  async logSpans(location: string, spans: ReadableSpan[]): Promise<void> {
+  async logSpans(ucSchema: UCSchemaLocation, spans: ReadableSpan[]): Promise<void> {
     if (spans.length === 0) {
       return;
     }
 
     const url = LogSpans.getEndpoint(this.host);
-    const headers = LogSpans.getHeaders(location, this.databricksToken);
+    const tableName = getFullTableName(ucSchema);
+    const headers = LogSpans.getHeaders(tableName, this.databricksToken);
 
     // Serialize spans to OTLP format using JsonTraceSerializer
     const serialized = JsonTraceSerializer.serializeRequest(spans);
