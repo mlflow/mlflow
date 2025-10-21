@@ -137,16 +137,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           PROMPT: ${{ needs.verify.outputs.prompt }}
         run: |
-          PR_URL="https://github.com/${REPOSITORY}/pull/${PR_NUMBER}"
-
-          RESOLVE_CMD="/resolve $PR_URL"
-          if [ -n "$PROMPT" ]; then
-            RESOLVE_CMD="$RESOLVE_CMD $PROMPT"
-          fi
-
-          # Capture output to a file (with verbose logging to stderr)
           OUTPUT_FILE="/tmp/output.json"
-          timeout 10m claude --print --verbose --output-format json "$RESOLVE_CMD" > "$OUTPUT_FILE" || true
+          timeout 10m claude --print --verbose --output-format json "/resolve $PROMPT" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="
