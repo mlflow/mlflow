@@ -9,10 +9,11 @@ import argparse
 import json
 import os
 import sys
+from typing import Any
 from urllib.request import Request, urlopen
 
 
-def fetch_unresolved_comments(owner: str, repo: str, pr_number: int, token: str) -> dict[str, str]:
+def fetch_unresolved_comments(owner: str, repo: str, pr_number: int, token: str) -> dict[str, Any]:
     """Fetch unresolved review threads from a PR using GraphQL."""
 
     query = """
@@ -69,7 +70,7 @@ def fetch_unresolved_comments(owner: str, repo: str, pr_number: int, token: str)
         sys.exit(1)
 
 
-def format_comments(data: dict[str, str]) -> dict[str, str]:
+def format_comments(data: dict[str, Any]) -> dict[str, Any]:
     """Format unresolved comments for easier consumption."""
 
     try:
