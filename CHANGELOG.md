@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 3.5.1 (2025-10-21)
+
+MLflow 3.5.1 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+#18432, @BenWilson2
+
 ## 3.5.0 (2025-10-16)
 
 MLflow 3.5.0 includes several major features and improvements!
