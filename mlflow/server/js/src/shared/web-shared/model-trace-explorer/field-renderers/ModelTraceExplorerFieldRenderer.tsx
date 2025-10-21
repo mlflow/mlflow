@@ -1,4 +1,4 @@
-import { every, isString } from 'lodash';
+import { every, isBoolean, isNumber, isString } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -38,7 +38,7 @@ export const ModelTraceExplorerFieldRenderer = ({
     setMessagesExpanded(false);
   }, [data]);
 
-  const dataIsString = isString(parsedData);
+  const dataIsScalar =  isString(parsedData) || isNumber(parsedData) || isBoolean(parsedData)
   // wrap the value in an object with the title as key. this helps normalizeConversation
   // recognize the format, as this util function was designed to receive the whole input
   // object rather than value by value. it does not work for complex cases where we need
@@ -80,7 +80,7 @@ export const ModelTraceExplorerFieldRenderer = ({
         <ModelTraceExplorerConversation messages={visibleMessages} />
         {shouldTruncateMessages && (
           <Typography.Link
-            css={{ alignSelf: 'flex-start' }}
+            css={{ alignSelf: 'flex-start', marginLeft: theme.spacing.xs }}
             componentId="shared.model-trace-explorer.conversation-toggle"
             onClick={() => setMessagesExpanded(!messagesExpanded)}
           >
@@ -99,8 +99,8 @@ export const ModelTraceExplorerFieldRenderer = ({
     return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.TEXT} />;
   }
 
-  if (dataIsString) {
-    return <ModelTraceExplorerTextFieldRenderer title={title} value={parsedData} />;
+  if (dataIsScalar) {
+    return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
 
 
