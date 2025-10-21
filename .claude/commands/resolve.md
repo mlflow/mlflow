@@ -38,6 +38,7 @@ Automatically fetch and address PR review comments. This command examines review
 2. **Fetch unresolved review comments**:
 
    - Invoke the `fetch-unresolved-comments` skill to get only unresolved review threads
+   - If no unresolved comments are found, inform the user and exit
 
 3. **Apply additional filtering** from user instructions if provided (e.g., focus on specific files or issue types)
 
