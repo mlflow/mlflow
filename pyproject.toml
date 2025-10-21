@@ -284,6 +284,7 @@ select = [
   "RUF013",  # implicit-optional
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
+  "S102",    # exec-builtin
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
   "SIM101",  # duplicate-isinstance-call
