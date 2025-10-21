@@ -3487,6 +3487,10 @@
     "defaultMessage": "Prompts",
     "description": "Header title for the registered prompts page"
   },
+  "aMOq4p": {
+    "defaultMessage": "See {mlflowLink} for more details.",
+    "description": "Link to MLflow prompt optimization documentation"
+  },
   "aNnPar": {
     "defaultMessage": "Time (Relative)",
     "description": "Radio button option to choose the time relative control option for the X-axis for metric graph on the experiment runs"
@@ -5006,9 +5010,6 @@
   "pDK3Ha": {
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
-  },
-  "pEpM/g": {
-    "defaultMessage": "See {mlflowLink} for more details."
   },
   "pEpexK": {
     "defaultMessage": "Clear filters",
