@@ -51,10 +51,9 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (chatMessages && chatMessages.length > 0) {
     const shouldTruncateMessages = chatMessages.length > MAX_VISIBLE_MESSAGES;
-    const visibleMessages = messagesExpanded || !shouldTruncateMessages
-      ? chatMessages
-      : chatMessages.slice(0, MAX_VISIBLE_MESSAGES);
-    const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - MAX_VISIBLE_MESSAGES : 0;
+    const visibleMessages =
+      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-MAX_VISIBLE_MESSAGES);
+    const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - visibleMessages.length : 0;
 
     return (
       <div
@@ -68,16 +67,10 @@ export const ModelTraceExplorerFieldRenderer = ({
         }}
       >
         {title && (
-          <Typography.Title
-            level={4}
-            color="secondary"
-            withoutMargins
-            css={{ marginLeft: theme.spacing.xs }}
-          >
+          <Typography.Title level={4} color="secondary" withoutMargins css={{ marginLeft: theme.spacing.xs }}>
             {title}
           </Typography.Title>
         )}
-        <ModelTraceExplorerConversation messages={visibleMessages} />
         {shouldTruncateMessages && (
           <Typography.Link
             css={{ alignSelf: 'flex-start', marginLeft: theme.spacing.xs }}
@@ -87,6 +80,7 @@ export const ModelTraceExplorerFieldRenderer = ({
             {messagesExpanded ? 'Show less' : `Show ${hiddenMessageCount} more`}
           </Typography.Link>
         )}
+        <ModelTraceExplorerConversation messages={visibleMessages} />
       </div>
     );
   }
