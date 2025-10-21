@@ -453,7 +453,8 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
-  if (isV3Span) {
+  // only attempt decoding if the id length is less than 16 chars
+  if (isV3Span && spanId.length < 16) {
     // v3 span ids are base64 encoded
     try {
       return base64ToHex(spanId);
