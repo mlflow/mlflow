@@ -473,7 +473,7 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
-  return 'trace_metadata' in info;
+  return 'trace_location' in info;
 }
 
 export function isV3ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV3 {
