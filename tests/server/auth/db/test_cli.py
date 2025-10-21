@@ -16,12 +16,13 @@ def test_upgrade(tmp_path: Path) -> None:
         cursor = conn.cursor()
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = cursor.fetchall()
-        assert tables == [
-            ("alembic_version_auth",),
-            ("users",),
-            ("experiment_permissions",),
-            ("registered_model_permissions",),
-        ]
+
+    assert tables == [
+        ("alembic_version_auth",),
+        ("users",),
+        ("experiment_permissions",),
+        ("registered_model_permissions",),
+    ]
 
 
 def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
@@ -42,10 +43,10 @@ def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
         tables = {t[0] for t in cursor.fetchall()}
 
-        assert "alembic_version" in tables
-        assert "alembic_version_auth" in tables
-        assert "users" in tables
-        assert "experiment_permissions" in tables
-        assert "registered_model_permissions" in tables
-        assert "experiments" in tables
-        assert "runs" in tables
+    assert "alembic_version" in tables
+    assert "alembic_version_auth" in tables
+    assert "users" in tables
+    assert "experiment_permissions" in tables
+    assert "registered_model_permissions" in tables
+    assert "experiments" in tables
+    assert "runs" in tables
