@@ -41,7 +41,7 @@ const CodeSnippetWithCopy = ({ code, language }: { code: string; language: CodeS
 export const OptimizeModal = ({ visible, promptName, promptVersion, onCancel }: Props) => {
   const { theme } = useDesignSystemTheme();
 
-  const bashCode = `pip install -U 'mlflow>=3.5.0' dspy openai`;
+  const bashCode = `pip install -U 'mlflow>=3.5.0' 'dspy>=3.0.0' openai`;
 
   const pythonCode = `import os
 from typing import Any
@@ -93,9 +93,9 @@ print(f"The new prompt URI: {result.optimized_prompts[0].uri}")`;
         <CodeSnippetWithCopy code={bashCode} language="text" />
         <CodeSnippetWithCopy code={pythonCode} language="python" />
         <Typography.Paragraph>
-          {/* eslint-disable-next-line formatjs/enforce-description */}
           <FormattedMessage
             defaultMessage="See {mlflowLink} for more details."
+            description="Link to MLflow prompt optimization documentation"
             values={{
               mlflowLink: (
                 <Typography.Link
