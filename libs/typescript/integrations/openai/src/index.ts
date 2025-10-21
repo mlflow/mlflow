@@ -113,6 +113,8 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
           console.debug('Error extracting token usage', error);
         }
 
+        span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'openai');
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },

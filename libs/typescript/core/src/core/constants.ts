@@ -30,7 +30,10 @@ export const SpanAttributeKey = {
   SPAN_TYPE: 'mlflow.spanType',
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
-  TOKEN_USAGE: 'mlflow.chat.tokenUsage'
+  TOKEN_USAGE: 'mlflow.chat.tokenUsage',
+  // This attribute indicates which flavor/format generated the LLM span. This is
+  // used by downstream (e.g., UI) to determine the message format for parsing.
+  MESSAGE_FORMAT: 'mlflow.message.format'
 };
 
 /**

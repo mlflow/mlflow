@@ -3,6 +3,7 @@ import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getConfig } from './config';
 import { MlflowClient } from '../clients';
+import { tryEnableOptionalIntegrations } from './integration_loader';
 
 let sdk: NodeSDK | null = null;
 // Keep a reference to the span processor for flushing
@@ -31,6 +32,10 @@ export function initializeSDK(): void {
     });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);
+    // Attempt to load optional integrations (e.g. mlflow-vercel) if installed.
+    // This is required for triggering hook registeration
+    void tryEnableOptionalIntegrations();
+
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
   } catch (error) {
