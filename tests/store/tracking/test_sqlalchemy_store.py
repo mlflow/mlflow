@@ -4880,6 +4880,98 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     assert len(traces) == 0
 
 
+def test_search_traces_with_plain_text_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_plain_text_search")
+
+    # Create traces with spans that have different content
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different content
+    span1 = create_test_span(trace1_id, name="database_query", span_id=111, span_type="FUNCTION")
+    span2 = create_test_span(trace2_id, name="api_request", span_id=222, span_type="TOOL")
+    span3 = create_test_span(trace3_id, name="computation", span_id=333, span_type="FUNCTION")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test plain text search (without span.content prefix)
+    # This should automatically be converted to span.content LIKE "%text%"
+    traces, _ = store.search_traces([exp_id], filter_string="database_query")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    # Test searching for span type via plain text
+    traces, _ = store.search_traces([exp_id], filter_string="FUNCTION")
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test searching for specific text
+    traces, _ = store.search_traces([exp_id], filter_string="api_request")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Test searching for TOOL type
+    traces, _ = store.search_traces([exp_id], filter_string="TOOL")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Test no matches
+    traces, _ = store.search_traces([exp_id], filter_string="nonexistent")
+    assert len(traces) == 0
+
+
+def test_search_traces_with_plain_text_containing_dots(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_plain_text_dots")
+
+    # Create traces with spans that contain dots in their names
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with dots in their names (common in API calls, module paths, etc.)
+    span1 = create_test_span(trace1_id, name="api.call.get", span_id=111, span_type="FUNCTION")
+    span2 = create_test_span(trace2_id, name="db.connection.query", span_id=222, span_type="TOOL")
+    span3 = create_test_span(trace3_id, name="module.function", span_id=333, span_type="FUNCTION")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test plain text search with dots - should be treated as plain text, not structured query
+    # "api.call" doesn't start with a valid identifier (span/tag/metadata/etc), so it's plain text
+    traces, _ = store.search_traces([exp_id], filter_string="api.call")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    # Test searching for db.connection
+    traces, _ = store.search_traces([exp_id], filter_string="db.connection")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Test partial match
+    traces, _ = store.search_traces([exp_id], filter_string="connection")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Verify that actual structured queries still work (span.name should work)
+    traces, _ = store.search_traces([exp_id], filter_string='span.name = "module.function"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace3_id
+
+
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_error")
 
