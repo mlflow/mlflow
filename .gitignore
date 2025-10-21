@@ -134,3 +134,7 @@ gunicorn.conf.py
 # except commands and skills
 !.claude/commands/
 !.claude/skills/
+
+# Ignore act test files
+.github/workflows/test-*.json
+.github/workflows/test-*.env
