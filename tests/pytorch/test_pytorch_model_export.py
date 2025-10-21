@@ -1224,9 +1224,9 @@ def test_log_model_with_datetime_input():
 
 
 def test_forecasting_model_pyfunc_loader(model_path):
-    from pytorch_forecasting import TimeSeriesDataSet, DeepAR, TemporalFusionTransformer
-    from pytorch_forecasting.data.examples import generate_ar_data
     from lightning.pytorch import Trainer
+    from pytorch_forecasting import DeepAR, TimeSeriesDataSet
+    from pytorch_forecasting.data.examples import generate_ar_data
 
     data = generate_ar_data(seasonality=10.0, timesteps=100, n_series=10)
     max_encoder_length = 30
@@ -1248,20 +1248,13 @@ def test_forecasting_model_pyfunc_loader(model_path):
         rnn_layers=2,
     )
     dataloader = time_series_dataset.to_dataloader(train=True, batch_size=32)
-    trainer = Trainer(
-        max_epochs=2,
-        gradient_clip_val=0.1,
-        accelerator="auto"
-    )
+    trainer = Trainer(max_epochs=2, gradient_clip_val=0.1, accelerator="auto")
     trainer.fit(deepar, train_dataloaders=dataloader)
     torch.manual_seed(42)
     predicted = deepar.predict(data).numpy()
 
     mlflow.pytorch.save_model(deepar, model_path)
 
-    # Loading pyfunc model
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     torch.manual_seed(42)
-    np.testing.assert_array_almost_equal(
-        pyfunc_loaded.predict(data), predicted, decimal=4
-    )
+    np.testing.assert_array_almost_equal(pyfunc_loaded.predict(data), predicted, decimal=4)

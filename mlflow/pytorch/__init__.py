@@ -737,10 +737,7 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            if self._is_forecasting_model:
-                inp_data = data
-            else:
-                inp_data = data.to_numpy(dtype=np.float32)
+            inp_data = data if self._is_forecasting_model else data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
