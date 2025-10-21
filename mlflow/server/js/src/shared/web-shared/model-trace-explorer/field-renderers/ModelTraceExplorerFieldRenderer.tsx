@@ -1,5 +1,5 @@
 import { every, isString } from 'lodash';
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 
@@ -10,6 +10,8 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
+
+const MAX_VISIBLE_MESSAGES = 3;
 
 export const ModelTraceExplorerFieldRenderer = ({
   title,
@@ -23,12 +25,17 @@ export const ModelTraceExplorerFieldRenderer = ({
   chatMessageFormat?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const [messagesExpanded, setMessagesExpanded] = useState(false);
   const parsedData = useMemo(() => {
     try {
       return JSON.parse(data);
     } catch (e) {
       return data;
     }
+  }, [data]);
+
+  useEffect(() => {
+    setMessagesExpanded(false);
   }, [data]);
 
   const dataIsString = isString(parsedData);
@@ -43,6 +50,12 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
+    const shouldTruncateMessages = chatMessages.length > MAX_VISIBLE_MESSAGES;
+    const visibleMessages = messagesExpanded || !shouldTruncateMessages
+      ? chatMessages
+      : chatMessages.slice(0, MAX_VISIBLE_MESSAGES);
+    const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - MAX_VISIBLE_MESSAGES : 0;
+
     return (
       <div
         css={{
@@ -64,7 +77,16 @@ export const ModelTraceExplorerFieldRenderer = ({
             {title}
           </Typography.Title>
         )}
-        <ModelTraceExplorerConversation messages={chatMessages} />
+        <ModelTraceExplorerConversation messages={visibleMessages} />
+        {shouldTruncateMessages && (
+          <Typography.Link
+            css={{ alignSelf: 'flex-start' }}
+            componentId="shared.model-trace-explorer.conversation-toggle"
+            onClick={() => setMessagesExpanded(!messagesExpanded)}
+          >
+            {messagesExpanded ? 'Show less' : `Show ${hiddenMessageCount} more`}
+          </Typography.Link>
+        )}
       </div>
     );
   }
