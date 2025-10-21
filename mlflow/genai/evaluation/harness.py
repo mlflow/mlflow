@@ -17,6 +17,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.telemetry import emit_custom_metric_usage_event_if_databricks
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
     is_none_or_nan,
@@ -87,6 +88,11 @@ def run(
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
+
+    try:
+        emit_custom_metric_usage_event_if_databricks(scorers, len(eval_items), aggregated_metrics)
+    except Exception as e:
+        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
 
     eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
     return EvaluationResult(
