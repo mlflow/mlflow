@@ -1695,15 +1695,9 @@ class SearchTraceUtils(SearchUtils):
                 "on in-memory trace data.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        elif cls.is_feedback(type_, key, comparator):
+        elif cls.is_assessment(type_, key, comparator):
             raise MlflowException(
-                "Feedback filtering requires database support and cannot be performed "
-                "on in-memory trace data.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        elif cls.is_expectation(type_, key, comparator):
-            raise MlflowException(
-                "Expectation filtering requires database support and cannot be performed "
+                "Assessment filtering requires database support and cannot be performed "
                 "on in-memory trace data.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -1803,33 +1797,16 @@ class SearchTraceUtils(SearchUtils):
         return False
 
     @classmethod
-    def is_feedback(cls, key_type, key_name, comparator):
-        if key_type == cls._FEEDBACK_IDENTIFIER:
+    def is_assessment(cls, key_type, key_name, comparator):
+        if key_type in (cls._FEEDBACK_IDENTIFIER, cls._EXPECTATION_IDENTIFIER):
             if not key_name:
                 raise MlflowException(
-                    "Feedback field name cannot be empty",
+                    "Assessment field name cannot be empty",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
                 raise MlflowException(
-                    f"feedback.{key_name} comparator '{comparator}' not one of "
-                    f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            return True
-        return False
-
-    @classmethod
-    def is_expectation(cls, key_type, key_name, comparator):
-        if key_type == cls._EXPECTATION_IDENTIFIER:
-            if not key_name:
-                raise MlflowException(
-                    "Expectation field name cannot be empty",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-            if comparator not in cls.VALID_STRING_ATTRIBUTE_COMPARATORS:
-                raise MlflowException(
-                    f"expectation.{key_name} comparator '{comparator}' not one of "
+                    f"assessment.{key_name} comparator '{comparator}' not one of "
                     f"'{cls.VALID_STRING_ATTRIBUTE_COMPARATORS}'",
                     error_code=INVALID_PARAMETER_VALUE,
                 )

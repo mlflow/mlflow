@@ -4940,6 +4940,16 @@ def test_search_traces_with_span_type_filter(store: SqlAlchemyStore):
     assert len(traces) == 2
     assert {t.request_id for t in traces} == {trace2_id, trace3_id}
 
+    # Test LIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type LIKE "LLM"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test ILIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type ILIKE "llm"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
 
 def test_search_traces_with_span_status_filter(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_span_status_search")
@@ -5427,6 +5437,30 @@ def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemySt
 
     # Test: Search for non-existent expectation
     traces, _ = store.search_traces([exp_id], filter_string='expectation.nonexistent = "value"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_run_id(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_run_id")
+    run1_id = "run1"
+    run2_id = "run2"
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run1_id})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"mlflow.sourceRun": run2_id})
+    _create_trace(store, trace3_id, exp_id)
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run1"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run3"')
     assert len(traces) == 0
 
 
@@ -6142,6 +6176,16 @@ def test_search_traces_with_status_operators(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string="trace.status != 'OK'")
     trace_ids = {t.request_id for t in traces}
     assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: LIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status LIKE 'OK'")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: ILIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status ILIKE 'error'")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
 
     # Test: Using different aliases (attributes.status and status)
     traces, _ = store.search_traces([exp_id], filter_string="attributes.status = 'OK'")

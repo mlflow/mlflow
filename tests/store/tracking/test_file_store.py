@@ -3414,6 +3414,7 @@ def test_search_traces_with_like_ilike_filters(generate_trace_infos):
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
+        ("feedback.correctness = 'true'", r"Assessment filtering requires database support"),
     ],
 )
 def test_search_traces_invalid_filter(generate_trace_infos, filter_string, error):

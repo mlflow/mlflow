@@ -4631,7 +4631,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
                 # Spans have specialized columns (name, type, status) unlike tags/metadata
                 # which have key-value structure, so we need specialized handling
-                from mlflow.store.tracking.dbmodels.models import SqlSpan
 
                 # Handle span.attributes.<attribute> format
                 if key_name.startswith("attributes."):
@@ -4639,7 +4638,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     # Search within the content JSON for the specific attribute
                     # Using JSON extraction with LIKE for broad database compatibility
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"%{value}%'
+                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"{value}%'
                     )
                 else:
                     span_column = getattr(SqlSpan, key_name)
@@ -4655,13 +4654,13 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 )
                 span_filters.append(span_subquery)
                 continue
-            elif SearchTraceUtils.is_feedback(key_type, key_name, comparator):
+            elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
                 # Create subquery to find traces with matching feedback
                 # Filter by feedback name and check the value
                 feedback_subquery = (
                     session.query(SqlAssessments.trace_id.label("request_id"))
                     .filter(
-                        SqlAssessments.assessment_type == "feedback",
+                        SqlAssessments.assessment_type == key_type,
                         SqlAssessments.name == key_name,
                         SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                             SqlAssessments.value, value
@@ -4671,23 +4670,6 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .subquery()
                 )
                 span_filters.append(feedback_subquery)
-                continue
-            elif SearchTraceUtils.is_expectation(key_type, key_name, comparator):
-                # Create subquery to find traces with matching expectation
-                # Filter by expectation name and check the value
-                expectation_subquery = (
-                    session.query(SqlAssessments.trace_id.label("request_id"))
-                    .filter(
-                        SqlAssessments.assessment_type == "expectation",
-                        SqlAssessments.name == key_name,
-                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                            SqlAssessments.value, value
-                        ),
-                    )
-                    .distinct()
-                    .subquery()
-                )
-                span_filters.append(expectation_subquery)
                 continue
             else:
                 raise MlflowException(
