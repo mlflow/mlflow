@@ -1082,4 +1082,7 @@ when the server starts.
 :::note
 Auth migrations use a separate version table (`alembic_version_auth`) from tracking migrations (`alembic_version`).
 This allows you to safely use the same database for both tracking data and auth data without migration conflicts.
+
+To use separate databases instead, configure `database_uri` to point to a different database than `--backend-store-uri`.
+By default, auth uses `basic_auth.db` (SQLite) while tracking uses the database specified by `--backend-store-uri`.
 :::
