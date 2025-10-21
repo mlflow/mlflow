@@ -2,3 +2,6 @@ build_dependencies:
   - pip
 dependencies:
   - prophet>=1.0.1
+  # cmdstanpy 1.3.0 causes AttributeError in prophet 1.2.0: 'Prophet' object has no attribute 'stan_backend':
+  # https://github.com/facebook/prophet/issues/2697
+  - cmdstanpy<1.3.0
