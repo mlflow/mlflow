@@ -1,9 +1,18 @@
-import mlflow
+import os
+
 import numpy as np
+import pytest
 import torch
 from lightning.pytorch import Trainer
 from pytorch_forecasting import DeepAR, TimeSeriesDataSet
 from pytorch_forecasting.data.examples import generate_ar_data
+
+import mlflow
+
+
+@pytest.fixture
+def model_path(tmp_path):
+    return os.path.join(tmp_path, "model")
 
 
 def test_forecasting_model_pyfunc_loader(model_path):
