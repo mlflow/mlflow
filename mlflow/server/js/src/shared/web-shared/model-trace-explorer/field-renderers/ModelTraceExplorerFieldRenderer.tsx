@@ -1,6 +1,8 @@
 import { every, isString } from 'lodash';
 import { useMemo } from 'react';
 
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
 import { ModelTraceExplorerTextFieldRenderer } from './ModelTraceExplorerTextFieldRenderer';
@@ -20,6 +22,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
 }) => {
+  const { theme } = useDesignSystemTheme();
   const parsedData = useMemo(() => {
     try {
       return JSON.parse(data);
@@ -40,7 +43,30 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
-    return <ModelTraceExplorerConversation messages={chatMessages} />;
+    return (
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.sm,
+          padding: theme.spacing.sm,
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusSm,
+        }}
+      >
+        {title && (
+          <Typography.Title
+            level={4}
+            color="secondary"
+            withoutMargins
+            css={{ marginLeft: theme.spacing.xs }}
+          >
+            {title}
+          </Typography.Title>
+        )}
+        <ModelTraceExplorerConversation messages={chatMessages} />
+      </div>
+    );
   }
 
   if (renderMode === 'json') {
@@ -54,6 +80,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   if (dataIsString) {
     return <ModelTraceExplorerTextFieldRenderer title={title} value={parsedData} />;
   }
+
 
   if (isChatTools) {
     return <ModelTraceExplorerChatToolsRenderer title={title} tools={parsedData} />;
