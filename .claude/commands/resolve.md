@@ -31,7 +31,7 @@ Automatically fetch and address PR review comments. This command examines review
 
 1. **Auto-detect PR context**:
 
-   - Use `gh pr view --json url,number -q '.url, .number'` to get PR info for the current branch
+   - Use `gh pr view --json url -q '.url'` to get PR info for the current branch
    - Parse to extract owner, repo, and PR number
    - If auto-detection fails, inform the user that no PR was found for the current branch
 
