@@ -693,9 +693,11 @@ export const createListFromObject = (
     return [{ key: '', value: JSON.stringify(obj, null, 2) }];
   }
 
-  return Object.entries(obj).map(([key, value]) => {
-    return { key, value: JSON.stringify(value, null, 2) };
-  });
+  return Object.entries(obj)
+    .filter(([, value]) => !isNil(value))
+    .map(([key, value]) => {
+      return { key, value: JSON.stringify(value, null, 2) };
+    });
 };
 
 export const getHighlightedSpanComponents = ({
