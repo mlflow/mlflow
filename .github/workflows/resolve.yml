@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  verify:
+  precheck:
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -91,7 +91,7 @@ jobs:
           echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
 
   resolve:
-    needs: verify
+    needs: precheck
     runs-on: ubuntu-latest
     permissions:
       issues: read
@@ -108,8 +108,8 @@ jobs:
 
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          repository: ${{ needs.verify.outputs.head_repository }}
-          ref: ${{ needs.verify.outputs.head_ref }}
+          repository: ${{ needs.precheck.outputs.head_repository }}
+          ref: ${{ needs.precheck.outputs.head_ref }}
           token: ${{ steps.app-token.outputs.token }}
 
       - name: Configure git
@@ -133,7 +133,7 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PROMPT: ${{ needs.verify.outputs.prompt }}
+          PROMPT: ${{ needs.precheck.outputs.prompt }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
@@ -169,8 +169,8 @@ jobs:
             git push
           fi
 
-  notify:
-    needs: [verify, resolve]
+  report:
+    needs: [precheck, resolve]
     if: always()
     runs-on: ubuntu-latest
     permissions:
@@ -180,13 +180,12 @@ jobs:
       - name: Update original comment with result
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
-          COMMENT_ID: ${{ needs.verify.outputs.comment_id }}
+          COMMENT_ID: ${{ needs.precheck.outputs.comment_id }}
           RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
           CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
           script: |
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
-
             const statusMessage = resolveJobStatus !== 'success'
               ? `⚠️ Workflow encountered an error.`
               : `✅ Workflow completed successfully.`;
