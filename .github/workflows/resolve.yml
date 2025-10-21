@@ -121,7 +121,7 @@ jobs:
 
       - name: Set up pre-commit
         run: |
-          uv run --only-group lint pre-commit install --install-hooks
+          uv run --only-group lint pre-commit install
           uv run --only-group lint pre-commit run install-bin -a -v
 
       - name: Install Claude CLI
