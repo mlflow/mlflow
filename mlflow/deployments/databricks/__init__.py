@@ -136,6 +136,10 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
     ):
         """
         Args:
+            method: HTTP method (GET, POST, etc.).
+            prefix: API prefix path.
+            route: Endpoint route.
+            json_body: Request payload.
             timeout: Maximum time (in seconds) for a single HTTP request.
             retry_timeout_seconds: Maximum time (in seconds) for all retry attempts combined.
         """
