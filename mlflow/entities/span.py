@@ -24,9 +24,9 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
-    _dump_span_attribute_value,
     build_otel_context,
     decode_id,
+    dump_span_attribute_value,
     encode_span_id,
     encode_trace_id,
     generate_mlflow_trace_id_from_otel_trace_id,
@@ -411,9 +411,9 @@ class Span:
             # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: _dump_span_attribute_value(mlflow_trace_id),
+                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
                 **{
-                    attr.key: _dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
+                    attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
             },
@@ -898,7 +898,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, _dump_span_attribute_value(value))
+        self._span.set_attribute(key, dump_span_attribute_value(value))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

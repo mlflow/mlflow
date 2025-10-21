@@ -3130,6 +3130,8 @@ def get_trace_artifact_handler():
                 "Failed to get trace data from tracking store. Please check the request_id."
             )
         trace_data = traces[0].data.to_dict()
+    # For stores that don't support batch get traces, or if the trace data is not stored in the
+    # tracking store, we need to get the trace data from the artifact repository.
     except (MlflowTracingException, MlflowNotImplementedException):
         trace_info = _get_tracking_store().get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()

@@ -99,7 +99,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
-    TRACKING_STORE,
+    SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -9095,7 +9095,7 @@ def test_batch_get_traces_integration_with_trace_handler(store: SqlAlchemyStore)
     store.log_spans(experiment_id, spans)
 
     trace_info = store.get_trace_info(trace_id)
-    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE.value
 
     traces = store.batch_get_traces([trace_id])
     assert len(traces) == 1

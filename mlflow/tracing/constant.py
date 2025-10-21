@@ -1,3 +1,6 @@
+from enum import Enum
+
+
 # NB: These keys are placeholders and subject to change
 class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
@@ -115,5 +118,8 @@ ASSESSMENT_ID_PREFIX = "a-"
 # Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
 GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
 
-# Spans location
-TRACKING_STORE = "tracking_store"
+
+# The location of the spans in the trace.
+# This is used to determine where the spans are stored when exporting.
+class SpansLocation(str, Enum):
+    TRACKING_STORE = "TRACKING_STORE"

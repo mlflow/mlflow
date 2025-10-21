@@ -137,7 +137,7 @@ class TraceJSONEncoder(json.JSONEncoder):
         return True
 
 
-def _dump_span_attribute_value(value: Any) -> Any:
+def dump_span_attribute_value(value: Any) -> str:
     # NB: OpenTelemetry attribute can store not only string but also a few primitives like
     #   int, float, bool, and list of them. However, we serialize all into JSON string here
     #   for the simplicity in deserialization process.

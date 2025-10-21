@@ -104,8 +104,7 @@ from mlflow.store.tracking.dbmodels.models import (
 )
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
-    TRACE_REQUEST_ID_PREFIX,
-    TRACKING_STORE,
+    SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -2561,10 +2560,11 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 if db_sql_trace_info:
                     for tag in db_sql_trace_info.tags:
-                        if tag.key not in tags:
+                        if tag.key not in tags and tag.key == TraceTagKey.SPANS_LOCATION:
                             sql_trace_info.tags.append(
                                 SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
                             )
+                            break
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3293,7 +3293,7 @@ class SqlAlchemyStore(AbstractStore):
                 tags = [
                     SqlTraceTag(
                         key=TraceTagKey.SPANS_LOCATION,
-                        value=TRACKING_STORE,
+                        value=SpansLocation.TRACKING_STORE.value,
                         request_id=trace_id,
                     ),
                     self._get_trace_artifact_location_tag(experiment, trace_id),
@@ -3356,7 +3356,7 @@ class SqlAlchemyStore(AbstractStore):
             session.query(SqlTraceTag).filter(
                 SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
             ).update(
-                {"value": TRACKING_STORE},
+                {"value": SpansLocation.TRACKING_STORE.value},
                 synchronize_session=False,
             )
 
@@ -3429,12 +3429,6 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             List of Trace objects for the given trace IDs.
         """
-        if not all(trace_id.startswith(TRACE_REQUEST_ID_PREFIX) for trace_id in trace_ids):
-            raise MlflowException.invalid_parameter_value(
-                "Invalid trace IDs for the tracking store. Expected format: "
-                f"{TRACE_REQUEST_ID_PREFIX}<trace_id>"
-            )
-
         if not trace_ids:
             return []
 
@@ -3458,7 +3452,10 @@ class SqlAlchemyStore(AbstractStore):
                 trace_info = sql_trace_info.to_mlflow_entity()
                 # if the tag doesn't exist then the trace is not stored in the tracking store,
                 # we should rely on the artifact repo to get the trace data
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != TRACKING_STORE:
+                if (
+                    trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
+                    != SpansLocation.TRACKING_STORE.value
+                ):
                     # This check is required so that the handler can capture the exception
                     # and load data from artifact repo instead
                     raise MlflowTracingException("Trace data not stored in tracking store")
