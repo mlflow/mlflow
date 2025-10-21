@@ -140,7 +140,7 @@ def recreate_function(source: str, signature: str, func_name: str) -> Callable[.
     local_namespace = {}
 
     # Execute the function definition with MLflow imports available
-    exec(func_def, import_namespace, local_namespace)
+    exec(func_def, import_namespace, local_namespace)  # noqa: S102
 
     # Return the recreated function
     return local_namespace[func_name]
