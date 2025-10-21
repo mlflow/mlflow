@@ -657,6 +657,15 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
+def _is_forecasting_model(model) -> bool:
+    try:
+        from pytorch_forecasting.models import BaseModel
+    except ImportError:
+        return False
+
+    return isinstance(model, BaseModel)
+
+
 def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
@@ -679,24 +688,16 @@ def _load_pyfunc(path, model_config=None, weights_only=False):
         else:
             device = _TORCH_CPU_DEVICE_NAME
 
-    model_meta = Model.load(os.path.join(os.path.dirname(path), MLMODEL_FILE_NAME))
-
     # in pytorch >= 2.6.0, the `weights_only` kwarg default has been changed from
     # `False` to `True`. this can cause pickle deserialization errors when loading
     # models, unless the model classes have been explicitly marked as safe using
     # `torch.serialization.add_safe_globals()`
     if Version(torch.__version__) >= Version("2.6.0"):
         return _PyTorchWrapper(
-            _load_model(path, device=device, weights_only=weights_only),
-            device=device,
-            signature=model_meta.signature,
+            _load_model(path, device=device, weights_only=weights_only), device=device
         )
 
-    return _PyTorchWrapper(
-        _load_model(path, device=device),
-        device=device,
-        signature=model_meta.signature
-    )
+    return _PyTorchWrapper(_load_model(path, device=device), device=device)
 
 
 class _PyTorchWrapper:
@@ -705,10 +706,10 @@ class _PyTorchWrapper:
     predict(data: pd.DataFrame) -> model's output as pd.DataFrame (pandas DataFrame)
     """
 
-    def __init__(self, pytorch_model, device, signature=None):
+    def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
         self.device = device
-        self.signature = signature
+        self._is_forecasting_model = _is_forecasting_model(self.pytorch_model)
 
     def get_raw_model(self):
         """
@@ -736,10 +737,10 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            if self.signature is None or self.signature.inputs.is_tensor_spec():
-                inp_data = data.to_numpy(dtype=np.float32)
-            else:
+            if self._is_forecasting_model:
                 inp_data = data
+            else:
+                inp_data = data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
             inp_data = data
         elif isinstance(data, (list, dict)):
@@ -752,14 +753,13 @@ class _PyTorchWrapper:
 
         device = self.device
         with torch.no_grad():
-            if isinstance(inp_data, np.ndarray):
+            if self._is_forecasting_model:
+                # forecasting model `predict` method supports
+                # dataframe input.
+                preds = self.pytorch_model.predict(inp_data)
+            else:
                 input_tensor = torch.from_numpy(inp_data).to(device)
                 preds = self.pytorch_model(input_tensor, **(params or {}))
-            else:
-                # for pandas dataframe input
-                # (e.g. supported by pytorch forecasting models),
-                # we should call `model.predict` API
-                preds = self.pytorch_model.predict(inp_data)
             # if the predictions happened on a remote device, copy them back to
             # the host CPU for processing
             if device != _TORCH_CPU_DEVICE_NAME:
@@ -769,7 +769,7 @@ class _PyTorchWrapper:
                     "Expected PyTorch model to output a single output tensor, "
                     f"but got output of type '{type(preds)}'"
                 )
-            if isinstance(data, pd.DataFrame):
+            if isinstance(data, pd.DataFrame) and not self._is_forecasting_model:
                 predicted = pd.DataFrame(preds.numpy())
                 predicted.index = data.index
             else:
