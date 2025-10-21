@@ -177,7 +177,7 @@ jobs:
 
   notify:
     needs: [verify, resolve]
-    if: always() && github.event_name == 'issue_comment'
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -191,9 +191,7 @@ jobs:
           CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
           script: |
-            const commentId = parseInt(process.env.COMMENT_ID, 10);
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
-            const claudeOutput = process.env.CLAUDE_OUTPUT || '';
 
             const statusMessage = resolveJobStatus !== 'success'
               ? `⚠️ Workflow encountered an error.`
@@ -202,38 +200,35 @@ jobs:
             let resultMessage = statusMessage;
 
             // Extract and display Claude's result and raw output
+            const claudeOutput = process.env.CLAUDE_OUTPUT || '';
             if (claudeOutput) {
-              let detailsContent = '';
-              let prettyJson = claudeOutput;
-
               try {
-                const parsed = JSON.parse(claudeOutput);
-                if (parsed.result) {
-                  detailsContent += `${parsed.result}\n\n`;
+                const events = JSON.parse(claudeOutput);
+                const resultEvent = events.find(({ type }) => type === 'result');
+                if (resultEvent) {
+                  resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
-                // Pretty print the JSON with 2-space indentation
-                prettyJson = JSON.stringify(parsed, null, 2);
               } catch (e) {
                 console.log('Failed to parse Claude output as JSON:', e);
               }
-
-              // Add raw JSON (pretty printed)
-              detailsContent += `**Raw Output:**\n\n\`\`\`json\n${prettyJson}\n\`\`\``;
-
-              resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${detailsContent}\n\n</details>`;
             }
 
-            const { data: currentComment } = await github.rest.issues.getComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: commentId,
-            });
+            console.log('Result message to post:', resultMessage);
 
-            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+            if (process.env.COMMENT_ID) {
+              const commentId = parseInt(process.env.COMMENT_ID, 10);
+              const { data: currentComment } = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+              });
 
-            await github.rest.issues.updateComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              comment_id: commentId,
-              body: updatedBody,
-            });
+              const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                body: updatedBody,
+              });
+            }
