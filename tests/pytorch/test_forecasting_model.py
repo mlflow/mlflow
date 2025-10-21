@@ -16,12 +16,14 @@ def model_path(tmp_path):
 
 
 def test_forecasting_model_pyfunc_loader(model_path):
-    data = generate_ar_data(seasonality=10.0, timesteps=100, n_series=10)
+    n_series = 10
+    timesteps = 100
+    data = generate_ar_data(seasonality=10.0, timesteps=timesteps, n_series=n_series)
     max_encoder_length = 30
-    max_prediction_length = 10
+    max_prediction_length = 20
 
     time_series_dataset = TimeSeriesDataSet(
-        data[lambda x: x.time_idx <= 90],
+        data[lambda x: x.time_idx <= timesteps - max_prediction_length],
         time_idx="time_idx",
         target="value",
         group_ids=["series"],
@@ -40,6 +42,7 @@ def test_forecasting_model_pyfunc_loader(model_path):
     trainer.fit(deepar, train_dataloaders=dataloader)
     torch.manual_seed(42)
     predicted = deepar.predict(data).numpy()
+    assert predicted.shape == (n_series, max_prediction_length)
 
     mlflow.pytorch.save_model(deepar, model_path)
 
