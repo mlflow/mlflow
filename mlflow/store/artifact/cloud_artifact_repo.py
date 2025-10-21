@@ -119,15 +119,15 @@ class CloudArtifactRepository(ArtifactRepository):
         """
         artifact_path = artifact_path or ""
 
-        # Step 1: Collect all files and compute sizes upfront (addresses review comment #2)
+        # Collect all files and compute sizes upfront
         upload_plans = self._collect_upload_plans(local_dir, artifact_path)
         if not upload_plans:
             return
 
-        # Step 2: Detect cloud provider type from a sample file
+        # Detect cloud provider type from a sample file
         cloud_type = self._detect_cloud_type(upload_plans)
 
-        # Step 3: Route to cloud-specific upload logic (addresses review comment #8)
+        # Route to cloud-specific upload logic
         failed_uploads = {}
         multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
 
@@ -159,7 +159,7 @@ class CloudArtifactRepository(ArtifactRepository):
             )
 
     def _collect_upload_plans(self, local_dir: str, artifact_path: str) -> list[FileUploadPlan]:
-        """Collect all files to upload and cache their sizes (addresses review comment #2)."""
+        """Collect all files to upload and cache their sizes."""
         plans = []
         for dirpath, _, filenames in os.walk(local_dir):
             artifact_subdir = artifact_path
@@ -193,7 +193,7 @@ class CloudArtifactRepository(ArtifactRepository):
         if not upload_plans:
             return None
 
-        # Find a small file if possible (addresses review comment #6)
+        # Find a small file if possible
         multipart_threshold = MLFLOW_MULTIPART_UPLOAD_MINIMUM_FILE_SIZE.get()
         sample_plan = None
         for plan in upload_plans:
@@ -264,9 +264,7 @@ class CloudArtifactRepository(ArtifactRepository):
 
         # SEG mode: Serialize credential fetching and uploads
         if len(batch) > 1:
-            with ArtifactProgressBar.files(
-                desc="Uploading artifacts", total=len(batch)
-            ) as pbar:
+            with ArtifactProgressBar.files(desc="Uploading artifacts", total=len(batch)) as pbar:
                 for idx, plan in enumerate(batch):
                     try:
                         # Fetch credential for this specific file
@@ -318,9 +316,7 @@ class CloudArtifactRepository(ArtifactRepository):
         except Exception as e:
             _logger.warning(f"Failed to fetch credentials: {e}")
 
-    def _upload_files_parallel(
-        self, plans: list[FileUploadPlan], wait: bool
-    ) -> dict[str, str]:
+    def _upload_files_parallel(self, plans: list[FileUploadPlan], wait: bool) -> dict[str, str]:
         """Upload multiple files in parallel and optionally wait for completion.
 
         Args:
