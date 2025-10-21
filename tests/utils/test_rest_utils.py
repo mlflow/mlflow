@@ -905,7 +905,7 @@ def test_deployment_client_timeout_propagation(monkeypatch):
             "http://my-host",  # host
             None,  # token
             None,  # databricks_auth_profile
-            retry_timeout_seconds=None,
+            retry_timeout_seconds=600,
             timeout=300,  # MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT value
         )
 
@@ -927,3 +927,37 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
         http_request(MlflowHostCreds("http://my-host"), "/my/endpoint", "GET")
         headers = mock_request.call_args.kwargs["headers"]
         assert "x-databricks-traffic-id" not in headers
+
+
+@pytest.mark.parametrize(
+    ("timeout", "retry_timeout_seconds", "should_warn"),
+    [
+        (300, 120, True),
+        (120, 600, False),
+        (300, 300, False),
+        (None, 120, False),
+        (300, None, False),
+        (None, None, False),
+    ],
+)
+def test_validate_deployment_timeout_config(timeout, retry_timeout_seconds, should_warn):
+    from mlflow.utils.rest_utils import validate_deployment_timeout_config
+
+    if should_warn:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            validate_deployment_timeout_config(
+                timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
+            )
+            assert len(w) == 1
+            warning_msg = str(w[0].message)
+            assert "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT" in warning_msg
+            assert f"({retry_timeout_seconds}s)" in warning_msg
+            assert f"({timeout}s)" in warning_msg
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            validate_deployment_timeout_config(
+                timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
+            )
+            assert len(w) == 0

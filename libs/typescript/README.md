@@ -102,6 +102,11 @@ View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/891fed9a746477f808dd2b82d3abb2382293c564/docs/static/images/llms/tracing/quickstart/openai-tool-calling-trace-detail.png?raw=true)
 
+## Publishing
+
+1. Run `yarn bump-version --version <new_version>` from this directory to bump the package versions appropriately
+2. `cd` into `core` and run `npm publish`, and repeat for `integrations/openai`
+
 ## Adding New Integrations
 
 The TypeScript SDK supports pluggable auto-instrumentation packages under [`integrations/`](./integrations). To add a new integration:

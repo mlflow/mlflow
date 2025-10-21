@@ -54,11 +54,7 @@ def _is_in_databricks() -> bool:
         return True
 
     # check if in databricks model serving environment
-    if (
-        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
-        or "false"
-    ).lower() == "true":
+    if os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false").lower() == "true":
         return True
 
     return False

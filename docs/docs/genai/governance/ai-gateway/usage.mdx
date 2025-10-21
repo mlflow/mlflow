@@ -10,7 +10,7 @@ Learn how to query your AI Gateway endpoints, integrate with applications, and l
 
 ### REST API Requests
 
-The gateway exposes REST endpoints that follow OpenAI-compatible patterns. Each endpoint accepts JSON payloads and returns structured responses. Use these when integrating with applications that don't have MLflow client libraries:
+The gateway exposes REST endpoints that follow OpenAI-compatible patterns. Each endpoint / route accepts JSON payloads and returns structured responses. Use these when integrating with applications that don't have MLflow client libraries:
 
 ```bash
 # Chat completions
@@ -98,6 +98,57 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
 ```
 
 ## Python Client Integration
+
+### OpenAI python SDK client (Recommended)
+
+MLflow gateway allows developers to use serving models through OpenAI's SDK.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:5000/v1",
+    # API key is not needed, it is configured in gateway server side.
+    api_key="",
+)
+
+messages = [{"role": "user", "content": "How are you ?"}]
+
+response = client.chat.completions.create(
+    # The model name must be set to either endpoint name or route name
+    # that is configured in gateway YAML file.
+    model="chat",
+    messages=messages,
+)
+print(response.choices[0].message)
+```
+
+Streaming API is also supported:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:5000/v1",
+    # API key is not needed, it is configured in gateway server side.
+    api_key="",
+)
+
+messages = [{"role": "user", "content": "How are you ?"}]
+
+response = client.chat.completions.create(
+    # The model name must be set to either endpoint name or route name
+    # that is configured in gateway YAML file.
+    model="chat",
+    messages=messages,
+    stream=True,
+)
+
+for chunk in stream:
+    print(chunk)
+    print(chunk.choices[0].delta)
+    print("****************")
+```
 
 ### MLflow Deployments Client
 

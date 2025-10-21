@@ -678,6 +678,35 @@ ResponsesAgent works with structured schemas for requests and responses, check <
 2. **Schema Validation**: Verify input/output formats match expected schemas
 3. **Model Logging Issues**: User `models from code` feature to log the model
 4. **Missing traces**: Enable tracing by `mlflow.<flavor>.autolog` or manual tracing with `mlflow.start_span`
+5. **Timeout errors on long-running agent predictions**: If predictions take several minutes (e.g., agents with complex tool calling), you need to configure TWO separate timeouts:
+   - `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT`: Maximum time for a SINGLE HTTP request (default: 120s)
+   - `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT`: Maximum time for ALL retry attempts combined (default: 600s)
+
+   :::warning
+   `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT` does not cancel hanging HTTP requests. It only checks elapsed time after each request completes. A hanging request will continue until `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` is reached, potentially causing token wastage and duplicate trace entries.
+   :::
+
+   For a long-running agent that takes 10 minutes per query:
+
+   ```python
+   import os
+
+   # Allow individual requests up to 15 minutes
+   os.environ["MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT"] = "900"
+
+   # Allow total retry time up to 20 minutes
+   os.environ["MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT"] = "1200"
+
+   from mlflow.deployments import get_deploy_client
+
+   client = get_deploy_client("databricks")
+   response = client.predict(endpoint="my-agent", inputs=data)
+   ```
+
+   :::tip
+   - If your longest query takes N seconds, set `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` to at least N seconds
+   - Set `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT` >= `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT`
+     :::
 
 ### Debugging
 

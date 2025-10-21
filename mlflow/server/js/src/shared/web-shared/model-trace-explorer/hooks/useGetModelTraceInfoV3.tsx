@@ -1,5 +1,6 @@
 import { useQuery } from '@databricks/web-shared/query-client';
 
+import { shouldDisableAssessmentsPaneOnFetchFailure } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import type { ModelTrace } from '../ModelTrace.types';
 import { FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
 import { fetchTraceInfoV3 } from '../api';
@@ -28,7 +29,9 @@ export const useGetModelTraceInfoV3 = ({
       setAssessmentsPaneEnabled(true);
     },
     onError: () => {
-      setAssessmentsPaneEnabled(false);
+      if (shouldDisableAssessmentsPaneOnFetchFailure()) {
+        setAssessmentsPaneEnabled(false);
+      }
     },
     enabled,
   });

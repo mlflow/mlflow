@@ -137,7 +137,7 @@ inputs = [
     {"inputs": {"text": "This exceeded all my expectations. Truly wonderful!"}},
 ]
 
-# Collect outputs from source model
+# Collect outputs from original model
 with mlflow.start_run() as run:
     for record in inputs:
         predict_fn_base_model(**record["inputs"])
@@ -161,12 +161,12 @@ dataset.merge_records(traces)
 This automatically creates a dataset with:
 
 - `inputs`: The input variables (`text` in this case)
-- `outputs`: The actual outputs from your source model (`gpt-5`)
+- `outputs`: The actual outputs from your original model (`gpt-5`)
 
 You can view the created dataset in the MLflow UI by navigating to:
 
 1. **Experiments** tab → Select your experiment
-2. **Evaluations** tab → View your evaluation runs
+2. **Evaluations** tab → Select the "Datasets" tab on the left sidebar
 3. **Dataset** tab → Inspect the input/output pairs
 
 The dataset view shows all the inputs and outputs collected from your traces, making it easy to verify the training data before optimization.
@@ -189,7 +189,7 @@ def predict_fn(text: str) -> str:
     return completion.choices[0].message.content.lower()
 ```
 
-You might notice the target model doesn't follow the format as consistently as the source model.
+You might notice the target model doesn't follow the format as consistently as the original model.
 
 ### Step 4: Optimize Prompts for Target Model
 

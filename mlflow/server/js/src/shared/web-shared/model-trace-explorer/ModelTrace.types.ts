@@ -183,7 +183,7 @@ export type ModelTraceInfoV3 = {
   // formatted duration string like "32.4s"
   execution_duration: string;
   state: ModelTraceState;
-  trace_metadata: {
+  trace_metadata?: {
     [key: string]: string;
   };
   assessments: Assessment[];

@@ -1,4 +1,5 @@
 import time
+import warnings
 from contextlib import contextmanager
 from typing import Any
 
@@ -16,6 +17,11 @@ class MosaicMLProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "MosaicML provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, MosaicMLConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.mosaicml_config: MosaicMLConfig = config.model.config

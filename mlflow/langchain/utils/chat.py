@@ -106,10 +106,7 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
 
 
 def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
-    # AIMessage does not have tool_calls field in LangChain < 0.1.0.
-    if not hasattr(message, "tool_calls"):
-        return []
-
+    # Extract tool calls from AIMessage
     tool_calls = [
         {
             "type": "function",

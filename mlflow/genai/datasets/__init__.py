@@ -14,7 +14,7 @@ from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import deprecated_parameter, experimental
-from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -131,7 +131,7 @@ def create_dataset(
 
     experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         if tags is not None:
             raise NotImplementedError(
                 "Tags are not supported in Databricks environments. "
@@ -208,7 +208,7 @@ def delete_dataset(
         records, tags, and metadata will be permanently removed.
     """
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
         try:
             from databricks.agents.datasets import delete_dataset as db_delete
@@ -272,7 +272,7 @@ def get_dataset(
             dataset.merge_records(new_test_cases)
     """
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
         try:
             from databricks.agents.datasets import get_dataset as db_get
@@ -429,7 +429,7 @@ def search_datasets(
         This API is not available in Databricks environments. Use Unity Catalog
         search capabilities in Databricks instead.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset search is not available in Databricks. "
             "Use Unity Catalog search capabilities instead."
@@ -528,7 +528,7 @@ def set_dataset_tags(
         This API is not available in Databricks environments yet.
         Tags in Databricks are managed through Unity Catalog.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
@@ -578,7 +578,7 @@ def delete_dataset_tag(
         This API is not available in Databricks environments yet.
         Tags in Databricks are managed through Unity Catalog.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
@@ -594,7 +594,7 @@ def _validate_association_operation():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.tracking._tracking_service.utils import _get_store
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset association operations are not available in Databricks yet. "
             "Associations are managed through Unity Catalog."
