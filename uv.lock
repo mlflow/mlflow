@@ -1440,18 +1440,19 @@ wheels = [
 
 [[package]]
 name = "cyclopts"
-version = "3.24.0"
+version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "docstring-parser", marker = "python_full_version < '4'" },
+    { name = "docstring-parser" },
     { name = "rich" },
     { name = "rich-rst" },
+    { name = "tomli", marker = "python_full_version < '3.11'" },
     { name = "typing-extensions", marker = "python_full_version < '3.11'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/30/ca/7782da3b03242d5f0a16c20371dff99d4bd1fedafe26bc48ff82e42be8c9/cyclopts-3.24.0.tar.gz", hash = "sha256:de6964a041dfb3c57bf043b41e68c43548227a17de1bad246e3a0bfc5c4b7417", size = 76131, upload-time = "2025-09-08T15:40:57.75Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/9a/d1/2f2b99ec5ea54ac18baadfc4a011e2a1743c1eaae1e39838ca520dcf4811/cyclopts-4.0.0.tar.gz", hash = "sha256:0dae712085e91d32cc099ea3d78f305b0100a3998b1dec693be9feb0b1be101f", size = 143546, upload-time = "2025-10-20T18:33:01.456Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f0/8b/2c95f0645c6f40211896375e6fa51f504b8ccb29c21f6ae661fe87ab044e/cyclopts-3.24.0-py3-none-any.whl", hash = "sha256:809d04cde9108617106091140c3964ee6fceb33cecdd537f7ffa360bde13ed71", size = 86154, upload-time = "2025-09-08T15:40:56.41Z" },
+    { url = "https://files.pythonhosted.org/packages/44/0e/0a22e076944600aeb06f40b7e03bbd762a42d56d43a2f5f4ab954aed9005/cyclopts-4.0.0-py3-none-any.whl", hash = "sha256:e64801a2c86b681f08323fd50110444ee961236a0bae402a66d2cc3feda33da7", size = 178837, upload-time = "2025-10-20T18:33:00.191Z" },
 ]
 
 [[package]]
@@ -3386,7 +3387,6 @@ dependencies = [
     { name = "databricks-sdk" },
     { name = "docker" },
     { name = "fastapi" },
-    { name = "fastmcp" },
     { name = "flask" },
     { name = "flask-cors" },
     { name = "gitpython" },
@@ -3469,6 +3469,9 @@ jobs = [
 ]
 langchain = [
     { name = "langchain" },
+]
+mcp = [
+    { name = "fastmcp" },
 ]
 mlserver = [
     { name = "mlserver" },
@@ -3553,7 +3556,7 @@ requires-dist = [
     { name = "fastapi", specifier = "<1" },
     { name = "fastapi", marker = "extra == 'gateway'", specifier = "<1" },
     { name = "fastapi", marker = "extra == 'genai'", specifier = "<1" },
-    { name = "fastmcp", specifier = ">=2.0.0,<3" },
+    { name = "fastmcp", marker = "extra == 'mcp'", specifier = ">=2.0.0,<3" },
     { name = "flask", specifier = "<4" },
     { name = "flask-cors", specifier = "<7" },
     { name = "flask-wtf", marker = "extra == 'auth'", specifier = "<2" },
@@ -3604,7 +3607,7 @@ requires-dist = [
     { name = "watchfiles", marker = "extra == 'gateway'", specifier = "<2" },
     { name = "watchfiles", marker = "extra == 'genai'", specifier = "<2" },
 ]
-provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth", "jobs"]
+provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth", "jobs"]
 
 [package.metadata.requires-dev]
 build = [

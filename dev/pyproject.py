@@ -351,6 +351,7 @@ def build(package_type: PackageType) -> None:
                 ],
                 "gateway": gateways_requirements,
                 "genai": gateways_requirements,
+                "mcp": ["fastmcp<3,>=2.0.0"],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
