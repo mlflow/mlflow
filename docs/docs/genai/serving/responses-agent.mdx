@@ -682,6 +682,10 @@ ResponsesAgent works with structured schemas for requests and responses, check <
    - `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT`: Maximum time for a SINGLE HTTP request (default: 120s)
    - `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT`: Maximum time for ALL retry attempts combined (default: 600s)
 
+   :::warning
+   `MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT` does not cancel hanging HTTP requests. It only checks elapsed time after each request completes. A hanging request will continue until `MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT` is reached, potentially causing token wastage and duplicate trace entries.
+   :::
+
    For a long-running agent that takes 10 minutes per query:
 
    ```python

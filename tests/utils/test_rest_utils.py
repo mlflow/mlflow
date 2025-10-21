@@ -943,15 +943,21 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
 def test_validate_deployment_timeout_config(timeout, retry_timeout_seconds, should_warn):
     from mlflow.utils.rest_utils import validate_deployment_timeout_config
 
-    with mock.patch("mlflow.utils.rest_utils._logger.warning") as mock_warning:
-        validate_deployment_timeout_config(
-            timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
-        )
-        if should_warn:
-            mock_warning.assert_called_once()
-            warning_msg = mock_warning.call_args[0][0]
+    if should_warn:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            validate_deployment_timeout_config(
+                timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
+            )
+            assert len(w) == 1
+            warning_msg = str(w[0].message)
             assert "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT" in warning_msg
             assert f"({retry_timeout_seconds}s)" in warning_msg
             assert f"({timeout}s)" in warning_msg
-        else:
-            mock_warning.assert_not_called()
+    else:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            validate_deployment_timeout_config(
+                timeout=timeout, retry_timeout_seconds=retry_timeout_seconds
+            )
+            assert len(w) == 0

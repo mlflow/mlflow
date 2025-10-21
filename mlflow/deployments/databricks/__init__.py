@@ -134,6 +134,11 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         timeout: int | None = None,
         retry_timeout_seconds: int | None = None,
     ):
+        """
+        Args:
+            timeout: Maximum time (in seconds) for a single HTTP request.
+            retry_timeout_seconds: Maximum time (in seconds) for all retry attempts combined.
+        """
         validate_deployment_timeout_config(timeout, retry_timeout_seconds)
 
         call_kwargs = {}
