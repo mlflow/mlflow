@@ -1631,7 +1631,7 @@ class SearchTraceUtils(SearchUtils):
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
     # Supported span attributes
-    _SUPPORTED_SPAN_ATTRIBUTES = {"name"}
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "content"}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {"name", "status", "request_id", "run_id"}
 
@@ -1704,7 +1704,36 @@ class SearchTraceUtils(SearchUtils):
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
+    def _is_plain_text_search(cls, filter_string):
+        """
+        Check if the filter string is a plain text search (no SQL operators like =, !=, LIKE, etc.)
+        Returns True if it's plain text that should be converted to span.content LIKE search.
+        """
+        # Check if filter string contains SQL comparison operators
+        sql_operators = [
+            "=",
+            "!=",
+            "<",
+            ">",
+            "<=",
+            ">=",
+            "LIKE",
+            "ILIKE",
+            "IN",
+            "NOT IN",
+            "AND",
+            "OR",
+        ]
+        filter_upper = filter_string.upper()
+
+        return not any(op in filter_upper for op in sql_operators)
+
+    @classmethod
     def parse_search_filter_for_search_traces(cls, filter_string):
+        # If filter_string is a plain text search, convert it to span.content LIKE
+        if filter_string and cls._is_plain_text_search(filter_string):
+            filter_string = f'span.content LIKE "%{filter_string}%"'
+
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
