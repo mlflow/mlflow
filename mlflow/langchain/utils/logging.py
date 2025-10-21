@@ -1,28 +1,22 @@
 """Utility functions for mlflow.langchain."""
 
-import contextlib
 import functools
 import importlib
 import json
 import logging
 import os
-import re
 import shutil
 import types
-import warnings
 from functools import lru_cache
 from importlib.util import find_spec
 from typing import Any, Callable, NamedTuple
 
 import cloudpickle
 import yaml
-from packaging import version
 from packaging.version import Version
 
 import mlflow
-from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _validate_and_get_model_code_path
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.utils.class_utils import _get_class_from_string
 
 _AGENT_PRIMITIVES_FILE_NAME = "agent_primitive_args.json"
@@ -52,9 +46,6 @@ _UNSUPPORTED_MODEL_WARNING_MESSAGE = (
 _UNSUPPORTED_LLM_WARNING_MESSAGE = (
     "MLflow does not guarantee support for LLMs outside of HuggingFacePipeline and OpenAI, found %s"
 )
-
-
-_CHAT_MODELS_ERROR_MSG = re.compile("Loading (openai-chat|azure-openai-chat) LLM not supported")
 
 
 try:
@@ -190,8 +181,6 @@ def _get_special_chain_info_or_none(chain):
 
 @lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
-    import langchain
-
     from mlflow.langchain.retriever_chain import _RetrieverChain
 
     class_name_to_loader_arg = {
@@ -199,13 +188,10 @@ def _get_map_of_special_chain_class_to_loader_arg():
         "langchain.chains.APIChain": "requests_wrapper",
         "langchain.chains.HypotheticalDocumentEmbedder": "embeddings",
     }
-    # NB: SQLDatabaseChain was migrated to langchain_experimental beginning with version 0.0.247
-    if version.parse(langchain.__version__) <= version.parse("0.0.246"):
-        class_name_to_loader_arg["langchain.chains.SQLDatabaseChain"] = "database"
-    else:
-        if find_spec("langchain_experimental"):
-            # Add this entry only if langchain_experimental is installed
-            class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
+    # SQLDatabaseChain is in langchain_experimental (since version 0.0.247+)
+    if find_spec("langchain_experimental"):
+        # Add this entry only if langchain_experimental is installed
+        class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
 
     class_to_loader_arg = {
         _RetrieverChain: "retriever",
@@ -441,15 +427,10 @@ def _get_path_by_key(root_path, key, conf):
 
 def _patch_loader(loader_func: Callable[..., Any]) -> Callable[..., Any]:
     """
-    Patch LangChain loader function like load_chain() to handle the breaking change introduced in
-    LangChain 0.1.12.
+    Patch LangChain loader function like load_chain() to handle pickle deserialization.
 
     Since langchain-community 0.0.27, loading a module that relies on the pickle deserialization
     requires the `allow_dangerous_deserialization` flag to be set to True, for security reasons.
-    However, this flag could not be specified via the LangChain's loading API like load_chain(),
-    load_llm(), until LangChain 0.1.14. As a result, such module cannot be loaded with MLflow
-    with earlier version of LangChain and we have to tell the user to upgrade LangChain to 0.0.14
-    or above.
 
     Args:
         loader_func: The LangChain loader function to be patched e.g. load_chain().
@@ -460,31 +441,11 @@ def _patch_loader(loader_func: Callable[..., Any]) -> Callable[..., Any]:
     if not IS_PICKLE_SERIALIZATION_RESTRICTED:
         return loader_func
 
-    import langchain
-
-    if Version(langchain.__version__) >= Version("0.1.14"):
-        # For LangChain 0.1.14 and above, we can pass `allow_dangerous_deserialization` flag
-        # via the loader APIs. Since the model is serialized by the user (or someone who has
-        # access to the tracking server), it is safe to set this flag to True.
-        def patched_loader(*args, **kwargs):
-            return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
-    else:
-
-        def patched_loader(*args, **kwargs):
-            try:
-                return loader_func(*args, **kwargs)
-            except ValueError as e:
-                if "This code relies on the pickle module" in str(e):
-                    raise MlflowException(
-                        "Since langchain-community 0.0.27, loading a module that relies on "
-                        "the pickle deserialization requires the `allow_dangerous_deserialization` "
-                        "flag to be set to True when loading. However, this flag is not supported "
-                        "by the installed version of LangChain. Please upgrade LangChain to 0.1.14 "
-                        "or above by running `pip install langchain>=0.1.14`.",
-                        error_code=INTERNAL_ERROR,
-                    ) from e
-                else:
-                    raise
+    # For LangChain >= 0.3.0, we can pass `allow_dangerous_deserialization` flag
+    # via the loader APIs. Since the model is serialized by the user (or someone who has
+    # access to the tracking server), it is safe to set this flag to True.
+    def patched_loader(*args, **kwargs):
+        return loader_func(*args, **kwargs, allow_dangerous_deserialization=True)
 
     return patched_loader
 
@@ -589,16 +550,6 @@ def patch_langchain_type_to_cls_dict(func):
 
         try:
             return func(*args, **kwargs)
-        except ValueError as e:
-            if m := _CHAT_MODELS_ERROR_MSG.search(str(e)):
-                model_name = "ChatOpenAI" if m.group(1) == "openai-chat" else "AzureChatOpenAI"
-                raise mlflow.MlflowException(
-                    f"Loading {model_name} chat model is not supported in MLflow with the "
-                    "current version of LangChain. Please upgrade LangChain to 0.0.307 or above "
-                    "by running `pip install langchain>=0.0.307`."
-                ) from e
-            else:
-                raise
         finally:
             # Clean up the patch
             for module_name, original_impl in originals.items():
@@ -606,66 +557,3 @@ def patch_langchain_type_to_cls_dict(func):
                 module.get_type_to_cls_dict = original_impl
 
     return wrapper
-
-
-def register_pydantic_serializer():
-    """
-    Helper function to pickle pydantic fields for pydantic v1.
-    Pydantic's Cython validators are not serializable.
-    https://github.com/cloudpipe/cloudpickle/issues/408
-    """
-    import pydantic
-
-    if Version(pydantic.__version__) >= Version("2.0.0"):
-        return
-
-    import pydantic.fields
-
-    def custom_serializer(obj):
-        return {
-            "name": obj.name,
-            # outer_type_ is the original type for ModelFields,
-            # while type_ can be updated later with the nested type
-            # like int for List[int].
-            "type_": obj.outer_type_,
-            "class_validators": obj.class_validators,
-            "model_config": obj.model_config,
-            "default": obj.default,
-            "default_factory": obj.default_factory,
-            "required": obj.required,
-            "final": obj.final,
-            "alias": obj.alias,
-            "field_info": obj.field_info,
-        }
-
-    def custom_deserializer(kwargs):
-        return pydantic.fields.ModelField(**kwargs)
-
-    def _CloudPicklerReducer(obj):
-        return custom_deserializer, (custom_serializer(obj),)
-
-    warnings.warn(
-        "Using custom serializer to pickle pydantic.fields.ModelField classes, "
-        "this might miss some fields and validators. To avoid this, "
-        "please upgrade pydantic to v2 using `pip install pydantic -U` with "
-        "langchain 0.0.267 and above."
-    )
-    cloudpickle.CloudPickler.dispatch[pydantic.fields.ModelField] = _CloudPicklerReducer
-
-
-def unregister_pydantic_serializer():
-    import pydantic
-
-    if Version(pydantic.__version__) >= Version("2.0.0"):
-        return
-
-    cloudpickle.CloudPickler.dispatch.pop(pydantic.fields.ModelField, None)
-
-
-@contextlib.contextmanager
-def register_pydantic_v1_serializer_cm():
-    try:
-        register_pydantic_serializer()
-        yield
-    finally:
-        unregister_pydantic_serializer()
