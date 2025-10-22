@@ -68,8 +68,14 @@ def test_make_judge_with_description(name: str, description: str | None):
     assert judge.description == description
 
 
-def test_instructions_judge_with_description():
-    description = "Direct InstructionsJudge with description"
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Direct InstructionsJudge with description",
+        None,
+    ],
+)
+def test_instructions_judge_description(description: str | None):
     judge = InstructionsJudge(
         name="test_judge",
         instructions="Evaluate {{ outputs }}",
@@ -80,19 +86,14 @@ def test_instructions_judge_with_description():
     assert judge.description == description
 
 
-def test_instructions_judge_without_description():
-    judge = InstructionsJudge(
-        name="test_judge",
-        instructions="Evaluate {{ outputs }}",
-        model="openai:/gpt-4",
-    )
-
-    assert judge.description is None
-
-
-def test_scorer_serialization_with_description():
-    description = "Test description for serialization"
-
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Test description for serialization",
+        None,
+    ],
+)
+def test_scorer_serialization(description: str | None):
     @scorer(description=description)
     def test_scorer(outputs) -> bool:
         return True
@@ -102,17 +103,6 @@ def test_scorer_serialization_with_description():
     assert "description" in serialized
     assert serialized["description"] == description
     assert serialized["name"] == "test_scorer"
-
-
-def test_scorer_serialization_without_description():
-    @scorer
-    def test_scorer(outputs) -> bool:
-        return True
-
-    serialized = test_scorer.model_dump()
-
-    assert "description" in serialized
-    assert serialized["description"] is None
 
 
 def test_scorer_deserialization_with_description():

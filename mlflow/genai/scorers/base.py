@@ -109,8 +109,8 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    description: str | None = None
     aggregations: list[_AggregationType] | None = None
+    description: str | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
