@@ -28,7 +28,7 @@ jobs:
        github.event.issue.pull_request &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
-       startsWith(github.event.comment.body, '/pr-review'))
+       startsWith(github.event.comment.body, '/review'))
     steps:
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
