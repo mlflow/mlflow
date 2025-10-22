@@ -428,6 +428,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
     parentId,
