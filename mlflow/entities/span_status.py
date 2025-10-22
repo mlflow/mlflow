@@ -18,6 +18,20 @@ class SpanStatusCode(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
+    def to_proto_status_code_name(self) -> str:
+        """
+        Convert the SpanStatusCode to the corresponding protobuf enum name.
+
+        Returns:
+            The protobuf enum name (e.g., "STATUS_CODE_OK")
+        """
+        mapping = {
+            SpanStatusCode.UNSET: "STATUS_CODE_UNSET",
+            SpanStatusCode.OK: "STATUS_CODE_OK",
+            SpanStatusCode.ERROR: "STATUS_CODE_ERROR",
+        }
+        return mapping[self]
+
     @staticmethod
     def from_proto_status_code(status_code: str) -> SpanStatusCode:
         """

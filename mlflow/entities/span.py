@@ -240,7 +240,7 @@ class Span:
                 for event in self.events
             ],
             "status": {
-                "code": self.status.status_code.value,
+                "code": self.status.status_code.to_proto_status_code_name(),
                 "message": self.status.description,
             },
             # save the dumped attributes so they can be loaded correctly when deserializing
@@ -279,8 +279,16 @@ class Span:
                 )
                 span_id = decode_id(data["span_id"])
                 parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
+                # Try to parse as protobuf enum name first (for backward compatibility),
+                # then fall back to value format (for forward compatibility)
+                status_code_str = data["status"]["code"]
+                try:
+                    status_code = SpanStatusCode.from_proto_status_code(status_code_str)
+                except (KeyError, MlflowException):
+                    # Fall back to value format (e.g., "OK", "ERROR")
+                    status_code = SpanStatusCode(status_code_str)
                 status = SpanStatus(
-                    status_code=SpanStatusCode(data["status"]["code"]),
+                    status_code=status_code,
                     description=data["status"].get("message"),
                 )
 

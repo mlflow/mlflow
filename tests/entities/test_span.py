@@ -614,7 +614,7 @@ def test_span_to_dict_v4_format():
 
     # Verify status structure
     assert "status" in span_dict
-    assert span_dict["status"]["code"] == SpanStatusCode.OK.value
+    assert span_dict["status"]["code"] == "STATUS_CODE_OK"
     assert "message" in span_dict["status"]
 
     # Verify events structure
@@ -699,3 +699,33 @@ def test_span_dict_v4_preserves_ids_across_serialization():
     assert recovered.trace_id == child.trace_id
     assert recovered.span_id == child.span_id
     assert recovered.parent_id == child.parent_id
+
+
+def test_span_from_dict_supports_both_status_code_formats():
+    """Test that from_dict handles both protobuf enum names and enum values."""
+    with mlflow.start_span("test") as span:
+        span.set_status("OK")
+
+    span_dict = span.to_dict()
+
+    # Current code serializes as protobuf enum name
+    assert span_dict["status"]["code"] == "STATUS_CODE_OK"
+
+    # Verify we can deserialize protobuf enum name format (backward compatibility)
+    span_dict["status"]["code"] = "STATUS_CODE_ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
+
+    # Verify we can also deserialize enum value format
+    # (forward compatibility with older serialized data)
+    span_dict["status"]["code"] = "OK"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.OK
+
+    span_dict["status"]["code"] = "UNSET"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.UNSET
+
+    span_dict["status"]["code"] = "ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
