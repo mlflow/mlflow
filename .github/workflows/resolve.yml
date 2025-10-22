@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: read
-      pull-requests: read
+      pull-requests: write
     timeout-minutes: 30
     outputs:
       claude_output: ${{ steps.claude-fix.outputs.output }}
