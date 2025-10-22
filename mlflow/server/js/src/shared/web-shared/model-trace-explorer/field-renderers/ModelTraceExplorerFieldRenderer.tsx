@@ -10,6 +10,7 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
+import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 
 const MAX_VISIBLE_MESSAGES = 3;
 
@@ -38,7 +39,7 @@ export const ModelTraceExplorerFieldRenderer = ({
     setMessagesExpanded(false);
   }, [data]);
 
-  const dataIsScalar =  isString(parsedData) || isNumber(parsedData) || isBoolean(parsedData)
+  const dataIsScalar = isString(parsedData) || isNumber(parsedData) || isBoolean(parsedData);
   // wrap the value in an object with the title as key. this helps normalizeConversation
   // recognize the format, as this util function was designed to receive the whole input
   // object rather than value by value. it does not work for complex cases where we need
@@ -77,7 +78,18 @@ export const ModelTraceExplorerFieldRenderer = ({
             componentId="shared.model-trace-explorer.conversation-toggle"
             onClick={() => setMessagesExpanded(!messagesExpanded)}
           >
-            {messagesExpanded ? 'Show less' : `Show ${hiddenMessageCount} more`}
+            {messagesExpanded ? (
+              <FormattedMessage
+                defaultMessage="Show less"
+                description="Button label to collapse conversation messages in model trace explorer"
+              />
+            ) : (
+              <FormattedMessage
+                defaultMessage="Show {hiddenMessageCount} more"
+                description="Button label to expand and show hidden conversation messages in model trace explorer"
+                values={{ hiddenMessageCount }}
+              />
+            )}
           </Typography.Link>
         )}
         <ModelTraceExplorerConversation messages={visibleMessages} />
@@ -96,7 +108,6 @@ export const ModelTraceExplorerFieldRenderer = ({
   if (dataIsScalar) {
     return <ModelTraceExplorerTextFieldRenderer title={title} value={String(parsedData)} />;
   }
-
 
   if (isChatTools) {
     return <ModelTraceExplorerChatToolsRenderer title={title} tools={parsedData} />;
