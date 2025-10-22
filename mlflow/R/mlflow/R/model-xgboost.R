@@ -12,7 +12,7 @@ mlflow_save_model.xgb.Booster <- function(model,
   if (dir.exists(path)) unlink(path, recursive = TRUE)
   dir.create(path)
 
-  model_data_subpath <- "model.xgb"
+  model_data_subpath <- "model.ubj"
   xgboost::xgb.save(model, fname = file.path(path, model_data_subpath))
   version <- remove_patch_version(
     as.character(utils::packageVersion("xgboost"))
@@ -37,7 +37,7 @@ mlflow_save_model.xgb.Booster <- function(model,
 #' @export
 mlflow_load_flavor.mlflow_flavor_xgboost <- function(flavor, model_path) {
   assert_pkg_installed("xgboost")
-  model_data_subpath <- "model.xgb"
+  model_data_subpath <- "model.ubj"
   xgboost::xgb.load(file.path(model_path, model_data_subpath))
 }
 
