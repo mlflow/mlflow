@@ -74,7 +74,7 @@ class SecurityHeadersMiddleware:
                 headers = dict(message.get("headers", []))
                 headers[b"x-content-type-options"] = b"nosniff"
 
-                # Skip X-Frame-Options for notebook-trace-renderer to allow iframe embedding in Jupyter
+                # Skip X-Frame-Options for notebook renderer to allow iframe embedding in notebooks
                 path = scope.get("path", "")
                 is_notebook_renderer = path.startswith(TRACE_RENDERER_ASSET_PATH)
 
