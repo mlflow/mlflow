@@ -182,6 +182,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      pull-requests: write
     timeout-minutes: 5
     steps:
       - name: Update original comment with result
