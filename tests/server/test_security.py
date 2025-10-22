@@ -160,7 +160,42 @@ def test_x_frame_options_configuration():
         assert "X-Frame-Options" not in response.headers
 
 
-def test_wildcard_hosts(test_app):
+def test_notebook_trace_renderer_skips_x_frame_options(monkeypatch: pytest.MonkeyPatch):
+    from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
+
+    app = Flask(__name__)
+
+    @app.route(f"{TRACE_RENDERER_ASSET_PATH}/index.html")
+    def notebook_renderer():
+        return "<html>trace renderer</html>"
+
+    @app.route(f"{TRACE_RENDERER_ASSET_PATH}/js/main.js")
+    def notebook_renderer_js():
+        return "console.log('trace renderer');"
+
+    @app.route("/static-files/other-page.html")
+    def other_page():
+        return "<html>other page</html>"
+
+    # Set X-Frame-Options to DENY to test that it's skipped for notebook renderer
+    monkeypatch.setenv("MLFLOW_SERVER_X_FRAME_OPTIONS", "DENY")
+    security.init_security_middleware(app)
+    client = Client(app)
+
+    response = client.get(f"{TRACE_RENDERER_ASSET_PATH}/index.html")
+    assert response.status_code == 200
+    assert "X-Frame-Options" not in response.headers
+
+    response = client.get(f"{TRACE_RENDERER_ASSET_PATH}/js/main.js")
+    assert response.status_code == 200
+    assert "X-Frame-Options" not in response.headers
+
+    response = client.get("/static-files/other-page.html")
+    assert response.status_code == 200
+    assert response.headers.get("X-Frame-Options") == "DENY"
+
+
+def test_wildcard_hosts(test_app, monkeypatch: pytest.MonkeyPatch):
     """Test that wildcard hosts allow all."""
     with mock.patch.dict(os.environ, {"MLFLOW_SERVER_ALLOWED_HOSTS": "*"}):
         security.init_security_middleware(test_app)
