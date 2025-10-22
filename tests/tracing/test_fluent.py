@@ -1046,32 +1046,6 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
 
 
 @skip_when_testing_trace_sdk
-def test_search_traces_dataframe_contains_human_readable_ids():
-    model = DefaultTestModel()
-    model.predict(2, 5)
-
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    df = mlflow.search_traces(max_results=1)
-
-    # Verify trace_id in DataFrame is human-readable (not encoded)
-    assert df.iloc[0].trace_id == trace.info.trace_id
-    # The trace_id should be in tr-XXXXX format, not base64 encoded
-    assert df.iloc[0].trace_id.startswith("tr-")
-
-    # Verify spans in DataFrame contain human-readable IDs (not base64 encoded)
-    df_spans = df.iloc[0].spans
-    expected_spans = [span.to_dict() for span in trace.data.spans]
-    assert df_spans == expected_spans
-
-    # Verify that each span has non-encoded IDs
-    for df_span, trace_span in zip(df_spans, trace.data.spans):
-        # IDs should match the human-readable format
-        assert df_span["trace_id"] == trace_span.trace_id
-        assert df_span["span_id"] == trace_span.span_id
-        assert df_span["parent_span_id"] == trace_span.parent_id
-
-
-@skip_when_testing_trace_sdk
 def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     mock_client.search_traces.return_value = PagedList(
         [

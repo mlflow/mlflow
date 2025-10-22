@@ -591,44 +591,6 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.attributes == orig_event.attributes
 
 
-def test_span_to_dict_v4_format():
-    with mlflow.start_span("parent"):
-        with mlflow.start_span("child", span_type=SpanType.LLM) as span:
-            span.set_inputs({"input": 1})
-            span.set_outputs(2)
-            span.set_attribute("key", 3)
-            span.set_status("OK")
-            span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
-
-    span_dict = span.to_dict()
-
-    # Verify human-readable IDs (not base64 encoded)
-    assert span_dict["trace_id"].startswith("tr-")
-    assert not span_dict["span_id"].startswith("tr-")
-    assert not span_dict["parent_span_id"].startswith("tr-")
-
-    # Verify structure
-    assert span_dict["name"] == "child"
-    assert isinstance(span_dict["start_time_unix_nano"], int)
-    assert isinstance(span_dict["end_time_unix_nano"], int)
-
-    # Verify status structure
-    assert "status" in span_dict
-    assert span_dict["status"]["code"] == SpanStatusCode.OK.value
-    assert "message" in span_dict["status"]
-
-    # Verify events structure
-    assert len(span_dict["events"]) == 1
-    assert span_dict["events"][0]["name"] == "test_event"
-    assert span_dict["events"][0]["time_unix_nano"] == 99999
-    assert span_dict["events"][0]["attributes"] == {"foo": "bar"}
-
-    # Verify attributes are preserved
-    assert "attributes" in span_dict
-    assert "mlflow.spanInputs" in span_dict["attributes"]
-    assert "mlflow.spanOutputs" in span_dict["attributes"]
-
-
 def test_span_from_dict_old_format():
     span_dict = {
         "trace_id": "6ST7JNq8BC4JRp0HA/vD6Q==",
@@ -681,21 +643,130 @@ def test_span_dict_v4_with_no_parent():
     assert recovered.outputs == {"y": 2}
 
 
-def test_span_dict_v4_preserves_ids_across_serialization():
-    with mlflow.start_span("parent"):
-        with mlflow.start_span("child") as child:
-            pass
+def test_span_from_dict_supports_both_status_code_formats():
+    with mlflow.start_span("test") as span:
+        span.set_status("OK")
 
-    # Get the dict representation
-    child_dict = child.to_dict()
+    span_dict = span.to_dict()
 
-    # Verify IDs are in human-readable format
-    assert child_dict["trace_id"] == child.trace_id
-    assert child_dict["span_id"] == child.span_id
-    assert child_dict["parent_span_id"] == child.parent_id
+    # Current code serializes as protobuf enum name
+    assert span_dict["status"]["code"] == "STATUS_CODE_OK"
 
-    # Deserialize and verify IDs match
-    recovered = Span.from_dict(child_dict)
-    assert recovered.trace_id == child.trace_id
-    assert recovered.span_id == child.span_id
-    assert recovered.parent_id == child.parent_id
+    # Verify we can deserialize protobuf enum name format (backward compatibility)
+    span_dict["status"]["code"] = "STATUS_CODE_ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
+
+    # Verify we can also deserialize enum value format
+    # (forward compatibility with older serialized data)
+    span_dict["status"]["code"] = "OK"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.OK
+
+    span_dict["status"]["code"] = "UNSET"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.UNSET
+
+    span_dict["status"]["code"] = "ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
+
+
+def test_load_from_old_span_dict():
+    span_dict = {
+        "trace_id": "ZqqBulxlq2cwRCfKHxmDVA==",
+        "span_id": "/mCYZRxbTqw=",
+        "trace_state": "",
+        "parent_span_id": "f6qlKYqTw2E=",
+        "name": "custom",
+        "start_time_unix_nano": 1761103703884225000,
+        "end_time_unix_nano": 1761103703884454000,
+        "attributes": {
+            "mlflow.spanOutputs": "4",
+            "mlflow.spanType": '"LLM"',
+            "mlflow.spanInputs": '{"z": 3}',
+            "mlflow.traceRequestId": '"tr-66aa81ba5c65ab67304427ca1f198354"',
+            "delta": "1",
+            "mlflow.spanFunctionName": '"add_one"',
+        },
+        "status": {"message": "", "code": "STATUS_CODE_OK"},
+        "events": [
+            {
+                "time_unix_nano": 1761105506649041,
+                "name": "agent_action",
+                "attributes": {
+                    "tool": "search_web",
+                    "tool_input": '"What is MLflow?"',
+                    "log": "test",
+                },
+            }
+        ],
+    }
+    span = Span.from_dict(span_dict)
+    assert span.trace_id == "tr-66aa81ba5c65ab67304427ca1f198354"
+    assert span.span_id == "fe6098651c5b4eac"
+    assert span.parent_id == "7faaa5298a93c361"
+    assert span.name == "custom"
+    assert span.start_time_ns == 1761103703884225000
+    assert span.end_time_ns == 1761103703884454000
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.inputs == {"z": 3}
+    assert span.outputs == 4
+    assert len(span.events) == 1
+    assert span.events[0].name == "agent_action"
+    assert span.events[0].timestamp == 1761105506649041
+    assert span.events[0].attributes == {
+        "tool": "search_web",
+        "tool_input": '"What is MLflow?"',
+        "log": "test",
+    }
+
+
+def test_load_from_3_5_0_span_dict():
+    span_dict = {
+        "trace_id": "tr-66aa81ba5c65ab67304427ca1f198354",
+        "span_id": "fe6098651c5b4eac",
+        "trace_state": "",
+        "parent_span_id": "7faaa5298a93c361",
+        "name": "custom",
+        "start_time_unix_nano": 1761103703884225000,
+        "end_time_unix_nano": 1761103703884454000,
+        "attributes": {
+            "mlflow.spanOutputs": "4",
+            "mlflow.spanType": '"LLM"',
+            "mlflow.spanInputs": '{"z": 3}',
+            "mlflow.traceRequestId": '"tr-66aa81ba5c65ab67304427ca1f198354"',
+            "delta": "1",
+            "mlflow.spanFunctionName": '"add_one"',
+        },
+        "status": {"message": "", "code": "OK"},
+        "events": [
+            {
+                "time_unix_nano": 1761105506649041,
+                "name": "agent_action",
+                "attributes": {
+                    "tool": "search_web",
+                    "tool_input": '"What is MLflow?"',
+                    "log": "test",
+                },
+            }
+        ],
+    }
+    span = Span.from_dict(span_dict)
+    assert span.trace_id == "tr-66aa81ba5c65ab67304427ca1f198354"
+    assert span.span_id == "fe6098651c5b4eac"
+    assert span.parent_id == "7faaa5298a93c361"
+    assert span.name == "custom"
+    assert span.start_time_ns == 1761103703884225000
+    assert span.end_time_ns == 1761103703884454000
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.inputs == {"z": 3}
+    assert span.outputs == 4
+    assert len(span.events) == 1
+    assert span.events[0].name == "agent_action"
+    assert span.events[0].timestamp == 1761105506649041
+    assert span.events[0].attributes == {
+        "tool": "search_web",
+        "tool_input": '"What is MLflow?"',
+        "log": "test",
+    }
