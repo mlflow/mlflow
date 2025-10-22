@@ -18,6 +18,8 @@ Bug fixes:
 - [MCP] Move fastmcp to optional mcp extra (#18422, @harupy)
 - [Model Registry] Fix serialization bug in file store (#18365, @BenWilson2)
 - [Scoring] Pin uvloop<0.22 to fix mlserver compatibility (#18370, @harupy)
+- [Tracing] Fix a forward-compatibility issue with Span to_dict (#18439, @serena-ruan)
+- [Tracing] Whitelist notebook trace UI renderer to allow display with default security settings (#18446, @TomeHirata)
 - [Tracing] Fix attribute error in StrandsAgent tracing (#18409, @B-Step62)
 - [Tracing] Adjust truncation logic in trace previews (#18412, @BenWilson2)
 - [Tracing] Revert "Fix response handling in log_spans (#18280)" (#18349, @serena-ruan)
