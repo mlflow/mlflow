@@ -273,7 +273,9 @@ def test_to_predict_fn_reuses_trace_in_dual_write_mode(
     """
     # Set up an experiment context
     experiment_id = "test-experiment-123"
-    with mock.patch("mlflow.genai.evaluation.base._get_experiment_id", return_value=experiment_id):
+    with mock.patch(
+        "mlflow.genai.evaluation.base._get_experiment_id", return_value=experiment_id
+    ) as mock_get_experiment_id:
         # Create a trace dict with experiment_id matching the current experiment
         trace_dict = sample_rag_trace.to_dict()
         trace_dict["info"]["trace_location"] = {
@@ -304,6 +306,7 @@ def test_to_predict_fn_reuses_trace_in_dual_write_mode(
         # The trace should NOT be copied when it's already in the current experiment
         mock_tracing_client.start_trace.assert_not_called()
         mock_tracing_client._upload_trace_data.assert_not_called()
+        mock_get_experiment_id.assert_called_once()
 
 
 def test_to_predict_fn_copies_trace_when_experiment_differs(
@@ -319,7 +322,7 @@ def test_to_predict_fn_copies_trace_when_experiment_differs(
 
     with mock.patch(
         "mlflow.genai.evaluation.base._get_experiment_id", return_value=current_experiment_id
-    ):
+    ) as mock_get_experiment_id:
         # Create a trace dict with a different experiment_id
         trace_dict = sample_rag_trace.to_dict()
         trace_dict["info"]["trace_location"] = {
@@ -353,3 +356,4 @@ def test_to_predict_fn_copies_trace_when_experiment_differs(
         # Copied trace should have a new trace ID
         assert trace_info.trace_id != sample_rag_trace.info.trace_id
         mock_tracing_client._upload_trace_data.assert_called_once()
+        mock_get_experiment_id.assert_called_once()
