@@ -29,7 +29,12 @@ export const ModelTraceExplorerFieldRenderer = ({
   }, [data]);
 
   const dataIsString = isString(parsedData);
-  const chatMessages = normalizeConversation(parsedData, chatMessageFormat);
+  // wrap the value in an object with the title as key. this helps normalizeConversation
+  // recognize the format, as this util function was designed to receive the whole input
+  // object rather than value by value. it does not work for complex cases where we need
+  // to check multiple keys in the object (e.g. anthropic), but works for cases where we're
+  // basically just looking for the field that contains chat messages.
+  const chatMessages = normalizeConversation(title ? { [title]: parsedData } : parsedData, chatMessageFormat);
   const isChatTools = Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isModelTraceChatTool);
   const isRetrieverDocuments =
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
