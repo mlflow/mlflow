@@ -38,7 +38,7 @@ from mlflow.telemetry.events import LogAssessmentEvent, StartTraceEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.constant import (
     GET_TRACE_V4_RETRY_TIMEOUT_SECONDS,
-    TRACKING_STORE,
+    SpansLocation,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -177,7 +177,7 @@ class TracingClient:
                 trace_info = self.get_trace_info(trace_id)
                 # if the trace is stored in the tracking store, load spans from the tracking store
                 # otherwise, load spans from the artifact repository
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
                     trace_data = self.store.batch_get_traces([trace_info.trace_id])[0].data
                 else:
                     trace_data = self._download_trace_data(trace_info)
@@ -443,7 +443,7 @@ class TracingClient:
             elif trace_info.trace_location.mlflow_experiment:
                 # New traces in SQL store store spans in the tracking store, while for old traces or
                 # traces with File store, spans are stored in artifact repository.
-                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE:
+                if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
                     tracking_store_trace_infos_by_location[None].append(trace_info)

@@ -9,7 +9,7 @@ import mlflow
 from mlflow.entities.span import create_mlflow_span
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TRACKING_STORE, TraceTagKey
+from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
@@ -176,7 +176,7 @@ def test_tracing_client_get_trace_with_database_stored_spans():
     trace = client.get_trace(trace_id)
 
     assert trace.info.trace_id == trace_id
-    assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == TRACKING_STORE
+    assert trace.info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE
 
     assert len(trace.data.spans) == 1
     loaded_span = trace.data.spans[0]
