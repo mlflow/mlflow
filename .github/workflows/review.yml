@@ -131,7 +131,7 @@ jobs:
             if (claudeOutput) {
               try {
                 const events = JSON.parse(claudeOutput);
-                const resultEvent = events.find(({ type }) => type === 'result');
+                const resultEvent = events.findLast(({ type }) => type === 'result');
                 if (resultEvent) {
                   resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
                 }
