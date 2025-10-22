@@ -143,16 +143,12 @@ def test_tracing_client_calculate_trace_filter_correlation_without_base_filter()
 
 @skip_when_testing_trace_sdk
 def test_tracing_client_get_trace_with_database_stored_spans():
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
     client = TracingClient()
 
     experiment_id = mlflow.create_experiment("test")
     trace_id = f"tr-{uuid.uuid4().hex}"
 
     store = client.store
-    if not isinstance(store, SqlAlchemyStore):
-        return
 
     otel_span = OTelReadableSpan(
         name="test_span",

@@ -1318,6 +1318,7 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
             },
             # ensure this span has a smaller start time than the remote trace
             # so when it's loaded the order is correct when sorting by start time
+            # TODO: deprecate this function once we fully support OTel traces
             start_time_ns=remote_root_span.start_time_ns - 1,
         )
         _merge_trace(

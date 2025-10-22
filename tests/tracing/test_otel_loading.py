@@ -58,38 +58,32 @@ def _flush_async_logging():
     exporter._async_queue.flush(terminate=True)
 
 
-@pytest.fixture
-def otel_tracer_setup(mlflow_server):
-    def _create_tracer(experiment_id, service_name="test-service"):
-        resource = OTelSDKResource.create(
-            {"service.name": service_name, "service.version": "1.0.0"}
-        )
-        tracer_provider = TracerProvider(resource=resource)
+def create_tracer(mlflow_server: str, experiment_id: str, service_name: str = "test-service"):
+    resource = OTelSDKResource.create({"service.name": service_name, "service.version": "1.0.0"})
+    tracer_provider = TracerProvider(resource=resource)
 
-        exporter = OTLPSpanExporter(
-            endpoint=f"{mlflow_server}/v1/traces",
-            headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
-            timeout=10,
-        )
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,
+    )
 
-        span_processor = SimpleSpanProcessor(exporter)
-        tracer_provider.add_span_processor(span_processor)
+    span_processor = SimpleSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
 
-        # Reset the global tracer provider
-        otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
-        otel_trace._TRACER_PROVIDER = None
-        otel_trace.set_tracer_provider(tracer_provider)
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
 
-        return otel_trace.get_tracer(__name__)
-
-    return _create_tracer
+    return otel_trace.get_tracer(__name__)
 
 
-def test_get_trace_for_otel_sent_span(mlflow_server: str, otel_tracer_setup, is_async):
+def test_get_trace_for_otel_sent_span(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-get-trace-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "test-service-get-trace")
+    tracer = create_tracer(mlflow_server, experiment_id, "test-service-get-trace")
 
     # Create a span with various attributes to test conversion
     with tracer.start_as_current_span("otel-test-span") as span:
@@ -137,11 +131,11 @@ def test_get_trace_for_otel_sent_span(mlflow_server: str, otel_tracer_setup, is_
     assert trace_id == expected_trace_id
 
 
-def test_get_trace_for_otel_nested_spans(mlflow_server: str, otel_tracer_setup, is_async):
+def test_get_trace_for_otel_nested_spans(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-nested-spans-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "nested-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "nested-test-service")
 
     # Create nested spans
     with tracer.start_as_current_span("parent-span") as parent_span:
@@ -181,11 +175,11 @@ def test_get_trace_for_otel_nested_spans(mlflow_server: str, otel_tracer_setup, 
     assert child_span.parent_id == parent_span.span_id  # Child should reference parent
 
 
-def test_get_trace_with_otel_span_events(mlflow_server: str, otel_tracer_setup, is_async):
+def test_get_trace_with_otel_span_events(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-events-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "events-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "events-test-service")
 
     # Create span with events using OTel SDK
     with tracer.start_as_current_span("span-with-events") as span:
@@ -221,11 +215,11 @@ def test_get_trace_nonexistent_otel_trace(mlflow_server: str):
     assert trace is None
 
 
-def test_get_trace_with_otel_span_status(mlflow_server: str, otel_tracer_setup, is_async):
+def test_get_trace_with_otel_span_status(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-status-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "status-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "status-test-service")
 
     # Create span with error status using OTel SDK
     with tracer.start_as_current_span("error-span") as span:
@@ -249,11 +243,11 @@ def test_get_trace_with_otel_span_status(mlflow_server: str, otel_tracer_setup, 
     assert "Something went wrong" in retrieved_span.status.description
 
 
-def test_set_trace_tag_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_async):
+def test_set_trace_tag_on_otel_trace(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-tag-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "tag-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "tag-test-service")
 
     with tracer.start_as_current_span("tagged-span") as span:
         span.set_attribute("test.attribute", "value")
@@ -274,11 +268,11 @@ def test_set_trace_tag_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_a
     assert retrieved_trace.info.tags["version"] == "1.0.0"
 
 
-def test_log_expectation_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_async):
+def test_log_expectation_on_otel_trace(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-expectation-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "expectation-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "expectation-test-service")
 
     # Create a span that represents a question-answer scenario
     with tracer.start_as_current_span("qa-span") as span:
@@ -313,11 +307,11 @@ def test_log_expectation_on_otel_trace(mlflow_server: str, otel_tracer_setup, is
     assert expectation.metadata["confidence"] == "high"
 
 
-def test_log_feedback_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_async):
+def test_log_feedback_on_otel_trace(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-feedback-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "feedback-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "feedback-test-service")
 
     # Create a span representing a model prediction
     with tracer.start_as_current_span("prediction-span") as span:
@@ -366,11 +360,11 @@ def test_log_feedback_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_as
     assert feedback.source.source_type == AssessmentSourceType.HUMAN
 
 
-def test_multiple_assessments_on_otel_trace(mlflow_server: str, otel_tracer_setup, is_async):
+def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
     experiment = mlflow.set_experiment("otel-multi-assessment-test")
     experiment_id = experiment.experiment_id
 
-    tracer = otel_tracer_setup(experiment_id, "multi-assessment-test-service")
+    tracer = create_tracer(mlflow_server, experiment_id, "multi-assessment-test-service")
 
     # Create a complex trace with nested spans
     with tracer.start_as_current_span("conversation") as parent_span:

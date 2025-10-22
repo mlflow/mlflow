@@ -441,6 +441,8 @@ class TracingClient:
                 location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
                 tracking_store_trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
+                # New traces in SQL store store spans in the tracking store, while for old traces or
+                # traces with File store, spans are stored in artifact repository.
                 if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
