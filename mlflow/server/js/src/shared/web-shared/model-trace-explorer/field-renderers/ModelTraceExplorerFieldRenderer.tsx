@@ -39,6 +39,10 @@ export const ModelTraceExplorerFieldRenderer = ({
   const isRetrieverDocuments =
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
+  if (chatMessages && chatMessages.length > 0) {
+    return <ModelTraceExplorerConversation messages={chatMessages} />;
+  }
+
   if (renderMode === 'json') {
     return <ModelTraceExplorerCodeSnippet title={title} data={data} initialRenderMode={CodeSnippetRenderMode.JSON} />;
   }
@@ -49,10 +53,6 @@ export const ModelTraceExplorerFieldRenderer = ({
 
   if (dataIsString) {
     return <ModelTraceExplorerTextFieldRenderer title={title} value={parsedData} />;
-  }
-
-  if (chatMessages && chatMessages.length > 0) {
-    return <ModelTraceExplorerConversation messages={chatMessages} />;
   }
 
   if (isChatTools) {
