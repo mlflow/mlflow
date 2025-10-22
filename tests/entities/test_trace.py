@@ -116,7 +116,7 @@ def test_json_deserialization(monkeypatch):
                     "end_time_unix_nano": trace.data.spans[0].end_time_ns,
                     "events": [],
                     "status": {
-                        "code": "OK",
+                        "code": "STATUS_CODE_OK",
                         "message": "",
                     },
                     "attributes": {
@@ -136,7 +136,7 @@ def test_json_deserialization(monkeypatch):
                     "end_time_unix_nano": trace.data.spans[1].end_time_ns,
                     "events": [],
                     "status": {
-                        "code": "OK",
+                        "code": "STATUS_CODE_OK",
                         "message": "",
                     },
                     "attributes": {
@@ -464,3 +464,68 @@ def test_search_assessments():
     assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
     assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
     assert trace.search_assessments(type="expectation") == [assessments[3]]
+
+
+def test_trace_from_dict_load_old_trace():
+    trace_dict = {
+        "info": {
+            "trace_id": "tr-ee17184669c265ffdcf9299b36f6dccc",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
+            },
+            "request_time": "2025-10-22T04:14:54.524Z",
+            "state": "OK",
+            "trace_metadata": {
+                "mlflow.trace_schema.version": "3",
+                "mlflow.traceInputs": '"abc"',
+                "mlflow.source.type": "LOCAL",
+                "mlflow.source.git.branch": "branch-3.4",
+                "mlflow.source.name": "a.py",
+                "mlflow.source.git.commit": "78d075062b120597050bf2b3839a426feea5ea4c",
+                "mlflow.user": "serena.ruan",
+                "mlflow.traceOutputs": '"def"',
+                "mlflow.source.git.repoURL": "git@github.com:mlflow/mlflow.git",
+                "mlflow.trace.sizeBytes": "1226",
+            },
+            "tags": {
+                "mlflow.artifactLocation": "mlflow-artifacts:/0/traces",
+                "mlflow.traceName": "test",
+            },
+            "request_preview": '"abc"',
+            "response_preview": '"def"',
+            "execution_duration_ms": 60,
+        },
+        "data": {
+            "spans": [
+                {
+                    "trace_id": "7hcYRmnCZf/c+SmbNvbczA==",
+                    "span_id": "3ElmHER9IVU=",
+                    "trace_state": "",
+                    "parent_span_id": "",
+                    "name": "test",
+                    "start_time_unix_nano": 1761106494524157000,
+                    "end_time_unix_nano": 1761106494584860000,
+                    "attributes": {
+                        "mlflow.spanOutputs": '"def"',
+                        "mlflow.spanType": '"UNKNOWN"',
+                        "mlflow.spanInputs": '"abc"',
+                        "mlflow.traceRequestId": '"tr-ee17184669c265ffdcf9299b36f6dccc"',
+                        "test": '"test"',
+                    },
+                    "status": {"message": "", "code": "STATUS_CODE_OK"},
+                }
+            ]
+        },
+    }
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.trace_id == "tr-ee17184669c265ffdcf9299b36f6dccc"
+    assert trace.info.request_time == 1761106494524
+    assert trace.info.execution_duration == 60
+    assert trace.info.trace_location == TraceLocation.from_experiment_id("0")
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].inputs == "abc"
+    assert trace.data.spans[0].outputs == "def"
+    assert trace.data.spans[0].start_time_ns == 1761106494524157000
+    assert trace.data.spans[0].end_time_ns == 1761106494584860000

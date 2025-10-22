@@ -476,8 +476,8 @@ mlflow.entities.SpanEvent.to_otel_proto
 mlflow.entities.SpanEvent.to_proto
 mlflow.entities.SpanStatus
 mlflow.entities.SpanStatusCode
-mlflow.entities.SpanStatusCode.from_proto_status_code
-mlflow.entities.SpanStatusCode.to_proto_status_code
+mlflow.entities.SpanStatusCode.from_otel_proto_status_code_name
+mlflow.entities.SpanStatusCode.to_otel_proto_status_code_name
 mlflow.entities.SpanType
 mlflow.entities.Trace
 mlflow.entities.Trace.from_dict

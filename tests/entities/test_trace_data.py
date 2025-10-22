@@ -47,7 +47,7 @@ def test_json_deserialization():
                 "start_time_unix_nano": trace.data.spans[0].start_time_ns,
                 "end_time_unix_nano": trace.data.spans[0].end_time_ns,
                 "status": {
-                    "code": "ERROR",
+                    "code": "STATUS_CODE_ERROR",
                     "message": "Exception: Error!",
                 },
                 "attributes": {
@@ -77,7 +77,7 @@ def test_json_deserialization():
                 "start_time_unix_nano": trace.data.spans[1].start_time_ns,
                 "end_time_unix_nano": trace.data.spans[1].end_time_ns,
                 "status": {
-                    "code": "OK",
+                    "code": "STATUS_CODE_OK",
                     "message": "",
                 },
                 "attributes": {
@@ -100,7 +100,7 @@ def test_json_deserialization():
                 "start_time_unix_nano": trace.data.spans[2].start_time_ns,
                 "end_time_unix_nano": trace.data.spans[2].end_time_ns,
                 "status": {
-                    "code": "ERROR",
+                    "code": "STATUS_CODE_ERROR",
                     "message": "Exception: Error!",
                 },
                 "attributes": {

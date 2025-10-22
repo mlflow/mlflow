@@ -18,16 +18,11 @@ class SpanStatusCode(str, Enum):
     OK = "OK"
     ERROR = "ERROR"
 
-    def to_proto_status_code_name(self) -> str:
+    def to_otel_proto_status_code_name(self) -> str:
         """
-        Convert the SpanStatusCode to the corresponding protobuf enum name.
-
-        Returns:
-            The protobuf enum name (e.g., "STATUS_CODE_OK")
+        Convert the SpanStatusCode to the corresponding OpenTelemetry protobuf enum name.
         """
-        from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-
-        proto_code = ProtoSpan.Status.StatusCode
+        proto_code = OtelStatus.StatusCode
         mapping = {
             SpanStatusCode.UNSET: proto_code.Name(proto_code.STATUS_CODE_UNSET),
             SpanStatusCode.OK: proto_code.Name(proto_code.STATUS_CODE_OK),
@@ -36,24 +31,22 @@ class SpanStatusCode(str, Enum):
         return mapping[self]
 
     @staticmethod
-    def from_proto_status_code(status_code: str) -> SpanStatusCode:
+    def from_otel_proto_status_code_name(status_code_name: str) -> SpanStatusCode:
         """
-        Convert a string status code to the corresponding SpanStatusCode enum value.
+        Convert an OpenTelemetry protobuf enum name to the corresponding SpanStatusCode enum value.
         """
-        from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-
-        proto_code = ProtoSpan.Status.StatusCode
-        status_code_mapping = {
+        proto_code = OtelStatus.StatusCode
+        mapping = {
             proto_code.Name(proto_code.STATUS_CODE_UNSET): SpanStatusCode.UNSET,
             proto_code.Name(proto_code.STATUS_CODE_OK): SpanStatusCode.OK,
             proto_code.Name(proto_code.STATUS_CODE_ERROR): SpanStatusCode.ERROR,
         }
         try:
-            return status_code_mapping[status_code]
+            return mapping[status_code_name]
         except KeyError:
             raise MlflowException(
-                f"Invalid status code: {status_code}. "
-                f"Valid values are: {', '.join(status_code_mapping.keys())}",
+                f"Invalid status code name: {status_code_name}. "
+                f"Valid values are: {', '.join(mapping.keys())}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

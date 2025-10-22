@@ -225,9 +225,15 @@ class Span:
 
     def to_dict(self) -> dict[str, Any]:
         return {
-            "trace_id": self.trace_id,
-            "span_id": self.span_id,
-            "parent_span_id": self.parent_id,
+            "trace_id": _encode_bytes_to_base64(
+                _encode_trace_id_to_byte(self._span.context.trace_id)
+            ),
+            "span_id": _encode_bytes_to_base64(_encode_span_id_to_byte(self._span.context.span_id)),
+            "parent_span_id": _encode_bytes_to_base64(
+                _encode_span_id_to_byte(self._span.parent.span_id)
+            )
+            if self._span.parent
+            else None,
             "name": self.name,
             "start_time_unix_nano": self.start_time_ns,
             "end_time_unix_nano": self.end_time_ns,
@@ -240,7 +246,7 @@ class Span:
                 for event in self.events
             ],
             "status": {
-                "code": self.status.status_code.to_proto_status_code_name(),
+                "code": self.status.status_code.to_otel_proto_status_code_name(),
                 "message": self.status.description,
             },
             # save the dumped attributes so they can be loaded correctly when deserializing
@@ -269,33 +275,26 @@ class Span:
                 parent_id = (
                     _decode_id_from_byte(data["parent_span_id"]) if data["parent_span_id"] else None
                 )
-                status = SpanStatus(
-                    status_code=SpanStatusCode.from_proto_status_code(data["status"]["code"]),
-                    description=data["status"].get("message"),
-                )
             else:
+                # In 3.5.0, Span.to_dict keeps trace_id and span_id as the object's properties
+                # format, so we need special handling for it.
                 otel_trace_id = decode_id(
                     parse_trace_id_v4(data["trace_id"])[1].removeprefix(TRACE_REQUEST_ID_PREFIX)
                 )
                 span_id = decode_id(data["span_id"])
                 parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
-                # NB: This handles an inadvertent breaking change introduced in MLflow 3.5.0
-                # that broke forward compatibility with versions <3.5.0. Prior to 3.5.0, spans
-                # were serialized with protobuf enum names (e.g., "STATUS_CODE_OK"). In 3.5.0,
-                # this was changed to enum values (e.g., "OK"), making spans logged by 3.5.0
-                # unreadable by earlier versions. We now serialize using protobuf enum names
-                # again (for backward compatibility) while also supporting enum values when
-                # deserializing (to handle spans logged by 3.5.0).
-                status_code_str = data["status"]["code"]
-                try:
-                    status_code = SpanStatusCode.from_proto_status_code(status_code_str)
-                except (KeyError, MlflowException):
-                    # Fall back to value format (e.g., "OK", "ERROR")
-                    status_code = SpanStatusCode(status_code_str)
-                status = SpanStatus(
-                    status_code=status_code,
-                    description=data["status"].get("message"),
-                )
+
+            status_code_str = data["status"]["code"]
+            try:
+                status_code = SpanStatusCode.from_otel_proto_status_code_name(status_code_str)
+            except MlflowException:
+                # In 3.5.0 Span.to_dict keeps status code as the SpanStatusCode enum value
+                # Fall back to value format (e.g., "OK", "ERROR")
+                status_code = SpanStatusCode(status_code_str)
+            status = SpanStatus(
+                status_code=status_code,
+                description=data["status"].get("message", ""),
+            )
 
             end_time_ns = data.get("end_time_unix_nano")
             end_time_ns = int(end_time_ns) if end_time_ns else None
@@ -486,6 +485,10 @@ def _encode_span_id_to_byte(span_id: int | None) -> bytes:
 def _encode_trace_id_to_byte(trace_id: int) -> bytes:
     # https://github.com/open-telemetry/opentelemetry-python/blob/e01fa0c77a7be0af77d008a888c2b6a707b05c3d/exporter/opentelemetry-exporter-otlp-proto-common/src/opentelemetry/exporter/otlp/proto/common/_internal/__init__.py#L135
     return trace_id.to_bytes(length=16, byteorder="big", signed=False)
+
+
+def _encode_bytes_to_base64(bytes: bytes) -> str:
+    return base64.b64encode(bytes).decode("utf-8")
 
 
 def _decode_id_from_byte(trace_or_span_id_b64: str) -> int:
