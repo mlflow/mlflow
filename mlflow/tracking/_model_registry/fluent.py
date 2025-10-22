@@ -44,7 +44,7 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     stage_model_for_databricks_model_serving,
 )
-from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
+from mlflow.utils.env_pack import EnvPackType, EnvPackConfig, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
@@ -64,7 +64,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: dict[str, Any] | None = None,
-    env_pack: EnvPackType | None = None,
+    env_pack: EnvPackType| EnvPackConfig | None = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -142,7 +142,7 @@ def _register_model(
     *,
     tags: dict[str, Any] | None = None,
     local_model_path=None,
-    env_pack: EnvPackType | None = None,
+    env_pack: EnvPackType | EnvPackConfig | None = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -209,6 +209,13 @@ def _register_model(
             enforce_pip_requirements=True,
         ) as artifacts_path_with_env:
             client.log_model_artifacts(model_id, artifacts_path_with_env)
+    elif isinstance(env_pack, EnvPackConfig):
+        eprint(f"Packing environment for Databricks Model Serving with install_dependencies {env_pack.install_dependencies}...")
+        with pack_env_for_databricks_model_serving(
+            model_uri,
+            enforce_pip_requirements=env_pack.install_dependencies,
+        ) as artifacts_path_with_env:
+            client.log_model_artifacts(model_id, artifacts_path_with_env)        
 
     create_version_response = client._create_model_version(
         name=name,
@@ -257,7 +264,7 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    if env_pack == "databricks_model_serving":
+    if env_pack == "databricks_model_serving" or isinstance(env_pack, EnvPackConfig) :
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "
