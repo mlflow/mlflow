@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - .github/workflows/review.yml
+      - .claude/commands/pr-review.md
       - dev/mcps/review.py
 
 concurrency:
@@ -16,17 +17,20 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      models: read
       pull-requests: write
     timeout-minutes: 30
-    # Run on pull_request events from mlflow/mlflow (not forks) or when anyone comments '/review' on a pull request
+    # Security: Only run for authorized users.
+    # - pull_request: Only run for PRs from the upstream repo by authorized users (not forks)
+    # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
     if: >
       (github.event_name == 'pull_request' &&
-       github.event.pull_request.head.repo.full_name == 'mlflow/mlflow')
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review'))
     steps:
       - name: React to comment
@@ -34,148 +38,78 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
           script: |
-            const { owner, repo } = context.repo;
             const { comment } = context.payload;
 
-            // Construct workflow URL
-            const workflowUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+            // Check user association - only allow OWNER, MEMBER, or COLLABORATOR
+            const authorAssociation = comment.author_association;
+            const isAllowed = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(authorAssociation);
 
-            // Append workflow link to the original comment
-            const updatedBody = `${comment.body}\n\n---\n🚀 [Review workflow started](${workflowUrl})`;
+            let message;
+            if (isAllowed) {
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
+              message = `🚀 [Review workflow started](${workflowUrl})`;
+            } else {
+              message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
+            }
 
-            // Update the comment with the workflow link
+            const updatedBody = `${comment.body}\n\n---\n${message}`;
+
             await github.rest.issues.updateComment({
-              owner,
-              repo,
-              comment_id: comment.id,
-              body: updatedBody
-            });
-      - name: Check authorization for issue comment
-        if: ${{ github.event_name == 'issue_comment' && github.event.comment.user.login != 'harupy' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
-        with:
-          script: |
-            // Leave a comment indicating only 'harupy' is allowed to trigger the workflow
-            await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: "⚠️ Only **harupy** is authorized to trigger this workflow via comments. Your request has been ignored."
+              comment_id: comment.id,
+              body: updatedBody,
             });
 
-            // Fail the workflow to abort further execution
-            throw new Error("Unauthorized user attempted to trigger workflow: " + context.payload.comment.user.login);
+            if (!isAllowed) {
+              throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
+            }
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           ref: refs/pull/${{ github.event.pull_request.number || github.event.issue.number }}/merge
       - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
-      - name: Install ripgrep
+      - name: Install Claude CLI
         run: |
-          curl -L -o ripgrep.tar.gz https://github.com/BurntSushi/ripgrep/releases/download/14.1.1/ripgrep-14.1.1-x86_64-unknown-linux-musl.tar.gz
-          tar -xzf ripgrep.tar.gz
-          sudo mv ripgrep-14.1.1-x86_64-unknown-linux-musl/rg /usr/local/bin/rg
-          sudo chmod +x /usr/local/bin/rg
-          rm -rf ripgrep.tar.gz ripgrep-14.1.1-x86_64-unknown-linux-musl/
-          rg --version
+          npm install -g @anthropic-ai/claude-code@2.0.24
 
-      - name: Install codex
+      - name: Set up MCP servers
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          curl -L -o codex.tar.gz https://github.com/openai/codex/releases/download/rust-v0.46.0/codex-x86_64-unknown-linux-musl.tar.gz
-          tar -xzf codex.tar.gz
-          mv codex-x86_64-unknown-linux-musl codex
-          chmod +x codex
-          ./codex --version
-
-      - name: Set up config
-        run: |
-          # https://github.com/openai/codex/blob/main/docs/config.md
-          mkdir -p ~/.codex
-          cat <<'EOF' > ~/.codex/config.toml
-          # TODO: Use github models if gpt-5 supports higher input/output token limits
-          # https://github.com/marketplace/models/azure-openai/gpt-5
-          # model = "openai/gpt-5"
-          # model_provider = "github-models"
-          model_verbosity = "high"
-          approval_policy = "never"
-          sandbox_mode = "workspace-write"
-
-          [sandbox_workspace_write]
-          network_access = true
-
-          [model_providers.github-models]
-          # https://docs.github.com/en/github-models/use-github-models/prototyping-with-ai-models#rate-limits
-          name = "GitHub Models"
-          base_url = "https://models.github.ai/inference"
-          env_key = "GITHUB_TOKEN"
-          wire_api = "chat"
-
-          [mcp_servers.github]
-          # https://github.com/github/github-mcp-server
-          command = "uv"
-          args = [
-            "run",
-            "--no-project",
-            "dev/mcps/review.py"
-          ]
-          env = { "GITHUB_TOKEN" = "${{ secrets.GITHUB_TOKEN }}" }
-          EOF
-
-      - name: Prompt
-        run: |
-          cat <<'EOF' > AGENTS.md
-          You're a helpful assistant to review PRs. Your task is to follow the instructions below and review the given PR.
-
-          # Instructions
-
-          ## 1. Prepare for Review
-          - Use `fetch_diff` tool to fetch the PR diff
-          - If the diff includes changes to .py files:
-            1. Read `dev/guides/python.md` to understand **all** rules and their exceptions
-            2. **Create a checklist listing each** style guide rule with its exceptions before reviewing
-            3. Use this checklist to ensure all rules are checked consistently
-
-          ## 2. Review for Style Guide Violations (if applicable)
-          - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Go through each rule in your checklist one by one and check it against the changed lines
-          - Ignore unchanged/context lines and pre-existing code
-
-          ## 3. Review for Bugs and Code Quality Issues
-          - Carefully examine ONLY the changed lines (added or modified) in the diff
-          - Check for potential bugs, code quality issues, and common mistakes
-          - Ignore unchanged/context lines and pre-existing code
-
-          ## 4. Decision Point
-          - If NO issues found -> Skip remaining steps
-          - If issues found -> Continue to step 5
-
-          ## 5. Add Review Comments
-          - Use `add_pr_review_comment` tool for each issue found
-          - ONLY comment on lines that are marked as added (+) or modified in the diff
-          - Never comment on unchanged context lines or pre-existing code
-          - **For repetitive issues**: When the same issue appears on many lines (e.g., missing type hints, consistent style violations), leave a representative comment or group similar issues rather than flagging every instance. This avoids overwhelming PR authors with repetitive feedback.
-          - Prefer GitHub suggestion code blocks for simple fixes (typos, imports, formatting) using ```suggestion format so maintainers can apply with one click.
-          - Keep indentation: In ```suggestion blocks, copy the original leading spaces/tabs exactly (only change them if that's the actual fix). Avoid extra blank lines and include only the lines you intend to modify.
-          - Comment parameters:
-            - Single-line: Set `subject_type` to `line`, specify `line`
-            - Multi-line: Set `subject_type` to `line`, specify both `start_line` and `line`
-          - Comment format:
-            - Use ```suggestion blocks for direct fixes (preferred when possible) or triple backticks (```) for code examples
-            - Be specific about the issue and why the change is needed
-            - For bugs, explain the potential problem and suggested fix clearly
-            - For typos, clearly indicate the correct spelling (e.g., "Typo: 'varabel' should be 'variable'")
-            - For grouped issues, mention how many instances were found (e.g., "This function and 3 others are missing type hints")
-            - Include `🤖 Generated by Codex` at the end of each comment
-          EOF
+          claude mcp add review --env "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" -- uv run --no-project dev/mcps/review.py
 
       - name: Review
         id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          PR_URL: ${{ github.event.issue.pull_request.html_url || github.event.pull_request.html_url}}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
         run: |
-          printenv OPENAI_API_KEY | ./codex login --with-api-key
-          OUTPUT=$(timeout 20m ./codex exec --skip-git-repo-check "Can you review $PR_URL?" || true)
+          OUTPUT_FILE="/tmp/output.json"
+
+          EXIT_CODE=0
+          timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "Warning: Claude command timed out after 20 minutes"
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Error: Claude command failed with exit code $EXIT_CODE"
+            cat "$OUTPUT_FILE"
+            exit $EXIT_CODE
+          fi
+
+          # Display output in workflow logs (pretty print if valid JSON)
+          echo "=== Claude Output ==="
+          if [ ! -s "$OUTPUT_FILE" ]; then
+            echo "(empty output)"
+          elif jq empty "$OUTPUT_FILE" 2>/dev/null; then
+            jq . "$OUTPUT_FILE"
+          else
+            cat "$OUTPUT_FILE"
+          fi
+          echo "===================="
+
+          # Save output for later use
+          OUTPUT=$(cat "$OUTPUT_FILE")
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -189,12 +123,24 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
-            const output = (process.env.REVIEW_OUTPUT || '').trim();
+            const claudeOutput = process.env.REVIEW_OUTPUT || '';
 
-            if (!output) {
-              console.log('Output is empty, skipping comment update');
-              return;
+            let resultMessage = '✅ Review completed.';
+
+            // Extract and display Claude's result from JSON output
+            if (claudeOutput) {
+              try {
+                const events = JSON.parse(claudeOutput);
+                const resultEvent = events.findLast(({ type }) => type === 'result');
+                if (resultEvent) {
+                  resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                }
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
             }
+
+            console.log('Result message to post:', resultMessage);
 
             const { data: currentComment } = await github.rest.issues.getComment({
               owner,
@@ -202,7 +148,7 @@ jobs:
               comment_id: comment.id,
             });
 
-            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Review results</summary>\n\n${output}\n\n</details>`;
+            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
 
             await github.rest.issues.updateComment({
               owner,

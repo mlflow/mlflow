@@ -259,6 +259,7 @@ class BuiltInScorer(Judge):
 
         serialized = SerializedScorer(
             name=self.name,
+            description=self.description,
             aggregations=self.aggregations,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
