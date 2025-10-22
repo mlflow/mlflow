@@ -513,7 +513,7 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
     monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
     monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
 
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
     dataset = get_dataset(name="catalog.schema.table")
 
