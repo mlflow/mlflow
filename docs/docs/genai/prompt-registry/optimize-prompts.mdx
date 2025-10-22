@@ -49,7 +49,6 @@ def predict_fn(question: str) -> str:
     prompt = mlflow.genai.load_prompt("prompts:/qa/1")
     completion = openai.OpenAI().chat.completions.create(
         model="gpt-5-mini",
-        # load prompt template using PromptVersion.format()
         messages=[{"role": "user", "content": prompt.format(question=question)}],
     )
     return completion.choices[0].message.content
@@ -162,11 +161,11 @@ The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following co
     </tr>
     <tr>
       <td><strong>Predict Function</strong></td>
-      <td>A callable that takes inputs as keyword arguments and returns outputs. Must load templates from MLflow prompt versions (e.g., call <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>).</td>
+      <td>A callable that takes inputs as keyword arguments and returns outputs. Must use prompts from MLflow Prompt Registry.</td>
     </tr>
     <tr>
       <td><strong>Training Data</strong></td>
-      <td>Dataset with <code>inputs</code> (dict) and <code>expectations</code> (expected results). Supports pandas DataFrame, list of dicts, or MLflow EvaluationDataset.</td>
+      <td>Dataset with <code>inputs</code> (dict) and <code>outputs</code> (expected results). Supports pandas DataFrame, list of dicts, or MLflow EvaluationDataset.</td>
     </tr>
     <tr>
       <td><strong>Optimizer</strong></td>
@@ -197,11 +196,8 @@ You can reference prompts by:
 Your `predict_fn` must:
 
 - Accept inputs as keyword arguments matching the inputs field of the dataset
-- Load the template from MLflow prompt versions using one of the following methods:
-  - <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>
-  - <APILink fn="mlflow.entities.model_registry.PromptVersion.template">`PromptVersion.template`</APILink>
-  - <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink>
-- Return outputs in the same format as your training data (e.g., outputs = `{"answer": "xxx"}` if expectations = `{"expected_response": {"answer": "xxx"}}`)
+- Use MLflow Prompt Registry and format and call <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format`</APILink> during execution
+- Return outputs in the same format as your training data (e.g., `{"answer": "xxx"}` is the expectations are `{"expected_response": {"answer": "xxx"}}`)
 
 ```python
 def predict_fn(question: str) -> str:
@@ -395,7 +391,7 @@ optimized_answer = result.optimized_prompts[1]
 
 ### Use Agent Framework
 
-You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
+You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of `format` inside `predict_fn`. This is one of the exceptions that is allowed, however <APILink fn="mlflow.genai.optimize_prompts" /> generally requires `predict_fn` to call <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink>.
 
 ```python
 import mlflow

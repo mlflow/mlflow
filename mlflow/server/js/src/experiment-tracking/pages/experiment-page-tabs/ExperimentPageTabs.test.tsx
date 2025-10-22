@@ -156,12 +156,10 @@ describe('ExperimentLoggedModelListPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    await waitFor(() => {
-      expect(confirmTagApiSpy).toHaveBeenCalledWith({
-        experiment_id: '12345678',
-        key: 'mlflow.experimentKind',
-        value: ExperimentKind.GENAI_DEVELOPMENT,
-      });
+    expect(confirmTagApiSpy).toHaveBeenCalledWith({
+      experiment_id: '12345678',
+      key: 'mlflow.experimentKind',
+      value: ExperimentKind.GENAI_DEVELOPMENT,
     });
   });
 
@@ -198,12 +196,10 @@ describe('ExperimentLoggedModelListPage', () => {
     await userEvent.click(within(modal).getByRole('radio', { name: 'GenAI apps & agents' }));
     await userEvent.click(within(modal).getByRole('button', { name: 'Confirm' }));
 
-    await waitFor(() => {
-      expect(confirmTagApiSpy).toHaveBeenCalledWith({
-        experiment_id: '12345678',
-        key: 'mlflow.experimentKind',
-        value: ExperimentKind.GENAI_DEVELOPMENT,
-      });
+    expect(confirmTagApiSpy).toHaveBeenCalledWith({
+      experiment_id: '12345678',
+      key: 'mlflow.experimentKind',
+      value: ExperimentKind.GENAI_DEVELOPMENT,
     });
   });
 });

@@ -29,7 +29,6 @@ async def test_list_tools(client: Client):
         "delete_traces",
         "get_assessment",
         "get_trace",
-        "list_scorers",
         "log_expectation",
         "log_feedback",
         "search_traces",

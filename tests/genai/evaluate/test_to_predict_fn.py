@@ -1,3 +1,4 @@
+import json
 from unittest import mock
 
 import pytest
@@ -109,7 +110,7 @@ def test_to_predict_fn_does_not_return_trace(
     # Bare-minimum trace should be created when the endpoint does not return a trace
     mock_tracing_client.start_trace.assert_called_once()
     trace_info = mock_tracing_client.start_trace.call_args[0][0]
-    assert trace_info.request_preview == "What is Spark?"
+    assert trace_info.request_preview == json.dumps({"messages": messages})
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 1
     assert trace_data.spans[0].name == "predict"
@@ -216,7 +217,7 @@ def test_to_predict_fn_should_not_pass_databricks_options_to_fmapi(
     # Bare-minimum trace should be created when the endpoint does not return a trace
     mock_tracing_client.start_trace.assert_called_once()
     trace_info = mock_tracing_client.start_trace.call_args[0][0]
-    assert trace_info.request_preview == "What is Spark?"
+    assert trace_info.request_preview == json.dumps({"messages": messages})
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 1
     assert trace_data.spans[0].name == "predict"

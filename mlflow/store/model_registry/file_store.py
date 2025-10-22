@@ -613,12 +613,7 @@ class FileStore(AbstractStore):
         self, model_version: FileModelVersion, meta_dir=None, overwrite=True
     ):
         model_version_dict = dict(model_version)
-        # Remove fields that are stored separately or derived from other sources
-        # - tags are stored in a separate folder
-        # - metrics and params are fetched from the logged model, not stored in meta.yaml
-        # - aliases are stored separately at the registered model level
-        for field in ["tags", "metrics", "params", "aliases"]:
-            model_version_dict.pop(field, None)
+        del model_version_dict["tags"]
         meta_dir = meta_dir or self._get_model_version_dir(
             model_version.name, model_version.version
         )

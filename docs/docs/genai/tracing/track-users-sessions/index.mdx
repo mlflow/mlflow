@@ -126,7 +126,7 @@ To record user and session information in your application, use the <APILink fn=
     def handle_chat(request: Request, chat_request: ChatRequest):
         session_id = request.headers.get("X-Session-ID", "default-session")
         user_id = request.headers.get("X-User-ID", "default-user")
-        response_text = process_chat(chat_request.message, user_id, session_id)
+        response_text = process_chat_with_openai(chat_request.message, user_id, session_id)
         return {"response": response_text}
 
 

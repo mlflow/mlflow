@@ -1,6 +1,5 @@
 import {
   Button,
-  LightningIcon,
   Modal,
   PlayIcon,
   Spacer,
@@ -24,7 +23,6 @@ import { useDeletePromptVersionModal } from '../hooks/useDeletePromptVersionModa
 import { ShowArtifactCodeSnippet } from '../../../components/artifact-view-components/ShowArtifactCodeSnippet';
 import { ModelTraceExplorerChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/right-pane/ModelTraceExplorerChatMessage';
 import type { ModelTraceChatMessage } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer/ModelTrace.types';
-import { OptimizeModal } from './OptimizeModal';
 
 const PROMPT_VARIABLE_REGEX = /\{\{\s*(.*?)\s*\}\}/g;
 
@@ -58,7 +56,6 @@ export const PromptContentPreview = ({
   });
 
   const [showUsageExample, setShowUsageExample] = useState(false);
-  const [showOptimizeModal, setShowOptimizeModal] = useState(false);
 
   // Find all variables in the prompt content
   const variableNames = useMemo(() => {
@@ -114,16 +111,6 @@ export const PromptContentPreview = ({
             <FormattedMessage
               defaultMessage="Delete version"
               description="A label for a button to delete prompt version on the prompt details page"
-            />
-          </Button>
-          <Button
-            componentId="mlflow.prompts.details.preview.optimize"
-            icon={<LightningIcon />}
-            onClick={() => setShowOptimizeModal(true)}
-          >
-            <FormattedMessage
-              defaultMessage="Optimize"
-              description="A label for a button to display the modal with instructions to optimize the prompt"
             />
           </Button>
           <Button
@@ -200,12 +187,6 @@ export const PromptContentPreview = ({
           code={buildCodeSnippetContent(promptVersion, variableNames, isChatPromptType ? PROMPT_TYPE_CHAT : undefined)}
         />{' '}
       </Modal>
-      <OptimizeModal
-        visible={showOptimizeModal}
-        promptName={promptVersion?.name || ''}
-        promptVersion={promptVersion?.version || ''}
-        onCancel={() => setShowOptimizeModal(false)}
-      />
       {DeletePromptModal}
     </div>
   );

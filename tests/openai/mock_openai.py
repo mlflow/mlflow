@@ -10,7 +10,6 @@ from mlflow.types.chat import ChatCompletionRequest
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 EMPTY_CHOICES = "EMPTY_CHOICES"
-LIST_CONTENT = "LIST_CONTENT"
 
 app = fastapi.FastAPI()
 
@@ -92,37 +91,6 @@ def _make_chat_stream_chunk_empty_choices():
     }
 
 
-def _make_chat_stream_chunk_with_list_content(content_list, include_usage: bool = False):
-    # Create a streaming chunk with list content (Databricks format).
-    return {
-        "id": "chatcmpl-123",
-        "object": "chat.completion.chunk",
-        "created": 1677652288,
-        "model": "gpt-4o-mini",
-        "system_fingerprint": "fp_44709d6fcb",
-        "choices": [
-            {
-                "delta": {
-                    "content": content_list,
-                    "function_call": None,
-                    "role": None,
-                    "tool_calls": None,
-                },
-                "finish_reason": None,
-                "index": 0,
-                "logprobs": None,
-            }
-        ],
-        "usage": {
-            "prompt_tokens": 9,
-            "completion_tokens": 12,
-            "total_tokens": 21,
-        }
-        if include_usage
-        else None,
-    }
-
-
 async def chat_response_stream(include_usage: bool = False):
     # OpenAI Chat Completion stream only includes usage in the last chunk
     # if {"stream_options": {"include_usage": True}} is specified in the request.
@@ -135,16 +103,6 @@ async def chat_response_stream_empty_choices():
     yield _make_chat_stream_chunk("Hello")
 
 
-async def chat_response_stream_with_list_content(include_usage: bool = False):
-    # Simulate Databricks streaming format with list content.
-    yield _make_chat_stream_chunk_with_list_content(
-        [{"type": "text", "text": "Hello"}], include_usage=False
-    )
-    yield _make_chat_stream_chunk_with_list_content(
-        [{"type": "text", "text": " world"}], include_usage=include_usage
-    )
-
-
 @app.post("/chat/completions", response_model_exclude_unset=True)
 async def chat(payload: ChatCompletionRequest):
     if payload.stream:
@@ -152,13 +110,6 @@ async def chat(payload: ChatCompletionRequest):
         if EMPTY_CHOICES == payload.messages[0].content:
             content = (
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
-            )
-        elif LIST_CONTENT == payload.messages[0].content:
-            content = (
-                f"data: {json.dumps(d)}\n\n"
-                async for d in chat_response_stream_with_list_content(
-                    include_usage=(payload.stream_options or {}).get("include_usage", False)
-                )
             )
         else:
             content = (

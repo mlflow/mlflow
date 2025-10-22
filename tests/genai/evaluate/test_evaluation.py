@@ -372,7 +372,9 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
             mock.patch(
                 "databricks.rag_eval.datasets.entities._get_client", return_value=mock_client
             ),
-            mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
+            mock.patch(
+                "mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True
+            ),
         ):
             dataset = create_dataset(
                 uc_table_name="mlflow.managed.dataset", experiment_id="exp-123"
