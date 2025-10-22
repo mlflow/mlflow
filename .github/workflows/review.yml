@@ -17,8 +17,6 @@ jobs:
   review:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      models: read
       pull-requests: write
     timeout-minutes: 30
     if: >
