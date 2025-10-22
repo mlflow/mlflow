@@ -73,7 +73,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          claude mcp add --transport stdio review --env "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" -- uv run --no-project dev/mcps/review.py
+          claude mcp add review --env "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" -- uv run --no-project dev/mcps/review.py
 
       - name: Review
         id: review
@@ -85,6 +85,7 @@ jobs:
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
+          EXIT_CODE=0
           timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
