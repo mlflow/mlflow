@@ -244,6 +244,7 @@ export interface ModelTraceSpanNode extends TimelineTreeNode, Pick<ModelTraceSpa
   inputs?: any;
   outputs?: any;
   children?: ModelTraceSpanNode[];
+  chatMessageFormat?: string;
   chatMessages?: ModelTraceChatMessage[];
   chatTools?: ModelTraceChatTool[];
   parentId?: string | null;
