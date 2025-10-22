@@ -2,11 +2,36 @@
 
 ## 3.5.1 (2025-10-21)
 
-MLflow 3.5.1 includes several major features and improvements
+MLflow 3.5.1 is a patch release that includes several bug fixes and improvements.
 
-Small bug fixes and documentation updates:
+Features:
 
-#18432, @BenWilson2
+- [CLI] Add CLI command to list registered scorers by experiment (#18255, @alkispoly-db)
+- [Deployments] Add configuration option for long-running deployments client requests (#18363, @BenWilson2)
+- [Deployments] Create `set_databricks_monitoring_sql_warehouse_id` API (#18346, @dbrx-euirim)
+- [Prompts] Show instructions for prompt optimization on prompt registry (#18375, @TomeHirata)
+
+Bug fixes:
+
+- [Evaluation] Validate if trace is None before accessing the value in mlflow.genai.evaluate (#18285, @srinathmkce)
+- [Evaluation] Revert "Add atomicity to job_start API (#18226)" (@serena-ruan)
+- [MCP] Move fastmcp to optional mcp extra (#18422, @harupy)
+- [Model Registry] Fix serialization bug in file store (#18365, @BenWilson2)
+- [Scoring] Pin uvloop<0.22 to fix mlserver compatibility (#18370, @harupy)
+- [Tracing] Fix attribute error in StrandsAgent tracing (#18409, @B-Step62)
+- [Tracing] Adjust truncation logic in trace previews (#18412, @BenWilson2)
+- [Tracing] Revert "Fix response handling in log_spans (#18280)" (#18349, @serena-ruan)
+- [Tracking] Adjust util for remote tracking server declaration (#18411, @BenWilson2)
+- [Tracking] Handle Databricks FMAPI style in openai autolog (#18354, @TomeHirata)
+- [Tracking] Fetch config after adding first record (#18338, @serena-ruan)
+- [UI] Fix span ID parsing in the UI (#18419, @daniellok-db)
+- [UI] Fix an issue with display of the assessments pane in the UI (#18333, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Fix Kubernetes Deployment Tutorial Code (#18381, @Maeril)
+- [Docs] Update the documentation around requirements for optimize_prompts (#18398, @TomeHirata)
+- [Docs] Fix example FastAPI in track user sessions (#18388, @maxscheijen)
 
 ## 3.5.0 (2025-10-16)
 
