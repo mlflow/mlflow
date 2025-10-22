@@ -702,7 +702,6 @@ def test_span_dict_v4_preserves_ids_across_serialization():
 
 
 def test_span_from_dict_supports_both_status_code_formats():
-    """Test that from_dict handles both protobuf enum names and enum values."""
     with mlflow.start_span("test") as span:
         span.set_status("OK")
 
