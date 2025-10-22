@@ -380,7 +380,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install python dependencies
         run: |
-          uv sync --extra extras --extra genai
+          uv sync --extra extras --extra genai --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
             'pyspark<3.5.6' datasets tensorflow torch transformers tf-keras openai \
