@@ -32,7 +32,7 @@ jobs:
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/pr-review'))
     steps:
-      - name: Check authorization
+      - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
@@ -87,11 +87,18 @@ jobs:
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
-          timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" || true
+          timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          if [ "${EXIT_CODE:-0}" -eq 124 ]; then
+            echo "Warning: Claude command timed out after 20 minutes"
+          elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
+            echo "Warning: Claude command failed with exit code $EXIT_CODE"
+          fi
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="
-          if jq empty "$OUTPUT_FILE" 2>/dev/null; then
+          if [ ! -s "$OUTPUT_FILE" ]; then
+            echo "(empty output)"
+          elif jq empty "$OUTPUT_FILE" 2>/dev/null; then
             jq . "$OUTPUT_FILE"
           else
             cat "$OUTPUT_FILE"
