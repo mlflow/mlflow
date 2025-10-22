@@ -108,14 +108,36 @@ class DBConnectArtifactCache:
             raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
 
-        if session_id := os.environ.get("DB_SESSION_UUID"):
-            return (
-                f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
-            )
+        session_id = os.environ.get("DB_SESSION_UUID")
+        if not session_id:
+            # If 'DB_SESSION_UUID' environment variable does not exist, it means it is running
+            # in a dedicated mode Spark cluster.
+            return os.path.join(os.getcwd(), archive_file_name)
 
-        # If 'DB_SESSION_UUID' environment variable does not exist, it means it is running
-        # in a dedicated mode Spark cluster.
-        return os.path.join(os.getcwd(), archive_file_name)
+        relative_path = os.path.join("artifacts", session_id, "archives", archive_file_name)
+        single_driver_root = "/local_disk0/.ephemeral_nfs"
+        single_candidate = os.path.join(single_driver_root, relative_path)
+        if os.path.exists(single_candidate):
+            return single_candidate
+
+        multi_driver_root = "/local_disk0/.ephemeral_nfs_multi_driver"
+        if (
+            os.environ.get("AETHER_MULTI_DRIVER_ENABLED", "false") == "true"
+            and os.environ.get("AETHER_MULTI_DRIVER_NOTEBOOK_LIBRARY_ENABLED", "false") == "true"
+            and os.path.isdir(multi_driver_root)
+        ):
+            try:
+                children = sorted(os.listdir(multi_driver_root))
+            except OSError:
+                children = []
+
+            for child in children:
+                child_candidate = os.path.join(multi_driver_root, child, relative_path)
+                if os.path.exists(child_candidate):
+                    return child_candidate
+
+        # Fall back to the original single-driver location to preserve previous behaviour.
+        return single_candidate
 
 
 def archive_directory(input_dir, archive_file_path):
