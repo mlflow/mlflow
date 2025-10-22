@@ -63,6 +63,14 @@ pytorch-lightning:
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
+  models:
+    minimum: "2.1.1"
+    maximum: "2.5.5"
+    requirements:
+      ">= 0.0.0": ["pytorch-forecasting"]
+    run: |
+      pytest tests/pytorch/test_forecasting_model.py
+
 keras:
   package_info:
     pip_release: "keras"
