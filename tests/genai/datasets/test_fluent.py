@@ -446,13 +446,14 @@ def test_databricks_profile_env_var_set_from_uri(monkeypatch):
     monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
     monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
 
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
     get_dataset(name="catalog.schema.table")
     create_dataset(name="catalog.schema.table", experiment_id="exp1")
     delete_dataset(name="catalog.schema.table")
 
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
     assert profile_values_during_calls == [
         ("get_dataset", "myprofile"),
         ("create_dataset", "myprofile"),
@@ -517,15 +518,15 @@ def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
 
     dataset = get_dataset(name="catalog.schema.table")
 
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
     dataset.merge_records([{"inputs": {"q": "test"}}])
     assert profile_during_merge == "myprofile"
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
     dataset.to_df()
     assert profile_during_to_df == "myprofile"
-    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") is None
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
 
 
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
