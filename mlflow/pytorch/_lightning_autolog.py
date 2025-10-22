@@ -477,12 +477,12 @@ def patched_fit(original, self, *args, **kwargs):
     if _is_forecasting_model(model):
         # The forecasting model predict method calls tensor board writer's add_hparams
         # method, which triggers pytorch autologging. The patch is for disabling it.
-        origin_predict = model.predict
+        original_predict = model.predict
 
-        @functools.wraps(origin_predict)
+        @functools.wraps(original_predict)
         def patched_predict(*args, **kwargs):
             with disable_autologging():
-                return origin_predict(*args, **kwargs)
+                return original_predict(*args, **kwargs)
 
         model.predict = patched_predict
 
