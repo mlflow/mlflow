@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import tempfile
@@ -463,12 +464,27 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
+    from mlflow.pytorch import _is_forecasting_model
+
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             "Autologging is known to be compatible with pytorch-lightning versions between "
             f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
             "outside this range."
         )
+
+    model = args[0] if len(args) > 0 else kwargs["model"]
+    if _is_forecasting_model(model):
+        # The forecasting model predict method calls tensor board writer's add_hparams
+        # method, which triggers pytorch autologging. The patch is for disabling it.
+        origin_predict = model.predict
+
+        @functools.wraps(origin_predict)
+        def patched_predict(*args, **kwargs):
+            with disable_autologging():
+                return origin_predict(*args, **kwargs)
+
+        model.predict = patched_predict
 
     with disable_autologging():
         run_id = mlflow.active_run().info.run_id
