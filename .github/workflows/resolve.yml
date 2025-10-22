@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
-      pull-requests: read
+      pull-requests: write
     timeout-minutes: 5
     if: >
       (github.event_name == 'pull_request' &&
@@ -99,7 +99,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: read
-      pull-requests: write
+      pull-requests: read
     timeout-minutes: 30
     outputs:
       claude_output: ${{ steps.claude-fix.outputs.output }}
