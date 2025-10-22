@@ -54,8 +54,8 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 - ONLY comment on lines that are marked as added (+) or modified in the diff
 - Never comment on unchanged context lines or pre-existing code
 - **For repetitive issues**: When the same issue appears on many lines (e.g., missing type hints, consistent style violations), leave a representative comment or group similar issues rather than flagging every instance. This avoids overwhelming PR authors with repetitive feedback.
-- Prefer GitHub suggestion code blocks for simple fixes (typos, imports, formatting) using ```suggestion format so maintainers can apply with one click.
-- Keep indentation: In ```suggestion blocks, copy the original leading spaces/tabs exactly (only change them if that's the actual fix). Avoid extra blank lines and include only the lines you intend to modify.
+- Prefer GitHub suggestion code blocks for simple fixes (typos, imports, formatting) using ` ```suggestion ` format (three backticks followed by "suggestion") so maintainers can apply with one click.
+- Keep indentation: In ` ```suggestion ` blocks, copy the original leading spaces/tabs exactly (only change them if that's the actual fix). Avoid extra blank lines and include only the lines you intend to modify.
 
 ### Comment Parameters
 
