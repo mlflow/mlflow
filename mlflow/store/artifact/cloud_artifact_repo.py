@@ -34,7 +34,11 @@ _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = 50
 _AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB
 _AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB
-_SEG_AUTH_DELAY_SECONDS = 0.2  # Delay between credential requests to avoid SEG race conditions
+
+# SEG (Storage Execution Guard) delays to avoid storage proxy race conditions
+# These delays ensure the proxy has time to complete internal state cleanup between uploads
+_SEG_BASE_DELAY_SECONDS = 1.0  # Base delay between any two file uploads
+_SEG_LARGE_FILE_DELAY_SECONDS = 2.0  # Extra delay after uploading large files (>100MB)
 
 
 def _readable_size(size: int) -> str:
@@ -259,10 +263,13 @@ class CloudArtifactRepository(ArtifactRepository):
         SEG Serialization:
         With multiple files, SEG can reject concurrent credential requests to the same
         write path. We serialize: fetch cred → upload → delay → repeat.
+
+        Adaptive delays prevent storage proxy race conditions where the proxy's internal
+        state cleanup from one upload interferes with the next upload's block operations.
         """
         failures = {}
 
-        # SEG mode: Serialize credential fetching and uploads
+        # SEG mode: Serialize credential fetching and uploads with adaptive delays
         if len(batch) > 1:
             with ArtifactProgressBar.files(desc="Uploading artifacts", total=len(batch)) as pbar:
                 for idx, plan in enumerate(batch):
@@ -281,9 +288,17 @@ class CloudArtifactRepository(ArtifactRepository):
                         future.result()  # Wait for completion
                         pbar.update()
 
-                        # Delay before next credential request to avoid SEG race condition
+                        # Adaptive delay before next upload to avoid SEG race condition
+                        # Larger files need more cleanup time in the storage proxy
                         if idx < len(batch) - 1:
-                            time.sleep(_SEG_AUTH_DELAY_SECONDS)
+                            delay = _SEG_BASE_DELAY_SECONDS
+                            if plan.file_size > 100 * 1024 * 1024:  # >100MB
+                                delay = _SEG_LARGE_FILE_DELAY_SECONDS
+                                _logger.debug(
+                                    f"Large file ({plan.file_size / 1024**2:.1f}MB) uploaded. "
+                                    f"Waiting {delay}s before next upload to ensure proxy cleanup."
+                                )
+                            time.sleep(delay)
 
                     except Exception as e:
                         failures[plan.src_path] = repr(e)

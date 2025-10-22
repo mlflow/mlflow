@@ -1,6 +1,7 @@
 import logging
 import re
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from mlflow.entities import FileInfo
 from mlflow.exceptions import MlflowException
@@ -66,6 +67,24 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
             self.databricks_artifact_repo.log_artifact(local_file, artifact_path)
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
+        # For multi-file uploads in SEG environments, skip the SDK path and use the presigned
+        # URL path directly. The SDK always uses multipart/block upload which causes race
+        # conditions in the storage proxy when multiple files are uploaded to the same artifact
+        # path, resulting in 500 errors even with serialization.
+        #
+        # The presigned URL path (DatabricksArtifactRepository) has better handling for this:
+        # - Can use simple PUT for small files (avoiding block upload overhead)
+        # - Has adaptive delays between file uploads
+        # - More battle-tested for SEG environments
+        file_count = sum(1 for _ in Path(local_dir).rglob("*") if _.is_file())
+        if file_count > 1:
+            _logger.debug(
+                f"Detected multi-file upload ({file_count} files). Skipping Databricks SDK path "
+                "and using presigned URL path to avoid SEG storage proxy race conditions."
+            )
+            self.databricks_artifact_repo.log_artifacts(local_dir, artifact_path)
+            return
+
         try:
             self.databricks_sdk_repo.log_artifacts(local_dir, artifact_path)
         except Exception as e:
