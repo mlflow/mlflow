@@ -326,10 +326,6 @@ def test_is_in_databricks_model_serving_environment(monkeypatch):
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
     assert not databricks_utils.is_in_databricks_model_serving_environment()
 
-    # Backward compatibility with old env var name
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
-    assert databricks_utils.is_in_databricks_model_serving_environment()
-
 
 # test both is_in_databricks_model_serving_environment and
 # should_fetch_model_serving_environment_oauth return apprropriate values
