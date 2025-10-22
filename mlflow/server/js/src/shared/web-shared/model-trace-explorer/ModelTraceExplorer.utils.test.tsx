@@ -654,37 +654,3 @@ describe('getDefaultActiveTab', () => {
     expect(getDefaultActiveTab(otelSpan)).toBe('attributes');
   });
 });
-
-describe('decodeSpanId', () => {
-  it('should decode v3 base64 span id when length < 16', () => {
-    const base64Id = 'FFJ0+hVpnGg=';
-    const result = decodeSpanId(base64Id, true);
-    expect(result).toBe('145274fa15699c68');
-  });
-
-  it('should return v3 hex span id as-is when length >= 16', () => {
-    // 16 character hex string (8 bytes)
-    const hexId = '145274fa15699c68';
-    const result = decodeSpanId(hexId, true);
-    expect(result).toBe('145274fa15699c68');
-  });
-
-  it('should decode v2 span id with 0x prefix', () => {
-    const spanId = '0x145274fa15699c68';
-    const result = decodeSpanId(spanId, false);
-    expect(result).toBe('145274fa15699c68');
-  });
-
-  it('should return v2 hex span id as-is without prefix', () => {
-    const spanId = '145274fa15699c68';
-    const result = decodeSpanId(spanId, false);
-    expect(result).toBe('145274fa15699c68');
-  });
-
-  it('should return empty string for null or undefined span id', () => {
-    expect(decodeSpanId(null, true)).toBe('');
-    expect(decodeSpanId(undefined, true)).toBe('');
-    expect(decodeSpanId(null, false)).toBe('');
-    expect(decodeSpanId(undefined, false)).toBe('');
-  });
-});

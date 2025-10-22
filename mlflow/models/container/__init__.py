@@ -93,8 +93,6 @@ def _install_pyfunc_deps(
         server_deps = [
             "'mlserver>=1.2.0,!=1.3.1,<2.0.0'",
             "'mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0'",
-            # uvloop >= 0.22 is not compatible with mlserver
-            "'uvloop<0.22'",
         ]
 
     install_server_deps = [f"pip install {' '.join(server_deps)}"]

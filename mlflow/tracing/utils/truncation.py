@@ -33,18 +33,20 @@ def _get_truncated_preview(request_or_response: str | None, role: str) -> str:
 
     max_length = _get_max_length()
 
-    content = None
-    obj = None
+    if len(request_or_response) <= max_length:
+        return request_or_response
 
+    content = None
+
+    # Parse JSON serialized request/response
     try:
         obj = json.loads(request_or_response)
     except json.JSONDecodeError:
-        pass
+        obj = None
 
-    if obj is not None:
-        if messages := _try_extract_messages(obj):
-            msg = _get_last_message(messages, role=role)
-            content = _get_text_content_from_message(msg)
+    if messages := _try_extract_messages(obj):
+        msg = _get_last_message(messages, role=role)
+        content = _get_text_content_from_message(msg)
 
     content = content or request_or_response
 

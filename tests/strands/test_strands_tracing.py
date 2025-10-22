@@ -9,7 +9,6 @@ from strands.tools.tools import PythonAgentTool
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.provider import trace_disabled
 
 from tests.tracing.helper import get_traces
 
@@ -278,16 +277,3 @@ def test_autolog_disable_prevents_new_traces():
     mlflow.strands.autolog(disable=True)
     agent2("bye")
     assert len(get_traces()) == 1
-
-
-def test_autolog_does_not_raise_npe_when_tracing_disabled():
-    mlflow.strands.autolog()
-
-    agent = Agent(model=DummyModel("hi"), name="agent")
-
-    @trace_disabled
-    def run():
-        agent("hello")
-
-    run()
-    assert len(get_traces()) == 0

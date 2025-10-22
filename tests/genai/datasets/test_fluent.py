@@ -40,7 +40,7 @@ def mock_client():
 
 @pytest.fixture
 def mock_databricks_environment():
-    with mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
+    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
         yield
 
 
@@ -373,48 +373,11 @@ def test_search_datasets_databricks(mock_databricks_environment):
 
 
 def test_databricks_import_error():
-    with (
-        mock.patch("mlflow.genai.datasets.is_databricks_uri", return_value=True),
-        mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}),
-        mock.patch("builtins.__import__", side_effect=ImportError("No module")),
-    ):
-        with pytest.raises(ImportError, match="databricks-agents"):
-            create_dataset(name="test", experiment_id="exp1")
-
-
-def test_databricks_profile_uri_support():
-    mock_dataset = mock.Mock()
-    with (
-        mock.patch(
-            "mlflow.genai.datasets.get_tracking_uri", return_value="databricks://profilename"
-        ),
-        mock.patch.dict(
-            "sys.modules",
-            {
-                "databricks.agents.datasets": mock.Mock(
-                    get_dataset=mock.Mock(return_value=mock_dataset),
-                    create_dataset=mock.Mock(return_value=mock_dataset),
-                    delete_dataset=mock.Mock(),
-                )
-            },
-        ),
-    ):
-        result = get_dataset(name="catalog.schema.table")
-        sys.modules["databricks.agents.datasets"].get_dataset.assert_called_once_with(
-            "catalog.schema.table"
-        )
-        assert isinstance(result, EvaluationDataset)
-
-        result2 = create_dataset(name="catalog.schema.table2", experiment_id=["exp1"])
-        sys.modules["databricks.agents.datasets"].create_dataset.assert_called_once_with(
-            "catalog.schema.table2", ["exp1"]
-        )
-        assert isinstance(result2, EvaluationDataset)
-
-        delete_dataset(name="catalog.schema.table3")
-        sys.modules["databricks.agents.datasets"].delete_dataset.assert_called_once_with(
-            "catalog.schema.table3"
-        )
+    with mock.patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+        with mock.patch.dict("sys.modules", {"databricks.agents.datasets": None}):
+            with mock.patch("builtins.__import__", side_effect=ImportError("No module")):
+                with pytest.raises(ImportError, match="databricks-agents"):
+                    create_dataset(name="test", experiment_id="exp1")
 
 
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
