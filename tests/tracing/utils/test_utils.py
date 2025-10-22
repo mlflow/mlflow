@@ -33,6 +33,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_request_id,
     parse_trace_id_v4,
+    truncate_request_response_preview,
 )
 
 from tests.tracing.helper import create_mock_otel_span
@@ -441,3 +442,19 @@ def test_generate_trace_id_v4_from_otel_trace_id():
     parsed_location, parsed_id = parse_trace_id_v4(result)
     assert parsed_location == location
     assert parsed_id == expected_hex_id
+
+
+@pytest.mark.parametrize(
+    ("input_data", "expected_result"),
+    [
+        ("hello world", "hello world"),
+        ("a" * 200, "a" * 100),
+        ({"key": "value"}, "{'key': 'value'}"),
+        ({"key": "value" * 100}, str({"key": "value" * 100})[:100]),
+        ([1, 2, 3, 4, 5], "[1, 2, 3, 4, 5]"),
+    ],
+)
+def test_truncate_request_response_preview_string(input_data, expected_result):
+    json_string = json.dumps(input_data)
+    result = truncate_request_response_preview(json_string)
+    assert result == expected_result
