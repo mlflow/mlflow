@@ -175,7 +175,10 @@ jobs:
 
   report:
     needs: [precheck, resolve]
-    if: always()
+    if: |
+      always() &&
+      !contains(needs.*.result, 'failure') &&
+      !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     permissions:
       issues: write
