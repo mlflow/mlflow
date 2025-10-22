@@ -113,3 +113,6 @@ ASSESSMENT_ID_PREFIX = "a-"
 # To make sure get_trace API does not fail due to this delay, we retry up to a reasonable timeout.
 # Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
 GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
+
+# Path to the notebook trace renderer directory
+TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer"
