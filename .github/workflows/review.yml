@@ -90,7 +90,9 @@ jobs:
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then
-            echo "Warning: Claude command failed with exit code $EXIT_CODE"
+            echo "Error: Claude command failed with exit code $EXIT_CODE"
+            cat "$OUTPUT_FILE"
+            exit $EXIT_CODE
           fi
 
           # Display output in workflow logs (pretty print if valid JSON)
