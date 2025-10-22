@@ -20,6 +20,7 @@ from mlflow.server.security_utils import (
     is_api_endpoint,
     should_block_cors_request,
 )
+from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
 
 _logger = logging.getLogger(__name__)
 
@@ -73,7 +74,15 @@ class SecurityHeadersMiddleware:
                 headers = dict(message.get("headers", []))
                 headers[b"x-content-type-options"] = b"nosniff"
 
-                if self.x_frame_options and self.x_frame_options.upper() != "NONE":
+                # Skip X-Frame-Options for notebook-trace-renderer to allow iframe embedding in Jupyter
+                path = scope.get("path", "")
+                is_notebook_renderer = path.startswith(TRACE_RENDERER_ASSET_PATH)
+
+                if (
+                    self.x_frame_options
+                    and self.x_frame_options.upper() != "NONE"
+                    and not is_notebook_renderer
+                ):
                     headers[b"x-frame-options"] = self.x_frame_options.upper().encode()
 
                 if (
