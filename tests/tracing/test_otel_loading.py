@@ -1,9 +1,3 @@
-"""
-Tests for get_trace functionality with OpenTelemetry traces.
-This test suite verifies that traces sent via OpenTelemetry can be retrieved
-using MLflow's get_trace functionality, ensuring proper OTel to MLflow conversion.
-"""
-
 import uuid
 
 import pytest
@@ -19,9 +13,14 @@ import mlflow
 from mlflow.entities import SpanStatusCode
 from mlflow.entities.assessment import AssessmentSource, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
+from mlflow.tracing.utils.span_translation import (
+    OPENINFERENCE_SPAN_KIND_ATTRIBUTE_KEY,
+    TRACELOOP_SPAN_KIND_ATTRIBUTE_KEY,
+)
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -442,3 +441,91 @@ def test_multiple_assessments_on_otel_trace(mlflow_server: str, is_async):
     )
     assert len(tagged_traces) == 1
     assert tagged_traces[0].info.trace_id == trace_id
+
+
+def test_span_kind_translation(mlflow_server: str, is_async):
+    experiment = mlflow.set_experiment("span-kind-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "span-kind-translation-test-service")
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute(OPENINFERENCE_SPAN_KIND_ATTRIBUTE_KEY, "LLM")
+
+    with tracer.start_as_current_span("retriever-call") as span:
+        span.set_attribute(OPENINFERENCE_SPAN_KIND_ATTRIBUTE_KEY, "RETRIEVER")
+
+    with tracer.start_as_current_span("tool-call") as span:
+        span.set_attribute(TRACELOOP_SPAN_KIND_ATTRIBUTE_KEY, "tool")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 3
+    for trace_info in traces:
+        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
+        for span in retrieved_trace.data.spans:
+            if span.name == "llm-call":
+                assert span.span_type == "LLM"
+            elif span.name == "retriever-call":
+                assert span.span_type == "RETRIEVER"
+            elif span.name == "tool-call":
+                assert span.span_type == "TOOL"
+
+
+def test_span_inputs_outputs_translation(mlflow_server: str, is_async):
+    experiment = mlflow.set_experiment("span-inputs-outputs-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(
+        mlflow_server, experiment_id, "span-inputs-outputs-translation-test-service"
+    )
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute("input.value", "Hello, world!")
+        span.set_attribute("output.value", "Bye!")
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) == 1
+    retrieved_trace = mlflow.get_trace(traces[0].info.trace_id)
+    assert retrieved_trace.data.spans[0].inputs == "Hello, world!"
+    assert retrieved_trace.data.spans[0].outputs == "Bye!"
+    assert retrieved_trace.info.request_preview == "Hello, world!"
+    assert retrieved_trace.info.response_preview == "Bye!"
+
+
+def test_span_token_usage_translation(mlflow_server: str, is_async):
+    experiment = mlflow.set_experiment("span-token-usage-translation-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(
+        mlflow_server, experiment_id, "span-token-usage-translation-test-service"
+    )
+
+    with tracer.start_as_current_span("llm-call") as span:
+        span.set_attribute("gen_ai.usage.input_tokens", 100)
+        span.set_attribute("gen_ai.usage.output_tokens", 50)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+    assert len(traces) > 0
+    for trace_info in traces:
+        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
+        assert retrieved_trace.data.spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }
