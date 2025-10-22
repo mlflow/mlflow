@@ -344,6 +344,11 @@ def _setup_tracer_provider(disabled=False):
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
+    # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+    tracer_provider.resource.attributes["telemetry.sdk.language"] = "python"
+    tracer_provider.resource.attributes["telemetry.sdk.name"] = "mlflow"
+    tracer_provider.resource.attributes["telemetry.sdk.version"] = mlflow.__version__
+
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
 
