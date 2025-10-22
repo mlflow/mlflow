@@ -13,10 +13,12 @@ export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
   renderMode,
+  chatMessageFormat,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
+  chatMessageFormat?: string;
 }) => {
   const parsedData = useMemo(() => {
     try {
@@ -27,7 +29,7 @@ export const ModelTraceExplorerFieldRenderer = ({
   }, [data]);
 
   const dataIsString = isString(parsedData);
-  const chatMessages = normalizeConversation(parsedData);
+  const chatMessages = normalizeConversation(parsedData, chatMessageFormat);
   const isChatTools = Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isModelTraceChatTool);
   const isRetrieverDocuments =
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);

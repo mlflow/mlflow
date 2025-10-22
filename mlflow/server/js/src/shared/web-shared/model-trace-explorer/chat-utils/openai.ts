@@ -138,7 +138,9 @@ const normalizeOpenAIResponsesInputMessage = (obj: OpenAIResponsesInputMessage):
 };
 
 export const normalizeOpenAIResponsesInput = (obj: unknown): ModelTraceChatMessage[] | null => {
-  const input: unknown = get(obj, 'input');
+  // if the object does not have the 'input' key, then try using the object directly
+  // (user may have passed in the response input directly to the span)
+  const input: unknown = get(obj, 'input') ?? obj;
 
   if (isString(input)) {
     const message = prettyPrintChatMessage({ type: 'message', content: input, role: 'user' });
@@ -201,7 +203,9 @@ export const normalizeOpenAIResponsesOutput = (obj: unknown): ModelTraceChatMess
     return null;
   }
 
-  const output: unknown = get(obj, 'output');
+  // if the object does not have the 'output' key, then try using the object directly
+  // (user may have passed in the response output directly to the span)
+  const output: unknown = get(obj, 'output') ?? obj;
 
   // list of output items
   if (isArray(output) && output.length > 0 && output.every(isOpenAIResponsesOutputItem)) {
