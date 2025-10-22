@@ -27,6 +27,7 @@ Bug fixes:
 - [Tracking] Handle Databricks FMAPI style in openai autolog (#18354, @TomeHirata)
 - [Tracking] Fetch config after adding first record (#18338, @serena-ruan)
 - [UI] Fix span ID parsing in the UI (#18419, @daniellok-db)
+- [UI] Fix Chat message parsing within the trace summary view modal (#18454, @daniellok-db)
 - [UI] Fix an issue with display of the assessments pane in the UI (#18333, @BenWilson2)
 
 Documentation updates:
