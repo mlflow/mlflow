@@ -70,8 +70,7 @@ def test_apply_span_processors_multiple_processors_success():
     assert span.attributes["attr_2"] == "value_2"
 
 
-@patch("mlflow.tracing.utils.processor._logger")
-def test_apply_span_processors_returns_non_none_warning(mock_logger):
+def test_apply_span_processors_returns_non_none_warning():
     """Test warning is logged when processor returns a non-None value."""
 
     def bad_processor(span):
@@ -80,9 +79,10 @@ def test_apply_span_processors_returns_non_none_warning(mock_logger):
     def good_processor(span):
         span.set_outputs("overridden_output")
 
-    mlflow.tracing.configure(span_processors=[bad_processor, good_processor])
+    with patch("mlflow.tracing.utils.processor._logger") as mock_logger:
+        mlflow.tracing.configure(span_processors=[bad_processor, good_processor])
 
-    predict("test")
+        predict("test")
 
     mock_logger.warning.assert_called_once()
     message = mock_logger.warning.call_args[0][0]
@@ -93,8 +93,7 @@ def test_apply_span_processors_returns_non_none_warning(mock_logger):
     assert span.outputs == "overridden_output"
 
 
-@patch("mlflow.tracing.utils.processor._logger")
-def test_apply_span_processors_exception_handling(mock_logger):
+def test_apply_span_processors_exception_handling():
     """Test that processor exceptions are caught and logged."""
 
     def failing_processor(span):
@@ -103,9 +102,10 @@ def test_apply_span_processors_exception_handling(mock_logger):
     def good_processor(span):
         span.set_outputs("overridden_output")
 
-    mlflow.tracing.configure(span_processors=[failing_processor, good_processor])
+    with patch("mlflow.tracing.utils.processor._logger") as mock_logger:
+        mlflow.tracing.configure(span_processors=[failing_processor, good_processor])
 
-    predict("test")
+        predict("test")
 
     span = get_traces()[0].data.spans[0]
     assert span.outputs == "overridden_output"

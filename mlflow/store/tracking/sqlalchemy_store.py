@@ -34,6 +34,7 @@ from mlflow.entities import (
     RunOutputs,
     RunStatus,
     RunTag,
+    ScorerVersion,
     SourceType,
     TraceInfo,
     ViewType,
@@ -1970,7 +1971,9 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1980,7 +1983,7 @@ class SqlAlchemyStore(AbstractStore):
             serialized_scorer: The serialized scorer string (JSON).
 
         Returns:
-            The new version number for the scorer.
+            mlflow.entities.ScorerVersion: The newly registered scorer version with scorer_id.
         """
         with self.ManagedSessionMaker() as session:
             # Validate experiment exists and is active
@@ -2026,10 +2029,11 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_scorer_version)
+            session.flush()
 
-            return new_version
+            return sql_scorer_version.to_mlflow_entity()
 
-    def list_scorers(self, experiment_id):
+    def list_scorers(self, experiment_id) -> list[ScorerVersion]:
         """
         List all scorers for an experiment.
 
@@ -2080,14 +2084,13 @@ class SqlAlchemyStore(AbstractStore):
                 .all()
             )
 
-            # Convert to mlflow.entities.scorer.ScorerVersion objects
             scorers = []
             for sql_scorer_version in sql_scorer_versions:
                 scorers.append(sql_scorer_version.to_mlflow_entity())
 
             return scorers
 
-    def get_scorer(self, experiment_id, name, version=None):
+    def get_scorer(self, experiment_id, name, version=None) -> ScorerVersion:
         """
         Get a specific scorer for an experiment.
 
@@ -2151,7 +2154,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_scorer_version.to_mlflow_entity()
 
-    def delete_scorer(self, experiment_id, name, version=None):
+    def delete_scorer(self, experiment_id, name, version=None) -> None:
         """
         Delete a scorer for an experiment.
 
@@ -2216,7 +2219,7 @@ class SqlAlchemyStore(AbstractStore):
             if version is None:
                 session.delete(scorer)
 
-    def list_scorer_versions(self, experiment_id, name):
+    def list_scorer_versions(self, experiment_id, name) -> list[ScorerVersion]:
         """
         List all versions of a specific scorer for an experiment.
 
@@ -3043,6 +3046,22 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id.in_(trace_ids),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.RUN,
+                    SqlEntityAssociation.destination_id == run_id,
+                )
+                .all()
+            )
+            existing_trace_ids = [association.source_id for association in existing_associations]
+
+            trace_ids_to_add = [
+                trace_id for trace_id in trace_ids if trace_id not in existing_trace_ids
+            ]
+
             session.add_all(
                 SqlEntityAssociation(
                     association_id=uuid.uuid4().hex,
@@ -3051,7 +3070,7 @@ class SqlAlchemyStore(AbstractStore):
                     destination_type=EntityAssociationType.RUN,
                     destination_id=run_id,
                 )
-                for trace_id in trace_ids
+                for trace_id in trace_ids_to_add
             )
 
     def calculate_trace_filter_correlation(

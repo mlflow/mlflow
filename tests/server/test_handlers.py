@@ -1371,18 +1371,31 @@ def test_register_scorer(mock_get_request_message, mock_tracking_store):
         experiment_id=experiment_id, name=name, serialized_scorer=serialized_scorer
     )
 
-    mock_tracking_store.register_scorer.return_value = 1
+    mock_scorer_version = ScorerVersion(
+        experiment_id=experiment_id,
+        scorer_name=name,
+        scorer_version=1,
+        serialized_scorer=serialized_scorer,
+        creation_time=1234567890,
+        scorer_id="test-scorer-id",
+    )
+    mock_tracking_store.register_scorer.return_value = mock_scorer_version
 
     resp = _register_scorer()
 
-    # Verify the tracking store was called with correct arguments
     mock_tracking_store.register_scorer.assert_called_once_with(
         experiment_id, name, serialized_scorer
     )
 
-    # Verify the response
     response_data = json.loads(resp.get_data())
-    assert response_data == {"version": 1}
+    assert response_data == {
+        "version": 1,
+        "scorer_id": "test-scorer-id",
+        "experiment_id": experiment_id,
+        "name": name,
+        "serialized_scorer": serialized_scorer,
+        "creation_time": 1234567890,
+    }
 
 
 def test_list_scorers(mock_get_request_message, mock_tracking_store):

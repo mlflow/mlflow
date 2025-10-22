@@ -846,24 +846,24 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
     assert other_exporter.exported_spans[0].name == "non_mlflow_span"
 
 
-@mock.patch("mlflow.tracing.display.get_display_handler")
-def test_get_trace(mock_get_display_handler):
-    model = DefaultTestModel()
-    model.predict(2, 5)
+def test_get_trace():
+    with mock.patch("mlflow.tracing.display.get_display_handler") as mock_get_display_handler:
+        model = DefaultTestModel()
+        model.predict(2, 5)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    trace_id = trace.info.trace_id
-    mock_get_display_handler.reset_mock()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace_id = trace.info.trace_id
+        mock_get_display_handler.reset_mock()
 
-    # Fetch trace from in-memory buffer
-    trace_in_memory = mlflow.get_trace(trace_id)
-    assert trace.info.trace_id == trace_in_memory.info.trace_id
-    mock_get_display_handler.assert_not_called()
+        # Fetch trace from in-memory buffer
+        trace_in_memory = mlflow.get_trace(trace_id)
+        assert trace.info.trace_id == trace_in_memory.info.trace_id
+        mock_get_display_handler.assert_not_called()
 
-    # Fetch trace from backend
-    trace_from_backend = mlflow.get_trace(trace.info.trace_id)
-    assert trace.info.trace_id == trace_from_backend.info.trace_id
-    mock_get_display_handler.assert_not_called()
+        # Fetch trace from backend
+        trace_from_backend = mlflow.get_trace(trace.info.trace_id)
+        assert trace.info.trace_id == trace_from_backend.info.trace_id
+        mock_get_display_handler.assert_not_called()
 
     # If not found, return None with warning
     with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
@@ -1108,6 +1108,26 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
     assert df["non_dict_span.inputs"].tolist() == [["a", "b"]]
     assert df["non_dict_span.outputs"].tolist() == [[1, 2, 3]]
     assert df["non_dict_span.inputs.x"].isnull().all()
+
+
+@skip_when_testing_trace_sdk
+def test_search_traces_extract_fields_preserves_standard_columns():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"x": 1})
+        span.set_outputs({"y": 2})
+
+    df = mlflow.search_traces(extract_fields=["test_span.inputs.x"])
+
+    # Verify standard columns still exist
+    assert "trace_id" in df.columns
+    assert "spans" in df.columns
+    assert "tags" in df.columns
+    assert "request" in df.columns
+    assert "response" in df.columns
+
+    # Verify extract field was added
+    assert "test_span.inputs.x" in df.columns
+    assert df["test_span.inputs.x"].tolist() == [1]
 
 
 @skip_when_testing_trace_sdk

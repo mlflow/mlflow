@@ -106,10 +106,7 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
 
 
 def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
-    # AIMessage does not have tool_calls field in LangChain < 0.1.0.
-    if not hasattr(message, "tool_calls"):
-        return []
-
+    # Extract tool calls from AIMessage
     tool_calls = [
         {
             "type": "function",
@@ -194,6 +191,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
     def _gen_converted_chunk(message_content, message_id, finish_reason):
         transformed_response = ChatCompletionChunk(
             id=message_id,
+            object="chat.completion.chunk",
             created=int(time.time()),
             model="",
             choices=[
@@ -209,9 +207,9 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
         )
 
         if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json")
+            return transformed_response.model_dump(mode="json", exclude_unset=True)
         else:
-            return json.loads(transformed_response.json())
+            return json.loads(transformed_response.json(exclude_unset=True))
 
     def _convert(chunk):
         if isinstance(chunk, str):

@@ -1846,10 +1846,6 @@ def _extract_endpoint_name_from_lc_model(lc_model):
         yield DatabricksServingEndpoint(endpoint_name=lc_model.endpoint_name)
 
 
-@mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
-    _extract_endpoint_name_from_lc_model,
-)
 def test_databricks_dependency_extraction_from_lcel_chain():
     prompt_1 = ChatPromptTemplate.from_template("tell me a short joke about {topic}")
     prompt_2 = ChatPromptTemplate.from_template(
@@ -1863,7 +1859,14 @@ def test_databricks_dependency_extraction_from_lcel_chain():
     chain = prompt_1 | {"joke1": model_1, "joke2": model_2} | prompt_2 | model_3 | output_parser
 
     pyfunc_artifact_path = "basic_chain"
-    with mlflow.start_run(), mock.patch("mlflow.langchain.model.logger.info") as mock_log_info:
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._extract_dependency_list_from_lc_model",
+            side_effect=_extract_endpoint_name_from_lc_model,
+        ),
+        mock.patch("mlflow.langchain.model.logger.info") as mock_log_info,
+    ):
         model_info = mlflow.langchain.log_model(chain, name=pyfunc_artifact_path)
         mock_log_info.assert_called_once_with(
             "Attempting to auto-detect Databricks resource dependencies for the current "
@@ -1902,14 +1905,6 @@ def _extract_databricks_dependencies_from_llm(llm):
         yield DatabricksServingEndpoint(endpoint_name=llm.endpoint_name)
 
 
-@mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
-    _extract_databricks_dependencies_from_llm,
-)
-@mock.patch(
-    "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_retriever",
-    _extract_databricks_dependencies_from_retriever,
-)
 def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -1931,7 +1926,17 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
         return vectorstore.as_retriever()
 
     pyfunc_artifact_path = "retrieval_qa_chain"
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_llm",
+            side_effect=_extract_databricks_dependencies_from_llm,
+        ),
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._extract_databricks_dependencies_from_retriever",
+            side_effect=_extract_databricks_dependencies_from_retriever,
+        ),
+    ):
         model_info = mlflow.langchain.log_model(
             retrievalQA,
             name=pyfunc_artifact_path,
@@ -2063,27 +2068,41 @@ def _error_func(*args, **kwargs):
     raise ValueError("error")
 
 
-@mock.patch(
-    "mlflow.langchain.databricks_dependencies._traverse_runnable",
-    _error_func,
-)
-@mock.patch("mlflow.langchain.databricks_dependencies._logger.warning")
-def test_databricks_dependency_extraction_log_errors_as_warnings(mock_warning):
+def test_databricks_dependency_extraction_log_errors_as_warnings():
     from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
 
     model = create_openai_llmchain()
 
-    _detect_databricks_dependencies(model, log_errors_as_warnings=True)
-    mock_warning.assert_called_once_with(
-        "Unable to detect Databricks dependencies. "
-        "Set logging level to DEBUG to see the full traceback."
-    )
+    with (
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._traverse_runnable",
+            side_effect=_error_func,
+        ),
+        mock.patch("mlflow.langchain.databricks_dependencies._logger.warning") as mock_warning,
+    ):
+        _detect_databricks_dependencies(model, log_errors_as_warnings=True)
+        mock_warning.assert_called_once_with(
+            "Unable to detect Databricks dependencies. "
+            "Set logging level to DEBUG to see the full traceback."
+        )
 
-    with pytest.raises(ValueError, match="error"):
+    with (
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._traverse_runnable",
+            side_effect=_error_func,
+        ),
+        pytest.raises(ValueError, match="error"),
+    ):
         _detect_databricks_dependencies(model, log_errors_as_warnings=False)
 
     pyfunc_artifact_path = "langchain_model"
-    with mlflow.start_run():
+    with (
+        mlflow.start_run(),
+        mock.patch(
+            "mlflow.langchain.databricks_dependencies._traverse_runnable",
+            side_effect=_error_func,
+        ),
+    ):
         model_info = mlflow.langchain.log_model(model, name=pyfunc_artifact_path)
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri)
     reloaded_model = Model.load(os.path.join(pyfunc_model_path, "MLmodel"))

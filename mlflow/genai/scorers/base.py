@@ -65,6 +65,7 @@ class SerializedScorer:
     # Core scorer fields
     name: str
     aggregations: list[str] | None = None
+    description: str | None = None
 
     # Version metadata
     mlflow_version: str = mlflow.__version__
@@ -109,6 +110,7 @@ class SerializedScorer:
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
+    description: str | None = None
 
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
@@ -172,6 +174,7 @@ class Scorer(BaseModel):
         # Create serialized scorer with all fields at once
         serialized = SerializedScorer(
             name=self.name,
+            description=self.description,
             aggregations=self.aggregations,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
@@ -268,6 +271,7 @@ class Scorer(BaseModel):
             try:
                 return InstructionsJudge(
                     name=serialized.name,
+                    description=serialized.description,
                     instructions=data["instructions"],
                     model=data["model"],
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
@@ -314,7 +318,10 @@ class Scorer(BaseModel):
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
         scorer_instance = scorer(
-            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+            recreated_func,
+            name=serialized.name,
+            description=serialized.description,
+            aggregations=serialized.aggregations,
         )
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
@@ -793,6 +800,7 @@ def scorer(
     func=None,
     *,
     name: str | None = None,
+    description: str | None = None,
     aggregations: list[_AggregationType] | None = None,
 ):
     """
@@ -858,6 +866,7 @@ def scorer(
     Args:
         func: The scorer function to be decorated.
         name: The name of the scorer.
+        description: A description of what the scorer evaluates.
         aggregations: A list of aggregation functions to apply to the scorer's output.
             The aggregation functions can be either a string or a callable.
 
@@ -935,7 +944,9 @@ def scorer(
     """
 
     if func is None:
-        return functools.partial(scorer, name=name, aggregations=aggregations)
+        return functools.partial(
+            scorer, name=name, description=description, aggregations=aggregations
+        )
 
     class CustomScorer(Scorer):
         # Store reference to the original function
@@ -967,5 +978,6 @@ def scorer(
 
     return CustomScorer(
         name=name or func.__name__,
+        description=description,
         aggregations=aggregations,
     )

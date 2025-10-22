@@ -195,7 +195,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " Hi"},
+                        "delta": {
+                            "role": None,
+                            "content": " Hi",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -208,7 +212,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": " there"},
+                        "delta": {
+                            "role": None,
+                            "content": " there",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -221,7 +229,11 @@ async def test_chat_stream():
             {
                 "choices": [
                     {
-                        "delta": {"role": None, "content": None},
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": None,
+                        },
                         "finish_reason": "COMPLETE",
                         "index": 0,
                     }

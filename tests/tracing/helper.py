@@ -135,7 +135,7 @@ def create_test_trace_info(
 
 
 def create_test_trace_info_with_uc_table(
-    trace_id: str, catalog_name: str, schema_name: str, spans_table_name: str
+    trace_id: str, catalog_name: str, schema_name: str
 ) -> TraceInfo:
     return TraceInfo(
         trace_id=trace_id,

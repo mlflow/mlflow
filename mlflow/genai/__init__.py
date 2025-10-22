@@ -24,7 +24,7 @@ from mlflow.genai.labeling import (
     get_labeling_sessions,
     get_review_app,
 )
-from mlflow.genai.optimize import optimize_prompt
+from mlflow.genai.optimize import optimize_prompt, optimize_prompts
 from mlflow.genai.prompts import (
     delete_prompt_alias,
     delete_prompt_tag,
@@ -62,6 +62,7 @@ __all__ = [
     "search_prompts",
     "delete_prompt_alias",
     "set_prompt_alias",
+    "optimize_prompts",
     "optimize_prompt",
     "get_prompt_tags",
     "set_prompt_tag",
