@@ -739,6 +739,11 @@ class _PyTorchWrapper:
         if isinstance(data, pd.DataFrame):
             inp_data = data if self._is_forecasting_model else data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
+            if self._is_forecasting_model:
+                raise TypeError(
+                    "The pytorch forecasting model does not support numpy.ndarray input data, "
+                    "please provide pandas.DataFrame input data."
+                )
             inp_data = data
         elif isinstance(data, (list, dict)):
             raise TypeError(

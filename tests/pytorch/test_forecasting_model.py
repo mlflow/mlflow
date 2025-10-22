@@ -49,3 +49,9 @@ def test_forecasting_model_pyfunc_loader(model_path):
     pyfunc_loaded = mlflow.pyfunc.load_model(model_path)
     torch.manual_seed(42)
     np.testing.assert_array_almost_equal(pyfunc_loaded.predict(data), predicted, decimal=4)
+
+    with pytest.raises(
+        TypeError,
+        match="The pytorch forecasting model does not support numpy.ndarray",
+    ):
+        pyfunc_loaded.predict(np.array([1.0, 2.0]))
