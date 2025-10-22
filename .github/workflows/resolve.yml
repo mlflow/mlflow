@@ -178,7 +178,8 @@ jobs:
     if: |
       always() &&
       !contains(needs.*.result, 'failure') &&
-      !contains(needs.*.result, 'cancelled')
+      !contains(needs.*.result, 'cancelled') &&
+      !contains(needs.*.result, 'skipped')
     runs-on: ubuntu-latest
     permissions:
       issues: write
