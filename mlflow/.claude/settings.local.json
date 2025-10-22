@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(yarn build)",
+      "Bash(yarn prettier:*)",
+      "Bash(yarn dev:*)",
+      "Bash(/Users/benjamin.wilson/.pyenv/versions/anaconda3-2022.10/envs/mlflow-311/bin/python:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
