@@ -19,6 +19,9 @@ jobs:
     permissions:
       pull-requests: write
     timeout-minutes: 30
+    # Security: Only run for authorized users.
+    # - pull_request: Only run for PRs from the upstream repo by authorized users (not forks)
+    # - issue_comment: BOTH PR author and commenter must be authorized (can't trust external PRs)
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
