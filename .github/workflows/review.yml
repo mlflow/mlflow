@@ -84,7 +84,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
