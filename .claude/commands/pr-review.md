@@ -54,7 +54,7 @@ For each issue found, use `mcp__review__add_pr_review_comment` with:
 
 **How to write comments:**
 
-- Use ```suggestion blocks (three backticks + "suggestion") for simple fixes that maintainers can apply with one click
+- Use ` ```suggestion ` blocks (three backticks + "suggestion") for simple fixes that maintainers can apply with one click
 - Copy original indentation exactly in suggestion blocks
 - For repetitive issues, leave one representative comment instead of flagging every instance
 - Be specific about the issue and why it needs changing
