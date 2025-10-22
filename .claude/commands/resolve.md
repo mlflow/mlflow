@@ -31,9 +31,11 @@ Automatically fetch and address PR review comments. This command examines review
 
 1. **Auto-detect PR context**:
 
-   - Use `gh pr view --json url -q '.url'` to get PR info for the current branch
-   - Parse to extract owner, repo, and PR number
-   - If auto-detection fails, inform the user that no PR was found for the current branch
+   - First check for environment variables:
+     - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, read them and parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER` directly
+   - Otherwise:
+     - Use `gh pr view --json url -q '.url'` to get PR info for the current branch and parse to extract owner, repo, and PR number
+   - If neither method works, inform the user that no PR was found and exit
 
 2. **Fetch unresolved review comments**:
 
