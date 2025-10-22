@@ -45,7 +45,7 @@ jobs:
 
             let message;
             if (isAllowed) {
-              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
               message = `🚀 [Review workflow started](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
@@ -83,8 +83,23 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          OUTPUT=$(timeout 20m claude --print --verbose "/pr-review" || true)
+          OUTPUT_FILE="/tmp/output.json"
+
+          timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" || true
+
+          # Display output in workflow logs (pretty print if valid JSON)
+          echo "=== Claude Output ==="
+          if jq empty "$OUTPUT_FILE" 2>/dev/null; then
+            jq . "$OUTPUT_FILE"
+          else
+            cat "$OUTPUT_FILE"
+          fi
+          echo "===================="
+
+          # Save output for later use
+          OUTPUT=$(cat "$OUTPUT_FILE")
           echo "output<<EOF" >> $GITHUB_OUTPUT
           echo "$OUTPUT" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
@@ -98,12 +113,24 @@ jobs:
           script: |
             const { owner, repo } = context.repo;
             const { comment } = context.payload;
-            const output = (process.env.REVIEW_OUTPUT || '').trim();
+            const claudeOutput = process.env.REVIEW_OUTPUT || '';
 
-            if (!output) {
-              console.log('Output is empty, skipping comment update');
-              return;
+            let resultMessage = '✅ Review completed.';
+
+            // Extract and display Claude's result from JSON output
+            if (claudeOutput) {
+              try {
+                const events = JSON.parse(claudeOutput);
+                const resultEvent = events.find(({ type }) => type === 'result');
+                if (resultEvent) {
+                  resultMessage += `\n\n<details>\n<summary>Review Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                }
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
             }
+
+            console.log('Result message to post:', resultMessage);
 
             const { data: currentComment } = await github.rest.issues.getComment({
               owner,
@@ -111,7 +138,7 @@ jobs:
               comment_id: comment.id,
             });
 
-            const updatedBody = `${currentComment.body}\n\n---\n\n<details>\n<summary>Review results</summary>\n\n${output}\n\n</details>`;
+            const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
 
             await github.rest.issues.updateComment({
               owner,
