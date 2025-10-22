@@ -279,8 +279,13 @@ class Span:
                 )
                 span_id = decode_id(data["span_id"])
                 parent_id = decode_id(data["parent_span_id"]) if data["parent_span_id"] else None
-                # Try to parse as protobuf enum name first (for backward compatibility),
-                # then fall back to value format (for forward compatibility)
+                # NB: This handles an inadvertent breaking change introduced in MLflow 3.5.0
+                # that broke forward compatibility with versions <3.5.0. Prior to 3.5.0, spans
+                # were serialized with protobuf enum names (e.g., "STATUS_CODE_OK"). In 3.5.0,
+                # this was changed to enum values (e.g., "OK"), making spans logged by 3.5.0
+                # unreadable by earlier versions. We now serialize using protobuf enum names
+                # again (for backward compatibility) while also supporting enum values when
+                # deserializing (to handle spans logged by 3.5.0).
                 status_code_str = data["status"]["code"]
                 try:
                     status_code = SpanStatusCode.from_proto_status_code(status_code_str)
