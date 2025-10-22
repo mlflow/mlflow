@@ -25,10 +25,13 @@ class SpanStatusCode(str, Enum):
         Returns:
             The protobuf enum name (e.g., "STATUS_CODE_OK")
         """
+        from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
+
+        proto_code = ProtoSpan.Status.StatusCode
         mapping = {
-            SpanStatusCode.UNSET: "STATUS_CODE_UNSET",
-            SpanStatusCode.OK: "STATUS_CODE_OK",
-            SpanStatusCode.ERROR: "STATUS_CODE_ERROR",
+            SpanStatusCode.UNSET: proto_code.Name(proto_code.STATUS_CODE_UNSET),
+            SpanStatusCode.OK: proto_code.Name(proto_code.STATUS_CODE_OK),
+            SpanStatusCode.ERROR: proto_code.Name(proto_code.STATUS_CODE_ERROR),
         }
         return mapping[self]
 
