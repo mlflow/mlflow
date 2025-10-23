@@ -4,7 +4,7 @@ import time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import NamedTuple, Sequence
+from typing import Sequence
 
 import mlflow
 from mlflow.entities.assessment import Assessment
@@ -51,11 +51,6 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
-
-
-class TraceInfoGroups(NamedTuple):
-    tracking_store_trace_infos_by_location: dict[str, list[TraceInfo]]
-    artifact_repo_trace_infos: list[TraceInfo]
 
 
 class TracingClient:
@@ -336,29 +331,32 @@ class TracingClient:
                 )
 
                 if include_spans:
-                    trace_info_groups = self._group_trace_infos_by_location(trace_infos)
+                    trace_infos_by_location = self._group_trace_infos_by_location(trace_infos)
                     for (
                         location,
                         location_trace_infos,
-                    ) in trace_info_groups.tracking_store_trace_infos_by_location.items():
-                        # Get full traces with BatchGetTraces, all traces in a single call
-                        # must be located in the same table.
-                        trace_ids = [t.trace_id for t in location_trace_infos]
-                        traces.extend(
-                            self._download_spans_from_batch_get_traces(
-                                trace_ids, location, executor
+                    ) in trace_infos_by_location.items():
+                        if location == SpansLocation.ARTIFACT_REPO:
+                            # download traces from artifact repository if spans are
+                            # stored in the artifact repository
+                            traces.extend(
+                                trace
+                                for trace in executor.map(
+                                    self._download_spans_from_artifact_repo,
+                                    location_trace_infos,
+                                )
+                                if trace
                             )
-                        )
+                        else:
+                            # Get full traces with BatchGetTraces, all traces in a single call
+                            # must be located in the same table.
+                            trace_ids = [t.trace_id for t in location_trace_infos]
+                            traces.extend(
+                                self._download_spans_from_batch_get_traces(
+                                    trace_ids, location, executor
+                                )
+                            )
 
-                    # MLflow experiment location. Load spans from artifact repository.
-                    traces.extend(
-                        trace
-                        for trace in executor.map(
-                            self._download_spans_from_artifact_repo,
-                            trace_info_groups.artifact_repo_trace_infos,
-                        )
-                        if trace
-                    )
                 else:
                     traces.extend(Trace(t, TraceData(spans=[])) for t in trace_infos)
 
@@ -424,34 +422,32 @@ class TracingClient:
         else:
             return Trace(trace_info, trace_data)
 
-    def _group_trace_infos_by_location(self, trace_infos: list[TraceInfo]) -> TraceInfoGroups:
+    def _group_trace_infos_by_location(
+        self, trace_infos: list[TraceInfo]
+    ) -> dict[str, list[TraceInfo]]:
         """
         Group the trace infos based on where the trace data is stored.
 
         Returns:
-            A TraceInfoGroups object containing:
-                - tracking_store_trace_infos_by_location: A dictionary mapping location to a list
-                    of trace infos.
-                - artifact_repo_trace_infos: A list of trace infos.
+            A dictionary mapping location to a list of trace infos.
         """
-        tracking_store_trace_infos_by_location = defaultdict(list)
-        artifact_repo_trace_infos = []
+        trace_infos_by_location = defaultdict(list)
         for trace_info in trace_infos:
             if uc_schema := trace_info.trace_location.uc_schema:
                 location = f"{uc_schema.catalog_name}.{uc_schema.schema_name}"
-                tracking_store_trace_infos_by_location[location].append(trace_info)
+                trace_infos_by_location[location].append(trace_info)
             elif trace_info.trace_location.mlflow_experiment:
                 # New traces in SQL store store spans in the tracking store, while for old traces or
                 # traces with File store, spans are stored in artifact repository.
                 if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
                     # location is not used for traces with mlflow experiment location in tracking
                     # store, so we use None as the location
-                    tracking_store_trace_infos_by_location[None].append(trace_info)
+                    trace_infos_by_location[None].append(trace_info)
                 else:
-                    artifact_repo_trace_infos.append(trace_info)
+                    trace_infos_by_location[SpansLocation.ARTIFACT_REPO].append(trace_info)
             else:
                 _logger.warning(f"Unsupported location: {trace_info.trace_location}. Skipping.")
-        return TraceInfoGroups(tracking_store_trace_infos_by_location, artifact_repo_trace_infos)
+        return trace_infos_by_location
 
     def calculate_trace_filter_correlation(
         self,
