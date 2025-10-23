@@ -203,7 +203,9 @@ def _register_model(
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
     # Passing in the string value is a shortcut for passing in the EnvPackConfig
-    if env_pack == "databricks_model_serving" or isinstance(env_pack, EnvPackConfig):
+    if env_pack == "databricks_model_serving" or (
+        isinstance(env_pack, EnvPackConfig) and env_pack.name == "databricks_model_serving"
+    ):
         install_dependencies = (
             env_pack.install_dependencies if isinstance(env_pack, EnvPackConfig) else True
         )
