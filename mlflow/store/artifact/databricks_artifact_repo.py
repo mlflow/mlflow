@@ -583,8 +583,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         """
         # NB: For AWS large files, credentials may be None to avoid double allocation in strict
-        # egress control environments (e.g., Databricks SEG). When None, we use multipart upload
-        # which creates its own credentials via CreateMultipartUpload API.
+        # egress control environments. When None, we use multipart upload which creates its own
+        # credentials via CreateMultipartUpload API.
         if cloud_credential_info is None:
             _validate_chunk_size_aws(MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             self._multipart_upload(src_file_path, artifact_file_path)

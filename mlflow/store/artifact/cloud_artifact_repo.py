@@ -35,10 +35,12 @@ _ARTIFACT_UPLOAD_BATCH_SIZE = 50
 _AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB
 _AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB
 
-# SEG (Storage Execution Guard) delays to avoid storage proxy race conditions
-# These delays ensure the proxy has time to complete internal state cleanup between uploads
-_SEG_BASE_DELAY_SECONDS = 1.0  # Base delay between any two file uploads
-_SEG_LARGE_FILE_DELAY_SECONDS = 2.0  # Extra delay after uploading large files (>100MB)
+# Databricks storage proxy delays to avoid race conditions
+# When uploading multiple files through the Databricks storage proxy, the proxy maintains
+# internal state for credential exchanges and block upload operations. Adding delays between
+# file uploads allows the proxy to complete its internal cleanup and prevents 500 errors.
+_DATABRICKS_UPLOAD_DELAY_SECONDS = 3.0  # Delay between file uploads
+_DATABRICKS_LARGE_FILE_DELAY_SECONDS = 5.0  # Delay after large files (>100MB)
 
 
 def _readable_size(size: int) -> str:
@@ -116,10 +118,27 @@ class CloudArtifactRepository(ArtifactRepository):
 
         This method handles three cloud providers with different upload strategies:
         - AWS: Small files use simple PUT with presigned URLs, large files use multipart upload
-        - Azure/GCP: All files use PUT with SAS tokens
+        - Azure/GCP: All files use PUT with SAS tokens (Azure uses block uploads)
 
-        In SEG (Storage Edge Gateway) environments, concurrent credential requests can fail,
-        so we serialize uploads when needed.
+        Databricks Storage Proxy Compatibility:
+        When uploading through Databricks storage proxies, the proxy maintains internal state
+        for credential exchanges and block upload operations. To avoid race conditions:
+
+        1. Batch ALL credential requests upfront (one batch API call, not N individual calls)
+           - Concurrent credential requests to the same artifact path can cause proxy conflicts
+           - Requesting credentials one-at-a-time while uploads are in progress interferes
+             with the proxy's session management
+
+        2. Serialize uploads with adaptive delays
+           - Wait between file uploads to allow proxy internal state cleanup
+           - Larger files need more cleanup time (3s base, 5s for >100MB files)
+           - Azure block uploads in particular need time for put_block_list cleanup
+
+        3. Separate small and large files (AWS only)
+           - Small files: batch credentials → parallel upload → wait
+           - Delay for proxy cleanup
+           - Large files: each gets multipart credentials → upload
+           - This avoids mixing simple PUT and multipart operations
         """
         artifact_path = artifact_path or ""
 
@@ -227,10 +246,10 @@ class CloudArtifactRepository(ArtifactRepository):
         - Small files (<threshold): Fetch presigned URLs and upload via simple PUT
         - Large files (>=threshold): Use multipart upload (fetches its own credentials)
 
-        SEG Serialization:
+        Databricks Storage Proxy Serialization:
         When we have both small and large files, we upload small files first (in parallel),
         wait for them to complete, then upload large files. This avoids concurrent multipart
-        and simple PUT operations which can trigger SEG 500 errors.
+        and simple PUT operations which can cause storage proxy 500 errors.
         """
         small_files = [p for p in batch if p.file_size < multipart_threshold]
         large_files = [p for p in batch if p.file_size >= multipart_threshold]
@@ -244,6 +263,17 @@ class CloudArtifactRepository(ArtifactRepository):
         if small_files and large_files:
             # Upload small files in parallel
             failures.update(self._upload_files_parallel(small_files, wait=True))
+
+            # Wait for storage proxy cleanup before starting large file multipart uploads
+            # Each large file will request its own multipart credentials, so we need to
+            # ensure the proxy has finished cleanup from small file uploads
+            _logger.debug(
+                f"Completed {len(small_files)} small file(s). Waiting "
+                f"{_DATABRICKS_UPLOAD_DELAY_SECONDS}s before starting {len(large_files)} "
+                "large file multipart upload(s)."
+            )
+            time.sleep(_DATABRICKS_UPLOAD_DELAY_SECONDS)
+
             # Then upload large files (each uses multipart internally)
             failures.update(self._upload_files_parallel(large_files, wait=False))
         else:
@@ -259,41 +289,46 @@ class CloudArtifactRepository(ArtifactRepository):
 
         Azure/GCP Strategy:
         - All files use SAS tokens for upload (no distinction between small/large)
+        - Azure uses block uploads with put_block_list to commit blocks
 
-        SEG Serialization:
-        With multiple files, SEG can reject concurrent credential requests to the same
-        write path. We serialize: fetch cred → upload → delay → repeat.
-
-        Adaptive delays prevent storage proxy race conditions where the proxy's internal
-        state cleanup from one upload interferes with the next upload's block operations.
+        Databricks Storage Proxy Serialization:
+        With multiple files, the Databricks storage proxy cannot handle concurrent credential
+        requests or overlapping block upload operations to the same artifact path. We must:
+        1. Fetch ALL credentials in ONE batch request (avoid N separate requests)
+        2. Upload files serially with adaptive delays for proxy state cleanup
+        3. For Azure: Allow extra time after put_block_list operations to complete cleanup
         """
         failures = {}
 
-        # SEG mode: Serialize credential fetching and uploads with adaptive delays
+        # Multi-file case: Batch credential fetch, then serialize uploads with adaptive delays
         if len(batch) > 1:
+            # CRITICAL: Fetch ALL credentials in ONE batch request to avoid proxy conflicts
+            # The Databricks storage proxy maintains session state per artifact path. Requesting
+            # credentials one-at-a-time while uploads are in progress causes state conflicts
+            # and 500 errors. This is especially problematic for Azure block uploads.
+            self._fetch_credentials_for_plans(batch)
+
+            # Now upload serially with adaptive delays for proxy cleanup
             with ArtifactProgressBar.files(desc="Uploading artifacts", total=len(batch)) as pbar:
                 for idx, plan in enumerate(batch):
                     try:
-                        # Fetch credential for this specific file
-                        creds = self._get_write_credential_infos([plan.dest_path])
-                        plan.credential_info = creds[0] if creds else None
-
-                        # Upload immediately
+                        # Credential already fetched and cached in plan.credential_info
                         future = self.thread_pool.submit(
                             self._upload_to_cloud,
                             cloud_credential_info=plan.credential_info,
                             src_file_path=plan.src_path,
                             artifact_file_path=plan.dest_path,
                         )
-                        future.result()  # Wait for completion
+                        future.result()  # Wait for completion (includes put_block_list)
                         pbar.update()
 
-                        # Adaptive delay before next upload to avoid SEG race condition
-                        # Larger files need more cleanup time in the storage proxy
+                        # Adaptive delay before next upload to avoid storage proxy race condition
+                        # Larger files need more cleanup time, especially for Azure block uploads
+                        # where put_block_list operations require additional proxy cleanup time
                         if idx < len(batch) - 1:
-                            delay = _SEG_BASE_DELAY_SECONDS
+                            delay = _DATABRICKS_UPLOAD_DELAY_SECONDS
                             if plan.file_size > 100 * 1024 * 1024:  # >100MB
-                                delay = _SEG_LARGE_FILE_DELAY_SECONDS
+                                delay = _DATABRICKS_LARGE_FILE_DELAY_SECONDS
                                 _logger.debug(
                                     f"Large file ({plan.file_size / 1024**2:.1f}MB) uploaded. "
                                     f"Waiting {delay}s before next upload to ensure proxy cleanup."
@@ -303,7 +338,7 @@ class CloudArtifactRepository(ArtifactRepository):
                     except Exception as e:
                         failures[plan.src_path] = repr(e)
         else:
-            # Single file - no need to worry about SEG
+            # Single file - no need to worry about proxy state conflicts
             self._fetch_credentials_for_plans(batch)
             failures.update(self._upload_files_parallel(batch, wait=False))
 

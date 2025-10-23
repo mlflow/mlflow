@@ -88,7 +88,7 @@ class DatabricksSdkArtifactRepository(ArtifactRepository):
 
     def log_artifacts(self, local_dir: str, artifact_path: str | None = None) -> None:
         # This method should only be called for single-file uploads now, as multi-file uploads
-        # are handled by DatabricksArtifactRepository to avoid SEG race conditions.
+        # are handled by DatabricksArtifactRepository to avoid storage proxy race conditions.
         # See DatabricksTrackingArtifactRepository.log_artifacts for routing logic.
         local_dir = Path(local_dir).resolve()
 
