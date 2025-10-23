@@ -1,11 +1,3 @@
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "mlflow.types.responses is not supported in Pydantic v1. "
-        "Please upgrade to Pydantic v2 or newer."
-    )
-
 import warnings
 from typing import Any
 

@@ -1,15 +1,7 @@
-from itertools import tee
-from uuid import uuid4
-
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    raise ImportError(
-        "mlflow.types.responses is not supported in Pydantic v1. "
-        "Please upgrade to Pydantic v2 or newer."
-    )
 import json
+from itertools import tee
 from typing import Any, Generator, Iterator
+from uuid import uuid4
 
 from pydantic import ConfigDict, model_validator
 

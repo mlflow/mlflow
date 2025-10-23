@@ -17,7 +17,6 @@ from google.protobuf.struct_pb2 import NULL_VALUE, Value
 from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _PROTOBUF_INT64_FIELDS = [
     FieldDescriptor.TYPE_INT64,
@@ -278,7 +277,7 @@ class NumpyEncoder(JSONEncoder):
         if isinstance(o, (pd.Timestamp, datetime.date, datetime.datetime, datetime.time)):
             return o.isoformat(), True
         if isinstance(o, pydantic.BaseModel):
-            return o.model_dump() if IS_PYDANTIC_V2_OR_NEWER else o.dict(), True
+            return o.model_dump(), True
         return o, False
 
     def default(self, o):

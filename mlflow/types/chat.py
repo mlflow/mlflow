@@ -6,22 +6,14 @@ from uuid import uuid4
 from pydantic import BaseModel as _BaseModel
 from pydantic import Field
 
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
 
 class BaseModel(_BaseModel):
     @classmethod
     def validate_compat(cls, obj: Any):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return cls.model_validate(obj)
-        else:
-            return cls.parse_obj(obj)
+        return cls.model_validate(obj)
 
     def model_dump_compat(self, **kwargs):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return self.model_dump(**kwargs)
-        else:
-            return self.dict(**kwargs)
+        return self.model_dump(**kwargs)
 
 
 class TextContentPart(BaseModel):
@@ -167,9 +159,7 @@ class BaseRequestPayload(BaseModel):
 
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
-    stop: list[str] | None = (
-        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
-    )
+    stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
@@ -232,12 +222,8 @@ class ChatCompletionRequest(BaseRequestPayload):
     https://platform.openai.com/docs/api-reference/chat
     """
 
-    messages: list[ChatMessage] = (
-        Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
-    )
-    tools: list[ChatTool] | None = (
-        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
-    )
+    messages: list[ChatMessage] = Field(..., min_length=1)
+    tools: list[ChatTool] | None = Field(None, min_length=1)
 
 
 class ChatCompletionResponse(BaseModel):

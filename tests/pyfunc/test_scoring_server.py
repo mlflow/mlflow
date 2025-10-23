@@ -24,7 +24,6 @@ from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -715,7 +714,7 @@ def test_numpy_encoder_for_pydantic():
     messages = Messages(
         messages=[Message(role="user", content="hello!"), Message(role="assistant", content="hi!")]
     )
-    msg_dict = messages.model_dump() if IS_PYDANTIC_V2_OR_NEWER else messages.dict()
+    msg_dict = messages.model_dump()
     assert json.dumps(_get_jsonable_obj(messages), cls=NumpyEncoder) == json.dumps(
         msg_dict, cls=NumpyEncoder
     )
