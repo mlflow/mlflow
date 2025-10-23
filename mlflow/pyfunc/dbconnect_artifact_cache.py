@@ -126,6 +126,14 @@ class DBConnectArtifactCache:
             and os.environ.get("AETHER_MULTI_DRIVER_NOTEBOOK_LIBRARY_ENABLED", "false") == "true"
             and os.path.isdir(multi_driver_root)
         ):
+            # When the driver ID is propagated through the environment variable
+            # we use it to find the model artifact directory
+            if driver_id := os.environ.get("DRIVER_ID"):
+                nfs_dir = os.path.join(multi_driver_root, driver_id, relative_path)
+                if os.path.exists(nfs_dir):
+                    return nfs_dir
+
+            # Fall back to walk through all the driver directories and find the artifact
             try:
                 children = sorted(os.listdir(multi_driver_root))
             except OSError:
@@ -136,7 +144,7 @@ class DBConnectArtifactCache:
                 if os.path.exists(child_candidate):
                     return child_candidate
 
-        # Fall back to the original single-driver location to preserve previous behaviour.
+        # Finally, fallback to the original single-driver location to preserve previous behavior.
         return single_candidate
 
 
