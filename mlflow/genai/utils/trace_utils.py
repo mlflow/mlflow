@@ -3,6 +3,7 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any, Callable
 
+from cachetools.func import cached
 from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
 
@@ -16,6 +17,8 @@ from mlflow.models.evaluation.utils.trace import configure_autologging_for_evalu
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.genai.evaluation.entities import EvalItem
@@ -342,9 +345,9 @@ def _to_dict(obj: Any) -> dict[str, Any]:
 def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
-    Only consider the last retrieval span in the trace if there are multiple retrieval spans.
-    If the trace does not have a retrieval span, return None.
-    ⚠️ Warning: Please make sure to not throw exception. If fails, return None.
+    Extracts all top-level retrieval spans from the trace if there are multiple retrieval spans.
+    If the trace does not have a retrieval span, return an empty dictionary.
+    ⚠️ Warning: Please make sure to not throw exception. If fails, return an empty dictionary.
     """
     if trace is None or trace.data is None:
         return {}
@@ -484,3 +487,17 @@ def create_minimal_trace(eval_item: "EvalItem") -> Trace:
             root_span.set_inputs(eval_item.inputs)
             root_span.set_outputs(eval_item.outputs)
         return mlflow.get_trace(root_span.trace_id)
+
+
+# MB: Caching on tracking URI level to avoid unnecessary checks for each trace.
+@cached(cache={}, key=lambda **kwargs: kwargs["tracking_uri"])
+def _does_store_support_trace_linking(*, tracking_uri: str, trace: Trace, run_id: str) -> bool:
+    # Databricks backend is guaranteed to support trace linking
+    if is_databricks_uri(tracking_uri):
+        return True
+
+    try:
+        MlflowClient(tracking_uri).link_traces_to_run([trace.info.trace_id], run_id=run_id)
+        return True
+    except Exception:
+        return False

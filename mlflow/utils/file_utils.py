@@ -24,6 +24,7 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
+from types import TracebackType
 from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
@@ -979,3 +980,37 @@ def read_yaml(root: str, file_name: str) -> dict[str, Any]:
 
     with open(os.path.join(root, file_name)) as f:
         return yaml.safe_load(f)
+
+
+class ExclusiveFileLock:
+    """
+    Exclusive file lock (only works on Unix system)
+    """
+
+    def __init__(self, path: str):
+        if os.name == "nt":
+            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
+        self.path = path
+        self.fd = None
+
+    def __enter__(self) -> None:
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Open file (create if missing)
+        self.fd = open(self.path, "w")
+        # Acquire exclusive lock (blocking)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ):
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Release lock
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.fd.close()

@@ -179,7 +179,11 @@ async def _run_test_chat_stream(resp, provider):
             {
                 "choices": [
                     {
-                        "delta": {"content": None, "role": "assistant"},
+                        "delta": {
+                            "content": None,
+                            "role": "assistant",
+                            "tool_calls": None,
+                        },
                         "finish_reason": None,
                         "index": 0,
                     }
@@ -191,7 +195,15 @@ async def _run_test_chat_stream(resp, provider):
             },
             {
                 "choices": [
-                    {"delta": {"content": "test", "role": None}, "finish_reason": None, "index": 0}
+                    {
+                        "delta": {
+                            "content": "test",
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": None,
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -200,7 +212,15 @@ async def _run_test_chat_stream(resp, provider):
             },
             {
                 "choices": [
-                    {"delta": {"content": None, "role": None}, "finish_reason": "stop", "index": 0}
+                    {
+                        "delta": {
+                            "content": None,
+                            "role": None,
+                            "tool_calls": None,
+                        },
+                        "finish_reason": "stop",
+                        "index": 0,
+                    }
                 ],
                 "created": 1,
                 "id": "test-id",
@@ -232,6 +252,112 @@ async def test_chat_stream(resp):
     config = chat_config()
     provider = OpenAIProvider(EndpointConfig(**config))
     await _run_test_chat_stream(resp, provider)
+
+
+@pytest.mark.asyncio
+async def test_chat_stream_with_function_calling():
+    config = chat_config()
+    provider = OpenAIProvider(EndpointConfig(**config))
+
+    resp = [
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{"role":"assistant",'
+        b'"tool_calls":[{"index":0,"id":"call_001","function":{"name":"get_weather"},'
+        b'"type":"function"}]}}]}\n',
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":null,"delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"{\\"location\\":"'
+        b"}}]}}]}\n",
+        b"\n",
+        b'data: {"id":"test-id","object":"chat.completion.chunk","created":1,"model":"test",'
+        b'"choices":[{"index":0,"finish_reason":"stop","delta":{'
+        b'"tool_calls":[{"index":0,"function":{"arguments":"\\"Singapore\\"}"'
+        b"}}]}}]}\n",
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+
+    with mock.patch("aiohttp.ClientSession", return_value=mock_client):
+        payload = {"messages": [{"role": "user", "content": "What's the weather in Singapore?"}]}
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": "assistant",
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "call_001",
+                                    "type": "function",
+                                    "function": {"name": "get_weather", "arguments": None},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '{"location":'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1,
+                "model": "test",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '"Singapore"}'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+        ]
 
 
 def completions_config():

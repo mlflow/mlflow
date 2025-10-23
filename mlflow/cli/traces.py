@@ -52,6 +52,10 @@ EXAMPLE USAGE:
     mlflow traces set-tag --trace-id tr-abc123 \
         --key environment --value production
 
+    # Evaluate traces
+    mlflow traces evaluate --trace-ids tr-abc123,tr-abc124 \
+        --scorers Correctness,Safety --output json
+
 ASSESSMENT TYPES:
     • Feedback: Evaluation scores, ratings, or judgments
     • Expectations: Ground truth labels or expected outputs
@@ -64,6 +68,7 @@ For detailed help on any command, use:
 import json
 import os
 import warnings
+from typing import Literal
 
 import click
 
@@ -508,7 +513,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the feedback",
 )
@@ -611,7 +620,11 @@ def log_feedback(
 @click.option(
     "--source-type",
     type=click.Choice(
-        [AssessmentSourceType.HUMAN, AssessmentSourceType.LLM_JUDGE, AssessmentSourceType.CODE]
+        [
+            AssessmentSourceType.HUMAN,
+            AssessmentSourceType.LLM_JUDGE,
+            AssessmentSourceType.CODE,
+        ]
     ),
     help="Source type of the expectation",
 )
@@ -786,3 +799,75 @@ def delete_assessment(trace_id: str, assessment_id: str) -> None:
     client = TracingClient()
     client.delete_assessment(trace_id, assessment_id)
     click.echo(f"Deleted assessment {assessment_id} from trace {trace_id}.")
+
+
+@commands.command("evaluate")
+@EXPERIMENT_ID
+@click.option(
+    "--trace-ids",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of trace IDs to evaluate.",
+)
+@click.option(
+    "--scorers",
+    type=click.STRING,
+    required=True,
+    help="Comma-separated list of scorer names. Can be built-in scorers "
+    "(e.g., Correctness, Safety, RelevanceToQuery) or registered custom scorers.",
+)
+@click.option(
+    "--output",
+    "output_format",
+    type=click.Choice(["table", "json"]),
+    default="table",
+    help="Output format: 'table' for formatted table (default) or 'json' for JSON format",
+)
+def evaluate_traces(
+    experiment_id: str,
+    trace_ids: str,
+    scorers: str,
+    output_format: Literal["table", "json"] = "table",
+) -> None:
+    """
+    Evaluate one or more traces using specified scorers and display the results.
+
+    This command runs MLflow's genai.evaluate() on specified traces, applying the
+    specified scorers and displaying the evaluation results in table or JSON format.
+
+    \b
+    Examples:
+    # Evaluate a single trace with built-in scorers
+    mlflow traces evaluate --trace-ids tr-abc123 --scorers Correctness,Safety
+
+    \b
+    # Evaluate multiple traces
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456,tr-ghi789 \\
+        --scorers RelevanceToQuery
+
+    \b
+    # Evaluate with JSON output
+    mlflow traces evaluate --trace-ids tr-abc123 \\
+        --scorers Correctness --output json
+
+    \b
+    # Evaluate with custom registered scorer
+    mlflow traces evaluate --trace-ids tr-abc123,tr-def456 \\
+        --scorers my_custom_scorer,Correctness
+
+    \b
+    Available built-in scorers (use either PascalCase or snake_case):
+    - Correctness / correctness: Ensures responses are correct and accurate
+    - Safety / safety: Ensures responses don't contain harmful/toxic content
+    - RelevanceToQuery / relevance_to_query: Ensures response addresses user input directly
+    - Guidelines / guidelines: Evaluates adherence to specific constraints
+    - ExpectationsGuidelines / expectations_guidelines: Row-specific guidelines evaluation
+    - RetrievalRelevance / retrieval_relevance: Measures chunk relevance to input request
+    - RetrievalSufficiency / retrieval_sufficiency: Evaluates if retrieved docs provide
+      necessary info
+    - RetrievalGroundedness / retrieval_groundedness: Assesses response alignment with
+      retrieved context
+    """
+    from mlflow.cli.eval import evaluate_traces as run_evaluation
+
+    run_evaluation(experiment_id, trace_ids, scorers, output_format)

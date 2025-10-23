@@ -26,6 +26,7 @@ from mlflow.langchain.utils.chat import parse_token_usage
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
@@ -137,16 +138,101 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
     def _get_parent_span(self, parent_run_id) -> LiveSpan | None:
         """
-        Get parent span from multiple sources:
-        1. If there is an active span in current context, use it as parent span
-        2. If parent_run_id is provided, get the corresponding span from the run -> span mapping
-        3. If none of the above, return None
+        Get parent span to create a new span under.
+
+        Ideally, we can simply rely on the active span in current context. However, LangChain
+        execution heavily uses threads and asyncio, and sometimes ContextVar is not correctly
+        propagated, resulting in missing parent span.
+
+        To address this, we check two sources of parent span:
+
+        1. An active span in current MLflow tracing context (get_current_active_span)
+        2. If parent_run_id is given by LangChain, get the corresponding span from the mapping
+
+        The complex case is when BOTH are present but different. In this case, we need to
+        resolve the correct parent span by traversing the span tree.
         """
-        if active_span := mlflow.get_current_active_span():
-            return active_span
-        elif parent_run_id:
-            return self._get_span_by_run_id(parent_run_id)
-        return None
+        parent_mlflow_span = mlflow.get_current_active_span()
+        parent_lc_span = self._get_span_by_run_id(parent_run_id) if parent_run_id else None
+
+        if parent_mlflow_span and parent_lc_span:
+            if parent_mlflow_span.span_id == parent_lc_span.span_id:
+                return parent_mlflow_span
+            else:
+                return self._resolve_parent_span(parent_mlflow_span, parent_lc_span)
+        elif parent_mlflow_span:
+            return parent_mlflow_span
+        elif parent_lc_span:
+            return parent_lc_span
+
+    def _resolve_parent_span(self, parent_mlflow_span, parent_lc_span):
+        """
+        Resolve the correct parent span when both MLflow and LangChain provide different
+        parent spans.
+
+        For example, the following two examples are mostly same but slightly different: where the
+        mlflow.start_span() is used.
+
+
+        For example, the following two examples are mostly same but slightly different: where the
+        mlflow.start_span() is used.
+
+        ```python
+        llm = ChatOpenAI()
+
+
+        @tool
+        def custom_tool_node(inputs):
+            response = ChatOpenAI().invoke(...)
+            return response.content
+
+
+        graph = create_react_agent(llm, [custom_tool_node])
+
+        with mlflow.start_span("parent"):
+            graph.invoke({"prompt": "Hello"})
+        ```
+
+        The correct span structure for this case is [parent] -> [tool] -> [ChatOpenAI]
+
+        ```python
+        @tool
+        def custom_tool_node(inputs):
+            with mlflow.start_span("parent"):
+                response = ChatOpenAI().invoke(...)
+                return response.content
+
+
+        graph = create_react_agent(llm, [custom_tool_node])
+        graph.invoke({"prompt": "Hello"})
+        ```
+
+        The correct span structure for this case is [tool] -> [parent] -> [ChatOpenAI]
+
+        When we try to create a new span for ChatOpenAI, we need to determine which span is the
+        parent span, "parent" or "tool". Unfortunately, there is no way to decide this from
+        metadata provided in the span itself, so we need to traverse the span tree and check
+        if one is parent of the other.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        span = parent_mlflow_span
+        while span.parent_id:
+            if span.parent_id == parent_lc_span.span_id:
+                # MLflow parent span is under the LangChain
+                # langchain_span
+                #  └──  mlflow_span
+                #       └── current span
+                return parent_mlflow_span
+
+            span = trace_manager.get_span_from_id(span.trace_id, span.parent_id)
+
+        # MLflow span is parent of LangChain span
+        # mlflow_span
+        #  └── langchain_span
+        #       └── current span
+        #
+        # or two spans are not related at all, then fallback to LangChain one.
+        return parent_lc_span
 
     def _end_span(
         self,

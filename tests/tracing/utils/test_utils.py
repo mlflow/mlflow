@@ -27,7 +27,9 @@ from mlflow.tracing.utils import (
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
+    encode_trace_id,
     generate_trace_id_v4,
+    generate_trace_id_v4_from_otel_trace_id,
     get_active_spans_table_name,
     get_otel_attribute,
     maybe_get_request_id,
@@ -429,3 +431,22 @@ def test_get_spans_table_name_for_trace_no_destination():
 
         result = get_active_spans_table_name()
         assert result is None
+
+
+def test_generate_trace_id_v4_from_otel_trace_id():
+    otel_trace_id = 0x12345678901234567890123456789012
+    location = "catalog.schema"
+
+    result = generate_trace_id_v4_from_otel_trace_id(otel_trace_id, location)
+
+    # Verify the format is trace:/<location>/<hex_trace_id>
+    assert result.startswith(f"{TRACE_ID_V4_PREFIX}{location}/")
+
+    # Extract and verify the hex trace ID part
+    expected_hex_id = encode_trace_id(otel_trace_id)
+    assert result == f"{TRACE_ID_V4_PREFIX}{location}/{expected_hex_id}"
+
+    # Verify it can be parsed back
+    parsed_location, parsed_id = parse_trace_id_v4(result)
+    assert parsed_location == location
+    assert parsed_id == expected_hex_id

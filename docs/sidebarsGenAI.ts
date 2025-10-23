@@ -41,12 +41,13 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'getting-started/databricks-trial/index',
+          id: 'getting-started/connect-environment',
+          label: 'Set Up MLflow',
         },
         {
-          type: 'doc',
-          id: 'getting-started/connect-environment',
-          label: 'Connect to MLflow',
+          type: 'link',
+          href: '/genai/tracing/quickstart/python-openai',
+          label: 'Tracing GenAI Apps',
         },
         {
           type: 'doc',
@@ -54,9 +55,8 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate LLMs and Agents',
         },
         {
-          type: 'link',
-          href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing GenAI Apps',
+          type: 'doc',
+          id: 'getting-started/databricks-trial/index',
         },
       ],
       link: {
@@ -365,7 +365,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Registry',
+      label: 'Prompt Management',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -395,6 +395,10 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'prompt-registry/optimize-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/rewrite-prompts',
         },
         {
           type: 'doc',

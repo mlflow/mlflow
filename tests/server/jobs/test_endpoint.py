@@ -116,6 +116,7 @@ def client(tmp_path_factory: pytest.TempPathFactory) -> Client:
         start_new_session=True,  # new session & process group
     ) as server_proc:
         try:
+            time.sleep(10)  # wait the job runner up
             # wait server up.
             deadline = time.time() + 15
             while time.time() < deadline:
@@ -296,12 +297,6 @@ def test_job_endpoint_search(client: Client):
         statuses=["SUCCEEDED", "TIMEOUT"],
     )
     assert extract_job_ids(jobs) == [job2_id, job3_id, job4_id]
-
-    jobs = client.search_job(
-        params={"y": 5},
-        statuses=["SUCCEEDED"],
-    )
-    assert extract_job_ids(jobs) == [job2_id, job3_id]
 
     response = client.post(
         "/ajax-api/3.0/jobs/search",

@@ -52,16 +52,6 @@ export function MlflowSidebar() {
         isActive: isHomeActive,
         children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
       },
-      dropdownProps: {
-        componentId: 'mlflow_sidebar.create_experiment_button',
-        onClick: () => setShowCreateExperimentModal(true),
-        children: (
-          <FormattedMessage
-            defaultMessage="Experiment"
-            description="Sidebar button inside the 'new' popover to create new experiment"
-          />
-        ),
-      },
     },
     {
       key: 'experiments',
@@ -144,12 +134,14 @@ export function MlflowSidebar() {
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content side="right" sideOffset={theme.spacing.sm} align="start">
-          {menuItems.map(({ key, icon, dropdownProps }) => (
-            <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
-              <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
-              {dropdownProps.children}
-            </DropdownMenu.Item>
-          ))}
+          {menuItems
+            .filter((item) => item.dropdownProps !== undefined)
+            .map(({ key, icon, dropdownProps }) => (
+              <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
+                <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
+                {dropdownProps.children}
+              </DropdownMenu.Item>
+            ))}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
