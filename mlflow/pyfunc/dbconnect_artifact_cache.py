@@ -107,8 +107,45 @@ class DBConnectArtifactCache:
         if cache_key not in self._cache:
             raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
-        session_id = os.environ["DB_SESSION_UUID"]
-        return f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
+
+        session_id = os.environ.get("DB_SESSION_UUID")
+        if not session_id:
+            # If 'DB_SESSION_UUID' environment variable does not exist, it means it is running
+            # in a dedicated mode Spark cluster.
+            return os.path.join(os.getcwd(), archive_file_name)
+
+        relative_path = os.path.join("artifacts", session_id, "archives", archive_file_name)
+        single_driver_root = "/local_disk0/.ephemeral_nfs"
+        single_candidate = os.path.join(single_driver_root, relative_path)
+        if os.path.exists(single_candidate):
+            return single_candidate
+
+        multi_driver_root = "/local_disk0/.ephemeral_nfs_multi_driver"
+        if (
+            os.environ.get("AETHER_MULTI_DRIVER_ENABLED", "false") == "true"
+            and os.environ.get("AETHER_MULTI_DRIVER_NOTEBOOK_LIBRARY_ENABLED", "false") == "true"
+            and os.path.isdir(multi_driver_root)
+        ):
+            # When the driver ID is propagated through the environment variable
+            # we use it to find the model artifact directory
+            if driver_id := os.environ.get("DRIVER_ID"):
+                nfs_dir = os.path.join(multi_driver_root, driver_id, relative_path)
+                if os.path.exists(nfs_dir):
+                    return nfs_dir
+
+            # Fall back to walk through all the driver directories and find the artifact
+            try:
+                children = sorted(os.listdir(multi_driver_root))
+            except OSError:
+                children = []
+
+            for child in children:
+                child_candidate = os.path.join(multi_driver_root, child, relative_path)
+                if os.path.exists(child_candidate):
+                    return child_candidate
+
+        # Finally, fallback to the original single-driver location to preserve previous behavior.
+        return single_candidate
 
 
 def archive_directory(input_dir, archive_file_path):
