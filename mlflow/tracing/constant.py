@@ -73,7 +73,7 @@ class AssessmentMetadataKey:
     # Total LLM cost spent for generating the feedback (llm-as-a-judge).
     JUDGE_COST = "mlflow.assessment.judgeCost"
     # When the scorer generates a trace for assessment scoring, log the trace ID here.
-    SOURCE_TRACE_ID = "mlflow.assessment.traceId"
+    SCORER_TRACE_ID = "mlflow.assessment.scorerTraceId"
 
 
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters

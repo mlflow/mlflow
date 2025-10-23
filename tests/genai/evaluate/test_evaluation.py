@@ -24,7 +24,7 @@ from mlflow.server import handlers
 from mlflow.server.fastapi_app import app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceMetadataKey
 
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import get_traces
@@ -95,14 +95,17 @@ def _validate_assessments(traces):
         assert a_exact_match.source.source_type == AssessmentSourceType.CODE
         # Scorer name is used as source_id
         assert a_exact_match.source.source_id == "exact_match"
+        assert a_exact_match.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_is_concise = assessments["is_concise"]
         assert isinstance(a_is_concise, Feedback)
         assert isinstance(a_is_concise.value, bool)
+        assert a_is_concise.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_has_trace = assessments["has_trace"]
         assert isinstance(a_has_trace, Feedback)
         assert a_has_trace.value is True
+        assert a_has_trace.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_relevance = assessments["relevance"]
         assert isinstance(a_relevance, Feedback)
@@ -110,17 +113,20 @@ def _validate_assessments(traces):
         assert a_relevance.source.source_id == "gpt"
         assert a_relevance.source.source_type == "LLM_JUDGE"
         assert a_relevance.rationale == "The response is relevant to the question"
+        assert a_relevance.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_expected_response = assessments["expected_response"]
         assert isinstance(a_expected_response, Expectation)
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
         assert a_expected_response.source.source_id is not None
+        assert a_expected_response.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
         assert isinstance(a_max_length.value, (int, float))
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
+        assert a_max_length.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
 
 @dataclass
@@ -624,16 +630,12 @@ def test_empty_scorers_allowed():
 
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
-    with (
-        mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss,
-        mock.patch("mlflow.genai.evaluation.base.clean_up_extra_traces") as mock_clean_up,
-    ):
+    with mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss:
         mock_evaluate_oss.return_value = mock_result
         result = mlflow.genai.evaluate(data=data, scorers=[])
 
     assert result is mock_result
     mock_evaluate_oss.assert_called_once()
-    mock_clean_up.assert_called_once_with(mock_result.run_id, ANY)
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
@@ -972,3 +974,57 @@ def test_evaluate_with_only_trace_in_eval_dataset():
     )
 
     assert result.metrics["has_trace/mean"] == 1.0
+
+
+def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
+
+    data = [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {
+                "expected_response": "MLflow is a tool for ML",
+                "max_length": 100,
+            },
+        },
+        {
+            "inputs": {"question": "What is Spark?"},
+            "expectations": {
+                "expected_response": "Spark is a fast data processing engine",
+                "max_length": 1,
+            },
+        },
+    ]
+
+    result = mlflow.genai.evaluate(
+        predict_fn=TestModel().predict,
+        data=data,
+        scorers=[exact_match, is_concise, relevance, has_trace],
+    )
+
+    metrics = result.metrics
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["is_concise/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
+
+    traces = get_traces()
+    assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+
+    # Traces should be associated with the eval run
+    traces = mlflow.search_traces(
+        filter_string="tags.`mlflow.eval.requestId` != 'None'",
+        run_id=result.run_id,
+        return_type="list",
+    )
+    assert len(traces) == len(data)
+
+    # Each assessment should have a source trace ID
+    for trace in traces:
+        for a in trace.info.assessments:
+            if isinstance(a, Feedback):
+                print(a.metadata)
+                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
+                assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
+            elif isinstance(a, Expectation):
+                assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata

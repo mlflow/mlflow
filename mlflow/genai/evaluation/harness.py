@@ -15,7 +15,10 @@ from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_WORKERS,
+)
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.utils import (
@@ -26,7 +29,7 @@ from mlflow.genai.evaluation.utils import (
     validate_tags,
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
-from mlflow.genai.scorers.base import Scorer, ScorerKind
+from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import _does_store_support_trace_linking, create_minimal_trace
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
@@ -173,17 +176,11 @@ def _compute_eval_scores(
         return []
 
     def run_scorer(scorer):
-        is_builtin_scorer = getattr(scorer, "kind", None) == ScorerKind.BUILTIN
-
         try:
             scorer_func = scorer.run
-            # Automatically enable tracing for builtin scorers to record judge
-            # cost and token counts. Custom scorers are opt-in.
-            if is_builtin_scorer:
-                scorer_func = mlflow.trace(
-                    name=scorer.name,
-                    span_type=SpanType.CHAIN,
-                )(scorer_func)
+
+            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.CHAIN)(scorer_func)
 
             value = scorer_func(
                 inputs=eval_item.inputs,
@@ -211,7 +208,7 @@ def _compute_eval_scores(
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
-                    AssessmentMetadataKey.SOURCE_TRACE_ID: trace_id,
+                    AssessmentMetadataKey.SCORER_TRACE_ID: trace_id,
                 }
         return feedbacks
 
