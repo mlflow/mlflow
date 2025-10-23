@@ -854,7 +854,7 @@ crewai:
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI
+      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
     maximum: "0.203.1"
