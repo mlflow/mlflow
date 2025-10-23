@@ -513,7 +513,9 @@ def _load_gateway_config(path: str | Path) -> GatewayConfig:
 def _save_route_config(config: GatewayConfig, path: str | Path) -> None:
     if isinstance(path, str):
         path = Path(path)
-    path.write_text(yaml.safe_dump(json.loads(json.dumps(config.dict(), default=pydantic_encoder))))
+    path.write_text(
+        yaml.safe_dump(json.loads(json.dumps(config.model_dump(), default=pydantic_encoder)))
+    )
 
 
 def _validate_config(config_path: str) -> GatewayConfig:

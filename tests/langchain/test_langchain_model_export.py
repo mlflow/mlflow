@@ -2252,7 +2252,7 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     chain = RunnablePassthrough() | itemgetter("messages")
     # Ensure we're going to test that "messages" remains intact & unchanged even if it
     # doesn't appear explicitly in the chain's input schema
-    assert "messages" not in chain.input_schema().__fields__
+    assert "messages" not in chain.input_schema().model_fields
 
     with mlflow.start_run():
         model_info = mlflow.langchain.log_model(chain, name="model_path")
