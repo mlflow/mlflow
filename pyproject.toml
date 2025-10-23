@@ -452,7 +452,8 @@ filterwarnings = [
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
   # Prevent usage of deprecated Pydantic v2.0 features
-  "error::pydantic.PydanticDeprecatedSince20:mlflow.*|tests.*",
+  "error::pydantic.PydanticDeprecatedSince20:mlflow",
+  "error::pydantic.PydanticDeprecatedSince20:tests",
 ]
 timeout = 1200
 
