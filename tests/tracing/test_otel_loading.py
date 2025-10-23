@@ -523,9 +523,47 @@ def test_span_token_usage_translation(mlflow_server: str, is_async):
     )
     assert len(traces) > 0
     for trace_info in traces:
-        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
-        assert retrieved_trace.data.spans[0].attributes[SpanAttributeKey.CHAT_USAGE] == {
+        assert trace_info.info.token_usage == {
             "input_tokens": 100,
             "output_tokens": 50,
             "total_tokens": 150,
         }
+        retrieved_trace = mlflow.get_trace(trace_info.info.trace_id)
+        assert (
+            retrieved_trace.data.spans[0].attributes[SpanAttributeKey.CHAT_USAGE]
+            == trace_info.info.token_usage
+        )
+
+
+def test_aggregated_token_usage_from_multiple_spans(mlflow_server: str, is_async):
+    experiment = mlflow.set_experiment("aggregated-token-usage-test")
+    experiment_id = experiment.experiment_id
+
+    tracer = create_tracer(mlflow_server, experiment_id, "token-aggregation-service")
+
+    with tracer.start_as_current_span("parent-llm-call") as parent:
+        parent.set_attribute("gen_ai.usage.input_tokens", 100)
+        parent.set_attribute("gen_ai.usage.output_tokens", 50)
+
+        with tracer.start_as_current_span("child-llm-call-1") as child1:
+            child1.set_attribute("gen_ai.usage.input_tokens", 200)
+            child1.set_attribute("gen_ai.usage.output_tokens", 75)
+
+        with tracer.start_as_current_span("child-llm-call-2") as child2:
+            child2.set_attribute("gen_ai.usage.input_tokens", 150)
+            child2.set_attribute("gen_ai.usage.output_tokens", 100)
+
+    if is_async:
+        _flush_async_logging()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    trace_id = traces[0].info.trace_id
+    retrieved_trace = mlflow.get_trace(trace_id)
+
+    assert retrieved_trace.info.token_usage is not None
+    assert retrieved_trace.info.token_usage["input_tokens"] == 450
+    assert retrieved_trace.info.token_usage["output_tokens"] == 225
+    assert retrieved_trace.info.token_usage["total_tokens"] == 675
