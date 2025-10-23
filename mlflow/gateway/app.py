@@ -5,7 +5,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.openapi.docs import get_swagger_ui_html
 from fastapi.responses import FileResponse, RedirectResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
@@ -205,8 +205,8 @@ class ListEndpointsResponse(BaseModel):
     endpoints: list[Endpoint]
     next_page_token: str | None = None
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "endpoints": [
                     {
@@ -238,15 +238,15 @@ class ListEndpointsResponse(BaseModel):
                 "next_page_token": "eyJpbmRleCI6IDExfQ==",
             }
         }
-    }
+    )
 
 
 class _LegacySearchRoutesResponse(BaseModel):
     routes: list[_LegacyRoute]
     next_page_token: str | None = None
 
-    model_config = {
-        "json_schema_extra": {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "endpoints": [
                     {
@@ -277,7 +277,7 @@ class _LegacySearchRoutesResponse(BaseModel):
                 "next_page_token": "eyJpbmRleCI6IDExfQ==",
             }
         }
-    }
+    )
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:
