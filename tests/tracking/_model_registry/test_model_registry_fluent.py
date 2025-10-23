@@ -427,6 +427,7 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
             model_version="1",
         )
 
+
 def test_register_model_with_env_pack_config(tmp_path, mock_dbr_version):
     """Test that register_model correctly integrates with environment packing functionality, using the EnvPackConfig."""
     # Mock download_artifacts to return a path
@@ -461,7 +462,13 @@ def test_register_model_with_env_pack_config(tmp_path, mock_dbr_version):
             mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
 
             # Call register_model with env_pack
-            register_model("models:/test-model/1", "Model 1", env_pack=EnvPackConfig("databricks_model_serving", install_dependencies=install_deps))
+            register_model(
+                "models:/test-model/1",
+                "Model 1",
+                env_pack=EnvPackConfig(
+                    "databricks_model_serving", install_dependencies=install_deps
+                ),
+            )
 
             # Verify pack_env was called with correct arguments
             mock_pack_env.assert_called_once_with(
@@ -479,7 +486,7 @@ def test_register_model_with_env_pack_config(tmp_path, mock_dbr_version):
             mock_stage_model.assert_called_once_with(
                 model_name="Model 1",
                 model_version="1",
-            )        
+            )
 
 
 def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version):
