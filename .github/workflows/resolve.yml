@@ -101,8 +101,6 @@ jobs:
       issues: read
       pull-requests: read
     timeout-minutes: 30
-    outputs:
-      claude_output: ${{ steps.claude-fix.outputs.output }}
     steps:
       - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         id: app-token
@@ -156,11 +154,13 @@ jobs:
           fi
           echo "===================="
 
-          # Save output for later use
-          OUTPUT=$(cat "$OUTPUT_FILE")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Upload Claude output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: claude-output
+          path: /tmp/output.json
+          if-no-files-found: ignore
 
       - name: Push changes
         env:
@@ -186,14 +186,22 @@ jobs:
       pull-requests: write
     timeout-minutes: 5
     steps:
+      - name: Download Claude output
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: claude-output
+          path: /tmp
+        continue-on-error: true
+
       - name: Update original comment with result
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           COMMENT_ID: ${{ needs.precheck.outputs.comment_id }}
           RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
-          CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
           script: |
+            const fs = require('fs');
+
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
             const statusMessage = resolveJobStatus !== 'success'
               ? `⚠️ Workflow encountered an error.`
@@ -201,8 +209,18 @@ jobs:
 
             let resultMessage = statusMessage;
 
+            // Read Claude output from file instead of environment variable
+            const outputPath = '/tmp/output.json';
+            let claudeOutput = '';
+            try {
+              if (fs.existsSync(outputPath)) {
+                claudeOutput = fs.readFileSync(outputPath, 'utf8');
+              }
+            } catch (e) {
+              console.log('Failed to read Claude output file:', e);
+            }
+
             // Extract and display Claude's result and raw output
-            const claudeOutput = process.env.CLAUDE_OUTPUT || '';
             if (claudeOutput) {
               try {
                 const events = JSON.parse(claudeOutput);
