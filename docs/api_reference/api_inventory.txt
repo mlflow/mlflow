@@ -1340,7 +1340,6 @@ mlflow.types.agent.ChatAgentResponse
 mlflow.types.agent.ChatAgentResponse.check_message_ids
 mlflow.types.agent.ChatContext
 mlflow.types.chat.AudioContentPart
-mlflow.types.chat.BaseModel
 mlflow.types.chat.BaseRequestPayload
 mlflow.types.chat.ChatChoice
 mlflow.types.chat.ChatChoiceDelta
