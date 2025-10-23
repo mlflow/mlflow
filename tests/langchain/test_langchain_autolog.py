@@ -27,20 +27,17 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.prompts.chat import ChatPromptTemplate
 from langchain_core.runnables import RunnableLambda, RunnablePassthrough
 from langchain_core.runnables.config import RunnableConfig
+from langchain_openai import ChatOpenAI, OpenAI
 
 from mlflow.entities.trace import Trace
 
 # NB: We run this test suite twice - once with langchain_community installed and once without.
 try:
-    from langchain_community.chat_models import ChatOpenAI
     from langchain_community.document_loaders import TextLoader
-    from langchain_community.llms import OpenAI
     from langchain_community.vectorstores import FAISS
 
     _LC_COMMUNITY_INSTALLED = True
 except ImportError:
-    from langchain_openai import ChatOpenAI, OpenAI
-
     _LC_COMMUNITY_INSTALLED = False
 
 # langchain-text-splitters is moved to a separate package since LangChain v0.1.10
@@ -85,11 +82,7 @@ def create_openai_runnable(temperature=0.9):
         input_variables=["product"],
         template="What is {product}?",
     )
-    if _LC_COMMUNITY_INSTALLED:
-        # langchain-community ChatOpenAI does not support stream_usage
-        llm = ChatOpenAI(temperature=temperature)
-    else:
-        llm = ChatOpenAI(temperature=temperature, stream_usage=True)
+    llm = ChatOpenAI(temperature=temperature, stream_usage=True)
     return prompt | llm | StrOutputParser()
 
 
@@ -280,9 +273,6 @@ def test_chat_model_autolog():
 
 def test_chat_model_bind_tool_autolog():
     from langchain.tools import tool
-
-    # Community version of ChatOpenAI does not support bind_tools
-    from langchain_openai import ChatOpenAI
 
     mlflow.langchain.autolog()
 
@@ -829,11 +819,9 @@ async def test_langchain_autolog_token_usage():
     _validate_token_counts(trace)
 
     # Invoke with streaming
-    # ChatOpenAI in langchain-community does not support streaming token usage
-    if not _LC_COMMUNITY_INSTALLED:
-        list(model.stream({"product": "MLflow"}))
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-        _validate_token_counts(trace)
+    list(model.stream({"product": "MLflow"}))
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    _validate_token_counts(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
