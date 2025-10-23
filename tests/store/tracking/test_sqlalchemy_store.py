@@ -4902,29 +4902,29 @@ def test_search_traces_with_plain_text_filter(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span2])
     store.log_spans(exp_id, [span3])
 
-    # Test plain text search (without span.content prefix)
-    # This should automatically be converted to span.content LIKE "%text%"
-    traces, _ = store.search_traces([exp_id], filter_string="database_query")
+    # Test plain text search using backticks
+    # Backticks indicate full text search: `search term`
+    traces, _ = store.search_traces([exp_id], filter_string="`database_query`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace1_id
 
     # Test searching for span type via plain text
-    traces, _ = store.search_traces([exp_id], filter_string="FUNCTION")
+    traces, _ = store.search_traces([exp_id], filter_string="`FUNCTION`")
     trace_ids = {t.trace_id for t in traces}
     assert trace_ids == {trace1_id, trace3_id}
 
     # Test searching for specific text
-    traces, _ = store.search_traces([exp_id], filter_string="api_request")
+    traces, _ = store.search_traces([exp_id], filter_string="`api_request`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace2_id
 
     # Test searching for TOOL type
-    traces, _ = store.search_traces([exp_id], filter_string="TOOL")
+    traces, _ = store.search_traces([exp_id], filter_string="`TOOL`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace2_id
 
     # Test no matches
-    traces, _ = store.search_traces([exp_id], filter_string="nonexistent")
+    traces, _ = store.search_traces([exp_id], filter_string="`nonexistent`")
     assert len(traces) == 0
 
 
@@ -4950,19 +4950,18 @@ def test_search_traces_with_plain_text_containing_dots(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span2])
     store.log_spans(exp_id, [span3])
 
-    # Test plain text search with dots - should be treated as plain text, not structured query
-    # "api.call" doesn't start with a valid identifier (span/tag/metadata/etc), so it's plain text
-    traces, _ = store.search_traces([exp_id], filter_string="api.call")
+    # Test plain text search with dots using backticks
+    traces, _ = store.search_traces([exp_id], filter_string="`api.call`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace1_id
 
     # Test searching for db.connection
-    traces, _ = store.search_traces([exp_id], filter_string="db.connection")
+    traces, _ = store.search_traces([exp_id], filter_string="`db.connection`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace2_id
 
     # Test partial match
-    traces, _ = store.search_traces([exp_id], filter_string="connection")
+    traces, _ = store.search_traces([exp_id], filter_string="`connection`")
     assert len(traces) == 1
     assert traces[0].trace_id == trace2_id
 
@@ -4970,6 +4969,133 @@ def test_search_traces_with_plain_text_containing_dots(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='span.name = "module.function"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
+
+
+def test_search_traces_with_operator_substrings(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_operator_substrings")
+
+    # Create traces with spans containing words that have SQL operator substrings
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create spans with text containing operator substrings
+    # "brand" contains "and", "form" contains "or", "inline" contains "in", "orion" contains "or"
+    span1 = create_test_span(
+        trace1_id, name="check_brand_validity", span_id=111, span_type="FUNCTION"
+    )
+    span2 = create_test_span(trace2_id, name="format_form_data", span_id=222, span_type="TOOL")
+    span3 = create_test_span(trace3_id, name="inline_processing", span_id=333, span_type="FUNCTION")
+    span4 = create_test_span(trace4_id, name="orion_service", span_id=444, span_type="TOOL")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+
+    # Test that "brand" is treated as plain text using backticks, not as containing "and" operator
+    traces, _ = store.search_traces([exp_id], filter_string="`brand`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    # Test that "form" is treated as plain text using backticks, not as containing "or" operator
+    traces, _ = store.search_traces([exp_id], filter_string="`form`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
+
+    # Test that "inline" is treated as plain text using backticks, not as containing "in" operator
+    traces, _ = store.search_traces([exp_id], filter_string="`inline`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace3_id
+
+    # Test that "orion" is treated as plain text using backticks, not as containing "or" operator
+    traces, _ = store.search_traces([exp_id], filter_string="`orion`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace4_id
+
+
+def test_search_traces_with_like_special_characters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_like_special_chars")
+
+    # Create traces with spans containing various characters
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create spans with different patterns
+    span1 = create_test_span(trace1_id, name="test_pattern", span_id=111, span_type="FUNCTION")
+    span2 = create_test_span(trace2_id, name="testXpattern", span_id=222, span_type="FUNCTION")
+    span3 = create_test_span(trace3_id, name="complete_task", span_id=333, span_type="TOOL")
+    span4 = create_test_span(trace4_id, name="file_name_test", span_id=444, span_type="FUNCTION")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+
+    # Test that _ works as a wildcard (matches any single character) in backtick searches
+    # "`test_pattern`" should match both "test_pattern" and "testXpattern"
+    traces, _ = store.search_traces([exp_id], filter_string="`test_pattern`")
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test that % works as a wildcard (matches any sequence) in backtick searches
+    # "`complete%`" should match "complete_task"
+    traces, _ = store.search_traces([exp_id], filter_string="`complete%`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace3_id
+
+    # Test literal match
+    traces, _ = store.search_traces([exp_id], filter_string="`file_name`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace4_id
+
+
+def test_search_traces_with_quoted_text(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_quoted_text")
+
+    # Create traces with spans containing quoted text
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+
+    # Create spans with quotes in their content
+    span1 = create_test_span(
+        trace1_id, name="search for 'quoted' text", span_id=111, span_type="FUNCTION"
+    )
+    span2 = create_test_span(trace2_id, name='value is "test"', span_id=222, span_type="TOOL")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+
+    traces, _ = store.search_traces([exp_id], filter_string="`'quoted' text`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string="`quoted`")
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='`"test"`')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace2_id
 
 
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
