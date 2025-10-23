@@ -19,8 +19,7 @@ Uses GitHub's GraphQL API to fetch only unresolved review thread comments from a
    - First check for environment variables:
      - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, read them and parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER` directly
    - Otherwise:
-     - Extract owner, repo, and PR number from the provided PR URL or arguments
-     - Or use `gh pr view --json url -q '.url'` to get the current branch's PR URL and parse to extract owner, repo, and PR number
+     - Use `gh pr view --json url -q '.url'` to get the current branch's PR URL and parse to extract owner, repo, and PR number
 
 2. **Run the Python script**:
 
