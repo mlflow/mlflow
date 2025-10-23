@@ -10,7 +10,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 :::tip
 
-Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow for GenAI](/genai) documentation</ins> instead. This guide targets data scientist who trains traditional machine learning models such as decision trees.
+Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow for GenAI](/genai) documentation</ins> instead. This guide is intended for data scientists who train traditional machine learning models, such as decision trees.
 
 :::
 
@@ -110,19 +110,19 @@ The training **Run** created by MLflow is listed in the table. Click the run to 
 
 <ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png" alt="MLflow UI Run detail page" />
 
-The Run detail page shows overview of the run, recorded metrics, hyper parameter, tags, and more. Play around with the UI to see the different views and features.
+The Run detail page shows an overview of the run, its recorded metrics, hyper-parameters, tags, and more. Play around with the UI to see the different views and features.
 
-Scroll down to the "Model" section, you should see the model that was logged during training. Click on the model to view the details.
+Scroll down to the "Model" section and you should see the model that was logged during training. Click on the model to view the details.
 
 <ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-logged-models.png" alt="MLflow UI Model detail page" />
 
-The model page displays similar metadata such as performance metrics, hyper parameters, but also includes "Artifacts" section that lists the files that were logged during training. You can also see environment information such as the Python version, dependencies, are stored for reproducibility.
+The model page displays similar metadata such as performance metrics and hyper-parameters. It also includes an "Artifacts" section that lists the files that were logged during training. You can also see environment information such as the Python version and dependencies, which are stored for reproducibility.
 
 <ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png" alt="MLflow UI Model detail page" />
 
 ## Step 5 - Log a model and metadata manually
 
-Now we learned how to log a model training run with MLflow autologging. Let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
+Now that we have learned how to log a model training run with MLflow autologging, let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
 
 The steps that we will take are:
 
@@ -161,7 +161,7 @@ After logging the model, we can perform inference by:
 - Running **Predict** on new data using the loaded model.
 
 :::info
-To load the model as native scikit-learn model, use `mlflow.sklearn.load_model(model_info.model_uri)` instead of the pyfunc flavor.
+To load the model as a native scikit-learn model, use `mlflow.sklearn.load_model(model_info.model_uri)` instead of the pyfunc flavor.
 :::
 
 ```python
@@ -230,7 +230,7 @@ The output of this code will look something like this:
 
 ## Next Steps
 
-Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log models.
+Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking APIs to log models.
 
 - [MLflow for GenAI](/genai): Learn how to use MLflow for GenAI/LLM development.
 - [MLflow for Deep Learning](/ml/deep-learning): Learn how to use MLflow for deep learning frameworks such as PyTorch, TensorFlow, etc.

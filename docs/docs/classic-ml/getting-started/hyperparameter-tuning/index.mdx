@@ -14,11 +14,10 @@ Hyperparameter tuning is an important process for improving the performance of a
 
 By the end of this tutorial, you'll know how to:
 
-- Setting up your environment with MLflow tracking.
-- Generating our training and evaluation data sets.
-- Defining a partial function that fits a machine learning model.
-- Using Optuna for hyperparameter tuning.
-- Leveraging child runs within MLflow to keep track of each iteration during the hyperparameter tuning process.
+- Set up your environment with MLflow tracking.
+- Define a partial function that fits a machine learning model that can be used with a hyperparameter tuning library.
+- Use Optuna for hyperparameter tuning.
+- Leverage child runs within MLflow to keep track of each iteration during the hyperparameter tuning process.
 
 ## Prerequisites: Set up MLflow and Optuna
 
@@ -72,14 +71,21 @@ with the `nested=True` flag to indicate it is a child run.
 
 ```python
 import mlflow
+import optuna
 import sklearn
 
 
 def objective(trial):
     # Setting nested=True will create a child run under the parent run.
-    with mlflow.start_run(nested=True, run_name=f"trial_{trial.number}"):
+    with mlflow.start_run(nested=True, run_name=f"trial_{trial.number}") as child_run:
         rf_max_depth = trial.suggest_int("rf_max_depth", 2, 32)
-        params = {"max_depth": rf_max_depth}
+        rf_n_estimators = trial.suggest_int("rf_n_estimators", 50, 300, step=10)
+        rf_max_features = trial.suggest_float("rf_max_features", 0.2, 1.0)
+        params = {
+            "max_depth": rf_max_depth,
+            "n_estimators": rf_n_estimators,
+            "max_features": rf_max_features,
+        }
         # Log current trial's parameters
         mlflow.log_params(params)
 
@@ -93,6 +99,8 @@ def objective(trial):
 
         # Log the model file
         mlflow.sklearn.log_model(regressor_obj, name="model")
+        # Make it easy to retrieve the best-performing child run later
+        trial.set_user_attr("run_id", child_run.info.run_id)
         return error
 ```
 
@@ -106,14 +114,16 @@ Now, let's run the hyperparameter tuning study using Optuna. We create a parent 
 with mlflow.start_run(run_name="study") as run:
     # Log the experiment settings
     n_trials = 30
-    mlflow.log_params({"n_trials": 5})
+    mlflow.log_param("n_trials", n_trials)
 
-    study = optuna.create_study()
-    study.optimize(objective, n_trials=5)
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=n_trials)
 
-    # Log the best trial
+    # Log the best trial and its run ID
     mlflow.log_params(study.best_trial.params)
     mlflow.log_metrics({"best_error": study.best_value})
+    if best_run_id := study.best_trial.user_attrs.get("run_id"):
+        mlflow.log_param("best_child_run_id", best_run_id)
 ```
 
 ## Step 4: View the results in the MLflow UI
