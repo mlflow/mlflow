@@ -29,7 +29,6 @@ from mlflow.types.chat import (
     ChatMessage,
     ChatUsage,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
 
@@ -177,10 +176,7 @@ def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
                 total_tokens=None,
             ),
         )
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json", exclude_unset=True)
-        else:
-            return json.loads(transformed_response.json(exclude_unset=True))
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
     else:
         return response
 
@@ -206,10 +202,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
             ],
         )
 
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return transformed_response.model_dump(mode="json", exclude_unset=True)
-        else:
-            return json.loads(transformed_response.json(exclude_unset=True))
+        return transformed_response.model_dump(mode="json", exclude_unset=True)
 
     def _convert(chunk):
         if isinstance(chunk, str):
@@ -244,7 +237,7 @@ def try_transform_response_iter_to_chat_format(chunk_iter):
 def _convert_chat_request_or_throw(
     chat_request: dict[str, Any],
 ) -> list[BaseMessage]:
-    model = ChatCompletionRequest.validate_compat(chat_request)
+    model = ChatCompletionRequest.model_validate(chat_request)
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 

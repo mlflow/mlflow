@@ -1,5 +1,4 @@
 from mlflow.gateway.base_models import RequestModel, ResponseModel
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
     "example": {
@@ -12,10 +11,7 @@ class RequestPayload(RequestModel):
     input: str | list[str] | list[int] | list[list[int]]
 
     class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+        json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
 
 
 class EmbeddingObject(ResponseModel):
@@ -89,7 +85,4 @@ class ResponsePayload(ResponseModel):
     usage: EmbeddingsUsage
 
     class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+        json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
