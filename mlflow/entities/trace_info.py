@@ -62,7 +62,7 @@ class TraceInfo(_MlflowObject):
             res.pop("execution_duration", None)
             res["execution_duration_ms"] = self.execution_duration
         # override trace_id to be the same as trace_info.trace_id since it's parsed
-        # when converting to proto
+        # when converting to proto if it's v4
         res["trace_id"] = self.trace_id
         return res
 

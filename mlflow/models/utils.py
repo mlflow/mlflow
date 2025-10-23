@@ -35,7 +35,6 @@ from mlflow.types.utils import (
     _is_none_or_nan,
     clean_tensor_type,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.file_utils import create_tmp_dir, get_local_path_or_none
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
@@ -297,9 +296,7 @@ class _Example:
         model_input = deepcopy(self._inference_data)
 
         if isinstance(model_input, pydantic.BaseModel):
-            model_input = (
-                model_input.model_dump() if IS_PYDANTIC_V2_OR_NEWER else model_input.dict()
-            )
+            model_input = model_input.model_dump()
 
         is_unified_llm_input = False
         if isinstance(model_input, dict):

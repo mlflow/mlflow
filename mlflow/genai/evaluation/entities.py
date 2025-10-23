@@ -86,21 +86,16 @@ class EvalItem:
         )
 
     @classmethod
-    def _parse_inputs(cls, data: str | dict[str, Any]) -> dict[str, Any]:
+    def _parse_inputs(cls, data: str | dict[str, Any]) -> Any:
         # The inputs can be either a dictionary or JSON-serialized version of it.
         if isinstance(data, dict):
             return data
         elif isinstance(data, str):  # JSON-serialized string
             try:
                 return json.loads(data)
-            except Exception as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Failed to parse inputs as JSON."
-                ) from e
-
-        raise MlflowException.invalid_parameter_value(
-            f"inputs must be a dictionary or JSON serializable: {type(data)}"
-        )
+            except Exception:
+                pass
+        return data
 
     def get_expectation_assessments(self) -> list[Expectation]:
         """Get the expectations as a list of Expectation objects."""

@@ -3046,6 +3046,22 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
+            existing_associations = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.TRACE,
+                    SqlEntityAssociation.source_id.in_(trace_ids),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.RUN,
+                    SqlEntityAssociation.destination_id == run_id,
+                )
+                .all()
+            )
+            existing_trace_ids = [association.source_id for association in existing_associations]
+
+            trace_ids_to_add = [
+                trace_id for trace_id in trace_ids if trace_id not in existing_trace_ids
+            ]
+
             session.add_all(
                 SqlEntityAssociation(
                     association_id=uuid.uuid4().hex,
@@ -3054,7 +3070,7 @@ class SqlAlchemyStore(AbstractStore):
                     destination_type=EntityAssociationType.RUN,
                     destination_id=run_id,
                 )
-                for trace_id in trace_ids
+                for trace_id in trace_ids_to_add
             )
 
     def calculate_trace_filter_correlation(
