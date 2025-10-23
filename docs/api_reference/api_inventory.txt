@@ -1329,12 +1329,15 @@ mlflow.types.Schema.to_json
 mlflow.types.TensorSpec
 mlflow.types.TensorSpec.from_json_dict
 mlflow.types.agent.ChatAgentChunk
+mlflow.types.agent.ChatAgentChunk.check_message_id
 mlflow.types.agent.ChatAgentMessage
+mlflow.types.agent.ChatAgentMessage.check_content_and_tool_calls
+mlflow.types.agent.ChatAgentMessage.check_tool_messages
 mlflow.types.agent.ChatAgentRequest
 mlflow.types.agent.ChatAgentResponse
+mlflow.types.agent.ChatAgentResponse.check_message_ids
 mlflow.types.agent.ChatContext
 mlflow.types.chat.AudioContentPart
-mlflow.types.chat.BaseModel
 mlflow.types.chat.BaseRequestPayload
 mlflow.types.chat.ChatChoice
 mlflow.types.chat.ChatChoiceDelta
