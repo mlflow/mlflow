@@ -106,6 +106,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     SpansLocation,
+    TokenUsageKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
@@ -3401,10 +3402,22 @@ class SqlAlchemyStore(AbstractStore):
                 if root_span_status:
                     update_dict[SqlTraceInfo.status] = root_span_status
 
-            span_dicts = []
+            aggregated_token_usage = {}
             for span in spans:
                 span_dict = translate_span_when_storing(span)
-                span_dicts.append(span_dict)
+                if span_token_usage := span_dict.get("attributes", {}).get(
+                    SpanAttributeKey.CHAT_USAGE
+                ):
+                    span_token_usage = json.loads(span_token_usage)
+                    for key in [
+                        TokenUsageKey.INPUT_TOKENS,
+                        TokenUsageKey.OUTPUT_TOKENS,
+                        TokenUsageKey.TOTAL_TOKENS,
+                    ]:
+                        aggregated_token_usage[key] = (
+                            aggregated_token_usage.get(key, 0) + span_token_usage[key]
+                        )
+
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
                 sql_span = SqlSpan(
@@ -3445,6 +3458,33 @@ class SqlAlchemyStore(AbstractStore):
                     update_dict[SqlTraceInfo.response_preview] = truncate_request_response_preview(
                         trace_outputs
                     )
+
+            trace_token_usage = (
+                session.query(SqlTraceMetadata)
+                .filter(
+                    SqlTraceMetadata.request_id == trace_id,
+                    SqlTraceMetadata.key == TraceMetadataKey.TOKEN_USAGE,
+                )
+                .one_or_none()
+            )
+            trace_token_usage = json.loads(trace_token_usage.value) if trace_token_usage else {}
+            if aggregated_token_usage:
+                for key in [
+                    TokenUsageKey.INPUT_TOKENS,
+                    TokenUsageKey.OUTPUT_TOKENS,
+                    TokenUsageKey.TOTAL_TOKENS,
+                ]:
+                    trace_token_usage[key] = (
+                        trace_token_usage.get(key, 0) + aggregated_token_usage[key]
+                    )
+
+                session.merge(
+                    SqlTraceMetadata(
+                        request_id=trace_id,
+                        key=TraceMetadataKey.TOKEN_USAGE,
+                        value=json.dumps(trace_token_usage),
+                    )
+                )
 
             session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).update(
                 update_dict,
