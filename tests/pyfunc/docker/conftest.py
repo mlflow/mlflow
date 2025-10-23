@@ -65,7 +65,7 @@ def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, *
     if flavor == "langchain":
         kwargs["pip_requirements"] = [
             f"mlflow[gateway]=={latest_mlflow_version}",
-            "langchain<1.0.0",
+            "langchain<1.0.0",  # TODO: Remove after supporting langchain 1.x
         ]
     else:
         extra_pip_requirements = extra_pip_requirements or []
