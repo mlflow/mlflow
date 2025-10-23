@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any, Literal
 
 import pydantic
 import yaml
-from packaging.version import Version
 from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
@@ -318,12 +317,7 @@ class AliasedConfigModel(ConfigModel):
     Enables use of field aliases in a configuration model for backwards compatibility
     """
 
-    if Version(pydantic.__version__) >= Version("2.0"):
-        model_config = ConfigDict(populate_by_name=True)
-    else:
-
-        class Config:
-            allow_population_by_field_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class Limit(LimitModel):
@@ -474,8 +468,7 @@ class _LegacyRoute(ConfigModel):
     route_url: str
     limit: Limit | None = None
 
-    class Config:
-        json_schema_extra = _ROUTE_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_ROUTE_EXTRA_SCHEMA)
 
     def to_endpoint(self):
         from mlflow.deployments.server.config import Endpoint

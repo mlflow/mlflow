@@ -205,8 +205,8 @@ class ListEndpointsResponse(BaseModel):
     endpoints: list[Endpoint]
     next_page_token: str | None = None
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "endpoints": [
                     {
@@ -238,14 +238,15 @@ class ListEndpointsResponse(BaseModel):
                 "next_page_token": "eyJpbmRleCI6IDExfQ==",
             }
         }
+    }
 
 
 class _LegacySearchRoutesResponse(BaseModel):
     routes: list[_LegacyRoute]
     next_page_token: str | None = None
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "endpoints": [
                     {
@@ -276,6 +277,7 @@ class _LegacySearchRoutesResponse(BaseModel):
                 "next_page_token": "eyJpbmRleCI6IDExfQ==",
             }
         }
+    }
 
 
 def create_app_from_config(config: GatewayConfig) -> GatewayAPI:

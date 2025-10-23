@@ -9,8 +9,8 @@ class Endpoint(ResponseModel):
     endpoint_url: str
     limit: Limit | None
 
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "name": "openai-completions",
                 "endpoint_type": "llm/v1/completions",
@@ -22,3 +22,4 @@ class Endpoint(ResponseModel):
                 "limit": {"calls": 1, "key": None, "renewal_period": "minute"},
             }
         }
+    }
