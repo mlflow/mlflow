@@ -24,8 +24,11 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
-  const judgeCost = feedback.metadata?.['mlflow.assessment.judgeCost'];
+  const judgeTraceId = feedback.metadata?.['mlflow.assessment.scorerTraceId'];
+  const judgeTraceHref = judgeTraceId ? getJudgeTraceHref(judgeTraceId) : undefined;
+  const shouldShowJudgeTraceSection = Boolean(judgeTraceHref);
 
+  const judgeCost = feedback.metadata?.['mlflow.assessment.judgeCost'];
   const formattedCost = (() => {
     if (judgeCost === null) {
       return undefined;
@@ -124,6 +127,46 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
         </div>
       )}
+      {shouldShowJudgeTraceSection && (
+        <Typography.Link
+          href={judgeTraceHref}
+          openInNewTab
+          componentId="shared.model-trace-explorer.feedback-cost.trace-link"
+        >
+          <FormattedMessage
+            defaultMessage="View trace"
+            description="Link text for navigating to the corresponding judge trace"
+          />
+        </Typography.Link>
+      )}
     </div>
   );
+};
+
+/**
+ * Returns the href for the judge trace link.
+ *
+ * @param id - The ID of the judge trace.
+ * @returns The href for the judge trace.
+ */
+const getJudgeTraceHref = (id: string) => {
+  const { pathname, hash } = window.location;
+  const experimentMatchFromHash = hash?.match(/\/experiments\/(\d+|[^/]+)/);
+  const experimentMatchFromPath = pathname?.match(/\/experiments\/(\d+|[^/]+)/);
+  const experimentId = experimentMatchFromHash?.[1] ?? experimentMatchFromPath?.[1];
+
+  if (experimentId) {
+    const basePath = `/experiments/${experimentId}/traces?selectedEvaluationId=${encodeURIComponent(id)}`;
+    // If the router uses hash history, preserve it so the link works in a new tab.
+    if (hash?.includes('/experiments/')) {
+      return `#${basePath}`;
+    }
+    return basePath;
+  }
+
+  // Fallback when we cannot infer the experiment: open traces view with evaluation selection.
+  if (hash) {
+    return `#${`/traces?selectedEvaluationId=${encodeURIComponent(id)}`}`;
+  }
+  return `/traces?selectedEvaluationId=${encodeURIComponent(id)}`;
 };

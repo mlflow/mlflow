@@ -24,6 +24,7 @@ const MLFLOW_ASSESSMENT_ROOT_CAUSE_ASSESSMENT = 'root_cause_assessment';
 const MLFLOW_ASSESSMENT_ROOT_CAUSE_RATIONALE = 'root_cause_rationale';
 const MLFLOW_ASSESSMENT_SUGGESTED_ACTION = 'suggested_action';
 export const MLFLOW_SOURCE_RUN_KEY = 'mlflow.sourceRun';
+export const MLFLOW_ASSESSMENT_SOURCE_RUN_ID = 'mlflow.assessment.sourceRunId';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
@@ -59,6 +60,50 @@ export const getTracesTagKeys = (traces: TraceInfoV3[]): string[] => {
       })
       .flat(),
   );
+};
+
+export const filterTracesByAssessmentSourceRunId = (
+  traces: TraceInfoV3[] | undefined,
+  runUuid?: string | null,
+): TraceInfoV3[] | undefined => {
+  if (!traces) {
+    return traces;
+  }
+
+  if (!runUuid) {
+    return traces;
+  }
+
+  return traces.reduce<TraceInfoV3[]>((acc, trace) => {
+    const assessments = trace.assessments;
+    if (!assessments || assessments.length === 0) {
+      // No assessments are logged, should not show this trace in the evaluation results.
+      return acc;
+    }
+
+    // Filter assessments to those that are created by this evaluation run.
+    const filteredAssessments = assessments.filter((assessment) => {
+      const sourceRunId = assessment.metadata?.[MLFLOW_ASSESSMENT_SOURCE_RUN_ID];
+      return !sourceRunId || sourceRunId === runUuid;
+    });
+
+    if (filteredAssessments.length === 0) {
+      return acc;
+    }
+
+    if (filteredAssessments.length === assessments.length) {
+      acc.push(trace);
+      return acc;
+    }
+
+    // Render only the assessments that are created by this evaluation run. This is to avoid showing
+    // feedbacks logged from other runs in the evaluation results.
+    acc.push({
+      ...trace,
+      assessments: filteredAssessments,
+    });
+    return acc;
+  }, []);
 };
 
 /**

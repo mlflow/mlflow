@@ -556,6 +556,100 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data?.[0].assessments?.[1].assessment_id).toBe('correctness');
     expect(result.current.data?.[0].assessments?.[1]?.feedback?.value).toBe('pass');
   });
+
+  test('filters out traces whose assessments belong to another run', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request: '{}',
+            response: '{}',
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'other-run' },
+                feedback: { value: 'pass' },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toEqual([]);
+  });
+
+  test('keeps traces when assessments match the run or lack metadata', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request: '{}',
+            response: '{}',
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
+                feedback: { value: 'pass' },
+              },
+              {
+                assessment_id: 'a-2',
+                assessment_name: 'guidelines',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                feedback: { value: 'pass' },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+    expect(result.current.data?.[0].assessments?.length).toBe(2);
+  });
 });
 
 describe('useMlflowTraces', () => {
@@ -660,6 +754,54 @@ describe('useMlflowTraces', () => {
       request: '{"input": "value"}',
       response: '{"output": "value"}',
     });
+  });
+
+  test('omits traces whose assessments belong to another run', async () => {
+    jest.mocked(useGenAiTraceEvaluationArtifacts).mockReturnValue({
+      data: [],
+      isLoading: false,
+    } as any);
+
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request: '{}',
+            response: '{}',
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'other-run' },
+                feedback: { value: 'pass' },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useMlflowTraces('experiment-xyz', 'run-xyz'), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toEqual([]);
+    expect(result.current.shouldUseTraceV3).toBe(false);
   });
 
   test('respects pagination until next_page_token is missing', async () => {

@@ -66,6 +66,7 @@ class JudgeToolRegistry:
             )
 
         _logger.debug(f"Invoking tool '{function_name}' with args: {arguments}")
+        print("Let's run the tool")
         try:
             if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
                 tool_func = mlflow.trace(name=tool.name, span_type=SpanType.TOOL)(tool.invoke)
