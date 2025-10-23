@@ -21,7 +21,7 @@ export function tracedAnthropic<T = any>(anthropicClient: T): T {
       if (typeof original === 'function') {
         if (shouldTraceMethod(moduleName, String(prop))) {
           // eslint-disable-next-line @typescript-eslint/ban-types
-          return wrapWithTracing(original as Function, moduleName!);
+          return wrapWithTracing(original as Function, moduleName) as T;
         }
         // eslint-disable-next-line @typescript-eslint/ban-types
         return (original as Function).bind(target) as T;
@@ -97,11 +97,17 @@ function getSpanType(moduleName: string): SpanType | undefined {
 }
 
 function extractTokenUsage(response: any): TokenUsage | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const usage = response?.usage;
-  if (!usage) return undefined;
+  if (!usage) {
+    return undefined;
+  }
 
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const inputTokens = usage.input_tokens;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const outputTokens = usage.output_tokens;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const totalTokens = usage.total_tokens ?? (inputTokens ?? 0) + (outputTokens ?? 0);
 
   return {

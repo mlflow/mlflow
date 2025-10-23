@@ -56,48 +56,6 @@ View traces in MLflow UI:
 
 ![MLflow Tracing UI](https://github.com/mlflow/mlflow/blob/master/docs/static/images/llms/anthropic/anthropic-tracing.png?raw=True)
 
-## End-to-End Autologging Workflow
-
-1. **Install dependencies**
-
-   ```bash
-   npm install mlflow-tracing mlflow-anthropic @anthropic-ai/sdk
-   ```
-
-2. **Configure MLflow** by pointing the SDK at your tracking server:
-
-   ```typescript
-   import * as mlflow from 'mlflow-tracing';
-
-   mlflow.init({
-     trackingUri: process.env.MLFLOW_TRACKING_URI!,
-     experimentId: process.env.MLFLOW_EXPERIMENT_ID!
-   });
-   ```
-
-3. **Wrap the Anthropic client** with the auto-instrumentation helper:
-
-   ```typescript
-   import Anthropic from '@anthropic-ai/sdk';
-   import { tracedAnthropic } from 'mlflow-anthropic';
-
-   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY! });
-   const client = tracedAnthropic(anthropic);
-   ```
-
-4. **Call the Claude APIs as usual**—every traced method invocation automatically creates an MLflow span:
-
-   ```typescript
-   const completion = await client.messages.create({
-     model: 'claude-3-haiku-20240307',
-     max_tokens: 256,
-     messages: [{ role: 'user', content: 'Hello Claude' }]
-   });
-   console.log(completion.content[0]);
-   ```
-
-5. **Inspect traces** in the MLflow UI to review inputs, outputs, latency, and token usage for every Anthropic request.
-
 ## Documentation 📘
 
 Official documentation for MLflow Typescript SDK can be found [here](https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk).
