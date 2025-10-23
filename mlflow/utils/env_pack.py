@@ -18,10 +18,12 @@ from mlflow.utils.logging_utils import eprint
 
 EnvPackType = Literal["databricks_model_serving"]
 
+
 @dataclass
 class EnvPackConfig:
     name: EnvPackType
     install_dependencies: bool = True
+
 
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
