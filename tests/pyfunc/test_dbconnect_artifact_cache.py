@@ -45,7 +45,7 @@ def test_get_unpacked_artifact_dir_multi_driver_with_driver_id(monkeypatch):
     assert result == expected_path
 
 
-def test_get_unpacked_artifact_dir_falls_back_to_single_candidate_if_directory_does_not_exist(monkeypatch):
+def test_get_unpacked_artifact_dir_falls_back_if_directory_does_not_exist(monkeypatch):
     session_id = "session-123"
 
     monkeypatch.setenv("DB_SESSION_UUID", session_id)
@@ -68,7 +68,7 @@ def test_get_unpacked_artifact_dir_falls_back_to_single_candidate_if_directory_d
     assert result == expected_path
 
 
-def test_get_unpacked_artifact_dir_falls_back_to_single_candidate_if_driver_id_is_not_set(monkeypatch):
+def test_get_unpacked_artifact_dir_falls_back_if_driver_id_is_not_set(monkeypatch):
     session_id = "session-123"
 
     monkeypatch.setenv("DB_SESSION_UUID", session_id)
