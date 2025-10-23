@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "2.22.2"
+version = "2.22.3"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -27,7 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "mlflow-skinny==2.22.2",
+  "mlflow-skinny==2.22.3",
   "Flask<4",
   "Jinja2<4,>=2.11; platform_system != 'Windows'",
   "Jinja2<4,>=3.0; platform_system == 'Windows'",
