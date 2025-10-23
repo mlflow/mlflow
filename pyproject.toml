@@ -379,6 +379,8 @@ example-rules = [
 ]
 # This file intentionally shows problematic code as an example of what NOT to do
 "docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
+# Multi-assign has better readability in this example.
+"docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

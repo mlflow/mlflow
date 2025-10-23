@@ -8,7 +8,13 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # MLflow Tracking Quickstart
 
-The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
+:::tip
+
+Looking for using MLflow for LLMs/Agent development? Checkout the <ins>[MLflow for GenAI](/genai) documentation</ins> instead. This guide is intended for data scientists who train traditional machine learning models, such as decision trees.
+
+:::
+
+Welcome to MLflow! The purpose of this quickstart is to provide a quick guide to the most essential core APIs of MLflow Tracking. In just a few minutes of following along with this quickstart, you will learn:
 
 - How to **log** parameters, metrics, and a model using the MLflow logging API
 - How to navigate to a model in the **MLflow UI**
@@ -106,7 +112,7 @@ The training **Run** created by MLflow is listed in the table. Click the run to 
 
 The Run detail page shows an overview of the run, its recorded metrics, hyper-parameters, tags, and more. Play around with the UI to see the different views and features.
 
-Scroll down to the "Model" section and you will see the model that was logged during training. Click on the model to view the details.
+Scroll down to the "Model" section and you should see the model that was logged during training. Click on the model to view the details.
 
 <ImageBox src="/images/tutorials/introductory/quickstart-tracking/quickstart-ui-logged-models.png" alt="MLflow UI Model detail page" />
 
@@ -116,7 +122,7 @@ The model page displays similar metadata such as performance metrics and hyper-p
 
 ## Step 5 - Log a model and metadata manually
 
-Now that we've learned how to log a model training run with MLflow autologging, let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
+Now that we have learned how to log a model training run with MLflow autologging, let's step further and learn how to log a model and metadata manually. This is useful when you want to have more control over the logging process.
 
 The steps that we will take are:
 
@@ -155,7 +161,7 @@ After logging the model, we can perform inference by:
 - Running **Predict** on new data using the loaded model.
 
 :::info
-To load the model as native scikit-learn model, use `mlflow.sklearn.load_model(model_info.model_uri)` instead of the pyfunc flavor.
+To load the model as a native scikit-learn model, use `mlflow.sklearn.load_model(model_info.model_uri)` instead of the pyfunc flavor.
 :::
 
 ```python
@@ -224,7 +230,7 @@ The output of this code will look something like this:
 
 ## Next Steps
 
-Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking API to log models.
+Congratulations on working through the MLflow Tracking Quickstart! You should now have a basic understanding of how to use the MLflow Tracking APIs to log models.
 
 - [MLflow for GenAI](/genai): Learn how to use MLflow for GenAI/LLM development.
 - [MLflow for Deep Learning](/ml/deep-learning): Learn how to use MLflow for deep learning frameworks such as PyTorch, TensorFlow, etc.
