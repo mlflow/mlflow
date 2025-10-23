@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal
 import pydantic
 import yaml
 from packaging.version import Version
-from pydantic import ConfigDict, ValidationError
+from pydantic import ConfigDict, ValidationError, field_validator, model_validator
 from pydantic.json import pydantic_encoder
 
 from mlflow.exceptions import MlflowException
@@ -26,12 +26,10 @@ from mlflow.gateway.utils import (
     is_valid_endpoint_name,
     is_valid_mosiacml_chat_model,
 )
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER, field_validator, model_validator
 
 _logger = logging.getLogger(__name__)
 
-if IS_PYDANTIC_V2_OR_NEWER:
-    from pydantic import SerializeAsAny
+from pydantic import SerializeAsAny
 
 if TYPE_CHECKING:
     from mlflow.deployments.server.config import Endpoint
@@ -281,10 +279,7 @@ def _resolve_api_key_from_input(api_key_input):
 class Model(ConfigModel):
     name: str | None = None
     provider: str | Provider
-    if IS_PYDANTIC_V2_OR_NEWER:
-        config: SerializeAsAny[ConfigModel] | None = None
-    else:
-        config: ConfigModel | None = None
+    config: SerializeAsAny[ConfigModel] | None = None
 
     @field_validator("provider", mode="before")
     def validate_provider(cls, value):
@@ -305,11 +300,7 @@ class Model(ConfigModel):
 
         # For Pydantic v2: 'context' is a ValidationInfo object with a 'data' attribute.
         # For Pydantic v1: 'context' is dict-like 'values'.
-        if IS_PYDANTIC_V2_OR_NEWER:
-            provider = context.data.get("provider")
-        else:
-            provider = context.get("provider") if context else None
-
+        provider = context.data.get("provider")
         if provider:
             config_type = provider_registry.get(provider).CONFIG_TYPE
             return config_type(**val) if isinstance(val, dict) else val
@@ -372,14 +363,10 @@ class EndpointConfig(AliasedConfigModel):
                 )
         return model
 
-    @model_validator(mode="after", skip_on_failure=True)
+    @model_validator(mode="after")
     def validate_route_type_and_model_name(cls, values):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            route_type = values.endpoint_type
-            model = values.model
-        else:
-            route_type = values.get("endpoint_type")
-            model = values.get("model")
+        route_type = values.endpoint_type
+        model = values.model
         if (
             model
             and model.provider == "mosaicml"
@@ -488,10 +475,7 @@ class _LegacyRoute(ConfigModel):
     limit: Limit | None = None
 
     class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _ROUTE_EXTRA_SCHEMA
-        else:
-            schema_extra = _ROUTE_EXTRA_SCHEMA
+        json_schema_extra = _ROUTE_EXTRA_SCHEMA
 
     def to_endpoint(self):
         from mlflow.deployments.server.config import Endpoint

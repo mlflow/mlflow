@@ -14,7 +14,6 @@ from mlflow.types.chat import (
     TextContentPart,
     ToolCall,
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 
 def convert_message_to_mlflow_chat(message: BaseModel | dict[str, Any]) -> ChatMessage:
@@ -47,11 +46,7 @@ def convert_message_to_mlflow_chat(message: BaseModel | dict[str, Any]) -> ChatM
         tool_call_id = None
         for content_block in content:
             if isinstance(content_block, BaseModel):
-                if IS_PYDANTIC_V2_OR_NEWER:
-                    content_block = content_block.model_dump()
-                else:
-                    content_block = content_block.dict()
-
+                content_block = content_block.model_dump()
             content_type = content_block.get("type")
             if content_type == "tool_use":
                 # Anthropic response contains tool calls in the content block

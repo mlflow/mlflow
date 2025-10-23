@@ -1,7 +1,8 @@
 import os
 
+from pydantic import field_validator
+
 from mlflow.gateway.base_models import ConfigModel
-from mlflow.utils.pydantic_utils import field_validator
 
 
 class MyLLMConfig(ConfigModel):

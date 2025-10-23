@@ -1,5 +1,41 @@
 # CHANGELOG
 
+## 3.5.1 (2025-10-21)
+
+MLflow 3.5.1 is a patch release that includes several bug fixes and improvements.
+
+Features:
+
+- [CLI] Add CLI command to list registered scorers by experiment (#18255, @alkispoly-db)
+- [Deployments] Add configuration option for long-running deployments client requests (#18363, @BenWilson2)
+- [Deployments] Create `set_databricks_monitoring_sql_warehouse_id` API (#18346, @dbrx-euirim)
+- [Prompts] Show instructions for prompt optimization on prompt registry (#18375, @TomeHirata)
+
+Bug fixes:
+
+- [Evaluation] Validate if trace is None before accessing the value in mlflow.genai.evaluate (#18285, @srinathmkce)
+- [Evaluation] Revert "Add atomicity to job_start API (#18226)" (@serena-ruan)
+- [MCP] Move fastmcp to optional mcp extra (#18422, @harupy)
+- [Model Registry] Fix serialization bug in file store (#18365, @BenWilson2)
+- [Scoring] Pin uvloop<0.22 to fix mlserver compatibility (#18370, @harupy)
+- [Tracing] Fix a forward-compatibility issue with Span to_dict (#18439, @serena-ruan)
+- [Tracing] Whitelist notebook trace UI renderer to allow display with default security settings (#18446, @TomeHirata)
+- [Tracing] Fix attribute error in StrandsAgent tracing (#18409, @B-Step62)
+- [Tracing] Adjust truncation logic in trace previews (#18412, @BenWilson2)
+- [Tracing] Revert "Fix response handling in log_spans (#18280)" (#18349, @serena-ruan)
+- [Tracking] Adjust util for remote tracking server declaration (#18411, @BenWilson2)
+- [Tracking] Handle Databricks FMAPI style in openai autolog (#18354, @TomeHirata)
+- [Tracking] Fetch config after adding first record (#18338, @serena-ruan)
+- [UI] Fix span ID parsing in the UI (#18419, @daniellok-db)
+- [UI] Fix Chat message parsing within the trace summary view modal (#18454, @daniellok-db)
+- [UI] Fix an issue with display of the assessments pane in the UI (#18333, @BenWilson2)
+
+Documentation updates:
+
+- [Docs] Fix Kubernetes Deployment Tutorial Code (#18381, @Maeril)
+- [Docs] Update the documentation around requirements for optimize_prompts (#18398, @TomeHirata)
+- [Docs] Fix example FastAPI in track user sessions (#18388, @maxscheijen)
+
 ## 3.5.0 (2025-10-16)
 
 MLflow 3.5.0 includes several major features and improvements!
@@ -9,7 +45,7 @@ MLflow 3.5.0 includes several major features and improvements!
 - ⚙️ **Job Execution Backend**: Introduced a new job execution backend infrastructure for running asynchronous tasks with individual execution pools, job search capabilities, and transient error handling. (#17676, #18012, #18070, #18071, #18112, #18049, @WeichenXu123)
 - 🎯 **Flexible Prompt Optimization API**: Introduced a new flexible API for prompt optimization with support for model switching and the GEPA algorithm, enabling more efficient prompt tuning with fewer rollouts. See the [documentation](https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts/) to get started. (#18183, #18031, @TomeHirata)
 - 🎨 **Enhanced UI Onboarding**: Improved in-product onboarding experience with trace quickstart drawer and updated homepage guidance to help users discover MLflow's latest features. (#18098, #18187, @B-Step62)
-- 🔐 **Security Middleware for Tracking Server**: Added a security middleware layer to protect against DNS rebinding, CORS attacks, and other security threats. Read the [documentation](https://mlflow.org/docs/latest/ml/tracking/server/security/) for configuration details. (#17910, @BenWilson2)
+- 🔐 **Security Middleware for Tracking Server**: Added a security middleware layer to protect against DNS rebinding, CORS attacks, and other security threats. Read the [documentation](https://mlflow.org/docs/latest/self-hosting/security/network/) for configuration details. (#17910, @BenWilson2)
 
 ### Features
 
@@ -98,7 +134,7 @@ Major new features:
 - ✨ **Improved UI homepage**: The MLflow UI's homepage has been updated to help you get started with more of our latest features. This page will be updated regularly moving forward, allowing you to get more in-product guidance.
 - 🗂️ **Evaluation datasets UI integration**: In MLflow 3.4.0, we released backend support for creating evaluation datasets for GenAI applications. In this release, we've added a new tab to the MLflow Experiment UI, allowing you to create, manage, and export traces to your datasets without having to write a line of code.
 - 🧮 **GEPA support for prompt optimization**: MLflow's prompt optimization feature now supports the [GEPA algorithm](https://dspy.ai/api/optimizers/GEPA/overview/), allowing you to achieve higher performing prompts with less rollouts. For instructions on how to get started with prompt optimization, visit this [doc page](https://mlflow.org/docs/latest/genai/prompt-registry/optimize-prompts/)!
-- 🔐 **Security middleware layer for tracking server**: MLflow now ships with a security middleware layer by default, allowing you to protect against DNS rebinding, CORS attacks, and more. Read the documentation [here](https://mlflow.org/docs/latest/ml/tracking/server/security/) to learn how to configure these options.
+- 🔐 **Security middleware layer for tracking server**: MLflow now ships with a security middleware layer by default, allowing you to protect against DNS rebinding, CORS attacks, and more. Read the documentation [here](https://mlflow.org/docs/latest/self-hosting/security/network/) to learn how to configure these options.
 
 Stay tuned for the full release, which will be packed with more features and bugfixes.
 

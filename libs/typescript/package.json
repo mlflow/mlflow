@@ -23,7 +23,8 @@
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "prepare": "npm run build"
+    "prepare": "npm run build",
+    "bump-version": "tsx scripts/bump-ts-version.ts"
   },
   "devDependencies": {
     "typedoc": "^0.28.0"
