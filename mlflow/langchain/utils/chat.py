@@ -251,7 +251,7 @@ def _convert_chat_request(chat_request: dict[str, Any] | list[dict[str, Any]]):
 def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
-            return set(lc_model.input_schema.__fields__)
+            return set(lc_model.input_schema.model_fields)
     except Exception as e:
         _logger.debug(
             f"Unexpected exception while checking LangChain input schema for"

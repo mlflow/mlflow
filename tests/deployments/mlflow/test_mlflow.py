@@ -44,7 +44,7 @@ def test_get_endpoint():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.get_endpoint(endpoint="test")
         mock_request.assert_called_once()
-        assert resp.dict() == {
+        assert resp.model_dump() == {
             "name": "completions",
             "endpoint_type": "llm/v1/completions",
             "model": {"name": "gpt-4", "provider": "openai"},
@@ -73,7 +73,7 @@ def test_list_endpoints():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.list_endpoints()
         mock_request.assert_called_once()
-        assert [r.dict() for r in resp] == [
+        assert [r.model_dump() for r in resp] == [
             {
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "completions",
@@ -118,7 +118,7 @@ def test_list_endpoints_paginated():
     with mock.patch("requests.Session.request", return_value=mock_resp) as mock_request:
         resp = client.list_endpoints()
         assert mock_request.call_count == 2
-        assert [r.dict() for r in resp] == [
+        assert [r.model_dump() for r in resp] == [
             {
                 "model": {"name": "gpt-4", "provider": "openai"},
                 "name": "chat",
