@@ -336,7 +336,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         for raw_tool in raw_tools:
             # First, try to parse the raw tool dictionary as OpenAI-style tool
             try:
-                tool = ChatTool.validate_compat(raw_tool)
+                tool = ChatTool.model_validate(raw_tool)
                 tools.append(tool)
             except pydantic.ValidationError:
                 # If not OpenAI style, just try to extract the name and descriptions.

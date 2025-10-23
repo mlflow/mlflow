@@ -3,17 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel as _BaseModel
-from pydantic import Field
-
-
-class BaseModel(_BaseModel):
-    @classmethod
-    def validate_compat(cls, obj: Any):
-        return cls.model_validate(obj)
-
-    def model_dump_compat(self, **kwargs):
-        return self.model_dump(**kwargs)
+from pydantic import BaseModel, Field
 
 
 class TextContentPart(BaseModel):

@@ -3,10 +3,9 @@ from itertools import tee
 from typing import Any, Generator, Iterator
 from uuid import uuid4
 
-from pydantic import ConfigDict, model_validator
+from pydantic import BaseModel, ConfigDict, model_validator
 
 from mlflow.types.agent import ChatContext
-from mlflow.types.chat import BaseModel
 from mlflow.types.responses_helpers import (
     BaseRequestPayload,
     Message,
@@ -87,15 +86,15 @@ class ResponsesAgentStreamEvent(BaseModel):
     def check_type(self) -> "ResponsesAgentStreamEvent":
         type = self.type
         if type == "response.output_item.done":
-            ResponseOutputItemDoneEvent(**self.model_dump_compat())
+            ResponseOutputItemDoneEvent(**self.model_dump())
         elif type == "response.output_text.delta":
-            ResponseTextDeltaEvent(**self.model_dump_compat())
+            ResponseTextDeltaEvent(**self.model_dump())
         elif type == "response.output_text.annotation.added":
-            ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
+            ResponseTextAnnotationDeltaEvent(**self.model_dump())
         elif type == "error":
-            ResponseErrorEvent(**self.model_dump_compat())
+            ResponseErrorEvent(**self.model_dump())
         elif type == "response.completed":
-            ResponseCompletedEvent(**self.model_dump_compat())
+            ResponseCompletedEvent(**self.model_dump())
         """
         unvalidated types: {
             "response.created",
