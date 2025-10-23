@@ -202,20 +202,15 @@ def _register_model(
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
-    if env_pack == "databricks_model_serving":
-        eprint("Packing environment for Databricks Model Serving...")
+    # Passing in the string value is a shortcut for passing in the EnvPackConfig
+    if env_pack == "databricks_model_serving" or isinstance(env_pack, EnvPackConfig):
+        install_dependencies = env_pack.install_dependencies if isinstance(env_pack, EnvPackConfig) else True
+        eprint(f"Packing environment for Databricks Model Serving with install_dependencies {install_dependencies}...")
         with pack_env_for_databricks_model_serving(
             model_uri,
-            enforce_pip_requirements=True,
+            enforce_pip_requirements=install_dependencies,
         ) as artifacts_path_with_env:
-            client.log_model_artifacts(model_id, artifacts_path_with_env)
-    elif isinstance(env_pack, EnvPackConfig):
-        eprint(f"Packing environment for Databricks Model Serving with install_dependencies {env_pack.install_dependencies}...")
-        with pack_env_for_databricks_model_serving(
-            model_uri,
-            enforce_pip_requirements=env_pack.install_dependencies,
-        ) as artifacts_path_with_env:
-            client.log_model_artifacts(model_id, artifacts_path_with_env)        
+            client.log_model_artifacts(model_id, artifacts_path_with_env)     
 
     create_version_response = client._create_model_version(
         name=name,
@@ -264,7 +259,8 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    if env_pack == "databricks_model_serving" or isinstance(env_pack, EnvPackConfig) :
+     # Passing in the string value is a shortcut for passing in the EnvPackConfig
+    if env_pack == "databricks_model_serving" or (isinstance(env_pack, EnvPackConfig) and env_pack.name == "databricks_model_serving") :
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "
