@@ -339,7 +339,14 @@ def _setup_tracer_provider(disabled=False):
     if not otel_service_name and not otel_resource_attributes:
         # Setting an empty resource to avoid triggering resource aggregation, which causes
         # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
-        resource = Resource.get_empty()
+        # Add telemetry resource: https://opentelemetry.io/docs/specs/semconv/resource/#telemetry-sdk
+        resource = Resource(
+            {
+                "telemetry.sdk.language": "python",
+                "telemetry.sdk.name": "mlflow",
+                "telemetry.sdk.version": mlflow.__version__,
+            }
+        )
     tracer_provider = TracerProvider(resource=resource, sampler=_get_trace_sampler())
     for processor in processors:
         tracer_provider.add_span_processor(processor)
