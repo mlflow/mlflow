@@ -1,7 +1,11 @@
 import json
 from unittest.mock import Mock, patch
 
+import pytest
+
 import mlflow
+from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
+from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
 
@@ -132,3 +136,27 @@ def test_tracing_client_calculate_trace_filter_correlation_without_base_filter()
         assert result.filter2_count == 0
         assert result.joint_count == 0
         assert result.total_count == 100
+
+
+@pytest.mark.parametrize("sql_warehouse_id", [None, "some-warehouse-id"])
+def test_tracing_client_search_traces_with_model_id(monkeypatch, sql_warehouse_id):
+    if sql_warehouse_id:
+        monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, sql_warehouse_id)
+    mock_store = Mock()
+    mock_store.search_traces.return_value = ([], None)
+
+    with patch("mlflow.tracing.client._get_store", return_value=mock_store):
+        client = TracingClient()
+        client.search_traces(model_id="model_id")
+
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string="request_metadata.`mlflow.modelId` = 'model_id'"
+        if sql_warehouse_id is None
+        else None,
+        max_results=SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+        order_by=None,
+        page_token=None,
+        model_id="model_id" if sql_warehouse_id else None,
+        locations=None,
+    )
