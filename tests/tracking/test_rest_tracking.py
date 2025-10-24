@@ -3641,7 +3641,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     serialized_scorer = json.dumps(scorer_data)
 
     version = store.register_scorer(experiment_id, "test_scorer", serialized_scorer)
-    assert version == 1
+    assert version.scorer_version == 1
 
     # Test list scorers
     scorers = store.list_scorers(experiment_id)
@@ -3674,7 +3674,7 @@ def test_scorer_CRUD(mlflow_client, store_type):
     serialized_scorer_v2 = json.dumps(scorer_data_v2)
 
     version_v2 = store.register_scorer(str(experiment_id), "test_scorer", serialized_scorer_v2)
-    assert version_v2 == 2
+    assert version_v2.scorer_version == 2
 
     # Verify list scorers returns latest version
     scorers_after_v2 = store.list_scorers(str(experiment_id))

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Generator
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
-from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
@@ -71,28 +70,10 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         try:
-            import langchain
-
-            # LangChain < 0.3.0 does some trick to support Pydantic 1.x and 2.x, so checking
-            # type with installed Pydantic version might not work for some models.
-            # https://github.com/langchain-ai/langchain/blob/b66a4f48fa5656871c3e849f7e1790dfb5a4c56b/libs/core/langchain_core/pydantic_v1/__init__.py#L7
-            if Version(langchain.__version__) < Version("0.3.0"):
-                from langchain_core.pydantic_v1 import BaseModel as LangChainBaseModel
-
-                if isinstance(obj, LangChainBaseModel):
-                    return obj.dict()
-        except ImportError:
-            pass
-
-        try:
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
-                # NB: Pydantic 2.0+ has a different API for model serialization
-                if Version(pydantic.VERSION) >= Version("2.0"):
-                    return obj.model_dump()
-                else:
-                    return obj.dict()
+                return obj.model_dump()
         except ImportError:
             pass
 
@@ -342,6 +323,20 @@ def generate_mlflow_trace_id_from_otel_trace_id(otel_trace_id: int) -> str:
     return TRACE_REQUEST_ID_PREFIX + encode_trace_id(otel_trace_id)
 
 
+def generate_trace_id_v4_from_otel_trace_id(otel_trace_id: int, location: str) -> str:
+    """
+    Generate a trace ID in v4 format from the given OpenTelemetry trace ID.
+
+    Args:
+        otel_trace_id: The OpenTelemetry trace ID as an integer.
+        location: The location, of the trace.
+
+    Returns:
+        The MLflow trace ID string in format "trace:/<location>/<hex_trace_id>".
+    """
+    return construct_trace_id_v4(location, encode_trace_id(otel_trace_id))
+
+
 def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
     """
     Generate a trace ID for the given span.
@@ -353,7 +348,7 @@ def generate_trace_id_v4(span: OTelSpan, location: str) -> str:
     Returns:
         Trace ID with format "trace:/<location>/<hex_trace_id>".
     """
-    return construct_trace_id_v4(location, encode_trace_id(span.context.trace_id))
+    return generate_trace_id_v4_from_otel_trace_id(span.context.trace_id, location)
 
 
 def generate_trace_id_v3(span: OTelSpan) -> str:
@@ -465,10 +460,10 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
-            ChatTool.validate_compat(tool)
+            ChatTool.model_validate(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
+            sanitized_tools.append(tool.model_dump(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 
@@ -512,7 +507,6 @@ def add_size_stats_to_trace_metadata(trace: Trace):
     This function must not throw an exception.
     """
     from mlflow.entities import Trace, TraceData
-    from mlflow.utils.databricks_tracing_utils import trace_to_json
 
     try:
         span_sizes = []
@@ -525,9 +519,7 @@ def add_size_stats_to_trace_metadata(trace: Trace):
         # again (which can be expensive), we compute the size of the trace without spans
         # and combine it with the total size of the spans.
         empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
-        # use trace_to_json instead of empty_trace.to_json() to be compatible with trace v4
-        # proto, which is a superset of the trace v3 proto.
-        metadata_size = len(trace_to_json(empty_trace).encode("utf-8"))
+        metadata_size = len((empty_trace.to_json()).encode("utf-8"))
 
         # NB: the third term is the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2

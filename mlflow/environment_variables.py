@@ -555,11 +555,27 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
-#: Specifies the client-based timeout (in seconds) when making an HTTP request to a deployment
-#: target. Used within the `predict` and `predict_stream` APIs.
+#: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
+#: This controls how long ONE individual predict/predict_stream request can take before timing out.
+#: If your model inference takes longer than this (e.g., long-running agent queries that take
+#: several minutes), you MUST increase this value to allow the single request to complete.
+#: For example, if your longest query takes 5 minutes, set this to at least 300 seconds.
+#: Used within the `predict` and `predict_stream` APIs.
 #: (default: ``120``)
 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
+)
+
+#: TOTAL time limit for ALL retry attempts combined (in seconds).
+#: This controls how long the client will keep retrying failed requests across ALL attempts
+#: before giving up entirely. This is SEPARATE from MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT, which
+#: controls how long a SINGLE request can run, while this variable controls the TOTAL time
+#: for ALL retries. For long-running operations that may also experience transient failures,
+#: ensure BOTH timeouts are set appropriately. This value should be greater than or equal to
+#: MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.
+#: (default: ``600``)
+MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT", int, 600
 )
 
 MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
@@ -834,6 +850,11 @@ MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
 #: (default: ``None``)
 MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
 
+#: Specifies the Databricks traffic ID to inject as x-databricks-traffic-id header
+#: in HTTP requests to Databricks endpoints
+#: (default: ``None``)
+_MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
+
 #######################################################################################
 # Tracing
 #######################################################################################
@@ -922,6 +943,12 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
     "MLFLOW_SEARCH_TRACES_MAX_THREADS",
     int,
     max(32, (os.cpu_count() or 1) * 4),
+)
+
+#: Maximum number of traces to fetch in a single BatchGetTraces request during search operations.
+#: (default: ``10``)
+_MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
 )
 
 #: Specifies the logging level for MLflow. This can be set to any valid logging level

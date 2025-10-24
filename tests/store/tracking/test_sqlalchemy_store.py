@@ -4066,42 +4066,46 @@ class TextClauseMatcher:
         return self.text == other.text
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_set_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+def test_set_zero_value_insertion_for_autoincrement_column_MYSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MYSQL
-    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET @@SESSION.sql_mode='NO_AUTO_VALUE_ON_ZERO';")
+        )
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_set_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+def test_set_zero_value_insertion_for_autoincrement_column_MSSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MSSQL
-    SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._set_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments ON;")
+        )
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL(mock_session):
+def test_unset_zero_value_insertion_for_autoincrement_column_MYSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MYSQL
-    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
+        mock_session.execute.assert_called_with(TextClauseMatcher("SET @@SESSION.sql_mode='';"))
 
 
-@mock.patch("sqlalchemy.orm.session.Session", spec=True)
-def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL(mock_session):
+def test_unset_zero_value_insertion_for_autoincrement_column_MSSQL():
     mock_store = mock.Mock(SqlAlchemyStore)
     mock_store.db_type = MSSQL
-    SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(mock_store, mock_session)
-    mock_session.execute.assert_called_with(
-        TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
-    )
+    with mock.patch("sqlalchemy.orm.session.Session", spec=True) as mock_session:
+        SqlAlchemyStore._unset_zero_value_insertion_for_autoincrement_column(
+            mock_store, mock_session
+        )
+        mock_session.execute.assert_called_with(
+            TextClauseMatcher("SET IDENTITY_INSERT experiments OFF;")
+        )
 
 
 def test_get_attribute_name():
@@ -8215,6 +8219,26 @@ def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
 
     with pytest.raises(MlflowException, match="Cannot link more than 100 traces to a run"):
         store.link_traces_to_run(trace_ids, run.info.run_id)
+
+
+def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_ids = ["trace-1", "trace-2", "trace-3", "trace-4"]
+    for trace_id in trace_ids:
+        trace_info = _create_trace_info(trace_id, exp_id)
+        store.start_trace(trace_info)
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    search_args = {"experiment_ids": [exp_id], "filter_string": f"run_id = '{run.info.run_id}'"}
+
+    store.link_traces_to_run(["trace-1", "trace-2", "trace-3"], run.info.run_id)
+
+    assert len(store.search_traces(**search_args)[0]) == 3
+
+    store.link_traces_to_run(["trace-3", "trace-4"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
+
+    store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
 
 
 def test_scorer_operations(store: SqlAlchemyStore):

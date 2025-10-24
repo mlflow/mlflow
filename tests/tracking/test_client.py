@@ -364,10 +364,13 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
-def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, include_spans):
+@pytest.mark.parametrize("num_results", [0, 5])
+def test_client_search_traces_with_get_traces(
+    mock_store, mock_artifact_repo, include_spans, num_results
+):
     mock_trace_infos = [
         TraceInfo(
-            trace_id="tr-1234567",
+            trace_id=f"trace:/catalog.schema/{i}",
             trace_location=TraceLocation(
                 type=TraceLocationType.UC_SCHEMA,
                 uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
@@ -375,19 +378,8 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
             request_time=123,
             execution_duration=456,
             state=TraceState.OK,
-            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
-        ),
-        TraceInfo(
-            trace_id="tr-8910",
-            trace_location=TraceLocation(
-                type=TraceLocationType.UC_SCHEMA,
-                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
-            ),
-            request_time=456,
-            execution_duration=789,
-            state=TraceState.OK,
-            tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
-        ),
+        )
+        for i in range(num_results)
     ]
     mock_store.search_traces.return_value = (mock_trace_infos, None)
     mock_store.batch_get_traces.return_value = [
@@ -395,7 +387,7 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
     ]
 
     results = MlflowClient().search_traces(
-        experiment_ids=["1", "2", "3"],
+        locations=["catalog.schema"],
         include_spans=include_spans,
     )
     mock_store.search_traces.assert_called_once_with(
@@ -405,20 +397,64 @@ def test_client_search_traces_with_get_traces(mock_store, mock_artifact_repo, in
         order_by=None,
         page_token=None,
         model_id=None,
-        locations=["1", "2", "3"],
+        locations=["catalog.schema"],
     )
-    assert len(results) == 2
-    if include_spans:
+    assert len(results) == num_results
+
+    if include_spans and num_results > 0:
         mock_store.batch_get_traces.assert_called_once_with(
-            ["tr-1234567", "tr-8910"], "catalog.schema"
+            [f"trace:/catalog.schema/{i}" for i in range(num_results)],
+            "catalog.schema",
         )
     else:
         mock_store.batch_get_traces.assert_not_called()
+
     mock_artifact_repo.download_trace_data.assert_not_called()
 
     # The TraceInfo is already fetched prior to the upload_trace_data call,
     # so we should not call _get_trace_info again
     mock_store.get_trace_info.assert_not_called()
+
+
+def test_client_search_traces_with_large_results(mock_store, mock_artifact_repo):
+    mock_trace_infos = [
+        TraceInfo(
+            trace_id=f"trace:/catalog.schema/{i}",
+            trace_location=TraceLocation(
+                type=TraceLocationType.UC_SCHEMA,
+                uc_schema=UCSchemaLocation(catalog_name="catalog", schema_name="schema"),
+            ),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
+        )
+        for i in range(100)
+    ]
+    mock_store.search_traces.return_value = (mock_trace_infos, None)
+
+    mock_store.batch_get_traces.return_value = [
+        Trace(info=mock_trace_infos[0], data=TraceData(spans=[])) for i in range(10)
+    ]
+
+    results = MlflowClient().search_traces(locations=["catalog.schema"])
+    mock_store.search_traces.assert_called_once_with(
+        experiment_ids=None,
+        filter_string=None,
+        max_results=100,
+        order_by=None,
+        page_token=None,
+        model_id=None,
+        locations=["catalog.schema"],
+    )
+    assert len(results) == 100
+    assert mock_store.batch_get_traces.call_count == 10
+    assert mock_store.batch_get_traces.has_calls(
+        [
+            mock.call([f"trace:/catalog.schema/{j * 10 + i}" for i in range(10)], "catalog.schema")
+            for j in range(10)
+        ]
+    )
+    mock_artifact_repo.download_trace_data.assert_not_called()
 
 
 @pytest.mark.parametrize("include_spans", [True, False])
@@ -817,13 +853,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
-def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace, monkeypatch
-):
+def test_log_trace_with_databricks_tracking_uri(mock_store_start_trace, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
-    monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
     mock_experiment = mock.MagicMock()
     mock_experiment.experiment_id = "test_experiment_id"
@@ -865,6 +897,8 @@ def test_log_trace_with_databricks_tracking_uri(
     model = TestModel()
 
     with (
+        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.tracking.context.default_context._get_source_name", return_value="test"),
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
         ) as mock_upload_trace_data,
@@ -1553,6 +1587,51 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
             None,
             local_model_path=None,
             model_id="model_id",
+        )
+
+
+def test_create_model_version_with_nondatabricks_source_uc_registry(mock_registry_store):
+    name = "name"
+    model_id = "model_id"
+    run_id = "runid"
+    source = "/path/to/source"
+    model_uri = f"models:/{model_id}"
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source=source,
+        run_id=run_id,
+        run_link=None,
+        model_id=model_id,
+    )
+    mock_logged_model = LoggedModel(
+        experiment_id="exp_id",
+        model_id=model_id,
+        name=name,
+        artifact_location=source,
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+    )
+
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
+    ):
+        client = MlflowClient(tracking_uri="http://10.123.1231.11", registry_uri="databricks-uc")
+        model_version = client.create_model_version(
+            name, model_uri, run_id, run_link=None, model_id=model_id
+        )
+        assert model_version.model_id == model_id
+        mock_registry_store.create_model_version.assert_called_once_with(
+            name,
+            source,
+            run_id,
+            [],
+            None,
+            None,
+            local_model_path=None,
+            model_id=None,
         )
 
 
@@ -2417,12 +2496,14 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     mock_response = Mock()
     mock_response.prompt_versions = [Mock(version="1")]
 
-    with patch.object(client, "search_prompt_versions", return_value=mock_response):
-        with patch.object(client, "_registry_uri", registry_uri):
-            with pytest.raises(
-                MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
-            ):
-                client.delete_prompt("test_prompt")
+    with (
+        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "_registry_uri", registry_uri),
+    ):
+        with pytest.raises(
+            MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
+        ):
+            client.delete_prompt("test_prompt")
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):

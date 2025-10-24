@@ -1,0 +1,254 @@
+name: resolve
+
+on:
+  issue_comment:
+    types: [created]
+  pull_request:
+    paths:
+      - .github/workflows/resolve.yml
+      - .claude/commands/resolve.md
+      - .claude/skills/fetch-unresolved-comments/**
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  precheck:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    timeout-minutes: 5
+    if: >
+      (github.event_name == 'pull_request' &&
+       github.event.pull_request.head.repo.full_name == github.repository &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
+      ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+       startsWith(github.event.comment.body, '/resolve'))
+    outputs:
+      head_ref: ${{ steps.pr-info.outputs.head_ref }}
+      head_repository: ${{ steps.pr-info.outputs.head_repository }}
+      prompt: ${{ steps.prompt.outputs.prompt }}
+      comment_id: ${{ github.event.comment.id }}
+    steps:
+      - name: Check authorization
+        if: ${{ github.event_name == 'issue_comment' }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { comment } = context.payload;
+
+            // Check user association - only allow OWNER, MEMBER, or COLLABORATOR
+            const authorAssociation = comment.author_association;
+            const isAllowed = ['OWNER', 'MEMBER', 'COLLABORATOR'].includes(authorAssociation);
+
+            let message;
+            if (isAllowed) {
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              message = `🚀 [Resolve workflow started](${workflowUrl})`;
+            } else {
+              message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
+            }
+
+            const updatedBody = `${comment.body}\n\n---\n${message}`;
+
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: comment.id,
+              body: updatedBody,
+            });
+
+            if (!isAllowed) {
+              throw new Error(`User not allowed to trigger workflow: ${comment.user.login} (association: ${authorAssociation})`);
+            }
+
+      - name: Get PR information
+        id: pr-info
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        with:
+          script: |
+            const prNumber = parseInt(process.env.PR_NUMBER, 10);
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: prNumber
+            });
+
+            core.setOutput('head_ref', pr.head.ref);
+            core.setOutput('head_repository', pr.head.repo.full_name);
+
+      - name: Extract optional prompt from comment
+        if: github.event_name == 'issue_comment'
+        id: prompt
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/resolve\s*||' | xargs)
+          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+
+  resolve:
+    needs: precheck
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+      pull-requests: read
+    timeout-minutes: 30
+    steps:
+      - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: ${{ needs.precheck.outputs.head_repository }}
+          ref: ${{ needs.precheck.outputs.head_ref }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Configure git
+        run: |
+          git config user.name 'mlflow-app[bot]'
+          git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+
+      - uses: ./.github/actions/setup-python
+
+      - name: Set up pre-commit
+        run: |
+          uv run --only-group lint pre-commit install
+          uv run --only-group lint pre-commit run install-bin -a -v
+
+      - name: Install Claude CLI
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.0.24
+
+      - name: Run Claude resolve command
+        id: claude-fix
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROMPT: ${{ needs.precheck.outputs.prompt }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+        run: |
+          OUTPUT_FILE="/tmp/output.json"
+
+          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
+          ARGS=("/resolve")
+          [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
+          timeout 10m claude --model claude-haiku-4-5 --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
+
+          # Display output in workflow logs (pretty print if valid JSON)
+          echo "=== Claude Output ==="
+          if jq empty "$OUTPUT_FILE" 2>/dev/null; then
+            jq . "$OUTPUT_FILE"
+          else
+            cat "$OUTPUT_FILE"
+          fi
+          echo "===================="
+
+      - name: Upload Claude output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-output
+          path: /tmp/output.json
+          if-no-files-found: ignore
+
+      - name: Push changes
+        env:
+          IS_PULL_REQUEST: ${{ github.event_name == 'pull_request' }}
+        run: |
+          if [ "$IS_PULL_REQUEST" = "true" ]; then
+            echo "Running git push in dry-run mode (pull_request event)"
+            git push --dry-run
+          else
+            echo "Pushing changes to remote"
+            git push
+          fi
+
+  report:
+    needs: [precheck, resolve]
+    if: |
+      always() &&
+      !contains(needs.*.result, 'cancelled') &&
+      !contains(needs.*.result, 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    timeout-minutes: 5
+    steps:
+      - name: Download Claude output
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: claude-output
+          path: /tmp
+        continue-on-error: true
+
+      - name: Update original comment with result
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          COMMENT_ID: ${{ needs.precheck.outputs.comment_id }}
+          RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
+        with:
+          script: |
+            const fs = require('fs');
+
+            const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
+            const statusMessage = resolveJobStatus !== 'success'
+              ? `⚠️ Workflow encountered an error.`
+              : `✅ Workflow completed successfully.`;
+
+            let resultMessage = statusMessage;
+
+            // Read Claude output from file instead of environment variable
+            const outputPath = '/tmp/output.json';
+            let claudeOutput = '';
+            try {
+              if (fs.existsSync(outputPath)) {
+                claudeOutput = fs.readFileSync(outputPath, 'utf8');
+              }
+            } catch (e) {
+              console.log('Failed to read Claude output file:', e);
+            }
+
+            // Extract and display Claude's result and raw output
+            if (claudeOutput) {
+              try {
+                const events = JSON.parse(claudeOutput);
+                const resultEvent = events.find(({ type }) => type === 'result');
+                if (resultEvent) {
+                  resultMessage += `\n\n<details>\n<summary>Claude Output</summary>\n\n${resultEvent.result}\n\n</details>`;
+                }
+              } catch (e) {
+                console.log('Failed to parse Claude output as JSON:', e);
+              }
+            }
+
+            console.log('Result message to post:', resultMessage);
+
+            if (process.env.COMMENT_ID) {
+              const commentId = parseInt(process.env.COMMENT_ID, 10);
+              const { data: currentComment } = await github.rest.issues.getComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+              });
+
+              const updatedBody = `${currentComment.body}\n\n---\n${resultMessage}`;
+
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: commentId,
+                body: updatedBody,
+              });
+            }

@@ -294,7 +294,7 @@ def test_resolve_scorer_not_found_raises_error():
             side_effect=MlflowException("Not found"),
         ) as mock_get_scorer,
     ):
-        with pytest.raises(click.UsageError, match="Scorer 'UnknownScorer' not found"):
+        with pytest.raises(click.UsageError, match="Could not identify Scorer 'UnknownScorer'"):
             resolve_scorers(["UnknownScorer"], "experiment_123")
 
         # Verify mocks were called as expected

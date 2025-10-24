@@ -21,8 +21,9 @@ statsmodels
 # Required by mlflow.h2o
 h2o
 # Required by mlflow.onnx
-onnx>=1.11.0
+onnx>=1.17.0
 onnxruntime
+onnxscript
 tf2onnx
 # Required by mlflow.spark and using Delta with MLflow Tracking datasets
 pyspark

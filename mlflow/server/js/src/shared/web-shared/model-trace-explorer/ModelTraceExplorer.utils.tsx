@@ -428,6 +428,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
     parentId,
@@ -453,7 +454,8 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
-  if (isV3Span) {
+  // only attempt decoding if the id length is less than 16 chars
+  if (isV3Span && spanId.length < 16) {
     // v3 span ids are base64 encoded
     try {
       return base64ToHex(spanId);
@@ -473,7 +475,7 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
-  return 'trace_metadata' in info;
+  return 'trace_location' in info;
 }
 
 export function isV3ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV3 {

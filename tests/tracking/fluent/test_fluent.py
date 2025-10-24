@@ -1580,12 +1580,14 @@ def spark_session_with_registry_uri(request):
         yield spark
 
 
-def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
+def test_registry_uri_from_spark_conf(
+    spark_session_with_registry_uri, monkeypatch: pytest.MonkeyPatch
+):
     assert mlflow.get_registry_uri() == "http://custom.uri"
     # The MLFLOW_REGISTRY_URI environment variable should still take precedence over the
     # spark conf if present
-    with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
-        assert mlflow.get_registry_uri() == "something-else"
+    monkeypatch.setenv(MLFLOW_REGISTRY_URI.name, "something-else")
+    assert mlflow.get_registry_uri() == "something-else"
 
 
 def test_set_experiment_thread_safety(tmp_path):
@@ -2352,3 +2354,23 @@ def test_clear_active_model():
 def test_set_logged_model_tags_error():
     with pytest.raises(MlflowException, match="You may not have access to the logged model"):
         mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
+
+
+def test_log_metrics_not_fetching_run_if_active():
+    with mlflow.start_run():
+        with mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run:
+            mlflow.log_metrics({"metric": 1})
+            mock_client_get_run.assert_not_called()
+
+
+def test_log_metrics_with_active_model_log_model_once():
+    mlflow.set_active_model(name="test_model")
+    with mlflow.start_run():
+        with (
+            mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run,
+            mock.patch("mlflow.tracking.fluent.MlflowClient.log_inputs") as mock_client_log_inputs,
+        ):
+            mlflow.log_metrics({"metric": 1})
+            mlflow.log_metrics({"metric": 2})
+            mock_client_get_run.assert_not_called()
+            mock_client_log_inputs.assert_called_once()

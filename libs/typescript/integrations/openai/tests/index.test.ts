@@ -6,21 +6,17 @@ import * as mlflow from 'mlflow-tracing';
 import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
 import { http, HttpResponse } from 'msw';
-import { setupServer } from 'msw/node';
-import { openAIMockHandlers } from './mockOpenAIServer';
+import { openAIMswServer, useMockOpenAIServer } from '../../helpers/openaiTestHelper';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
 describe('tracedOpenAI', () => {
+  useMockOpenAIServer();
+
   let experimentId: string;
   let client: mlflow.MlflowClient;
-  let server: ReturnType<typeof setupServer>;
 
   beforeAll(async () => {
-    // Setup MSW mock server
-    server = setupServer(...openAIMockHandlers);
-    server.listen();
-
     // Setup MLflow client and experiment
     client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
 
@@ -34,7 +30,6 @@ describe('tracedOpenAI', () => {
   });
 
   afterAll(async () => {
-    server.close();
     await client.deleteExperiment(experimentId);
   });
 
@@ -44,11 +39,6 @@ describe('tracedOpenAI', () => {
     const trace = await client.getTrace(traceId!);
     return trace;
   };
-
-  beforeEach(() => {
-    // Reset MSW handlers for each test
-    server.resetHandlers();
-  });
 
   afterEach(() => {
     jest.clearAllMocks();
@@ -95,7 +85,7 @@ describe('tracedOpenAI', () => {
 
     it('should handle chat completion errors properly', async () => {
       // Configure MSW to return rate limit error
-      server.use(
+      openAIMswServer.use(
         http.post('https://api.openai.com/v1/chat/completions', () => {
           return HttpResponse.json(
             {
