@@ -479,10 +479,10 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
-            ChatTool.validate_compat(tool)
+            ChatTool.model_validate(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
+            sanitized_tools.append(tool.model_dump(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 

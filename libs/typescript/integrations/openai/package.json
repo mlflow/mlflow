@@ -36,7 +36,7 @@
     "format:check": "prettier --check ."
   },
   "peerDependencies": {
-    "mlflow-tracing": "^0.1.0",
+    "mlflow-tracing": "^0.1.1",
     "openai": ">=4.0.0"
   },
   "devDependencies": {
