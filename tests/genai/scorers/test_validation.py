@@ -4,9 +4,10 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities import Feedback
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import _convert_to_eval_set
-from mlflow.genai.scorers.base import Scorer, scorer
+from mlflow.genai.scorers.base import Scorer, scorer, validate_feedback_names_unique
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
     ExpectationsGuidelines,
@@ -250,3 +251,129 @@ def test_validate_data_with_predict_fn(mock_logger):
     )
 
     mock_logger.info.assert_not_called()
+
+
+def test_validate_feedback_names_unique_with_unique_names():
+    feedbacks = [
+        Feedback(name="metric_1", value=True),
+        Feedback(name="metric_2", value=1.0),
+        Feedback(name="metric_3", value="good"),
+    ]
+
+    # Should not raise an exception
+    validate_feedback_names_unique(feedbacks, "test_scorer")
+
+
+def test_validate_feedback_names_unique_with_duplicate_names():
+    feedbacks = [
+        Feedback(name="metric_1", value=True),
+        Feedback(name="metric_2", value=1.0),
+        Feedback(name="metric_1", value="duplicate"),  # Duplicate name
+    ]
+
+    with pytest.raises(
+        MlflowException, match="Cannot register scorer 'test_scorer' because it returns multiple"
+    ) as exc_info:
+        validate_feedback_names_unique(feedbacks, "test_scorer")
+
+    error_msg = str(exc_info.value)
+    assert "duplicate names" in error_msg
+    assert "metric_1" in error_msg
+    assert "Each Feedback in the returned list must have a unique name" in error_msg
+
+
+def test_validate_feedback_names_unique_with_all_default_names():
+    # Both use default name "feedback"
+    feedbacks = [
+        Feedback(value=True),
+        Feedback(value=1.0),
+    ]
+
+    with pytest.raises(
+        MlflowException, match="Cannot register scorer 'test_scorer' because it returns multiple"
+    ) as exc_info:
+        validate_feedback_names_unique(feedbacks, "test_scorer")
+
+    error_msg = str(exc_info.value)
+    assert "duplicate names" in error_msg
+    assert "feedback" in error_msg
+
+
+def test_validate_feedback_names_unique_with_empty_list():
+    # Should not raise an exception
+    validate_feedback_names_unique([], "test_scorer")
+
+
+def test_validate_feedback_names_unique_with_single_feedback():
+    feedbacks = [Feedback(name="metric_1", value=True)]
+
+    # Should not raise an exception
+    validate_feedback_names_unique(feedbacks, "test_scorer")
+
+
+def test_register_scorer_with_duplicate_feedback_names_fails():
+    @scorer
+    def scorer_with_duplicates(outputs: str):
+        return [
+            Feedback(name="score", value=True),
+            Feedback(name="score", value=1.0),  # Duplicate name
+        ]
+
+    with pytest.raises(
+        MlflowException, match="Cannot register scorer 'scorer_with_duplicates'"
+    ) as exc_info:
+        scorer_with_duplicates.register()
+
+    error_msg = str(exc_info.value)
+    assert "duplicate names" in error_msg
+
+
+def test_register_scorer_with_default_feedback_names_fails():
+    @scorer
+    def scorer_unnamed_feedbacks(outputs: str):
+        return [
+            Feedback(value=True, rationale="Good"),
+            Feedback(value=1, rationale="ok"),
+        ]
+
+    with pytest.raises(
+        MlflowException, match="Cannot register scorer 'scorer_unnamed_feedbacks'"
+    ) as exc_info:
+        scorer_unnamed_feedbacks.register()
+
+    error_msg = str(exc_info.value)
+    assert "duplicate names" in error_msg
+    assert "feedback" in error_msg
+
+
+def test_register_scorer_with_unique_feedback_names_succeeds():
+    @scorer
+    def scorer_with_unique_names(outputs: str):
+        return [
+            Feedback(name="relevance", value=True, rationale="Relevant"),
+            Feedback(name="tone", value="professional", rationale="Professional tone"),
+            Feedback(name="length", value=150, rationale="Good length"),
+        ]
+
+    # Should not raise an exception (registration would succeed)
+    # Note: We're not actually registering to avoid needing a real tracking store in tests
+    # Just calling _check_can_be_registered which includes the validation
+    scorer_with_unique_names._check_can_be_registered()
+
+
+def test_register_scorer_with_single_feedback_succeeds():
+    @scorer
+    def scorer_with_single_feedback(outputs: str):
+        return Feedback(value=True, rationale="Good")
+
+    # Should not raise an exception
+    scorer_with_single_feedback._check_can_be_registered()
+
+
+def test_register_scorer_returning_primitive_succeeds():
+    @scorer
+    def scorer_returning_bool(outputs: str) -> bool:
+        return True
+
+    # Should not raise an exception
+    scorer_returning_bool._check_can_be_registered()
