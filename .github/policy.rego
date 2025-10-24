@@ -1,5 +1,5 @@
 # regal ignore:directory-package-mismatch
-package github
+package mlflow
 
 import rego.v1
 

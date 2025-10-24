@@ -133,7 +133,7 @@ repos:
 
       - id: conftest
         name: conftest
-        entry: bin/conftest test --namespace github --policy .github/policy.rego
+        entry: bin/conftest test --namespace mlflow --policy .github/policy.rego
         files: '^\.github/(workflows|actions)/.*\.ya?ml$'
         exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
