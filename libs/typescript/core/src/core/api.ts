@@ -105,7 +105,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
       parentContext
     ) as OTelSpan;
 
-    // SpanProcessor should registered the mlflow span
+    // SpanProcessor should have already registered the mlflow span
     return getMlflowSpan(otelSpan, options);
   } catch (error) {
     console.warn('Failed to start span', error);
@@ -149,7 +149,7 @@ export function withSpan<T>(
     let mlflowSpan: LiveSpan | NoOpSpan;
 
     try {
-      // SpanProcessor should registered the mlflow span
+      // SpanProcessor should have already registered the mlflow span
       mlflowSpan = getMlflowSpan(otelSpan as OTelSpan, spanOptions);
     } catch (error) {
       console.debug('Failed to create and register MLflow span', error);

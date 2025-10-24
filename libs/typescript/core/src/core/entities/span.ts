@@ -371,7 +371,7 @@ export class LiveSpan extends Span {
       }
 
       // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-      // by the user. However, there is not way to set the status when using
+      // by the user. However, there is no way to set the status when using
       // `trace` function wrapper. Therefore, we just automatically set the status
       // to OK if it is not ERROR.
       if (this.status.statusCode !== SpanStatusCode.ERROR) {
