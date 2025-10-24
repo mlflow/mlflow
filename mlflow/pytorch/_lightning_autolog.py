@@ -655,6 +655,7 @@ def patched_fit(original, self, *args, **kwargs):
             mlflow.log_artifact(local_path=summary_file)
 
         if log_models:
+            model_signature = None
             if log_model_signatures:
                 input_output_tensors_file = os.path.join(tempdir, "input_output_tensors.pkl")
                 if os.path.exists(input_output_tensors_file):
@@ -672,9 +673,6 @@ def patched_fit(original, self, *args, **kwargs):
                             "Inferring model signature failed, skip logging signature. "
                             f"root cause: {repr(e)}."
                         )
-                        model_signature = None
-            else:
-                model_signature = None
             registered_model_name = get_autologging_config(
                 mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
             )
