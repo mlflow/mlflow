@@ -9,7 +9,6 @@ from unittest import mock
 import pandas as pd
 import pydantic
 import pytest
-from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     ArrayType,
@@ -1026,10 +1025,6 @@ def test_type_hint_from_example_invalid_input(type_from_example_model):
         pyfunc_model.predict(["1", "2", "3"])
 
 
-@pytest.mark.skipif(
-    Version(pydantic.VERSION).major <= 1,
-    reason="pydantic v1 has default value None if the field is Optional",
-)
 def test_invalid_type_hint_raise_exception():
     class Message(pydantic.BaseModel):
         role: str
