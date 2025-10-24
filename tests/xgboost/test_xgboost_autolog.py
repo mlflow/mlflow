@@ -541,7 +541,7 @@ def test_xgb_autolog_infers_model_signature_correctly(bst_params):
 
     data = None
     with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+        data = yaml.load(f, Loader=yaml.SafeLoader)
 
     assert data is not None
     assert "signature" in data
@@ -598,7 +598,7 @@ def test_xgb_autolog_continues_logging_even_if_signature_inference_fails(bst_par
 
     data = None
     with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+        data = yaml.load(f, Loader=yaml.SafeLoader)
 
     assert data is not None
     assert "run_id" in data
