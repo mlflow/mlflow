@@ -38,7 +38,6 @@ const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode
   );
 };
 
-
 describe('AssessmentCreateForm', () => {
   const mockSetExpanded = jest.fn();
   const defaultProps = {
@@ -214,7 +213,7 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select button
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
 
       // Change some values
       await user.click(assessmentTypeSelect);
