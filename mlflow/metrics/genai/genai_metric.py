@@ -168,9 +168,9 @@ def _get_aggregate_results(scores, aggregations):
     def aggregate_function(aggregate_option, scores):
         import numpy as np
 
-        # Return NaN if there are no valid scores to aggregate
+        # Return NaN for most aggregates, None for p90 if there are no valid scores
         if len(scores) == 0:
-            return np.nan
+            return None if aggregate_option == "p90" else np.nan
 
         options = {
             "min": np.min,
