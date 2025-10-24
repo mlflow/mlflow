@@ -28,6 +28,7 @@ export const SpanAttributeKey = {
   INPUTS: 'mlflow.spanInputs',
   OUTPUTS: 'mlflow.spanOutputs',
   SPAN_TYPE: 'mlflow.spanType',
+  MESSAGE_FORMAT: 'mlflow.message.format',
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
   TOKEN_USAGE: 'mlflow.chat.tokenUsage',

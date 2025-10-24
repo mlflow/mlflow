@@ -333,6 +333,7 @@ export class LiveSpan extends Span {
    */
   recordException(error: Error): void {
     this._span.recordException(error);
+    this.setStatus(SpanStatusCode.ERROR);
   }
 
   /**
