@@ -287,6 +287,7 @@ select = [
   "S102",    # exec-builtin
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
+  "S506",    # unsafe-yaml-load
   "SIM101",  # duplicate-isinstance-call
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
@@ -451,6 +452,9 @@ filterwarnings = [
   "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
+  # Prevent usage of deprecated Pydantic v2.0 features
+  "error::pydantic.PydanticDeprecatedSince20:mlflow",
+  "error::pydantic.PydanticDeprecatedSince20:tests",
 ]
 timeout = 1200
 

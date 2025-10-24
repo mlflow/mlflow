@@ -7,6 +7,7 @@ import {
   SpanExporter
 } from '@opentelemetry/sdk-trace-base';
 import { Context } from '@opentelemetry/api';
+import { createAndRegisterMlflowSpan } from '../core/api';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
@@ -79,6 +80,8 @@ export class MlflowSpanProcessor implements SpanProcessor {
 
     // Set trace ID to the span
     span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
+
+    createAndRegisterMlflowSpan(span);
   }
 
   /**
@@ -126,7 +129,16 @@ export class MlflowSpanProcessor implements SpanProcessor {
    */
   updateTraceInfo(traceInfo: TraceInfo, span: OTelReadableSpan): void {
     traceInfo.executionDuration = convertHrTimeToMs(span.endTime) - traceInfo.requestTime;
-    traceInfo.state = fromOtelStatus(span.status.code);
+
+    let state = fromOtelStatus(span.status.code);
+    // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
+    // by the user. However, there is no way to set the status when using
+    // `trace` function wrapper. Therefore, we just automatically set the status
+    // to OK if it is not ERROR.
+    if (state === TraceState.STATE_UNSPECIFIED) {
+      state = TraceState.OK;
+    }
+    traceInfo.state = state;
   }
 
   /**
@@ -161,11 +173,15 @@ export class MlflowSpanExporter implements SpanExporter {
         continue;
       }
 
-      const trace = InMemoryTraceManager.getInstance().popTrace(span.spanContext().traceId);
+      const traceManager = InMemoryTraceManager.getInstance();
+      const trace = traceManager.popTrace(span.spanContext().traceId);
       if (!trace) {
         console.warn(`No trace found for span ${span.name}. Skipping.`);
         continue;
       }
+
+      // Set the last active trace ID
+      traceManager.lastActiveTraceId = trace.info.traceId;
 
       // Export trace to backend and track the promise
       const exportPromise = this.exportTraceToBackend(trace).catch((error) => {
