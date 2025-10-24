@@ -2,8 +2,8 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/libs/typescript) with Vercel AI SDK to automatically trace your LLM calls via the AI SDK.
 
-| Package             | NPM                                                                                                                                         | Description                                         |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
+| Package             | NPM                                                                                                                         | Description                                         |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------- |
 | [mlflow-vercel](./) | [![npm package](https://img.shields.io/npm/v/mlflow-vercel?style=flat-square)](https://www.npmjs.com/package/mlflow-vercel) | Auto-instrumentation integration for Vercel AI SDK. |
 
 ## Installation
