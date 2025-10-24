@@ -79,18 +79,22 @@ is_step_unpinned(step) if {
 	not regex.match(`^[^@]+@[0-9a-f]{40}$`, step.uses)
 }
 
-unpinned_actions(inp) := {step.uses |
+unpinned_actions(inp) := unpinned if {
 	# For workflow files with jobs
 	inp.jobs
-	some job in inp.jobs
-	some step in job.steps
-	is_step_unpinned(step)
+	unpinned := {step.uses |
+		some job in inp.jobs
+		some step in job.steps
+		is_step_unpinned(step)
+	}
 }
 
-unpinned_actions(inp) := {step.uses |
+unpinned_actions(inp) := unpinned if {
 	# For composite action files with runs
-	inp.runs.steps
 	not inp.jobs
-	some step in inp.runs.steps
-	is_step_unpinned(step)
+	inp.runs.steps
+	unpinned := {step.uses |
+		some step in inp.runs.steps
+		is_step_unpinned(step)
+	}
 }
