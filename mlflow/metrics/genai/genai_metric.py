@@ -10,13 +10,16 @@ from typing import Any
 import pandas as pd
 
 import mlflow
-from mlflow.emtrics import MIGRATION_GUIDE
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.base import MetricValue
 from mlflow.metrics.genai import model_utils
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.prompt_template import PromptTemplate
-from mlflow.metrics.genai.utils import _get_default_model, _get_latest_metric_version
+from mlflow.metrics.genai.utils import (
+    _MIGRATION_GUIDE,
+    _get_default_model,
+    _get_latest_metric_version,
+)
 from mlflow.models import EvaluationMetric, make_metric
 from mlflow.models.evaluation.base import _make_metric
 from mlflow.protos.databricks_pb2 import (
@@ -196,7 +199,7 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-@deprecated(since="3.4.0", impact=MIGRATION_GUIDE)
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: str | None = None,
@@ -356,7 +359,7 @@ def make_genai_metric_from_prompt(
     )
 
 
-@deprecated(since="3.4.0", impact=MIGRATION_GUIDE)
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def make_genai_metric(
     name: str,
     definition: str,

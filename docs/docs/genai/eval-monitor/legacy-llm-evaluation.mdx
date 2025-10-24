@@ -131,6 +131,7 @@ return response.choices[0].message.content
 
 mlflow.genai.evaluate(predict_fn=predict_fn, ...)
 `}</code>
+
 </pre>
 </td>
 
@@ -211,6 +212,7 @@ data=eval_data,
 ...
 )
 `}</code>
+
 </pre>
 </td>
 
@@ -235,7 +237,7 @@ The new evaluation API supports a rich set of built-in and custom LLM-as-a-Judge
   <tr>
     <td>Token Count</td>
     <td><APILink fn="mlflow.metrics.token_count">`token_count`</APILink></td>
-    <td>Traces record token count for LLM calls for most of popular LLM providers. For other cases, you can use a [custom scorer](/docs/genai/eval-monitor/scorers/custom) to calculate the token count.</td>
+    <td>Traces record token count for LLM calls for most of popular LLM providers. For other cases, you can use a [custom scorer](/genai/eval-monitor/scorers/custom) to calculate the token count.</td>
   </tr>
   <tr>
     <td>Heuristic NLP metrics</td>
@@ -245,17 +247,17 @@ The new evaluation API supports a rich set of built-in and custom LLM-as-a-Judge
   <tr>
     <td>Retrieval metrics</td>
     <td><APILink fn="mlflow.metrics.precision_at_k">`precision_at_k`</APILink>, <APILink fn="mlflow.metrics.recall_at_k">`recall_at_k`</APILink>, <APILink fn="mlflow.metrics.ndcg_at_k">`ndcg_at_k`</APILink></td>
-    <td>For other cases, you can use a [custom scorer](/genai/eval-monitor/scorers/custom) to calculate the token count.</td>
+    <td>Use the new [built-in retrieval metrics](/genai/eval-monitor/scorers/llm-judge/predefined/#available-scorers) or define a custom code-based scorer.</td>
   </tr>
   <tr>
     <td>Built-in LLM-as-a-Judge metrics</td>
     <td><APILink fn="mlflow.metrics.genai.answer_similarity">`answer_similarity`</APILink>, <APILink fn="mlflow.metrics.genai.answer_correctness">`answer_correctness`</APILink>, <APILink fn="mlflow.metrics.genai.answer_relevance">`answer_relevance`</APILink>, <APILink fn="mlflow.metrics.genai.relevance">`relevance`</APILink>, <APILink fn="mlflow.metrics.genai.faithfulness">`faithfulness`</APILink></td>
-    <td>Use the new [built-in LLM scorers](http://localhost:3000/genai/eval-monitor/scorers/llm-judge/predefined/#available-scorers). If the metric is not supported out of the box, define a custom LLM-as-a-Judge scorer, following the example below.</td>
+    <td>Use the new [built-in LLM scorers](http://localhost:3000/genai/eval-monitor/scorers/llm-judge/predefined/#available-scorers). If the metric is not supported out of the box, define a custom LLM-as-a-Judge scorer using the <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink> API, following the example below.</td>
   </tr>
   <tr>
     <td>Custom LLM-as-a-Judge metrics</td>
     <td><APILink fn="mlflow.metrics.genai.make_genai_metric">`make_genai_metric`</APILink>, <APILink fn="mlflow.metrics.genai.make_genai_metric_from_prompt">`make_genai_metric_from_prompt`</APILink></td>
-    <td>Define a scorer following the example below.</td>
+    <td>Use the <APILink fn="mlflow.genai.judges.make_judge">`make_judge`</APILink> API to define a custom LLM-as-a-Judge scorer, following the example below.</td>
   </tr>
 </table>
 
