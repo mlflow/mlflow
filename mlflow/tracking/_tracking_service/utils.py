@@ -1,5 +1,4 @@
 import logging
-import os
 from collections import OrderedDict
 from contextlib import contextmanager
 from functools import lru_cache, partial
@@ -15,7 +14,6 @@ from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     _OSS_UNITY_CATALOG_SCHEME,
@@ -131,7 +129,7 @@ def get_tracking_uri() -> str:
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
-        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+        return "sqlite:///mlflow.db"
 
 
 def _get_file_store(store_uri, **_):
