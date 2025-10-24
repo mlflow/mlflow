@@ -26,7 +26,7 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
-    _setup_tracer_provider,
+    _initialize_tracer_provider,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -38,9 +38,10 @@ from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_tra
 
 @pytest.fixture
 def mock_setup_tracer_provider():
-    # To count the number of times _setup_tracer_provider is called
+    # To count the number of times _initialize_tracer_provider is called
     with mock.patch(
-        "mlflow.tracing.provider._setup_tracer_provider", side_effect=_setup_tracer_provider
+        "mlflow.tracing.provider._initialize_tracer_provider",
+        side_effect=_initialize_tracer_provider
     ) as setup_mock:
         yield setup_mock
 

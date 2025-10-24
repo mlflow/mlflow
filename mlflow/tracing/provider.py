@@ -29,6 +29,7 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
@@ -51,19 +52,47 @@ from mlflow.utils.databricks_utils import (
 if TYPE_CHECKING:
     from mlflow.entities import Span
 
-# Global tracer provider instance. We manage the tracer provider by ourselves instead of using
-# the global tracer provider provided by OpenTelemetry.
-_MLFLOW_TRACER_PROVIDER = None
-
-# Once() object ensures a function is executed only once in a process.
-# Note that it doesn't work as expected in a distributed environment.
-_MLFLOW_TRACER_PROVIDER_INITIALIZED = Once()
 
 # A trace destination specified by the user via the `set_destination` function.
 _MLFLOW_TRACE_USER_DESTINATION = UserTraceDestinationRegistry()
 
 
 _logger = logging.getLogger(__name__)
+
+
+class _TracerProviderWrapper:
+    """
+    A global tracer provider instance isolated from the default OpenTelemetry tracer provider.
+    Used when MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER is set to True.
+    Once() object ensures a function is executed only once in a process.
+    """
+    def __init__(self):
+        self._isolated_tracer_provider = None
+        self._isolated_once = Once()
+
+    @property
+    def once(self) -> Once:
+        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+            return self._isolated_once
+        return trace._TRACER_PROVIDER_SET_ONCE
+
+    def get(self) -> TracerProvider:
+        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+            return self._isolated_tracer_provider
+        return trace.get_tracer_provider()
+
+    def set(self, tracer_provider: TracerProvider):
+        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+            self._isolated_tracer_provider = tracer_provider
+        else:
+            trace.set_tracer_provider(tracer_provider)
+
+    def get_or_init_tracer(self, module_name: str) -> trace.Tracer:
+        self.once.do_once(_initialize_tracer_provider)
+        return self.get().get_tracer(module_name)
+
+
+provider = _TracerProviderWrapper()
 
 
 def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.Span:
@@ -84,7 +113,7 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     attributes = {}
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = _get_tracer(__name__).start_span(name, attributes=attributes)
+    span = provider.get_or_init_tracer(__name__).start_span(name, attributes=attributes)
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -117,7 +146,7 @@ def start_detached_span(
     Returns:
         The newly created OpenTelemetry span.
     """
-    tracer = _get_tracer(__name__)
+    tracer = provider.get_or_init_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
     attributes = {}
 
@@ -276,45 +305,40 @@ def set_destination(destination: TraceLocationBase, *, context_local: bool = Fal
         )
 
     _MLFLOW_TRACE_USER_DESTINATION.set(destination, context_local=context_local)
-    _setup_tracer_provider()
+    _initialize_tracer_provider()
 
 
-def _get_tracer(module_name: str):
+def _get_tracer(module_name: str) -> trace.Tracer:
     """
     Get a tracer instance for the given module name.
 
     If the tracer provider is not initialized, this function will initialize the tracer provider.
     Other simultaneous calls to this function will block until the initialization is done.
     """
-    # Initiate tracer provider only once in the application lifecycle
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.do_once(_setup_tracer_provider)
-    return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
-
+    return provider.get_or_init_tracer(module_name)
 
 def _get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
     """
-    if _MLFLOW_TRACER_PROVIDER:
-        processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
+    if tracer_provider := provider.get():
+        processors = tracer_provider._active_span_processor._span_processors
         # There should be only one processor used for MLflow tracing
         processor = processors[0]
         return processor.span_exporter
 
 
-def _setup_tracer_provider(disabled=False):
+def _initialize_tracer_provider(disabled=False):
     """
     Instantiate a tracer provider and set it as the global tracer provider.
 
     Note that this function ALWAYS updates the global tracer provider, regardless of the current
     state. It is the caller's responsibility to ensure that the tracer provider is initialized
-    only once, and update the _MLFLOW_TRACER_PROVIDER_INITIALIZED flag accordingly.
+    only once, and update the _INITIALIZED flag accordingly.
     """
-    global _MLFLOW_TRACER_PROVIDER
-
     processors = _get_span_processors(disabled=disabled)
     if not processors:
-        _MLFLOW_TRACER_PROVIDER = trace.NoOpTracerProvider()
+        provider.set(trace.NoOpTracerProvider())
         return
 
     # Demote the "Failed to detach context" log raised by the OpenTelemetry logger to DEBUG
@@ -351,7 +375,7 @@ def _setup_tracer_provider(disabled=False):
     for processor in processors:
         tracer_provider.add_span_processor(processor)
 
-    _MLFLOW_TRACER_PROVIDER = tracer_provider
+    provider.set(tracer_provider)
 
 
 def _get_trace_sampler() -> TraceIdRatioBased | None:
@@ -497,8 +521,8 @@ def disable():
     if not is_tracing_enabled():
         return
 
-    _setup_tracer_provider(disabled=True)
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
+    _initialize_tracer_provider(disabled=True)
+    provider.once.done = True
 
 
 @raise_as_trace_exception
@@ -534,12 +558,12 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if is_tracing_enabled() and _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if is_tracing_enabled() and provider.once.done:
         _logger.info("Tracing is already enabled")
         return
 
-    _setup_tracer_provider()
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = True
+    _initialize_tracer_provider()
+    provider.once.done = True
 
 
 def trace_disabled(f):
@@ -604,10 +628,10 @@ def reset():
     operation is performed.
     """
     # Set NoOp tracer provider to reset the global tracer to the initial state.
-    _setup_tracer_provider(disabled=True)
-    # Flip _MLFLOW_TRACE_PROVIDER_INITIALIZED flag to False so that
+    _initialize_tracer_provider(disabled=True)
+    # Flip the "once" flag to False so that
     # the next tracing operation will re-initialize the provider.
-    _MLFLOW_TRACER_PROVIDER_INITIALIZED.done = False
+    provider.once.done = False
 
     # Reset the custom destination set by the user
     _MLFLOW_TRACE_USER_DESTINATION.reset()
@@ -626,10 +650,10 @@ def is_tracing_enabled() -> bool:
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
-    if not _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+    if not provider.once.done:
         return True
 
-    tracer = _get_tracer(__name__)
+    tracer = provider.get_or_init_tracer(__name__)
     # Occasionally ProxyTracer instance wraps the actual tracer
     if isinstance(tracer, trace.ProxyTracer):
         tracer = tracer._tracer
