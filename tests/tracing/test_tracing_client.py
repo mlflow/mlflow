@@ -142,6 +142,8 @@ def test_tracing_client_calculate_trace_filter_correlation_without_base_filter()
 def test_tracing_client_search_traces_with_model_id(monkeypatch, sql_warehouse_id):
     if sql_warehouse_id:
         monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, sql_warehouse_id)
+    else:
+        monkeypatch.delenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, raising=False)
     mock_store = Mock()
     mock_store.search_traces.return_value = ([], None)
 
