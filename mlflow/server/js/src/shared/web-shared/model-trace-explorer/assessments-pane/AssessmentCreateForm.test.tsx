@@ -38,10 +38,6 @@ const TestWrapper = ({ children, assessments = [] }: { children: React.ReactNode
   );
 };
 
-// Helper function to get select buttons by their ID
-const getSelectButton = (id: string) => {
-  return document.querySelector(`#${id.replace(/\./g, '\\.')}`) as HTMLButtonElement;
-};
 
 describe('AssessmentCreateForm', () => {
   const mockSetExpanded = jest.fn();
@@ -71,8 +67,8 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select buttons
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
-      const dataTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-data-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
       expect(assessmentTypeSelect).toBeInTheDocument();
       expect(dataTypeSelect).toBeInTheDocument();
@@ -127,8 +123,8 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select buttons
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
-      const dataTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-data-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
       // Change assessment type to expectation and data type to number
       await user.click(assessmentTypeSelect);
@@ -178,8 +174,8 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select buttons
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
-      const dataTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-data-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
       // Change to non-default values
       await user.click(assessmentTypeSelect);
@@ -250,8 +246,8 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select buttons
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
-      const dataTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-data-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
       // Change to non-default values
       await user.click(assessmentTypeSelect);
@@ -290,8 +286,8 @@ describe('AssessmentCreateForm', () => {
       );
 
       // Get the select buttons
-      const assessmentTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-type-select');
-      const dataTypeSelect = getSelectButton('shared.model-trace-explorer.assessment-data-type-select');
+      const assessmentTypeSelect = screen.getByLabelText('Assessment Type') as HTMLButtonElement;
+      const dataTypeSelect = screen.getByLabelText('Data Type') as HTMLButtonElement;
 
       // Change values first
       await user.click(assessmentTypeSelect);

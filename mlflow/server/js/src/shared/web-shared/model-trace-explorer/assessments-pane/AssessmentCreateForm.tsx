@@ -200,6 +200,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         <SimpleSelect
           id="shared.model-trace-explorer.assessment-type-select"
           componentId="shared.model-trace-explorer.assessment-type-select"
+          label="Assessment Type"
           value={assessmentType}
           disabled={isLoading}
           onChange={(e) => {
@@ -246,6 +247,7 @@ export const AssessmentCreateForm = forwardRef<HTMLDivElement, AssessmentCreateF
         <SimpleSelect
           id="shared.model-trace-explorer.assessment-data-type-select"
           componentId="shared.model-trace-explorer.assessment-data-type-select"
+          label="Data Type"
           value={dataType}
           disabled={isLoading}
           onChange={(e) => {
