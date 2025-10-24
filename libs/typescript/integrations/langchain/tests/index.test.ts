@@ -1,16 +1,16 @@
 import * as mlflow from 'mlflow-tracing';
 import { MlflowClient } from 'mlflow-tracing';
 import { MlflowCallback } from '../src';
-import { PromptTemplate } from "@langchain/core/prompts";
+import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI } from '@langchain/openai';
+import { StringOutputParser } from '@langchain/core/output_parsers';
 
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { openAIMockHandlers } from '../../openai/tests/mockOpenAIServer';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
-
 
 describe('MlflowCallback integration', () => {
   let experimentId: string;
@@ -46,37 +46,45 @@ describe('MlflowCallback integration', () => {
   it('records spans for runnable sequence with LLM', async () => {
     const handler = new MlflowCallback();
 
-    const model = new ChatOpenAI({apiKey: 'test-key'});
+    const model = new ChatOpenAI({ apiKey: 'test-key' });
     const promptTemplate = PromptTemplate.fromTemplate('Hello, {name}!');
-    const chain = RunnableSequence.from([promptTemplate, model]);
+    const parser = new StringOutputParser();
+    const chain = RunnableSequence.from([promptTemplate, model, parser]);
 
-    const result = await chain.invoke({ name: 'hello' }, { callbacks: [handler] });
-    expect(result.content).toEqual('Test response content');
+    const result = await chain.invoke({ name: 'world' }, { callbacks: [handler] });
+    expect(result).toEqual('Test response content');
 
     const trace = await getLastActiveTrace();
     expect(trace.info.state).toBe('OK');
-    expect(trace.data.spans.length).toBe(3);
+    expect(trace.data.spans.length).toBe(4);
 
     const chainSpan = trace.data.spans[0];
     expect(chainSpan.spanType).toBe(mlflow.SpanType.CHAIN);
-    expect(chainSpan.inputs).toEqual({ name: 'hello' });
-    expect(chainSpan.outputs).toBeDefined();
+    expect(chainSpan.inputs).toEqual({ name: 'world' });
+    expect(chainSpan.outputs).toEqual({ output: 'Test response content' });
     expect(chainSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(chainSpan.parentId).toBeNull();
 
     const promptTemplateSpan = trace.data.spans[1];
     expect(promptTemplateSpan.spanType).toBe(mlflow.SpanType.CHAIN);
-    expect(promptTemplateSpan.inputs).toEqual({ name: 'hello' });
-    expect(promptTemplateSpan.outputs).toBeDefined();
+    expect(promptTemplateSpan.inputs).toEqual({ name: 'world' });
+    expect(promptTemplateSpan.outputs).toEqual({ value: 'Hello, world!' });
     expect(promptTemplateSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(promptTemplateSpan.parentId).toBe(chainSpan.spanId);
 
     const llmSpan = trace.data.spans[2];
     expect(llmSpan.spanType).toBe(mlflow.SpanType.CHAT_MODEL);
-    expect(llmSpan.inputs).toBeDefined();
-    expect(llmSpan.outputs).toBeDefined();
+    expect(llmSpan.inputs[0][0].content).toEqual('Hello, world!');
+    expect(llmSpan.outputs.generations[0][0].text).toEqual('Test response content');
     expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
     expect(llmSpan.parentId).toBe(chainSpan.spanId);
+
+    const parserSpan = trace.data.spans[3];
+    expect(parserSpan.spanType).toBe(mlflow.SpanType.CHAIN);
+    expect(parserSpan.inputs).toBeDefined();
+    expect(parserSpan.outputs).toEqual({ output: 'Test response content' });
+    expect(parserSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+    expect(parserSpan.parentId).toBe(chainSpan.spanId);
 
     // Token count should be recorded
     expect(trace.info.tokenUsage).toBeDefined();
@@ -89,13 +97,13 @@ describe('MlflowCallback integration', () => {
       input_tokens: 100,
       output_tokens: 200,
       total_tokens: 300
-    })
+    });
   });
 
   it('records spans for streaming invocation', async () => {
     const handler = new MlflowCallback();
 
-    const model = new ChatOpenAI({apiKey: 'test-key'});
+    const model = new ChatOpenAI({ apiKey: 'test-key' });
     const promptTemplate = PromptTemplate.fromTemplate('Hello, {name}!');
     const chain = RunnableSequence.from([promptTemplate, model]);
 
@@ -133,7 +141,7 @@ describe('MlflowCallback integration', () => {
   it('records spans with a manual parent span', async () => {
     const handler = new MlflowCallback();
 
-    const model = new ChatOpenAI({apiKey: 'test-key'});
+    const model = new ChatOpenAI({ apiKey: 'test-key' });
     const promptTemplate = PromptTemplate.fromTemplate('Hello, {name}!');
     const chain = RunnableSequence.from([promptTemplate, model]);
 
@@ -146,8 +154,8 @@ describe('MlflowCallback integration', () => {
         spanType: mlflow.SpanType.AGENT,
         inputs: { name: 'hello' },
         attributes: { manual_parent_span: true }
-      },
-    )
+      }
+    );
     expect(result.content).toEqual('Test response content');
 
     const trace = await getLastActiveTrace();
@@ -189,13 +197,13 @@ describe('MlflowCallback integration', () => {
 
     const handler = new MlflowCallback();
 
-    const model = new ChatOpenAI({apiKey: 'test-key'});
+    const model = new ChatOpenAI({ apiKey: 'test-key' });
     const promptTemplate = PromptTemplate.fromTemplate('Hello, {name}!');
     const chain = RunnableSequence.from([promptTemplate, model]);
 
-    await expect(
-      chain.invoke({ name: 'hello' }, { callbacks: [handler] })
-    ).rejects.toThrow('Bad request');
+    await expect(chain.invoke({ name: 'hello' }, { callbacks: [handler] })).rejects.toThrow(
+      'Bad request'
+    );
 
     const trace = await getLastActiveTrace();
     expect(trace.info.state).toBe('ERROR');

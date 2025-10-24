@@ -1,11 +1,11 @@
 import { BaseCallbackHandler } from '@langchain/core/callbacks/base';
+import { Serializable } from '@langchain/core/load/serializable';
 import type { Serialized } from '@langchain/core/load/serializable';
 import type { BaseMessage } from '@langchain/core/messages';
 import type { DocumentInterface } from '@langchain/core/documents';
 import type { AgentAction, AgentFinish } from '@langchain/core/agents';
-import type { ChatGenerationChunk, GenerationChunk, LLMResult } from '@langchain/core/outputs';
-import type { RunnableConfig } from '@langchain/core/runnables';
-import type { ChainValues } from "@langchain/core/utils/types";
+import type { LLMResult } from '@langchain/core/outputs';
+import type { ChainValues } from '@langchain/core/utils/types';
 
 import {
   SpanType,
@@ -16,6 +16,8 @@ import {
   getCurrentActiveSpan,
   type LiveSpan
 } from 'mlflow-tracing';
+
+import { parseLLMResult, parseMessage } from './utils';
 
 interface StartSpanArgs {
   runId: string;
@@ -37,137 +39,174 @@ export class MlflowCallback extends BaseCallbackHandler {
   readonly name = 'mlflow_langchain';
   private readonly spans = new Map<string, SpanRegistryEntry>();
 
-
   // ---------------------------------------------------------------------------
   // LangChain lifecycle overrides
   // ---------------------------------------------------------------------------
 
   async handleLLMStart(
-    serialized: Serialized,
+    llm: Serialized,
     prompts: string[],
     runId: string,
     parentRunId?: string,
-    _extra?: unknown
+    extraParams?: Record<string, unknown>,
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runName?: string
   ): Promise<void> {
     this.startSpan({
       runId,
       parentRunId,
       spanType: SpanType.LLM,
-      name: this.assignSpanName(serialized, 'llm'),
+      name: this.assignSpanName(llm, 'llm'),
       inputs: prompts,
       attributes: { [SpanAttributeKey.MESSAGE_FORMAT]: 'langchain' }
     });
   }
 
-  async handleLLMEnd(output: LLMResult, runId: string): Promise<void> {
+  async handleLLMEnd(
+    output: LLMResult,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    extraParams?: Record<string, unknown>
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
     this.setTokenUsage(span, output);
-    span.end({ outputs: output });
+    span.end({ outputs: parseLLMResult(output) });
     this.spans.delete(runId);
   }
 
-  async handleLLMError(error: Error, runId: string): Promise<void> {
+  async handleLLMError(
+    err: Error,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    extraParams?: Record<string, unknown>
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
 
-    span.recordException(error);
+    span.recordException(err);
     span.end();
     this.spans.delete(runId);
   }
 
   async handleChatModelStart(
-    serialized: Serialized,
+    llm: Serialized,
     messages: BaseMessage[][],
     runId: string,
-    parentRunId?: string,
-    config?: RunnableConfig
+    parentRunId?: string | undefined,
+    extraParams?: Record<string, unknown> | undefined,
+    tags?: string[] | undefined,
+    metadata?: Record<string, unknown> | undefined,
+    name?: string
   ): Promise<void> {
     this.startSpan({
       runId,
       parentRunId,
       spanType: SpanType.CHAT_MODEL,
-      name: this.assignSpanName(serialized, 'chat_model'),
-      inputs: messages,
+      name: this.assignSpanName(llm, 'chat_model'),
+      inputs: messages.map((m) => m.map((msg) => parseMessage(msg))),
       attributes: {
         [SpanAttributeKey.MESSAGE_FORMAT]: 'langchain',
-        ...this.buildAttributes({ config })
+        ...metadata
       }
     });
   }
 
-  async handleChatModelError(error: Error, runId: string): Promise<void> {
+  async handleChainStart(
+    chain: Serialized,
+    inputs: ChainValues,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runType?: string,
+    runName?: string
+  ): Promise<void> {
+    // If the object is Serializable, parse it
+    if ('lc_serializable' in inputs) {
+      inputs = inputs.toJSON().kwargs;
+    }
+
+    this.startSpan({
+      runId,
+      parentRunId,
+      spanType: SpanType.CHAIN,
+      name: this.assignSpanName(chain, 'chain'),
+      inputs,
+      attributes: metadata
+    });
+  }
+
+  async handleChainEnd(
+    outputs: ChainValues,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    kwargs?: { inputs?: Record<string, unknown> }
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
 
-    span.recordException(error);
-    span.end();
-    this.spans.delete(runId);
-  }
-
-  async handleChainStart(
-    serialized: Serialized,
-    inputs: ChainValues,
-    runId: string,
-    parentRunId?: string,
-    config?: RunnableConfig
-  ): Promise<void> {
-    this.startSpan({
-      runId,
-      parentRunId,
-      spanType: SpanType.CHAIN,
-      name: this.assignSpanName(serialized, 'chain'),
-      inputs,
-      attributes: this.buildAttributes({ config })
-    });
-  }
-
-  async handleChainEnd(outputs: ChainValues, runId: string): Promise<void> {
-    const span = this.getSpan(runId);
-    if (!span) {
-      return;
+    // If the object is Serializable, parse it
+    if ('lc_serializable' in outputs) {
+      outputs = outputs.toJSON().kwargs;
     }
 
     span.end({ outputs: outputs });
     this.spans.delete(runId);
   }
 
-  async handleChainError(error: Error, runId: string): Promise<void> {
+  async handleChainError(
+    err: Error,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[],
+    kwargs?: { inputs?: Record<string, unknown> }
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
 
-    span.recordException(error);
+    span.recordException(err);
     span.end();
     this.spans.delete(runId);
   }
 
   async handleToolStart(
-    serialized: Serialized,
+    tool: Serialized,
     input: string,
     runId: string,
     parentRunId?: string,
-    _tags?: string[],
-    kwargs?: Record<string, unknown>
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    runName?: string
   ): Promise<void> {
     this.startSpan({
       runId,
       parentRunId,
       spanType: SpanType.TOOL,
-      name: this.assignSpanName(serialized, 'tool'),
+      name: this.assignSpanName(tool, 'tool'),
       inputs: this.parseToolInput(input),
-      attributes: this.buildAttributes({ kwargs })
+      attributes: metadata
     });
   }
 
-  async handleToolEnd(output: unknown, runId: string): Promise<void> {
+  async handleToolEnd(
+    output: any,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
@@ -177,35 +216,47 @@ export class MlflowCallback extends BaseCallbackHandler {
     this.spans.delete(runId);
   }
 
-  async handleToolError(error: Error, runId: string): Promise<void> {
+  async handleToolError(
+    err: Error,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
 
-    span.recordException(error);
+    span.recordException(err);
     span.end();
     this.spans.delete(runId);
   }
 
   async handleRetrieverStart(
-    serialized: Serialized,
+    retriever: Serialized,
     query: string,
     runId: string,
     parentRunId?: string,
-    config?: RunnableConfig
+    tags?: string[],
+    metadata?: Record<string, unknown>,
+    name?: string
   ): Promise<void> {
     this.startSpan({
       runId,
       parentRunId,
       spanType: SpanType.RETRIEVER,
-      name: this.assignSpanName(serialized, 'retriever'),
+      name: this.assignSpanName(retriever, 'retriever'),
       inputs: query,
-      attributes: this.buildAttributes({ config })
+      attributes: metadata
     });
   }
 
-  async handleRetrieverEnd(documents: DocumentInterface[], runId: string): Promise<void> {
+  async handleRetrieverEnd(
+    documents: DocumentInterface[],
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
@@ -215,18 +266,28 @@ export class MlflowCallback extends BaseCallbackHandler {
     this.spans.delete(runId);
   }
 
-  async handleRetrieverError(error: Error, runId: string): Promise<void> {
+  async handleRetrieverError(
+    err: Error,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
     }
 
-    span.recordException(error);
+    span.recordException(err);
     span.end();
     this.spans.delete(runId);
   }
 
-  async handleAgentAction(action: AgentAction, runId: string): Promise<void> {
+  async handleAgentAction(
+    action: AgentAction,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
@@ -244,7 +305,12 @@ export class MlflowCallback extends BaseCallbackHandler {
     );
   }
 
-  async handleAgentEnd(action: AgentFinish, runId: string): Promise<void> {
+  async handleAgentEnd(
+    action: AgentFinish,
+    runId: string,
+    parentRunId?: string,
+    tags?: string[]
+  ): Promise<void> {
     const span = this.getSpan(runId);
     if (!span) {
       return;
@@ -256,24 +322,6 @@ export class MlflowCallback extends BaseCallbackHandler {
         attributes: {
           return_values: this.safeStringify(action.returnValues ?? action.return_values),
           log: action.log
-        }
-      })
-    );
-  }
-
-  async handleRetry(data: { attempt: number; maxAttempts?: number; error?: Error }, runId: string): Promise<void> {
-    const span = this.getSpan(runId);
-    if (!span) {
-      return;
-    }
-
-    span.addEvent(
-      new SpanEvent({
-        name: 'retry',
-        attributes: {
-          attempt: data.attempt,
-          max_attempts: data.maxAttempts,
-          error: data.error ? data.error.message : undefined
         }
       })
     );
@@ -362,30 +410,13 @@ export class MlflowCallback extends BaseCallbackHandler {
     };
   }
 
-  private buildAttributes(input: {
-    config?: RunnableConfig;
-    kwargs?: Record<string, unknown>;
-  }): Record<string, unknown> | undefined {
-    const attributes: Record<string, unknown> = {};
-    if (input.config?.metadata) {
-      attributes.metadata = input.config.metadata;
-    }
-    if (input.kwargs) {
-      attributes.invocation_params = input.kwargs;
-    }
-    if (Object.keys(attributes).length === 0) {
-      return undefined;
-    }
-    return attributes;
-  }
-
   private setTokenUsage(span: LiveSpan, result: LLMResult): void {
     const usage = (result.llmOutput as any)?.tokenUsage || (result.llmOutput as any)?.usage;
     if (usage && usage.totalTokens) {
       const parsedUsage = {
         input_tokens: usage.promptTokens,
         output_tokens: usage.completionTokens,
-        total_tokens: usage.totalTokens,
+        total_tokens: usage.totalTokens
       };
       span.setAttribute(SpanAttributeKey.TOKEN_USAGE, parsedUsage);
     }

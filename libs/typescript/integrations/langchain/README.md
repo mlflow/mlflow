@@ -10,18 +10,16 @@ without modifying application logic.
 ```typescript
 import { ChatOpenAI } from '@langchain/openai';
 import { RunnableSequence } from '@langchain/core/runnables';
-import { MlflowLangchainCallbackHandler } from 'mlflow-langchain';
+import { MlflowCallback } from 'mlflow-langchain';
 import { init } from 'mlflow-tracing';
 
 init({ trackingUri: 'http://localhost:5000' });
 
-const handler = new MlflowLangchainCallbackHandler();
+const handler = new MlflowCallback();
 
-const sequence = RunnableSequence.from([/* your runnables */]).withConfig({
-  callbacks: [handler]
-});
+const sequence = RunnableSequence.from([/* your runnables */])
 
-await sequence.invoke({ prompt: 'Hello' });
+await sequence.invoke({ prompt: 'Hello' }, { callbacks: [handler] });
 ```
 
 Refer to the design note in `.agent/langchain-tracing/design.md` for the
