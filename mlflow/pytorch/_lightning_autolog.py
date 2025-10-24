@@ -266,6 +266,21 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
         if self.log_models and self.log_model_signatures:
             # Set up `model.forward` patch in order to capture
             # the first batch input (for inferring model signature).
+
+            # Note:
+            #  1. The `model.forward` patch can't be set up in the
+            #  `patched Trainer.fit` method, because in training with
+            #  parallel strategy, the `model.forward` is called in spawned
+            #  training workers (subprocesses), and the patch in parent process
+            #  does not work in subprocess.
+            #
+            #  2. We can't use `Callback.on_train_batch_start` to capture
+            #  the first batch input, because the argument `batch` in
+            #  `Callback.on_train_batch_start` contains input and target,
+            #  and lightning callback interface does not restrict the
+            #  data format of the batch argument, so we have no way to
+            #  extract `model.forward` input from the batch argument
+            #  (the extracting logic is defined in `model.training_step`).
             model_class = trainer.model.__class__
             original_model_forward = model_class.forward
 
