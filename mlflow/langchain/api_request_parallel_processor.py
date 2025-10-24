@@ -26,8 +26,14 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-import langchain.chains
-from langchain.callbacks.base import BaseCallbackHandler
+from mlflow.langchain._compat import import_base_callback_handler
+
+BaseCallbackHandler = import_base_callback_handler()
+
+try:
+    import langchain.chains
+except ImportError:
+    pass
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -124,9 +130,10 @@ class APIRequest:
             return try_transform_response_to_chat_format(response)
 
     def single_call_api(self, callback_handlers: list[BaseCallbackHandler] | None):
-        from langchain.schema import BaseRetriever
-
+        from mlflow.langchain._compat import import_base_retriever
         from mlflow.langchain.utils.logging import langgraph_types, lc_runnables_types
+
+        BaseRetriever = import_base_retriever()
 
         if isinstance(self.lc_model, BaseRetriever):
             # Retrievers are invoked differently than Chains
