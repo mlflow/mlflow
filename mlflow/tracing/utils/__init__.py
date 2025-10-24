@@ -71,20 +71,6 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         try:
-            import langchain
-
-            # LangChain < 0.3.0 does some trick to support Pydantic 1.x and 2.x, so checking
-            # type with installed Pydantic version might not work for some models.
-            # https://github.com/langchain-ai/langchain/blob/b66a4f48fa5656871c3e849f7e1790dfb5a4c56b/libs/core/langchain_core/pydantic_v1/__init__.py#L7
-            if Version(langchain.__version__) < Version("0.3.0"):
-                from langchain_core.pydantic_v1 import BaseModel as LangChainBaseModel
-
-                if isinstance(obj, LangChainBaseModel):
-                    return obj.dict()
-        except ImportError:
-            pass
-
-        try:
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
