@@ -509,9 +509,10 @@ def batch_link_traces_to_run(
     """
     Batch link traces to a run to avoid rate limits.
 
-    :param run_id: The MLflow run ID to link traces to
-    :param eval_results: List of evaluation results containing traces
-    :param max_batch_size: Maximum number of traces to link per batch call
+    Args:
+        run_id: The MLflow run ID to link traces to
+        eval_results: List of evaluation results containing traces
+        max_batch_size: Maximum number of traces to link per batch call
     """
     trace_ids = [eval_result.eval_item.trace.info.trace_id for eval_result in eval_results]
     # Batch the trace IDs to avoid overwhelming the MLflow backend
@@ -520,4 +521,8 @@ def batch_link_traces_to_run(
         try:
             MlflowClient().link_traces_to_run(run_id=run_id, trace_ids=batch)
         except Exception as e:
+            # FileStore doesn't support trace linking, so we skip it
+            if "Linking traces to runs is not supported in FileStore." in str(e):
+                return
+
             _logger.warning(f"Failed to link batch of traces to run: {e}")

@@ -9,6 +9,7 @@ from mlflow.data.dataset import Dataset
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
 from mlflow.entities.logged_model_input import LoggedModelInput
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.genai.evaluation.constant import InputDatasetColumn
@@ -284,9 +285,9 @@ def _run_harness(data, scorers, predict_fn, model_id):
     if "RAG_EVAL_MAX_WORKERS" in os.environ:
         logger.warning(
             "The `RAG_EVAL_MAX_WORKERS` environment variable is deprecated. "
-            "Please use `MLFLOW_GENAI_EVAL_MAX_WORKERS` instead."
+            f"Please use `{MLFLOW_GENAI_EVAL_MAX_WORKERS.name}` instead."
         )
-        os.environ["MLFLOW_GENAI_EVAL_MAX_WORKERS"] = os.environ["RAG_EVAL_MAX_WORKERS"]
+        os.environ[MLFLOW_GENAI_EVAL_MAX_WORKERS.name] = os.environ["RAG_EVAL_MAX_WORKERS"]
 
     if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
         mlflow_dataset = data
