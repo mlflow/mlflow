@@ -8,9 +8,11 @@ import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
+from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from mlflow.genai.scorers.base import SerializedScorer
+from mlflow.genai.scorers.registry import get_scorer, list_scorers
 
 from tests.tracing.helper import get_traces, purge_traces
 
@@ -500,9 +502,6 @@ def complex_scorer(outputs):
 
 
 def test_make_judge_scorer_works_without_databricks_uri():
-    from mlflow.genai.judges import make_judge
-    from mlflow.genai.scorers.registry import get_scorer, list_scorers
-
     experiment_id = mlflow.create_experiment("test_make_judge_experiment")
 
     judge_scorer = make_judge(
