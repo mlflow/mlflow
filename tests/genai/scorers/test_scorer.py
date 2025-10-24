@@ -10,6 +10,7 @@ from mlflow.entities.assessment_error import AssessmentError
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
+from mlflow.genai.scorers.base import SerializedScorer
 
 from tests.tracing.helper import get_traces, purge_traces
 
@@ -410,7 +411,8 @@ def test_custom_scorer_registration_blocked_for_non_databricks_uri():
         return len(outputs) > 0
 
     with pytest.raises(
-        mlflow.exceptions.MlflowException, match="Custom scorer registration.*not supported"
+        mlflow.exceptions.MlflowException,
+        match="Custom scorer registration.*not supported outside of Databricks tracking",
     ):
         test_custom_scorer.register(experiment_id=experiment_id, name="test_scorer")
 
@@ -418,8 +420,6 @@ def test_custom_scorer_registration_blocked_for_non_databricks_uri():
 
 
 def test_custom_scorer_loading_blocked_for_non_databricks_uri():
-    from mlflow.genai.scorers.base import SerializedScorer
-
     serialized = SerializedScorer(
         name="malicious_scorer",
         call_source="import os\nos.system('echo hacked')\nreturn True",
@@ -431,6 +431,72 @@ def test_custom_scorer_loading_blocked_for_non_databricks_uri():
         mlflow.exceptions.MlflowException, match="Loading custom scorer.*not supported"
     ):
         Scorer._reconstruct_decorator_scorer(serialized)
+
+
+def test_custom_scorer_loading_blocked_for_databricks_remote_access():
+    serialized = SerializedScorer(
+        name="malicious_scorer",
+        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_signature="(outputs)",
+        original_func_name="malicious_scorer",
+    )
+
+    with (
+        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=False),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+    ):
+        with pytest.raises(
+            mlflow.exceptions.MlflowException, match="via remote access is not supported"
+        ):
+            Scorer._reconstruct_decorator_scorer(serialized)
+
+
+def test_custom_scorer_error_message_renders_code_snippet_legibly():
+    serialized = SerializedScorer(
+        name="complex_scorer",
+        call_source=(
+            "if not outputs:\n"
+            "    return 0\n"
+            "score = 0\n"
+            "for word in outputs.split():\n"
+            "    if word.isupper():\n"
+            "        score += 2\n"
+            "    else:\n"
+            "        score += 1\n"
+            "return score"
+        ),
+        call_signature="(outputs)",
+        original_func_name="complex_scorer",
+    )
+
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="is not supported outside of"
+    ) as exc_info:
+        Scorer._reconstruct_decorator_scorer(serialized)
+
+    error_msg = str(exc_info.value)
+
+    assert "Registered scorer code:" in error_msg
+    assert "from mlflow.genai import scorer" in error_msg
+    assert "@scorer" in error_msg
+    assert "def complex_scorer(outputs):" in error_msg
+
+    expected_code = """
+from mlflow.genai import scorer
+
+@scorer
+def complex_scorer(outputs):
+    if not outputs:
+        return 0
+    score = 0
+    for word in outputs.split():
+        if word.isupper():
+            score += 2
+        else:
+            score += 1
+    return score"""
+
+    assert expected_code.strip() in error_msg
 
 
 def test_make_judge_scorer_works_without_databricks_uri():
