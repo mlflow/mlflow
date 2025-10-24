@@ -640,6 +640,24 @@ def patched_fit(original, self, *args, **kwargs):
                     ):
                         gorilla.revert(callback._model_forward_patch)
 
+            model_signature = None
+            input_output_tensors_file = os.path.join(tempdir, "input_output_tensors.pkl")
+            if os.path.exists(input_output_tensors_file):
+                input_tensor, output_tensor = torch.load(input_output_tensors_file)
+                try:
+                    input_example = input_tensor.cpu().numpy()
+                    with torch.no_grad():
+                        output_example = output_tensor.cpu().numpy()
+                    model_signature = infer_signature(
+                        input_example,
+                        output_example,
+                    )
+                except Exception as e:
+                    _logger.warning(
+                        "Inferring model signature failed, skip logging signature. "
+                        f"root cause: {repr(e)}."
+                    )
+
             if early_stop_callback is not None:
                 _log_early_stop_metrics(early_stop_callback, client, run_id, model_id=model_id)
 
@@ -655,24 +673,6 @@ def patched_fit(original, self, *args, **kwargs):
             mlflow.log_artifact(local_path=summary_file)
 
         if log_models:
-            model_signature = None
-            if log_model_signatures:
-                input_output_tensors_file = os.path.join(tempdir, "input_output_tensors.pkl")
-                if os.path.exists(input_output_tensors_file):
-                    input_tensor, output_tensor = torch.load(input_output_tensors_file)
-                    try:
-                        input_example = input_tensor.cpu().numpy()
-                        with torch.no_grad():
-                            output_example = output_tensor.cpu().numpy()
-                        model_signature = infer_signature(
-                            input_example,
-                            output_example,
-                        )
-                    except Exception as e:
-                        _logger.warning(
-                            "Inferring model signature failed, skip logging signature. "
-                            f"root cause: {repr(e)}."
-                        )
             registered_model_name = get_autologging_config(
                 mlflow.pytorch.FLAVOR_NAME, "registered_model_name", None
             )
