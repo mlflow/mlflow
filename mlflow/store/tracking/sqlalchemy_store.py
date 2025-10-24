@@ -106,6 +106,7 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     SpansLocation,
     TraceMetadataKey,
+    TraceSizeStatsKey,
     TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder, generate_request_id_v2
@@ -2535,7 +2536,14 @@ class SqlAlchemyStore(AbstractStore):
 
             tags = [
                 SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
-            ] + [self._get_trace_artifact_location_tag(experiment, trace_id)]
+            ] + [
+                self._get_trace_artifact_location_tag(experiment, trace_id),
+                SqlTraceTag(
+                    request_id=trace_id,
+                    key=TraceTagKey.SPANS_LOCATION,
+                    value=SpansLocation.TRACKING_STORE.value,
+                ),
+            ]
             sql_trace_info.tags = tags
 
             sql_trace_info.request_metadata = [
@@ -2553,18 +2561,6 @@ class SqlAlchemyStore(AbstractStore):
                 # Trace already exists (likely created by log_spans())
                 # Use merge to update with start_trace() data, preserving any logged spans
                 session.rollback()
-                db_sql_trace_info = (
-                    session.query(SqlTraceInfo)
-                    .filter(SqlTraceInfo.request_id == trace_id)
-                    .one_or_none()
-                )
-                if db_sql_trace_info:
-                    for tag in db_sql_trace_info.tags:
-                        if tag.key not in tags and tag.key == TraceTagKey.SPANS_LOCATION:
-                            sql_trace_info.tags.append(
-                                SqlTraceTag(request_id=trace_id, key=tag.key, value=tag.value)
-                            )
-                            break
                 session.merge(sql_trace_info)
                 session.flush()
 
@@ -3353,12 +3349,6 @@ class SqlAlchemyStore(AbstractStore):
                 # Skip session synchronization for performance - we don't use the object afterward
                 synchronize_session=False,
             )
-            session.query(SqlTraceTag).filter(
-                SqlTraceTag.request_id == trace_id, SqlTraceTag.key == TraceTagKey.SPANS_LOCATION
-            ).update(
-                {"value": SpansLocation.TRACKING_STORE.value},
-                synchronize_session=False,
-            )
 
             for span in spans:
                 span_dict = span.to_dict()
@@ -3459,17 +3449,25 @@ class SqlAlchemyStore(AbstractStore):
                     # This check is required so that the handler can capture the exception
                     # and load data from artifact repo instead
                     raise MlflowTracingException("Trace data not stored in tracking store")
-                spans = [
-                    Span.from_dict(json.loads(sql_span.content))
-                    for sql_span in sorted(
-                        sql_trace_info.spans,
-                        key=lambda s: (
-                            # Root spans come first, then sort by start time
-                            0 if s.parent_span_id is None else 1,
-                            s.start_time_unix_nano,
-                        ),
-                    )
-                ]
+                sql_spans = sorted(
+                    sql_trace_info.spans,
+                    key=lambda s: (
+                        # Root spans come first, then sort by start time
+                        0 if s.parent_span_id is None else 1,
+                        s.start_time_unix_nano,
+                    ),
+                )
+                if trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS):
+                    trace_stats = json.loads(trace_stats)
+                    num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
+                    if len(sql_spans) != num_spans:
+                        _logger.debug(
+                            f"Trace {trace_info.trace_id} is not fully exported yet, "
+                            f"expecting {num_spans} spans but got {len(sql_spans)}"
+                        )
+                        return []
+
+                spans = [Span.from_dict(json.loads(sql_span.content)) for sql_span in sql_spans]
                 # TODO: extract inputs/outputs if not existing
                 trace = Trace(info=trace_info, data=TraceData(spans=spans))
                 traces.append(trace)

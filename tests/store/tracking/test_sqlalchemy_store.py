@@ -101,6 +101,7 @@ from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     SpansLocation,
     TraceMetadataKey,
+    TraceSizeStatsKey,
     TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
@@ -4488,6 +4489,7 @@ def test_start_trace(store: SqlAlchemyStore):
         "tag1": "apple",
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value,
     }
     assert trace_info == store.get_trace_info(trace_id)
 
@@ -4903,6 +4905,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     # Delete system tag for easier testing
     store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
+    store.delete_trace_tag(trace_id, TraceTagKey.SPANS_LOCATION)
 
     assert store.get_trace_info(trace_id).tags == {}
 
@@ -9102,3 +9105,38 @@ def test_batch_get_traces_integration_with_trace_handler(store: SqlAlchemyStore)
     loaded_spans = traces[0].data.spans
     assert len(loaded_spans) == 1
     assert loaded_spans[0].name == "integration_span"
+
+
+def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_incomplete_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="incomplete_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,
+                    }
+                ),
+            },
+        )
+    )
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 0
