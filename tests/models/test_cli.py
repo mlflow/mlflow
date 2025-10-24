@@ -6,7 +6,7 @@ import subprocess
 import sys
 import warnings
 from dataclasses import dataclass
-from io import BytesIO
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -346,7 +346,7 @@ def test_predict_stdin_stdout(predict_test_setup: PredictTestData) -> None:
         text=True,
     )
     predictions = re.search(r"{\"predictions\": .*}", stdout).group(0)
-    actual = pd.read_json(predictions, orient="records")
+    actual = pd.read_json(StringIO(predictions), orient="records")
     actual = actual[actual.columns[0]].values
     expected = setup.sk_model.predict(setup.x)
     assert all(expected == actual)
