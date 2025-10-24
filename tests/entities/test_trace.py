@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import json
 import re
 from datetime import datetime
@@ -6,7 +7,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
@@ -171,16 +171,9 @@ def test_trace_serialize_pydantic_model():
     assert json.loads(data_json) == {"x": 1, "y": "foo"}
 
 
-def _is_langchain_v0_1():
-    try:
-        import langchain
-
-        return Version(langchain.__version__) >= Version("0.1")
-    except ImportError:
-        return None
-
-
-@pytest.mark.skipif(not _is_langchain_v0_1(), reason="langchain>=0.1 is not installed")
+@pytest.mark.skipif(
+    importlib.util.find_spec("langchain") is None, reason="langchain is not installed"
+)
 def test_trace_serialize_langchain_base_message():
     from langchain_core.messages import BaseMessage
 

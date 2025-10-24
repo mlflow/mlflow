@@ -69,7 +69,6 @@ from langchain_community.utilities import SQLDatabase, TextRequestsWrapper
 from langchain_community.vectorstores import FAISS
 from langchain_core.callbacks.base import BaseCallbackHandler
 from packaging import version
-from packaging.version import Version
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -882,12 +881,10 @@ def test_log_and_load_retriever_chain(tmp_path):
             "page_content": doc.page_content,
             "metadata": doc.metadata,
             "type": "Document",
+            "id": ANY,
         }
         for doc in db.as_retriever().get_relevant_documents(query)
     ]
-    # "id" field was added to Document model in langchain 0.2.7
-    if Version(langchain.__version__) >= Version("0.2.7"):
-        expected_result = [{**d, "id": ANY} for d in expected_result]
     assert result == [expected_result]
 
     # Serve the retriever
@@ -3414,12 +3411,11 @@ def test_agent_executor_model_with_messages_input():
                     "response_metadata": {},
                     "tool_calls": [],
                     "type": "ai",
+                    "usage_metadata": None,
                 }
             ],
         }
     ]
-    if Version(langchain.__version__) >= Version("0.2.0"):
-        expected_response[0]["messages"][0]["usage_metadata"] = None
     assert list(response) == expected_response
 
 
