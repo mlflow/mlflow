@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import json
 import re
 from datetime import datetime
@@ -170,16 +171,9 @@ def test_trace_serialize_pydantic_model():
     assert json.loads(data_json) == {"x": 1, "y": "foo"}
 
 
-def _is_langchain_installed():
-    try:
-        import langchain  # noqa: F401
-
-        return True
-    except ImportError:
-        return False
-
-
-@pytest.mark.skipif(not _is_langchain_installed(), reason="langchain is not installed")
+@pytest.mark.skipif(
+    importlib.util.find_spec("langchain") is None, reason="langchain is not installed"
+)
 def test_trace_serialize_langchain_base_message():
     from langchain_core.messages import BaseMessage
 
