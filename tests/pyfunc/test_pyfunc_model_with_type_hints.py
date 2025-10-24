@@ -9,7 +9,6 @@ from unittest import mock
 import pandas as pd
 import pydantic
 import pytest
-from packaging.version import Version
 from pyspark.sql import SparkSession
 from pyspark.sql.types import (
     ArrayType,
@@ -43,7 +42,6 @@ from mlflow.types.schema import (
     Schema,
 )
 from mlflow.types.type_hints import TypeFromExample
-from mlflow.utils.pydantic_utils import model_dump_compat
 
 from tests.helper_functions import pyfunc_serve_and_score_model
 
@@ -286,7 +284,7 @@ def test_pyfunc_model_infer_signature_from_type_hints(
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     result = pyfunc_model.predict(input_example)
     if isinstance(result[0], pydantic.BaseModel):
-        result = [model_dump_compat(r) for r in result]
+        result = [r.model_dump() for r in result]
     assert result == input_example
 
     # test serving
@@ -587,7 +585,6 @@ class TypeHintExample(NamedTuple):
 class Message(pydantic.BaseModel):
     role: str
     content: str
-
 
 class CustomExample2(pydantic.BaseModel):
     custom_field: dict[str, Any]
@@ -1117,10 +1114,6 @@ def test_type_hint_from_example_invalid_input(type_from_example_model):
         pyfunc_model.predict(["1", "2", "3"])
 
 
-@pytest.mark.skipif(
-    Version(pydantic.VERSION).major <= 1,
-    reason="pydantic v1 has default value None if the field is Optional",
-)
 def test_invalid_type_hint_raise_exception():
     class Message(pydantic.BaseModel):
         role: str

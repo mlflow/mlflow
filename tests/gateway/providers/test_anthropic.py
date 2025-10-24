@@ -301,6 +301,122 @@ async def test_chat():
         )
 
 
+def chat_function_calling_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "What's the weather like in Singapore today?"},
+        ],
+        "temperature": 0.5,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+def chat_function_calling_response():
+    # see https://docs.anthropic.com/claude/reference/messages_post
+    return {
+        "id": "test-id",
+        "model": "claude-2.1",
+        "type": "message",
+        "role": "assistant",
+        "stop_reason": "tool_use",
+        "content": [
+            {
+                "type": "tool_use",
+                "id": "toolu_001",
+                "name": "get_weather",
+                "input": {"location": "Singapore"},
+            }
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 25},
+    }
+
+
+@pytest.mark.asyncio
+async def test_chat_function_calling():
+    resp = chat_function_calling_response()
+    config = chat_config()
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch("aiohttp.ClientSession.post", return_value=MockAsyncResponse(resp)) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = chat_function_calling_payload()
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+        assert jsonable_encoder(response) == {
+            "id": "test-id",
+            "object": "chat.completion",
+            "created": 1677858242,
+            "model": "claude-2.1",
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": [],
+                        "tool_calls": [
+                            {
+                                "id": "toolu_001",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "Singapore"}',
+                                },
+                            }
+                        ],
+                        "refusal": None,
+                    },
+                    "finish_reason": "stop",
+                }
+            ],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 25, "total_tokens": 35},
+        }
+
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "model": "claude-2.1",
+                "messages": [
+                    {"role": "user", "content": "What's the weather like in Singapore today?"}
+                ],
+                "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+                "temperature": 0.25,
+                "tools": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "input_schema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ],
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
 @pytest.mark.asyncio
 async def test_chat_stream():
     resp = chat_stream_response()
@@ -323,7 +439,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": ""}}
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": "",
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
             {
@@ -335,7 +459,11 @@ async def test_chat_stream():
                     {
                         "index": 0,
                         "finish_reason": None,
-                        "delta": {"role": None, "content": "Hello"},
+                        "delta": {
+                            "role": None,
+                            "content": "Hello",
+                            "tool_calls": None,
+                        },
                     }
                 ],
             },
@@ -345,7 +473,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": None, "delta": {"role": None, "content": "!"}}
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": "!",
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
             {
@@ -354,7 +490,15 @@ async def test_chat_stream():
                 "created": 1677858242,
                 "model": "claude-2.1",
                 "choices": [
-                    {"index": 0, "finish_reason": "stop", "delta": {"role": None, "content": None}}
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": None,
+                        },
+                    }
                 ],
             },
         ]
@@ -370,6 +514,169 @@ async def test_chat_stream():
                 "system": "System message",
                 "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
                 "temperature": 0.25,
+                "stream": True,
+            },
+            timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),
+        )
+
+
+def chat_function_calling_stream_response():
+    return [
+        b"event: message_start\n",
+        b'data: {"type": "message_start", "message": {"id": "test-id", "type": "message", '
+        b'"role": "assistant", "content": [], "model": "claude-2.1", "stop_reason": null, '
+        b'"stop_sequence": null, "usage": {"input_tokens": 25, "output_tokens": 1}}}\n',
+        b"\n",
+        b"event: content_block_start\n",
+        b'data: {"type": "content_block_start", "index":0, "content_block":{"type":"tool_use",'
+        b'"id":"toolu_001","name":"get_weather","input":{}}}\n',
+        b"\n",
+        b"event: ping\n",
+        b'data: {"type": "ping"}\n',
+        b"\n",
+        b"event: content_block_delta\n",
+        b'data: {"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", '
+        b'"partial_json": "{\\"location\\":"}}\n',
+        b"\n",
+        b'data: {"type": "content_block_delta", "index": 0, "delta": {"type": "input_json_delta", '
+        b'"partial_json": "\\"Singapore\\"}"}}\n',
+        b"\n",
+        b"event: content_block_stop\n",
+        b'data: {"type": "content_block_stop", "index": 0}\n',
+        b"\n",
+        b"event: message_delta\n",
+        b'data: {"type": "message_delta", "delta": {"stop_reason": "tool_use", '
+        b'"stop_sequence":null, "usage":{"output_tokens": 15}}}\n',
+        b"\n",
+        b"event: message_stop\n",
+        b'data: {"type": "message_stop"}\n',
+    ]
+
+
+@pytest.mark.asyncio
+async def test_chat_function_calling_stream():
+    resp = chat_function_calling_stream_response()
+    config = chat_config()
+
+    with (
+        mock.patch("time.time", return_value=1677858242),
+        mock.patch(
+            "aiohttp.ClientSession.post", return_value=MockAsyncStreamingResponse(resp)
+        ) as mock_post,
+    ):
+        provider = AnthropicProvider(EndpointConfig(**config))
+        payload = chat_function_calling_payload(stream=True)
+        response = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in response]
+        assert chunks == [
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": "toolu_001",
+                                    "type": "function",
+                                    "function": {"name": "get_weather", "arguments": None},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '{"location":'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": None,
+                        "delta": {
+                            "role": None,
+                            "content": None,
+                            "tool_calls": [
+                                {
+                                    "index": 0,
+                                    "id": None,
+                                    "type": None,
+                                    "function": {"name": None, "arguments": '"Singapore"}'},
+                                }
+                            ],
+                        },
+                    }
+                ],
+            },
+            {
+                "id": "test-id",
+                "object": "chat.completion.chunk",
+                "created": 1677858242,
+                "model": "claude-2.1",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {"role": None, "content": None, "tool_calls": None},
+                    }
+                ],
+            },
+        ]
+        mock_post.assert_called_once_with(
+            "https://api.anthropic.com/v1/messages",
+            json={
+                "model": "claude-2.1",
+                "messages": [
+                    {"role": "user", "content": "What's the weather like in Singapore today?"}
+                ],
+                "max_tokens": MLFLOW_AI_GATEWAY_ANTHROPIC_DEFAULT_MAX_TOKENS,
+                "temperature": 0.25,
+                "tools": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "input_schema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ],
                 "stream": True,
             },
             timeout=ClientTimeout(total=MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS),

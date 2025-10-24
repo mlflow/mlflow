@@ -1111,6 +1111,26 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
 
 
 @skip_when_testing_trace_sdk
+def test_search_traces_extract_fields_preserves_standard_columns():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"x": 1})
+        span.set_outputs({"y": 2})
+
+    df = mlflow.search_traces(extract_fields=["test_span.inputs.x"])
+
+    # Verify standard columns still exist
+    assert "trace_id" in df.columns
+    assert "spans" in df.columns
+    assert "tags" in df.columns
+    assert "request" in df.columns
+    assert "response" in df.columns
+
+    # Verify extract field was added
+    assert "test_span.inputs.x" in df.columns
+    assert df["test_span.inputs.x"].tolist() == [1]
+
+
+@skip_when_testing_trace_sdk
 def test_search_traces_with_multiple_spans_with_same_name():
     class TestModel:
         @mlflow.trace(name="duplicate_name")

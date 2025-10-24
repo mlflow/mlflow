@@ -1590,6 +1590,51 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
         )
 
 
+def test_create_model_version_with_nondatabricks_source_uc_registry(mock_registry_store):
+    name = "name"
+    model_id = "model_id"
+    run_id = "runid"
+    source = "/path/to/source"
+    model_uri = f"models:/{model_id}"
+    mock_registry_store.create_model_version.return_value = ModelVersion(
+        "name",
+        1,
+        0,
+        1,
+        source=source,
+        run_id=run_id,
+        run_link=None,
+        model_id=model_id,
+    )
+    mock_logged_model = LoggedModel(
+        experiment_id="exp_id",
+        model_id=model_id,
+        name=name,
+        artifact_location=source,
+        creation_timestamp=0,
+        last_updated_timestamp=0,
+    )
+
+    with mock.patch(
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
+    ):
+        client = MlflowClient(tracking_uri="http://10.123.1231.11", registry_uri="databricks-uc")
+        model_version = client.create_model_version(
+            name, model_uri, run_id, run_link=None, model_id=model_id
+        )
+        assert model_version.model_id == model_id
+        mock_registry_store.create_model_version.assert_called_once_with(
+            name,
+            source,
+            run_id,
+            [],
+            None,
+            None,
+            local_model_path=None,
+            model_id=None,
+        )
+
+
 def test_creation_default_values_in_unity_catalog(mock_registry_store):
     client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
     mock_registry_store.create_model_version.return_value = ModelVersion(
@@ -2451,12 +2496,14 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     mock_response = Mock()
     mock_response.prompt_versions = [Mock(version="1")]
 
-    with patch.object(client, "search_prompt_versions", return_value=mock_response):
-        with patch.object(client, "_registry_uri", registry_uri):
-            with pytest.raises(
-                MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
-            ):
-                client.delete_prompt("test_prompt")
+    with (
+        patch.object(client, "search_prompt_versions", return_value=mock_response),
+        patch.object(client, "_registry_uri", registry_uri),
+    ):
+        with pytest.raises(
+            MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
+        ):
+            client.delete_prompt("test_prompt")
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):

@@ -2786,16 +2786,12 @@ def test_set_and_delete_trace_tag(mlflow_client):
 def test_get_trace_artifact_handler(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
-    experiment_id = mlflow_client.create_experiment("get trace artifact")
-
-    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
-    request_id = span.request_id
-    span.set_attributes({"fruit": "apple"})
-    mlflow_client.end_trace(request_id=request_id)
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
-        params={"request_id": request_id},
+        params={"request_id": span.trace_id},
     )
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
