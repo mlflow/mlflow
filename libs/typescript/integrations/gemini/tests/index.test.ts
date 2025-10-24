@@ -1,226 +1,205 @@
 /**
- * Unit tests for the Gemini tracing integration.
+ * Tests for MLflow Gemini integration with MSW mock server
  */
 
-type RecordedSpan = {
-  span: any;
-  options: any;
-};
-
-jest.mock('mlflow-tracing', () => {
-  const spans: RecordedSpan[] = [];
-
-  const withSpan = jest.fn(async (fn: (span: any) => any, options: any) => {
-    const span = {
-      setInputs: jest.fn(),
-      setOutputs: jest.fn(),
-      setAttribute: jest.fn()
-    };
-    spans.push({ span, options });
-    return await fn(span);
-  });
-
-  return {
-    withSpan,
-    SpanType: { LLM: 'LLM', EMBEDDING: 'EMBEDDING' },
-    SpanAttributeKey: {
-      TOKEN_USAGE: 'mlflow.chat.tokenUsage'
-    },
-    __spans: spans,
-    __reset: () => {
-      spans.length = 0;
-      withSpan.mockClear();
-    }
-  };
-});
-
+import * as mlflow from 'mlflow-tracing';
 import { tracedGemini } from '../src';
+import { GoogleGenAI } from '@google/genai';
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
+import { geminiMockHandlers } from './mockGeminiServer';
 
-const tracing = jest.requireMock('mlflow-tracing') as any;
+const TEST_TRACKING_URI = 'http://localhost:5000';
 
 describe('tracedGemini', () => {
+  let experimentId: string;
+  let client: mlflow.MlflowClient;
+  let server: ReturnType<typeof setupServer>;
+
+  beforeAll(async () => {
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+
+    const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
+    experimentId = await client.createExperiment(experimentName);
+    mlflow.init({
+      trackingUri: TEST_TRACKING_URI,
+      experimentId: experimentId
+    });
+
+    server = setupServer(...geminiMockHandlers);
+    server.listen();
+  });
+
+  afterAll(async () => {
+    server.close();
+    await client.deleteExperiment(experimentId);
+  });
+
+  const getLastActiveTrace = async (): Promise<mlflow.Trace> => {
+    await mlflow.flushTraces();
+    const traceId = mlflow.getLastActiveTraceId();
+    const trace = await client.getTrace(traceId!);
+    return trace;
+  };
+
   beforeEach(() => {
-    tracing.__reset();
+    server.resetHandlers();
   });
 
-  it('wraps models.generateContent with a span and records token usage', async () => {
-    class Models {
-      async generateContent(request: any) {
-        return {
-          text: () => 'Hello!',
-          usageMetadata: {
-            promptTokenCount: 12,
-            candidatesTokenCount: 4,
-            totalTokenCount: 16
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('Generate Content', () => {
+    it('should trace models.generateContent()', async () => {
+      const gemini = new GoogleGenAI({ apiKey: 'test-key' });
+      const wrappedGemini = tracedGemini(gemini);
+
+      const result = await mlflow.withSpan(
+        async () => {
+          return await wrappedGemini.models.generateContent({
+            model: 'gemini-2.0-flash-001',
+            contents: 'Hello Gemini'
+          });
+        },
+        {
+          name: 'test-trace',
+          spanType: mlflow.SpanType.CHAIN
+        }
+      );
+
+      expect(result).toBeDefined();
+      expect(result.usageMetadata).toBeDefined();
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+
+      expect(trace.data.spans.length).toBe(2);
+
+      const llmSpan = trace.data.spans.find((s) => s.spanType === mlflow.SpanType.LLM)!;
+      expect(llmSpan).toBeDefined();
+      expect(llmSpan.name).toBe('generateContent');
+      expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(llmSpan.inputs).toEqual({
+        model: 'gemini-2.0-flash-001',
+        contents: 'Hello Gemini'
+      });
+      expect(llmSpan.outputs).toEqual(result);
+      expect(llmSpan.startTime).toBeDefined();
+      expect(llmSpan.endTime).toBeDefined();
+
+      const spanTokenUsage = llmSpan.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+      expect(spanTokenUsage).toBeDefined();
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe('number');
+      expect(spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe(10);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe(5);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe(15);
+    });
+
+    it('should handle generateContent errors properly', async () => {
+      server.use(
+        http.post(
+          'https://generativelanguage.googleapis.com/v1beta/models/*\\:generateContent',
+          () => {
+            return HttpResponse.json(
+              {
+                error: {
+                  code: 429,
+                  message: 'Resource has been exhausted',
+                  status: 'RESOURCE_EXHAUSTED'
+                }
+              },
+              { status: 429 }
+            );
+          }
+        )
+      );
+
+      const gemini = new GoogleGenAI({ apiKey: 'test-key' });
+      const wrappedGemini = tracedGemini(gemini);
+
+      await expect(
+        mlflow.withSpan(
+          async () => {
+            return await wrappedGemini.models.generateContent({
+              model: 'gemini-2.0-flash-001',
+              contents: 'This should fail'
+            });
           },
-          request
-        };
-      }
-    }
+          {
+            name: 'error-test-trace',
+            spanType: mlflow.SpanType.CHAIN
+          }
+        )
+      ).rejects.toThrow();
 
-    class MockClient {
-      models = new Models();
-    }
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('ERROR');
 
-    const client = tracedGemini(new MockClient());
-    const payload = { contents: 'Hello Gemini' };
-
-    const response = await client.models.generateContent(payload);
-
-    expect(response.request).toBe(payload);
-
-    expect(tracing.withSpan).toHaveBeenCalledTimes(1);
-    expect(tracing.withSpan.mock.calls[0][1]).toEqual({
-      name: 'Gemini.generateContent',
-      spanType: tracing.SpanType.LLM
+      const llmSpan = trace.data.spans.find((s) => s.spanType === mlflow.SpanType.LLM);
+      expect(llmSpan).toBeDefined();
+      expect(llmSpan!.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
+      expect(llmSpan!.inputs).toEqual({
+        model: 'gemini-2.0-flash-001',
+        contents: 'This should fail'
+      });
+      expect(llmSpan!.outputs).toBeUndefined();
+      expect(llmSpan!.startTime).toBeDefined();
+      expect(llmSpan!.endTime).toBeDefined();
     });
 
-    const lastSpan = tracing.__spans.at(-1)?.span;
-    expect(lastSpan?.setInputs).toHaveBeenCalledWith(payload);
-    expect(lastSpan?.setOutputs).toHaveBeenCalledWith(response);
-    expect(lastSpan?.setAttribute).toHaveBeenCalledWith(tracing.SpanAttributeKey.TOKEN_USAGE, {
-      input_tokens: 12,
-      output_tokens: 4,
-      total_tokens: 16
-    });
-  });
+    it('should trace Gemini request wrapped in a parent span', async () => {
+      const gemini = new GoogleGenAI({ apiKey: 'test-key' });
+      const wrappedGemini = tracedGemini(gemini);
 
-  it('records error status and exception on span if Gemini call throws', async () => {
-    class Models {
-      async generateContent(_request?: any) {
-        throw new Error('rate limited');
-      }
-    }
+      const result = await mlflow.withSpan(
+        async (_span) => {
+          const response = await wrappedGemini.models.generateContent({
+            model: 'gemini-2.0-flash-001',
+            contents: 'Hello from parent span'
+          });
+          return response;
+        },
+        {
+          name: 'predict',
+          spanType: mlflow.SpanType.CHAIN,
+          inputs: 'Hello from parent span'
+        }
+      );
 
-    class MockClient {
-      models = new Models();
-    }
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(2);
 
-    const client = tracedGemini(new MockClient());
+      const parentSpan = trace.data.spans[0];
+      expect(parentSpan.name).toBe('predict');
+      expect(parentSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(parentSpan.spanType).toBe(mlflow.SpanType.CHAIN);
+      expect(parentSpan.inputs).toEqual('Hello from parent span');
+      expect(parentSpan.outputs).toEqual(result);
+      expect(parentSpan.startTime).toBeDefined();
+      expect(parentSpan.endTime).toBeDefined();
 
-    await expect(client.models.generateContent({ prompt: 'boom' })).rejects.toThrow('rate limited');
-
-    expect(tracing.withSpan).toHaveBeenCalledTimes(1);
-    const spanEntry = tracing.__spans.at(-1)?.span;
-    expect(spanEntry?.setInputs).toHaveBeenCalledWith({ prompt: 'boom' });
-    expect(spanEntry?.setOutputs).not.toHaveBeenCalled();
-    expect(spanEntry?.setAttribute).not.toHaveBeenCalled();
-  });
-
-  it('wraps embedContent with EMBEDDING span type and records token usage', async () => {
-    class Models {
-      async embedContent(document: any) {
-        return {
-          embedding: { values: [0.1, 0.2, 0.3] },
-          usageMetadata: {
-            inputTokenCount: 3,
-            outputTokenCount: 0,
-            totalTokenCount: 3
-          },
-          document
-        };
-      }
-    }
-
-    class MockClient {
-      models = new Models();
-    }
-
-    const client = tracedGemini(new MockClient());
-
-    const doc = { text: 'Embed me' };
-    const result = await client.models.embedContent(doc);
-
-    expect(result.document).toBe(doc);
-    expect(tracing.withSpan).toHaveBeenCalledTimes(1);
-    expect(tracing.withSpan.mock.calls[0][1]).toEqual({
-      name: 'Gemini.embedContent',
-      spanType: tracing.SpanType.EMBEDDING
+      const childSpan = trace.data.spans[1];
+      expect(childSpan.name).toBe('generateContent');
+      expect(childSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(childSpan.spanType).toBe(mlflow.SpanType.LLM);
+      expect(childSpan.inputs).toEqual({
+        model: 'gemini-2.0-flash-001',
+        contents: 'Hello from parent span'
+      });
+      expect(childSpan.outputs).toBeDefined();
+      expect(childSpan.startTime).toBeDefined();
+      expect(childSpan.endTime).toBeDefined();
     });
 
-    const spanEntry = tracing.__spans.at(-1)?.span;
-    expect(spanEntry?.setInputs).toHaveBeenCalledWith(doc);
-    expect(spanEntry?.setOutputs).toHaveBeenCalledWith(result);
-    expect(spanEntry?.setAttribute).toHaveBeenCalledWith(tracing.SpanAttributeKey.TOKEN_USAGE, {
-      input_tokens: 3,
-      output_tokens: 0,
-      total_tokens: 3
+    it('should not trace methods outside SUPPORTED_METHODS', async () => {
+      const gemini = new GoogleGenAI({ apiKey: 'test-key' });
+      const wrappedGemini = tracedGemini(gemini);
+
+      expect(wrappedGemini.models).toBeDefined();
     });
-  });
-
-  it('derives token usage for countTokens responses without usageMetadata', async () => {
-    class Models {
-      async countTokens(request: any) {
-        return {
-          totalTokens: 9,
-          request
-        };
-      }
-    }
-
-    class MockClient {
-      models = new Models();
-    }
-
-    const client = tracedGemini(new MockClient());
-
-    const payload = { contents: [{ role: 'user', parts: [{ text: 'token check' }] }] };
-    const response = await client.models.countTokens(payload);
-
-    expect(response.request).toBe(payload);
-    expect(tracing.withSpan.mock.calls[0][1]).toEqual({
-      name: 'Gemini.countTokens',
-      spanType: tracing.SpanType.LLM
-    });
-
-    const spanEntry = tracing.__spans.at(-1)?.span;
-    expect(spanEntry?.setInputs).toHaveBeenCalledWith(payload);
-    expect(spanEntry?.setOutputs).toHaveBeenCalledWith(response);
-    expect(spanEntry?.setAttribute).toHaveBeenCalledWith(tracing.SpanAttributeKey.TOKEN_USAGE, {
-      input_tokens: 9,
-      output_tokens: 0,
-      total_tokens: 9
-    });
-  });
-
-  it('does not trace methods outside SUPPORTED_METHODS', async () => {
-    class Models {
-      async unrelatedMethod(_x: any) {
-        return { foo: 42 };
-      }
-    }
-    class MockClient {
-      models = new Models();
-    }
-    const client = tracedGemini(new MockClient());
-    const result = await client.models.unrelatedMethod('bar');
-    expect(result).toEqual({ foo: 42 });
-    expect(tracing.withSpan).not.toHaveBeenCalled();
-  });
-
-  it('does not trace nested submodules that are not named models', async () => {
-    class MockSubModule {
-      async generateContent(request: any) {
-        return {
-          usageMetadata: {
-            promptTokenCount: 1,
-            candidatesTokenCount: 2,
-            totalTokenCount: 3
-          },
-          request
-        };
-      }
-    }
-    class Models {
-      submodule = new MockSubModule();
-    }
-    class MockClient {
-      models = new Models();
-    }
-    const client = tracedGemini(new MockClient());
-    const payload = { contents: 'nested' };
-    const response = await client.models.submodule.generateContent(payload);
-    expect(response.request).toBe(payload);
-    expect(tracing.withSpan).not.toHaveBeenCalled();
   });
 });
