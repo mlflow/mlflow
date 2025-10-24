@@ -103,6 +103,7 @@ def test_json_deserialization(monkeypatch):
             "tags": {
                 "mlflow.traceName": "predict",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
+                "mlflow.trace.spansLocation": mock.ANY,
             },
         },
         "data": {
@@ -457,6 +458,28 @@ def test_search_assessments():
     assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
     assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
     assert trace.search_assessments(type="expectation") == [assessments[3]]
+
+
+def test_trace_to_and_from_proto():
+    @mlflow.trace
+    def invoke(x):
+        return x + 1
+
+    @mlflow.trace
+    def test(x):
+        return invoke(x)
+
+    test(1)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    proto_trace = trace.to_proto()
+    assert proto_trace.trace_info.trace_id == trace.info.request_id
+    assert proto_trace.trace_info.trace_location == trace.info.trace_location.to_proto()
+    assert len(proto_trace.spans) == 2
+    assert proto_trace.spans[0].name == "test"
+    assert proto_trace.spans[1].name == "invoke"
+
+    trace_from_proto = Trace.from_proto(proto_trace)
+    assert trace_from_proto.to_dict() == trace.to_dict()
 
 
 def test_trace_from_dict_load_old_trace():
