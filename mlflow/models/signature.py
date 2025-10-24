@@ -182,7 +182,7 @@ class ModelSignature:
 def infer_signature(
     model_input: Any = None,
     model_output: "MlflowInferableDataset" = None,
-    params: dict[str, Any] | None = None
+    params: dict[str, Any] | None = None,
 ) -> ModelSignature:
     """
     Infer an MLflow model signature from the training data (input), model predictions (output)
@@ -251,6 +251,7 @@ def infer_signature(
 
                     # Passing params to `predict` function directly
                     result = pyfunc_loaded.predict(data, params=params)
+
     Returns:
       ModelSignature
     """

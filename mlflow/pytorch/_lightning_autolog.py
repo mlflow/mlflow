@@ -1,7 +1,6 @@
 import functools
 import logging
 import os
-import pickle
 import tempfile
 import warnings
 
@@ -12,16 +11,15 @@ import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.tracking.fluent import _initialize_logged_model
+from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
     MlflowAutologgingQueueingClient,
     disable_autologging,
     get_autologging_config,
-    resolve_input_example_and_signature,
 )
 from mlflow.utils.checkpoint_utils import MlflowModelCheckpointCallbackBase
-from mlflow.utils import gorilla
 
 logging.basicConfig(level=logging.ERROR)
 MIN_REQ_VERSION = Version(_ML_PACKAGE_VERSIONS["pytorch-lightning"]["autologging"]["minimum"])
@@ -81,7 +79,13 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
     """
 
     def __init__(
-        self, client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step,
+        self,
+        client,
+        metrics_logger,
+        run_id,
+        log_models,
+        log_every_n_epoch,
+        log_every_n_step,
         log_model_signatures,
     ):
         if log_every_n_step and _pl_version < Version("1.1.0"):
@@ -297,7 +301,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
                             tempdir = os.environ.get(_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV)
                             torch.save(
                                 (inputs[0], result),
-                                os.path.join(tempdir, "input_output_tensors.pkl")
+                                os.path.join(tempdir, "input_output_tensors.pkl"),
                             )
                     except Exception:
                         pass
@@ -309,7 +313,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
                 lightning_module,
                 "forward",
                 patched_model_forward,
-                gorilla.Settings(allow_hit=True, store_hit=True)
+                gorilla.Settings(allow_hit=True, store_hit=True),
             )
             gorilla.apply(patch)
             self._model_forward_patch = patch
@@ -526,8 +530,8 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
-    from mlflow.pytorch import _is_forecasting_model
     from mlflow.models import infer_signature
+    from mlflow.pytorch import _is_forecasting_model
 
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
@@ -581,7 +585,12 @@ def patched_fit(original, self, *args, **kwargs):
         if not any(isinstance(callbacks, __MlflowPLCallback) for callbacks in self.callbacks):
             self.callbacks += [
                 __MlflowPLCallback(
-                    client, metrics_logger, run_id, log_models, log_every_n_epoch, log_every_n_step,
+                    client,
+                    metrics_logger,
+                    run_id,
+                    log_models,
+                    log_every_n_epoch,
+                    log_every_n_step,
                     log_model_signatures,
                 )
             ]
@@ -634,10 +643,7 @@ def patched_fit(original, self, *args, **kwargs):
                 result = original(self, *args, **kwargs)
             finally:
                 for callback in self.callbacks:
-                    if (
-                        isinstance(callback, __MlflowPLCallback)
-                        and callback._model_forward_patch
-                    ):
+                    if isinstance(callback, __MlflowPLCallback) and callback._model_forward_patch:
                         gorilla.revert(callback._model_forward_patch)
 
             model_signature = None
@@ -655,7 +661,7 @@ def patched_fit(original, self, *args, **kwargs):
                 except Exception as e:
                     _logger.warning(
                         "Inferring model signature failed, skip logging signature. "
-                        f"root cause: {repr(e)}."
+                        f"root cause: {e!r}."
                     )
 
             if early_stop_callback is not None:
