@@ -70,12 +70,7 @@ function wrapWithTracing(fn: Function, methodName: string): Function {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return withSpan(
       async (span: LiveSpan) => {
-        // For single argument, pass it directly for better readability
-        if (args.length === 1) {
-          span.setInputs(args[0]);
-        } else if (args.length > 1) {
-          span.setInputs(args);
-        }
+        span.setInputs(args[0]);
 
         const result = await fn.apply(this, args);
 
