@@ -88,11 +88,7 @@ class TraceJSONEncoder(json.JSONEncoder):
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
-                # NB: Pydantic 2.0+ has a different API for model serialization
-                if Version(pydantic.VERSION) >= Version("2.0"):
-                    return obj.model_dump()
-                else:
-                    return obj.dict()
+                return obj.model_dump()
         except ImportError:
             pass
 
