@@ -1,6 +1,7 @@
 import pytest
 import pytorch_lightning as pl
 import torch
+import numpy as np
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -10,6 +11,7 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
+from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.file_utils import TempDir
 
 from tests.pytorch.iris import (
@@ -86,6 +88,34 @@ def test_pytorch_autolog_log_models_configuration(log_models):
     trainer.fit(model, dm)
     logged_model = mlflow.last_logged_model()
     assert (logged_model is not None) == log_models
+
+
+@pytest.mark.parametrize("use_ddp", [False, True])
+def test_pytorch_autolog_log_model_signature(use_ddp):
+    mlflow.pytorch.autolog()
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+
+    if use_ddp:
+        devices_kwarg_name = (
+            "devices" if Version(pl.__version__) > Version("1.6.4") else "num_processes"
+        )
+        extra_kwargs = {
+            "accelerator": "cpu" if Version(pl.__version__) > Version("1.6.4") else "ddp_cpu",
+            devices_kwarg_name: 4,
+        }
+        if Version(pl.__version__) > Version("1.9.3"):
+            extra_kwargs["strategy"] = "ddp_spawn"
+    else:
+        extra_kwargs = {}
+
+    trainer = pl.Trainer(max_epochs=2, **extra_kwargs)
+    trainer.fit(model, dm)
+    logged_model = mlflow.last_logged_model()
+    model_signature = mlflow.models.get_model_info(logged_model.model_uri).signature
+    assert model_signature.inputs == Schema([TensorSpec(np.dtype("float32"), (-1, 4))])
+    assert model_signature.outputs == Schema([TensorSpec(np.dtype("float32"), (-1, 3))])
 
 
 def test_pytorch_autolog_logs_default_params(pytorch_model):

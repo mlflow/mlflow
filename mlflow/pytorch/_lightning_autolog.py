@@ -281,11 +281,11 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             #  data format of the batch argument, so we have no way to
             #  extract `model.forward` input from the batch argument
             #  (the extracting logic is defined in `model.training_step`).
-            model_class = trainer.model.__class__
-            original_model_forward = model_class.forward
+            lightning_module = trainer.strategy.lightning_module
+            original_model_forward = lightning_module.forward
 
-            def patched_model_forward(_self, *inputs):
-                result = original_model_forward(_self, *inputs)
+            def patched_model_forward(*inputs, **kwargs):
+                result = original_model_forward(*inputs, **kwargs)
                 if not self._first_batch_checked:
                     try:
                         # Model signature only supports input schema of one Tensor
@@ -306,7 +306,7 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
                 return result
 
             patch = gorilla.Patch(
-                model_class,
+                lightning_module,
                 "forward",
                 patched_model_forward,
                 gorilla.Settings(allow_hit=True, store_hit=True)
