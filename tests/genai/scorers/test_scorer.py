@@ -400,3 +400,61 @@ def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up(is_in
     assert len(traces) == 2  # 1 for predict_fn, 1 for a trace generated before evaluation
     assert traces[0].data.spans[0].name == "predict"
     assert traces[1].data.spans[0].name == "should_be_kept"
+
+
+def test_custom_scorer_registration_blocked_for_non_databricks_uri():
+    experiment_id = mlflow.create_experiment("test_security_experiment")
+
+    @scorer
+    def test_custom_scorer(outputs) -> bool:
+        return len(outputs) > 0
+
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="Custom scorer registration.*not supported"
+    ):
+        test_custom_scorer.register(experiment_id=experiment_id, name="test_scorer")
+
+    mlflow.delete_experiment(experiment_id)
+
+
+def test_custom_scorer_loading_blocked_for_non_databricks_uri():
+    from mlflow.genai.scorers.base import SerializedScorer
+
+    serialized = SerializedScorer(
+        name="malicious_scorer",
+        call_source="import os\nos.system('echo hacked')\nreturn True",
+        call_signature="(outputs)",
+        original_func_name="malicious_scorer",
+    )
+
+    with pytest.raises(
+        mlflow.exceptions.MlflowException, match="Loading custom scorer.*not supported"
+    ):
+        Scorer._reconstruct_decorator_scorer(serialized)
+
+
+def test_make_judge_scorer_works_without_databricks_uri():
+    from mlflow.genai.judges import make_judge
+    from mlflow.genai.scorers.registry import get_scorer, list_scorers
+
+    experiment_id = mlflow.create_experiment("test_make_judge_experiment")
+
+    judge_scorer = make_judge(
+        instructions="Evaluate if the {{outputs}} is helpful and relevant",
+        name="helpfulness_judge",
+    )
+
+    registered_scorer = judge_scorer.register(experiment_id=experiment_id, name="helpfulness_judge")
+
+    assert registered_scorer is not None
+    assert registered_scorer.name == "helpfulness_judge"
+
+    retrieved_scorer = get_scorer(name="helpfulness_judge", experiment_id=experiment_id)
+    assert retrieved_scorer is not None
+    assert retrieved_scorer.name == "helpfulness_judge"
+
+    scorers = list_scorers(experiment_id=experiment_id)
+    assert len(scorers) == 1
+    assert scorers[0].name == "helpfulness_judge"
+
+    mlflow.delete_experiment(experiment_id)

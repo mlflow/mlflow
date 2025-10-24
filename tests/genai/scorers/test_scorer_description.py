@@ -1,9 +1,20 @@
+from unittest.mock import patch
+
 import pytest
 
 from mlflow.genai import scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.scorers import RelevanceToQuery
+
+
+@pytest.fixture(autouse=True)
+def mock_databricks_tracking_uri():
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+    ):
+        yield
 
 
 def test_decorator_scorer_with_description():

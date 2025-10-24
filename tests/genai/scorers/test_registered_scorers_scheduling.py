@@ -9,9 +9,18 @@ from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig
 
 @pytest.fixture(autouse=True)
 def mock_databricks_tracking_uri():
-    with patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    from mlflow.genai.scorers.registry import DatabricksStore
+
+    with (
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
     ):
+        mock_store = DatabricksStore()
+        mock_get_store.return_value = mock_store
         yield
 
 

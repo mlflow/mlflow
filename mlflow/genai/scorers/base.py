@@ -12,7 +12,9 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
+from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import experimental
+from mlflow.utils.uri import is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -295,10 +297,19 @@ class Scorer(BaseModel):
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
-        """Reconstruct a decorator scorer from serialized data."""
         from mlflow.genai.scorers.scorer_utils import recreate_function
 
-        # Recreate the original function from source code
+        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
+        # execution risk. Only allow loading with Databricks tracking URIs where the execution
+        # environment is controlled.
+        if not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException.invalid_parameter_value(
+                f"Loading custom scorer '{serialized.name}' is not supported for "
+                "non-Databricks tracking URIs due to security concerns. Custom scorers require "
+                "arbitrary code execution during deserialization. Please use a Databricks "
+                "tracking URI, built-in scorers, or make_judge() scorers instead."
+            )
+
         try:
             recreated_func = recreate_function(
                 serialized.call_source, serialized.call_signature, serialized.original_func_name
@@ -765,8 +776,6 @@ class Scorer(BaseModel):
         return copy
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
-        # Allow InstructionsJudge (created via make_judge) to be registered
-        # despite being ScorerKind.CLASS since it has proper serialization support
         from mlflow.genai.judges.instructions_judge import InstructionsJudge
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
 
@@ -780,6 +789,17 @@ class Scorer(BaseModel):
                     f"Got {self.kind}."
                 )
             raise MlflowException.invalid_parameter_value(error_message)
+
+        # NB: Custom (@scorer) scorers use exec() during deserialization, which poses a code
+        # execution risk. Only allow registration with Databricks tracking URIs where the
+        # execution environment is controlled.
+        if self.kind == ScorerKind.DECORATOR and not is_databricks_uri(get_tracking_uri()):
+            raise MlflowException.invalid_parameter_value(
+                "Custom scorer registration (using @scorer decorator) is not supported for "
+                "non-Databricks tracking URIs due to security concerns. Custom scorers require "
+                "code execution during deserialization. Please use a Databricks tracking URI, "
+                "built-in scorers, or make_judge() scorers instead."
+            )
 
         store = _get_scorer_store()
         if (
