@@ -765,13 +765,7 @@ class Scorer(BaseModel):
         return copy
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
-        # Allow InstructionsJudge (created via make_judge) to be registered
-        # despite being ScorerKind.CLASS since it has proper serialization support
-        from mlflow.genai.judges.instructions_judge import InstructionsJudge
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
-
-        if isinstance(self, InstructionsJudge):
-            return
 
         if self.kind not in _ALLOWED_SCORERS_FOR_REGISTRATION:
             if error_message is None:
