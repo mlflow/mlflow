@@ -44,8 +44,13 @@ const VALID_TABLE_ALIASES = [
   'model',
   'models',
 ];
+// Pattern to detect SQL syntax in search queries
+// Matches: table_alias.identifier <operator>
+// Where identifier can be:
+// - Regular identifier: \S+ (non-whitespace characters)
+// - Backtick-quoted identifier: `...` (can contain spaces and special chars)
 const SQL_SYNTAX_PATTERN = new RegExp(
-  `(${VALID_TABLE_ALIASES.join('|')})\\.\\S+\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,
+  `(${VALID_TABLE_ALIASES.join('|')})\\.(\\S+|\`[^\`]+\`)\\s*(>|<|>=|<=|=|!=| like| ilike| rlike| in)`,
   'i',
 );
 

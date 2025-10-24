@@ -46,18 +46,23 @@ const getClausesAndStartIndex = (str: string) => {
 };
 
 /**
+ * Wraps names that include control characters (spaces, dots, quotes) in backticks
+ * to make them valid SQL identifiers.
+ */
+const quoteEntityNameIfNeeded = (name: string) => {
+  if (name.includes('"') || name.includes(' ') || name.includes('.')) {
+    return `\`${name}\``;
+  } else if (name.includes('`')) {
+    return `"${name}"`;
+  }
+  return name;
+};
+
+/**
  * Filters out internal tag names and wrap names that include control characters in backticks.
  */
 export const cleanEntitySearchTagNames = (tagNames: string[]) =>
-  tagNames
-    .filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX))
-    .map((tag: string) => {
-      if (tag.includes('"') || tag.includes(' ') || tag.includes('.')) {
-        return `\`${tag}\``;
-      } else if (tag.includes('`')) {
-        return `"${tag}"`;
-      } else return tag;
-    });
+  tagNames.filter((tag: string) => !tag.startsWith(MLFLOW_INTERNAL_PREFIX)).map(quoteEntityNameIfNeeded);
 
 export const getEntitySearchOptionsFromEntityNames = (
   entityNames: EntitySearchAutoCompleteEntityNameGroup,
@@ -65,11 +70,11 @@ export const getEntitySearchOptionsFromEntityNames = (
 ): EntitySearchAutoCompleteOptionGroup[] => [
   {
     label: 'Metrics',
-    options: entityNames.metricNames.map((m) => ({ value: `metrics.${m}` })),
+    options: entityNames.metricNames.map((m) => ({ value: `metrics.${quoteEntityNameIfNeeded(m)}` })),
   },
   {
     label: 'Parameters',
-    options: entityNames.paramNames.map((p) => ({ value: `params.${p}` })),
+    options: entityNames.paramNames.map((p) => ({ value: `params.${quoteEntityNameIfNeeded(p)}` })),
   },
   {
     label: 'Tags',

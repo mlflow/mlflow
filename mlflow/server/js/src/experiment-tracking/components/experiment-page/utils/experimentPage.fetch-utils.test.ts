@@ -1,5 +1,5 @@
 import { EXPERIMENT_LOG_MODEL_HISTORY_TAG } from './experimentPage.common-utils';
-import { fetchModelVersionsForRuns } from './experimentPage.fetch-utils';
+import { detectSqlSyntaxInSearchQuery, fetchModelVersionsForRuns } from './experimentPage.fetch-utils';
 
 jest.mock('../../../../model-registry/constants', () => ({
   MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER: 5,
@@ -29,6 +29,31 @@ describe('experiment page fetch utils', () => {
       expect(actionCreatorMock.mock.calls[1][0]).toEqual({
         run_id: ['run_11', 'run_13', 'run_15', 'run_17', 'run_19'],
       });
+    });
+  });
+
+  describe('detectSqlSyntaxInSearchQuery', () => {
+    test('it detects SQL syntax with regular identifiers', () => {
+      expect(detectSqlSyntaxInSearchQuery('metrics.accuracy > 0.5')).toBe(true);
+      expect(detectSqlSyntaxInSearchQuery('params.learning_rate = 0.01')).toBe(true);
+      expect(detectSqlSyntaxInSearchQuery('attributes.run_name LIKE "test%"')).toBe(true);
+    });
+
+    test('it detects SQL syntax with backtick-quoted identifiers containing spaces', () => {
+      expect(detectSqlSyntaxInSearchQuery('metrics.`avg model score` > 0.5')).toBe(true);
+      expect(detectSqlSyntaxInSearchQuery('params.`learning rate` = 0.01')).toBe(true);
+      expect(detectSqlSyntaxInSearchQuery('metrics.`test metric name` < 100')).toBe(true);
+    });
+
+    test('it detects SQL syntax with backtick-quoted identifiers containing special characters', () => {
+      expect(detectSqlSyntaxInSearchQuery('metrics.`metric-with-dash` > 0')).toBe(true);
+      expect(detectSqlSyntaxInSearchQuery('params.`param.with.dots` = "value"')).toBe(true);
+    });
+
+    test('it does not detect SQL syntax in plain text', () => {
+      expect(detectSqlSyntaxInSearchQuery('just some text')).toBe(false);
+      expect(detectSqlSyntaxInSearchQuery('foobar')).toBe(false);
+      expect(detectSqlSyntaxInSearchQuery('run name contains spaces')).toBe(false);
     });
   });
 });
