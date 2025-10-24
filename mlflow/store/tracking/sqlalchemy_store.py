@@ -3473,6 +3473,9 @@ class SqlAlchemyStore(AbstractStore):
                         s.start_time_unix_nano,
                     ),
                 )
+                # we need to check whether all spans are logged before returning the trace
+                # to avoid incomplete trace data being returned, UI and evaluation relies
+                # on the complete trace for rendering and analysis
                 if trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS):
                     trace_stats = json.loads(trace_stats)
                     num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
