@@ -27,7 +27,7 @@ RUN pip install virtualenv
 
 
 # Setup Java
-RUN apt-get install -y --no-install-recommends openjdk-11-jdk maven
+RUN apt-get install -y --no-install-recommends openjdk-17-jdk maven
 ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 
 WORKDIR /opt/mlflow
