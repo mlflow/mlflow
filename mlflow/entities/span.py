@@ -4,8 +4,6 @@ import logging
 from functools import lru_cache
 from typing import Any, Union
 
-from google.protobuf.json_format import ParseDict
-from google.protobuf.struct_pb2 import Value
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.proto.trace.v1.trace_pb2 import Status as OTelProtoStatus
 from opentelemetry.sdk.resources import Resource as _OTelResource
@@ -21,7 +19,6 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
@@ -360,32 +357,6 @@ class Span:
             ],
         )
         return cls(otel_span)
-
-    def to_proto(self):
-        """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
-        otel_status = self._span.status
-        status = ProtoSpan.Status(
-            code=otel_status.status_code.value,
-            message=otel_status.description,
-        )
-        parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
-
-        # NB: This is a workaround that some DBX internal code pass float timestamp
-        start_time_unix_nano = int(self._span.start_time) if self._span.start_time else None
-        end_time_unix_nano = int(self._span.end_time) if self._span.end_time else None
-
-        return ProtoSpan(
-            trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
-            span_id=_encode_span_id_to_byte(self._span.context.span_id),
-            trace_state=self._span.context.trace_state or "",
-            parent_span_id=parent,
-            name=self.name,
-            start_time_unix_nano=start_time_unix_nano,
-            end_time_unix_nano=end_time_unix_nano,
-            events=[event.to_proto() for event in self.events],
-            status=status,
-            attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
-        )
 
     @classmethod
     def from_otel_proto(cls, otel_proto_span, location_id: str | None = None) -> "Span":
