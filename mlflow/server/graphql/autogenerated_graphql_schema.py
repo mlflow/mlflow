@@ -307,31 +307,31 @@ class QueryType(graphene.ObjectType):
 
     def resolve_mlflow_get_experiment(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.GetExperiment()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.GetExperiment()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_experiment_impl(request_message)
 
     def resolve_mlflow_get_metric_history_bulk_interval(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.GetMetricHistoryBulkInterval()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.GetMetricHistoryBulkInterval()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_metric_history_bulk_interval_impl(request_message)
 
     def resolve_mlflow_get_run(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.GetRun()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.GetRun()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.get_run_impl(request_message)
 
     def resolve_mlflow_list_artifacts(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.ListArtifacts()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.ListArtifacts()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.list_artifacts_impl(request_message)
 
     def resolve_mlflow_search_model_versions(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.model_registry_pb2.SearchModelVersions()
+        request_message = mlflow.protos.mlflow/protos/model_registry_pb2.SearchModelVersions()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.search_model_versions_impl(request_message)
 
@@ -342,12 +342,12 @@ class MutationType(graphene.ObjectType):
 
     def resolve_mlflow_search_datasets(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.SearchDatasets()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.SearchDatasets()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.search_datasets_impl(request_message)
 
     def resolve_mlflow_search_runs(self, info, input):
         input_dict = vars(input)
-        request_message = mlflow.protos.service_pb2.SearchRuns()
+        request_message = mlflow.protos.mlflow/protos/service_pb2.SearchRuns()
         parse_dict(input_dict, request_message)
         return mlflow.server.handlers.search_runs_impl(request_message)

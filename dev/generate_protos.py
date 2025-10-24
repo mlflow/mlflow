@@ -11,8 +11,7 @@ from typing import Literal
 SYSTEM = platform.system()
 MACHINE = platform.machine()
 CACHE_DIR = Path(".cache/protobuf_cache")
-MLFLOW_PROTOS_DIR = Path("mlflow/protos")
-TEST_PROTOS_DIR = Path("tests/protos")
+REPO_ROOT = Path(".")  # Use repo root as base for proto includes
 
 
 def gen_protos(
@@ -36,7 +35,7 @@ def gen_protos(
             *include_args,
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
-            *[proto_dir / pf for pf in proto_files],
+            *proto_files,  # proto_files now contain full paths from proto_dir
         ]
     )
 
@@ -58,7 +57,7 @@ def gen_stub_files(
             *include_args,
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
-            *[proto_dir / pf for pf in proto_files],
+            *proto_files,  # proto_files now contain full paths from proto_dir
         ]
     )
 
@@ -81,93 +80,87 @@ def to_paths(*args: str) -> list[Path]:
 
 
 basic_proto_files = to_paths(
-    "databricks.proto",
-    "service.proto",
-    "model_registry.proto",
-    "databricks_artifacts.proto",
-    "mlflow_artifacts.proto",
-    "internal.proto",
-    "scalapb/scalapb.proto",
-    "assessments.proto",
-    "datasets.proto",
-    "webhooks.proto",
+    "mlflow/protos/databricks.proto",
+    "mlflow/protos/service.proto",
+    "mlflow/protos/model_registry.proto",
+    "mlflow/protos/databricks_artifacts.proto",
+    "mlflow/protos/mlflow_artifacts.proto",
+    "mlflow/protos/internal.proto",
+    "mlflow/protos/scalapb/scalapb.proto",
+    "mlflow/protos/assessments.proto",
+    "mlflow/protos/datasets.proto",
+    "mlflow/protos/webhooks.proto",
 )
 uc_proto_files = to_paths(
-    "databricks_managed_catalog_messages.proto",
-    "databricks_managed_catalog_service.proto",
-    "databricks_uc_registry_messages.proto",
-    "databricks_uc_registry_service.proto",
-    "databricks_filesystem_service.proto",
-    "unity_catalog_oss_messages.proto",
-    "unity_catalog_oss_service.proto",
-    "unity_catalog_prompt_messages.proto",
-    "unity_catalog_prompt_service.proto",
+    "mlflow/protos/databricks_managed_catalog_messages.proto",
+    "mlflow/protos/databricks_managed_catalog_service.proto",
+    "mlflow/protos/databricks_uc_registry_messages.proto",
+    "mlflow/protos/databricks_uc_registry_service.proto",
+    "mlflow/protos/databricks_filesystem_service.proto",
+    "mlflow/protos/unity_catalog_oss_messages.proto",
+    "mlflow/protos/unity_catalog_oss_service.proto",
+    "mlflow/protos/unity_catalog_prompt_messages.proto",
+    "mlflow/protos/unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_tracing.proto")
-facet_proto_files = to_paths("facet_feature_statistics.proto")
+tracing_proto_files = to_paths("mlflow/protos/databricks_tracing.proto")
+facet_proto_files = to_paths("mlflow/protos/facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
-test_proto_files = to_paths("test_message.proto")
+test_proto_files = to_paths("tests/protos/test_message.proto")
 
 
 python_gencode_replacements = [
+    # Replace absolute imports with relative imports within mlflow.protos package
     (
-        "from scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
+        "from mlflow.protos.scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
         "from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2",
     ),
     (
-        "import databricks_pb2 as databricks__pb2",
+        "from mlflow.protos import databricks_pb2 as databricks__pb2",
         "from . import databricks_pb2 as databricks__pb2",
     ),
     (
-        "import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",
+        "from mlflow.protos import databricks_uc_registry_messages_pb2 as databricks__uc__registry__messages__pb2",  # noqa: E501
         "from . import databricks_uc_registry_messages_pb2 as databricks_uc_registry_messages_pb2",
     ),
     (
-        "import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__"
+        "from mlflow.protos import databricks_managed_catalog_messages_pb2 as databricks__managed__catalog__"  # noqa: E501
         "messages__pb2",
         "from . import databricks_managed_catalog_messages_pb2 as databricks_managed_"
         "catalog_messages_pb2",
     ),
     (
-        "import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",
+        "from mlflow.protos import unity_catalog_oss_messages_pb2 as unity__catalog__oss__messages__pb2",  # noqa: E501
         "from . import unity_catalog_oss_messages_pb2 as unity_catalog_oss_messages_pb2",
     ),
     (
-        "import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",
+        "from mlflow.protos import unity_catalog_prompt_messages_pb2 as unity__catalog__prompt__messages__pb2",  # noqa: E501
         "from . import unity_catalog_prompt_messages_pb2 as unity_catalog_prompt_messages_pb2",
     ),
     (
-        "import service_pb2 as service__pb2",
+        "from mlflow.protos import service_pb2 as service__pb2",
         "from . import service_pb2 as service__pb2",
     ),
     (
-        "import assessments_pb2 as assessments__pb2",
+        "from mlflow.protos import assessments_pb2 as assessments__pb2",
         "from . import assessments_pb2 as assessments__pb2",
     ),
     (
-        "import datasets_pb2 as datasets__pb2",
+        "from mlflow.protos import datasets_pb2 as datasets__pb2",
         "from . import datasets_pb2 as datasets__pb2",
     ),
     (
-        "import webhooks_pb2 as webhooks__pb2",
+        "from mlflow.protos import webhooks_pb2 as webhooks__pb2",
         "from . import webhooks_pb2 as webhooks__pb2",
     ),
 ]
 
 
 def gen_python_protos(protoc_bin: Path, protoc_include_paths: list[Path], out_dir: Path) -> None:
+    # Generate Python code for both MLflow and test protos using repo root as -I directory
+    all_proto_files = python_proto_files + test_proto_files
     gen_protos(
-        MLFLOW_PROTOS_DIR,
-        python_proto_files,
-        "python",
-        protoc_bin,
-        protoc_include_paths,
-        out_dir,
-    )
-
-    gen_protos(
-        TEST_PROTOS_DIR,
-        test_proto_files,
+        REPO_ROOT,
+        all_proto_files,
         "python",
         protoc_bin,
         protoc_include_paths,
@@ -276,22 +269,19 @@ def main() -> None:
         gen_python_protos(protoc3194, protoc3194_includes, proto3194_out)
         gen_python_protos(protoc5260, protoc5260_includes, proto5260_out)
 
-        for proto_files, protos_dir in [
-            (python_proto_files, MLFLOW_PROTOS_DIR),
-            (test_proto_files, TEST_PROTOS_DIR),
-        ]:
-            for proto_file in proto_files:
-                gencode_path = _get_python_output_path(proto_file)
+        # Merge generated code from both protoc versions
+        for proto_file in python_proto_files + test_proto_files:
+            gencode_path = _get_python_output_path(proto_file)
 
-                generate_final_python_gencode(
-                    proto3194_out / gencode_path,
-                    proto5260_out / gencode_path,
-                    protos_dir / gencode_path,
-                )
+            generate_final_python_gencode(
+                proto3194_out / gencode_path,
+                proto5260_out / gencode_path,
+                gencode_path,  # Output path already includes full path from repo root
+            )
 
     # generate java gencode using pinned protoc 3.19.4 version.
     gen_protos(
-        MLFLOW_PROTOS_DIR,
+        REPO_ROOT,
         basic_proto_files,
         "java",
         protoc3194,
@@ -300,11 +290,11 @@ def main() -> None:
     )
 
     gen_stub_files(
-        MLFLOW_PROTOS_DIR,
+        REPO_ROOT,
         python_proto_files,
         protoc5260,
         protoc5260_includes,
-        Path("mlflow/protos/"),
+        REPO_ROOT,
     )
 
 

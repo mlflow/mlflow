@@ -5,8 +5,8 @@ syntax = "proto2";
 // See go/protostyleguide/packages.
 package mlflow.filesystem;
 
-import "databricks.proto";
-import "scalapb/scalapb.proto";
+import "mlflow/protos/databricks.proto";
+import "mlflow/protos/scalapb/scalapb.proto";
 
 option java_package = "com.databricks.api.proto.filesystem";
 option java_generate_equals_and_hash = true;
