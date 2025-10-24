@@ -285,17 +285,25 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
             original_model_forward = model_class.forward
 
             def patched_model_forward(_self, *inputs):
+                result = original_model_forward(_self, *inputs)
                 if not self._first_batch_checked:
                     try:
                         # Model signature only supports input schema of one Tensor
-                        if len(inputs) == 1 and isinstance(inputs[0], torch.Tensor):
+                        if (
+                            len(inputs) == 1
+                            and isinstance(inputs[0], torch.Tensor)
+                            and isinstance(result, torch.Tensor)
+                        ):
                             tempdir = os.environ.get(_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV)
-                            torch.save(inputs[0], os.path.join(tempdir, "first_batch_x.pkl"))
+                            torch.save(
+                                (inputs[0], result),
+                                os.path.join(tempdir, "input_output_tensors.pkl")
+                            )
                     except Exception:
                         pass
                     self._first_batch_checked = True
 
-                return original_model_forward(_self, *inputs)
+                return result
 
             patch = gorilla.Patch(
                 model_class,
@@ -647,26 +655,24 @@ def patched_fit(original, self, *args, **kwargs):
             mlflow.log_artifact(local_path=summary_file)
 
         if log_models:
-            first_batch_x_file = os.path.join(tempdir, "first_batch_x.pkl")
-            if os.path.exists(first_batch_x_file):
-                first_batch_x = torch.load(first_batch_x_file)
-            else:
-                first_batch_x = None
-
-            if log_model_signatures and first_batch_x is not None:
-                try:
-                    input_example = first_batch_x.cpu().numpy()
-                    with torch.no_grad():
-                        output_example = self.model(first_batch_x).cpu().numpy()
-                    model_signature = infer_signature(
-                        input_example,
-                        output_example,
-                    )
-                except Exception as e:
-                    _logger.warning(
-                        "Inferring model signature failed, skip logging signature. "
-                        f"root cause: {repr(e)}."
-                    )
+            if log_model_signatures:
+                input_output_tensors_file = os.path.join(tempdir, "input_output_tensors.pkl")
+                if os.path.exists(input_output_tensors_file):
+                    input_tensor, output_tensor = torch.load(input_output_tensors_file)
+                    try:
+                        input_example = input_tensor.cpu().numpy()
+                        with torch.no_grad():
+                            output_example = output_tensor.cpu().numpy()
+                        model_signature = infer_signature(
+                            input_example,
+                            output_example,
+                        )
+                    except Exception as e:
+                        _logger.warning(
+                            "Inferring model signature failed, skip logging signature. "
+                            f"root cause: {repr(e)}."
+                        )
+                        model_signature = None
             else:
                 model_signature = None
             registered_model_name = get_autologging_config(
