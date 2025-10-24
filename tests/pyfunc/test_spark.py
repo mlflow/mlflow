@@ -617,7 +617,9 @@ def test_spark_udf_autofills_no_arguments(spark):
                 # PySpark 3.3
                 r"Column 'a' does not exist|"
                 # PySpark 3.4
-                r"A column or function parameter with name `a` cannot be resolved"
+                r"A column or function parameter with name `a` cannot be resolved|"
+                # PySpark 4.0
+                r"A column, variable, or function parameter with name `a` cannot be resolved"
             ),
         ):
             bad_data.withColumn("res", udf())
