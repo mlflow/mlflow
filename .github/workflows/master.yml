@@ -102,13 +102,6 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
-      # TODO: Remove this step once support for pydantic v1 is dropped
-      # - name: Run gateway tests with pydantic v1
-      #   run: |
-      #     source .venv/bin/activate
-      #     pip install 'pydantic<2.0'
-      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/gateway
-
       - name: Run databricks-connect related tests
         run: |
           # this needs to be run in a separate job because installing databricks-connect could break other
@@ -180,6 +173,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -243,7 +238,7 @@ jobs:
           uv sync --extra mlserver
           uv pip install \
             -r requirements/test-requirements.txt \
-            'pyspark<3.5.6' langchain langchain-community
+            pyspark langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -273,7 +268,7 @@ jobs:
           uv sync --extra extras --extra jobs --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            torch transformers 'pyspark<3.5.6' langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
+            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -343,7 +338,7 @@ jobs:
           uv sync --extra extras --extra gateway --extra jobs
           uv pip install \
             -r requirements/test-requirements.txt \
-            tensorflow 'pyspark[connect]<3.5.6'
+            tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -353,12 +348,6 @@ jobs:
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           uv run --no-sync pytest tests/pyfunc/test_spark_connect.py
-      # TODO: Remove this step once support for pydantic v1 is dropped
-      # - name: Run tests on pydantic v1
-      #   run: |
-      #     pip install 'pydantic<2'
-      #     pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
-      #       tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   windows:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
@@ -383,7 +372,7 @@ jobs:
           uv sync --extra extras --extra genai --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
-            'pyspark<3.5.6' datasets tensorflow torch transformers tf-keras openai \
+            pyspark datasets tensorflow torch transformers tf-keras openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree

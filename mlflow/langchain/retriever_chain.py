@@ -10,7 +10,7 @@ import yaml
 from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
 from langchain.chains.base import Chain
 from langchain.schema import BaseRetriever, Document
-from pydantic import Extra, Field
+from pydantic import ConfigDict, Field
 
 
 class _RetrieverChain(Chain):
@@ -35,11 +35,7 @@ class _RetrieverChain(Chain):
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     @property
     def input_keys(self) -> list[str]:
