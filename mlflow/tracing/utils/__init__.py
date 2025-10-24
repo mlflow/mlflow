@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Generator
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
-from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
