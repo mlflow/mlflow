@@ -13,7 +13,7 @@ from mlflow.genai.scorers.base import Scorer
 
 # Test `mlflow.genai` namespace
 def test_mlflow_genai_star_import_succeeds():
-    exec("from mlflow.genai import *")
+    import mlflow.genai  # noqa: F401
 
 
 def test_namespaced_import_raises_when_agents_not_installed():
@@ -35,7 +35,7 @@ def test_namespaced_import_raises_when_agents_not_installed():
 
 # Test `mlflow.genai.datasets` namespace
 def test_mlflow_genai_datasets_star_import_succeeds():
-    exec("from mlflow.genai.datasets import *")
+    import mlflow.genai.datasets  # noqa: F401
 
 
 def test_create_dataset_raises_when_agents_not_installed():

@@ -236,6 +236,10 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "pytorch-lightning",
             "module_name": "lightning"
         },
+        "models": {
+            "minimum": "2.1.1",
+            "maximum": "2.5.5"
+        },
         "autologging": {
             "minimum": "2.1.1",
             "maximum": "2.5.5"

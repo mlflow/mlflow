@@ -8226,6 +8226,26 @@ def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
         store.link_traces_to_run(trace_ids, run.info.run_id)
 
 
+def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_ids = ["trace-1", "trace-2", "trace-3", "trace-4"]
+    for trace_id in trace_ids:
+        trace_info = _create_trace_info(trace_id, exp_id)
+        store.start_trace(trace_info)
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    search_args = {"experiment_ids": [exp_id], "filter_string": f"run_id = '{run.info.run_id}'"}
+
+    store.link_traces_to_run(["trace-1", "trace-2", "trace-3"], run.info.run_id)
+
+    assert len(store.search_traces(**search_args)[0]) == 3
+
+    store.link_traces_to_run(["trace-3", "trace-4"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
+
+    store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
+
+
 def test_scorer_operations(store: SqlAlchemyStore):
     """
     Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.

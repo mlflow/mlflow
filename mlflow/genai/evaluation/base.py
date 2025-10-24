@@ -38,7 +38,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import _set_active_model
+from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 from mlflow.utils.annotations import experimental
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_IS_EVALUATION
 from mlflow.utils.uri import is_databricks_uri
@@ -476,8 +476,30 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 
-        # If the endpoint returns a trace, copy it to the current experiment.
+        # If the endpoint returns a trace, check if we need to copy it to the current experiment.
         if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
+            # Check if the trace is already in the current experiment (dual-write mode).
+            # This happens when the endpoint has MLFLOW_EXPERIMENT_ID set and writes
+            # traces to both inference table and MLflow experiment.
+            trace_experiment_id = (
+                (info := trace_dict.get("info"))
+                and (trace_loc := info.get("trace_location"))
+                and (ml_exp := trace_loc.get("mlflow_experiment"))
+                and ml_exp.get("experiment_id")
+            )
+            current_experiment_id = _get_experiment_id()
+
+            # If the trace is already in the current experiment, we can reuse it
+            # instead of copying it again (avoiding duplicate traces).
+            if trace_experiment_id and trace_experiment_id == current_experiment_id:
+                logger.debug(
+                    "Trace from endpoint is already in the current experiment "
+                    f"(experiment_id={current_experiment_id}). Reusing existing trace "
+                    "instead of copying."
+                )
+                return result
+
+            # Otherwise, copy the trace to the current experiment.
             try:
                 copy_trace_to_experiment(trace_dict)
                 return result
