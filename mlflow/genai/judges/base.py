@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.trace import Trace
 from mlflow.genai.judges.utils import get_default_optimizer
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
@@ -54,6 +54,10 @@ class Judge(Scorer):
     Judges are specialized scorers that use LLMs to evaluate outputs based on
     configurable criteria and the results of human-provided feedback alignment.
     """
+
+    @property
+    def kind(self) -> ScorerKind:
+        return ScorerKind.BUILTIN
 
     @property
     @abstractmethod
