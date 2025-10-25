@@ -123,6 +123,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
@@ -142,6 +143,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
@@ -161,6 +163,7 @@ bedrock_model_provider_fixtures = [
             "max_tokens_to_sample": 200,
             "prompt": "\n\nHuman: How does a car work?\n\nAssistant:",
             "stop_sequences": ["\n\nHuman:"],
+            "anthropic_version": "bedrock-2023-05-31",
         },
     },
     {
