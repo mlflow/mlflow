@@ -5,7 +5,7 @@ syntax = "proto2";
 
 package mlflow.internal;
 
-import "scalapb/scalapb.proto";
+import "mlflow/protos/scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.internal.proto";
 option py_generic_services = true;

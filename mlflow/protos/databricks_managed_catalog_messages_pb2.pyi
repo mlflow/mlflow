@@ -1,4 +1,4 @@
-from scalapb import scalapb_pb2 as _scalapb_pb2
+from mlflow.protos.scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import ClassVar as _ClassVar, Optional as _Optional

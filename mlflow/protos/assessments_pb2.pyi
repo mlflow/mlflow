@@ -1,4 +1,4 @@
-import databricks_pb2 as _databricks_pb2
+from mlflow.protos import databricks_pb2 as _databricks_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers

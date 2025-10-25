@@ -2,8 +2,8 @@ syntax = "proto2";
 
 package mlflow.unitycatalog;
 
-import "scalapb/scalapb.proto";
-import "databricks.proto";
+import "mlflow/protos/scalapb/scalapb.proto";
+import "mlflow/protos/databricks.proto";
 
 option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;

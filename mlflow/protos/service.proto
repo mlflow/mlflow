@@ -2,14 +2,14 @@ syntax = "proto2";
 
 package mlflow;
 
-import "scalapb/scalapb.proto";
-import "databricks.proto";
+import "mlflow/protos/scalapb/scalapb.proto";
+import "mlflow/protos/databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
-import "assessments.proto";
-import "datasets.proto";
+import "mlflow/protos/assessments.proto";
+import "mlflow/protos/datasets.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 
 option java_package = "org.mlflow.api.proto";

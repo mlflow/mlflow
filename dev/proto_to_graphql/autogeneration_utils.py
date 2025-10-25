@@ -36,7 +36,10 @@ def get_descriptor_full_pascal_name(field_descriptor):
 
 
 def method_descriptor_to_generated_pb2_file_name(method_descriptor):
-    return re.sub(r"\.proto", "_pb2", method_descriptor.containing_service.file.name)
+    file_name = method_descriptor.containing_service.file.name
+    # Strip mlflow/protos/ prefix to make module name correct
+    file_name = file_name.removeprefix("mlflow/protos/")
+    return re.sub(r"\.proto", "_pb2", file_name)
 
 
 def debugLog(log):
