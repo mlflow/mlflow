@@ -38,6 +38,8 @@ from mlflow.entities import (
     RunInputs,
     RunTag,
     Span,
+    SpanEvent,
+    SpanStatusCode,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -2581,6 +2583,22 @@ def test_start_trace(mlflow_client):
         assert "Failed to log span to MLflow backend" not in str(call)
 
 
+def test_get_trace(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("get trace")
+    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
+    mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
+    trace = mlflow_client.get_trace(span.request_id)
+    assert trace is not None
+    assert trace.info.request_id == span.request_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.state == TraceState.OK
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+    assert trace.data.spans[0].status.description == ""
+
+
 def test_search_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
@@ -2788,6 +2806,7 @@ def test_get_trace_artifact_handler(mlflow_client):
 
     with mlflow.start_span(name="test") as span:
         span.set_attributes({"fruit": "apple"})
+        span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",

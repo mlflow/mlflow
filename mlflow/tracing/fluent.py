@@ -1316,7 +1316,10 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
                 for k, v in remote_root_span.attributes.items()
                 if k != SpanAttributeKey.REQUEST_ID
             },
-            start_time_ns=remote_root_span.start_time_ns,
+            # ensure this span has a smaller start time than the remote trace
+            # so when it's loaded the order is correct when sorting by start time
+            # TODO: deprecate this function once we fully support OTel traces
+            start_time_ns=remote_root_span.start_time_ns - 1,
         )
         _merge_trace(
             trace=trace,
@@ -1448,8 +1451,13 @@ def _merge_trace(
             parent_span_id=parent_span_id,
             trace_id=target_trace_id,
             otel_trace_id=new_trace_id,
+            # the trace should be ended after it's registered in the trace manager
+            # otherwise the exporter cannot find the trace to export
+            end_trace=False,
         )
         trace_manager.register_span(cloned_span)
+        # end the cloned span to ensure it's processed by the exporter
+        cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:

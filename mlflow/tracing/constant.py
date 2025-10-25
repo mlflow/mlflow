@@ -123,6 +123,7 @@ GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
 # This is used to determine where the spans are stored when exporting.
 class SpansLocation(str, Enum):
     TRACKING_STORE = "TRACKING_STORE"
+    ARTIFACT_REPO = "ARTIFACT_REPO"
 
 
 # Path to the notebook trace renderer directory

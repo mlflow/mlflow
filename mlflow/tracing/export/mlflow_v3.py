@@ -19,6 +19,7 @@ from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     add_size_stats_to_trace_metadata,
+    encode_span_id,
     get_experiment_id_for_trace,
     maybe_get_request_id,
 )
@@ -79,14 +80,8 @@ class MlflowV3SpanExporter(SpanExporter):
             )
             return
 
-        # Wrapping with MLflow span interface for easier downstream handling
-        spans = [Span(span) for span in spans]
-        spans_by_experiment = defaultdict(list)
-        for span in spans:
-            experiment_id = get_experiment_id_for_trace(span)
-            spans_by_experiment[experiment_id].append(span)
-
-        for experiment_id, spans_to_log in spans_by_experiment.items():
+        mlflow_spans_by_experiment = self._collect_mlflow_spans_for_export(spans)
+        for experiment_id, spans_to_log in mlflow_spans_by_experiment.items():
             if self._should_log_async():
                 self._async_queue.put(
                     task=Task(
@@ -97,6 +92,32 @@ class MlflowV3SpanExporter(SpanExporter):
                 )
             else:
                 self._log_spans(experiment_id, spans_to_log)
+
+    def _collect_mlflow_spans_for_export(
+        self, spans: Sequence[ReadableSpan]
+    ) -> dict[str, list[Span]]:
+        """
+        Collect MLflow spans from ReadableSpans for export, grouped by experiment ID.
+
+        Args:
+            spans: Sequence of ReadableSpan objects.
+
+        Returns:
+            Dictionary mapping experiment_id to list of MLflow Span objects.
+        """
+        manager = InMemoryTraceManager.get_instance()
+        spans_by_experiment = defaultdict(list)
+
+        for span in spans:
+            mlflow_trace_id = manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
+            experiment_id = get_experiment_id_for_trace(span)
+            span_id = encode_span_id(span.context.span_id)
+            # we need to fetch the mlflow span from the trace manager because the span
+            # may be updated in processor before exporting (e.g. deduplication).
+            if mlflow_span := manager.get_span_from_id(mlflow_trace_id, span_id):
+                spans_by_experiment[experiment_id].append(mlflow_span)
+
+        return spans_by_experiment
 
     def _export_traces(self, spans: Sequence[ReadableSpan]) -> None:
         """
