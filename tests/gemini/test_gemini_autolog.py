@@ -441,9 +441,9 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span.name == f"{cls}.generate_content"
     assert span.span_type == SpanType.LLM
     assert span.inputs["contents"] == [
-        question_content.dict(),
-        tool_call_content.dict(),
-        tool_response_content.dict(),
+        question_content.model_dump(),
+        tool_call_content.model_dump(),
+        tool_response_content.model_dump(),
     ]
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
@@ -454,9 +454,9 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert span1.inputs["contents"] == [
-        question_content.dict(),
-        tool_call_content.dict(),
-        tool_response_content.dict(),
+        question_content.model_dump(),
+        tool_call_content.model_dump(),
+        tool_response_content.model_dump(),
     ]
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
