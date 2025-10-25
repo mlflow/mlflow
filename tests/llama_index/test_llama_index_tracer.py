@@ -399,7 +399,7 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat" if is_stream else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {"messages": [message.dict()]}
+    assert spans[0].inputs == {"messages": [message.model_dump()]}
     assert spans[0].outputs is None
     events = traces[0].data.spans[0].events
     assert len(events) == 1
