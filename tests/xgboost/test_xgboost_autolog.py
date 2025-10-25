@@ -19,7 +19,10 @@ from mlflow import MlflowClient
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
 from mlflow.types.utils import _infer_schema
-from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
+from mlflow.utils.autologging_utils import (
+    BatchMetricsLogger,
+    picklable_exception_safe_function,
+)
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
 
 mpl.use("Agg")
@@ -788,3 +791,33 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
             }
         }
     )
+
+
+def test_xgb_autolog_filter_none_parameters(bst_params, dtrain):
+    mlflow.xgboost.autolog(log_none_parameters=True)
+    xgb.train(bst_params, dtrain)
+    run1 = get_latest_run()
+    params1 = run1.data.params
+    none_count1 = sum(1 for v in params1.values() if v == "None")
+    mlflow.xgboost.autolog(log_none_parameters=False)
+    xgb.train(bst_params, dtrain)
+    run2 = get_latest_run()
+    params2 = run2.data.params
+    none_count2 = sum(1 for v in params2.values() if v == "None")
+    assert none_count1 > 0, "Default should log None parameters"
+    assert none_count2 == 0, f"Filtered run has {none_count2} None parameters"
+    assert len(params2) < len(params1), "Filtered run should have fewer parameters"
+
+
+def test_xgb_autolog_default_logs_none_params(bst_params, dtrain):
+    """Test backward compatibility: default behavior logs None parameters"""
+
+    mlflow.xgboost.autolog()
+    xgb.train(bst_params, dtrain)
+
+    run = get_latest_run()
+    params = run.data.params
+    none_count = sum(1 for v in params.values() if v == "None")
+
+    assert none_count > 0, "Default behavior should log None parameters"
+    assert len(params) > 5, "Default should log many parameters"
