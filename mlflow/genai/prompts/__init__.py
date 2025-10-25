@@ -148,6 +148,8 @@ def load_prompt(
     name_or_uri: str,
     version: str | int | None = None,
     allow_missing: bool = False,
+    link_to_model: bool = True,
+    model_id: str | None = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -159,6 +161,8 @@ def load_prompt(
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
+        link_to_model: If True, link the prompt to the model.
+        model_id: The ID of the model to link the prompt to. Only used if link_to_model is True.
 
     Example:
 
@@ -178,7 +182,11 @@ def load_prompt(
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(
-            name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+            link_to_model=link_to_model,
+            model_id=model_id,
         )
 
 
