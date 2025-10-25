@@ -110,8 +110,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         storage_account = match.group(2)
         api_uri_suffix = match.group(3)
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return container, storage_account, path, api_uri_suffix
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -180,8 +179,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
             if is_dir(result):
                 subdir = posixpath.relpath(path=result.name, start=artifact_path)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:  # Just a plain old blob
                 file_name = posixpath.relpath(path=result.name, start=artifact_path)

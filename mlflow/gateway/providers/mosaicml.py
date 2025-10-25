@@ -82,9 +82,7 @@ class MosaicMLProvider(BaseProvider):
 
         # Remove the last </s><s> tags if they exist to allow for
         # assistant completion prompts.
-        if prompt.endswith("</s><s>"):
-            prompt = prompt[:-7]
-        return prompt
+        return prompt.removesuffix("</s><s>")
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder

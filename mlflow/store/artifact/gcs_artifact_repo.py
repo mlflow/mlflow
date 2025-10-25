@@ -85,8 +85,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if parsed.scheme != "gs":
             raise Exception(f"Not a GCS URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     def _get_bucket(self, bucket):

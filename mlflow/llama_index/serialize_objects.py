@@ -152,7 +152,7 @@ def serialize_settings(path: str) -> None:
         def _convert(obj):
             object_json = object_to_dict(obj)
             if object_json is None:
-                prop_name = k[1:] if k.startswith("_") else k
+                prop_name = k.removeprefix("_")
                 unsupported_objects.append((prop_name, v))
             return object_json
 
@@ -183,6 +183,5 @@ def deserialize_settings(path: str):
 
     for k, v in settings_dict.items():
         # To use the property setter rather than directly setting the private attribute e.g. _llm
-        if k.startswith("_"):
-            k = k[1:]
+        k = k.removeprefix("_")
         setattr(Settings, k, v)

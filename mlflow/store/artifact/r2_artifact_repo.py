@@ -63,8 +63,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         path = parsed.path
 
         bucket = host.split("@")[0]
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return bucket, path
 
     @staticmethod

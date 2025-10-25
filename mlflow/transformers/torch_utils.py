@@ -42,8 +42,7 @@ def _deserialize_torch_dtype(dtype_str: str) -> torch.dtype:
             error_code=INVALID_PARAMETER_VALUE,
         ) from e
 
-    if dtype_str.startswith("torch."):
-        dtype_str = dtype_str[6:]
+    dtype_str = dtype_str.removeprefix("torch.")
 
     dtype = getattr(torch, dtype_str, None)
     if isinstance(dtype, torch.dtype):
