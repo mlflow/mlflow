@@ -1198,6 +1198,10 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AGi/De": {
+    "defaultMessage": "Loading traces…",
+    "description": "Loading traces message"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
@@ -1857,6 +1861,10 @@
   "Hq/vjk": {
     "defaultMessage": "All",
     "description": "Evaluation review > sidebar list of evaluation results > filter control > option for filtering evaluation results with no filter"
+  },
+  "HrDWRj": {
+    "defaultMessage": "Compare",
+    "description": "Compare traces button"
   },
   "Hvznjh": {
     "defaultMessage": "Assistant",
@@ -2801,6 +2809,10 @@
     "defaultMessage": "Request",
     "description": "Experiment page > traces table > input column header"
   },
+  "TS1dn7": {
+    "defaultMessage": "Assessments",
+    "description": "Header label for the assessments section in the comparison view"
+  },
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"
@@ -3658,6 +3670,10 @@
   "c4KA32": {
     "defaultMessage": "An error occurred while attempting to fetch the trace data. Please wait a moment and try again.",
     "description": "Experiment page > traces data drawer > error state description"
+  },
+  "c4OuCI": {
+    "defaultMessage": "Compare traces",
+    "description": "Compare traces modal title"
   },
   "c5AQYh": {
     "defaultMessage": "Compare by",
