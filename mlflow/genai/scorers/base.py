@@ -36,6 +36,43 @@ class ScorerKind(Enum):
 _ALLOWED_SCORERS_FOR_REGISTRATION = [ScorerKind.BUILTIN, ScorerKind.DECORATOR]
 
 
+def validate_feedback_names_unique(feedbacks: list[Feedback], scorer_name: str) -> None:
+    """
+    Validate that all Feedback objects in a list have unique names.
+
+    Args:
+        feedbacks: List of Feedback objects to validate.
+        scorer_name: Name of the scorer returning these feedbacks (for error messages).
+
+    Raises:
+        MlflowException: If duplicate feedback names are found.
+    """
+    if not feedbacks:
+        return
+
+    feedback_names = [f.name for f in feedbacks]
+
+    # Check for duplicates
+    seen = set()
+    duplicates = set()
+    for name in feedback_names:
+        if name in seen:
+            duplicates.add(name)
+        seen.add(name)
+
+    if duplicates:
+        raise MlflowException.invalid_parameter_value(
+            f"Cannot register scorer '{scorer_name}' because it returns multiple Feedback "
+            f"objects with duplicate names: {feedback_names}. Each Feedback in the returned "
+            f"list must have a unique name. Please specify unique names explicitly:\n\n"
+            f"Example:\n"
+            f"  return [\n"
+            f'      Feedback(name="metric_1", value=True, rationale="..."),\n'
+            f'      Feedback(name="metric_2", value=1.0, rationale="...")\n'
+            f"  ]"
+        )
+
+
 class ScorerStatus(Enum):
     """Status of a scorer.
 
@@ -805,6 +842,37 @@ class Scorer(BaseModel):
             object.__setattr__(copy, "_cached_dump", dict(self._cached_dump))
         return copy
 
+    def _validate_multi_feedback_names(self) -> None:
+        """
+        Validate that if the scorer returns multiple Feedback objects, they all have unique names.
+
+        This is called during registration to catch configuration errors early.
+        """
+        try:
+            # Attempt to call the scorer with None values to see what it returns
+            # This is a best-effort validation - if the scorer can't handle None values,
+            # we skip validation gracefully
+            sig = inspect.signature(self.__call__)
+            params = {param: None for param in sig.parameters if param != "self"}
+            result = self(**params)
+
+            # Only validate if the result is a list of Feedback objects
+            if isinstance(result, list) and len(result) > 0:
+                if all(isinstance(item, Feedback) for item in result):
+                    validate_feedback_names_unique(result, self.name)
+        except MlflowException:
+            # Re-raise MlflowException from validation - these are intentional errors
+            raise
+        except Exception as e:
+            # If the scorer can't be called with None values, skip validation
+            # This is acceptable because:
+            # 1. Not all scorers can handle None inputs
+            # 2. Runtime validation will still catch issues when the scorer is actually used
+            _logger.debug(
+                f"Skipping multi-feedback name validation for scorer '{self.name}' "
+                f"because it cannot be called with None parameters: {e}"
+            )
+
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
         from mlflow.genai.judges.instructions_judge import InstructionsJudge
         from mlflow.genai.scorers.registry import DatabricksStore, _get_scorer_store
@@ -848,6 +916,9 @@ class Scorer(BaseModel):
                 "specify a model value starting with `databricks:/`. "
                 f"Got {model}."
             )
+
+        # Validate that multi-feedback scorers have unique names
+        self._validate_multi_feedback_names()
 
 
 @experimental(version="3.0.0")
