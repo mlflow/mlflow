@@ -2055,6 +2055,7 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
                 content='{"result": "pass", "rationale": "Test passed"}',
                 tool_calls=None,
             )
+            mock_response._hidden_params = {"response_cost": 0.05}
         else:
             call_id = f"call_{len(kwargs['messages'])}"
             mock_response.choices[0].message = litellm.Message(
@@ -2062,6 +2063,7 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
                 content=None,
                 tool_calls=[{"id": call_id, "function": {"name": "get_span", "arguments": "{}"}}],
             )
+            mock_response._hidden_params = {"response_cost": 0.05}
         return mock_response
 
     monkeypatch.setattr("litellm.completion", mock_completion)

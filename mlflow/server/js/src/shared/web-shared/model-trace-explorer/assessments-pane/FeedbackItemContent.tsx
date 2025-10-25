@@ -24,6 +24,30 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
+  const judgeCost = feedback.metadata?.['mlflow.assessment.judgeCost'];
+
+  const formattedCost = (() => {
+    if (judgeCost === null) {
+      return undefined;
+    }
+
+    const numericCost = Number(judgeCost);
+    if (!Number.isFinite(numericCost)) {
+      return undefined;
+    }
+
+    const decimalMatch = String(judgeCost).match(/\.(\d+)/);
+    const truncatedDecimals = Math.min(Math.max(decimalMatch ? decimalMatch[1].length : 0, 2), 6);
+
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: truncatedDecimals,
+      maximumFractionDigits: truncatedDecimals,
+    }).format(numericCost);
+  })();
+  const shouldShowCostSection = Boolean(formattedCost);
+
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginLeft: theme.spacing.lg }}>
       {!isNil(feedback.feedback.error) && <FeedbackErrorItem error={feedback.feedback.error} />}
@@ -87,6 +111,17 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           <div css={{ '& > div:last-of-type': { marginBottom: 0 } }}>
             <GenAIMarkdownRenderer>{feedback.rationale}</GenAIMarkdownRenderer>
           </div>
+        </div>
+      )}
+      {shouldShowCostSection && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Cost"
+              description="Label for the cost metadata associated with a judge feedback"
+            />
+          </Typography.Text>
+          <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
         </div>
       )}
     </div>
