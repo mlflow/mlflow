@@ -527,8 +527,6 @@ transformers:
           "optuna",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
-          # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
-          "sentence-transformers<5.1.1",
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
@@ -537,6 +535,8 @@ transformers:
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
+      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+      "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
