@@ -350,7 +350,7 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'eval-monitor/legacy-llm-evaluation',
-          label: 'LLM Evaluation (Legacy)',
+          label: 'Migrating from MLflow 2 LLM Evaluation',
         },
         {
           type: 'doc',

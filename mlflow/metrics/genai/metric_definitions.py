@@ -3,12 +3,14 @@ from typing import Any
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
 from mlflow.metrics.genai.genai_metric import make_genai_metric
-from mlflow.metrics.genai.utils import _get_latest_metric_version
+from mlflow.metrics.genai.utils import _MIGRATION_GUIDE, _get_latest_metric_version
 from mlflow.models import EvaluationMetric
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.class_utils import _get_class_from_string
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def answer_similarity(
     model: str | None = None,
     metric_version: str | None = None,
@@ -99,6 +101,7 @@ def answer_similarity(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def answer_correctness(
     model: str | None = None,
     metric_version: str | None = None,
@@ -190,6 +193,7 @@ def answer_correctness(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def faithfulness(
     model: str | None = None,
     metric_version: str | None = _get_latest_metric_version(),
@@ -278,6 +282,7 @@ def faithfulness(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def answer_relevance(
     model: str | None = None,
     metric_version: str | None = _get_latest_metric_version(),
@@ -360,6 +365,7 @@ def answer_relevance(
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def relevance(
     model: str | None = None,
     metric_version: str | None = None,
