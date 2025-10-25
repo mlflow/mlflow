@@ -625,7 +625,7 @@ def test_empty_scorers_allowed():
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
     with (
-        mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss,
+        mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss,
         mock.patch("mlflow.genai.evaluation.base.clean_up_extra_traces") as mock_clean_up,
     ):
         mock_evaluate_oss.return_value = mock_result
@@ -655,14 +655,10 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
     mlflow.genai.evaluate(data=traces, scorers=[RelevanceToQuery()])
 
 
-def test_max_workers_env_var(is_in_databricks, monkeypatch):
-    harness_module = (
-        "databricks.rag_eval.evaluation" if is_in_databricks else "mlflow.genai.evaluation"
-    )
-
+def test_max_workers_env_var(monkeypatch):
     def _validate_max_workers(expected_max_workers):
         with mock.patch(
-            f"{harness_module}.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+            "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
         ) as mock_executor:
             mlflow.genai.evaluate(
                 data=[
@@ -684,10 +680,10 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "20")
     _validate_max_workers(20)
 
-    # legacy env var is supported for databricks
-    if is_in_databricks:
-        monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
-        _validate_max_workers(30)
+    # legacy env var for backward compatibility
+    monkeypatch.delenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", raising=False)
+    monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
+    _validate_max_workers(30)
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):

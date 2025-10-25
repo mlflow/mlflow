@@ -17,6 +17,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.telemetry import emit_custom_metric_usage_event_if_databricks
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
     is_none_or_nan,
@@ -26,7 +27,11 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.trace_utils import _does_store_support_trace_linking, create_minimal_trace
+from mlflow.genai.utils.trace_utils import (
+    _does_store_support_trace_linking,
+    batch_link_traces_to_run,
+    create_minimal_trace,
+)
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
@@ -77,9 +82,17 @@ def run(
         ]
         eval_results = complete_eval_futures_with_progress_base(futures)
 
+    # Link traces to the run if the backend support it
+    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
+
+    try:
+        emit_custom_metric_usage_event_if_databricks(scorers, len(eval_items), aggregated_metrics)
+    except Exception as e:
+        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
 
     eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
     return EvaluationResult(
@@ -224,6 +237,11 @@ def _log_assessments(
                 **(assessment.metadata or {}),
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
+
+        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
+        if root_span := trace.data._get_root_span():
+            assessment.span_id = root_span.span_id
+
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
     # Get the trace to fetch newly created assessments.
