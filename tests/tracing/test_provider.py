@@ -421,9 +421,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
         mlflow.tracing.reset()
         tracer = _get_tracer("test")
 
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        assert _MLFLOW_TRACER_PROVIDER is not None
         processors = tracer.span_processor._span_processors
 
         # Should have only OTLP processor as primary
@@ -441,9 +438,6 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
         mlflow.tracing.reset()
         tracer = _get_tracer("test")
 
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        assert _MLFLOW_TRACER_PROVIDER is not None
         processors = tracer.span_processor._span_processors
 
         # Should have both processors

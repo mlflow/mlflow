@@ -62,9 +62,12 @@ _logger = logging.getLogger(__name__)
 
 class _TracerProviderWrapper:
     """
-    A global tracer provider instance isolated from the default OpenTelemetry tracer provider.
-    Used when MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER is set to True.
-    Once() object ensures a function is executed only once in a process.
+    A facade for the tracer provider.
+    MLflow uses two tracer providers depending on the MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER env var.
+    1. Use the global OpenTelemetry tracer provider singleton. This is the default behavior and
+       traces created by MLflow and OpenTelemetry SDK will be exported to the same destination.
+    2. Use an isolated tracer provider instance managed by MLflow. This is useful in an environment
+       where MLflow and OpenTelemetry SDK are used in different purposes.
     """
     def __init__(self):
         self._isolated_tracer_provider = None
@@ -85,6 +88,8 @@ class _TracerProviderWrapper:
         if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
+            # Reset the "once" flag otherwise the update will be ignored
+            self.once.done = False
             trace.set_tracer_provider(tracer_provider)
 
     def get_or_init_tracer(self, module_name: str) -> trace.Tracer:
@@ -113,7 +118,7 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     attributes = {}
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
-    span = provider.get_or_init_tracer(__name__).start_span(name, attributes=attributes)
+    span = _get_tracer(__name__).start_span(name, attributes=attributes)
 
     if experiment_id and getattr(span, "_parent", None):
         _logger.warning(
@@ -146,7 +151,7 @@ def start_detached_span(
     Returns:
         The newly created OpenTelemetry span.
     """
-    tracer = provider.get_or_init_tracer(__name__)
+    tracer = _get_tracer(__name__)
     context = trace.set_span_in_context(parent) if parent else None
     attributes = {}
 
@@ -653,7 +658,7 @@ def is_tracing_enabled() -> bool:
     if not provider.once.done:
         return True
 
-    tracer = provider.get_or_init_tracer(__name__)
+    tracer = _get_tracer(__name__)
     # Occasionally ProxyTracer instance wraps the actual tracer
     if isinstance(tracer, trace.ProxyTracer):
         tracer = tracer._tracer
