@@ -27,8 +27,13 @@ import mlflow.tracking._tracking_service
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
+from mlflow.llama_index.tracer import (
+    StreamResolver,
+    remove_llama_index_tracer,
+    set_llama_index_tracer,
+)
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -804,3 +809,29 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     inner_result_span = next(s for s in spans if s.name == "custom_inner_result_span")
     assert inner_result_span.inputs is not None
     assert inner_result_span.outputs == result
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("should_close", [True, False])
+async def test_stream_resolver_with_async_generator(should_close):
+    async def async_generator():
+        yield "chunk1"
+        yield "chunk2"
+
+    resolver = StreamResolver()
+    tracer = _get_tracer(__name__)
+
+    agen = async_generator()
+    if should_close:
+        async for _ in agen:
+            pass
+
+    with tracer.start_as_current_span("test_closed_async") as otel_span:
+        from mlflow.entities.span import LiveSpan
+
+        trace_id = f"{otel_span.context.trace_id:032x}"
+        span = LiveSpan(otel_span=otel_span, trace_id=trace_id)
+
+        # Should detect that the generator is closed and return False
+        result = resolver.register_stream_span(span, agen)
+        assert result == (not should_close)
