@@ -10,8 +10,9 @@ import { useInvalidateExperimentList } from '../experiment-tracking/components/e
 import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
-import { LogTracesDrawer } from './components/LogTracesDrawer';
 import { HomePageViewStateProvider } from './HomePageViewStateContext';
+import { LogTracesDrawer } from './components/LogTracesDrawer';
+import { RunEvaluationDrawer } from './components/RunEvaluationDrawer';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
@@ -73,6 +74,7 @@ const HomePageContent = () => {
         onExperimentCreated={handleExperimentCreated}
       />
       <LogTracesDrawer />
+      <RunEvaluationDrawer />
     </ScrollablePageWrapper>
   );
 };

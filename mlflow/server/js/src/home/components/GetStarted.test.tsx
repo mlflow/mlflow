@@ -36,7 +36,7 @@ describe('GetStarted', () => {
       const defaultMessage = getQuickActionDefaultMessage(action.title);
       const element = screen.getByText(defaultMessage);
       expect(element).toBeInTheDocument();
-      if (action.id === 'log-traces') {
+      if (action.id === 'log-traces' || action.id === 'run-evaluation') {
         expect(element.closest('button')).not.toBeNull();
       } else {
         expect(element.closest('a')).not.toBeNull();
@@ -44,7 +44,7 @@ describe('GetStarted', () => {
     });
   });
 
-  it('renders non log traces quick actions as external links', () => {
+  it('renders quick actions as buttons or links depending on configuration', () => {
     renderWithDesignSystem(
       <HomePageViewStateProvider>
         <GetStarted />
@@ -53,7 +53,7 @@ describe('GetStarted', () => {
 
     homeQuickActions.forEach((action) => {
       const defaultMessage = getQuickActionDefaultMessage(action.title);
-      if (action.id === 'log-traces') {
+      if (action.id === 'log-traces' || action.id === 'run-evaluation') {
         const buttonElement = screen.getByText(defaultMessage).closest('button');
         expect(buttonElement).not.toBeNull();
       } else {
@@ -66,13 +66,24 @@ describe('GetStarted', () => {
     });
   });
 
-  const DrawerObserver = ({ onOpen }: { onOpen: jest.Mock }) => {
-    const { isLogTracesDrawerOpen } = useHomePageViewState();
+  const DrawerObserver = ({
+    onLogTracesOpen,
+    onRunEvaluationOpen,
+  }: {
+    onLogTracesOpen?: jest.Mock;
+    onRunEvaluationOpen?: jest.Mock;
+  }) => {
+    const { isLogTracesDrawerOpen, isRunEvaluationDrawerOpen } = useHomePageViewState();
     useEffect(() => {
       if (isLogTracesDrawerOpen) {
-        onOpen();
+        onLogTracesOpen?.();
       }
-    }, [isLogTracesDrawerOpen, onOpen]);
+    }, [isLogTracesDrawerOpen, onLogTracesOpen]);
+    useEffect(() => {
+      if (isRunEvaluationDrawerOpen) {
+        onRunEvaluationOpen?.();
+      }
+    }, [isRunEvaluationDrawerOpen, onRunEvaluationOpen]);
     return null;
   };
 
@@ -80,7 +91,7 @@ describe('GetStarted', () => {
     const onOpen = jest.fn();
     renderWithDesignSystem(
       <HomePageViewStateProvider>
-        <DrawerObserver onOpen={onOpen} />
+        <DrawerObserver onLogTracesOpen={onOpen} />
         <GetStarted />
       </HomePageViewStateProvider>,
     );
@@ -95,6 +106,28 @@ describe('GetStarted', () => {
     });
 
     await userEvent.click(logTracesButton);
+    expect(onOpen).toHaveBeenCalled();
+  });
+
+  it('opens run evaluation drawer state when quick action is clicked', async () => {
+    const onOpen = jest.fn();
+    renderWithDesignSystem(
+      <HomePageViewStateProvider>
+        <DrawerObserver onRunEvaluationOpen={onOpen} />
+        <GetStarted />
+      </HomePageViewStateProvider>,
+    );
+
+    const runEvaluationAction = homeQuickActions.find((action) => action.id === 'run-evaluation');
+    if (!runEvaluationAction) {
+      throw new Error('Run evaluation quick action is not defined');
+    }
+
+    const runEvaluationButton = screen.getByRole('button', {
+      name: new RegExp(getQuickActionDefaultMessage(runEvaluationAction.title), 'i'),
+    });
+
+    await userEvent.click(runEvaluationButton);
     expect(onOpen).toHaveBeenCalled();
   });
 });
