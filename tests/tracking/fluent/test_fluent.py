@@ -730,6 +730,14 @@ def test_start_run_resumes_existing_run_and_sets_user_specified_tags():
     assert tags_to_set.items() <= restarted_run.data.tags.items()
 
 
+def test_start_run_resumes_existing_run_and_update_run_name():
+    run_id = mlflow.start_run(run_name="old_name").info.run_id
+    mlflow.end_run()
+    mlflow.start_run(run_id, run_name="new_name")
+    assert MlflowClient().get_run(run_id).info.run_name == "new_name"
+    mlflow.end_run()
+
+
 def test_start_run_with_parent():
     parent_run = mock.Mock()
     mock_experiment_id = "123456"
