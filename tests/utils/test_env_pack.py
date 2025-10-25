@@ -10,6 +10,8 @@ import yaml
 
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+from mlflow.utils.env_pack import _validate_env_pack, EnvPackConfig
+from mlflow.exceptions import MlflowException
 
 
 @pytest.fixture
@@ -245,6 +247,43 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
             "models:/test-model/1"
         ) as artifacts_dir:
             assert Path(artifacts_dir).exists()
+
+
+def test_validate_env_pack_with_valid_inputs():
+    # valid string should not raise; None should be treated as no-op
+    assert _validate_env_pack("databricks_model_serving") is None
+    assert _validate_env_pack(None) is None
+    cfg = EnvPackConfig(name="databricks_model_serving", install_dependencies=True)
+    assert _validate_env_pack(cfg) is None
+
+
+def test_validate_env_pack_with_invalid_string_raises():
+    with pytest.raises(MlflowException.invalid_parameter_value):
+        _validate_env_pack("something_else")
+
+
+def test_validate_env_pack_with_valid_config_false_install():
+    cfg = EnvPackConfig(name="databricks_model_serving", install_dependencies=False)
+    assert _validate_env_pack(cfg) is None
+
+
+def test_validate_env_pack_with_invalid_name_in_config_raises():
+    cfg = EnvPackConfig(name="other", install_dependencies=True)
+    with pytest.raises(MlflowException.invalid_parameter_value):
+        _validate_env_pack(cfg)
+
+
+def test_validate_env_pack_with_non_bool_install_dependencies_raises():
+    # install_dependencies must be a bool
+    cfg = EnvPackConfig(name="databricks_model_serving", install_dependencies="yes")
+    with pytest.raises(MlflowException.invalid_parameter_value):
+        _validate_env_pack(cfg)
+
+
+def test_validate_env_pack_with_unexpected_type_raises():
+    # dicts or other types are not supported by the validator
+    with pytest.raises(MlflowException.invalid_parameter_value):
+        _validate_env_pack({"name": "databricks_model_serving"})
 
 
 def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
