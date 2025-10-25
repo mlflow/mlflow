@@ -44,7 +44,12 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     stage_model_for_databricks_model_serving,
 )
-from mlflow.utils.env_pack import EnvPackType, EnvPackConfig, pack_env_for_databricks_model_serving
+from mlflow.utils.env_pack import (
+    EnvPackType,
+    EnvPackConfig,
+    pack_env_for_databricks_model_serving,
+    _validate_env_pack,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
@@ -203,9 +208,14 @@ def _register_model(
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
     # Passing in the string value is a shortcut for passing in the EnvPackConfig
-    if env_pack == "databricks_model_serving" or (
-        isinstance(env_pack, EnvPackConfig) and env_pack.name == "databricks_model_serving"
-    ):
+    # Validate early; `_validate_env_pack` will raise on invalid inputs and is a no-op
+    # (returns None) for valid values or None.
+    _validate_env_pack(env_pack)
+    is_databricks_env_pack = env_pack is not None
+
+    # If env_pack is supported and indicates Databricks Model Serving, pack env and
+    # log the resulting artifacts.
+    if is_databricks_env_pack:
         install_dependencies = (
             env_pack.install_dependencies if isinstance(env_pack, EnvPackConfig) else True
         )
@@ -265,10 +275,8 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    # Passing in the string value is a shortcut for passing in the EnvPackConfig
-    if env_pack == "databricks_model_serving" or (
-        isinstance(env_pack, EnvPackConfig) and env_pack.name == "databricks_model_serving"
-    ):
+    # If env_pack exists, attempt staging the model for model serving.
+    if is_databricks_env_pack:
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "

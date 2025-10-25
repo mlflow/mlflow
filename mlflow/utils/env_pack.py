@@ -9,6 +9,7 @@ from typing import Generator, Literal
 from dataclasses import dataclass
 
 import yaml
+from mlflow.exceptions import MlflowException
 
 from mlflow.artifacts import download_artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -28,6 +29,46 @@ class EnvPackConfig:
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
+
+
+def _validate_env_pack(env_pack):
+    """Checks if env_pack is a supported value
+
+    Supported values are:
+    - the string "databricks_model_serving"
+    - an ``EnvPackConfig`` with ``name == 'databricks_model_serving'`` and a boolean
+      ``install_dependencies`` field.
+    - None
+    """
+    # No env_pack provided
+    if env_pack is None:
+        return
+
+    # Shortcut: string value
+    if isinstance(env_pack, str):
+        if env_pack == "databricks_model_serving":
+            return
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid env_pack value: {env_pack!r}. Expected: 'databricks_model_serving'."
+        )
+
+    # EnvPackConfig
+    if isinstance(env_pack, EnvPackConfig):
+        if env_pack.name != "databricks_model_serving":
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid EnvPackConfig.name: {env_pack.name!r}. Expected 'databricks_model_serving'."
+            )
+        if not isinstance(env_pack.install_dependencies, bool):
+            raise MlflowException.invalid_parameter_value(
+                "EnvPackConfig.install_dependencies must be a bool."
+            )
+        return
+
+    # Anything else is invalid
+    raise MlflowException.invalid_parameter_value(
+        "env_pack must be either None, the string 'databricks_model_serving', or an EnvPackConfig "
+        "with a boolean 'install_dependencies' field."
+    )
 
 
 def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
