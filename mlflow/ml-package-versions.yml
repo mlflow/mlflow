@@ -527,6 +527,8 @@ transformers:
           "optuna",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
+          # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+          "sentence-transformers<5.1.1",
         ]
       ">= 4.38.2": ["tf-keras"] # Transformers doesn't support Keras 3.0. tf-keras needs to be installed.
       # hf_hub>=0.24.0 is broken with setfit<=1.0.3. the incompatibility was fixed in setfit>=1.1, but
