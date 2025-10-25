@@ -22,7 +22,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
@@ -274,9 +274,6 @@ def evaluate(
         result = _evaluate_dbx(data, scorers, predict_fn, model_id)
     else:
         result = _evaluate_oss(data, scorers, predict_fn, model_id)
-
-    # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(result.run_id, eval_start_time)
 
     return result
 

@@ -4915,6 +4915,10 @@
     "defaultMessage": "Dataset tracking",
     "description": "Home page news card title four"
   },
+  "oBJ8xc": {
+    "defaultMessage": "Cost",
+    "description": "Label for the cost metadata associated with a judge feedback"
+  },
   "oBKd1E": {
     "defaultMessage": "Value",
     "description": "Column title for value column in editable tags table view in MLflow"
