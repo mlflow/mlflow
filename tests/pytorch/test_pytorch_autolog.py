@@ -1,3 +1,5 @@
+from unittest import mock
+
 import numpy as np
 import pytest
 import pytorch_lightning as pl
@@ -116,6 +118,28 @@ def test_pytorch_autolog_log_model_signature(use_ddp):
     model_signature = mlflow.models.get_model_info(logged_model.model_uri).signature
     assert model_signature.inputs == Schema([TensorSpec(np.dtype("float32"), (-1, 4))])
     assert model_signature.outputs == Schema([TensorSpec(np.dtype("float32"), (-1, 3))])
+
+
+def test_pytorch_autolog_log_model_signature_infer_fail():
+    mlflow.pytorch.autolog()
+    model = IrisClassification()
+    dm = IrisDataModule()
+    dm.setup(stage="fit")
+    trainer = pl.Trainer(max_epochs=2)
+    with (
+        mock.patch(
+            "mlflow.pytorch._lightning_autolog.infer_signature",
+            side_effect=RuntimeError("infer-failure-XXYY"),
+        ),
+        mock.patch("mlflow.pytorch._lightning_autolog._logger.warning") as patched_warning,
+    ):
+        trainer.fit(model, dm)
+
+        warning_call_msg = patched_warning.call_args_list[0].args[0]
+        assert "Inferring model signature failed" in warning_call_msg
+        assert "infer-failure-XXYY" in warning_call_msg
+    logged_model = mlflow.last_logged_model()
+    assert mlflow.models.get_model_info(logged_model.model_uri).signature is None
 
 
 def test_pytorch_autolog_logs_default_params(pytorch_model):

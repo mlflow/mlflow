@@ -10,6 +10,7 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.models import infer_signature
 from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils import gorilla
 from mlflow.utils.autologging_utils import (
@@ -530,7 +531,6 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
-    from mlflow.models import infer_signature
     from mlflow.pytorch import _is_forecasting_model
 
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
@@ -661,7 +661,9 @@ def patched_fit(original, self, *args, **kwargs):
                 except Exception as e:
                     _logger.warning(
                         "Inferring model signature failed, skip logging signature. "
-                        f"root cause: {e!r}."
+                        "You need to manually log the model with a provided signature after "
+                        f"training. root cause: {e!r}.",
+                        exc_info=True,
                     )
 
             if early_stop_callback is not None:
