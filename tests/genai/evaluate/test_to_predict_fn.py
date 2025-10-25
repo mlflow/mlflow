@@ -8,8 +8,29 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 
-from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import V2_TRACE_DICT
+
+_DUMMY_CHAT_RESPONSE = {
+    "id": "1",
+    "object": "text_completion",
+    "created": "2021-10-01T00:00:00.000000Z",
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "content": "This is a response",
+                "role": "assistant",
+            },
+            "finish_reason": "length",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "total_tokens": 2,
+    },
+}
 
 
 @pytest.fixture
