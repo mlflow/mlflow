@@ -118,6 +118,8 @@ tensorflow:
       # Requirements to run tests for keras
       ">= 0.0.0": ["scikit-learn", "pyspark", "pyarrow", "transformers!=4.38.0,!=4.38.1"]
       "== 2.15.1": ["transformers<4.39.0"]
+      # keras 3.4.0 has bug https://github.com/keras-team/keras/pull/19924
+      ">= 2.16.1": ["keras!=3.4.0"]
     run: |
       pytest \
         tests/tensorflow/test_tensorflow2_core_model_export.py \
