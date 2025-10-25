@@ -1,0 +1,18 @@
+.codeBlockHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  background:var(--prism-background-color);
+  position: sticky;
+  top:50px;
+
+}
+
+.languageLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: grey;
+  padding: 5px;
+  top:0px;
+}
