@@ -217,6 +217,48 @@ def test_validate_field_paths_suggestions():
     assert "info.trace_id" in error_msg
 
 
+def test_wildcard_with_dotted_field_names():
+    data = {
+        "data": {
+            "spans": [
+                {
+                    "span_id": "span-1",
+                    "attributes": {
+                        "mlflow.spanType": "AGENT",
+                        "mlflow.spanName": "agent_1",
+                        "regular_attr": "value1",
+                    },
+                },
+                {
+                    "span_id": "span-2",
+                    "attributes": {
+                        "mlflow.spanType": "CHAIN",
+                        "mlflow.spanName": "chain_1",
+                        "regular_attr": "value2",
+                    },
+                },
+            ]
+        }
+    }
+
+    values = jsonpath_extract_values(data, "data.spans.*.attributes.`mlflow.spanType`")
+    assert values == ["AGENT", "CHAIN"]
+
+    filtered = filter_json_by_fields(data, ["data.spans.*.attributes.`mlflow.spanType`"])
+    assert len(filtered["data"]["spans"]) == 2
+    assert filtered["data"]["spans"][0]["attributes"]["mlflow.spanType"] == "AGENT"
+    assert filtered["data"]["spans"][1]["attributes"]["mlflow.spanType"] == "CHAIN"
+    assert "mlflow.spanName" not in filtered["data"]["spans"][0]["attributes"]
+    assert "regular_attr" not in filtered["data"]["spans"][0]["attributes"]
+    filtered2 = filter_json_by_fields(
+        data,
+        ["data.spans.*.attributes.`mlflow.spanType`", "data.spans.*.attributes.`mlflow.spanName`"],
+    )
+    assert filtered2["data"]["spans"][0]["attributes"]["mlflow.spanType"] == "AGENT"
+    assert filtered2["data"]["spans"][0]["attributes"]["mlflow.spanName"] == "agent_1"
+    assert "regular_attr" not in filtered2["data"]["spans"][0]["attributes"]
+
+
 def test_complex_trace_structure():
     """Test with realistic trace data structure."""
     trace_data = {
