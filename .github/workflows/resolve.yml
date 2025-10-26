@@ -17,7 +17,6 @@ jobs:
   precheck:
     runs-on: ubuntu-latest
     permissions:
-      issues: write
       pull-requests: write
     timeout-minutes: 5
     if: >
@@ -98,7 +97,6 @@ jobs:
     needs: precheck
     runs-on: ubuntu-latest
     permissions:
-      issues: read
       pull-requests: read
     timeout-minutes: 30
     steps:
@@ -182,7 +180,6 @@ jobs:
       !contains(needs.*.result, 'skipped')
     runs-on: ubuntu-latest
     permissions:
-      issues: write
       pull-requests: write
     timeout-minutes: 5
     steps:
