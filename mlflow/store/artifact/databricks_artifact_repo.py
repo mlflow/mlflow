@@ -130,6 +130,16 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         )
         self.resource = self._extract_resource(self.artifact_uri)
 
+    @property
+    def _requires_proxy_safe_uploads(self) -> bool:
+        """Databricks storage proxy requires serialized Azure uploads.
+
+        Azure block uploads through the Databricks storage proxy can cause 500 errors
+        when put_block_list operations overlap. GCP uploads use simple PUT and remain
+        safe to parallelize.
+        """
+        return True
+
     def _extract_resource(self, artifact_uri) -> _Resource:
         """
         The artifact_uri is expected to be in one of the following formats:

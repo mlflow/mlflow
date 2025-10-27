@@ -113,32 +113,43 @@ class CloudArtifactRepository(ArtifactRepository):
         # See: https://superfastpython.com/threadpoolexecutor-deadlock/
         self.chunk_thread_pool = self._create_thread_pool()
 
+    @property
+    def _requires_proxy_safe_uploads(self) -> bool:
+        """Whether uploads need Databricks storage proxy-safe serialization.
+
+        Returns False by default (enables parallel uploads for direct cloud access).
+        Subclasses like DatabricksArtifactRepository should override to return True
+        when uploading through the Databricks storage proxy.
+        """
+        return False
+
     def log_artifacts(self, local_dir, artifact_path=None):
         """Upload all files from local_dir to the cloud artifact store.
 
         This method handles three cloud providers with different upload strategies:
         - AWS: Small files use simple PUT with presigned URLs, large files use multipart upload
-        - Azure/GCP: All files use PUT with SAS tokens (Azure uses block uploads)
+        - Azure: All files use block uploads with put_block_list to commit blocks
+        - GCP: All files use simple PUT requests
+
+        Upload Parallelization:
+        By default, all uploads are parallelized for maximum performance. This is safe for:
+        - Direct cloud access (S3, Azure Blob, GCS)
+        - Non-Databricks deployments
 
         Databricks Storage Proxy Compatibility:
-        When uploading through Databricks storage proxies, the proxy maintains internal state
-        for credential exchanges and block upload operations. To avoid race conditions:
+        When uploading through Databricks storage proxies (_requires_proxy_safe_uploads=True),
+        special handling is applied:
 
-        1. Batch ALL credential requests upfront (one batch API call, not N individual calls)
-           - Concurrent credential requests to the same artifact path can cause proxy conflicts
-           - Requesting credentials one-at-a-time while uploads are in progress interferes
-             with the proxy's session management
+        1. Azure: Serialized uploads with adaptive delays (3s base, 5s for >100MB files)
+           - Azure block uploads through the proxy require serialization because overlapping
+             put_block_list operations cause internal proxy state conflicts and 500 errors
+           - Credentials are still batched upfront to avoid N separate API calls
 
-        2. Serialize uploads with adaptive delays
-           - Wait between file uploads to allow proxy internal state cleanup
-           - Larger files need more cleanup time (3s base, 5s for >100MB files)
-           - Azure block uploads in particular need time for put_block_list cleanup
+        2. GCP: Parallel uploads (no special handling needed)
+           - GCP uses simple PUT requests without block upload complexity
+           - Safe to parallelize even through the Databricks storage proxy
 
-        3. Separate small and large files (AWS only)
-           - Small files: batch credentials → parallel upload → wait
-           - Delay for proxy cleanup
-           - Large files: each gets multipart credentials → upload
-           - This avoids mixing simple PUT and multipart operations
+        3. AWS: Small files parallel, then large files (to avoid mixing PUT and multipart)
         """
         artifact_path = artifact_path or ""
 
@@ -290,25 +301,35 @@ class CloudArtifactRepository(ArtifactRepository):
         Azure/GCP Strategy:
         - All files use SAS tokens for upload (no distinction between small/large)
         - Azure uses block uploads with put_block_list to commit blocks
+        - GCP uses simple PUT requests (no block upload complexity)
 
-        Databricks Storage Proxy Serialization:
-        With multiple files, the Databricks storage proxy cannot handle concurrent credential
-        requests or overlapping block upload operations to the same artifact path. We must:
-        1. Fetch ALL credentials in ONE batch request (avoid N separate requests)
-        2. Upload files serially with adaptive delays for proxy state cleanup
-        3. For Azure: Allow extra time after put_block_list operations to complete cleanup
+        Databricks Storage Proxy Serialization (Azure only):
+        When uploading through the Databricks storage proxy, Azure block uploads require
+        serialization because overlapping put_block_list operations cause proxy state conflicts.
+        GCP uploads use simple PUT and can be parallelized safely even through the proxy.
+
+        For direct cloud access (non-proxy), all uploads are parallelized for maximum performance.
         """
         failures = {}
 
-        # Multi-file case: Batch credential fetch, then serialize uploads with adaptive delays
-        if len(batch) > 1:
-            # CRITICAL: Fetch ALL credentials in ONE batch request to avoid proxy conflicts
-            # The Databricks storage proxy maintains session state per artifact path. Requesting
-            # credentials one-at-a-time while uploads are in progress causes state conflicts
-            # and 500 errors. This is especially problematic for Azure block uploads.
-            self._fetch_credentials_for_plans(batch)
+        # Always batch fetch credentials upfront (good practice for proxy and non-proxy)
+        self._fetch_credentials_for_plans(batch)
 
-            # Now upload serially with adaptive delays for proxy cleanup
+        # Determine upload strategy based on cloud type and proxy requirements
+        is_gcp = cloud_type == ArtifactCredentialType.GCP_SIGNED_URL
+        is_azure = cloud_type in (
+            ArtifactCredentialType.AZURE_SAS_URI,
+            ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI,
+        )
+        needs_serialization = is_azure and self._requires_proxy_safe_uploads and len(batch) > 1
+
+        if needs_serialization:
+            # Azure through Databricks storage proxy: serialize with adaptive delays
+            # Block uploads require time for put_block_list cleanup between files
+            _logger.debug(
+                f"Using proxy-safe serialized upload for {len(batch)} Azure file(s) "
+                "to avoid storage proxy block upload conflicts."
+            )
             with ArtifactProgressBar.files(desc="Uploading artifacts", total=len(batch)) as pbar:
                 for idx, plan in enumerate(batch):
                     try:
@@ -323,8 +344,7 @@ class CloudArtifactRepository(ArtifactRepository):
                         pbar.update()
 
                         # Adaptive delay before next upload to avoid storage proxy race condition
-                        # Larger files need more cleanup time, especially for Azure block uploads
-                        # where put_block_list operations require additional proxy cleanup time
+                        # Larger files need more cleanup time for put_block_list operations
                         if idx < len(batch) - 1:
                             delay = _DATABRICKS_UPLOAD_DELAY_SECONDS
                             if plan.file_size > 100 * 1024 * 1024:  # >100MB
@@ -338,9 +358,13 @@ class CloudArtifactRepository(ArtifactRepository):
                     except Exception as e:
                         failures[plan.src_path] = repr(e)
         else:
-            # Single file - no need to worry about proxy state conflicts
-            self._fetch_credentials_for_plans(batch)
-            failures.update(self._upload_files_parallel(batch, wait=False))
+            # GCP (always) or Azure (direct access): parallel upload for best performance
+            if is_gcp and self._requires_proxy_safe_uploads and len(batch) > 1:
+                _logger.debug(
+                    f"Using parallel upload for {len(batch)} GCP file(s). "
+                    "GCP simple PUT uploads are safe even through storage proxy."
+                )
+            failures.update(self._upload_files_parallel(batch, wait=True))
 
         return failures
 
