@@ -55,7 +55,6 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert spans[0].parent_id is None
     assert spans[0].status.status_code == SpanStatusCode.OK
     assert spans[1].name == "mlflow_span"
-    print(spans[1].attributes)
     assert spans[1].attributes["key3"] == "value3"
     assert spans[1].events == []
     assert spans[1].parent_id == spans[0].span_id

@@ -51,7 +51,7 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
                     span.context.trace_id
                 )
 
-        self._trace_manager.register_span(create_mlflow_span(root_span, trace_id))
+        self._trace_manager.register_span(create_mlflow_span(span, trace_id))
         super().on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan):

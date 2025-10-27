@@ -9,6 +9,7 @@ import mlflow.tracking._tracking_service
 from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLocation
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
+    MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER,
     MLFLOW_TRACE_SAMPLING_RATIO,
 )
 from mlflow.exceptions import MlflowTracingException
@@ -262,7 +263,9 @@ def test_trace_disabled_decorator(enabled_initially):
         assert enable_mock.call_count == (1 if enabled_initially else 0)
 
 
-def test_disable_enable_tracing_not_mutate_otel_provider():
+def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.name, "true")
+
     # This test validates that disable/enable MLflow tracing does not mutate the OpenTelemetry's
     # global tracer provider instance.
     otel_tracer_provider = trace.get_tracer_provider()

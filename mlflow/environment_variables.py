@@ -700,7 +700,7 @@ MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EX
 #: you want to avoid conflicts with other telemetry clients.
 #: (default: ``False``)
 MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER = _BooleanEnvironmentVariable(
-    "MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER", True
+    "MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER", False
 )
 
 # Default addressing style to use for boto client
