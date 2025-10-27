@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import Extra, Field
+from pydantic import ConfigDict, Field
 
 from mlflow.langchain._compat import (
     import_async_callback_manager_for_chain_run,
@@ -52,11 +52,7 @@ class _RetrieverChain(Chain):
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     @property
     def input_keys(self) -> list[str]:

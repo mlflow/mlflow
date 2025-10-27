@@ -417,6 +417,118 @@ def test_databricks_profile_uri_support():
         )
 
 
+def test_databricks_profile_env_var_set_from_uri(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_values_during_calls = []
+
+    def mock_get_dataset(name):
+        profile_values_during_calls.append(
+            ("get_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_create_dataset(name, experiment_ids):
+        profile_values_during_calls.append(
+            ("create_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+        return mock_dataset
+
+    def mock_delete_dataset(name):
+        profile_values_during_calls.append(
+            ("delete_dataset", os.environ.get("DATABRICKS_CONFIG_PROFILE"))
+        )
+
+    mock_agents_module = mock.Mock(
+        get_dataset=mock_get_dataset,
+        create_dataset=mock_create_dataset,
+        delete_dataset=mock_delete_dataset,
+    )
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    get_dataset(name="catalog.schema.table")
+    create_dataset(name="catalog.schema.table", experiment_id="exp1")
+    delete_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    assert profile_values_during_calls == [
+        ("get_dataset", "myprofile"),
+        ("create_dataset", "myprofile"),
+        ("delete_dataset", "myprofile"),
+    ]
+
+
+def test_databricks_profile_env_var_overridden_and_restored(monkeypatch):
+    mock_dataset = mock.Mock()
+    profile_during_call = None
+
+    def mock_get_dataset(name):
+        nonlocal profile_during_call
+        profile_during_call = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "original_profile")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+
+    get_dataset(name="catalog.schema.table")
+
+    assert os.environ.get("DATABRICKS_CONFIG_PROFILE") == "original_profile"
+    assert profile_during_call == "myprofile"
+
+
+def test_databricks_dataset_merge_records_uses_profile(monkeypatch):
+    profile_during_merge = None
+    profile_during_to_df = None
+
+    mock_inner_dataset = mock.Mock()
+    mock_inner_dataset.digest = "test_digest"
+    mock_inner_dataset.name = "catalog.schema.table"
+    mock_inner_dataset.dataset_id = "dataset-123"
+
+    def mock_merge_records(records):
+        nonlocal profile_during_merge
+        profile_during_merge = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        return mock_inner_dataset
+
+    def mock_to_df():
+        nonlocal profile_during_to_df
+        profile_during_to_df = os.environ.get("DATABRICKS_CONFIG_PROFILE")
+        import pandas as pd
+
+        return pd.DataFrame({"test": [1, 2, 3]})
+
+    mock_inner_dataset.merge_records = mock_merge_records
+    mock_inner_dataset.to_df = mock_to_df
+
+    def mock_get_dataset(name):
+        return mock_inner_dataset
+
+    mock_agents_module = mock.Mock(get_dataset=mock_get_dataset)
+    monkeypatch.setitem(sys.modules, "databricks.agents.datasets", mock_agents_module)
+    monkeypatch.setattr("mlflow.genai.datasets.get_tracking_uri", lambda: "databricks://myprofile")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset = get_dataset(name="catalog.schema.table")
+
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.merge_records([{"inputs": {"q": "test"}}])
+    assert profile_during_merge == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+    dataset.to_df()
+    assert profile_during_to_df == "myprofile"
+    assert "DATABRICKS_CONFIG_PROFILE" not in os.environ
+
+
 def test_create_dataset_with_user_tag(tracking_uri, experiments):
     dataset = create_dataset(
         name="test_user_attribution",

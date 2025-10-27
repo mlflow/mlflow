@@ -6,6 +6,7 @@ import subprocess
 import sys
 import warnings
 from dataclasses import dataclass
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -166,7 +167,7 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
                 )
             with open(output_file_path) as output_file:
                 stdout = output_file.read()
-        actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
+        actual = pd.read_json(BytesIO(scoring_response.content), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
@@ -345,7 +346,7 @@ def test_predict_stdin_stdout(predict_test_setup: PredictTestData) -> None:
         text=True,
     )
     predictions = re.search(r"{\"predictions\": .*}", stdout).group(0)
-    actual = pd.read_json(predictions, orient="records")
+    actual = pd.read_json(StringIO(predictions), orient="records")
     actual = actual[actual.columns[0]].values
     expected = setup.sk_model.predict(setup.x)
     assert all(expected == actual)

@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Any, Generator
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
-from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
@@ -71,28 +70,10 @@ class TraceJSONEncoder(json.JSONEncoder):
 
     def default(self, obj):
         try:
-            import langchain
-
-            # LangChain < 0.3.0 does some trick to support Pydantic 1.x and 2.x, so checking
-            # type with installed Pydantic version might not work for some models.
-            # https://github.com/langchain-ai/langchain/blob/b66a4f48fa5656871c3e849f7e1790dfb5a4c56b/libs/core/langchain_core/pydantic_v1/__init__.py#L7
-            if Version(langchain.__version__) < Version("0.3.0"):
-                from langchain_core.pydantic_v1 import BaseModel as LangChainBaseModel
-
-                if isinstance(obj, LangChainBaseModel):
-                    return obj.dict()
-        except ImportError:
-            pass
-
-        try:
             import pydantic
 
             if isinstance(obj, pydantic.BaseModel):
-                # NB: Pydantic 2.0+ has a different API for model serialization
-                if Version(pydantic.VERSION) >= Version("2.0"):
-                    return obj.model_dump()
-                else:
-                    return obj.dict()
+                return obj.model_dump()
         except ImportError:
             pass
 
@@ -135,6 +116,13 @@ class TraceJSONEncoder(json.JSONEncoder):
             pass
 
         return True
+
+
+def dump_span_attribute_value(value: Any) -> str:
+    # NB: OpenTelemetry attribute can store not only string but also a few primitives like
+    #   int, float, bool, and list of them. However, we serialize all into JSON string here
+    #   for the simplicity in deserialization process.
+    return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
 
 
 @lru_cache(maxsize=1)
@@ -210,7 +198,10 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
     for span in spans:
         if count := span_name_counter.get(span._original_name):
             span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
+            # only rename starting from the second duplicate, to be consistent with the case
+            # each span is exported individually and deduplication doesn't apply to the first span.
+            if count > 1:
+                span._span._name = f"{span._original_name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
@@ -479,10 +470,10 @@ def set_span_chat_tools(span: LiveSpan, tools: list[ChatTool]):
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
-            ChatTool.validate_compat(tool)
+            ChatTool.model_validate(tool)
             sanitized_tools.append(tool)
         elif isinstance(tool, ChatTool):
-            sanitized_tools.append(tool.model_dump_compat(exclude_unset=True))
+            sanitized_tools.append(tool.model_dump(exclude_unset=True))
 
     span.set_attribute(SpanAttributeKey.CHAT_TOOLS, sanitized_tools)
 

@@ -462,7 +462,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     model_config["bound"] = _save_internal_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
-    for field, value in model.dict().items():
+    for field, value in model.model_dump().items():
         if _is_json_primitive(value):
             model_config[field] = value
         elif field != "bound":

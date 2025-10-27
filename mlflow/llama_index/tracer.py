@@ -40,7 +40,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_tools
-from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
 
@@ -294,7 +293,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
-            if params_str := metadata.json(exclude_unset=True):
+            if params_str := metadata.model_dump_json(exclude_unset=True):
                 attr["invocation_params"] = json.loads(params_str)
         return attr
 
@@ -433,7 +432,7 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
         if raw := response.raw:
             # The raw response can be a Pydantic model or a dictionary
             if isinstance(raw, pydantic.BaseModel):
-                raw = model_dump_compat(raw)
+                raw = raw.model_dump()
 
             if usage := raw.get("usage"):
                 return usage
