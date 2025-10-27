@@ -63,6 +63,10 @@ class _SlowModel:
         time.sleep(1)
 
 
+@pytest.mark.skip(
+    reason="batch_get_traces only return full traces for now, re-enable this test "
+    "when batch_get_traces is updated to support partial traces"
+)
 def test_trace_halted_after_timeout(monkeypatch):
     # When MLFLOW_TRACE_TIMEOUT_SECONDS is set, MLflow should halt the trace after
     # the timeout and log it to the backend with an error status
