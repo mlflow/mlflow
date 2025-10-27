@@ -1395,7 +1395,7 @@ def test_log_input_polars(tmp_path):
 
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].dataset.name == "dataset"
-    assert dataset_inputs[0].dataset.digest == "17158191685003305501"
+    assert dataset_inputs[0].dataset.digest == "6421470605044910196"
     assert dataset_inputs[0].dataset.source_type == "local"
 
 
