@@ -147,6 +147,11 @@ def create_experiments(store, experiment_names):
     return ids
 
 
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="file-based tracking backend.*is deprecated"):
+        FileStore(str(tmp_path / "mlruns"))
+
+
 def test_valid_root(store):
     store._check_root_dir()
     shutil.rmtree(store.root_directory)
