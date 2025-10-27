@@ -2574,7 +2574,7 @@ def test_make_judge_validates_result_type():
 
     with pytest.raises(
         MlflowException,
-        match="Unsupported result_type: <class 'tests.genai.judges.test_make_judge.CustomModel'>",
+        match=r"Unsupported result_type: .+CustomModel.+Only str, int, float, bool, and Literal types are supported",
     ):
         make_judge(
             name="invalid_judge",

@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Literal, get_args, get_origin
 
 import pydantic
 from pydantic import PrivateAttr
@@ -465,16 +465,71 @@ class InstructionsJudge(Judge):
             f"template_variables={sorted(self.template_variables)})"
         )
 
+    @staticmethod
+    def _serialize_response_format(response_format: type) -> dict[str, Any]:
+        """
+        Serialize a response_format type to a JSON-compatible dict.
+
+        Supports: str, int, float, bool, and Literal types.
+        """
+        # Handle basic types
+        if response_format in (str, int, float, bool):
+            return {"type": response_format.__name__}
+
+        # Handle Literal types
+        if get_origin(response_format) is Literal:
+            literal_values = get_args(response_format)
+            return {"type": "Literal", "values": list(literal_values)}
+
+        # Unsupported type
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported response_format type: {response_format}. "
+            f"Only str, int, float, bool, and Literal types are supported for serialization."
+        )
+
+    @staticmethod
+    def _deserialize_response_format(serialized: dict[str, Any]) -> type:
+        """
+        Deserialize a response_format from a JSON-compatible dict.
+
+        Supports: str, int, float, bool, and Literal types.
+        """
+        if not isinstance(serialized, dict) or "type" not in serialized:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid response_format serialization: {serialized}"
+            )
+
+        type_name = serialized["type"]
+
+        # Handle basic types
+        if type_name == "str":
+            return str
+        elif type_name == "int":
+            return int
+        elif type_name == "float":
+            return float
+        elif type_name == "bool":
+            return bool
+        elif type_name == "Literal":
+            if "values" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"Literal type missing 'values' field: {serialized}"
+                )
+            # Reconstruct Literal type
+            return Literal[tuple(serialized["values"])]
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported response_format type: {type_name}"
+            )
+
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
-        from mlflow.genai.scorers.base import Scorer
-
         pydantic_data = {
             "instructions": self._instructions,
             "model": self._model,
         }
         if self._result_type is not None:
-            pydantic_data["result_type"] = Scorer._serialize_response_format(self._result_type)
+            pydantic_data["result_type"] = self._serialize_response_format(self._result_type)
 
         serialized_scorer = SerializedScorer(
             name=self.name,
