@@ -2574,7 +2574,7 @@ def test_make_judge_validates_result_type():
 
     with pytest.raises(
         MlflowException,
-        match=r"Unsupported result_type: .+CustomModel.+Only str, int, float, bool, and Literal types are supported",
+        match=r"Unsupported result_type: .+CustomModel.+Only str, int, float, bool, and Literal",
     ):
         make_judge(
             name="invalid_judge",
