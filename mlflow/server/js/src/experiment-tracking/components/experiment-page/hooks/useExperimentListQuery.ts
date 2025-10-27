@@ -1,7 +1,7 @@
 import type { QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import type { CursorPaginationProps } from '@databricks/design-system';
@@ -94,6 +94,40 @@ export const useExperimentListQuery = ({
     version: 0,
     initialValue: [{ id: 'last_update_time', desc: true }],
   });
+
+  // Track previous filter/sorting values to detect actual changes
+  const prevFiltersRef = useRef<{
+    searchFilter?: string;
+    tagsFilter?: TagFilter[];
+    sorting?: string; // Serialized for comparison
+  }>({
+    searchFilter,
+    tagsFilter,
+    sorting: JSON.stringify(sorting),
+  });
+
+  // Reset pagination when filters or sorting changes
+  useEffect(() => {
+    const prevFilters = prevFiltersRef.current;
+    const currentSortingSerialized = JSON.stringify(sorting);
+
+    // Only reset if values actually changed (not just reference changes)
+    if (
+      prevFilters.searchFilter !== searchFilter ||
+      JSON.stringify(prevFilters.tagsFilter) !== JSON.stringify(tagsFilter) ||
+      prevFilters.sorting !== currentSortingSerialized
+    ) {
+      setCurrentPageToken(undefined);
+      previousPageTokens.current = [];
+
+      // Update ref with current values
+      prevFiltersRef.current = {
+        searchFilter,
+        tagsFilter,
+        sorting: currentSortingSerialized,
+      };
+    }
+  }, [searchFilter, tagsFilter, sorting]);
 
   const pageSizeSelect: CursorPaginationProps['pageSizeSelect'] = {
     options: [10, 25, 50, 100],
