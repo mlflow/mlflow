@@ -137,8 +137,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if parsed.scheme != "s3":
             raise Exception(f"Not an S3 URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     @staticmethod
@@ -290,8 +289,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
                 subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
-                if subdir_rel_path.endswith("/"):
-                    subdir_rel_path = subdir_rel_path[:-1]
+                subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get("Contents", []):

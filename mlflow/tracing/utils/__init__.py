@@ -118,6 +118,13 @@ class TraceJSONEncoder(json.JSONEncoder):
         return True
 
 
+def dump_span_attribute_value(value: Any) -> str:
+    # NB: OpenTelemetry attribute can store not only string but also a few primitives like
+    #   int, float, bool, and list of them. However, we serialize all into JSON string here
+    #   for the simplicity in deserialization process.
+    return json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False)
+
+
 @lru_cache(maxsize=1)
 def encode_span_id(span_id: int) -> str:
     """
