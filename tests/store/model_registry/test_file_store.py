@@ -62,7 +62,7 @@ def rm_data(registered_model_names, tmp_path):
 
 def test_file_store_deprecation_warning(tmp_path):
     with pytest.warns(FutureWarning, match="file-based model registry backend.*is deprecated"):
-        FileStore(str(tmp_path))
+        FileStore(str(tmp_path / "model_registry"))
 
 
 def test_create_registered_model(store):
