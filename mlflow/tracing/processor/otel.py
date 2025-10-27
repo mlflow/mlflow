@@ -1,11 +1,10 @@
-import json
-
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
+from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo, TraceLocation, TraceState
 from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
-from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
@@ -52,8 +51,7 @@ class OtelSpanProcessor(OtelMetricsMixin, BatchSpanProcessor):
                     span.context.trace_id
                 )
 
-            span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
-
+        self._trace_manager.register_span(create_mlflow_span(root_span, trace_id))
         super().on_start(span, parent_context)
 
     def on_end(self, span: OTelReadableSpan):

@@ -48,7 +48,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
-from mlflow.tracing.provider import _get_trace_exporter
+from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
 from mlflow.utils import get_results_from_paginated_fn
@@ -225,6 +225,22 @@ def set_experiment(
     # Set 'MLFLOW_EXPERIMENT_ID' environment variable
     # so that subprocess can inherit it.
     MLFLOW_EXPERIMENT_ID.set(_active_experiment_id)
+
+    try:
+        # Initialize the tracer provider if it is not already initialized. This is necessary
+        # to ensure that the trace provider is configured when users are not using MLflow SDK to
+        # generate the first trace.
+        #
+        # ```python
+        # mlflow.set_experiment("test_experiment")
+        # otel_tracer = otel_trace.get_tracer(__name__)
+        # with otel_tracer.start_as_current_span("parent_span") as root_span:
+        #     root_span.set_attribute("key1", "value1")
+        #     ...
+        # ```
+        _get_tracer(__name__)
+    except Exception:
+        _logger.debug("Failed to initialize the tracer provider.", exc_info=True)
 
     return experiment
 

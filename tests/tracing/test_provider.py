@@ -41,7 +41,7 @@ def mock_setup_tracer_provider():
     # To count the number of times _initialize_tracer_provider is called
     with mock.patch(
         "mlflow.tracing.provider._initialize_tracer_provider",
-        side_effect=_initialize_tracer_provider
+        side_effect=_initialize_tracer_provider,
     ) as setup_mock:
         yield setup_mock
 

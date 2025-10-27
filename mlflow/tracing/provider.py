@@ -69,14 +69,15 @@ class _TracerProviderWrapper:
     2. Use an isolated tracer provider instance managed by MLflow. This is useful in an environment
        where MLflow and OpenTelemetry SDK are used in different purposes.
     """
+
     def __init__(self):
         self._isolated_tracer_provider = None
-        self._isolated_once = Once()
+        self._isolated_tracer_provider_once = Once()
 
     @property
     def once(self) -> Once:
         if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
-            return self._isolated_once
+            return self._isolated_tracer_provider_once
         return trace._TRACER_PROVIDER_SET_ONCE
 
     def get(self) -> TracerProvider:
@@ -88,9 +89,10 @@ class _TracerProviderWrapper:
         if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
-            # Reset the "once" flag otherwise the update will be ignored
-            self.once.done = False
-            trace.set_tracer_provider(tracer_provider)
+            # Bypass the once flag otherwise the update will be ignored.
+            # We check the once flag inside `get_or_init_tracer`. For other cases, trace provider
+            # should be forcibly updated.
+            trace._TRACER_PROVIDER = tracer_provider
 
     def get_or_init_tracer(self, module_name: str) -> trace.Tracer:
         self.once.do_once(_initialize_tracer_provider)
@@ -322,6 +324,7 @@ def _get_tracer(module_name: str) -> trace.Tracer:
     """
     return provider.get_or_init_tracer(module_name)
 
+
 def _get_trace_exporter():
     """
     Get the exporter instance that is used by the current tracer provider.
@@ -527,7 +530,7 @@ def disable():
         return
 
     _initialize_tracer_provider(disabled=True)
-    provider.once.done = True
+    provider.once._done = True
 
 
 @raise_as_trace_exception
@@ -563,12 +566,12 @@ def enable():
         assert len(mlflow.search_traces()) == 2
 
     """
-    if is_tracing_enabled() and provider.once.done:
+    if is_tracing_enabled() and provider.once._done:
         _logger.info("Tracing is already enabled")
         return
 
     _initialize_tracer_provider()
-    provider.once.done = True
+    provider.once._done = True
 
 
 def trace_disabled(f):
@@ -636,7 +639,7 @@ def reset():
     _initialize_tracer_provider(disabled=True)
     # Flip the "once" flag to False so that
     # the next tracing operation will re-initialize the provider.
-    provider.once.done = False
+    provider.once._done = False
 
     # Reset the custom destination set by the user
     _MLFLOW_TRACE_USER_DESTINATION.reset()
@@ -655,7 +658,7 @@ def is_tracing_enabled() -> bool:
     1. The default state (before any tracing operation)
     2. The tracer is not either ProxyTracer or NoOpTracer
     """
-    if not provider.once.done:
+    if not provider.once._done:
         return True
 
     tracer = _get_tracer(__name__)
