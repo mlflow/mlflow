@@ -748,7 +748,8 @@ def test_search_traces_with_invalid_location():
         store.search_traces(locations=["catalog.schema.table_name"])
 
 
-def test_search_unified_traces():
+def test_search_unified_traces(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
