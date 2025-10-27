@@ -1210,6 +1210,9 @@ def test_model_dump_uses_serialized_scorer_dataclass():
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
+            "feedback_value_type": {
+                "type": "str",
+            },
             "instructions": "Evaluate {{ inputs }} and {{ outputs }}",
             "model": "openai:/gpt-3.5-turbo",
         },
