@@ -170,6 +170,9 @@ def load_prompt(
 
         import mlflow
 
+        # Load the latest version of the prompt
+        prompt = mlflow.genai.load_prompt("my_prompt")
+
         # Load a specific version of the prompt
         prompt = mlflow.genai.load_prompt("my_prompt", version=1)
 
@@ -179,6 +182,8 @@ def load_prompt(
         # Load a prompt version with an alias "production"
         prompt = mlflow.genai.load_prompt("prompts:/my_prompt@production")
 
+        # Load the latest version of the prompt by URI
+        prompt = mlflow.genai.load_prompt("prompts:/my_prompt@latest")
     """
     with suppress_genai_migration_warning():
         return registry_api.load_prompt(

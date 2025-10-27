@@ -253,9 +253,6 @@ def parse_prompt_name_or_uri(name_or_uri: str, version: str | int | None = None)
                 "The `version` argument should not be specified when loading a prompt by URI.",
                 INVALID_PARAMETER_VALUE,
             )
-        # Parse URI to extract name and version
-        # This assumes the parse_prompt_uri method exists, but we'll handle that separately
-        # For now, we'll do basic parsing and let the caller handle the URI parsing
         return name_or_uri
     else:
         if version is None:
