@@ -3,10 +3,9 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.25rem 0.5rem;
-  background:var(--prism-background-color);
+  background: var(--prism-background-color);
   position: sticky;
-  top:50px;
-
+  top: 50px;
 }
 
 .languageLabel {
@@ -14,5 +13,5 @@
   font-weight: 600;
   color: grey;
   padding: 5px;
-  top:0px;
+  top: 0px;
 }
