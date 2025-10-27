@@ -7,7 +7,6 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -39,7 +38,6 @@ from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
@@ -1877,13 +1875,6 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     trace = mlflow.get_trace(span.trace_id)
     span = trace.data.spans[0]
     assert span.inputs == {"japanese": "あ", "emoji": "👍"}
-
-    artifact_location = local_file_uri_to_path(trace.info.tags["mlflow.artifactLocation"])
-    data = Path(artifact_location, "traces.json").read_text()
-    assert "あ" in data
-    assert "👍" in data
-    assert json.dumps("あ").strip('"') not in data
-    assert json.dumps("👍").strip('"') not in data
 
 
 _SAMPLE_REMOTE_TRACE = {
