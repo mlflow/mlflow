@@ -9160,3 +9160,32 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     )
     traces = store.batch_get_traces([trace_id])
     assert len(traces) == 0
+
+    # add another complete trace
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=trace_id_2,
+            name="incomplete_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id_2,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+        )
+    )
+    traces = store.batch_get_traces([trace_id, trace_id_2])
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_2
+    assert traces[0].info.status == TraceState.OK
+    assert len(traces[0].data.spans) == 1
+    assert traces[0].data.spans[0].name == "incomplete_span"
+    assert traces[0].data.spans[0].status.status_code == "OK"
