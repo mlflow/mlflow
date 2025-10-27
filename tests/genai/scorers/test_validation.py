@@ -312,18 +312,15 @@ def test_validate_feedback_names_unique_with_single_feedback():
 
 
 @pytest.fixture
-def mock_databricks_env():
-    """Mock Databricks environment for scorer registration tests."""
-    with (
-        mock.patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
-        ),
-        mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"),
-    ):
-        yield
+def mock_databricks_tracking_uri():
+    """Mock Databricks tracking URI."""
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+    ) as mock_uri:
+        yield mock_uri
 
 
-def test_register_scorer_with_duplicate_feedback_names_fails(mock_databricks_env):
+def test_register_scorer_with_duplicate_feedback_names_fails(mock_databricks_tracking_uri):
     @scorer
     def scorer_with_duplicates(outputs: str):
         return [
@@ -331,16 +328,17 @@ def test_register_scorer_with_duplicate_feedback_names_fails(mock_databricks_env
             Feedback(name="score", value=1.0),  # Duplicate name
         ]
 
-    with pytest.raises(
-        MlflowException, match="Cannot register scorer 'scorer_with_duplicates'"
-    ) as exc_info:
-        scorer_with_duplicates._check_can_be_registered()
+    with mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
+        with pytest.raises(
+            MlflowException, match="Cannot register scorer 'scorer_with_duplicates'"
+        ) as exc_info:
+            scorer_with_duplicates._check_can_be_registered()
 
-    error_msg = str(exc_info.value)
-    assert "duplicate names" in error_msg
+        error_msg = str(exc_info.value)
+        assert "duplicate names" in error_msg
 
 
-def test_register_scorer_with_default_feedback_names_fails(mock_databricks_env):
+def test_register_scorer_with_default_feedback_names_fails(mock_databricks_tracking_uri):
     @scorer
     def scorer_unnamed_feedbacks(outputs: str):
         return [
@@ -348,17 +346,18 @@ def test_register_scorer_with_default_feedback_names_fails(mock_databricks_env):
             Feedback(value=1, rationale="ok"),
         ]
 
-    with pytest.raises(
-        MlflowException, match="Cannot register scorer 'scorer_unnamed_feedbacks'"
-    ) as exc_info:
-        scorer_unnamed_feedbacks._check_can_be_registered()
+    with mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
+        with pytest.raises(
+            MlflowException, match="Cannot register scorer 'scorer_unnamed_feedbacks'"
+        ) as exc_info:
+            scorer_unnamed_feedbacks._check_can_be_registered()
 
-    error_msg = str(exc_info.value)
-    assert "duplicate names" in error_msg
-    assert "feedback" in error_msg
+        error_msg = str(exc_info.value)
+        assert "duplicate names" in error_msg
+        assert "feedback" in error_msg
 
 
-def test_register_scorer_with_unique_feedback_names_succeeds(mock_databricks_env):
+def test_register_scorer_with_unique_feedback_names_succeeds(mock_databricks_tracking_uri):
     @scorer
     def scorer_with_unique_names(outputs: str):
         return [
@@ -367,23 +366,23 @@ def test_register_scorer_with_unique_feedback_names_succeeds(mock_databricks_env
             Feedback(name="length", value=150, rationale="Good length"),
         ]
 
-    # Should not raise an exception during validation
-    scorer_with_unique_names._check_can_be_registered()
+    with mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
+        scorer_with_unique_names._check_can_be_registered()
 
 
-def test_register_scorer_with_single_feedback_succeeds(mock_databricks_env):
+def test_register_scorer_with_single_feedback_succeeds(mock_databricks_tracking_uri):
     @scorer
     def scorer_with_single_feedback(outputs: str):
         return Feedback(value=True, rationale="Good")
 
-    # Should not raise an exception during validation
-    scorer_with_single_feedback._check_can_be_registered()
+    with mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
+        scorer_with_single_feedback._check_can_be_registered()
 
 
-def test_register_scorer_returning_primitive_succeeds(mock_databricks_env):
+def test_register_scorer_returning_primitive_succeeds(mock_databricks_tracking_uri):
     @scorer
     def scorer_returning_bool(outputs: str) -> bool:
         return True
 
-    # Should not raise an exception during validation
-    scorer_returning_bool._check_can_be_registered()
+    with mock.patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer"):
+        scorer_returning_bool._check_can_be_registered()
