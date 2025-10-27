@@ -160,6 +160,10 @@ MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI,
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
 
+## Specify Output Format
+
+You can control the type of the judge result using the `result_type` argument. The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API natively supports common types like `bool`, `int`, `float`, and `Literal` for categorical outcomes. This ensures judge LLMs produce structured outputs, making results reliable and easy to use.
+
 ## Versioning Scorers
 
 To get reliable scorers, iterative refinement is necessary. [Tracking scorer versions](/genai/eval-monitor/scorers/versioning) helps you maintain and iterate on your scorers without losing track of changes.
