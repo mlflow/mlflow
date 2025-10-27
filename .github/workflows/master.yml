@@ -402,4 +402,5 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
+            --ignore=tests/data/test_spark_dataset.py \
             tests
