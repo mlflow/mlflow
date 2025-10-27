@@ -136,13 +136,11 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
       // 1. For logged models (MLflow 3.0+), use models:/{model_id} format
       // 2. For regular artifacts with run context, use runs:/<run_id>/<model_path> format
       // 3. Otherwise, fall back to the absolute artifact URI for backward compatibility
-      let sourceUri;
+      let sourceUri = modelPath;
       if (loggedModelId) {
         sourceUri = `models:/${loggedModelId}`;
       } else if (modelRelativePath && runUuid) {
         sourceUri = `runs:/${runUuid}/${modelRelativePath}`;
-      } else {
-        sourceUri = modelPath;
       }
       const selectedModelName = values[SELECTED_MODEL_FIELD];
       if (selectedModelName === CREATE_NEW_MODEL_OPTION_VALUE) {
