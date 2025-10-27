@@ -72,6 +72,7 @@ def _get_optimizer_name(optimizer):
 
 
 _MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV = "_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR"
+_INPUT_OUTPUT_TENSORS_FILENAME = "input_output_tensors.pkl"
 
 
 class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
@@ -300,9 +301,13 @@ class __MlflowPLCallback(pl.Callback, metaclass=ExceptionSafeAbstractClass):
                             and isinstance(result, torch.Tensor)
                         ):
                             tempdir = os.environ.get(_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR_ENV)
+                            assert tempdir is not None, (
+                                "_MLFLOW_LIGHTNING_AUTOLOGGING_TMP_DIR environment variable "
+                                "is missing."
+                            )
                             torch.save(
                                 (inputs[0], result),
-                                os.path.join(tempdir, "input_output_tensors.pkl"),
+                                os.path.join(tempdir, _INPUT_OUTPUT_TENSORS_FILENAME),
                             )
                     except Exception:
                         pass
@@ -647,7 +652,7 @@ def patched_fit(original, self, *args, **kwargs):
                         gorilla.revert(callback._model_forward_patch)
 
             model_signature = None
-            input_output_tensors_file = os.path.join(tempdir, "input_output_tensors.pkl")
+            input_output_tensors_file = os.path.join(tempdir, _INPUT_OUTPUT_TENSORS_FILENAME)
             if os.path.exists(input_output_tensors_file):
                 input_tensor, output_tensor = torch.load(input_output_tensors_file)
                 try:
