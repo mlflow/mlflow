@@ -403,17 +403,14 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
-        if self._feedback_value_type is not None:
-            response_format = pydantic.create_model(
-                "ResponseFormat",
-                result=(
-                    self._feedback_value_type,
-                    pydantic.Field(description=self.description or "The result of the evaluation"),
-                ),
-                rationale=(str, pydantic.Field(description="The rationale for the evaluation")),
-            )
-        else:
-            response_format = None
+        response_format = pydantic.create_model(
+            "ResponseFormat",
+            result=(
+                self._feedback_value_type or str,
+                pydantic.Field(description=self.description or "The result of the evaluation"),
+            ),
+            rationale=(str, pydantic.Field(description="The rationale for the evaluation")),
+        )
 
         return invoke_judge_model(
             model_uri=self._model,
