@@ -76,7 +76,6 @@ from mlflow.utils.async_logging.async_logging_queue import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import multi_context
 from tests.tracing.helper import get_traces
 
 
@@ -200,15 +199,15 @@ def test_get_experiment_id_from_env(monkeypatch):
     assert _get_experiment_id_from_env() is None
 
     # set only ID
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
     assert _get_experiment_id_from_env() == exp_id
 
     # set only name
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
@@ -216,26 +215,26 @@ def test_get_experiment_id_from_env(monkeypatch):
     assert _get_experiment_id_from_env() == exp_id
 
     # create experiment from env name
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id_from_env() is not None
 
     # assert experiment creation from encapsulating function
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     monkeypatch.delenv(MLFLOW_EXPERIMENT_ID.name, raising=False)
     monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     assert MlflowClient().get_experiment_by_name(name) is None
     assert _get_experiment_id() is not None
 
     # assert raises from conflicting experiment_ids
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
-    random_id = random.randint(100, 1e6)
+    random_id = random.randint(100, int(1e6))
     assert exp_id != random_id
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, random_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
     with pytest.raises(
         MlflowException,
         match=(
@@ -246,11 +245,12 @@ def test_get_experiment_id_from_env(monkeypatch):
         _get_experiment_id_from_env()
 
     # assert raises from name to id mismatch
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
-    random_id = random.randint(100, 1e6)
+    random_id = random.randint(100, int(1e6))
     assert exp_id != random_id
-    monkeypatch.setenvs({MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: name})
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, name)
     with pytest.raises(
         MlflowException,
         match=(
@@ -262,20 +262,19 @@ def test_get_experiment_id_from_env(monkeypatch):
 
     # assert does not raise if active experiment is set with invalid env variables
     invalid_name = "invalid experiment"
-    name = f"random experiment {random.randint(1, 1e6)}"
+    name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
-    random_id = random.randint(100, 1e6)
-    monkeypatch.setenvs(
-        {MLFLOW_EXPERIMENT_ID.name: random_id, MLFLOW_EXPERIMENT_NAME.name: invalid_name}
-    )
+    random_id = random.randint(100, int(1e6))
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(random_id))
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_NAME.name, invalid_name)
     mlflow.set_experiment(experiment_id=exp_id)
     assert _get_experiment_id() == exp_id
 
 
 def test_get_experiment_id_with_active_experiment_returns_active_experiment_id():
     # Create a new experiment and set that as active experiment
-    name = f"Random experiment {random.randint(1, 1e6)}"
+    name = f"Random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
     assert exp_id is not None
     mlflow.set_experiment(name)
@@ -297,7 +296,7 @@ def test_get_experiment_id_in_databricks_detects_notebook_id_by_default():
 
 
 def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_experiment_id():
-    exp_name = f"random experiment {random.randint(1, 1e6)}"
+    exp_name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(exp_name)
     mlflow.set_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
@@ -313,11 +312,11 @@ def test_get_experiment_id_in_databricks_with_active_experiment_returns_active_e
 def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_env_experiment_id(
     monkeypatch,
 ):
-    exp_name = f"random experiment {random.randint(1, 1e6)}"
+    exp_name = f"random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(exp_name)
     notebook_id = str(int(exp_id) + 73)
     monkeypatch.delenv(MLFLOW_EXPERIMENT_NAME.name, raising=False)
-    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, exp_id)
+    monkeypatch.setenv(MLFLOW_EXPERIMENT_ID.name, str(exp_id))
 
     with mock.patch(
         "mlflow.tracking.fluent.default_experiment_registry.get_experiment_id",
@@ -328,7 +327,7 @@ def test_get_experiment_id_in_databricks_with_experiment_defined_in_env_returns_
 
 
 def test_get_experiment_by_id():
-    name = f"Random experiment {random.randint(1, 1e6)}"
+    name = f"Random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
 
     experiment = mlflow.get_experiment(exp_id)
@@ -345,7 +344,7 @@ def test_get_experiment_by_id_with_is_in_databricks_job():
 
 
 def test_get_experiment_by_name():
-    name = f"Random experiment {random.randint(1, 1e6)}"
+    name = f"Random experiment {random.randint(1, int(1e6))}"
     exp_id = mlflow.create_experiment(name)
 
     experiment = mlflow.get_experiment_by_name(name)
@@ -571,7 +570,7 @@ def test_start_run_defaults(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -622,8 +621,8 @@ def test_start_run_defaults_databricks_notebook(
     )
     mock_workspace_id = mock.Mock()
     workspace_info_patch = mock.patch(
-        "mlflow.utils.databricks_utils.get_workspace_info_from_dbutils",
-        return_value=(mock_webapp_url, mock_workspace_id),
+        "mlflow.utils.databricks_utils.get_workspace_id",
+        return_value=mock_workspace_id,
     )
 
     expected_tags = {
@@ -640,7 +639,7 @@ def test_start_run_defaults_databricks_notebook(
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         databricks_notebook_patch,
         user_patch,
@@ -704,7 +703,7 @@ def test_start_run_creates_new_run_with_user_specified_tags():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -757,7 +756,7 @@ def test_start_run_with_parent():
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         active_run_stack_patch,
         create_run_patch,
         user_patch,
@@ -904,7 +903,7 @@ def test_start_run_with_description(empty_active_run_stack):
 
     create_run_patch = mock.patch.object(MlflowClient, "create_run")
 
-    with multi_context(
+    with (
         experiment_id_patch,
         user_patch,
         source_name_patch,
@@ -1046,7 +1045,7 @@ def test_search_runs_all_experiments(search_runs_output_format):
 
 
 def test_search_runs_by_experiment_name():
-    name = f"Random experiment {random.randint(1, 1e6)}"
+    name = f"Random experiment {random.randint(1, int(1e6))}"
     exp_id = uuid.uuid4().hex
     experiment = create_experiment(experiment_id=exp_id, name=name)
     runs, data = create_test_runs_and_expected_data(exp_id)
@@ -1067,7 +1066,7 @@ def test_search_runs_by_non_existing_experiment_name():
     """When invalid experiment names are used (including None), it should return an empty
     collection.
     """
-    for name in [None, f"Random {random.randint(1, 1e6)}"]:
+    for name in [None, f"Random {random.randint(1, int(1e6))}"]:
         assert search_runs(experiment_names=[name], output_format="list") == []
 
 
@@ -1396,7 +1395,7 @@ def test_log_input_polars(tmp_path):
 
     assert len(dataset_inputs) == 1
     assert dataset_inputs[0].dataset.name == "dataset"
-    assert dataset_inputs[0].dataset.digest == "17158191685003305501"
+    assert dataset_inputs[0].dataset.digest == "6421470605044910196"
     assert dataset_inputs[0].dataset.source_type == "local"
 
 
@@ -1581,12 +1580,14 @@ def spark_session_with_registry_uri(request):
         yield spark
 
 
-def test_registry_uri_from_spark_conf(spark_session_with_registry_uri):
+def test_registry_uri_from_spark_conf(
+    spark_session_with_registry_uri, monkeypatch: pytest.MonkeyPatch
+):
     assert mlflow.get_registry_uri() == "http://custom.uri"
     # The MLFLOW_REGISTRY_URI environment variable should still take precedence over the
     # spark conf if present
-    with mock.patch.dict(os.environ, {MLFLOW_REGISTRY_URI.name: "something-else"}):
-        assert mlflow.get_registry_uri() == "something-else"
+    monkeypatch.setenv(MLFLOW_REGISTRY_URI.name, "something-else")
+    assert mlflow.get_registry_uri() == "something-else"
 
 
 def test_set_experiment_thread_safety(tmp_path):
@@ -2353,3 +2354,23 @@ def test_clear_active_model():
 def test_set_logged_model_tags_error():
     with pytest.raises(MlflowException, match="You may not have access to the logged model"):
         mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
+
+
+def test_log_metrics_not_fetching_run_if_active():
+    with mlflow.start_run():
+        with mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run:
+            mlflow.log_metrics({"metric": 1})
+            mock_client_get_run.assert_not_called()
+
+
+def test_log_metrics_with_active_model_log_model_once():
+    mlflow.set_active_model(name="test_model")
+    with mlflow.start_run():
+        with (
+            mock.patch("mlflow.tracking.fluent.MlflowClient.get_run") as mock_client_get_run,
+            mock.patch("mlflow.tracking.fluent.MlflowClient.log_inputs") as mock_client_log_inputs,
+        ):
+            mlflow.log_metrics({"metric": 1})
+            mlflow.log_metrics({"metric": 2})
+            mock_client_get_run.assert_not_called()
+            mock_client_log_inputs.assert_called_once()

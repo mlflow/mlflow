@@ -40,12 +40,11 @@ eval_data["label"] = y_test
 with mlflow.start_run():
     # Log model with signature
     signature = infer_signature(X_test, model.predict(X_test))
-    mlflow.sklearn.log_model(model, name="model", signature=signature)
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Comprehensive evaluation
     result = mlflow.models.evaluate(
-        model_uri,
+        model_info.model_uri,
         eval_data,
         targets="label",
         model_type="classifier",
@@ -215,6 +214,13 @@ result = mlflow.models.evaluate(
 
 <Tabs>
   <TabItem value="custom-metrics" label="Custom Metrics" default>
+
+:::note Classic System Only
+
+The `make_metric` function and `EvaluationMetric` class are part of MLflow's classic evaluation system.
+
+For GenAI/LLM custom evaluation metrics, use the [@scorer decorator](/genai/eval-monitor/scorers/custom) instead.
+:::
 
 MLflow provides a powerful framework for defining custom evaluation metrics using the `make_metric` function:
 

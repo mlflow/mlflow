@@ -1,18 +1,15 @@
 import logging
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
 import mlflow
-from mlflow.autogen.chat import (
-    convert_assistant_message_to_chat_message,
-    log_chat_messages,
-    log_tools,
-)
+from mlflow.autogen.chat import log_tools
 from mlflow.entities import SpanType
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages
-from mlflow.utils.annotations import experimental
+from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.autologging_utils import (
     autologging_integration,
     get_autologging_config,
@@ -23,7 +20,6 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "autogen"
 
 
-@experimental(version="2.16.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,
@@ -68,18 +64,12 @@ def autolog(
                 span.set_inputs(
                     {key: _convert_value_to_dict(value) for key, value in inputs.items()}
                 )
+                span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
-                if messages := inputs.get("messages"):
-                    log_chat_messages(span, messages)
-
                 outputs = await original(self, *args, **kwargs)
-
-                if content := getattr(outputs, "content", None):
-                    if chat_message := convert_assistant_message_to_chat_message(content):
-                        set_span_chat_messages(span, [chat_message], append=True)
 
                 if usage := _parse_usage(outputs):
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
@@ -116,6 +106,10 @@ def autolog(
     for cls in _get_all_subclasses(ChatCompletionClient):
         safe_patch(FLAVOR_NAME, cls, "create", patched_completion)
 
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
+
 
 def _convert_value_to_dict(value):
     # BaseChatMessage does not contain content and type attributes
@@ -133,7 +127,7 @@ def _get_all_subclasses(cls):
     return all_subclasses
 
 
-def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+def _parse_usage(output: Any) -> dict[str, int] | None:
     try:
         usage = getattr(output, "usage", None)
         if usage:

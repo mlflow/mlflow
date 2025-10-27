@@ -1,2 +1,3 @@
 export { useMediaQuery } from './useMediaQuery';
-export { useResizableMaxWidth } from './useResizableMaxWidth';
+export { useResizeObserver } from './useResizeObserver';
+export { useLocalStorage } from './useLocalStorage';

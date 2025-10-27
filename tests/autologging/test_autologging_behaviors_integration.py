@@ -264,13 +264,13 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     iris = datasets.load_iris()
 
     def train_model():
-        import sklearn.utils
+        from joblib import parallel_backend
         from sklearn import svm
         from sklearn.model_selection import GridSearchCV
 
         parameters = {"kernel": ("linear", "rbf"), "C": [1, 10]}
         svc = svm.SVC()
-        with sklearn.utils.parallel_backend(backend="threading"):
+        with parallel_backend(backend="threading"):
             clf = GridSearchCV(svc, parameters)
             clf.fit(iris.data, iris.target)
 

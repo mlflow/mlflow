@@ -11,11 +11,10 @@ import re
 import subprocess
 import sys
 import tempfile
-from collections import namedtuple
 from itertools import chain, filterfalse
 from pathlib import Path
 from threading import Timer
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
 import importlib_metadata
 from packaging.requirements import Requirement
@@ -80,11 +79,11 @@ def _join_continued_lines(lines):
         yield "".join(continued_lines)
 
 
-# Represents a pip requirement.
-#
-# :param req_str: A requirement string (e.g. "scikit-learn == 0.24.2").
-# :param is_constraint: A boolean indicating whether this requirement is a constraint.
-_Requirement = namedtuple("_Requirement", ["req_str", "is_constraint"])
+class _Requirement(NamedTuple):
+    # A string representation of the requirement.
+    req_str: str
+    # A boolean indicating whether this requirement is a constraint.
+    is_constraint: bool
 
 
 def _parse_requirements(requirements, is_constraint, base_dir=None):
@@ -269,7 +268,7 @@ def _run_command(cmd, timeout_seconds, env=None):
             timer.cancel()
 
 
-def _get_installed_version(package: str, module: Optional[str] = None) -> str:
+def _get_installed_version(package: str, module: str | None = None) -> str:
     """
     Obtains the installed package version using `importlib_metadata.version`. If it fails, use
     `__import__(module or package).__version__`.
@@ -597,7 +596,7 @@ def _get_pinned_requirement(req_str, version=None, module=None):
 
 class _MismatchedPackageInfo(NamedTuple):
     package_name: str
-    installed_version: Optional[str]
+    installed_version: str | None
     requirement: str
 
     def __str__(self):

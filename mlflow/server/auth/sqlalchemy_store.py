@@ -1,5 +1,3 @@
-from typing import Optional
-
 from sqlalchemy.exc import IntegrityError, MultipleResultsFound, NoResultFound
 from sqlalchemy.orm import sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
@@ -85,7 +83,7 @@ class SqlAlchemyStore:
             return [u.to_mlflow_entity() for u in users]
 
     def update_user(
-        self, username: str, password: Optional[str] = None, is_admin: Optional[bool] = None
+        self, username: str, password: str | None = None, is_admin: bool | None = None
     ) -> User:
         with self.ManagedSessionMaker() as session:
             user = self._get_user(session, username)

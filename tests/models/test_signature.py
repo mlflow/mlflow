@@ -1,6 +1,5 @@
 import json
 from dataclasses import asdict, dataclass
-from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -352,12 +351,12 @@ class CustomOutput:
 
 @dataclass
 class FlexibleChatCompletionRequest(rag_signatures.ChatCompletionRequest):
-    custom_input: Optional[CustomInput] = None
+    custom_input: CustomInput | None = None
 
 
 @dataclass
 class FlexibleChatCompletionResponse(rag_signatures.ChatCompletionResponse):
-    custom_output: Optional[CustomOutput] = None
+    custom_output: CustomOutput | None = None
 
 
 def test_infer_signature_with_optional_and_child_dataclass():

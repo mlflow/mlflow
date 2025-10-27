@@ -1,11 +1,10 @@
-import { InfoPopover, LegacyTabs, useDesignSystemTheme, Typography } from '@databricks/design-system';
+import { LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
 import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
-import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
 const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATIONS];
@@ -32,18 +31,6 @@ export const RunViewModeSwitch = () => {
       return;
     }
     navigate(Routes.getRunPageTabRoute(experimentId, runUuid, newTabKey));
-  };
-
-  const getLegacyTracesTabLink = () => {
-    if (!shouldEnableRunDetailsPageTracesTab()) {
-      return null;
-    }
-    return (
-      <LegacyTabs.TabPane
-        tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
-        key={RunPageTabName.TRACES}
-      />
-    );
   };
 
   return (
@@ -74,7 +61,10 @@ export const RunViewModeSwitch = () => {
         }
         key={RunPageTabName.SYSTEM_METRIC_CHARTS}
       />
-      {getLegacyTracesTabLink()}
+      <LegacyTabs.TabPane
+        tab={<FormattedMessage defaultMessage="Traces" description="Run details page > tab selector > Traces tab" />}
+        key={RunPageTabName.EVALUATIONS}
+      />
       <LegacyTabs.TabPane
         tab={
           <FormattedMessage defaultMessage="Artifacts" description="Run details page > tab selector > artifacts tab" />

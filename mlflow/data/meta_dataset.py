@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset import Dataset
 from mlflow.data.dataset_source import DatasetSource
@@ -62,9 +62,9 @@ class MetaDataset(Dataset):
     def __init__(
         self,
         source: DatasetSource,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
-        schema: Optional[Schema] = None,
+        name: str | None = None,
+        digest: str | None = None,
+        schema: Schema | None = None,
     ):
         # Set `self._schema` before calling the superclass constructor because
         # `self._compute_digest` depends on `self._schema`.
@@ -87,7 +87,7 @@ class MetaDataset(Dataset):
         return hashlib.sha256(json.dumps(config).encode("utf-8")).hexdigest()[:8]
 
     @property
-    def schema(self) -> Optional[Any]:
+    def schema(self) -> Any | None:
         """Returns the schema of the dataset."""
         return self._schema
 

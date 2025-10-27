@@ -1,0 +1,83 @@
+name: snapshots
+description: Daily uploads package snapshots to https://github.com/mlflow/mlflow/releases/tag/nightly.
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+  pull_request: # To test updates
+    paths:
+      - ".github/workflows/snapshots.yml"
+      - ".github/scripts/src/snapshots.ts"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # Needed to create/update releases and manage assets
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-java
+      - uses: ./.github/actions/setup-node
+      - uses: r-lib/actions/setup-r@bd49c52ffe281809afa6f0fecbf37483c5dd0b93 # v2.11.3
+
+      - name: Create artifacts directory
+        run: |
+          ARTIFACT_DIR=$(mktemp -d)
+          echo "ARTIFACT_DIR=$ARTIFACT_DIR" >> $GITHUB_ENV
+
+      - name: Build Python packages
+        id: build-dist
+        run: |
+          pip install build
+          python dev/build.py
+          find $PWD/dist -type f -name "*.whl" -exec cp {} $ARTIFACT_DIR/ \;
+          python dev/build.py --package-type skinny
+          find $PWD/dist -type f -name "*.whl" -exec cp {} $ARTIFACT_DIR/ \;
+          ls $ARTIFACT_DIR
+
+      - name: Build R package
+        working-directory: mlflow/R/mlflow
+        run: |
+          Rscript -e 'install.packages("devtools")'
+          Rscript -e 'devtools::build(path = ".")'
+          find $PWD -name "*.tar.gz" -type f -exec cp {} $ARTIFACT_DIR/ \;
+          ls $ARTIFACT_DIR
+
+      - name: Build Java packages
+        working-directory: mlflow/java
+        run: |
+          mvn -B -DskipTests clean package
+          find $PWD -path "*/target/*.jar" \
+              ! -name "*sources.jar" \
+              ! -name "*javadoc.jar" \
+              ! -name "original-*.jar" \
+              -exec cp {} $ARTIFACT_DIR/ \;
+          ls $ARTIFACT_DIR
+
+      - name: Install and build
+        working-directory: .github/scripts
+        run: npm ci && npm run build
+
+      - name: Upload artifacts to nightly release
+        # This step requires contents write permission, but pull requests filed from forks do not have this permission.
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == 'mlflow/mlflow'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const { uploadSnapshots } = require('./.github/scripts/dist/bundle.js');
+            await uploadSnapshots({
+              github,
+              context,
+              artifactDir: process.env.ARTIFACT_DIR
+            });

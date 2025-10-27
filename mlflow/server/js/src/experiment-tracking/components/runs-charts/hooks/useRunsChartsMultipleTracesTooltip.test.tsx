@@ -2,9 +2,9 @@ import React, { useEffect, useRef } from 'react';
 import { act, fireEvent, renderWithIntl, screen } from '../../../../common/utils/TestUtils.react18';
 import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 import { useRunsMultipleTracesTooltipData } from './useRunsChartsMultipleTracesTooltip';
-import { Figure } from 'react-plotly.js';
+import type { Figure } from 'react-plotly.js';
 import invariant from 'invariant';
-import { RunsCompareMultipleTracesTooltipData } from '../components/RunsMetricsLinePlot';
+import type { RunsCompareMultipleTracesTooltipData } from '../components/RunsMetricsLinePlot';
 
 const testFigure: Figure = {
   layout: {

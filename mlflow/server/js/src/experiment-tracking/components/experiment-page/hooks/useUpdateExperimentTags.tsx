@@ -3,7 +3,7 @@ import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyVal
 import { useCallback } from 'react';
 import { diffCurrentAndNewTags, isUserFacingTag } from '../../../../common/utils/TagUtils';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 
 type UpdateTagsPayload = {
   experimentId: string;

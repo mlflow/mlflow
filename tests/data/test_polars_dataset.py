@@ -122,7 +122,7 @@ def test_conversion_to_json(source: SampleDatasetSource) -> None:
 def test_digest_property_has_expected_value(source: SampleDatasetSource) -> None:
     dataset = PolarsDataset(df=pl.DataFrame([1, 2, 3], schema=["Numbers"]), source=source)
     assert dataset.digest == dataset._compute_digest()
-    assert dataset.digest == "2485371048825281677"
+    assert dataset.digest == "7776762068187136295"
 
 
 def test_digest_consistent(source: SampleDatasetSource) -> None:
@@ -251,6 +251,8 @@ def test_to_evaluation_dataset(source: SampleDatasetSource) -> None:
     dataset = PolarsDataset(df=df, source=source, targets="c", name="testname")
     evaluation_dataset = dataset.to_evaluation_dataset()
 
+    assert evaluation_dataset.name is not None
+    assert evaluation_dataset.digest is not None
     assert isinstance(evaluation_dataset, EvaluationDataset)
     assert isinstance(evaluation_dataset.features_data, pd.DataFrame)
     assert evaluation_dataset.features_data.equals(df.drop("c").to_pandas())

@@ -29,8 +29,9 @@ describe('CreateExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      navigate,
+      searchExperimentsApi: () => Promise.resolve([]),
       onExperimentCreated: jest.fn(),
+      navigate,
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });
@@ -46,7 +47,7 @@ describe('CreateExperimentModal', () => {
       artifactLocation: 'artifactLoc',
     });
 
-    expect(navigate).toBeCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
+    expect(navigate).toHaveBeenCalledWith(createMLflowRoutePath('/experiments/fakeExpId'));
   });
   test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
@@ -56,14 +57,14 @@ describe('CreateExperimentModal', () => {
       },
     ];
     const testPromises: any = [];
-    propsVals.forEach((props) => {
+    propsVals.forEach(async (props) => {
       wrapper = shallow(<CreateExperimentModalImpl {...props} />);
       instance = wrapper.instance();
       const payload = { experimentName: 'myNewExp', artifactLocation: 'artifactLoc' };
-      testPromises.push(expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
+      testPromises.push(await expect(instance.handleCreateExperiment(payload)).rejects.toThrow());
     });
     await Promise.all(testPromises);
 
-    expect(navigate).not.toBeCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });

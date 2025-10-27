@@ -4,9 +4,9 @@ import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/Tes
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { KeyValueEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
-import { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),

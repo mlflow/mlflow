@@ -125,7 +125,8 @@ const checkMaintainerAccess = async (context, github) => {
     return;
   }
 
-  if (!pr.data.maintainer_can_modify) {
+  const isForkPR = pr.data.head.repo.full_name !== pr.data.base.repo.full_name;
+  if (isForkPR && !pr.data.maintainer_can_modify) {
     const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
 
     await github.rest.issues.createComment({

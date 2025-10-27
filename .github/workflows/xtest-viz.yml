@@ -1,0 +1,50 @@
+name: xtest-viz
+
+on:
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - .github/workflows/xtest-viz.yml
+      - dev/xtest_viz.py
+  schedule:
+    # Run daily at 16:00 UTC (3 hours after cross-version-tests.yml at 13:00)
+    - cron: "0 16 * * *"
+
+jobs:
+  xtest-viz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
+    if: >
+      (
+        github.event_name == 'schedule' &&
+        github.repository == 'mlflow/dev'
+      ) || (
+        github.event_name == 'pull_request' &&
+        github.event.pull_request.draft == false
+      )
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Python
+        uses: ./.github/actions/setup-python
+
+      - name: Generate cross-version test visualization
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "## Cross-Version Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Generated:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          uv run dev/xtest_viz.py \
+            --days 14 \
+            --repo mlflow/dev >> $GITHUB_STEP_SUMMARY

@@ -74,7 +74,7 @@ export function ParallelCoordinatesPlotControls({
       <div style={{ marginTop: 20 }}>
         <Button
           componentId="codegen_mlflow_app_src_experiment-tracking_components_parallelcoordinatesplotcontrols.tsx_84"
-          data-test-id="clear-button"
+          data-testid="clear-button"
           onClick={onClearAllSelect}
         >
           <FormattedMessage

@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.span import LiveSpan, Span
 from mlflow.exceptions import MlflowException
@@ -6,9 +6,7 @@ from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
-def copy_trace_to_experiment(
-    trace_dict: dict[str, Any], experiment_id: Optional[str] = None
-) -> str:
+def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | None = None) -> str:
     """
     Copy the given trace to the current experiment.
     The copied trace will have a new trace ID and location metadata.
@@ -30,7 +28,8 @@ def copy_trace_to_experiment(
             span=old_span,
             parent_span_id=old_span.parent_id,
             trace_id=new_trace_id,
-            experiment_id=experiment_id,
+            # Only set the experiment ID for the root span.
+            experiment_id=experiment_id if old_span.parent_id is None else None,
             # Don't close the root span until the end so that we only export the trace
             # after all spans are copied.
             end_trace=old_span.parent_id is not None,
@@ -46,9 +45,10 @@ def copy_trace_to_experiment(
             error_code=INVALID_STATE,
         )
 
-    user_tags = {k: v for k, v in trace_dict["info"]["tags"].items() if not k.startswith("mlflow.")}
-    with trace_manager.get_trace(trace_id=new_trace_id) as trace:
-        trace.info.tags.update(user_tags)
+    if (info := trace_dict.get("info")) and (all_tags := info.get("tags")):
+        if user_tags := {k: v for k, v in all_tags.items() if not k.startswith("mlflow.")}:
+            with trace_manager.get_trace(trace_id=new_trace_id) as trace:
+                trace.info.tags.update(user_tags)
 
     # Close the root span triggers the trace export.
     new_root_span.end(end_time_ns=spans[0].end_time_ns)

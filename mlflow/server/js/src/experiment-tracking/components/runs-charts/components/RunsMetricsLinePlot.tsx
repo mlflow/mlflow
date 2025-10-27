@@ -4,16 +4,15 @@ import type { Config, Dash, Data as PlotlyData, Layout, LayoutAxis } from 'plotl
 import { type Figure } from 'react-plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { MetricEntity } from '../../../types';
+import type { MetricEntity } from '../../../types';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightLineTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
   runsChartDefaultMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
@@ -27,7 +26,6 @@ import {
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import {
-  shouldEnableChartsOriginalLinesWhenSmoothing,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -549,18 +547,15 @@ export const RunsMetricsLinePlot = React.memo(
 
     const getTraceAndOriginalTrace = (props: any) => {
       const dataTrace = getDataTraceForRun(props);
-      if (shouldEnableChartsOriginalLinesWhenSmoothing()) {
-        const originalLineProps = {
-          ...props,
-          lineSmoothness: 0,
-          useDefaultHoverBox: false,
-          displayPoints: false,
-          displayOriginalLine: true,
-        };
-        const originalDataTrace = getDataTraceForRun(originalLineProps);
-        return [dataTrace, originalDataTrace];
-      }
-      return [dataTrace];
+      const originalLineProps = {
+        ...props,
+        lineSmoothness: 0,
+        useDefaultHoverBox: false,
+        displayPoints: false,
+        displayOriginalLine: true,
+      };
+      const originalDataTrace = getDataTraceForRun(originalLineProps);
+      return [dataTrace, originalDataTrace];
     };
 
     const plotData = useMemo(() => {

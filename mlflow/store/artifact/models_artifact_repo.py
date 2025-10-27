@@ -2,7 +2,6 @@ import logging
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Optional, Union
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -42,27 +41,38 @@ class ModelsArtifactRepository(ArtifactRepository):
     and uses the artifact repository for that URI.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super().__init__(artifact_uri, tracking_uri)
-        registry_uri = mlflow.get_registry_uri()
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
+        registry_uri = registry_uri or mlflow.get_registry_uri()
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogModelsArtifactRepository(
-                artifact_uri=artifact_uri, registry_uri=registry_uri
+                artifact_uri=artifact_uri,
+                registry_uri=registry_uri,
+                tracking_uri=tracking_uri,
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
         elif is_oss_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:
             self.repo = UnityCatalogOSSModelsArtifactRepository(
-                artifact_uri=artifact_uri, registry_uri=registry_uri
+                artifact_uri=artifact_uri,
+                registry_uri=registry_uri,
+                tracking_uri=tracking_uri,
             )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
-        elif is_using_databricks_registry(artifact_uri) and not self.is_logged_model_uri:
+        elif (
+            is_using_databricks_registry(artifact_uri, registry_uri)
+            and not self.is_logged_model_uri
+        ):
             # Use the DatabricksModelsArtifactRepository if a databricks profile is being used.
-            self.repo = DatabricksModelsArtifactRepository(artifact_uri)
+            self.repo = DatabricksModelsArtifactRepository(
+                artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
             self.model_name = self.repo.model_name
             self.model_version = self.repo.model_version
         else:
@@ -71,7 +81,9 @@ class ModelsArtifactRepository(ArtifactRepository):
                 self.model_version,
                 underlying_uri,
             ) = ModelsArtifactRepository._get_model_uri_infos(artifact_uri)
-            self.repo = get_artifact_repository(underlying_uri)
+            self.repo = get_artifact_repository(
+                underlying_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+            )
             # TODO: it may be nice to fall back to the source URI explicitly here if for some reason
             #  we don't get a download URI here, or fail during the download itself.
 
@@ -103,7 +115,7 @@ class ModelsArtifactRepository(ArtifactRepository):
         return uri, ""
 
     @staticmethod
-    def _is_logged_model_uri(uri: Union[str, Path]) -> bool:
+    def _is_logged_model_uri(uri: str | Path) -> bool:
         """
         Returns True if the URI is a logged model URI (e.g. 'models:/<model_id>'), False otherwise.
         """

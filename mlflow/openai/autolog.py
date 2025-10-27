@@ -1,8 +1,6 @@
-import functools
 import importlib.metadata
 import json
 import logging
-import warnings
 from typing import Any, AsyncIterator, Iterator
 
 from packaging.version import Version
@@ -15,6 +13,8 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
@@ -25,7 +25,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -33,7 +32,6 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="2.14.0")
 def autolog(
     disable=False,
     exclusive=False,
@@ -77,6 +75,15 @@ def autolog(
     # Tracing OpenAI Agent SDK. This has to be done outside the function annotated with
     # `@autologging_integration` because the function is not executed when `disable=True`.
     try:
+        from agents.run import AgentRunner
+
+        from mlflow.openai._agent_tracer import _patched_agent_run
+
+        # NB: The OpenAI's built-in tracer does not capture inputs/outputs of the
+        # root span, which is not inconvenient. Therefore, we add a patch for the
+        # runner.run() method instead.
+        safe_patch(FLAVOR_NAME, AgentRunner, "run", _patched_agent_run)
+
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
             remove_mlflow_trace_processor,
@@ -88,6 +95,10 @@ def autolog(
             remove_mlflow_trace_processor()
     except ImportError:
         pass
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
 
 
 # This is required by mlflow.autolog()
@@ -145,37 +156,8 @@ def _autolog(
         safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
         safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
-    # Patch Swarm agent to generate traces
-    try:
-        from swarm import Swarm
 
-        warnings.warn(
-            "Autologging for OpenAI Swarm is deprecated and will be removed in a future release. "
-            "OpenAI Agent SDK is drop-in replacement for agent building and is supported by "
-            "MLflow autologging. Please refer to the OpenAI Agent SDK documentation "
-            "(https://github.com/openai/openai-agents-python) for more details.",
-            category=FutureWarning,
-            stacklevel=2,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            Swarm,
-            "get_chat_completion",
-            patched_agent_get_chat_completion,
-        )
-
-        safe_patch(
-            FLAVOR_NAME,
-            Swarm,
-            "run",
-            patched_swarm_run,
-        )
-    except ImportError:
-        pass
-
-
-def _get_span_type(task: type) -> str:
+def _get_span_type_and_message_format(task: type) -> tuple[str, str]:
     from openai.resources.chat.completions import AsyncCompletions as AsyncChatCompletions
     from openai.resources.chat.completions import Completions as ChatCompletions
     from openai.resources.completions import AsyncCompletions, Completions
@@ -213,7 +195,7 @@ def _get_span_type(task: type) -> str:
     except ImportError:
         pass
 
-    return span_type_mapping.get(task, SpanType.UNKNOWN)
+    return span_type_mapping.get(task, (SpanType.UNKNOWN, None))
 
 
 def _try_parse_raw_response(response: Any) -> Any:
@@ -238,6 +220,14 @@ def _try_parse_raw_response(response: Any) -> Any:
     return response
 
 
+def _is_responses_api(original: Any) -> bool:
+    match getattr(original, "__qualname__", "").split("."):
+        case [class_name, _]:
+            return class_name in {"Responses", "AsyncResponses"}
+        case _:
+            return False
+
+
 def patched_call(original, self, *args, **kwargs):
     config = AutoLoggingConfig.init(flavor_name=mlflow.openai.FLAVOR_NAME)
     active_run = mlflow.active_run()
@@ -255,7 +245,7 @@ def patched_call(original, self, *args, **kwargs):
         raise
 
     if config.log_traces:
-        _end_span_on_success(span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result, is_responses_api=_is_responses_api(original))
 
     return raw_result
 
@@ -277,7 +267,7 @@ async def async_patched_call(original, self, *args, **kwargs):
         raise
 
     if config.log_traces:
-        _end_span_on_success(span, kwargs, raw_result)
+        _end_span_on_success(span, kwargs, raw_result, is_responses_api=_is_responses_api(original))
 
     return raw_result
 
@@ -287,13 +277,16 @@ def _start_span(
     inputs: dict[str, Any],
     run_id: str,
 ):
+    span_type = _get_span_type_and_message_format(instance.__class__)
     # Record input parameters to attributes
     attributes = {k: v for k, v in inputs.items() if k not in ("messages", "input")}
+    if span_type in (SpanType.CHAT_MODEL, SpanType.LLM):
+        attributes[SpanAttributeKey.MESSAGE_FORMAT] = "openai"
 
     # If there is an active span, create a child span under it, otherwise create a new trace
     span = start_span_no_context(
         name=instance.__class__.__name__,
-        span_type=_get_span_type(instance.__class__),
+        span_type=span_type,
         inputs=inputs,
         attributes=attributes,
     )
@@ -308,7 +301,12 @@ def _start_span(
     return span
 
 
-def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any):
+def _end_span_on_success(
+    span: LiveSpan,
+    inputs: dict[str, Any],
+    raw_result: Any,
+    is_responses_api: bool,
+):
     from openai import AsyncStream, Stream
 
     result = _try_parse_raw_response(raw_result)
@@ -322,7 +320,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
                 _add_span_event(span, i, chunk)
                 output.append(chunk)
                 yield chunk
-            _process_last_chunk(span, chunk, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     elif isinstance(result, AsyncStream):
@@ -333,7 +331,7 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
                 _add_span_event(span, len(output), chunk)
                 output.append(chunk)
                 yield chunk
-            _process_last_chunk(span, chunk, inputs, output)
+            _process_last_chunk(span, chunk, inputs, output, is_responses_api)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
     else:
@@ -344,23 +342,37 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
-def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any]):
-    if _is_responses_final_event(chunk):
-        output = chunk.response
-    else:
-        # Reconstruct a completion object from streaming chunks
-        output = _reconstruct_completion_from_stream(output)
+def _process_last_chunk(
+    span: LiveSpan,
+    chunk: Any,
+    inputs: dict[str, Any],
+    output: list[Any],
+    is_responses_api: bool,
+) -> None:
+    try:
+        if _is_responses_final_event(chunk):
+            output = chunk.response
+        elif not output:
+            output = None
+        elif is_responses_api:
+            output = _reconstruct_response_from_stream(output)
+        elif output[0].object in ["text_completion", "chat.completion.chunk"]:
+            # Reconstruct a completion object from streaming chunks
+            output = _reconstruct_completion_from_stream(output)
+            # Set usage information on span if available
+            if usage := getattr(chunk, "usage", None):
+                usage_dict = {
+                    TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                    TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                    TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+                }
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
-        # Set usage information on span if available
-        if usage := getattr(chunk, "usage", None):
-            usage_dict = {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-            }
-            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
-
-    _end_span_on_success(span, inputs, output)
+        _end_span_on_success(span, inputs, output, is_responses_api)
+    except Exception as e:
+        _logger.warning(
+            f"Encountered unexpected error when autologging processes the chunks in response: {e}"
+        )
 
 
 def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
@@ -370,9 +382,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     This preserves the structure and metadata that would be present in a non-streaming
     completion response, including ID, model, timestamps, usage, etc.
     """
-    if not chunks:
-        return None
-
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
@@ -382,9 +391,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
 
         return "".join(map(_extract_content, chunks))
 
-    if chunks[0].object != "chat.completion.chunk":
-        return chunks  # Ignore non-chat chunks
-
     from openai.types.chat import ChatCompletion
     from openai.types.chat.chat_completion import Choice
     from openai.types.chat.chat_completion_message import ChatCompletionMessage
@@ -393,7 +399,19 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     def _extract_content(chunk: Any) -> str:
         if not chunk.choices:
             return ""
-        return chunk.choices[0].delta.content or ""
+        content = chunk.choices[0].delta.content
+        if content is None:
+            return ""
+        # Handle Databricks streaming format where content can be a list of content items
+        # See https://docs.databricks.com/aws/en/machine-learning/foundation-model-apis/api-reference#content-item
+        if isinstance(content, list):
+            text_parts = []
+            for item in content:
+                # Extract text from text items only.
+                if isinstance(item, dict) and item.get("type") == "text" and "text" in item:
+                    text_parts.append(item["text"])
+            return "".join(text_parts)
+        return content
 
     message = ChatCompletionMessage(
         role="assistant", content="".join(map(_extract_content, chunks))
@@ -420,11 +438,32 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     )
 
 
+def _reconstruct_response_from_stream(chunks: list[Any]) -> Any:
+    from openai.types.responses import ResponseOutputItemDoneEvent
+
+    from mlflow.types.responses_helpers import Response
+
+    output = [
+        chunk.item.to_dict() for chunk in chunks if isinstance(chunk, ResponseOutputItemDoneEvent)
+    ]
+
+    return Response(output=output)
+
+
 def _is_responses_final_event(chunk: Any) -> bool:
     try:
         from openai.types.responses import ResponseCompletedEvent
 
         return isinstance(chunk, ResponseCompletedEvent)
+    except ImportError:
+        return False
+
+
+def _is_response_output_item_done_event(chunk: Any) -> bool:
+    try:
+        from openai.types.responses import ResponseOutputItemDoneEvent
+
+        return isinstance(chunk, ResponseOutputItemDoneEvent)
     except ImportError:
         return False
 
@@ -445,65 +484,3 @@ def _add_span_event(span: LiveSpan, index: int, chunk: Any):
             attributes={STREAM_CHUNK_EVENT_VALUE_KEY: json.dumps(chunk, cls=TraceJSONEncoder)},
         )
     )
-
-
-def patched_agent_get_chat_completion(original, self, *args, **kwargs):
-    """
-    Patch the `get_chat_completion` method of the ChatCompletion object.
-    OpenAI autolog already handles the raw completion request, but tracing
-    the swarm's method is useful to track other parameters like agent name.
-    """
-    agent = kwargs.get("agent") or args[0]
-
-    # Patch agent's functions to generate traces. Function calls only happen
-    # after the first completion is generated because of the design of
-    # function calling. Therefore, we can safely patch the tool functions here
-    # within get_chat_completion() hook.
-    # We cannot patch functions during the agent's initialization because the
-    # agent's functions can be modified after the agent is created.
-    def function_wrapper(fn):
-        if "context_variables" in fn.__code__.co_varnames:
-
-            def wrapper(*args, **kwargs):
-                # NB: Swarm uses `func.__code__.co_varnames` to inspect if the provided
-                # tool function includes 'context_variables' parameter in the signature
-                # and ingest the global context variables if so. Wrapping the function
-                # with mlflow.trace() will break this.
-                # The co_varnames is determined based on the local variables of the
-                # function, so we workaround this by declaring it here as a local variable.
-                context_variables = kwargs.get("context_variables", {})  # noqa: F841
-                return mlflow.trace(
-                    fn,
-                    name=f"{agent.name}.{fn.__name__}",
-                    span_type=SpanType.TOOL,
-                )(*args, **kwargs)
-        else:
-
-            def wrapper(*args, **kwargs):
-                return mlflow.trace(
-                    fn,
-                    name=f"{agent.name}.{fn.__name__}",
-                    span_type=SpanType.TOOL,
-                )(*args, **kwargs)
-
-        wrapped = functools.wraps(fn)(wrapper)
-        wrapped._is_mlflow_traced = True  # Marker to avoid double tracing
-        return wrapped
-
-    agent.functions = [
-        function_wrapper(fn) if not hasattr(fn, "_is_mlflow_traced") else fn
-        for fn in agent.functions
-    ]
-
-    traced_fn = mlflow.trace(
-        original, name=f"{agent.name}.get_chat_completion", span_type=SpanType.CHAIN
-    )
-    return traced_fn(self, *args, **kwargs)
-
-
-def patched_swarm_run(original, self, *args, **kwargs):
-    """
-    Patched version of `run` method of the Swarm object.
-    """
-    traced_fn = mlflow.trace(original, span_type=SpanType.AGENT)
-    return traced_fn(self, *args, **kwargs)

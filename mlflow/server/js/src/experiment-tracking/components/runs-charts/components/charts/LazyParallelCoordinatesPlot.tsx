@@ -6,7 +6,7 @@ const ParallelCoordinatesPlot = React.lazy(() => import('./ParallelCoordinatesPl
 const LazyParallelCoordinatesPlot = ({ fallback, ...props }: any) => {
   return (
     <Suspense fallback={fallback ?? <LegacySkeleton />}>
-      <ParallelCoordinatesPlot {...props}></ParallelCoordinatesPlot>
+      <ParallelCoordinatesPlot {...props} />
     </Suspense>
   );
 };

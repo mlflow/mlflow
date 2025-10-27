@@ -1,0 +1,880 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import DAGLoop from "@site/src/components/DAGLoop";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Sparkles, Layers, Search, Tag, RefreshCw, Users, Database, FileText, GitBranch, BarChart3, Code, Activity, Target, Rocket, HelpCircle } from "lucide-react";
+
+# Evaluation Datasets SDK Guide
+
+Master the APIs for creating, evolving, and managing evaluation datasets through practical workflows and real-world patterns.
+
+## Getting Started
+
+MLflow provides a fluent API for working with evaluation datasets that makes common workflows simple and intuitive:
+
+```python
+from mlflow.genai.datasets import (
+    create_dataset,
+    get_dataset,
+    search_datasets,
+    set_dataset_tags,
+    delete_dataset_tag,
+)
+```
+
+## Your Dataset Journey
+
+Follow this typical workflow to build and evolve your evaluation datasets:
+
+<DAGLoop
+  title="Complete Development Workflow"
+  steps={[
+    {
+      icon: Database,
+      title: "Create/Get Dataset",
+      description: "Initialize or retrieve existing",
+      detailedDescription: "Create a new evaluation dataset or retrieve an existing one. Link to experiments and set initial tags for organization.",
+      isFocus: true
+    },
+    {
+      icon: FileText,
+      title: "Add Test Cases",
+      description: "From traces or manual",
+      detailedDescription: "Add test cases from production traces with subject matter expert-defined expectations, or manually create critical test scenarios."
+    },
+    {
+      icon: BarChart3,
+      title: "Run Evaluation",
+      description: "Test model performance",
+      detailedDescription: "Execute MLflow evaluation against your dataset to measure model performance against ground truth expectations."
+    },
+    {
+      icon: Code,
+      title: "Improve Code",
+      description: "Fix issues & enhance",
+      detailedDescription: "Based on evaluation results, refine prompts, adjust model parameters, add guardrails, or enhance application logic."
+    },
+    {
+      icon: Activity,
+      title: "Test & Trace",
+      description: "Capture new interactions",
+      detailedDescription: "Test your improved application and capture execution traces from both testing and production environments."
+    },
+    {
+      icon: GitBranch,
+      title: "Update Dataset",
+      description: "Add new cases & expectations",
+      detailedDescription: "Merge new traces into dataset, add edge cases discovered, update expectations based on new insights. Dataset continuously evolves."
+    },
+    {
+      icon: Tag,
+      title: "Update Tags",
+      description: "Track dataset evolution",
+      detailedDescription: "Update dataset tags to reflect new version, validation status, coverage improvements, and other metadata changes."
+    }
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Continuous Improvement"
+  loopBackDescription="Return to evaluation with your enhanced dataset to test improvements. Each iteration strengthens both your application and test suite."
+  circleSize={550}
+/>
+
+### Step 1: Create Your Dataset
+
+Start by creating a new evaluation dataset with meaningful metadata using the <APILink fn="mlflow.genai.datasets.create_dataset" /> API:
+
+```python
+from mlflow.genai.datasets import create_dataset
+
+# Create a new dataset with tags for organization
+dataset = create_dataset(
+    name="customer_support_qa_v1",
+    experiment_id=["0"],  # Link to experiments ("0" is default)
+    tags={
+        "version": "1.0",
+        "purpose": "regression_testing",
+        "model": "gpt-4",
+        "team": "ml-platform",
+        "status": "development",
+    },
+)
+```
+
+### Step 2: Add Your First Test Cases
+
+Build your dataset by adding test cases from production traces and manual curation. **Expectations are typically defined by subject matter experts (SMEs)** who understand the domain and can establish ground truth for what constitutes correct behavior.
+
+[Learn how to define expectations →](/genai/assessments/expectations) Expectations are the ground truth values that define what your AI should produce. They're added by SMEs who review outputs and establish quality standards.
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="traces" label="From Production Traces" default>
+
+```python
+import mlflow
+
+# Search for production traces to build your dataset
+# Request list format to work with individual Trace objects
+production_traces = mlflow.search_traces(
+    experiment_ids=["0"],  # Your production experiment
+    filter_string="attributes.user_feedback = 'positive'",
+    max_results=100,
+    return_type="list",  # Returns list[Trace] for direct manipulation
+)
+
+# Subject matter experts add expectations to define correct behavior
+for trace in production_traces:
+    # Subject matter experts review traces and define what the output should satisfy
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="quality_assessment",
+        value={
+            "should_match_production": True,
+            "minimum_quality": 0.8,
+            "response_time_ms": 2000,
+            "contains_citation": True,
+        },
+    )
+
+    # Can also add textual expectations
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="expected_behavior",
+        value="Response should provide step-by-step instructions with security considerations",
+    )
+
+# Add annotated traces to dataset (expectations are automatically included)
+dataset.merge_records(production_traces)
+```
+
+    </TabItem>
+    <TabItem value="manual" label="Manual Test Cases">
+
+```python
+# Test cases can be manually defined as dictionaries
+# merge_records() accepts both dict and pandas.DataFrame formats for manual
+# record additions
+test_cases = [
+    {
+        "inputs": {
+            "question": "How do I reset my password?",
+            "user_type": "premium",
+            "context": "User has been locked out after 3 failed attempts",
+        },
+        "expectations": {
+            "answer_quality": 0.95,
+            "contains_steps": True,
+            "mentions_security": True,
+            "response": "To reset your password, please follow these steps:\n1. Click 'Forgot Password' on the login page\n2. Enter your registered email address\n3. Check your email for the reset link\n4. Click the link and create a new password\n5. Use your new password to log in",
+        },
+        "tags": {
+            "category": "account_management",
+            "priority": "high",
+            "reviewed_by": "security_team",
+        },
+    },
+    {
+        "inputs": {
+            "question": "What are your business hours?",
+            "user_type": "standard",
+        },
+        "expectations": {
+            "accuracy": 1.0,
+            "includes_timezone": True,
+            "mentions_holidays": True,
+        },
+    },
+]
+
+# Add to your dataset (accepts list[dict], list[Trace] or pandas.DataFrame)
+dataset.merge_records(test_cases)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+### Step 3: Evolve Your Dataset
+
+As you discover edge cases and improve your understanding, continuously update your dataset. The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" /> method intelligently handles both new records and updates to existing ones:
+
+```python
+# Capture a production failure
+failure_case = {
+    "inputs": {"question": "'; DROP TABLE users; --", "user_type": "malicious"},
+    "expectations": {
+        "handles_sql_injection": True,
+        "returns_safe_response": True,
+        "logs_security_event": True,
+    },
+    "source": {
+        "source_type": "HUMAN",
+        "source_data": {"discovered_by": "security_team"},
+    },
+    "tags": {"category": "security", "severity": "critical"},
+}
+
+# Add the new edge case
+dataset.merge_records([failure_case])
+
+# Update expectations for existing records
+updated_records = []
+for record in dataset.records:
+    if "accuracy" in record.get("expectations", {}):
+        # Raise the quality bar
+        record["expectations"]["accuracy"] = max(
+            0.9, record["expectations"]["accuracy"]
+        )
+        updated_records.append(record)
+
+# Merge updates (intelligently handles duplicates)
+dataset.merge_records(updated_records)
+```
+
+### Step 4: Organize with Tags
+
+Use tags to track dataset evolution and enable powerful searches. Learn more about <APILink fn="mlflow.search_traces" text="searching traces" /> to build your datasets from production data:
+
+```python
+from mlflow.genai.datasets import set_dataset_tags
+
+# Update dataset metadata
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={
+        "status": "validated",
+        "coverage": "comprehensive",
+        "last_review": "2024-11-01",
+    },
+)
+
+# Remove outdated tags
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={"development_only": None},  # Setting to None removes the tag
+)
+```
+
+### Step 5: Search and Discover
+
+Find datasets using powerful search capabilities with <APILink fn="mlflow.genai.datasets.search_datasets" />:
+
+```python
+from mlflow.genai.datasets import search_datasets
+
+# Find datasets by experiment
+datasets = search_datasets(experiment_ids=["0", "1"])  # Search in multiple experiments
+
+# Search by name pattern
+regression_datasets = search_datasets(filter_string="name LIKE '%regression%'")
+
+# Complex search with tags
+production_ready = search_datasets(
+    filter_string="tags.status = 'validated' AND tags.coverage = 'comprehensive'",
+    order_by=["last_update_time DESC"],
+    max_results=10,
+)
+
+# The PagedList automatically handles pagination when iterating
+```
+
+#### Common Filter String Examples
+
+Here are practical examples of filter strings to help you find the right datasets:
+
+<table style={{ width: "100%" }}>
+  <thead>
+    <tr>
+      <th style={{ width: "40%" }}>Filter Expression</th>
+      <th style={{ width: "30%" }}>Description</th>
+      <th style={{ width: "30%" }}>Use Case</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>`name = 'production_qa'`</strong></td>
+      <td>Exact name match</td>
+      <td>Find a specific dataset</td>
+    </tr>
+    <tr>
+      <td><strong>`name LIKE '%test%'`</strong></td>
+      <td>Pattern matching</td>
+      <td>Find all test datasets</td>
+    </tr>
+    <tr>
+      <td><strong>`tags.status = 'validated'`</strong></td>
+      <td>Tag equality</td>
+      <td>Find production-ready datasets</td>
+    </tr>
+    <tr>
+      <td><strong>`tags.version = '2.0' AND tags.team = 'ml'`</strong></td>
+      <td>Multiple tag conditions</td>
+      <td>Find team-specific versions</td>
+    </tr>
+    <tr>
+      <td><strong>`created_by = 'alice@company.com'`</strong></td>
+      <td>Creator filter</td>
+      <td>Find datasets by author</td>
+    </tr>
+    <tr>
+      <td><strong>`created_time > 1698800000000`</strong></td>
+      <td>Time-based filter</td>
+      <td>Find recent datasets</td>
+    </tr>
+    <tr>
+      <td><strong>`tags.model = 'gpt-4' AND name LIKE '%eval%'`</strong></td>
+      <td>Combined conditions</td>
+      <td>Model-specific evaluation sets</td>
+    </tr>
+    <tr>
+      <td><strong>`last_updated_by != 'bot@system'`</strong></td>
+      <td>Exclusion filter</td>
+      <td>Exclude automated updates</td>
+    </tr>
+  </tbody>
+</table>
+
+### Step 6: Manage Experiment Associations
+
+Datasets can be dynamically associated with experiments after creation using <APILink fn="mlflow.genai.datasets.add_dataset_to_experiments" /> and <APILink fn="mlflow.genai.datasets.remove_dataset_from_experiments" />.
+
+This functionality enables several important use cases:
+
+- **Cross-team collaboration**: Share datasets across teams by adding their experiment IDs
+- **Lifecycle management**: Remove outdated experiment associations as projects mature
+- **Project reorganization**: Dynamically reorganize datasets as your project structure evolves
+
+```python
+from mlflow.genai.datasets import (
+    add_dataset_to_experiments,
+    remove_dataset_from_experiments,
+)
+
+# Add dataset to additional experiments
+dataset = add_dataset_to_experiments(
+    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3", "4", "5"]
+)
+print(f"Dataset now linked to experiments: {dataset.experiment_ids}")
+
+# Remove dataset from specific experiments
+dataset = remove_dataset_from_experiments(
+    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3"]
+)
+print(f"Updated experiment associations: {dataset.experiment_ids}")
+```
+
+## The Active Record Pattern
+
+The `EvaluationDataset` object follows an active record pattern—it's both a data container and provides methods to interact with the backend:
+
+```python
+# Get a dataset
+dataset = get_dataset(dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890")
+
+# The dataset object is "live" - it can fetch and update data
+current_record_count = len(dataset.records)  # Lazy loads if needed
+
+# Add new records directly on the object
+new_records = [
+    {
+        "inputs": {"question": "What are your business hours?"},
+        "expectations": {"mentions_hours": True, "includes_timezone": True},
+    }
+]
+dataset.merge_records(new_records)  # Updates backend immediately
+
+# Convert to DataFrame for analysis
+df = dataset.to_df()
+# Access auto-computed properties
+schema = dataset.schema  # Field structure
+profile = dataset.profile  # Dataset statistics
+```
+
+## How Record Merging Works
+
+The `merge_records()` method intelligently handles both new records and updates to existing ones. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags will be updated rather than creating a duplicate record.
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="adding" label="Adding New Records" default>
+
+When you add records for the first time, they're stored with their inputs, expectations, and metadata:
+
+```python
+# Initial record
+record_v1 = {
+    "inputs": {"question": "What is MLflow?", "context": "ML platform overview"},
+    "expectations": {"accuracy": 0.8, "mentions_tracking": True},
+}
+
+dataset.merge_records([record_v1])
+# Creates a new record in the dataset
+```
+
+    </TabItem>
+    <TabItem value="updating" label="Updating Existing Records">
+
+When you merge a record with identical inputs, the existing record is updated by **merging** the new expectations and tags with the existing ones:
+
+```python
+# Updated version with same inputs but enhanced expectations
+record_v2 = {
+    "inputs": {
+        "question": "What is MLflow?",  # Same question
+        "context": "ML platform overview",  # Same context
+    },
+    "expectations": {
+        "accuracy": 0.95,  # Updates existing value
+        "mentions_models": True,  # Adds new expectation
+        "clarity": 0.9  # Adds new metric
+        # Note: "mentions_tracking": True is preserved from record_v1
+    },
+    "tags": {"reviewed": "true", "reviewer": "ml_team"},
+}
+
+dataset.merge_records([record_v2])
+# The record is updated, not duplicated
+# Final record has all expectations from both v1 and v2 merged together
+```
+
+    </TabItem>
+    <TabItem value="bulk" label="Bulk Updates from Traces">
+
+This update behavior is particularly useful when adding expectations to production traces:
+
+```python
+# First pass: Add traces without expectations
+traces = mlflow.search_traces(experiment_ids=["0"], max_results=100, return_type="list")
+dataset.merge_records(traces)
+
+# Later: Subject matter experts review and add expectations
+for trace in traces[:20]:  # Review subset
+    mlflow.log_expectation(
+        trace_id=trace.info.trace_id,
+        name="quality_check",
+        value={"approved": True, "quality_score": 0.9},
+    )
+
+# IMPORTANT: Re-fetch traces to get the attached expectations
+updated_traces = mlflow.search_traces(
+    experiment_ids=["0"], max_results=100, return_type="list"
+)
+
+# Re-merge the updated traces - existing records are updated with expectations
+dataset.merge_records(updated_traces[:20])
+```
+
+    </TabItem>
+    <TabItem value="uniqueness" label="Input Uniqueness">
+
+Records are considered unique based on their **entire inputs dictionary**. Even small differences create separate records:
+
+```python
+# These are treated as different records due to different inputs
+record_a = {
+    "inputs": {"question": "What is MLflow?", "temperature": 0.7},
+    "expectations": {"accuracy": 0.9},
+}
+
+record_b = {
+    "inputs": {
+        "question": "What is MLflow?",
+        "temperature": 0.8,
+    },  # Different temperature
+    "expectations": {"accuracy": 0.9},
+}
+
+dataset.merge_records([record_a, record_b])
+# Results in 2 separate records due to different temperature values
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Understanding Source Types
+
+MLflow tracks the provenance of each record in your evaluation dataset through source types. This helps you understand where your test data came from and analyze performance by data source.
+
+<ConceptOverview
+  title="Source Type Behavior"
+  concepts={[
+    {
+      title: "Automatic Inference",
+      description: "MLflow automatically infers source types based on record characteristics when no explicit source is provided."
+    },
+    {
+      title: "Manual Override",
+      description: "You can always specify explicit source information to override automatic inference."
+    },
+    {
+      title: "Provenance Tracking",
+      description: "Source types enable filtering and analysis of performance by data origin."
+    }
+  ]}
+/>
+
+### Automatic Source Assignment
+
+MLflow automatically assigns source types based on the characteristics of your records:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="trace" label="TRACE Source" default>
+
+Records created from MLflow traces are automatically assigned the `TRACE` source type:
+
+```python
+# When adding traces directly (automatic TRACE source)
+traces = mlflow.search_traces(experiment_ids=["0"], return_type="list")
+dataset.merge_records(traces)  # All records get TRACE source type
+
+# Or when using DataFrame from search_traces
+traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
+dataset.merge_records(
+    traces_df
+)  # Automatically detects traces and assigns TRACE source
+```
+
+    </TabItem>
+    <TabItem value="human" label="HUMAN Source">
+
+Records with expectations are inferred as `HUMAN` source (subject matter expert annotations):
+
+```python
+# Records with expectations indicate human review/annotation
+human_curated = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {"answer": "MLflow is an ML platform", "quality": 0.9}
+        # Automatically inferred as HUMAN source due to expectations
+    }
+]
+dataset.merge_records(human_curated)
+```
+
+    </TabItem>
+    <TabItem value="code" label="CODE Source">
+
+Records with only inputs (no expectations) are inferred as `CODE` source (programmatically generated):
+
+```python
+# Records without expectations indicate programmatic generation
+generated_tests = [
+    {"inputs": {"question": f"Test question {i}"}}
+    for i in range(100)
+    # Automatically inferred as CODE source (no expectations field)
+]
+dataset.merge_records(generated_tests)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+### Manual Source Specification
+
+You can explicitly specify the source type and metadata for any record. When no explicit source is provided, MLflow automatically infers the source type before sending records to the backend using these rules:
+
+- **Records with expectations** → Inferred as `HUMAN` source (indicates manual annotation or ground truth)
+- **Records with only inputs** (no expectations) → Inferred as `CODE` source (indicates programmatic generation)
+- **Records from traces** → Always marked as `TRACE` source (regardless of expectations)
+
+This inference happens client-side in the `merge_records()` method before records are sent to the tracking backend. You can override this automatic inference by providing explicit source information:
+
+```python
+# Specify HUMAN source for manually curated test cases
+human_curated = {
+    "inputs": {"question": "What are your business hours?"},
+    "expectations": {"accuracy": 1.0, "includes_timezone": True},
+    "source": {
+        "source_type": "HUMAN",
+        "source_data": {"curator": "support_team", "date": "2024-11-01"},
+    },
+}
+
+# Specify DOCUMENT source for data from documentation
+from_docs = {
+    "inputs": {"question": "How to install MLflow?"},
+    "expectations": {"mentions_pip": True, "mentions_conda": True},
+    "source": {
+        "source_type": "DOCUMENT",
+        "source_data": {"document_id": "install_guide", "page": 1},
+    },
+}
+
+# Specify CODE source for programmatically generated data
+generated = {
+    "inputs": {"question": f"Test question {i}" for i in range(100)},
+    "source": {
+        "source_type": "CODE",
+        "source_data": {"generator": "test_suite_v2", "seed": 42},
+    },
+}
+
+dataset.merge_records([human_curated, from_docs, generated])
+```
+
+### Available Source Types
+
+Source types enable powerful filtering and analysis of your evaluation results. You can analyze performance by data origin to understand if your model performs differently on human-curated vs. generated test cases, or production traces vs. documentation examples.
+
+<FeatureHighlights features={[
+  {
+    icon: Activity,
+    title: "TRACE",
+    description: "Production data captured via MLflow tracing - automatically assigned when adding traces"
+  },
+  {
+    icon: Users,
+    title: "HUMAN",
+    description: "Subject matter expert annotations - inferred for records with expectations"
+  },
+  {
+    icon: Code,
+    title: "CODE",
+    description: "Programmatically generated tests - inferred for records without expectations"
+  },
+  {
+    icon: FileText,
+    title: "DOCUMENT",
+    description: "Test cases from documentation or specs - must be explicitly specified"
+  },
+  {
+    icon: HelpCircle,
+    title: "UNSPECIFIED",
+    description: "Source unknown or not provided - for legacy or imported data"
+  }
+]} />
+
+### Analyzing Data by Source
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="distribution" label="Source Distribution" default>
+
+```python
+# Convert dataset to DataFrame for analysis
+df = dataset.to_df()
+
+# Check source type distribution
+source_distribution = df["source_type"].value_counts()
+print("Data sources in dataset:")
+for source_type, count in source_distribution.items():
+    print(f"  {source_type}: {count} records")
+```
+
+    </TabItem>
+    <TabItem value="filtering" label="Filter by Source">
+
+```python
+# Analyze expectations by source
+human_records = df[df["source_type"] == "HUMAN"]
+trace_records = df[df["source_type"] == "TRACE"]
+code_records = df[df["source_type"] == "CODE"]
+
+print(f"Human-curated records: {len(human_records)}")
+print(f"Production trace records: {len(trace_records)}")
+print(f"Generated test records: {len(code_records)}")
+
+# Filter high-value test cases for critical evaluation
+high_value_test_cases = df[
+    (df["source_type"] == "HUMAN") | (df["source_type"] == "DOCUMENT")
+]
+```
+
+    </TabItem>
+    <TabItem value="metadata" label="Source Metadata">
+
+The `source_data` field stores rich metadata about record origins:
+
+```python
+# Example with detailed source metadata
+detailed_source = {
+    "inputs": {"question": "Complex integration test"},
+    "expectations": {"passes_validation": True},
+    "source": {
+        "source_type": "TRACE",
+        "source_data": {
+            "trace_id": "tr-abc123",
+            "environment": "production",
+            "user_segment": "enterprise",
+            "timestamp": "2024-11-01T10:30:00Z",
+            "session_id": "sess-xyz789",
+            "feedback_score": 0.95,
+        },
+    },
+}
+
+# Access metadata after merging
+dataset.merge_records([detailed_source])
+df = dataset.to_df()
+# source_data preserved for analysis
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Search Filter Reference
+
+Use these fields in your filter strings. **Note:** The fluent API returns a `PagedList` that can be iterated directly - pagination is handled automatically when you iterate over the results.
+
+| Field              | Type      | Example                               |
+| ------------------ | --------- | ------------------------------------- |
+| `name`             | string    | `name = 'production_tests'`           |
+| `tags.<key>`       | string    | `tags.status = 'validated'`           |
+| `created_by`       | string    | `created_by = 'alice@company.com'`    |
+| `last_updated_by`  | string    | `last_updated_by = 'bob@company.com'` |
+| `created_time`     | timestamp | `created_time > 1698800000000`        |
+| `last_update_time` | timestamp | `last_update_time > 1698800000000`    |
+
+### Filter Operators
+
+- `=`, `!=`: Exact match
+- `LIKE`, `ILIKE`: Pattern matching with `%` wildcard (ILIKE is case-insensitive)
+- `>`, `<`, `>=`, `<=`: Numeric/timestamp comparison
+- `AND`: Combine conditions (OR is not currently supported for evaluation datasets)
+
+```python
+# Complex filter example
+datasets = search_datasets(
+    filter_string="""
+        tags.status = 'production'
+        AND name LIKE '%customer%'
+        AND created_time > 1698800000000
+    """,
+    order_by=["last_update_time DESC"],
+)
+```
+
+## Using the Client API
+
+For applications and advanced use cases, you can also use the `MlflowClient` API which provides the same functionality with an object-oriented interface:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="create" label="Create Dataset" default>
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+# Create a dataset
+dataset = client.create_dataset(
+    name="customer_support_qa",
+    experiment_id=["0"],
+    tags={"version": "1.0", "team": "ml-platform"},
+)
+```
+
+    </TabItem>
+    <TabItem value="get" label="Get Dataset">
+
+```python
+# Get a dataset by ID
+dataset = client.get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
+
+# Access properties
+print(f"Dataset: {dataset.name}")
+print(f"Records: {len(dataset.records)}")
+```
+
+    </TabItem>
+    <TabItem value="search" label="Search Datasets">
+
+```python
+# Search for datasets
+datasets = client.search_datasets(
+    experiment_ids=["0"],
+    filter_string="tags.status = 'validated'",
+    order_by=["created_time DESC"],
+    max_results=50,
+)
+
+for dataset in datasets:
+    print(f"{dataset.name}: {dataset.dataset_id}")
+```
+
+    </TabItem>
+    <TabItem value="tags" label="Manage Tags">
+
+```python
+# Set tags
+client.set_dataset_tags(
+    dataset_id=dataset.dataset_id, tags={"status": "production", "validated": "true"}
+)
+
+# Delete a tag
+client.delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+```
+
+    </TabItem>
+    <TabItem value="delete" label="Delete Dataset">
+
+```python
+# Delete a dataset
+client.delete_dataset(dataset_id=dataset.dataset_id)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+The client API provides the same capabilities as the fluent API but is better suited for:
+
+- Production applications that need explicit client management
+- Scenarios requiring custom tracking URIs or authentication
+- Integration with existing MLflow client-based workflows
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="End-to-End Workflow"
+    description="Learn the complete evaluation-driven development workflow from app building to production"
+    href="/genai/datasets/end-to-end-workflow"
+    linkText="View complete workflow →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="Run Evaluations"
+    description="Use your datasets to systematically evaluate and improve your GenAI applications"
+    href="/genai/eval-monitor"
+    linkText="Start evaluating →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Define Expectations"
+    description="Learn how to add ground truth expectations to your test data for quality validation"
+    href="/genai/assessments/expectations"
+    linkText="Set expectations →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Capture Traces"
+    description="Instrument your applications to capture production data for building datasets"
+    href="/genai/tracing"
+    linkText="Enable tracing →"
+    containerHeight={64}
+  />
+</TilesGrid>

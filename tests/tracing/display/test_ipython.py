@@ -159,7 +159,7 @@ def test_display_respects_max_limit(monkeypatch):
     mock_display = Mock()
     monkeypatch.setattr("IPython.display.display", mock_display)
 
-    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", 1)
+    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", "1")
 
     trace_a = create_trace("a")
     trace_b = create_trace("b")

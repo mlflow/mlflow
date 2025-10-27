@@ -4,7 +4,7 @@ import inspect
 import itertools
 import uuid
 from contextlib import asynccontextmanager, contextmanager
-from typing import Any, Callable, NamedTuple, Optional
+from typing import Any, Callable, NamedTuple
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -864,8 +864,8 @@ class ValidationExemptArgument(NamedTuple):
     autologging_integration: str
     function_name: str
     type_function: Callable[..., Any]
-    positional_argument_index: Optional[int] = None
-    keyword_argument_name: Optional[str] = None
+    positional_argument_index: int | None = None
+    keyword_argument_name: str | None = None
 
     def matches(
         self,
@@ -915,6 +915,7 @@ _VALIDATION_EXEMPT_ARGUMENTS = [
     #    the first element.
     ValidationExemptArgument("tensorflow", "fit", is_iterator, 1, "x"),
     ValidationExemptArgument("keras", "fit", is_iterator, 1, "x"),
+    ValidationExemptArgument("dspy", "__call__", lambda x: isinstance(x, Callable), 2, "metric"),
 ]
 
 

@@ -1,6 +1,6 @@
 import { first, sortBy } from 'lodash';
-import { ModelEntity } from '../../../experiment-tracking/types';
-import { ModelVersionAliasTag } from './ModelVersionAliasTag';
+import type { ModelEntity } from '../../../experiment-tracking/types';
+import { AliasTag } from '../../../common/components/AliasTag';
 import { Button, DropdownMenu, useDesignSystemTheme } from '@databricks/design-system';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../../routes';
@@ -38,7 +38,7 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
   return (
     <div>
       <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, latestVersionAlias.version)}>
-        <ModelVersionAliasTag value={latestVersionAlias.alias} css={{ marginRight: 0, cursor: 'pointer' }} />
+        <AliasTag value={latestVersionAlias.alias} css={{ marginRight: 0, cursor: 'pointer' }} />
         : <FormattedMessage {...versionLabel} values={{ version: latestVersionAlias.version }} />
       </Link>
       {otherAliases.length > 0 && (
@@ -59,7 +59,7 @@ export const ModelsTableAliasedVersionsCell = ({ model }: ModelsTableAliasedVers
                 key={alias}
               >
                 <Link to={ModelRegistryRoutes.getModelVersionPageRoute(model.name, version)}>
-                  <ModelVersionAliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />:{' '}
+                  <AliasTag value={alias} css={{ marginRight: 0, cursor: 'pointer' }} />:{' '}
                   <span css={{ color: theme.colors.actionTertiaryTextDefault }}>
                     <FormattedMessage {...versionLabel} values={{ version }} />
                   </span>

@@ -3,5 +3,5 @@ module.exports = {
   singleQuote: true,
   trailingComma: 'all',
   tabWidth: 2,
-  embeddedLanguageFormatting: 'off'
+  embeddedLanguageFormatting: 'off',
 };

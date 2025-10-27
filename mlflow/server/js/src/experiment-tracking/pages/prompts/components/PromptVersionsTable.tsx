@@ -8,12 +8,13 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../../../common/utils/Utils';
 import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
-import { RegisteredPrompt, RegisteredPromptVersion } from '../types';
+import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionsTableMode } from '../utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
 import { PromptVersionsTableAliasesCell } from './PromptVersionsTableAliasesCell';

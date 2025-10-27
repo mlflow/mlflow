@@ -1,8 +1,10 @@
 import { Button, FileIcon, useDesignSystemTheme } from '@databricks/design-system';
-import { KeyValueProperty, NoneCell, SecondarySections } from '@databricks/web-shared/utils';
+import type { AsideSections } from '@databricks/web-shared/utils';
+import { KeyValueProperty, NoneCell } from '@databricks/web-shared/utils';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { KeyValueEntity, LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
-import { UseGetRunQueryResponseRunInfo } from './useGetRunQuery';
+import type { LoggedModelProto, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
+import type { UseGetRunQueryResponseRunInfo } from './useGetRunQuery';
 import Utils from '../../../../common/utils/Utils';
 import { RunViewTagsBox } from '../overview/RunViewTagsBox';
 import { RunViewUserLinkBox } from '../overview/RunViewUserLinkBox';
@@ -15,9 +17,10 @@ import { RunViewSourceBox } from '../overview/RunViewSourceBox';
 import { Link, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RunViewLoggedModelsBox } from '../overview/RunViewLoggedModelsBox';
 import { useMemo } from 'react';
-import { RunPageModelVersionSummary } from './useUnifiedRegisteredModelVersionsSummariesForRun';
+import type { RunPageModelVersionSummary } from './useUnifiedRegisteredModelVersionsSummariesForRun';
 import { RunViewRegisteredModelsBox } from '../overview/RunViewRegisteredModelsBox';
 import Routes from '../../../routes';
+import { RunViewRegisteredPromptsBox } from '../overview/RunViewRegisteredPromptsBox';
 
 enum RunDetailsPageMetadataSections {
   DETAILS = 'DETAILS',
@@ -44,13 +47,25 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
   shouldRenderLoggedModelsBox?: boolean;
   loggedModelsV3: LoggedModelProto[];
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
-}): SecondarySections => {
+}): AsideSections => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { search } = useLocation();
   const loggedModelsFromTags = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
 
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
+
+  const renderPromptMetadataRow = () => {
+    return (
+      <KeyValueProperty
+        keyValue={intl.formatMessage({
+          defaultMessage: 'Registered prompts',
+          description: 'Run page > Overview > Run prompts section label',
+        })}
+        value={<RunViewRegisteredPromptsBox tags={tags} runUuid={runUuid} />}
+      />
+    );
+  };
 
   const detailsContent = runInfo && (
     <>
@@ -150,6 +165,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           }
         />
       )}
+      {renderPromptMetadataRow()}
     </>
   );
 

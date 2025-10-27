@@ -89,3 +89,120 @@ def test_study_with_failed_objective(setup_storage):
         match="Optimization run for Optuna MlflowSparkStudy failed",
     ):
         mlflow_study.optimize(fail_objective, n_trials=4)
+
+
+def test_auto_resume_existing_study(setup_storage):
+    storage = setup_storage
+    study_name = "resume-test-study"
+    sampler = TPESampler(seed=42)
+
+    # Create first study and run some trials
+    study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    assert not study1.is_resumed_study
+
+    def objective(trial):
+        return trial.suggest_float("x", 0, 10) ** 2
+
+    study1.optimize(objective, n_trials=3, n_jobs=1)
+    first_trial_count = len(study1.trials)
+    first_best_value = study1.best_value
+
+    # Create second study with same name - should resume
+    study2 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    assert study2.is_resumed_study
+    assert len(study2.trials) == first_trial_count
+    assert study2.best_value == first_best_value
+
+    # Continue optimization
+    study2.optimize(objective, n_trials=2, n_jobs=1)
+    assert len(study2.trials) == first_trial_count + 2
+
+    # Assert that the resumed study generates a better (lower) objective value than the first study
+    assert study2.best_value <= first_best_value
+
+
+def test_new_study_is_not_resumed(setup_storage):
+    storage = setup_storage
+    study_name = "new-study"
+
+    study = MlflowSparkStudy(study_name, storage)
+    assert not study.is_resumed_study
+    assert study.completed_trials_count == 0
+
+    info = study.get_resume_info()
+    assert not info.is_resumed
+
+
+def test_resume_info_method(setup_storage):
+    storage = setup_storage
+    study_name = "info-test-study"
+    sampler = TPESampler(seed=123)
+
+    # New study
+    study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = study1.get_resume_info()
+    assert not info.is_resumed
+
+    # Run some trials
+    def objective(trial):
+        return trial.suggest_float("x", 0, 1) ** 2
+
+    study1.optimize(objective, n_trials=2, n_jobs=1)
+
+    # Resume study
+    study2 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    info = study2.get_resume_info()
+    assert info.is_resumed
+    assert info.study_name == study_name
+    assert info.existing_trials == 2
+    assert info.completed_trials == 2
+    assert hasattr(info, "best_value")
+    assert hasattr(info, "best_params")
+    assert info.best_value is not None
+    assert info.best_params is not None
+
+
+def test_completed_trials_count_property(setup_storage):
+    storage = setup_storage
+    study_name = "count-test-study"
+
+    study = MlflowSparkStudy(study_name, storage)
+    assert study.completed_trials_count == 0
+
+    def objective(trial):
+        return trial.suggest_float("x", 0, 1)
+
+    study.optimize(objective, n_trials=3, n_jobs=1)
+    assert study.completed_trials_count == 3
+
+    # Resume and check count is preserved
+    resumed_study = MlflowSparkStudy(study_name, storage)
+    assert resumed_study.completed_trials_count == 3
+
+
+def test_resume_preserves_best_results(setup_storage):
+    storage = setup_storage
+    study_name = "best-results-study"
+    sampler = TPESampler(seed=456)
+
+    def objective(trial):
+        x = trial.suggest_float("x", -10, 10)
+        return (x - 2) ** 2
+
+    # First optimization
+    study1 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    study1.optimize(objective, n_trials=5, n_jobs=1)
+
+    original_best_value = study1.best_value
+    original_best_params = study1.best_params.copy()
+
+    # Resume and verify best results are preserved
+    study2 = MlflowSparkStudy(study_name, storage, sampler=sampler)
+    assert study2.best_value == original_best_value
+    assert study2.best_params == original_best_params
+
+    # Continue optimization and verify it can improve
+    study2.optimize(objective, n_trials=5, n_jobs=1)
+
+    # Best value should be the same or better (lower for minimization)
+    assert study2.best_value <= original_best_value

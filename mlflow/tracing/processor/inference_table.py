@@ -1,6 +1,5 @@
 import json
 import logging
-from typing import Optional
 
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
@@ -55,7 +54,7 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = span_exporter
         self._trace_manager = InMemoryTraceManager.get_instance()
 
-    def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
+    def on_start(self, span: OTelSpan, parent_context: Context | None = None):
         """
         Handle the start of a span. This method is called when an OpenTelemetry span is started.
 

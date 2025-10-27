@@ -49,9 +49,11 @@ export const ExperimentLoggedModelDetailsHeader = ({
   };
 
   const breadcrumbs = [
+    // eslint-disable-next-line react/jsx-key
     <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
       {getExperimentName()}
     </Link>,
+    // eslint-disable-next-line react/jsx-key
     <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
       <FormattedMessage
         defaultMessage="Models"

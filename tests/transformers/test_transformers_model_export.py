@@ -126,7 +126,6 @@ def image_for_test():
     ("pipeline", "expected_requirements"),
     [
         ("small_qa_pipeline", {"transformers", "torch", "torchvision"}),
-        ("small_qa_tf_pipeline", {"transformers", "tensorflow"}),
         pytest.param(
             "peft_pipeline",
             {"peft", "transformers", "torch", "torchvision"},
@@ -734,22 +733,6 @@ def test_transformers_log_with_duplicate_extra_pip_requirements(small_multi_moda
             )
 
 
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline, model_path
-):
-    mlflow.transformers.save_model(small_qa_tf_pipeline, model_path)
-    _assert_pip_requirements(
-        model_path, mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model)
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_path)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    assert "accelerate" not in pip_requirements
-
-
 def test_transformers_pt_model_save_without_conda_env_uses_default_env_with_expected_dependencies(
     small_qa_pipeline, model_path
 ):
@@ -777,26 +760,6 @@ def test_transformers_pt_model_save_dependencies_without_accelerate(
     assert "tensorflow" not in pip_requirements
     assert "accelerate" not in pip_requirements
     assert "torch" in pip_requirements
-
-
-@pytest.mark.skipif(
-    importlib.util.find_spec("accelerate") is not None, reason="fails when accelerate is installed"
-)
-def test_transformers_tf_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
-    small_qa_tf_pipeline,
-):
-    artifact_path = "model"
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(small_qa_tf_pipeline, name=artifact_path)
-    _assert_pip_requirements(
-        model_info.model_uri,
-        mlflow.transformers.get_default_pip_requirements(small_qa_tf_pipeline.model),
-    )
-    pip_requirements = _get_deps_from_requirement_file(model_info.model_uri)
-    assert "tensorflow" in pip_requirements
-    assert "torch" not in pip_requirements
-    # Accelerate installs Pytorch along with it, so it should not be present in the requirements
-    assert "accelerate" not in pip_requirements
 
 
 def test_transformers_pt_model_log_without_conda_env_uses_default_env_with_expected_dependencies(
@@ -3576,11 +3539,10 @@ def test_save_and_load_pipeline_without_save_pretrained_false(
 
 
 # Patch tempdir just to verify the invocation
-@mock.patch("mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir)
-def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
+def test_persist_pretrained_model(small_qa_pipeline):
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(
-            small_qa_tf_pipeline,
+            small_qa_pipeline,
             name="model",
             save_pretrained=False,
             pip_requirements=["mlflow"],  # For speed up logging
@@ -3596,21 +3558,27 @@ def test_persist_pretrained_model(mock_tmpdir, small_qa_tf_pipeline):
     assert not model_path.exists()
     assert not tokenizer_path.exists()
 
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_called_once()
 
-    mock_tmpdir.assert_called_once()
     updated_config = Model.load(model_info.model_uri).flavors["transformers"]
     assert "model_binary" in updated_config
     assert "source_model_revision" not in updated_config
     assert model_path.exists()
-    assert (model_path / "tf_model.h5").exists()
+    model_path_files = list(model_path.iterdir())
+    assert len(model_path_files) > 0
     assert tokenizer_path.exists()
     assert (tokenizer_path / "tokenizer.json").exists()
 
     # Repeat persisting the model will no-op
-    mock_tmpdir.reset_mock()
-    mlflow.transformers.persist_pretrained_model(model_info.model_uri)
-    mock_tmpdir.assert_not_called()
+    with mock.patch(
+        "mlflow.transformers.TempDir", side_effect=mlflow.utils.file_utils.TempDir
+    ) as mock_tmpdir:
+        mlflow.transformers.persist_pretrained_model(model_info.model_uri)
+        mock_tmpdir.assert_not_called()
 
 
 def test_small_qa_pipeline_copy_metadata_in_databricks(
@@ -3712,14 +3680,14 @@ def local_checkpoint_path(tmp_path):
     return str(checkpoint_path)
 
 
-@mock.patch("mlflow.transformers._logger")
-def test_save_model_from_local_checkpoint(mock_logger, model_path, local_checkpoint_path):
-    mlflow.transformers.save_model(
-        transformers_model=local_checkpoint_path,
-        task="text-generation",
-        path=model_path,
-        input_example=["What is MLflow?"],
-    )
+def test_save_model_from_local_checkpoint(model_path, local_checkpoint_path):
+    with mock.patch("mlflow.transformers._logger") as mock_logger:
+        mlflow.transformers.save_model(
+            transformers_model=local_checkpoint_path,
+            task="text-generation",
+            path=model_path,
+            input_example=["What is MLflow?"],
+        )
 
     logged_info = Model.load(model_path)
     flavor_conf = logged_info.flavors["transformers"]
@@ -3845,7 +3813,6 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
         )
 
 
-@mock.patch("mlflow.models.validate_serving_input")
 @pytest.mark.parametrize(
     ("model_fixture", "should_skip_validation"),
     [
@@ -3854,23 +3821,22 @@ def test_save_model_from_local_checkpoint_invalid_arguments(model_path, local_ch
     ],
 )
 def test_log_model_skip_validating_serving_input_for_local_checkpoint(
-    mock_validate_input,
     model_fixture,
     should_skip_validation,
     tmp_path,
     request,
 ):
-    # Ensure mlflow skips serving input validation for local checkpoint
     # input to avoid expensive computation
     model = request.getfixturevalue(model_fixture)
-
-    with mlflow.start_run():
-        model_info = mlflow.transformers.log_model(
-            model,
-            name="model",
-            task="fill-mask",
-            input_example=["How are you?"],
-        )
+    with mock.patch("mlflow.models.validate_serving_input") as mock_validate_input:
+        # Ensure mlflow skips serving input validation for local checkpoint
+        with mlflow.start_run():
+            model_info = mlflow.transformers.log_model(
+                model,
+                name="model",
+                task="fill-mask",
+                input_example=["How are you?"],
+            )
 
     # Serving input should exist regardless of the skip validation
     mlflow_model = Model.load(model_info.model_uri)

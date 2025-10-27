@@ -169,7 +169,7 @@ Run results that we can view with `mlflow_ui()`.
 An MLflow Model is a standard format for packaging machine learning
 models that can be used in a variety of downstream tools—for example,
 real-time serving through a REST API or batch inference on Apache Spark.
-They provide a convention to save a model in different “flavors” that
+They provide a convention to save a model in different "flavors" that
 can be understood by different downstream tools.
 
 To save a model use `mlflow_save_model()`. For instance, you can add the
@@ -271,7 +271,7 @@ When running a project, `mlflow_snapshot()` is automatically called to
 generate a `r-dependencies.txt` file which contains a list of required
 packages and versions.
 
-However, restoring dependencies is not automatic since it’s usually an
+However, restoring dependencies is not automatic since it's usually an
 expensive operation. To restore dependencies run:
 
 ```r

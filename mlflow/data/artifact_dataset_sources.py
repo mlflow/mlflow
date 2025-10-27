@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Any, TypeVar
 from urllib.parse import urlparse
 
-from mlflow.artifacts import download_artifacts
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_registered_artifact_repositories
@@ -116,6 +115,8 @@ def _create_dataset_source_for_artifact_repo(scheme: str, dataset_source_name: s
             Returns:
                 The path to the downloaded dataset source on the local filesystem.
             """
+            from mlflow.artifacts import download_artifacts
+
             return download_artifacts(artifact_uri=self.uri, dst_path=dst_path)
 
         @staticmethod

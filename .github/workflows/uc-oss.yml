@@ -21,10 +21,11 @@ concurrency:
 
 defaults:
   run:
-    shell: bash --noprofile --norc -exo pipefail {0}
+    shell: bash
 
 env:
   MLFLOW_HOME: ${{ github.workspace }}
+  MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
 
 jobs:
   uc-oss-integration-test:
@@ -42,7 +43,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          source ./dev/install-common-deps.sh --ml
+          source ./dev/install-common-deps.sh
 
       - name: Set up Java 17
         uses: actions/setup-java@0ab4596768b603586c0de567f2430c30f5b0d2b0 # v3.13.0

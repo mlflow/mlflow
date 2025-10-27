@@ -1,18 +1,13 @@
-import {
-  ArrowDownIcon,
-  ArrowUpIcon,
-  DashIcon,
-  Typography,
-  TypographyColor,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import type { TypographyColor } from '@databricks/design-system';
+import { ArrowDownIcon, ArrowUpIcon, DashIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import {
   DifferenceChartCellDirection,
   differenceView,
   getDifferenceChartDisplayedValue,
 } from '../../../utils/differenceView';
 import { type CellContext } from '@tanstack/react-table';
-import { DifferencePlotDataColumnDef, type DifferencePlotDataRow } from '../DifferenceViewPlot';
+import type { DifferencePlotDataColumnDef } from '../DifferenceViewPlot';
+import { type DifferencePlotDataRow } from '../DifferenceViewPlot';
 
 const CellDifference = ({ label, direction }: { label: string; direction: DifferenceChartCellDirection }) => {
   const { theme } = useDesignSystemTheme();

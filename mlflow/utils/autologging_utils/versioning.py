@@ -56,7 +56,7 @@ def get_min_max_version_and_pip_release(
     return min_version, max_version, pip_release
 
 
-def is_flavor_supported_for_associated_package_versions(flavor_name):
+def is_flavor_supported_for_associated_package_versions(flavor_name, check_max_version=True):
     """
     Returns:
         True if the specified flavor is supported for the currently-installed versions of its
@@ -92,4 +92,8 @@ def is_flavor_supported_for_associated_package_versions(flavor_name):
             max_version = "3.3.0"
         return _check_spark_version_in_range(actual_version, min_version, max_version)
     else:
-        return _check_version_in_range(actual_version, min_version, max_version)
+        return (
+            _check_version_in_range(actual_version, min_version, max_version)
+            if check_max_version
+            else Version(min_version) <= Version(actual_version)
+        )

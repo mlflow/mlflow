@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import yaml
 from langchain.callbacks.manager import AsyncCallbackManagerForChainRun, CallbackManagerForChainRun
 from langchain.chains.base import Chain
 from langchain.schema import BaseRetriever, Document
-from pydantic import Extra, Field
+from pydantic import ConfigDict, Field
 
 
 class _RetrieverChain(Chain):
@@ -35,11 +35,7 @@ class _RetrieverChain(Chain):
     output_key: str = "source_documents"
     retriever: BaseRetriever = Field(exclude=True)
 
-    class Config:
-        """Configuration for this pydantic object."""
-
-        extra = Extra.forbid
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(extra="forbid", arbitrary_types_allowed=True)
 
     @property
     def input_keys(self) -> list[str]:
@@ -58,7 +54,7 @@ class _RetrieverChain(Chain):
     def _call(
         self,
         inputs: dict[str, Any],
-        run_manager: Optional[CallbackManagerForChainRun] = None,
+        run_manager: CallbackManagerForChainRun | None = None,
     ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
@@ -83,7 +79,7 @@ class _RetrieverChain(Chain):
     async def _acall(
         self,
         inputs: dict[str, Any],
-        run_manager: Optional[AsyncCallbackManagerForChainRun] = None,
+        run_manager: AsyncCallbackManagerForChainRun | None = None,
     ) -> dict[str, Any]:
         """Run _get_docs on input query.
         Returns the retrieved documents under the key 'source_documents'.
@@ -107,7 +103,7 @@ class _RetrieverChain(Chain):
         return "retriever_chain"
 
     @classmethod
-    def load(cls, file: Union[str, Path], **kwargs: Any) -> _RetrieverChain:
+    def load(cls, file: str | Path, **kwargs: Any) -> _RetrieverChain:
         """Load a _RetrieverChain from a file."""
         # Convert file to Path object.
         file_path = Path(file) if isinstance(file, str) else file

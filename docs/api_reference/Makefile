@@ -64,6 +64,10 @@ javadocs:
 rdocs:
 	./build-rdoc.sh
 
+.PHONY: tsdocs
+tsdocs:
+	./build-tsdoc.sh
+
 .PHONY: test-examples
 test-examples:
 	@pytest --no-cov .examples
@@ -85,7 +89,7 @@ view:
 	python -m http.server --directory build/html
 
 .PHONY: html
-html: rdocs rsthtml javadocs
+html: rdocs rsthtml javadocs tsdocs
 
 .PHONY: dirhtml
 dirhtml:

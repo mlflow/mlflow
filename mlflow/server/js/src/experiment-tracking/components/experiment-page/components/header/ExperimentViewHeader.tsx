@@ -1,23 +1,29 @@
-import React, { useMemo, useState } from 'react';
-import { Button, GenericSkeleton, NewWindowIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import React, { useMemo } from 'react';
+import {
+  Breadcrumb,
+  ParagraphSkeleton,
+  TitleSkeleton,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { OverflowMenu, PageHeader } from '../../../../../shared/building_blocks/PageHeader';
+import { Link } from '../../../../../common/utils/RoutingUtils';
+import Routes from '../../../../routes';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
-import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
-import { ExperimentEntity } from '../../../../types';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentEntity } from '../../../../types';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
 import { InfoPopover } from '@databricks/design-system';
-import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
-import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
-import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
-import { RenameExperimentModal } from '../../../modals/RenameExperimentModal';
-import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
+import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
+import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
+import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
+import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
 
+import type { ExperimentKind } from '../../../../constants';
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
  * controls for renaming, deleting and editing permissions.
@@ -25,70 +31,41 @@ import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery'
 export const ExperimentViewHeader = React.memo(
   ({
     experiment,
+    inferredExperimentKind,
     searchFacetsState,
     uiState,
-    showAddDescriptionButton,
     setEditing,
+    experimentKindSelector,
+    refetchExperiment,
   }: {
     experiment: ExperimentEntity;
+    inferredExperimentKind?: ExperimentKind;
     searchFacetsState?: ExperimentPageSearchFacetsState;
     uiState?: ExperimentPageUIState;
-    showAddDescriptionButton: boolean;
     setEditing: (editing: boolean) => void;
+    experimentKindSelector?: React.ReactNode;
+    refetchExperiment?: () => Promise<unknown>;
   }) => {
-    const invalidateExperimentList = useInvalidateExperimentList();
-
-    const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
-    const [showRenameExperimentModal, setShowRenameExperimentModal] = useState(false);
-
-    const navigate = useNavigate();
-
-    const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
-
     const { theme } = useDesignSystemTheme();
-
-    /**
-     * Extract the last part of the experiment name
-     */
-    const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
-
-    const feedbackFormUrl = EXPERIMENT_PAGE_FEEDBACK_URL;
-
-    const renderFeedbackForm = () => {
-      const feedbackLink = (
-        <Button
-          href={feedbackFormUrl}
-          target="_blank"
-          rel="noreferrer"
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_100"
-          css={{ marginLeft: theme.spacing.sm }}
-          type="link"
-          size="small"
-          endIcon={<NewWindowIcon />}
-        >
+    const breadcrumbs: React.ReactNode[] = useMemo(
+      () => [
+        // eslint-disable-next-line react/jsx-key
+        <Link to={Routes.experimentsObservatoryRoute} data-testid="experiment-observatory-link">
           <FormattedMessage
-            defaultMessage="Provide Feedback"
-            description="Link to a survey for users to give feedback"
+            defaultMessage="Experiments"
+            description="Breadcrumb nav item to link to the list of experiments page"
           />
-        </Button>
-      );
-      return feedbackLink;
-    };
-
-    const getShareButton = () => {
-      const shareButtonElement = (
-        <ExperimentViewHeaderShareButton
-          experimentIds={experimentIds}
-          searchFacetsState={searchFacetsState}
-          uiState={uiState}
-        />
-      );
-      return shareButtonElement;
-    };
+        </Link>,
+      ],
+      [],
+    );
+    const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
+    // Extract the last part of the experiment name
+    const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
 
     const getInfoTooltip = () => {
       return (
-        <div style={{ display: 'flex' }}>
+        <div style={{ display: 'flex', marginRight: theme.spacing.sm }}>
           <InfoPopover iconTitle="Info">
             <div
               css={{
@@ -128,114 +105,63 @@ export const ExperimentViewHeader = React.memo(
         </div>
       );
     };
-    const getAddDescriptionButton = () => {
-      return (
-        <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_header_experimentviewheaderv2.tsx_271"
-          size="small"
-          onClick={() => {
-            setEditing(true);
-          }}
-          css={{
-            marginLeft: theme.spacing.sm,
-            background: `${theme.colors.backgroundSecondary} !important`,
-            border: 'none',
-          }}
-        >
-          <Typography.Text size="md">Add Description</Typography.Text>
-        </Button>
-      );
-    };
+
+    const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
 
     return (
-      <PageHeader
-        breadcrumbs={[<Link to={Routes.experimentsObservatoryRoute}>Experiments</Link>]}
-        title={
+      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+        <Breadcrumb includeTrailingCaret>
+          {breadcrumbs.map((breadcrumb, index) => (
+            <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
+          ))}
+        </Breadcrumb>
+        <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
           <div
-            css={{
-              [theme.responsive.mediaQueries.xs]: {
-                display: 'inline',
-                wordBreak: 'break-all',
-              },
-              [theme.responsive.mediaQueries.sm]: {
-                display: 'inline-block',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                verticalAlign: 'middle',
-              },
-            }}
-            title={normalizedExperimentName}
+            css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
           >
-            {normalizedExperimentName}
+            <Tooltip
+              content={normalizedExperimentName}
+              componentId="mlflow.experiment_view.header.experiment-name-tooltip"
+            >
+              <span
+                css={{
+                  maxWidth: '100%',
+                  overflow: 'hidden',
+                }}
+              >
+                <Typography.Title
+                  withoutMargins
+                  level={2}
+                  css={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {normalizedExperimentName}
+                </Typography.Title>
+              </span>
+            </Tooltip>
+            {experimentKindSelector}
+            {getInfoTooltip()}
           </div>
-        }
-        titleAddOns={[
-          getInfoTooltip(),
-          renderFeedbackForm(),
-          showAddDescriptionButton && getAddDescriptionButton(),
-        ].filter(Boolean)}
-        spacerSize="sm"
-        dangerouslyAppendEmotionCSS={{
-          [theme.responsive.mediaQueries.sm]: {
-            // Do not wrap the title and buttons on >= small screens
-            '& > div': {
-              flexWrap: 'nowrap',
-            },
-            // The title itself should display elements horizontally
-            h2: {
-              display: 'flex',
-              overflow: 'hidden',
-            },
-          },
-        }}
-      >
-        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-          {/* Wrap the buttons in a flex element */}
-          <OverflowMenu
-            menu={[
-              {
-                id: 'rename',
-                itemName: (
-                  <FormattedMessage
-                    defaultMessage="Rename"
-                    description="Text for rename button on the experiment view page header"
-                  />
-                ),
-                onClick: () => setShowRenameExperimentModal(true),
-              },
-              {
-                id: 'delete',
-                itemName: (
-                  <FormattedMessage
-                    defaultMessage="Delete"
-                    description="Text for delete button on the experiment view page header"
-                  />
-                ),
-                onClick: () => setShowDeleteExperimentModal(true),
-              },
-            ]}
-          />
-          {getShareButton()}
+          <TabSelectorBar experimentKind={experimentKind} />
+          <div
+            css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
+          >
+            <ExperimentViewHeaderShareButton
+              experimentIds={experimentIds}
+              searchFacetsState={searchFacetsState}
+              uiState={uiState}
+            />
+            <ExperimentViewManagementMenu
+              experiment={experiment}
+              setEditing={setEditing}
+              refetchExperiment={refetchExperiment}
+            />
+          </div>
         </div>
-        <RenameExperimentModal
-          experimentId={experiment.experimentId}
-          experimentName={experiment.name}
-          isOpen={showRenameExperimentModal}
-          onClose={() => setShowRenameExperimentModal(false)}
-          onExperimentRenamed={invalidateExperimentList}
-        />
-        <DeleteExperimentModal
-          experimentId={experiment.experimentId}
-          experimentName={experiment.name}
-          isOpen={showDeleteExperimentModal}
-          onClose={() => setShowDeleteExperimentModal(false)}
-          onExperimentDeleted={() => {
-            invalidateExperimentList();
-            navigate(Routes.experimentsObservatoryRoute);
-          }}
-        />
-      </PageHeader>
+      </div>
     );
   },
 );
@@ -244,18 +170,12 @@ export function ExperimentViewHeaderSkeleton() {
   const { theme } = useDesignSystemTheme();
 
   return (
-    <div css={{ height: 2 * theme.general.heightSm }}>
-      <div css={{ height: theme.spacing.lg }}>
-        <GenericSkeleton css={{ width: 100, height: theme.spacing.md }} loading />
-      </div>
-      <div css={{ display: 'flex', justifyContent: 'space-between' }}>
-        <div>
-          <GenericSkeleton css={{ width: 160, height: theme.general.heightSm }} loading />
-        </div>
-        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-          <GenericSkeleton css={{ width: 100, height: theme.general.heightSm }} loading />
-          <GenericSkeleton css={{ width: 60, height: theme.general.heightSm }} loading />
-        </div>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+      <ParagraphSkeleton css={{ width: 100 }} loading />
+      <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <TitleSkeleton css={{ width: 150, height: theme.general.heightSm }} loading />
+        <TitleSkeleton css={{ height: theme.general.heightSm, alignSelf: 'center' }} loading />
+        <TitleSkeleton css={{ width: theme.spacing.lg, height: theme.general.heightSm, alignSelf: 'right' }} loading />
       </div>
     </div>
   );

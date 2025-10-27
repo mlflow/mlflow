@@ -8,7 +8,7 @@ from abc import ABC, ABCMeta, abstractmethod
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -78,9 +78,12 @@ class ArtifactRepository:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         self.artifact_uri = artifact_uri
         self.tracking_uri = tracking_uri
+        self.registry_uri = registry_uri
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
@@ -103,7 +106,8 @@ class ArtifactRepository:
         return (
             f"{self.__class__.__name__}("
             f"artifact_uri={self.artifact_uri!r}, "
-            f"tracking_uri={self.tracking_uri!r}"
+            f"tracking_uri={self.tracking_uri!r}, "
+            f"registry_uri={self.registry_uri!r}"
             f")"
         )
 
@@ -172,7 +176,7 @@ class ArtifactRepository:
         """
 
     @abstractmethod
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
@@ -413,7 +417,7 @@ def try_read_trace_data(trace_data_path):
 class MultipartUploadMixin(ABC):
     @abstractmethod
     def create_multipart_upload(
-        self, local_file: str, num_parts: int, artifact_path: Optional[str] = None
+        self, local_file: str, num_parts: int, artifact_path: str | None = None
     ) -> CreateMultipartUploadResponse:
         """
         Initiate a multipart upload and retrieve the pre-signed upload URLS and upload id.
@@ -432,7 +436,7 @@ class MultipartUploadMixin(ABC):
         local_file: str,
         upload_id: str,
         parts: list[MultipartUploadPart],
-        artifact_path: Optional[str] = None,
+        artifact_path: str | None = None,
     ) -> None:
         """
         Complete a multipart upload.
@@ -451,7 +455,7 @@ class MultipartUploadMixin(ABC):
         self,
         local_file: str,
         upload_id: str,
-        artifact_path: Optional[str] = None,
+        artifact_path: str | None = None,
     ) -> None:
         """
         Abort a multipart upload.

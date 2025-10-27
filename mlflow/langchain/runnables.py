@@ -4,7 +4,7 @@ import os
 import re
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING
 
 import cloudpickle
 import yaml
@@ -103,7 +103,7 @@ def _load_model_from_path(path: str, model_config=None):
     raise MlflowException(f"Unsupported model load key {model_load_fn}")
 
 
-def _validate_path(file_path: Union[str, Path]):
+def _validate_path(file_path: str | Path):
     load_path = Path(file_path)
     if not load_path.exists() or not load_path.is_dir():
         raise MlflowException(
@@ -112,7 +112,7 @@ def _validate_path(file_path: Union[str, Path]):
     return load_path
 
 
-def _load_runnable_with_steps(file_path: Union[Path, str], model_type: str):
+def _load_runnable_with_steps(file_path: Path | str, model_type: str):
     """Load the model
 
     Args:
@@ -162,7 +162,7 @@ def runnable_sequence_from_steps(steps):
     return RunnableSequence(first=first, middle=middle, last=last)
 
 
-def _load_runnable_branch(file_path: Union[Path, str]):
+def _load_runnable_branch(file_path: Path | str):
     """Load the model
 
     Args:
@@ -205,7 +205,7 @@ def _load_runnable_branch(file_path: Union[Path, str]):
     return RunnableBranch(*branches)
 
 
-def _load_runnable_assign(file_path: Union[Path, str]):
+def _load_runnable_assign(file_path: Path | str):
     """Load the model
 
     Args:
@@ -221,7 +221,7 @@ def _load_runnable_assign(file_path: Union[Path, str]):
     return RunnableAssign(mapper)
 
 
-def _load_runnable_binding(file_path: Union[Path, str]):
+def _load_runnable_binding(file_path: Path | str):
     """
     Load runnable binding model from the path
     """
@@ -299,7 +299,7 @@ def _warning_if_imported_from_lc_partner_pkg(runnable):
         )
 
 
-def _save_runnable_with_steps(model, file_path: Union[Path, str], loader_fn=None, persist_dir=None):  # noqa: D417
+def _save_runnable_with_steps(model, file_path: Path | str, loader_fn=None, persist_dir=None):
     """Save the model with steps. Currently it supports saving RunnableSequence and
     RunnableParallel.
 
@@ -446,7 +446,7 @@ def _save_runnable_binding(model, file_path, loader_fn=None, persist_dir=None):
     model_config["bound"] = _save_internal_runnables(model.bound, save_path, loader_fn, persist_dir)
 
     # save other fields
-    for field, value in model.dict().items():
+    for field, value in model.model_dump().items():
         if _is_json_primitive(value):
             model_config[field] = value
         elif field != "bound":

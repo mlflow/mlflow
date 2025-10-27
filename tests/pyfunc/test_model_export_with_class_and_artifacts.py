@@ -42,6 +42,7 @@ from mlflow.models.resources import (
     DatabricksApp,
     DatabricksFunction,
     DatabricksGenieSpace,
+    DatabricksLakebase,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksTable,
@@ -1552,6 +1553,7 @@ def test_model_save_load_with_resources(tmp_path):
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
             "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
             "app": [{"name": "test_databricks_app"}],
+            "lakebase": [{"name": "test_databricks_lakebase"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1573,6 +1575,7 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksTable(table_name="rag.studio.table_a"),
             DatabricksTable(table_name="rag.studio.table_b"),
             DatabricksApp(app_name="test_databricks_app"),
+            DatabricksLakebase(database_instance_name="test_databricks_lakebase"),
         ],
     )
 
@@ -1596,6 +1599,8 @@ def test_model_save_load_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                lakebase:
+                - name: test_databricks_lakebase
                 genie_space:
                 - name: genie_space_id_1
                 - name: genie_space_id_2
@@ -1650,6 +1655,7 @@ def test_model_save_load_with_invokers_resources(tmp_path):
                 {"name": "rag.studio.table_b"},
             ],
             "app": [{"name": "test_databricks_app"}],
+            "lakebase": [{"name": "test_databricks_lakebase"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1675,6 +1681,7 @@ def test_model_save_load_with_invokers_resources(tmp_path):
             DatabricksTable(table_name="rag.studio.table_a", on_behalf_of_user=True),
             DatabricksTable(table_name="rag.studio.table_b"),
             DatabricksApp(app_name="test_databricks_app"),
+            DatabricksLakebase(database_instance_name="test_databricks_lakebase"),
         ],
     )
 
@@ -1701,6 +1708,8 @@ def test_model_save_load_with_invokers_resources(tmp_path):
                 - name: rag.studio.test_function_a
                   on_behalf_of_user: True
                 - name: rag.studio.test_function_b
+                lakebase:
+                - name: test_databricks_lakebase
                 genie_space:
                 - name: genie_space_id_1
                   on_behalf_of_user: True
@@ -1864,6 +1873,7 @@ def test_model_log_with_resources(tmp_path):
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
             "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
             "app": [{"name": "test_databricks_app"}],
+            "lakebase": [{"name": "test_databricks_lakebase"}],
         },
     }
     with mlflow.start_run() as run:
@@ -1885,6 +1895,7 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksTable(table_name="rag.studio.table_a"),
                 DatabricksTable(table_name="rag.studio.table_b"),
                 DatabricksApp(app_name="test_databricks_app"),
+                DatabricksLakebase(database_instance_name="test_databricks_lakebase"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1909,6 +1920,8 @@ def test_model_log_with_resources(tmp_path):
                 function:
                 - name: rag.studio.test_function_a
                 - name: rag.studio.test_function_b
+                lakebase:
+                - name: test_databricks_lakebase
                 genie_space:
                 - name: genie_space_id_1
                 - name: genie_space_id_2
@@ -2661,3 +2674,25 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
     assert "mlflow==" in contents
     assert "openai==1.82.0" in contents
     assert "httpx==" in contents
+
+
+@pytest.mark.parametrize(
+    ("input_example", "expected_result"), [(["Hello", "World"], True), (None, False)]
+)
+def test_load_context_with_input_example(input_example, expected_result):
+    class MyModel(mlflow.pyfunc.PythonModel):
+        def load_context(self, context):
+            raise Exception("load_context was called")
+
+        def predict(self, model_input: list[str], params=None):
+            return model_input
+
+    msg = "Failed to run the predict function on input example"
+
+    with mock.patch("mlflow.models.signature._logger.warning") as mock_warning:
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=MyModel(),
+            input_example=input_example,
+        )
+        assert any(msg in call.args[0] for call in mock_warning.call_args_list) == expected_result

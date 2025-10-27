@@ -15,7 +15,7 @@ _TRACKING_HOST_CREDS = MlflowHostCreds("https://hello-tracking")
 def mock_host_creds(uri):
     if uri == _DATABRICKS_TRACKING_URI:
         return _TRACKING_HOST_CREDS
-    elif uri == _DATABRICKS_UC_REGISTRY_URI or uri == _DATABRICKS_UC_OSS_REGISTRY_URI:
+    elif uri in (_DATABRICKS_UC_REGISTRY_URI, _DATABRICKS_UC_OSS_REGISTRY_URI):
         return _REGISTRY_HOST_CREDS
     raise Exception(f"Got unexpected store URI {uri}")
 

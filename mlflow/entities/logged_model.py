@@ -1,4 +1,4 @@
-from typing import Any, Optional, Union
+from typing import Any
 
 import mlflow.protos.service_pb2 as pb2
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -21,13 +21,13 @@ class LoggedModel(_MlflowObject):
         artifact_location: str,
         creation_timestamp: int,
         last_updated_timestamp: int,
-        model_type: Optional[str] = None,
-        source_run_id: Optional[str] = None,
-        status: Union[LoggedModelStatus, int] = LoggedModelStatus.READY,
-        status_message: Optional[str] = None,
-        tags: Optional[Union[list[LoggedModelTag], dict[str, str]]] = None,
-        params: Optional[Union[list[LoggedModelParameter], dict[str, str]]] = None,
-        metrics: Optional[list[Metric]] = None,
+        model_type: str | None = None,
+        source_run_id: str | None = None,
+        status: LoggedModelStatus | int = LoggedModelStatus.READY,
+        status_message: str | None = None,
+        tags: list[LoggedModelTag] | dict[str, str] | None = None,
+        params: list[LoggedModelParameter] | dict[str, str] | None = None,
+        metrics: list[Metric] | None = None,
     ):
         super().__init__()
         self._experiment_id: str = experiment_id
@@ -36,12 +36,12 @@ class LoggedModel(_MlflowObject):
         self._artifact_location: str = artifact_location
         self._creation_time: int = creation_timestamp
         self._last_updated_timestamp: int = last_updated_timestamp
-        self._model_type: Optional[str] = model_type
-        self._source_run_id: Optional[str] = source_run_id
+        self._model_type: str | None = model_type
+        self._source_run_id: str | None = source_run_id
         self._status: LoggedModelStatus = (
             status if isinstance(status, LoggedModelStatus) else LoggedModelStatus.from_int(status)
         )
-        self._status_message: Optional[str] = status_message
+        self._status_message: str | None = status_message
         self._tags: dict[str, str] = (
             {tag.key: tag.value for tag in (tags or [])} if isinstance(tags, list) else (tags or {})
         )
@@ -50,7 +50,7 @@ class LoggedModel(_MlflowObject):
             if isinstance(params, list)
             else (params or {})
         )
-        self._metrics: Optional[list[Metric]] = metrics
+        self._metrics: list[Metric] | None = metrics
         self._model_uri = f"models:/{self.model_id}"
 
     def __repr__(self) -> str:
@@ -123,16 +123,16 @@ class LoggedModel(_MlflowObject):
         self._last_updated_timestamp = updated_timestamp
 
     @property
-    def model_type(self) -> Optional[str]:
+    def model_type(self) -> str | None:
         """String. Type of the model."""
         return self._model_type
 
     @model_type.setter
-    def model_type(self, new_model_type: Optional[str]):
+    def model_type(self, new_model_type: str | None):
         self._model_type = new_model_type
 
     @property
-    def source_run_id(self) -> Optional[str]:
+    def source_run_id(self) -> str | None:
         """String. MLflow run ID that generated this model."""
         return self._source_run_id
 
@@ -146,7 +146,7 @@ class LoggedModel(_MlflowObject):
         self._status = updated_status
 
     @property
-    def status_message(self) -> Optional[str]:
+    def status_message(self) -> str | None:
         """String. Descriptive message for error status conditions."""
         return self._status_message
 
@@ -161,7 +161,7 @@ class LoggedModel(_MlflowObject):
         return self._params
 
     @property
-    def metrics(self) -> Optional[list[Metric]]:
+    def metrics(self) -> list[Metric] | None:
         """List of metrics associated with this Model."""
         return self._metrics
 
@@ -171,7 +171,7 @@ class LoggedModel(_MlflowObject):
         return self._model_uri
 
     @metrics.setter
-    def metrics(self, new_metrics: Optional[list[Metric]]):
+    def metrics(self, new_metrics: list[Metric] | None):
         self._metrics = new_metrics
 
     @classmethod

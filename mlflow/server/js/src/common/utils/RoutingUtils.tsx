@@ -16,11 +16,14 @@ import {
   Route,
   UNSAFE_NavigationContext,
   NavLink,
+  Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
   useLocation as useLocationDirect,
   useParams as useParamsDirect,
   useSearchParams as useSearchParamsDirect,
+  createHashRouter,
+  RouterProvider,
   Routes,
   type To,
   type NavigateOptions,
@@ -33,7 +36,8 @@ import {
  * Import React Router V5 parts
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
-import React, { ComponentProps } from 'react';
+import type { ComponentProps } from 'react';
+import React from 'react';
 
 const useLocation = useLocationDirect;
 
@@ -42,6 +46,8 @@ const useSearchParams = useSearchParamsDirect;
 const useParams = useParamsDirect;
 
 const useNavigate = useNavigateDirect;
+
+const Outlet = OutletDirect;
 
 const Link = LinkDirect;
 
@@ -64,6 +70,11 @@ export {
   Navigate,
   Route,
   Routes,
+  Outlet,
+
+  // Exports used to build hash-based data router
+  createHashRouter,
+  RouterProvider,
 
   // Unsafe navigation context, will be improved after full migration to react-router v6
   UNSAFE_NavigationContext,
@@ -71,8 +82,9 @@ export {
 
 export const createLazyRouteElement = (
   // Load the module's default export and turn it into React Element
-  componentLoader: () => Promise<{ default: React.ComponentType<any> }>,
+  componentLoader: () => Promise<{ default: React.ComponentType<React.PropsWithChildren<any>> }>,
 ) => React.createElement(React.lazy(componentLoader));
-export const createRouteElement = (component: React.ComponentType<any>) => React.createElement(component);
+export const createRouteElement = (component: React.ComponentType<React.PropsWithChildren<any>>) =>
+  React.createElement(component);
 
 export type { Location, NavigateFunction, Params, To, NavigateOptions };

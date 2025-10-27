@@ -1,12 +1,6 @@
 import pytest
 import pytorch_lightning as pl
 import torch
-from iris import (
-    IrisClassification,
-    IrisClassificationMultiOptimizer,
-    IrisClassificationWithoutValidation,
-)
-from iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 from packaging.version import Version
 from pytorch_lightning.callbacks import ModelCheckpoint
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
@@ -17,6 +11,13 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
 from mlflow.utils.file_utils import TempDir
+
+from tests.pytorch.iris import (
+    IrisClassification,
+    IrisClassificationMultiOptimizer,
+    IrisClassificationWithoutValidation,
+)
+from tests.pytorch.iris_data_module import IrisDataModule, IrisDataModuleWithoutValidation
 
 NUM_EPOCHS = 20
 
@@ -753,3 +754,24 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         ]
         == 2
     )
+
+
+def test_autologging_disabled_for_forecasting_model_predict():
+    from tests.pytorch.test_forecasting_model import _gen_forecasting_model_and_data
+
+    mlflow.pytorch.autolog()
+
+    n_series = 10
+    max_prediction_length = 20
+
+    deepar, data = _gen_forecasting_model_and_data(
+        n_series=n_series,
+        timesteps=100,
+        max_prediction_length=max_prediction_length,
+    )
+
+    last_run_id = mlflow.last_active_run().info.run_id
+    deepar.predict(data)
+
+    # assert `deepar.predict` does not trigger autologging (i.e. no new run is created)
+    assert mlflow.last_active_run().info.run_id == last_run_id

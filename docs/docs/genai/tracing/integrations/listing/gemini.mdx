@@ -35,14 +35,25 @@ MLflow trace automatically captures the following information about Gemini calls
 - Latencies
 - Model name
 - Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Token usage (input, output, and total tokens)
 - Function calling if returned in the response
 - Any exception if raised
 
-:::note
+## Supported APIs
 
-Currently, MLflow Gemini integration only supports tracing of synchronous calls for text interactions. Async APIs are not traced and full inputs may not be recorded for multi-modal inputs.
+MLflow supports automatic tracing for the following Anthropic APIs:
 
-:::
+| Text Generation | Chat | Function Calling | Streaming |  Async   | Image | Video |
+| :-------------: | :--: | :--------------: | :-------: | :------: | :---: | :---: |
+|       ✅        |  ✅  |        ✅        |     -     | ✅ (\*1) |   -   |   -   |
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+(\*1) Async support was added in MLflow 3.2.0.
+
+</div>
+
+To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
 ### Basic Example
 
@@ -84,12 +95,81 @@ response = chat.send_message("Okay, how about a more detailed explanation to a h
 print(response.text)
 ```
 
+### Async
+
+MLflow Tracing supports asynchronous API of the Gemini SDK since MLflow 3.2.0. The usage is same as the synchronous API.
+
+```python
+# Configure the SDK with your API key.
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Async API is invoked through the `aio` namespace.
+response = await client.aio.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
+```
+
 ### Embeddings
 
 MLflow Tracing for Gemini SDK supports embeddings API:
 
 ```python
 result = client.models.embed_content(model="text-embedding-004", contents="Hello world")
+```
+
+## Token usage
+
+MLflow >= 3.4.0 supports token usage tracking for Gemini. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.gemini.autolog()
+
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Use the generate_content method to generate responses to your prompts.
+response = client.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
+
+# Get the trace object just created
+trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
+
+== Detailed usage for each LLM call: ==
+Models.generate_content:
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
+Models._generate_content:
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
 ```
 
 ### Disable auto-tracing

@@ -1,7 +1,8 @@
 import type { RunsChartAxisDef, RunsChartsRunData } from './components/RunsCharts.common';
 import { RunsChartsLineChartXAxisType } from './components/RunsCharts.common';
 import { getUUID } from '../../../common/utils/ActionUtils';
-import { MetricEntitiesByName, ChartSectionConfig } from '../../types';
+import type { ChartSectionConfig } from '../../types';
+import { MetricEntitiesByName } from '../../types';
 import {
   MLFLOW_MODEL_METRIC_PREFIX,
   MLFLOW_SYSTEM_METRIC_PREFIX,

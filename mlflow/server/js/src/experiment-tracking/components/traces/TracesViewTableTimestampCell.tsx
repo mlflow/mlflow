@@ -1,6 +1,6 @@
-import { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
+import type { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
 import React from 'react';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { LegacyTooltip } from '@databricks/design-system';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 

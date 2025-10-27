@@ -1,3 +1,4 @@
+import type { ThemeType } from '@databricks/design-system';
 import {
   Radio,
   LegacySelect,
@@ -5,10 +6,9 @@ import {
   LegacyTooltip,
   QuestionMarkIcon,
   useDesignSystemTheme,
-  ThemeType,
   SegmentedControlGroup,
   SegmentedControlButton,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   FormUI,
   Typography,
@@ -759,7 +759,7 @@ export const RunsChartsConfigureLineChart = ({
                 />
               }
             >
-              <InfoIcon />
+              <InfoSmallIcon />
             </LegacyTooltip>
           </SegmentedControlButton>
           <SegmentedControlButton

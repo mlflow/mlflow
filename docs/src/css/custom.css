@@ -8,6 +8,9 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
+:root {
+  --color-brand-red: #eb1700;
+}
 
 /* --------------------------------
  * 0. Override tailwinds reset of li and ul elements styling
@@ -488,6 +491,18 @@ html[data-theme='dark'] .menu__link--active {
 .menu__link:hover:not(.menu__link--active) {
   color: var(--ifm-color-emphasis-hover); /* Use hover variable */
   background-color: transparent;
+}
+
+/* External link icon in sidebar - make existing icon smaller */
+.menu__link--external svg,
+.menu__link[href^='http'] svg,
+.menu__link[href^='https'] svg,
+.menu a[target='_blank'] svg,
+.menu a[rel*='noopener'] svg {
+  width: 10px;
+  height: 10px;
+  vertical-align: middle;
+  margin-left: 0.2em;
 }
 
 /* --------------------------------

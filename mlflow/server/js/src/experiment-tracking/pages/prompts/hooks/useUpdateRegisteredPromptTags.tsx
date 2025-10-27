@@ -1,7 +1,7 @@
 import { useMutation } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
 import { RegisteredPromptsApi } from '../api';
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 import { useCallback } from 'react';
 import { diffCurrentAndNewTags, isUserFacingTag } from '../../../../common/utils/TagUtils';
 

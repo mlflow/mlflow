@@ -5,7 +5,7 @@
   "scripts": {
     "docusaurus": "docusaurus",
     "start": "docusaurus start",
-    "preview": "yarn build && yarn serve",
+    "preview": "npm run build && npm run serve",
     "build": "docusaurus build",
     "build-api-docs": "python scripts/build-api-docs.py --with-r && tsx scripts/update-api-modules.ts",
     "build-api-docs:no-r": "python scripts/build-api-docs.py && tsx scripts/update-api-modules.ts",
@@ -20,10 +20,11 @@
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
     "prettier": "prettier",
-    "prettier:fix": "prettier '**/*.{ts,tsx,md,mdx,css}' --write",
-    "prettier:check": "prettier '**/*.{ts,tsx,md,mdx,css}' --check",
+    "prettier:fix": "prettier '**/*.{js,jsx,ts,tsx,md,mdx,css}' --write",
+    "prettier:check": "prettier '**/*.{js,jsx,ts,tsx,md,mdx,css}' --check",
     "check-links": "tsx scripts/check-links.mts",
-    "sitemap": "tsx scripts/compare-sitemaps.ts"
+    "sitemap": "tsx scripts/compare-sitemaps.ts",
+    "eslint": "eslint docs"
   },
   "dependencies": {
     "@docusaurus/core": "^3.6.3",

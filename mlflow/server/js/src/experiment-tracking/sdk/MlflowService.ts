@@ -13,18 +13,20 @@
  *   Aug 1, 2018 3:42:41 PM. We will update the generation pipeline to actually
  *   place these generated objects in the correct location shortly.
  */
-import { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfo, ModelTraceData } from '@databricks/web-shared/model-trace-explorer';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
 import {
+  defaultResponseParser,
   deleteJson,
   fetchEndpoint,
   getBigIntJson,
   getJson,
+  HTTPMethods,
   patchJson,
   postBigIntJson,
   postJson,
 } from '../../common/utils/FetchUtils';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import {
   transformGetExperimentResponse,
   transformGetRunResponse,
@@ -48,8 +50,10 @@ type GetCredentialsForLoggedModelArtifactReadResult = {
     };
   }[];
 };
+
 const searchRunsPath = () => 'ajax-api/2.0/mlflow/runs/search';
 
+// eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 export class MlflowService {
   /**
    * Create a mlflow experiment
@@ -99,7 +103,7 @@ export class MlflowService {
   /**
    * Delete a mlflow experiment run
    */
-  static deleteRun = (data: any) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
+  static deleteRun = (data: { run_id: string }) => postJson({ relativeUrl: 'ajax-api/2.0/mlflow/runs/delete', data });
 
   /**
    * Search datasets used in experiments
@@ -224,7 +228,13 @@ export class MlflowService {
   /**
    * Traces API: get traces list
    */
-  static getExperimentTraces = (experimentIds: string[], orderBy: string, pageToken?: string, filterString = '') => {
+  static getExperimentTraces = (
+    experimentIds: string[],
+    orderBy: string,
+    pageToken?: string,
+    filterString = '',
+    maxResults?: number,
+  ) => {
     type GetExperimentTracesResponse = {
       traces?: ModelTraceInfo[];
       next_page_token?: string;
@@ -241,6 +251,7 @@ export class MlflowService {
         experiment_ids: experimentIds,
         order_by: orderBy,
         page_token: pageToken,
+        max_results: maxResults,
         filter: filterString,
       },
       { arrayFormat: 'repeat' },
@@ -262,13 +273,15 @@ export class MlflowService {
   };
 
   static getExperimentTraceInfoV3 = (requestId: string) => {
-    type GetExperimentTraceInfoResponse = {
-      trace_info?: ModelTraceInfo;
+    type GetExperimentTraceInfoV3Response = {
+      trace?: {
+        trace_info?: ModelTraceInfo;
+      };
     };
 
     return getJson({
-      relativeUrl: `ajax-api/3.0/mlflow/traces/${requestId}/info`,
-    }) as Promise<GetExperimentTraceInfoResponse>;
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${requestId}`,
+    }) as Promise<GetExperimentTraceInfoV3Response>;
   };
 
   /**
@@ -311,11 +324,10 @@ export class MlflowService {
    * Traces API: delete trace tag V3
    */
   static deleteExperimentTraceTagV3 = (traceRequestId: string, key: string) =>
-    deleteJson({
-      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags`,
-      data: {
-        key,
-      },
+    fetchEndpoint({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags?key=${encodeURIComponent(key)}`,
+      method: HTTPMethods.DELETE,
+      success: defaultResponseParser,
     });
 
   /**

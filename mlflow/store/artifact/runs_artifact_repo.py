@@ -1,7 +1,7 @@
 import logging
 import os
 import urllib.parse
-from typing import Iterator, Optional
+from typing import Iterator
 
 import mlflow
 from mlflow.entities.file_info import FileInfo
@@ -29,19 +29,23 @@ class RunsArtifactRepository(ArtifactRepository):
     users should take special care when constructing the URI.
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super().__init__(artifact_uri, tracking_uri)
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
-        self.repo = get_artifact_repository(uri, self.tracking_uri)
+        self.repo = get_artifact_repository(
+            uri, tracking_uri=self.tracking_uri, registry_uri=self.registry_uri
+        )
 
     @staticmethod
     def is_runs_uri(uri):
         return urllib.parse.urlparse(uri).scheme == "runs"
 
     @staticmethod
-    def get_underlying_uri(runs_uri: str, tracking_uri: Optional[str] = None) -> str:
+    def get_underlying_uri(runs_uri: str, tracking_uri: str | None = None) -> str:
         from mlflow.tracking.artifact_utils import get_artifact_uri
 
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
@@ -114,7 +118,7 @@ class RunsArtifactRepository(ArtifactRepository):
     def _is_directory(self, artifact_path):
         return self.repo._is_directory(artifact_path)
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory. When the run has an
@@ -128,12 +132,10 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         return self._list_run_artifacts(path) + self._list_model_artifacts(path)
 
-    def _list_run_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def _list_run_artifacts(self, path: str | None = None) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
 
-    def _get_logged_model_artifact_repo(
-        self, run_id: str, name: str
-    ) -> Optional[ArtifactRepository]:
+    def _get_logged_model_artifact_repo(self, run_id: str, name: str) -> ArtifactRepository | None:
         """
         Get the artifact repository for a logged model with the given name and run ID.
         Returns None if no such model exists.
@@ -144,7 +146,7 @@ class RunsArtifactRepository(ArtifactRepository):
         experiment_id = client.get_run(run_id).info.experiment_id
 
         def iter_models() -> Iterator[LoggedModel]:
-            page_token: Optional[str] = None
+            page_token: str | None = None
             while True:
                 page = client.search_logged_models(
                     experiment_ids=[experiment_id],
@@ -158,11 +160,13 @@ class RunsArtifactRepository(ArtifactRepository):
                 page_token = page.token
 
         if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
-            return get_artifact_repository(matched.artifact_location, self.tracking_uri)
+            return get_artifact_repository(
+                matched.artifact_location, tracking_uri=self.tracking_uri
+            )
 
         return None
 
-    def _list_model_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def _list_model_artifacts(self, path: str | None = None) -> list[FileInfo]:
         """
         A run can have an associated model. If so, this method lists the artifacts of the model.
         """
@@ -182,7 +186,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         return []
 
-    def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None) -> str:
+    def download_artifacts(self, artifact_path: str, dst_path: str | None = None) -> str:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it. When the run has an associated model, the artifacts of the model are also
@@ -201,7 +205,7 @@ class RunsArtifactRepository(ArtifactRepository):
             Absolute path of the local filesystem location containing the desired artifacts.
         """
         dst_path = dst_path or create_tmp_dir()
-        run_out_path: Optional[str] = None
+        run_out_path: str | None = None
         try:
             # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
@@ -213,7 +217,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         # If there are artifacts with the same name in the run and model, the model artifacts
         # will overwrite the run artifacts.
-        model_out_path: Optional[str] = None
+        model_out_path: str | None = None
         try:
             model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
         except Exception:
@@ -230,7 +234,7 @@ class RunsArtifactRepository(ArtifactRepository):
             )
         return path
 
-    def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
+    def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> str | None:
         """
         A run can have an associated model. If so, this method downloads the artifacts of the model.
         """

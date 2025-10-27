@@ -66,12 +66,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   relatedRunsLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const {
-    usingUnifiedDetailsLayout,
-    detailsPageTableStyles,
-    detailsPageNoEntriesStyles,
-    detailsPageNoResultsWrapperStyles,
-  } = useExperimentTrackingDetailsPageLayoutStyles();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -154,17 +149,15 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
         }),
         accessorKey: 'value',
         // In full-width layout, let "Value" fill the remaining space
-        enableResizing: !usingUnifiedDetailsLayout,
-        meta: usingUnifiedDetailsLayout
-          ? {
-              styles: {
-                minWidth: 120,
-              },
-            }
-          : {},
+        enableResizing: true,
+        meta: {
+          styles: {
+            minWidth: 120,
+          },
+        },
       },
     ],
-    [intl, usingUnifiedDetailsLayout],
+    [intl],
   );
 
   const table = useReactTable({
@@ -218,7 +211,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={detailsPageNoResultsWrapperStyles}>
+              <div>
                 <Empty
                   description={
                     <FormattedMessage
@@ -277,7 +270,7 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
   };
 
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', maxHeight: 400 }}>
       <Typography.Title level={4}>
         <FormattedMessage
           defaultMessage="Metrics ({length})"
@@ -288,9 +281,8 @@ export const ExperimentLoggedModelDetailsMetricsTable = ({
       <div
         css={{
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.general.borderRadiusBase,
-          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
 import { findChartStepsByTimestampForRuns } from '../utils/findChartStepsByTimestamp';
-import { SampledMetricsByRunUuidState } from '../../../types';
+import type { SampledMetricsByRunUuidState } from '../../../types';
 import { isNumber, isString, isUndefined } from 'lodash';
 import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
-import { RunsChartsLineCardConfig } from '../runs-charts.types';
+import type { RunsChartsLineCardConfig } from '../runs-charts.types';
 
 /**
  * Hook used in compare run charts. It's responsible for converting selected range

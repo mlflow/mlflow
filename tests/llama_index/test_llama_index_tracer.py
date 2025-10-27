@@ -4,19 +4,20 @@ import inspect
 import random
 from dataclasses import asdict
 from pathlib import Path
+from typing import Any
 from unittest.mock import ANY
 
 import importlib_metadata
 import llama_index.core
 import openai
 import pytest
-from llama_index.agent.openai import OpenAIAgent
 from llama_index.core import Settings
 from llama_index.core.base.response.schema import StreamingResponse
 from llama_index.core.llms import ChatMessage, ChatResponse
 from llama_index.core.llms.callbacks import llm_chat_callback
 from llama_index.core.retrievers import VectorIndexRetriever
 from llama_index.core.tools import FunctionTool
+from llama_index.core.workflow import Context
 from llama_index.llms.openai import OpenAI
 from openai.types.chat import ChatCompletionMessageToolCall
 from packaging.version import Version
@@ -34,6 +35,12 @@ from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 llama_core_version = Version(importlib_metadata.version("llama-index-core"))
 llama_oai_version = Version(importlib_metadata.version("llama-index-llms-openai"))
+
+# Detect llama-index-workflows version to handle API changes
+try:
+    llama_workflows_version = Version(importlib_metadata.version("llama-index-workflows"))
+except importlib_metadata.PackageNotFoundError:
+    llama_workflows_version = None
 
 
 @pytest.fixture(autouse=True)
@@ -87,10 +94,6 @@ def test_trace_llm_complete(is_async):
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
 
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hello"},
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 5,
         TokenUsageKey.OUTPUT_TOKENS: 7,
@@ -143,11 +146,6 @@ def test_trace_llm_complete_stream():
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
-    # When an error occurs, only input message should be captured
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {"role": "user", "content": "Hello"},
-        {"content": "Hello world", "role": "assistant"},
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -229,16 +227,6 @@ def test_trace_llm_chat(is_async):
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Hello",
-        },
-        {
-            "role": "assistant",
-            "content": '[{"role": "system", "content": "Hello"}]',
-        },
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -303,7 +291,7 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     message = ChatMessage(
         role="user", blocks=[TextBlock(text="What is in the image?"), image_block]
     )
-    response = llm.chat([message])
+    llm.chat([message])
 
     traces = get_traces()
     assert len(traces) == 1
@@ -312,22 +300,6 @@ def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "What is in the image?",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": expected_image_url,
-                },
-            ],
-        },
-        {"role": "assistant", "content": response.message.content},
-    ]
 
 
 def test_trace_llm_chat_stream():
@@ -395,16 +367,6 @@ def test_trace_llm_chat_stream():
     }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
-    assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "role": "system",
-            "content": "Hello",
-        },
-        {
-            "role": "assistant",
-            "content": "Hello world",
-        },
-    ]
     assert traces[0].info.token_usage == {
         TokenUsageKey.INPUT_TOKENS: 9,
         TokenUsageKey.OUTPUT_TOKENS: 12,
@@ -437,15 +399,11 @@ def test_trace_llm_error(monkeypatch, is_stream):
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_chat" if is_stream else "OpenAI.chat"
     assert spans[0].span_type == SpanType.CHAT_MODEL
-    assert spans[0].inputs == {"messages": [message.dict()]}
+    assert spans[0].inputs == {"messages": [message.model_dump()]}
     assert spans[0].outputs is None
     events = traces[0].data.spans[0].events
     assert len(events) == 1
     assert events[0].attributes["exception.message"] == "Connection error."
-    # When an error occurs, only input message should be captured
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {"role": "system", "content": "Hello"},
-    ]
 
 
 @pytest.mark.parametrize("is_async", [True, False])
@@ -467,7 +425,7 @@ def test_trace_retriever(multi_index, is_async):
     for i in range(1, 4):
         assert spans[i].parent_id == spans[i - 1].span_id
 
-    assert spans[0].name == "BaseRetriever.aretrieve" if is_async else "BaseRetriever.retrieve"
+    assert spans[0].name.endswith("Retriever.aretrieve" if is_async else "Retriever.retrieve")
     assert spans[0].span_type == SpanType.RETRIEVER
     assert spans[0].inputs == {"str_or_query_bundle": "apple"}
     assert len(spans[0].outputs) == 1
@@ -483,13 +441,13 @@ def test_trace_retriever(multi_index, is_async):
     assert spans[1].inputs["query_bundle"]["query_str"] == "apple"
     assert spans[1].outputs == spans[0].outputs
 
-    assert spans[2].name.startswith("BaseEmbedding")
+    assert "Embedding" in spans[2].name
     assert spans[2].span_type == SpanType.EMBEDDING
     assert spans[2].inputs == {"query": "apple"}
     assert len(spans[2].outputs) == 1536  # embedding size
     assert spans[2].attributes["model_name"] == Settings.embed_model.model_name
 
-    assert spans[3].name.startswith("OpenAIEmbedding")
+    assert "Embedding" in spans[3].name
     assert spans[3].span_type == SpanType.EMBEDDING
     assert spans[3].inputs == {"query": "apple"}
     assert len(spans[3].outputs) == 1536  # embedding size
@@ -526,16 +484,16 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
 
     # Validate span attributes for some key spans
     spans = traces[0].data.spans
-    assert spans[0].name == f"BaseQueryEngine.{prefix}query"
+    assert spans[0].name.endswith(f"QueryEngine.{prefix}query")
     assert spans[0].span_type == SpanType.CHAIN
     assert spans[0].inputs == {"str_or_query_bundle": "Hello"}
     assert spans[0].outputs == response
 
-    llm_span = next(s for s in spans if s.span_type == SpanType.CHAT_MODEL)
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
 
-
+@pytest.mark.skipif(llama_core_version >= Version("0.13.0"), reason="OpenAIAgent is removed")
 def test_trace_agent():
+    from llama_index.agent.openai import OpenAIAgent
+
     # Mock LLM to return deterministic responses and let the agent use a tool
     class MockLLMForAgent(OpenAI, extra="allow"):
         def __init__(self, *args, **kwargs):
@@ -602,39 +560,6 @@ def test_trace_agent():
     # Validate the chat messages and tool calls are captured in LLM span attributes
     llm_spans = [s for s in spans if s.span_type == SpanType.CHAT_MODEL]
     assert len(llm_spans) == 2
-
-    expected_full_messages = [
-        {
-            "role": "user",
-            "content": "What is 1 + 2?",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "test",
-                    "type": "function",
-                    "function": {
-                        "name": "add",
-                        "arguments": '{"a": 1, "b": 2}',
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": "3",
-            "tool_call_id": "test",
-        },
-        {
-            "role": "assistant",
-            "content": "The result is 3",
-        },
-    ]
-    assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages[:2]
-    assert llm_spans[1].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_full_messages
-
     assert llm_spans[0].get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "function": {
@@ -676,7 +601,9 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
         assert response == "Hello world"
     else:
         response = asyncio.run(engine.achat("Hello")) if is_async else engine.chat("Hello")
-        assert response.response == '[{"role": "user", "content": "Hello"}]'
+        # a default prompt is added in llama-index 0.13.0
+        # https://github.com/run-llama/llama_index/blob/1e02c7a2324838f7bd5a52c811d35c30dc6a6bd2/llama-index-core/llama_index/core/chat_engine/condense_plus_context.py#L40
+        assert '{"role": "user", "content": "Hello"}' in response.response
 
     # Since chat engine is a complex agent-based system, it is challenging to strictly
     # validate the trace structure and attributes. The detailed validation is done in
@@ -686,10 +613,6 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]
     assert root_span.inputs == {"message": "Hello"}
-
-    # Validate the chat messages are captured in LLM span attributes
-    llm_span = next(s for s in traces[0].data.spans if s.span_type == SpanType.CHAT_MODEL)
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) is not None
 
 
 @skip_when_testing_trace_sdk
@@ -704,6 +627,26 @@ def test_tracer_handle_tracking_uri_update(tmp_path):
         # The new trace will be logged to the updated tracking URI
         OpenAI().complete("Hello")
         assert len(get_traces()) == 1
+
+
+# Utility functions to set/get a value in the workflow context, handling API differences:
+#
+# - For llama-index-workflows < 2.0: ctx.set(key, value) and ctx.get(key)
+# - For llama-index-workflows >= 2.0: ctx.store.set(key, value) and ctx.store.get(key)
+#
+# See: https://github.com/run-llama/workflows-py/pull/55
+async def context_set(ctx: Context, key: str, value: Any) -> None:
+    if llama_workflows_version and llama_workflows_version.major >= 2:
+        await ctx.store.set(key, value)
+    else:
+        await ctx.set(key, value)
+
+
+async def context_get(ctx: Context, key: str) -> Any:
+    if llama_workflows_version and llama_workflows_version.major >= 2:
+        return await ctx.store.get(key)
+    else:
+        return await ctx.get(key)
 
 
 @pytest.mark.skipif(
@@ -752,7 +695,7 @@ async def test_tracer_parallel_workflow():
     class ParallelWorkflow(Workflow):
         @step
         async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
-            await ctx.set("num_to_collect", len(ev.inputs))
+            await context_set(ctx, "num_to_collect", len(ev.inputs))
             for item in ev.inputs:
                 ctx.send_event(ProcessEvent(data=item))
             return None
@@ -765,7 +708,7 @@ async def test_tracer_parallel_workflow():
 
         @step
         async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
-            num_to_collect = await ctx.get("num_to_collect")
+            num_to_collect = await context_get(ctx, "num_to_collect")
             results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
             if results is None:
                 return None
@@ -812,7 +755,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
     class ParallelWorkflow(Workflow):
         @step
         async def start(self, ctx: Context, ev: StartEvent) -> ProcessEvent:
-            await ctx.set("num_to_collect", len(ev.inputs))
+            await context_set(ctx, "num_to_collect", len(ev.inputs))
             for item in ev.inputs:
                 ctx.send_event(ProcessEvent(data=item))
             return None
@@ -827,7 +770,7 @@ async def test_tracer_parallel_workflow_with_custom_spans():
 
         @step
         async def combine_results(self, ctx: Context, ev: ResultEvent) -> StopEvent:
-            num_to_collect = await ctx.get("num_to_collect")
+            num_to_collect = await context_get(ctx, "num_to_collect")
             results = ctx.collect_events(ev, [ResultEvent] * num_to_collect)
             if results is None:
                 return None

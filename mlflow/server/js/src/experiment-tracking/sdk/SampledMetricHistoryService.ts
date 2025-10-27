@@ -1,11 +1,11 @@
 import { difference } from 'lodash';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { fetchEndpoint, jsonBigIntResponseParser } from '../../common/utils/FetchUtils';
-import { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
+import type { AsyncAction, ReduxState, ThunkDispatch } from '../../redux-types';
 import { createChartAxisRangeKey } from '../components/runs-charts/components/RunsCharts.common';
-import { MetricEntity } from '../types';
+import type { MetricEntity } from '../types';
 import { type ParsedQs, stringify as queryStringStringify } from 'qs';
-import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
 
 interface GetHistoryBulkIntervalResponseType {
   metrics: (MetricEntity & { run_id: string })[];
@@ -56,7 +56,7 @@ export const getSampledMetricHistoryBulkAction =
       // If refresh mode is set to `auto`, skip runs that are fresh or are being loaded
       if (refreshMode === 'auto') {
         const timePassedSinceLastUpdate = Date.now() - (sampledHistoryEntry?.lastUpdatedTime || 0);
-        const isFresh = timePassedSinceLastUpdate < EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL;
+        const isFresh = timePassedSinceLastUpdate < EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL;
         const isInitialized = Boolean(sampledHistoryEntry?.lastUpdatedTime);
         const isLoadingOrRefreshing = sampledHistoryEntry?.loading || sampledHistoryEntry?.refreshing;
 

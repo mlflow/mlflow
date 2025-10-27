@@ -1,6 +1,6 @@
-import { ColumnDef } from '@tanstack/react-table';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
-import { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef } from '@tanstack/react-table';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { Interpolation, Theme } from '@emotion/react';
 
 export type TracesColumnDef = ColumnDef<ModelTraceInfoWithRunName> & {
   meta?: {

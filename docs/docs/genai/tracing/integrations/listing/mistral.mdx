@@ -13,8 +13,21 @@ MLflow Tracing ensures observability for your interactions with Mistral AI model
 When Mistral auto-tracing is enabled by calling the <APILink fn="mlflow.mistral.autolog" /> function,
 usage of the Mistral SDK will automatically record generated traces during interactive development.
 
-Note that only synchronous calls to the Text Generation API are supported,
-and that asynchronous API and streaming methods are not traced.
+## Supported APIs
+
+MLflow supports automatic tracing for the following Anthropic APIs:
+
+| Chat | Function Calling | Streaming |  Async   | Image | Embeddings | Agents |
+| :--: | :--------------: | :-------: | :------: | :---: | :--------: | :----: |
+|  ✅  |        ✅        |     -     | ✅ (\*1) |   -   |     -      |   -    |
+
+<div style={{ fontSize: '0.9em', marginTop: '10px' }}>
+
+(\*1) Async support was added in MLflow 3.5.0.
+
+</div>
+
+To request support for additional APIs, please open a [feature request](https://github.com/mlflow/mlflow/issues) on GitHub.
 
 ### Example Usage
 

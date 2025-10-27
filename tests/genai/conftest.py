@@ -1,3 +1,5 @@
+import functools
+import os
 from unittest import mock
 
 import pytest
@@ -6,6 +8,7 @@ import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.document import Document
 from mlflow.entities.span import SpanType
+from mlflow.genai.scorers.validation import IS_DBX_AGENTS_INSTALLED
 
 
 @pytest.fixture(autouse=True)
@@ -18,13 +21,40 @@ def mock_init_auth():
         yield
 
 
-@pytest.fixture(autouse=True)
-def spoof_tracking_uri_check():
-    # NB: The mlflow.genai.evaluate() API is only runnable when the tracking URI is set
-    # to Databricks. However, we cannot test against real Databricks server in CI, so
-    # we spoof the check by patching the is_databricks_uri() function.
-    with mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=True):
-        yield
+@pytest.fixture(params=[True, False], ids=["databricks", "oss"])
+def is_in_databricks(request):
+    if request.param and not IS_DBX_AGENTS_INSTALLED:
+        pytest.skip("Skipping Databricks test because `databricks-agents` is not installed.")
+
+    # In CI, we run test twice, once without `databricks-agents` and once with.
+    # To be effective, we skip OSS test when running with `databricks-agents`.
+    if "GITHUB_ACTIONS" in os.environ:
+        if not request.param and IS_DBX_AGENTS_INSTALLED:
+            pytest.skip("Skipping OSS test in CI because `databricks-agents` is installed.")
+
+    with (
+        mock.patch("mlflow.genai.evaluation.base.is_databricks_uri", return_value=request.param),
+        mock.patch("mlflow.genai.judges.utils.is_databricks_uri", return_value=request.param),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_databricks_default_tracking_uri",
+            return_value=request.param,
+        ),
+    ):
+        yield request.param
+
+
+def databricks_only(func):
+    """Decorator that skips test if not in Databricks environment"""
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        if not IS_DBX_AGENTS_INSTALLED:
+            pytest.skip("Skipping Databricks only test.")
+
+        with mock.patch("mlflow.get_tracking_uri", return_value="databricks"):
+            return func(*args, **kwargs)
+
+    return wrapper
 
 
 @pytest.fixture

@@ -2,10 +2,9 @@ import random
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Optional
+from typing import Any
 from unittest.mock import MagicMock
 
-import langchain
 import pydantic
 import pytest
 from langchain.chains.llm import LLMChain
@@ -22,7 +21,6 @@ from langchain_core.output_parsers.string import StrOutputParser
 from langchain_core.outputs import LLMResult
 from langchain_core.runnables import RunnableLambda
 from langchain_core.tools import tool
-from packaging.version import Version
 
 import mlflow
 from mlflow.entities import Document as MlflowDocument
@@ -34,7 +32,6 @@ from mlflow.langchain.langchain_tracer import MlflowLangchainTracer
 from mlflow.langchain.model import _LangChainModelWrapper
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 from tests.tracing.helper import get_traces
 
@@ -118,16 +115,6 @@ def test_llm_success():
     assert llm_span.inputs == ["test prompt"]
     assert llm_span.outputs["generations"][0][0]["text"] == "generated text"
     assert llm_span.events[0].name == "new_token"
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -155,12 +142,6 @@ def test_llm_error():
     # timestamp is auto-generated when converting the error to event
     assert llm_span.events[0].name == error_event.name
     assert llm_span.events[0].attributes == error_event.attributes
-    assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-    ]
 
     _validate_trace_json_serialization(trace)
 
@@ -205,22 +186,8 @@ def test_chat_model():
     assert chat_model_span.name == "test_chat_model"
     assert chat_model_span.span_type == "CHAT_MODEL"
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.inputs == [[msg.dict() for msg in input_messages]]
+    assert chat_model_span.inputs == [[msg.model_dump() for msg in input_messages]]
     assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "system",
-            "content": "system prompt",
-        },
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
 
 
 def test_chat_model_with_tool():
@@ -261,16 +228,6 @@ def test_chat_model_with_tool():
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
     assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [tool_definition]
 
 
@@ -309,16 +266,6 @@ def test_chat_model_with_non_openai_tool():
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test prompt",
-        },
-        {
-            "role": "assistant",
-            "content": "generated text",
-        },
-    ]
     assert chat_model_span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
             "type": "function",
@@ -481,17 +428,6 @@ def test_multiple_components():
         llm_span = trace.data.spans[1 + i * 2]
         assert llm_span.inputs == [f"test prompt {i}"]
         assert llm_span.outputs["generations"][0][0]["text"] == f"generated text {i}"
-        assert llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-            {
-                "role": "user",
-                "content": f"test prompt {i}",
-            },
-            {
-                "role": "assistant",
-                "content": f"generated text {i}",
-            },
-        ]
-
         retriever_span = trace.data.spans[2 + i * 2]
         assert retriever_span.inputs == f"test query {i}"
         assert (
@@ -574,10 +510,6 @@ def test_tracer_thread_safe():
     assert all(len(trace.data.spans) == 1 for trace in traces)
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="ChatPromptTemplate expecting dict input",
-)
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
     from langchain.callbacks.manager import CallbackManagerForLLMRun
     from langchain.chat_models.base import SimpleChatModel
@@ -589,8 +521,8 @@ def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
         def _call(
             self,
             messages: list[BaseMessage],
-            stop: Optional[list[str]] = None,
-            run_manager: Optional[CallbackManagerForLLMRun] = None,
+            stop: list[str] | None = None,
+            run_manager: CallbackManagerForLLMRun | None = None,
             **kwargs: Any,
         ) -> str:
             return TEST_CONTENT
@@ -645,10 +577,6 @@ def test_tracer_noop_when_tracing_disabled(monkeypatch):
     mock_logger.warning.assert_not_called()
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="ChatPromptTemplate expecting dict input",
-)
 def test_tracer_with_manual_traces():
     # Validate if the callback works properly when outer and inner spans
     # are created by fluent APIs.
@@ -704,9 +632,7 @@ def test_serialize_invocation_params_success():
     callback = MlflowLangchainTracer()
     attributes = {"invocation_params": {"response_format": DummyModel, "other_param": "preserved"}}
     result = callback._serialize_invocation_params(attributes)
-    expected_schema = (
-        DummyModel.model_json_schema() if IS_PYDANTIC_V2_OR_NEWER else DummyModel.schema()
-    )
+    expected_schema = DummyModel.model_json_schema()
     assert "invocation_params" in result
     assert "response_format" in result["invocation_params"]
     assert result["invocation_params"]["response_format"] == expected_schema

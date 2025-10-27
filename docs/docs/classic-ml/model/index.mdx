@@ -335,7 +335,7 @@ framework was used to produce the model. This interoperability is very powerful 
 any Python model to be productionized in a variety of environments.
 
 In addition, the `python_function` model flavor defines a generic
-filesystem <Link to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-filesystem-format" target="_blank">model format</Link>
+filesystem <APILink fn="mlflow.pyfunc" hash="pyfunc-filesystem-format">model format</APILink>
 for Python models and provides utilities for saving and loading models
 to and from this format. The format is self-contained in the sense that it includes all the
 information necessary to load and use a model. Dependencies are stored either directly with the
@@ -545,8 +545,8 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to="/api_reference/R-api.html#mlflow-save-model-h2o" target="_blank">mlflow_save_model</Link>
-and <Link to="/api_reference/R-api.html#mlflow-log-model" target="_blank">mlflow_log_model</Link> in R for saving H2O
+and <APILink fn="mlflow.r" hash="mlflow-save-model-crate">mlflow_save_model</APILink>
+and <APILink fn="mlflow.r" hash="mlflow-log-model">mlflow_log_model</APILink> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
@@ -1561,7 +1561,7 @@ REST endpoints.
 
 The following examples demonstrate how you can use the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
 module to create custom Python models. For additional information about model customization with MLflow's
-`python_function` utilities, see the <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-create-custom">python_function custom models documentation</Link>.
+`python_function` utilities, see the <APILink fn="mlflow.pyfunc" hash="pyfunc-create-custom">python_function custom models documentation</APILink>.
 
 #### Example: Creating a model with type hints
 
@@ -1622,7 +1622,7 @@ pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 assert pyfunc_model.predict(input_example) == ["Hello", "Hi"]
 ```
 
-#### Example: Creating a custom “add n” model
+#### Example: Creating a custom "add n" model
 
 This example defines a class for a custom model that adds a specified numeric value, `n`, to all
 columns of a Pandas DataFrame input. Then, it uses the <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
@@ -1662,7 +1662,7 @@ assert model_output.equals(pd.DataFrame([range(5, 15)]))
 
 This example begins by training and saving a gradient boosted tree model using the XGBoost
 library. Next, it defines a wrapper class around the XGBoost model that conforms to MLflow's
-`python_function` <Link target="_blank" to="/api_reference/python_api/mlflow.pyfunc.html#pyfunc-inference-api">inference API</Link>.
+`python_function` <APILink fn="mlflow.pyfunc" hash="pyfunc-inference-api">inference API</APILink>.
 Then, it uses the wrapper class and the saved XGBoost model to construct an MLflow Model that performs inference using the gradient
 boosted tree. Finally, it loads the MLflow Model in `python_function` format and uses it to
 evaluate test data.
@@ -1809,7 +1809,7 @@ The <APILink fn="mlflow.models.predict" /> API provides a convenient way to test
 - Model dependencies validation: The API helps ensure that the dependencies logged with the model are correct and sufficient by executing the model with an input example in a virtual environment.
   For more details, refer to [Validating Environment for Prediction](/ml/model/dependencies/#validating-environment-for-prediction).
 - Input data validation: The API can be used to validate the input data interacts with the model as expected by simulating the same data processing during model serving.
-  Ensure that the input data is a valid example that aligns with the pyfunc model’s predict function requirements.
+  Ensure that the input data is a valid example that aligns with the pyfunc model's predict function requirements.
 - Extra environment variables validation: By specifying the `extra_envs` parameter, you can test whether additional environment variables are required for the model to run successfully.
   Note that all existing environment variables in `os.environ` are automatically passed into the virtual environment.
 
@@ -1834,6 +1834,16 @@ mlflow.models.predict(
     input_data=["a", "b", "c"],
     pip_requirements_override=["..."],
     extra_envs={"MY_ENV_VAR": "my_value"},
+)
+```
+
+If your model dependencies (see the model artifact's requirements.txt) include **pre-release packages** (e.g., mlflow==3.2.0rc0), set the environment variable `UV_PRERELEASE=allow` via the `extra_envs` field.
+
+```python
+mlflow.models.predict(
+    model_uri=model_info.model_uri,
+    input_data=["a", "b", "c"],
+    extra_envs={"UV_PRERELEASE": "allow"},
 )
 ```
 
@@ -2039,7 +2049,7 @@ pyfunc_udf = mlflow.pyfunc.spark_udf(
 ## Deployment to Custom Targets \{#deployment_plugin}
 
 In addition to the built-in deployment tools, MLflow provides a pluggable <APILink fn="mlflow.deployments" />
-and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments CLI</Link> for deploying models to custom targets and environments.
+and <APILink fn="mlflow.server.cli" hash="mlflow-deployments">mlflow deployments CLI</APILink> for deploying models to custom targets and environments.
 To deploy to a custom target, you must first install an appropriate third-party Python plugin. See the list of
 known community-maintained plugins [here](/ml/plugins).
 
@@ -2048,14 +2058,14 @@ known community-maintained plugins [here](/ml/plugins).
 The `mlflow deployments` CLI contains the following commands, which can also be invoked programmatically
 using the <APILink fn="mlflow.deployments">mlflow.deployments Python API</APILink>:
 
-- <Link to="/api_reference/cli.html#mlflow-deployments-create" target="_blank">Create</Link>: Deploy an MLflow model to a specified custom target
-- <Link to="/api_reference/cli.html#mlflow-deployments-delete" target="_blank">Delete</Link>: Delete a deployment
-- <Link to="/api_reference/cli.html#mlflow-deployments-update" target="_blank">Update</Link>: Update an existing deployment, for example to
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-create">Create</APILink>: Deploy an MLflow model to a specified custom target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-delete">Delete</APILink>: Delete a deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-update">Update</APILink>: Update an existing deployment, for example to
 deploy a new model version or change the deployment's configuration (e.g. increase replica count)
-- <Link to="/api_reference/cli.html#mlflow-deployments-list" target="_blank">List</Link>: List IDs of all deployments
-- <Link to="/api_reference/cli.html#mlflow-deployments-get" target="_blank">Get</Link>: Print a detailed description of a particular deployment
-- <Link to="/api_reference/cli.html#mlflow-deployments-run-local" target="_blank">Run Local</Link>: Deploy the model locally for testing
-- <Link to="/api_reference/cli.html#mlflow-deployments-help" target="_blank">Help</Link>: Show the help string for the specified target
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-list">List</APILink>: List IDs of all deployments
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-get">Get</APILink>: Print a detailed description of a particular deployment
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-run-local">Run Local</APILink>: Deploy the model locally for testing
+- <APILink fn="mlflow.server.cli" hash="mlflow-deployments-help">Help</APILink>: Show the help string for the specified target
 
 For more info, see:
 

@@ -76,7 +76,7 @@ def is_file_uri(uri):
 
 def is_http_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == "http" or scheme == "https"
+    return scheme in {"http", "https"}
 
 
 def is_databricks_uri(uri):
@@ -125,7 +125,7 @@ def is_valid_uc_volumes_uri(uri: str) -> bool:
 
 def is_databricks_unity_catalog_uri(uri):
     scheme = urllib.parse.urlparse(uri).scheme
-    return scheme == _DATABRICKS_UNITY_CATALOG_SCHEME or uri == _DATABRICKS_UNITY_CATALOG_SCHEME
+    return _DATABRICKS_UNITY_CATALOG_SCHEME in (scheme, uri)
 
 
 def is_oss_unity_catalog_uri(uri):
@@ -179,7 +179,7 @@ def get_db_info_from_uri(uri):
     returns None.
     """
     parsed_uri = urllib.parse.urlparse(uri)
-    if parsed_uri.scheme == "databricks" or parsed_uri.scheme == _DATABRICKS_UNITY_CATALOG_SCHEME:
+    if parsed_uri.scheme in ("databricks", _DATABRICKS_UNITY_CATALOG_SCHEME):
         # netloc should not be an empty string unless URI is formatted incorrectly.
         if parsed_uri.netloc == "":
             raise MlflowException(
@@ -240,7 +240,7 @@ def add_databricks_profile_info_to_artifact_uri(artifact_uri, databricks_profile
         return artifact_uri
 
     scheme = artifact_uri_parsed.scheme
-    if scheme == "dbfs" or scheme == "runs" or scheme == "models":
+    if scheme in {"dbfs", "runs", "models"}:
         if databricks_profile_uri == "databricks":
             netloc = "databricks"
         else:

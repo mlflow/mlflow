@@ -4,29 +4,22 @@ import { useMemo } from 'react';
 
 /**
  * Provides CSS styles for details pages (logged model details page, run details page)
- * depending on currently enabled layout, based on the feature flag.
+ * using the unified layout style.
  */
 export const useExperimentTrackingDetailsPageLayoutStyles = () => {
   const { theme } = useDesignSystemTheme();
-  const usingUnifiedDetailsLayout = false;
 
   const detailsPageTableStyles = useMemo<Interpolation<Theme>>(
-    () =>
-      usingUnifiedDetailsLayout
-        ? {
-            height: 200,
-            overflow: 'hidden',
-            '& > div': {
-              ...getBottomOnlyShadowScrollStyles(theme),
-            },
-          }
-        : {},
-    [theme, usingUnifiedDetailsLayout],
-  );
-
-  const detailsPageNoResultsWrapperStyles = useMemo<Interpolation<Theme>>(
-    () => (usingUnifiedDetailsLayout ? {} : { marginTop: theme.spacing.md * 4 }),
-    [theme, usingUnifiedDetailsLayout],
+    () => ({
+      minHeight: 200,
+      maxHeight: 500,
+      height: 'min-content',
+      overflow: 'hidden',
+      '& > div': {
+        ...getBottomOnlyShadowScrollStyles(theme),
+      },
+    }),
+    [theme],
   );
 
   const detailsPageNoEntriesStyles = useMemo<Interpolation<Theme>>(
@@ -37,17 +30,15 @@ export const useExperimentTrackingDetailsPageLayoutStyles = () => {
         alignItems: 'center',
         justifyContent: 'center',
       },
-      usingUnifiedDetailsLayout && {
+      {
         marginTop: theme.spacing.md,
       },
     ],
-    [theme, usingUnifiedDetailsLayout],
+    [theme],
   );
 
   return {
-    usingUnifiedDetailsLayout,
     detailsPageTableStyles,
     detailsPageNoEntriesStyles,
-    detailsPageNoResultsWrapperStyles,
   };
 };

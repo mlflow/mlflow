@@ -1,5 +1,5 @@
 import { Typography } from '@databricks/design-system';
-import { RunDatasetWithTags } from '../../../../types';
+import type { RunDatasetWithTags } from '../../../../types';
 import { FormattedMessage } from 'react-intl';
 
 export const ExperimentViewDatasetDigest = ({ datasetWithTags }: { datasetWithTags: RunDatasetWithTags }) => {

@@ -6,7 +6,7 @@ import re
 import signal
 import subprocess
 import uuid
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -87,7 +87,11 @@ def get_breast_cancer_dataset():
     return data.data, data.target
 
 
-RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+class RunData(NamedTuple):
+    params: dict[str, Any]
+    metrics: dict[str, Any]
+    tags: dict[str, Any]
+    artifacts: list[str]
 
 
 def get_run_data(run_id):
@@ -1045,41 +1049,37 @@ def test_custom_evaluators_no_model_or_preds(multiclass_logistic_regressor_model
     """
     Tests that custom evaluators are called correctly when no model or predictions are provided
     """
-    with mock.patch.object(
-        _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
+    with (
+        mock.patch.object(
+            _model_evaluation_registry, "_registry", {"test_evaluator1": FakeEvaluator1}
+        ),
+        mock.patch.object(FakeEvaluator1, "can_evaluate", return_value=True) as mock_can_evaluate,
+        mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate,
     ):
-        with (
-            mock.patch.object(
-                FakeEvaluator1, "can_evaluate", return_value=True
-            ) as mock_can_evaluate,
-            mock.patch.object(FakeEvaluator1, "evaluate") as mock_evaluate,
-        ):
-            with mlflow.start_run() as run:
-                evaluate(
-                    model=None,
-                    data=iris_dataset._constructor_args["data"],
-                    predictions=None,
-                    model_type="classifier",
-                    targets=iris_dataset._constructor_args["targets"],
-                    evaluators="test_evaluator1",
-                    evaluator_config=None,
-                    extra_metrics=None,
-                )
+        with mlflow.start_run() as run:
+            evaluate(
+                model=None,
+                data=iris_dataset._constructor_args["data"],
+                predictions=None,
+                model_type="classifier",
+                targets=iris_dataset._constructor_args["targets"],
+                evaluators="test_evaluator1",
+                evaluator_config=None,
+                extra_metrics=None,
+            )
 
-                mock_can_evaluate.assert_called_once_with(
-                    model_type="classifier", evaluator_config={}
-                )
-                mock_evaluate.assert_called_once_with(
-                    model=None,
-                    dataset=iris_dataset,
-                    predictions=None,
-                    model_type="classifier",
-                    model_id=None,
-                    run_id=run.info.run_id,
-                    evaluator_config={},
-                    extra_metrics=None,
-                    custom_artifacts=None,
-                )
+            mock_can_evaluate.assert_called_once_with(model_type="classifier", evaluator_config={})
+            mock_evaluate.assert_called_once_with(
+                model=None,
+                dataset=iris_dataset,
+                predictions=None,
+                model_type="classifier",
+                model_id=None,
+                run_id=run.info.run_id,
+                evaluator_config={},
+                extra_metrics=None,
+                custom_artifacts=None,
+            )
 
 
 def test_start_run_or_reuse_active_run():
@@ -1670,7 +1670,7 @@ def test_evaluate_with_static_dataset_error_handling_pandas_dataset():
 def test_binary_classification_missing_minority_class_exception_override(
     binary_logistic_regressor_model_uri, breast_cancer_dataset, monkeypatch
 ):
-    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "True")
 
     ds_targets = breast_cancer_dataset._constructor_args["targets"]
     # Simulate a missing target label
@@ -1700,7 +1700,7 @@ def test_binary_classification_missing_minority_class_exception_override(
 def test_multiclass_classification_missing_minority_class_exception_override(
     multiclass_logistic_regressor_model_uri, iris_dataset, monkeypatch
 ):
-    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", True)
+    monkeypatch.setenv("_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", "True")
 
     ds_targets = iris_dataset._constructor_args["targets"]
     # Simulate a missing target label
@@ -1826,20 +1826,20 @@ _TEST_GT_LIST = [
         ),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_chat_model_endpoint(mock_deploy_client, input_data, feature_names, targets):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+def test_evaluate_on_chat_model_endpoint(input_data, feature_names, targets):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/chat",
-            data=input_data,
-            model_type="question-answering",
-            feature_names=feature_names,
-            targets=targets,
-            inference_params={"max_tokens": 10, "temperature": 0.5},
-        )
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/chat",
+                data=input_data,
+                model_type="question-answering",
+                feature_names=feature_names,
+                targets=targets,
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1898,19 +1898,19 @@ _DUMMY_COMPLETION_RESPONSE = {
         ([{"prompt": q} for q in _TEST_QUERY_LIST], None),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, feature_names):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
+def test_evaluate_on_completion_model_endpoint(input_data, feature_names):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_COMPLETION_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/completions"}
 
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/completions",
-            data=input_data,
-            inference_params={"max_tokens": 10},
-            model_type="text",
-            feature_names=feature_names,
-        )
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/completions",
+                data=input_data,
+                inference_params={"max_tokens": 10},
+                model_type="text",
+                feature_names=feature_names,
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1933,35 +1933,35 @@ def test_evaluate_on_completion_model_endpoint(mock_deploy_client, input_data, f
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
-    # An endpoint that does not have endpoint type. For such endpoint, we simply
-    # pass the input data to the endpoint without any modification and return
-    # the response as is.
-    mock_deploy_client.return_value.get_endpoint.return_value = {}
-    mock_deploy_client.return_value.predict.return_value = "This is a response"
+def test_evaluate_on_model_endpoint_without_type():
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        # An endpoint that does not have endpoint type. For such endpoint, we simply
+        # pass the input data to the endpoint without any modification and return
+        # the response as is.
+        mock_deploy_client.return_value.get_endpoint.return_value = {}
+        mock_deploy_client.return_value.predict.return_value = "This is a response"
 
-    input_data = pd.DataFrame(
-        {
-            "inputs": [
-                {
-                    "messages": [{"content": q, "role": "user"}],
-                    "max_tokens": 10,
-                }
-                for q in _TEST_QUERY_LIST
-            ],
-            "ground_truth": _TEST_GT_LIST,
-        }
-    )
-
-    with mlflow.start_run():
-        eval_result = mlflow.evaluate(
-            model="endpoints:/random",
-            data=input_data,
-            model_type="question-answering",
-            targets="ground_truth",
-            inference_params={"max_tokens": 10, "temperature": 0.5},
+        input_data = pd.DataFrame(
+            {
+                "inputs": [
+                    {
+                        "messages": [{"content": q, "role": "user"}],
+                        "max_tokens": 10,
+                    }
+                    for q in _TEST_QUERY_LIST
+                ],
+                "ground_truth": _TEST_GT_LIST,
+            }
         )
+
+        with mlflow.start_run():
+            eval_result = mlflow.evaluate(
+                model="endpoints:/random",
+                data=input_data,
+                model_type="question-answering",
+                targets="ground_truth",
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
     # Validate the endpoint is called with correct payloads
     call_args_list = mock_deploy_client.return_value.predict.call_args_list
@@ -1994,27 +1994,27 @@ def test_evaluate_on_model_endpoint_without_type(mock_deploy_client):
     assert eval_results_table["outputs"].equals(pd.Series(["This is a response"] * 2))
 
 
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_evaluate_on_model_endpoint_invalid_payload(mock_deploy_client):
-    # An endpoint that does not have endpoint type. For such endpoint, we simply
-    # pass the input data to the endpoint without any modification and return
-    # the response as is.
-    mock_deploy_client.return_value.get_endpoint.return_value = {}
-    mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
+def test_evaluate_on_model_endpoint_invalid_payload():
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        # An endpoint that does not have endpoint type. For such endpoint, we simply
+        # pass the input data to the endpoint without any modification and return
+        # the response as is.
+        mock_deploy_client.return_value.get_endpoint.return_value = {}
+        mock_deploy_client.return_value.predict.side_effect = ValueError("Invalid payload")
 
-    input_data = pd.DataFrame(
-        {
-            "inputs": [{"invalid": "payload"}],
-        }
-    )
-
-    with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
-        mlflow.evaluate(
-            model="endpoints:/random",
-            data=input_data,
-            model_type="question-answering",
-            inference_params={"max_tokens": 10, "temperature": 0.5},
+        input_data = pd.DataFrame(
+            {
+                "inputs": [{"invalid": "payload"}],
+            }
         )
+
+        with pytest.raises(MlflowException, match="Failed to call the deployment endpoint"):
+            mlflow.evaluate(
+                model="endpoints:/random",
+                data=input_data,
+                model_type="question-answering",
+                inference_params={"max_tokens": 10, "temperature": 0.5},
+            )
 
 
 @pytest.mark.parametrize(
@@ -2096,14 +2096,14 @@ def test_evaluate_on_model_endpoint_invalid_input_data(input_data, error_message
         ),
     ],
 )
-@mock.patch("mlflow.deployments.get_deploy_client")
-def test_model_from_deployment_endpoint(mock_deploy_client, model_input):
-    mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
+def test_model_from_deployment_endpoint(model_input):
+    with mock.patch("mlflow.deployments.get_deploy_client") as mock_deploy_client:
+        mock_deploy_client.return_value.predict.return_value = _DUMMY_CHAT_RESPONSE
+        mock_deploy_client.return_value.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
-    model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
+        model = _get_model_from_deployment_endpoint_uri("endpoints:/chat")
 
-    response = model.predict(model_input)
+        response = model.predict(model_input)
 
     if isinstance(model_input, dict):
         assert mock_deploy_client.return_value.predict.call_count == 1

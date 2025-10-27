@@ -20,14 +20,17 @@ print(f"Arguments: {func_info.args}")  # -> ['key, 'value', 'step', ...]
 ```
 """
 
-from __future__ import annotations
-
 import ast
 import multiprocessing
+import pickle
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from typing_extensions import Self
+
+from clint.utils import get_repo_root
 
 
 @dataclass
@@ -43,7 +46,7 @@ class FunctionInfo:
     @classmethod
     def from_func_def(
         cls, node: ast.FunctionDef | ast.AsyncFunctionDef, skip_self: bool = False
-    ) -> FunctionInfo:
+    ) -> Self:
         """Create FunctionInfo from an AST function definition node."""
         args = node.args.args
         if skip_self and args:
@@ -118,15 +121,15 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
 
 
 def extract_symbols_from_file(
-    py_file: Path,
+    rel_path: str, content: str
 ) -> tuple[dict[str, str], dict[str, FunctionInfo]] | None:
     """Extract function definitions and import mappings from a Python file."""
-    p = Path(py_file)
+    p = Path(rel_path)
     if not p.parts or p.parts[0] != "mlflow":
         return None
 
     try:
-        tree = ast.parse(p.read_text())
+        tree = ast.parse(content)
     except (SyntaxError, UnicodeDecodeError):
         return None
 
@@ -150,19 +153,38 @@ class SymbolIndex:
         self.import_mapping = import_mapping
         self.func_mapping = func_mapping
 
+    def save(self, path: Path) -> None:
+        with path.open("wb") as f:
+            pickle.dump((self.import_mapping, self.func_mapping), f)
+
     @classmethod
-    def build(cls) -> SymbolIndex:
+    def load(cls, path: Path) -> Self:
+        with path.open("rb") as f:
+            import_mapping, func_mapping = pickle.load(f)
+        return cls(import_mapping, func_mapping)
+
+    @classmethod
+    def build(cls) -> Self:
+        repo_root = get_repo_root()
         py_files = subprocess.check_output(
-            ["git", "ls-files", "mlflow/*.py"], text=True
+            ["git", "-C", repo_root, "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
         mapping: dict[str, str] = {}
         func_mapping: dict[str, FunctionInfo] = {}
-        max_workers = min(multiprocessing.cpu_count(), len(py_files))
+
+        # Ensure at least 1 worker to avoid ProcessPoolExecutor ValueError
+        max_workers = max(1, min(multiprocessing.cpu_count(), len(py_files)))
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
-            futures = {
-                executor.submit(extract_symbols_from_file, f): f for f in map(Path, py_files)
-            }
+            futures = {}
+            for py_file in py_files:
+                abs_file_path = repo_root / py_file
+                if not abs_file_path.exists():
+                    continue
+                content = abs_file_path.read_text()
+                f = executor.submit(extract_symbols_from_file, py_file, content)
+                futures[f] = py_file
+
             for future in as_completed(futures):
                 if result := future.result():
                     file_imports, file_functions = result

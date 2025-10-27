@@ -1,11 +1,9 @@
 import { FormattedMessage, useIntl } from 'react-intl';
-import { useSelector } from 'react-redux';
 import { useMemo } from 'react';
 
 import { Button, FileIcon, Spacer, Spinner, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import Utils from '../../../common/utils/Utils';
-import type { ReduxState } from '../../../redux-types';
 import { useLocation } from '../../../common/utils/RoutingUtils';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 
@@ -24,6 +22,7 @@ import { RunViewLoggedModelsBox } from './overview/RunViewLoggedModelsBox';
 import { RunViewSourceBox } from './overview/RunViewSourceBox';
 import { DetailsOverviewMetadataTable } from '@mlflow/mlflow/src/experiment-tracking/components/DetailsOverviewMetadataTable';
 import type { LoggedModelProto } from '../../types';
+import { ExperimentKind } from '../../constants';
 import { useExperimentLoggedModelRegisteredVersions } from '../experiment-logged-models/hooks/useExperimentLoggedModelRegisteredVersions';
 import { DetailsOverviewCopyableIdBox } from '../DetailsOverviewCopyableIdBox';
 import type { RunInfoEntity } from '../../types';
@@ -32,12 +31,11 @@ import type {
   UseGetRunQueryResponseOutputs,
   UseGetRunQueryResponseRunInfo,
 } from './hooks/useGetRunQuery';
-import type { KeyValueEntity, MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import type { MetricEntitiesByName, RunDatasetWithTags } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { isEmpty, uniqBy } from 'lodash';
 import { RunViewLoggedModelsTable } from './overview/RunViewLoggedModelsTable';
-import { isRunPageLoggedModelsTableEnabled } from '../../../common/utils/FeatureUtils';
-import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 import { DetailsPageLayout } from '../../../common/components/details-page-layout/DetailsPageLayout';
 import { useRunDetailsPageOverviewSectionsV2 } from './hooks/useRunDetailsPageOverviewSectionsV2';
 
@@ -56,6 +54,8 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: registeredModelVersionSummariesForRun,
   loggedModelsV3 = [],
   isLoadingLoggedModels = false,
+  loggedModelsError,
+  experimentKind,
 }: {
   runUuid: string;
   onRunDataUpdated: () => void | Promise<any>;
@@ -69,16 +69,18 @@ export const RunViewOverview = ({
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
   loggedModelsV3?: LoggedModelProto[];
   isLoadingLoggedModels?: boolean;
+  loggedModelsError?: Error;
+  experimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { usingUnifiedDetailsLayout } = useExperimentTrackingDetailsPageLayoutStyles();
   const { search } = useLocation();
   const intl = useIntl();
 
   const loggedModelsFromTags = useMemo(() => Utils.getLoggedModelsFromTags(tags), [tags]);
   const parentRunIdTag = tags[EXPERIMENT_PARENT_ID_TAG];
   const containsLoggedModelsFromInputsOutputs = !isEmpty(runInputs?.modelInputs) || !isEmpty(runOutputs?.modelOutputs);
-  const shouldRenderLoggedModelsBox = !isRunPageLoggedModelsTableEnabled() || !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLoggedModelsBox = !containsLoggedModelsFromInputsOutputs;
+  const shouldRenderLinkedPromptsTable = experimentKind === ExperimentKind.GENAI_DEVELOPMENT;
 
   // We have two flags for controlling the visibility of the "logged models" section:
   // - `shouldRenderLoggedModelsBox` determines if "logged models" section should be rendered.
@@ -87,7 +89,9 @@ export const RunViewOverview = ({
   // - `shouldDisplayContentsOfLoggedModelsBox` determines if the contents of the "logged models"
   //   section should be displayed. It is hidden if there are no logged models to display.
   const shouldDisplayContentsOfLoggedModelsBox = loggedModelsFromTags?.length > 0 || loggedModelsV3?.length > 0;
-  const loggedModelsV3RegisteredModels = useExperimentLoggedModelRegisteredVersions({ loggedModels: loggedModelsV3 });
+  const { modelVersions: loggedModelsV3RegisteredModels } = useExperimentLoggedModelRegisteredVersions({
+    loggedModels: loggedModelsV3,
+  });
 
   /**
    * We have to query multiple sources for registered model versions (logged models API, models API, UC)
@@ -248,11 +252,10 @@ export const RunViewOverview = ({
     shouldRenderLoggedModelsBox,
     registeredModelVersionSummaries,
   });
-  const usingSidebarLayout = usingUnifiedDetailsLayout;
+  const usingSidebarLayout = true;
   return (
     <DetailsPageLayout
       css={{ flex: 1, alignSelf: 'flex-start' }}
-      //
       // Enable sidebar layout based on feature flag
       usingSidebarLayout={usingSidebarLayout}
       secondarySections={detailsSectionsV2}
@@ -273,18 +276,27 @@ export const RunViewOverview = ({
           { display: 'flex', gap: theme.spacing.lg, overflow: 'hidden' },
         ]}
       >
-        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} />
+        <RunViewMetricsTable latestMetrics={latestMetrics} runInfo={runInfo} loggedModels={loggedModelsV3} />
         {renderParams()}
       </div>
-      {isRunPageLoggedModelsTableEnabled() && containsLoggedModelsFromInputsOutputs && (
+      {containsLoggedModelsFromInputsOutputs && (
         <>
-          <Spacer />
+          {!usingSidebarLayout && <Spacer />}
           <div css={{ minHeight: 360, maxHeight: 760, overflow: 'hidden', display: 'flex' }}>
-            <RunViewLoggedModelsTable inputs={runInputs} outputs={runOutputs} runInfo={runInfo} />
+            <RunViewLoggedModelsTable
+              loggedModelsV3={loggedModelsV3}
+              isLoadingLoggedModels={isLoadingLoggedModels}
+              inputs={runInputs}
+              outputs={runOutputs}
+              runInfo={runInfo}
+              loggedModelsError={loggedModelsError}
+            />
           </div>
         </>
       )}
       {!usingSidebarLayout && <Spacer />}
+      {/* Add a spacer so the page doesn't jump when searching params / metrics */}
+      <div css={{ height: 500 }} />
     </DetailsPageLayout>
   );
 };

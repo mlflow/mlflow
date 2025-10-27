@@ -1,19 +1,27 @@
 import functools
+import json
 import re
 from textwrap import dedent
-from typing import Any, Optional, Union
+from typing import Any
 
 import mlflow
 from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_NAME_RULE,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    RESPONSE_FORMAT_TAG_KEY,
+)
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 
 def model_version_to_prompt_version(
-    model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
+    model_version: ModelVersion, prompt_tags: dict[str, str] | None = None
 ) -> PromptVersion:
     """
     Create a PromptVersion object from a ModelVersion object.
@@ -36,22 +44,31 @@ def model_version_to_prompt_version(
             f"Prompt `{model_version.name}` does not contain a prompt text"
         )
 
+    if model_version.tags.get(PROMPT_TYPE_TAG_KEY) == PROMPT_TYPE_CHAT:
+        template = json.loads(model_version.tags[PROMPT_TEXT_TAG_KEY])
+    else:
+        template = model_version.tags[PROMPT_TEXT_TAG_KEY]
+
+    if RESPONSE_FORMAT_TAG_KEY in model_version.tags:
+        response_format = json.loads(model_version.tags[RESPONSE_FORMAT_TAG_KEY])
+    else:
+        response_format = None
+
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
-        template=model_version.tags[PROMPT_TEXT_TAG_KEY],
+        template=template,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
         aliases=model_version.aliases,
         last_updated_timestamp=model_version.last_updated_timestamp,
         user_id=model_version.user_id,
+        response_format=response_format,
     )
 
 
-def add_prompt_filter_string(
-    filter_string: Optional[str], is_prompt: bool = False
-) -> Optional[str]:
+def add_prompt_filter_string(filter_string: str | None, is_prompt: bool = False) -> str | None:
     """
     Additional filter string to include/exclude prompts from the result.
     By default, exclude prompts from the result.
@@ -69,7 +86,7 @@ def add_prompt_filter_string(
     return filter_string
 
 
-def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]]) -> bool:
+def has_prompt_tag(tags: list[RegisteredModelTag] | dict[str, str] | None) -> bool:
     """Check if the given tags contain the prompt tag."""
     if isinstance(tags, dict):
         return IS_PROMPT_TAG_KEY in tags if tags else False
@@ -78,7 +95,7 @@ def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in tags)
 
 
-def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
+def is_prompt_supported_registry(registry_uri: str | None = None) -> bool:
     """
     Check if the current registry supports prompts.
 
@@ -154,7 +171,9 @@ def translate_prompt_exception(func):
             )
 
             if new_message != original_message:
-                raise MlflowException(new_message) from e
+                new_exc = MlflowException(new_message)
+                new_exc.error_code = e.error_code  # Preserve original error code
+                raise new_exc from e
             else:
                 raise e
 
@@ -204,8 +223,8 @@ def handle_resource_already_exist_error(
 
 
 def parse_prompt_name_or_uri(
-    name_or_uri: str, version: Optional[Union[str, int]] = None
-) -> tuple[str, Optional[Union[str, int]]]:
+    name_or_uri: str, version: str | int | None = None
+) -> tuple[str, str | int | None]:
     """
     Parse prompt name or URI into (name, version) tuple.
 

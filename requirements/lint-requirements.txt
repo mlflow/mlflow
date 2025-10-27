@@ -1,6 +1,9 @@
-ruff==0.12.0
-black[jupyter]==23.7.0
+ruff==0.12.10
+black==23.7.0
 blacken-docs==1.18.0
 pre-commit==4.0.1
 toml==0.10.2
+mypy==1.17.1
+pytest==8.4.0
+pydantic==2.11.7
 -e ./dev/clint

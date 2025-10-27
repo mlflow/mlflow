@@ -20,3 +20,7 @@ incremental<24.7.0
 Flask-WTF<2
 # required for testing polars dataset integration
 polars>=1
+# required for the genai evaluation example
+openai
+# required for the haystack
+haystack-ai

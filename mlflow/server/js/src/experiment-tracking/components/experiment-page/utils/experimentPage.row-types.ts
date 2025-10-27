@@ -1,10 +1,5 @@
-import type {
-  ModelVersionInfoEntity,
-  RunInfoEntity,
-  RunDatasetWithTags,
-  KeyValueEntity,
-  MetricEntity,
-} from '../../../types';
+import type { ModelVersionInfoEntity, RunInfoEntity, RunDatasetWithTags, MetricEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import type { LoggedModelProto } from '../../../types';
 
 /**
@@ -48,6 +43,7 @@ export interface RunRowType {
   hidden: boolean;
   pinnable: boolean;
   runName?: string;
+  runStatus?: string;
   defaultColor?: string;
   tags?: Record<string, { key: string; value: string }>;
   params?: KeyValueEntity[];

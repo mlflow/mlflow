@@ -1,13 +1,14 @@
 import { Provider } from 'react-redux';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './EvaluationArtifactCompareTable';
 import { screen, waitFor, renderWithIntl } from '../../../../common/utils/TestUtils.react18';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { BrowserRouter } from '../../../../common/utils/RoutingUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000);
 
 jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({

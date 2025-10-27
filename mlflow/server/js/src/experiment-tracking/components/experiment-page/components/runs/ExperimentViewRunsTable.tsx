@@ -1,10 +1,11 @@
 import type { CellClickedEvent, ColumnApi, GridApi, GridReadyEvent } from '@ag-grid-community/core';
-import { type CSSObject, Interpolation, Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
+import { type CSSObject, Interpolation } from '@emotion/react';
 import cx from 'classnames';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { MLFlowAgGridLoader } from '../../../../../common/components/ag-grid/AgGridLoader';
 import Utils from '../../../../../common/utils/Utils';
-import {
+import type {
   ExperimentEntity,
   UpdateExperimentViewStateFn,
   RunDatasetWithTags,
@@ -12,7 +13,7 @@ import {
 } from '../../../../types';
 
 import { isSearchFacetsFilterUsed } from '../../utils/experimentPage.fetch-utils';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import {
   EXPERIMENTS_DEFAULT_COLUMN_SETUP,
   getFrameworkComponents,
@@ -21,10 +22,10 @@ import {
   useRunsColumnDefinitions,
   getAdjustableAttributeColumns,
 } from '../../utils/experimentPage.column-utils';
-import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
+import { makeCanonicalSortKey, extractCanonicalSortKey } from '../../utils/experimentPage.common-utils';
 import { EXPERIMENT_RUNS_TABLE_ROW_HEIGHT } from '../../utils/experimentPage.common-utils';
-import { RunRowType } from '../../utils/experimentPage.row-types';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { RunRowType } from '../../utils/experimentPage.row-types';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { createLoadMoreRow } from './cells/LoadMoreRowRenderer';
 import { ExperimentViewRunsEmptyTable } from './ExperimentViewRunsEmptyTable';
 import { ExperimentViewRunsTableAddColumnCTA } from './ExperimentViewRunsTableAddColumnCTA';
@@ -35,13 +36,11 @@ import { PreviewSidebar } from '../../../../../common/components/PreviewSidebar'
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../../constants';
 import { Empty, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import {
-  createExperimentPageSearchFacetsState,
-  ExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useExperimentTableSelectRowHandler } from '../../hooks/useExperimentTableSelectRowHandler';
 import { useToggleRowVisibilityCallback } from '../../hooks/useToggleRowVisibilityCallback';
 import { ExperimentViewRunsTableHeaderContextProvider } from './ExperimentViewRunsTableHeaderContext';
@@ -49,6 +48,7 @@ import { useRunsHighlightTableRow } from '../../../runs-charts/hooks/useRunsHigh
 import { isEmpty } from 'lodash';
 
 const ROW_BUFFER = 101; // How many rows to keep rendered, even ones not visible
+const LARGE_COLUMN_COUNT_THRESHOLD = 1000; // Threshold to determine if we should optimize column rendering
 
 export interface ExperimentViewRunsTableProps {
   /**
@@ -110,13 +110,58 @@ export const ExperimentViewRunsTable = React.memo(
 
     const isComparingRuns = compareRunsMode !== 'TABLE';
 
+    // Determine if we should optimize by filtering columns based on count
+    const shouldOptimize = useMemo(() => {
+      const tagKeysCount = Utils.getVisibleTagKeyList(runsData.tagsList).length;
+      const totalCount = runsData.metricKeyList.length + runsData.paramKeyList.length + tagKeysCount;
+      return totalCount > LARGE_COLUMN_COUNT_THRESHOLD; // Only optimize when there are more than certain number of columns
+    }, [runsData]);
+
+    // Use the original data
     const { paramKeyList, metricKeyList, tagsList } = runsData;
+
+    // Conditionally filter keys only when there are more than 1000 metrics+params+tags
+    const { filteredMetricKeyList, filteredParamKeyList, filteredTagsList } = useMemo(() => {
+      if (shouldOptimize && !isComparingRuns) {
+        const filteredMetricKeyList: string[] = [];
+        const filteredParamKeyList: string[] = [];
+        const filteredTagsList: any[] = [];
+
+        for (const column of selectedColumns) {
+          if (column.startsWith(COLUMN_TYPES.METRICS)) {
+            filteredMetricKeyList.push(extractCanonicalSortKey(column, COLUMN_TYPES.METRICS));
+          } else if (column.startsWith(COLUMN_TYPES.PARAMS)) {
+            filteredParamKeyList.push(extractCanonicalSortKey(column, COLUMN_TYPES.PARAMS));
+          } else if (column.startsWith(COLUMN_TYPES.TAGS)) {
+            const tagKey = extractCanonicalSortKey(column, COLUMN_TYPES.TAGS);
+            filteredTagsList.push({
+              [tagKey]: {
+                key: tagKey,
+                // value is unused
+                value: null,
+              },
+            });
+          }
+        }
+
+        return {
+          filteredMetricKeyList,
+          filteredParamKeyList,
+          filteredTagsList,
+        };
+      }
+      return {
+        filteredMetricKeyList: metricKeyList,
+        filteredParamKeyList: paramKeyList,
+        filteredTagsList: tagsList,
+      };
+    }, [selectedColumns, shouldOptimize, isComparingRuns, metricKeyList, paramKeyList, tagsList]);
 
     const [gridApi, setGridApi] = useState<GridApi>();
     const [columnApi, setColumnApi] = useState<ColumnApi>();
     const prevSelectRunUuids = useRef<string[]>([]);
 
-    const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(tagsList), [tagsList]);
+    const filteredTagKeys = useMemo(() => Utils.getVisibleTagKeyList(filteredTagsList), [filteredTagsList]);
 
     const containerElement = useRef<HTMLDivElement>(null);
     // Flag indicating if there are any rows that can be expanded
@@ -169,8 +214,8 @@ export const ExperimentViewRunsTable = React.memo(
       compareExperiments: experiments.length > 1,
       onTogglePin: togglePinnedRow,
       onToggleVisibility: toggleRowVisibility,
-      metricKeyList,
-      paramKeyList,
+      metricKeyList: filteredMetricKeyList,
+      paramKeyList: filteredParamKeyList,
       tagKeyList: filteredTagKeys,
       columnApi,
       isComparingRuns,
@@ -370,6 +415,13 @@ export const ExperimentViewRunsTable = React.memo(
                 onGridSizeChanged={({ api }) => gridSizeHandler(api)}
                 onCellMouseOver={cellMouseOverHandler}
                 onCellMouseOut={cellMouseOutHandler}
+                maxBlocksInCache={20} // Increased from 10
+                cacheBlockSize={100}
+                maxConcurrentDatasourceRequests={2} // Increased from 1
+                immutableData // Added for better performance
+                getRowNodeId={(data) => data.rowUuid} // Added for better row identification
+                suppressPropertyNamesCheck // Added to reduce overhead
+                suppressAnimationFrame // Added to reduce rendering overhead
               />
             </ExperimentViewRunsTableHeaderContextProvider>
             {displayAddColumnsCTA && (

@@ -39,13 +39,9 @@ def embeddings():
 
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("MLFLOW_TESTING", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if is_v1:
         openai.base_url = mock_openai
     else:
@@ -615,3 +611,116 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
+
+
+def test_multimodal_messages(tmp_path):
+    # Test multimodal content with variable placeholders
+    mlflow.openai.save_model(
+        model="gpt-4o-mini",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "{system_prompt}"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,{image_base64}",
+                            "detail": "low",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "image_base64", "type": "string", "required": True},
+        {"name": "system_prompt", "type": "string", "required": True},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string", "required": True},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "system_prompt": ["Analyze this image"],
+            "image_base64": [
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            ],
+        }
+    )
+
+    expected_output = [
+        [
+            {
+                "content": [
+                    {"type": "text", "text": "Analyze this image"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": (
+                                "data:image/jpeg;base64,"
+                                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                            ),
+                            "detail": "low",
+                        },
+                    },
+                ],
+                "role": "user",
+            }
+        ]
+    ]
+
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_multimodal_messages_no_variables(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-4o-mini",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                    },
+                ],
+            }
+        ],
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    # Should add default content variable since no variables found
+    assert model.signature.inputs.to_dict() == [
+        {"type": "string", "required": True},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame({"content": ["Additional context"]})
+
+    expected_output = [
+        [
+            {
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                    },
+                ],
+                "role": "user",
+            },
+            {"content": "Additional context", "role": "user"},
+        ]
+    ]
+
+    assert list(map(json.loads, model.predict(data))) == expected_output

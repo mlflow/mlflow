@@ -1,11 +1,10 @@
-import type { KeyValueEntity, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { Button, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewDatasetWithContext } from '../../experiment-page/components/runs/ExperimentViewDatasetWithContext';
 import { useState } from 'react';
-import {
-  DatasetWithRunType,
-  ExperimentViewDatasetDrawer,
-} from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import type { DatasetWithRunType } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
+import { ExperimentViewDatasetDrawer } from '../../experiment-page/components/runs/ExperimentViewDatasetDrawer';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 
 /**

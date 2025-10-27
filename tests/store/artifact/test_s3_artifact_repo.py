@@ -2,7 +2,7 @@ import json
 import os
 import posixpath
 import tarfile
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest import mock
 from unittest.mock import ANY
 
@@ -11,7 +11,7 @@ import pytest
 import requests
 
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.exceptions import MlflowTraceDataCorrupted
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.artifact.optimized_s3_artifact_repo import OptimizedS3ArtifactRepository
 from mlflow.store.artifact.s3_artifact_repo import (
@@ -100,7 +100,7 @@ def test_get_s3_client_hits_cache(s3_artifact_root, monkeypatch):
 
     with mock.patch(
         "mlflow.store.artifact.s3_artifact_repo._get_utcnow_timestamp",
-        return_value=datetime.utcnow().timestamp() + _MAX_CACHE_SECONDS,
+        return_value=datetime.now(timezone.utc).timestamp() + _MAX_CACHE_SECONDS,
     ):
         repo._get_s3_client()
     cache_info = _cached_get_s3_client.cache_info()
@@ -388,6 +388,36 @@ def test_list_and_delete_artifacts_path(s3_artifact_repo, tmp_path, artifact_pat
     s3_artifact_repo.delete_artifacts(artifact_path=artifact_path)
     assert s3_artifact_repo.list_artifacts(artifact_path) == []
     assert s3_artifact_repo.list_artifacts() == []
+
+
+@pytest.mark.parametrize(
+    ("boto_error_code", "expected_mlflow_error"),
+    [
+        ("AccessDenied", "PERMISSION_DENIED"),
+        ("NoSuchBucket", "RESOURCE_DOES_NOT_EXIST"),
+        ("NoSuchKey", "RESOURCE_DOES_NOT_EXIST"),
+        ("InvalidAccessKeyId", "UNAUTHENTICATED"),
+        ("SignatureDoesNotMatch", "UNAUTHENTICATED"),
+    ],
+)
+def test_list_artifacts_error_handling(s3_artifact_root, boto_error_code, expected_mlflow_error):
+    artifact_path = "some/path/"
+    s3_repo = S3ArtifactRepository(posixpath.join(s3_artifact_root, artifact_path))
+
+    with mock.patch.object(s3_repo, "_get_s3_client") as mock_client:
+        mock_paginator = mock.Mock()
+        boto_error_message = "Error message from the client"
+        mock_paginator.paginate.side_effect = botocore.exceptions.ClientError(
+            {"Error": {"Code": boto_error_code, "Message": boto_error_message}}, "ListObjectsV2"
+        )
+        mock_client.return_value.get_paginator.return_value = mock_paginator
+
+        with pytest.raises(
+            MlflowException, match=f"Failed to list artifacts in {s3_repo.artifact_uri}:"
+        ) as exc_info:
+            s3_repo.list_artifacts(artifact_path)
+        assert exc_info.value.error_code == expected_mlflow_error
+        assert boto_error_message in exc_info.value.message
 
 
 def test_delete_artifacts_pagination(s3_artifact_repo, tmp_path):

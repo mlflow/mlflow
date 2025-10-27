@@ -60,10 +60,7 @@ if _MLFLOW_RUN_SLOW_TESTS.get():
     )
     from tests.statsmodels.model_fixtures import ols_model
     from tests.tensorflow.test_tensorflow2_core_model_export import tf2_toy_model  # noqa: F401
-    from tests.transformers.helper import (
-        load_small_qa_tf_pipeline,
-        load_text_classification_pipeline,
-    )
+    from tests.transformers.helper import load_text_classification_pipeline
 
 
 pytestmark = pytest.mark.skipif(
@@ -151,7 +148,6 @@ def start_container(port: int):
         "statsmodels",
         "tensorflow",
         "transformers_pt",  # Test with Pytorch-based model
-        "transformers_tf",  # Test with TensorFlow-based model
     ],
 )
 def test_build_image_and_serve(flavor, request):
@@ -423,17 +419,5 @@ def transformers_pt_model(model_path):
         transformers_model=pipeline,
         path=model_path,
         input_example="hi",
-    )
-    return model_path
-
-
-@pytest.fixture
-def transformers_tf_model(model_path):
-    pipeline = load_small_qa_tf_pipeline()
-    save_model_with_latest_mlflow_version(
-        flavor="transformers",
-        transformers_model=pipeline,
-        path=model_path,
-        input_example={"question": "What is MLflow", "context": "It's an open source platform"},
     )
     return model_path

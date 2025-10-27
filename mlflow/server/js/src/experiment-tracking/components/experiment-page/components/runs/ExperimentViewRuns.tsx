@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLegacyNotification } from '@databricks/design-system';
-import {
+import type {
   DatasetSummary,
   ExperimentEntity,
   LIFECYCLE_FILTER,
@@ -9,32 +9,35 @@ import {
   RunDatasetWithTags,
   UpdateExperimentViewStateFn,
 } from '../../../../types';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import Utils from '../../../../../common/utils/Utils';
 import { ATTRIBUTE_COLUMN_SORT_KEY, MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from '../../../../constants';
-import { RunRowType } from '../../utils/experimentPage.row-types';
+import type { RunRowType } from '../../utils/experimentPage.row-types';
 import { useExperimentRunRows } from '../../utils/experimentPage.row-utils';
 import { useFetchedRunsNotification } from '../../hooks/useFetchedRunsNotification';
-import { DatasetWithRunType, ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
+import type { DatasetWithRunType } from './ExperimentViewDatasetDrawer';
+import { ExperimentViewDatasetDrawer } from './ExperimentViewDatasetDrawer';
 import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import { EvaluationArtifactCompareView } from '../../../evaluation-artifacts-compare/EvaluationArtifactCompareView';
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../../common/utils/FeatureUtils';
+import { shouldUseGetLoggedModelsBatchAPI } from '../../../../../common/utils/FeatureUtils';
 import { CreateNewRunContextProvider } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
-import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
+import type { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { RunsCompare } from '../../../runs-compare/RunsCompare';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
-import { ReduxState, ThunkDispatch } from '../../../../../redux-types';
-import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ReduxState } from '../../../../../redux-types';
+import { ThunkDispatch } from '../../../../../redux-types';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
 import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
-import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks';
+import { useLoggedModelsForExperimentRunsTableV2 } from '../../hooks/useLoggedModelsForExperimentRunsTableV2';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -84,6 +87,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     refreshRuns,
   } = props;
 
+  const isComparingExperiments = experiments.length > 1;
+
   // Non-persistable view model state is being created locally
   const [viewState, setViewState] = useState(new ExperimentPageViewState());
 
@@ -104,6 +109,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runInfos,
     runUuidsMatchingFilter,
     datasetsList,
+    inputsOutputsList,
   } = runsData;
 
   const modelVersionsByRunUuid = useSelector(({ entities }: ReduxState) => entities.modelVersionsByRunUuid);
@@ -119,8 +125,10 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
         metrics: metricsList[index],
         tags: tagsList[index],
         datasets: datasetsList[index],
+        inputs: inputsOutputsList?.[index]?.inputs || {},
+        outputs: inputsOutputsList?.[index]?.outputs || {},
       })),
-    [datasetsList, metricsList, paramsList, runInfos, tagsList],
+    [datasetsList, metricsList, paramsList, runInfos, tagsList, inputsOutputsList],
   );
 
   const { orderByKey, searchFilter } = searchFacetsState;
@@ -158,8 +166,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const experimentIds = useMemo(() => experiments.map(({ experimentId }) => experimentId), [experiments]);
 
-  // Fetch logged models (MLflow v3) for the experiment to be displayed in the runs table
-  const loggedModelsV3ByRunUuid = useLoggedModelsForExperimentRunsTable(experimentIds);
+  // Check if we should use new GetLoggedModels API.
+  // If true, logged (and registered) models will be fetched based on runs inputs/outputs.
+  const isUsingGetLoggedModelsAPI = shouldUseGetLoggedModelsBatchAPI();
+
+  // Conditionally use legacy hook for fetching all logged models in the experiment
+  const loggedModelsV3ByRunUuidFromExperiment = useLoggedModelsForExperimentRunsTable({
+    experimentIds,
+    enabled: !isUsingGetLoggedModelsAPI,
+  });
+
+  // Conditionally use new hook for fetching logged models based on runs inputs/outputs
+  const loggedModelsV3ByRunUuidFromRunInputsOutputs = useLoggedModelsForExperimentRunsTableV2({
+    runData,
+    enabled: isUsingGetLoggedModelsAPI,
+  });
+
+  // Select the appropriate logged models based on the feature flag
+  const loggedModelsV3ByRunUuid = isUsingGetLoggedModelsAPI
+    ? loggedModelsV3ByRunUuidFromRunInputsOutputs
+    : loggedModelsV3ByRunUuidFromExperiment;
+
   // Use new, memoized version of the row creation function.
   // Internally disabled if the flag is not set.
   const visibleRuns = useExperimentRunRows({
@@ -207,7 +234,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   }, []);
 
   const isTabActive = useIsTabActive();
-  const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
+  const autoRefreshEnabled = uiState.autoRefreshEnabled && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
   const tableElement =
@@ -259,6 +286,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           refreshRuns={refreshRuns}
           uiState={uiState}
           isLoading={isLoadingRuns}
+          isComparingExperiments={isComparingExperiments}
         />
         <div
           ref={ref}

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Theme } from '@emotion/react';
+import { Interpolation, Theme } from '@emotion/react';
 import {
   Button,
   TableFilterLayout,
@@ -8,12 +8,15 @@ import {
   Header,
   Alert,
   useDesignSystemTheme,
+  Popover,
+  FilterIcon,
+  ChevronDownIcon,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { useExperimentListQuery, useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
-import { RowSelectionState } from '@tanstack/react-table';
+import type { RowSelectionState } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { ExperimentListTable } from './ExperimentListTable';
@@ -21,13 +24,14 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
+import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
+import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
+import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
 
-type Props = {
-  searchFilter: string;
-  setSearchFilter: (searchFilter: string) => void;
-};
+export const ExperimentListView = () => {
+  const [searchFilter, setSearchFilter] = useSearchFilter();
+  const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
-export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => {
   const {
     data: experiments,
     isLoading,
@@ -39,7 +43,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
     pageSizeSelect,
     sorting,
     setSorting,
-  } = useExperimentListQuery({ searchFilter });
+  } = useExperimentListQuery({ searchFilter, tagsFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const { EditTagsModal, showEditExperimentTagsModal } = useUpdateExperimentTags({
@@ -71,18 +75,18 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
     setShowCreateExperimentModal(false);
   };
 
-  const pushExperimentRoute = () => {
-    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
-    navigate(route);
-  };
+  const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
+  const intl = useIntl();
 
   const checkedKeys = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
 
-  const { theme } = useDesignSystemTheme();
-  const navigate = useNavigate();
-  const intl = useIntl();
+  const pushExperimentRoute = () => {
+    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
+    navigate(route);
+  };
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -162,6 +166,28 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
             onClear={handleSearchClear}
             showSearchButton
           />
+          <Popover.Root
+            componentId="mlflow.experiment_list_view.tag_filter"
+            open={isTagsFilterOpen}
+            onOpenChange={setIsTagsFilterOpen}
+          >
+            <Popover.Trigger asChild>
+              <Button
+                componentId="mlflow.experiment_list_view.tag_filter.trigger"
+                icon={<FilterIcon />}
+                endIcon={<ChevronDownIcon />}
+                type={tagsFilter.length > 0 ? 'primary' : undefined}
+              >
+                <FormattedMessage
+                  defaultMessage="Tag filter"
+                  description="Button to open the tags filter popover in the experiments page"
+                />
+              </Button>
+            </Popover.Trigger>
+            <Popover.Content>
+              <ExperimentListViewTagsFilter tagsFilter={tagsFilter} setTagsFilter={setTagsFilter} />
+            </Popover.Content>
+          </Popover.Root>
         </TableFilterLayout>
         <ExperimentListTable
           experiments={experiments}

@@ -8,7 +8,7 @@ import posixpath
 import tempfile
 import urllib.parse
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
@@ -99,9 +99,10 @@ def _get_root_uri_and_artifact_path(artifact_uri):
 
 def _download_artifact_from_uri(
     artifact_uri: str,
-    output_path: Optional[str] = None,
-    lineage_header_info: Optional[dict[str, Any]] = None,
-    tracking_uri: Optional[str] = None,
+    output_path: str | None = None,
+    lineage_header_info: dict[str, Any] | None = None,
+    tracking_uri: str | None = None,
+    registry_uri: str | None = None,
 ) -> str:
     """
     Args:
@@ -110,9 +111,12 @@ def _download_artifact_from_uri(
             a local output path will be created.
         lineage_header_info: The model lineage header info to be consumed by lineage services.
         tracking_uri: The tracking URI to be used when downloading artifacts.
+        registry_uri: The registry URI to be used when downloading artifacts.
     """
     root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
-    repo = get_artifact_repository(artifact_uri=root_uri, tracking_uri=tracking_uri)
+    repo = get_artifact_repository(
+        artifact_uri=root_uri, tracking_uri=tracking_uri, registry_uri=registry_uri
+    )
 
     try:
         if isinstance(repo, ModelsArtifactRepository):

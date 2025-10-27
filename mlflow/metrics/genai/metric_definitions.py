@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.metrics.genai.base import EvaluationExample
@@ -10,13 +10,13 @@ from mlflow.utils.class_utils import _get_class_from_string
 
 
 def answer_similarity(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -100,13 +100,13 @@ def answer_similarity(
 
 
 def answer_correctness(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -191,13 +191,13 @@ def answer_correctness(
 
 
 def faithfulness(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = _get_latest_metric_version(),
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -279,13 +279,13 @@ def faithfulness(
 
 
 def answer_relevance(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = _get_latest_metric_version(),
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = _get_latest_metric_version(),
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """
@@ -361,13 +361,13 @@ def answer_relevance(
 
 
 def relevance(
-    model: Optional[str] = None,
-    metric_version: Optional[str] = None,
-    examples: Optional[list[EvaluationExample]] = None,
-    metric_metadata: Optional[dict[str, Any]] = None,
-    parameters: Optional[dict[str, Any]] = None,
-    extra_headers: Optional[dict[str, str]] = None,
-    proxy_url: Optional[str] = None,
+    model: str | None = None,
+    metric_version: str | None = None,
+    examples: list[EvaluationExample] | None = None,
+    metric_metadata: dict[str, Any] | None = None,
+    parameters: dict[str, Any] | None = None,
+    extra_headers: dict[str, str] | None = None,
+    proxy_url: str | None = None,
     max_workers: int = 10,
 ) -> EvaluationMetric:
     """

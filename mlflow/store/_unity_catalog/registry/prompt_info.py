@@ -5,8 +5,6 @@ This is an implementation detail for the Unity Catalog store and should not be
 considered part of the public MLflow API.
 """
 
-from typing import Optional
-
 
 class PromptInfo:
     """
@@ -21,9 +19,9 @@ class PromptInfo:
     def __init__(
         self,
         name: str,
-        description: Optional[str] = None,
-        creation_timestamp: Optional[int] = None,
-        tags: Optional[dict[str, str]] = None,
+        description: str | None = None,
+        creation_timestamp: int | None = None,
+        tags: dict[str, str] | None = None,
     ):
         """
         Construct a PromptInfo entity.
@@ -45,12 +43,12 @@ class PromptInfo:
         return self._name
 
     @property
-    def description(self) -> Optional[str]:
+    def description(self) -> str | None:
         """The description of the prompt."""
         return self._description
 
     @property
-    def creation_timestamp(self) -> Optional[int]:
+    def creation_timestamp(self) -> int | None:
         """The creation timestamp of the prompt."""
         return self._creation_timestamp
 

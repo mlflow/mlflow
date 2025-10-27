@@ -12,12 +12,13 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { KeyValueEntity } from '../types';
+import type { KeyValueEntity } from '../../common/types';
 import { throttle, values } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ColumnDef, flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
-import { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
 import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
 import { isUnstableNestedComponentsMigrated } from '../../common/utils/FeatureUtils';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../hooks/useExperimentTrackingDetailsPageLayoutStyles';
@@ -169,8 +170,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   const intl = useIntl();
   const [filter, setFilter] = useState('');
   const autoExpandedRowsList = useRef<Record<string, boolean>>({});
-  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
-    useExperimentTrackingDetailsPageLayoutStyles();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
   const paramsValues = useMemo(() => values(params), [params]);
 
   const paramsList = useMemo(
@@ -272,7 +272,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={detailsPageNoResultsWrapperStyles}>
+              <div>
                 <Empty
                   description={
                     <FormattedMessage
@@ -329,7 +329,14 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   };
 
   return (
-    <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div
+      css={{
+        flex: '0 0 auto',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <Typography.Title level={4}>
         <FormattedMessage
           defaultMessage="Parameters ({length})"
@@ -340,9 +347,8 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
       <div
         css={{
           padding: theme.spacing.sm,
-          border: `1px solid ${theme.colors.borderDecorative}`,
+          border: `1px solid ${theme.colors.border}`,
           borderRadius: theme.general.borderRadiusBase,
-          flex: 1,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

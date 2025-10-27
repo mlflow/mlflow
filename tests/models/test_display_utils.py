@@ -77,17 +77,21 @@ def test_should_not_render_eval_template_generic_signature(enable_databricks_env
 
 
 def test_should_not_render_eval_template_outside_databricks_env():
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=False):
-        with mock.patch("IPython.get_ipython", return_value=True):
-            signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
-            assert not _should_render_agent_eval_template(signature)
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=False),
+        mock.patch("IPython.get_ipython", return_value=True),
+    ):
+        signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
+        assert not _should_render_agent_eval_template(signature)
 
 
 def test_should_not_render_eval_template_outside_notebook_env():
-    with mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True):
-        with mock.patch("IPython.get_ipython", return_value=None):
-            signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
-            assert not _should_render_agent_eval_template(signature)
+    with (
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_runtime", return_value=True),
+        mock.patch("IPython.get_ipython", return_value=None),
+    ):
+        signature = infer_signature(_CHAT_REQUEST, _STRING_RESPONSE)
+        assert not _should_render_agent_eval_template(signature)
 
 
 def test_generate_agent_eval_recipe():

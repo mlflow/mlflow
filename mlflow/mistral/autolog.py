@@ -4,9 +4,10 @@ import logging
 import mlflow
 import mlflow.mistral
 from mlflow.entities import SpanType
-from mlflow.mistral.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
+from mlflow.mistral.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -24,48 +25,103 @@ def _construct_full_inputs(func, *args, **kwargs):
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.mistral.FLAVOR_NAME)
+    """Synchronous wrapper that traces Mistral SDK calls using a context manager."""
+    with TracingSession(original, self, args, kwargs) as manager:
+        output = original(self, *args, **kwargs)
+        manager.output = output
+        return output
 
-    if config.log_traces:
-        with mlflow.start_span(
-            name=f"{self.__class__.__name__}.{original.__name__}",
+
+async def async_patched_class_call(original, self, *args, **kwargs):
+    """Async wrapper that traces Mistral SDK calls using a context manager."""
+    async with TracingSession(original, self, args, kwargs) as manager:
+        output = await original(self, *args, **kwargs)
+        manager.output = output
+        return output
+
+
+class TracingSession:
+    """Context manager for handling MLflow spans in both sync and async contexts."""
+
+    def __init__(self, original, instance, args, kwargs):
+        self.original = original
+        self.instance = instance
+        self.inputs = _construct_full_inputs(original, instance, *args, **kwargs)
+
+        # These attributes are set outside the constructor.
+        self.span = None
+        self.token = None
+        self.output = None
+
+    def __enter__(self):
+        return self._enter_impl()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    async def __aenter__(self):
+        return self._enter_impl()
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        self._exit_impl(exc_type, exc_val, exc_tb)
+
+    def _enter_impl(self):
+        config = AutoLoggingConfig.init(flavor_name=mlflow.mistral.FLAVOR_NAME)
+        if not config.log_traces:
+            return self
+
+        self.span = mlflow.start_span_no_context(
+            name=f"{self.instance.__class__.__name__}.{self.original.__name__}",
             span_type=SpanType.CHAT_MODEL,
-        ) as span:
-            inputs = _construct_full_inputs(original, self, *args, **kwargs)
-            span.set_inputs(inputs)
+            inputs=self.inputs,
+            attributes={SpanAttributeKey.MESSAGE_FORMAT: "mistral"},
+        )
 
-            if (tools := inputs.get("tools")) is not None:
-                try:
-                    tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools if tool]
-                    set_span_chat_tools(span, tools)
-                except Exception as e:
-                    _logger.debug(f"Failed to set tools for {span}. Error: {e}")
-
+        if (tools := self.inputs.get("tools")) is not None:
             try:
-                messages = [convert_message_to_mlflow_chat(m) for m in inputs.get("messages", [])]
+                tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools if tool]
+                set_span_chat_tools(self.span, tools)
             except Exception as e:
-                _logger.debug(f"Failed to convert chat messages for {span}. Error: {e}")
+                _logger.debug(f"Failed to set tools for {self.span}. Error: {e}")
 
-            try:
-                outputs = original(self, *args, **kwargs)
-                span.set_outputs(outputs)
-                if usage := getattr(outputs, "usage", None):
-                    span.set_attribute(
-                        SpanAttributeKey.CHAT_USAGE,
-                        {
-                            TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
-                            TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
-                            TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
-                        },
-                    )
-            finally:
-                # Set message attribute once at the end to avoid multiple JSON serialization
-                try:
-                    for choice in getattr(outputs, "choices", []):
-                        choice_message = getattr(choice, "message", {})
-                        messages.append(convert_message_to_mlflow_chat(choice_message))
-                    set_span_chat_messages(span, messages)
-                except Exception as e:
-                    _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+        # Attach the span to the current context. A single SDK call can create child spans.
+        self.token = set_span_in_context(self.span)
+        return self
 
-            return outputs
+    def _exit_impl(self, exc_type, exc_val, exc_tb) -> None:
+        if not self.span:
+            return
+
+        # Detach span from the context first to avoid leaking the context on errors.
+        detach_span_from_context(self.token)
+
+        if exc_val:
+            self.span.record_exception(exc_val)
+
+        try:
+            if usage := _parse_usage(self.output):
+                self.span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        except Exception as e:
+            _logger.debug(
+                f"Failed to extract token usage for span {self.span.name}: {e}",
+                exc_info=True,
+            )
+
+        # End the span with captured outputs. Keep original object for backward compatibility.
+        self.span.end(outputs=self.output)
+
+
+def _parse_usage(output):
+    usage = getattr(output, "usage", None)
+    if usage is None:
+        return None
+
+    usage_dict = {}
+    if getattr(usage, "prompt_tokens", None) is not None:
+        usage_dict[TokenUsageKey.INPUT_TOKENS] = usage.prompt_tokens
+    if getattr(usage, "completion_tokens", None) is not None:
+        usage_dict[TokenUsageKey.OUTPUT_TOKENS] = usage.completion_tokens
+    if getattr(usage, "total_tokens", None) is not None:
+        usage_dict[TokenUsageKey.TOTAL_TOKENS] = usage.total_tokens
+
+    return usage_dict or None

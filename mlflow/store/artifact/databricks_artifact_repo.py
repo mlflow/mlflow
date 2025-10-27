@@ -4,7 +4,7 @@ import logging
 import os
 import posixpath
 import uuid
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -99,7 +99,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -117,7 +119,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
         super().__init__(
-            remove_databricks_profile_info_from_artifact_uri(artifact_uri), tracking_uri
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri),
+            tracking_uri,
+            registry_uri,
         )
 
         self.databricks_profile_uri = (
@@ -154,7 +158,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
     @staticmethod
-    def _extract_run_id(artifact_uri: str) -> Optional[str]:
+    def _extract_run_id(artifact_uri: str) -> str | None:
         """
         Extracts the run ID from the run artifact URI.
         """
@@ -259,11 +263,10 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise MlflowTraceDataCorrupted(request_id=self.resource.id) from e
 
     def upload_trace_data(self, trace_data: str) -> None:
-        [cred], _ = self.resource.get_credentials(
-            cred_type=_CredentialType.WRITE,
-            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
-        )
+        cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
+            # Upload trace data synchronously to avoid ThreadPoolExecutor deadlock during Python
+            # interpreter shutdown, which causes "cannot schedule new futures after shutdown" error.
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(
                     credentials=cred,
@@ -272,6 +275,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     get_credentials=lambda artifact_paths: [
                         self._get_upload_trace_data_cred_info()
                     ],
+                    is_sync=True,
                 )
             elif cred.type == ArtifactCredentialType.AZURE_SAS_URI:
                 self._azure_upload_file(
@@ -281,12 +285,21 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     get_credentials=lambda artifact_paths: [
                         self._get_upload_trace_data_cred_info()
                     ],
+                    is_sync=True,
                 )
-            elif (
-                cred.type == ArtifactCredentialType.AWS_PRESIGNED_URL
-                or cred.type == ArtifactCredentialType.GCP_SIGNED_URL
+            elif cred.type in (
+                ArtifactCredentialType.AWS_PRESIGNED_URL,
+                ArtifactCredentialType.GCP_SIGNED_URL,
             ):
                 self._signed_url_upload_file(cred, temp_file)
+
+    def _get_upload_trace_data_cred_info(self):
+        """Returns the credential info for trace data upload."""
+        [cred], _ = self.resource.get_credentials(
+            cred_type=_CredentialType.WRITE,
+            timeout=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
+        )
+        return cred
 
     def _get_read_credential_infos(self, remote_file_paths):
         """
@@ -352,7 +365,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise e
         return block_id
 
-    def _azure_upload_file(self, credentials, local_file, artifact_file_path, get_credentials):
+    def _azure_upload_file(
+        self, credentials, local_file, artifact_file_path, get_credentials, is_sync=False
+    ):
         """
         Uploads a file to a given Azure storage location.
         The function uses a file chunking generator with 100 MB being the size limit for each chunk.
@@ -368,15 +383,14 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             local_file: The local file to upload.
             artifact_file_path: The path to the artifact file.
             get_credentials: The function to call to get new credentials.
+            is_sync: If True, upload synchronously without threading.
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
-            futures = {}
             num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
-            for index in range(num_chunks):
-                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                future = self.chunk_thread_pool.submit(
-                    self._azure_upload_chunk,
+
+            def upload_chunks_func(start_byte):
+                return self._azure_upload_chunk(
                     credentials=credentials,
                     headers=headers,
                     local_file=local_file,
@@ -385,15 +399,33 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     size=MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get(),
                     get_credentials=get_credentials,
                 )
-                futures[future] = index
 
-            results, errors = _complete_futures(futures, local_file)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {local_file}. Errors: {errors}"
-                )
-            # Sort results by the chunk index
-            uploading_block_list = [results[index] for index in sorted(results)]
+            if is_sync:
+                # Upload chunks synchronously without threading
+                results = {}
+                for index in range(num_chunks):
+                    start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+                    block_id = upload_chunks_func(start_byte)
+                    results[index] = block_id
+                uploading_block_list = [results[index] for index in sorted(results)]
+            else:
+                # Upload chunks asynchronously with threading
+                futures = {}
+                for index in range(num_chunks):
+                    start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+                    future = self.chunk_thread_pool.submit(
+                        upload_chunks_func,
+                        start_byte,
+                    )
+                    futures[future] = index
+
+                results, errors = _complete_futures(futures, local_file)
+                if errors:
+                    raise MlflowException(
+                        f"Failed to upload at least one part of {local_file}. Errors: {errors}"
+                    )
+                # Sort results by the chunk index
+                uploading_block_list = [results[index] for index in sorted(results)]
 
             try:
                 put_block_list(credentials.signed_uri, uploading_block_list, headers=headers)
@@ -438,7 +470,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                 raise e
 
     def _azure_adls_gen2_upload_file(
-        self, credentials, local_file, artifact_file_path, get_credentials
+        self, credentials, local_file, artifact_file_path, get_credentials, is_sync=False
     ):
         """
         Uploads a file to a given Azure storage location using the ADLS gen2 API.
@@ -448,6 +480,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             local_file: The local file to upload.
             artifact_file_path: The path to the artifact file.
             get_credentials: The function to call to get new credentials.
+            is_sync: If True, upload synchronously without threading.
         """
         try:
             headers = self._extract_headers_from_credentials(credentials.headers)
@@ -462,14 +495,12 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
 
             # next try to append the file
-            futures = {}
             file_size = os.path.getsize(local_file)
             num_chunks = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
             use_single_part_upload = num_chunks == 1
-            for index in range(num_chunks):
-                start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
-                future = self.chunk_thread_pool.submit(
-                    self._retryable_adls_function,
+
+            def upload_chunks_func(start_byte):
+                return self._retryable_adls_function(
                     func=patch_adls_file_upload,
                     artifact_file_path=artifact_file_path,
                     get_credentials=get_credentials,
@@ -481,13 +512,29 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
                     headers=headers,
                     is_single=use_single_part_upload,
                 )
-                futures[future] = index
 
-            _, errors = _complete_futures(futures, local_file)
-            if errors:
-                raise MlflowException(
-                    f"Failed to upload at least one part of {artifact_file_path}. Errors: {errors}"
-                )
+            if is_sync:
+                # Upload chunks synchronously without threading
+                for index in range(num_chunks):
+                    start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+                    upload_chunks_func(start_byte)
+            else:
+                # Upload chunks asynchronously with threading
+                futures = {}
+                for index in range(num_chunks):
+                    start_byte = index * MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get()
+                    future = self.chunk_thread_pool.submit(
+                        upload_chunks_func,
+                        start_byte,
+                    )
+                    futures[future] = index
+
+                _, errors = _complete_futures(futures, local_file)
+                if errors:
+                    raise MlflowException(
+                        f"Failed to upload at least one part of {artifact_file_path}. "
+                        f"Errors: {errors}"
+                    )
 
             # finally try to flush the file
             if not use_single_part_upload:
@@ -722,7 +769,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_file_path=artifact_file_path,
         )
 
-    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+    def list_artifacts(self, path: str | None = None) -> list[FileInfo]:
         return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):

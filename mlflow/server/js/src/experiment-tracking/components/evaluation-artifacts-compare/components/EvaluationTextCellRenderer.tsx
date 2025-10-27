@@ -2,13 +2,13 @@ import { TableSkeleton, Typography, useDesignSystemTheme } from '@databricks/des
 import type { ICellRendererParams } from '@ag-grid-community/core';
 import { FormattedMessage } from 'react-intl';
 import React from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContext';
 import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+import type { ReduxState } from '../../../../redux-types';
 import { EvaluationCellEvaluateButton } from './EvaluationCellEvaluateButton';
 import { shouldEnablePromptLab } from '../../../../common/utils/FeatureUtils';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import { JsonPreview } from '../../../../common/components/JsonFormatting';
 
 // Truncate the text in the cell, it doesn't make sense to populate

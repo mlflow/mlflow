@@ -88,8 +88,10 @@ def _hash_data_as_bytes(data):
             return _hash_dict_as_bytes(data)
         if np.isscalar(data):
             return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
-    finally:
-        return b""  # Skip unsupported types by returning an empty byte string
+    except Exception:
+        pass
+    # Skip unsupported types by returning an empty byte string
+    return b""
 
 
 def _hash_dict_as_bytes(data_dict):
@@ -176,7 +178,7 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
         md5_gen.update(_hash_array_like_obj_as_bytes(tail_rows))
 
 
-def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
+def convert_data_to_mlflow_dataset(data, targets=None, predictions=None, name=None):
     """Convert input data to mlflow dataset."""
     supported_dataframe_types = [pd.DataFrame]
     if "pyspark" in sys.modules:
@@ -196,14 +198,14 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
             data = [[elm] for elm in data]
 
         return mlflow.data.from_numpy(
-            np.array(data), targets=np.array(targets) if targets else None
+            np.array(data), targets=np.array(targets) if targets else None, name=name
         )
     elif isinstance(data, np.ndarray):
-        return mlflow.data.from_numpy(data, targets=targets)
+        return mlflow.data.from_numpy(data, targets=targets, name=name)
     elif isinstance(data, pd.DataFrame):
-        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
+        return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions, name=name)
     elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
-        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
+        return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions, name=name)
     else:
         # Cannot convert to mlflow dataset, return original data.
         _logger.info(

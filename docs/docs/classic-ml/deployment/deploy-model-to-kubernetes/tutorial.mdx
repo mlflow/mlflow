@@ -15,7 +15,7 @@ This guide demonstrates how to use MLflow end-to-end for:
 - Training a linear regression model with [MLflow Tracking](/ml/tracking).
 - Conducting hyper-parameter tuning to find the best model.
 - Packaging the model weights and dependencies as an [MLflow Model](/ml/model).
-- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command.
+- Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">mlflow models serve</APILink> command.
 - Deploying the model to a Kubernetes cluster using [KServe](https://kserve.github.io/website/) with MLflow.
 
 We will cover an end-to-end model development process including model training and testing within this tutorial.
@@ -119,7 +119,7 @@ with mlflow.start_run(run_name="default-params"):
     lr.fit(X_train, y_train)
 
     y_pred = lr.predict(X_test)
-    metrics = eval_metrics(y_pred, y_test)
+    rmse, mae, r2 = eval_metrics(y_pred, y_test)
 ```
 
 Now you have trained a model, let's check if the parameters and metrics are logged correctly, via the MLflow UI.
@@ -173,7 +173,7 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
 
     # Evaluate the best model on test dataset
     y_pred = clf.best_estimator_.predict(X_test)
-    rmse, mae, r2 = eval_metrics(clf.best_estimator_, y_pred, y_test)
+    rmse, mae, r2 = eval_metrics(y_pred, y_test)
     mlflow.log_metrics(
         {
             "mean_squared_error_X_test": rmse,

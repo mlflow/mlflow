@@ -11,14 +11,9 @@ json_repair!=0.45.0
 # https://github.com/huggingface/transformers/issues/38269
 transformers!=4.52.2
 transformers!=4.52.1
-# TODO(https://github.com/mlflow/mlflow/issues/15847): Remove this constraint when MLflow is ready for pyspark 4.0.0. Pyspark 3.5.6 has the same issue.
-pyspark<3.5.6
-# FLAML disables warnings globally using `warnings.simplefilter("ignore", category=...)`:
-# https://github.com/microsoft/FLAML/blob/01c3c836534a244ac8038535455a7fde367366ad/flaml/fabric/mlflow.py#L67-L68
-# This interferes with `test_autologging_warnings_are_redirected_as_expected`.
-FLAML<2.3.5
-# TODO: Remove this constraint once https://github.com/huggingface/transformers/issues/39115 is resolved.
-# transformers >= 4.53.0 uses OpenTelemetry for metrics monitoring, which interferes with
-# `tests/tracing/test_fluent.py::test_mlflow_trace_isolated_from_other_otel_processors`
-# https://github.com/huggingface/transformers/commit/211f2b08751cdee4bd6b84892b91f4a18dbfe305
-transformers<4.53.0
+# https://github.com/pallets/click/issues/3065
+# click 8.3.0 has a bug that causes tests to hang
+click!=8.3.0
+# xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
+# https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
+xgboost<3.1.0

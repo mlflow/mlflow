@@ -1,7 +1,8 @@
 import logging
 
 from mlflow.langchain.constant import FLAVOR_NAME
-from mlflow.utils.annotations import experimental
+from mlflow.telemetry.events import AutologgingEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 from mlflow.utils.autologging_utils.safety import safe_patch
@@ -9,7 +10,6 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 logger = logging.getLogger(__name__)
 
 
-@experimental(version="2.10.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     disable=False,
@@ -69,6 +69,10 @@ def autolog(
         )
     except Exception:
         logger.debug("Failed to patch RunnableSequence or BaseCallbackManager.", exc_info=True)
+
+    _record_event(
+        AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+    )
 
 
 def _patched_callback_manager_init(original, self, *args, **kwargs):

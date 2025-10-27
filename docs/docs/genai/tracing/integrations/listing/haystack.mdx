@@ -1,0 +1,155 @@
+---
+sidebar_position: 8
+sidebar_label: Haystack
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
+import TOCInline from "@theme/TOCInline";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tracing Haystack
+
+<ImageBox src="/images/llms/haystack/haystack-tracing.png" alt="Haystack Tracing via autolog" />
+
+[Haystack](https://github.com/deepset-ai/haystack) is an open-source AI orchestration framework developed by deepset, designed to help Python developers build production-ready LLM-powered applications.
+It features a modular architecture - built around components and pipelines for building everything from retrieval-augmented generation (RAG) workflows to autonomous agentic systems and scalable search engines.
+
+[MLflow Tracing](../../) provides automatic tracing capability when using Haystack pipelines and components.
+When Haystack auto-tracing is enabled by calling the <APILink fn="mlflow.haystack.autolog" /> function,
+usage of Haystack pipelines and components will automatically record generated traces during interactive development.
+
+```python
+import mlflow
+
+mlflow.haystack.autolog()
+```
+
+MLflow trace automatically captures the following information:
+
+- Pipelines and Components
+- Latencies
+- Metadata about the different components added, such as tool names
+- Token usages and cost
+- Cache hit
+- Any exception if raised
+
+### Basic Example
+
+```python
+import mlflow
+
+from haystack import Document, Pipeline
+from haystack.components.builders.chat_prompt_builder import ChatPromptBuilder
+from haystack.components.generators.chat import OpenAIChatGenerator
+from haystack.components.retrievers.in_memory import InMemoryBM25Retriever
+from haystack.dataclasses import ChatMessage
+from haystack.document_stores.in_memory import InMemoryDocumentStore
+from haystack.utils import Secret
+
+mlflow.haystack.autolog()
+mlflow.set_experiment("Haystack Tracing")
+
+# Write documents to InMemoryDocumentStore
+document_store = InMemoryDocumentStore()
+document_store.write_documents(
+    [
+        Document(content="My name is Jean and I live in Paris."),
+        Document(content="My name is Mark and I live in Berlin."),
+        Document(content="My name is Giorgio and I live in Rome."),
+    ]
+)
+
+# Build a RAG pipeline
+prompt_template = [
+    ChatMessage.from_system("You are a helpful assistant."),
+    ChatMessage.from_user(
+        "Given these documents, answer the question.\n"
+        "Documents:\n{% for doc in documents %}{{ doc.content }}{% endfor %}\n"
+        "Question: {{question}}\n"
+        "Answer:"
+    ),
+]
+
+# Define required variables explicitly
+prompt_builder = ChatPromptBuilder(
+    template=prompt_template, required_variables={"question", "documents"}
+)
+
+retriever = InMemoryBM25Retriever(document_store=document_store)
+llm = OpenAIChatGenerator(api_key=Secret.from_env_var("OPENAI_API_KEY"))
+
+rag_pipeline = Pipeline()
+rag_pipeline.add_component("retriever", retriever)
+rag_pipeline.add_component("prompt_builder", prompt_builder)
+rag_pipeline.add_component("llm", llm)
+rag_pipeline.connect("retriever", "prompt_builder.documents")
+rag_pipeline.connect("prompt_builder", "llm.messages")
+
+# Ask a question
+question = "Who lives in Paris?"
+results = rag_pipeline.run(
+    {
+        "retriever": {"query": question},
+        "prompt_builder": {"question": question},
+    }
+)
+
+print(results["llm"]["replies"])
+```
+
+![Haystack Tracing via autolog](/images/llms/haystack/haystack-basic-tracing.png)
+
+## Token usage
+
+MLflow >= 3.4.0 supports token usage tracking for Haystack. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+question = "Who lives in Paris?"
+results = rag_pipeline.run(
+    {
+        "retriever": {"query": question},
+        "prompt_builder": {"question": question},
+    }
+)
+
+print(results["llm"]["replies"])
+
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 64
+  Output tokens: 5
+  Total tokens: 69
+
+== Detailed usage for each LLM call: ==
+OpenAIChatGenerator:
+  Input tokens: 64
+  Output tokens: 5
+```
+
+### Disable auto-tracing
+
+Auto tracing for Haystack can be disabled globally by calling `mlflow.haystack.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

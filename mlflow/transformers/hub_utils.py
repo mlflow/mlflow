@@ -2,7 +2,6 @@ import functools
 import logging
 import os
 import time
-from typing import Optional
 
 from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.exceptions import MlflowException
@@ -58,7 +57,7 @@ def get_latest_commit_for_repo(repo: str) -> str:
     )
 
 
-def is_valid_hf_repo_id(maybe_repo_id: Optional[str]) -> bool:
+def is_valid_hf_repo_id(maybe_repo_id: str | None) -> bool:
     """
     Check if the given string is a valid HuggingFace repo identifier e.g. "username/repo_id".
     """

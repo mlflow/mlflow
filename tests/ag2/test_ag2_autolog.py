@@ -123,12 +123,14 @@ def test_tracing_agent(llm_config):
         "output_tokens": 12,
         "total_tokens": 21,
     }
+    assert llm_span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
 
     assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 9,
         "output_tokens": 12,
         "total_tokens": 21,
     }
+    assert llm_span_2.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "ag2"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 18,

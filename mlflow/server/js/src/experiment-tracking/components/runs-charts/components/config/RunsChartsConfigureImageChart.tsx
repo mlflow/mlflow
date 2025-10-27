@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
+import type { RunsChartsCardConfig, RunsChartsImageCardConfig } from '../../runs-charts.types';
 import { Input } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { RunsChartsConfigureField } from './RunsChartsConfigure.common';
@@ -9,7 +9,7 @@ import { DialogComboboxTrigger } from '@databricks/design-system';
 import { DialogComboboxOptionListCheckboxItem } from '@databricks/design-system';
 import { DialogComboboxOptionList } from '@databricks/design-system';
 import { useImageSliderStepMarks } from '../../hooks/useImageSliderStepMarks';
-import { RunsChartsRunData } from '../RunsCharts.common';
+import type { RunsChartsRunData } from '../RunsCharts.common';
 import { LineSmoothSlider } from '@mlflow/mlflow/src/experiment-tracking/components/LineSmoothSlider';
 
 export const RunsChartsConfigureImageChart = ({

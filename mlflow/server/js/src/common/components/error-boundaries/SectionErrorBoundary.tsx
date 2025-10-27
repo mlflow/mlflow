@@ -34,7 +34,11 @@ export class SectionErrorBoundary extends React.Component<Props, State> {
       return (
         <div>
           <p>
-            <i data-testid="icon-fail" className="fa fa-exclamation-triangle icon-fail" css={classNames.wrapper} />
+            <i
+              data-testid="icon-fail"
+              className="fa fa-exclamation-triangle mlflow-icon-fail"
+              css={classNames.wrapper}
+            />
             <span> Something went wrong with this section. </span>
             <span>If this error persists, please report an issue </span>
             {/* Reported during ESLint upgrade */}

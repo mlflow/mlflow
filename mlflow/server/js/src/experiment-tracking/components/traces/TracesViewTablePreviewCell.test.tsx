@@ -59,7 +59,7 @@ describe('ExperimentViewTracesTablePreviewCell', () => {
 
     await userEvent.click(screen.getByRole('button'));
 
-    expect(MlflowService.getExperimentTraceData).toBeCalledWith('test_request_id');
+    expect(MlflowService.getExperimentTraceData).toHaveBeenCalledWith('test_request_id');
 
     expect(document.body.textContent).toContain(formattedLongValue);
 

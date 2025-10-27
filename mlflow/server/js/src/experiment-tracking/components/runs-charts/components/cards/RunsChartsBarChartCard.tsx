@@ -3,13 +3,8 @@ import type { RunsChartsRunData } from '../RunsCharts.common';
 import { RunsMetricsBarPlot } from '../RunsMetricsBarPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
 import type { RunsChartsBarCardConfig } from '../../runs-charts.types';
-import {
-  RunsChartCardWrapper,
-  type RunsChartCardReorderProps,
-  RunsChartsChartsDragGroup,
-  RunsChartCardFullScreenProps,
-  RunsChartCardVisibilityProps,
-} from './ChartCard.common';
+import type { RunsChartCardFullScreenProps, RunsChartCardVisibilityProps } from './ChartCard.common';
+import { RunsChartCardWrapper, type RunsChartCardReorderProps, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { customMetricBehaviorDefs } from '../../../experiment-page/utils/customMetricBehaviorUtils';

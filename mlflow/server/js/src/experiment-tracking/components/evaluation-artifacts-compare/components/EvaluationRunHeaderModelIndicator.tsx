@@ -1,7 +1,7 @@
 import { Button, Popover, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+import type { ReduxState } from '../../../../redux-types';
 import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import {
   canEvaluateOnRun,

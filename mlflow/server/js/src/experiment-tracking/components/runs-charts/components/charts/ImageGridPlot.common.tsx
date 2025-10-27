@@ -2,7 +2,7 @@ import { ImageIcon, Spinner } from '@databricks/design-system';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { getArtifactLocationUrl } from '@mlflow/mlflow/src/common/utils/ArtifactUtils';
-import { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ImageEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { useState, useEffect } from 'react';
 import { Typography } from '@databricks/design-system';
 import { ImagePreviewGroup, Image } from '../../../../../shared/building_blocks/Image';

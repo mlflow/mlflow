@@ -1,6 +1,5 @@
 # pep8: disable=E501
 
-import collections
 import functools
 import json
 import os
@@ -33,11 +32,6 @@ from mlflow.utils.autologging_utils import (
 from mlflow.utils.process import _exec_cmd
 
 np.random.seed(1337)
-
-SavedModelInfo = collections.namedtuple(
-    "SavedModelInfo",
-    ["path", "meta_graph_tags", "signature_def_key", "inference_df", "expected_results_df"],
-)
 
 
 @pytest.fixture(autouse=True)
@@ -1117,7 +1111,7 @@ def _assert_autolog_infers_model_signature_correctly(input_sig_spec, output_sig_
     logged_model = mlflow.last_logged_model()
     ml_model_path = os.path.join(logged_model.artifact_location, "MLmodel")
     with open(ml_model_path) as f:
-        data = yaml.load(f, Loader=yaml.FullLoader)
+        data = yaml.safe_load(f)
         assert data is not None
         assert "signature" in data
         signature = data["signature"]

@@ -116,9 +116,9 @@ export const useUserActionErrorHandler = (): UserErrorActionHandlerHook => {
 };
 
 export function withUserActionErrorHandler<P>(
-  Component: React.ComponentType<P>,
+  Component: React.ComponentType<React.PropsWithChildren<P>>,
   errorFilter?: (error: any) => boolean,
-): React.ComponentType<P> {
+): React.ComponentType<React.PropsWithChildren<P>> {
   return function UserActionErrorHandlerWrapper(props: P) {
     return (
       <UserActionErrorHandler errorFilter={errorFilter}>

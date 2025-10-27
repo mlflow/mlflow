@@ -5,7 +5,7 @@ import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
 import { applyMiddleware, compose, createStore } from 'redux';
 import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentTag } from '../../../sdk/MlflowMessages';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { GetExperimentsContextProvider } from '../contexts/GetExperimentsContext';
 import { ExperimentViewNotes } from './ExperimentViewNotes';
 

@@ -1,7 +1,7 @@
 import json
 import logging
 from functools import cached_property
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Any
 
 from packaging.version import Version
 
@@ -33,10 +33,10 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         self,
         df: "pyspark.sql.DataFrame",
         source: DatasetSource,
-        targets: Optional[str] = None,
-        name: Optional[str] = None,
-        digest: Optional[str] = None,
-        predictions: Optional[str] = None,
+        targets: str | None = None,
+        name: str | None = None,
+        digest: str | None = None,
+        predictions: str | None = None,
     ):
         if targets is not None and targets not in df.columns:
             raise MlflowException(
@@ -100,7 +100,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._df
 
     @property
-    def targets(self) -> Optional[str]:
+    def targets(self) -> str | None:
         """The name of the Spark DataFrame column containing targets (labels) for supervised
         learning.
 
@@ -110,7 +110,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._targets
 
     @property
-    def predictions(self) -> Optional[str]:
+    def predictions(self) -> str | None:
         """
         The name of the predictions column. May be ``None`` if no predictions column
         was specified when the dataset was created.
@@ -118,7 +118,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._predictions
 
     @property
-    def source(self) -> Union[SparkDatasetSource, DeltaDatasetSource]:
+    def source(self) -> SparkDatasetSource | DeltaDatasetSource:
         """
         Spark dataset source information.
 
@@ -130,7 +130,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._source
 
     @property
-    def profile(self) -> Optional[Any]:
+    def profile(self) -> Any | None:
         """
         A profile of the dataset. May be None if no profile is available.
         """
@@ -174,7 +174,7 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
             )
 
     @cached_property
-    def schema(self) -> Optional[Schema]:
+    def schema(self) -> Schema | None:
         """
         The MLflow ColSpec schema of the Spark dataset.
         """
@@ -226,12 +226,12 @@ class SparkDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
 
 def load_delta(
-    path: Optional[str] = None,
-    table_name: Optional[str] = None,
-    version: Optional[str] = None,
-    targets: Optional[str] = None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
+    path: str | None = None,
+    table_name: str | None = None,
+    version: str | None = None,
+    targets: str | None = None,
+    name: str | None = None,
+    digest: str | None = None,
 ) -> SparkDataset:
     """
     Loads a :py:class:`SparkDataset <mlflow.data.spark_dataset.SparkDataset>` from a Delta table
@@ -286,14 +286,14 @@ def load_delta(
 
 def from_spark(
     df: "pyspark.sql.DataFrame",
-    path: Optional[str] = None,
-    table_name: Optional[str] = None,
-    version: Optional[str] = None,
-    sql: Optional[str] = None,
-    targets: Optional[str] = None,
-    name: Optional[str] = None,
-    digest: Optional[str] = None,
-    predictions: Optional[str] = None,
+    path: str | None = None,
+    table_name: str | None = None,
+    version: str | None = None,
+    sql: str | None = None,
+    targets: str | None = None,
+    name: str | None = None,
+    digest: str | None = None,
+    predictions: str | None = None,
 ) -> SparkDataset:
     """
     Given a Spark DataFrame, constructs a

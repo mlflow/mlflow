@@ -1,6 +1,6 @@
 import { mount } from 'enzyme';
 import { useEvaluationArtifactTables } from './useEvaluationArtifactTables';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { MLFLOW_LOGGED_ARTIFACTS_TAG } from '../../../constants';
 
 describe('useEvaluationArtifactTables', () => {

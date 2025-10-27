@@ -1,6 +1,6 @@
-import { ExperimentViewHeader } from './ExperimentViewHeader';
+import { ExperimentViewHeader, ExperimentViewHeaderSkeleton } from './ExperimentViewHeader';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
@@ -8,17 +8,22 @@ import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
 import configureStore from 'redux-mock-store';
 import promiseMiddleware from 'redux-promise-middleware';
+import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
-// mock breadcrumbs
-jest.mock('@databricks/design-system', () => ({
-  ...jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system'),
-  Breadcrumb: () => <div />,
-}));
+jest.mock('@databricks/design-system', () => {
+  const actual = jest.requireActual<typeof import('@databricks/design-system')>('@databricks/design-system');
+  const MockBreadcrumb = ({ children }: { children: React.ReactNode }) => <nav>{children}</nav>;
+  const MockBreadcrumbItem = ({ children }: { children: React.ReactNode }) => <div>{children}</div>;
+  return {
+    ...actual,
+    Breadcrumb: Object.assign(MockBreadcrumb, { Item: MockBreadcrumbItem }),
+  };
+});
 
 describe('ExperimentViewHeader', () => {
-  const experiment: ExperimentEntity = {
+  const defaultExperiment: ExperimentEntity = {
     experimentId: '123',
-    name: 'test',
+    name: 'test/experiment/name',
     artifactLocation: 'file:/tmp/mlruns',
     lifecycleStage: 'active',
     allowedActions: [],
@@ -27,66 +32,58 @@ describe('ExperimentViewHeader', () => {
     tags: [],
   };
 
-  const setEditing = (editing: boolean) => {
-    return;
-  };
+  const setEditing = jest.fn();
 
-  const createComponentMock = (showAddDescriptionButton: boolean) => {
+  const renderComponent = (experiment = defaultExperiment) => {
     const mockStore = configureStore([thunk, promiseMiddleware()]);
+    const queryClient = new QueryClient();
+
     return renderWithIntl(
-      <BrowserRouter>
-        <DesignSystemProvider>
-          <Provider
-            store={mockStore({
-              entities: {
-                experimentsById: {},
-              },
-            })}
-          >
-            <ExperimentViewHeader
-              experiment={experiment}
-              showAddDescriptionButton={showAddDescriptionButton}
-              setEditing={setEditing}
-            />
-          </Provider>
-        </DesignSystemProvider>
-      </BrowserRouter>,
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <DesignSystemProvider>
+            <Provider
+              store={mockStore({
+                entities: {
+                  experimentsById: {},
+                },
+              })}
+            >
+              <ExperimentViewHeader experiment={experiment} setEditing={setEditing} />
+            </Provider>
+          </DesignSystemProvider>
+        </BrowserRouter>
+      </QueryClientProvider>,
     );
   };
 
-  test('should render add description button', async () => {
-    await act(async () => {
-      createComponentMock(true);
+  describe('rendering', () => {
+    beforeEach(async () => {
+      await act(async () => {
+        renderComponent();
+      });
     });
 
-    expect(screen.queryByText('Add Description')).toBeInTheDocument();
-  });
-
-  test('should not render add description button', async () => {
-    await act(async () => {
-      createComponentMock(false);
+    it('displays the last part of the experiment name', () => {
+      expect(screen.getByText('name')).toBeInTheDocument();
     });
 
-    expect(screen.queryByText('Add Description')).not.toBeInTheDocument();
-  });
+    it('shows info tooltip with experiment details', async () => {
+      await userEvent.click(screen.getByRole('button', { name: 'Info' }));
 
-  test('If button to delete experiment is pressed then open DeleteExperimentModal', async () => {
-    await act(async () => {
-      createComponentMock(true);
+      const tooltip = await screen.findByTestId('experiment-view-header-info-tooltip-content');
+      expect(tooltip).toHaveTextContent('Path: test/experiment/name');
+      expect(tooltip).toHaveTextContent('Experiment ID: 123');
+      expect(tooltip).toHaveTextContent('Artifact Location: file:/tmp/mlruns');
     });
 
-    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
-    await userEvent.click(screen.getByText('Delete'));
-    expect(screen.getByText(/Delete Experiment/)).toBeInTheDocument();
-  });
-
-  test('If button to rename experiment is pressed then open RenameExperimentModal', async () => {
-    await act(async () => {
-      createComponentMock(true);
+    it('renders breadcrumb navigation', () => {
+      expect(screen.getByText('Experiments')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
-    await userEvent.click(screen.getByText('Rename'));
-    expect(screen.getByText(/Rename Experiment/)).toBeInTheDocument();
+    it('displays share and management buttons', () => {
+      expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
+      expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();
+    });
   });
 });

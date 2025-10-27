@@ -2,7 +2,6 @@ import logging
 import operator
 import os
 from decimal import Decimal
-from typing import Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import EvaluationResult
@@ -235,7 +234,7 @@ class ModelValidationFailedException(MlflowException):
 def validate_evaluation_results(
     validation_thresholds: dict[str, MetricThreshold],
     candidate_result: EvaluationResult,
-    baseline_result: Optional[EvaluationResult] = None,
+    baseline_result: EvaluationResult | None = None,
 ):
     """
     Validate the evaluation result from one model (candidate) against another

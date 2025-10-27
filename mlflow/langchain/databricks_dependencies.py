@@ -2,9 +2,7 @@ import importlib
 import inspect
 import logging
 import warnings
-from typing import Any, Generator, Optional
-
-from packaging import version
+from typing import Any, Generator
 
 from mlflow.models.resources import (
     DatabricksFunction,
@@ -253,7 +251,7 @@ def _extract_dependency_list_from_lc_model(lc_model) -> Generator[Resource, None
 
 def _traverse_runnable(
     lc_model,
-    visited: Optional[set[int]] = None,
+    visited: set[int] | None = None,
 ) -> Generator[Resource, None, None]:
     """
     This function contains the logic to traverse a langchain_core.runnables.RunnableSerializable
@@ -262,7 +260,6 @@ def _traverse_runnable(
     by lc_model.get_graph().nodes.values().
     This function supports arbitrary LCEL chain.
     """
-    import pydantic
     from langchain_core.runnables import Runnable, RunnableLambda
 
     visited = visited or set()
@@ -276,9 +273,7 @@ def _traverse_runnable(
 
     if isinstance(lc_model, Runnable):
         # Visit the returned graph
-        if isinstance(lc_model, RunnableLambda) and version.parse(
-            pydantic.version.VERSION
-        ) >= version.parse("2.0"):
+        if isinstance(lc_model, RunnableLambda):
             nodes = _get_nodes_from_runnable_lambda(lc_model)
         else:
             nodes = _get_nodes_from_runnable_callable(lc_model)

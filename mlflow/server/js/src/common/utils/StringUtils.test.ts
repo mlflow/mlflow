@@ -54,7 +54,7 @@ describe('capitalizeFirstChar', () => {
 });
 
 describe('middleTruncateStr', () => {
-  test('test middleTruncateStr', () => {
+  test('middleTruncateStr', () => {
     expect(middleTruncateStr('abc', 10)).toEqual('abc');
     expect(middleTruncateStr('abcdefghij', 10)).toEqual('abcdefghij');
     expect(middleTruncateStr('abcdefghijk', 10)).toEqual('abc...hijk');

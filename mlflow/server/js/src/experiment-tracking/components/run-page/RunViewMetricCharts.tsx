@@ -1,10 +1,12 @@
 import { TableSkeleton, ToggleButton, useDesignSystemTheme } from '@databricks/design-system';
 import { compact, mapValues, values } from 'lodash';
-import { ReactNode, useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../redux-types';
-import type { KeyValueEntity, MetricEntitiesByName, RunInfoEntity } from '../../types';
+import type { ReduxState } from '../../../redux-types';
+import type { MetricEntitiesByName, RunInfoEntity } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 
 import { RunsChartsTooltipWrapper } from '../runs-charts/hooks/useRunsChartsTooltip';
 import { RunViewChartTooltipBody } from './RunViewChartTooltipBody';

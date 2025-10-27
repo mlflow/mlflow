@@ -1,5 +1,6 @@
 import json
 import math
+from io import StringIO
 from unittest import mock
 
 import numpy as np
@@ -187,7 +188,7 @@ def test_pandas_orients_for_input_examples(
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             dataframe = pd.read_json(
-                json.dumps(data), orient=example.info["pandas_orient"], precise_float=True
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"], precise_float=True
             )
             assert (
                 (
@@ -210,7 +211,9 @@ def test_pandas_orients_for_input_examples(
             # NOTE: when no column names are provided (i.e. values orient),
             # saving an example adds a "data" key rather than directly storing the plain data
             data = data["data"]
-            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
+            dataframe = pd.read_json(
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"]
+            )
             assert (dataframe == df_without_columns).all().all()
 
     # pass dict with scalars
@@ -248,7 +251,7 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-            pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
+            pd.read_json(StringIO(json.dumps(data)), orient=example.info["pandas_orient"])
 
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
 

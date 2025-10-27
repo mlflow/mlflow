@@ -4,7 +4,6 @@ import posixpath
 import urllib.parse
 from contextlib import contextmanager
 from ftplib import FTP
-from typing import Optional
 from urllib.parse import unquote
 
 from mlflow.entities.file_info import FileInfo
@@ -16,8 +15,10 @@ from mlflow.utils.file_utils import relative_path_to_artifact_path
 class FTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via ftp."""
 
-    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
             "host": parsed.hostname,
@@ -108,7 +109,7 @@ class FTPArtifactRepository(ArtifactRepository):
             # Make sure artifact_files is a list of file names because ftp.nlst
             # may return absolute paths.
             artifact_files = [os.path.basename(f) for f in artifact_files]
-            artifact_files = list(filter(lambda x: x != "." and x != "..", artifact_files))
+            artifact_files = list(filter(lambda x: x not in {".", ".."}, artifact_files))
             infos = []
             for file_name in artifact_files:
                 file_path = file_name if path is None else posixpath.join(path, file_name)

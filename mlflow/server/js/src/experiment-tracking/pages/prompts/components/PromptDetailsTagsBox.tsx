@@ -1,4 +1,4 @@
-import { RegisteredPrompt } from '../types';
+import type { RegisteredPrompt } from '../types';
 import { Button, PencilIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useUpdateRegisteredPromptTags } from '../hooks/useUpdateRegisteredPromptTags';

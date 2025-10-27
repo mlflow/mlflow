@@ -1,9 +1,10 @@
 import { ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import type { KeyValueEntity } from '@mlflow/mlflow/src/common/types';
+
 import { Link } from '../../../../common/utils/RoutingUtils';
 import { usePromptVersionsForRunQuery } from '../../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import Routes from '../../../routes';
 import { parseLinkedPromptsFromRunTags } from '../../../pages/prompts/utils';
-import type { KeyValueEntity } from '../../../types';
 
 export const RunViewRegisteredPromptsBox = ({
   tags,
@@ -24,7 +25,7 @@ export const RunViewRegisteredPromptsBox = ({
   }
 
   if (error || !promptVersions || promptVersions.length === 0) {
-    return <Typography.Hint>—</Typography.Hint>;
+    return <Typography.Hint css={{ padding: `${theme.spacing.xs}px 0px` }}>—</Typography.Hint>;
   }
 
   return (
@@ -34,7 +35,7 @@ export const RunViewRegisteredPromptsBox = ({
         flexDirection: 'row',
         gap: theme.spacing.sm,
         flexWrap: 'wrap',
-        padding: `${theme.spacing.sm}px 0px`,
+        padding: `${theme.spacing.xs}px 0px`,
       }}
     >
       {promptVersions.map((promptVersion, index) => {

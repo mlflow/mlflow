@@ -11,7 +11,7 @@ import functools
 import importlib
 import logging
 import re
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 import sqlalchemy
 from flask import (
@@ -30,7 +30,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -116,6 +116,7 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_request_message,
@@ -506,8 +507,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[dict[str, Any]]
-) -> Optional[Callable[[], bool]]:
+    method: str, view_args: dict[str, Any] | None
+) -> Callable[[], bool] | None:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
 
@@ -518,14 +519,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Union[Authorization, Response]:
+def authenticate_request() -> Authorization | Response:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -537,7 +538,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Union[Authorization, Response]:
+def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     if request.authorization is None:
         return make_basic_auth_response()
@@ -551,7 +552,7 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
         return make_basic_auth_response()
 
 
-def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
+def _find_validator(req: Request) -> Callable[[], bool] | None:
     """
     Finds the validator matching the request path and method.
     """
@@ -1223,4 +1224,7 @@ def create_app(app: Flask = app):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
-    return app
+    if _MLFLOW_SGI_NAME.get() == "uvicorn":
+        return create_fastapi_app(app)
+    else:
+        return app

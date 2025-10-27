@@ -38,7 +38,7 @@ describe('ModelStageTransitionDropdown', () => {
       currentStage: Stages.STAGING,
     };
     wrapper = mountWithIntl(<ModelStageTransitionDropdown {...props} />);
-    wrapper.find('.stage-transition-dropdown').first().simulate('click');
+    wrapper.find('.mlflow-stage-transition-dropdown').first().simulate('click');
     const menuHtml = mountWithIntl(wrapper.find(Dropdown).props().overlay).html();
 
     expect(menuHtml).not.toContain(Stages.STAGING);

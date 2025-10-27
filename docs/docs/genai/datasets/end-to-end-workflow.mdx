@@ -1,0 +1,326 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import DAGLoop from "@site/src/components/DAGLoop";
+import { Code, Activity, Target, Database, BarChart3, Rocket, CheckCircle, FileText, RefreshCw } from "lucide-react";
+
+# End-to-End Workflow: Evaluation-Driven Development
+
+This guide demonstrates the complete workflow for building and evaluating GenAI applications using MLflow's evaluation-driven development approach.
+
+:::warning
+**Databricks Users**: This workflow uses MLflow OSS evaluation dataset APIs. For Databricks environments, use the `databricks-agents` package instead, which provides optimized dataset management integrated with Unity Catalog.
+:::
+
+## Workflow Overview
+
+<DAGLoop
+  title="Evaluation-Driven Development"
+  circleSize={500}
+  steps={[
+    {
+      icon: Code,
+      title: "Build & Trace",
+      description: "Create your GenAI application with tracing enabled",
+      detailedDescription: "Start with a traced GenAI application using MLflow's automatic instrumentation or manual tracing decorators to capture detailed execution data."
+    },
+    {
+      icon: Activity,
+      title: "Capture Traces",
+      description: "Run your application to collect production traces",
+      detailedDescription: "Execute your application with real or test scenarios to generate traces that capture inputs, outputs, and intermediate steps."
+    },
+    {
+      icon: Target,
+      title: "Add Expectations",
+      description: "Define ground truth for quality validation",
+      detailedDescription: "Annotate traces with expectations that define correct behavior, using MLflow's assessment APIs to add ground truth data."
+    },
+    {
+      icon: Database,
+      title: "Create Dataset",
+      description: "Build reusable evaluation datasets from traces",
+      detailedDescription: "Transform annotated traces into evaluation datasets that serve as your test suite, growing with each iteration.",
+      isFocus: true
+    },
+    {
+      icon: BarChart3,
+      title: "Evaluate",
+      description: "Run systematic evaluations with scorers",
+      detailedDescription: "Use MLflow's evaluation framework with built-in and custom scorers to systematically assess your application's performance."
+    },
+    {
+      icon: CheckCircle,
+      title: "Analyze Results",
+      description: "Review performance and identify improvements",
+      detailedDescription: "Examine evaluation metrics, identify failure patterns, and determine areas for improvement to guide your next iteration."
+    }
+  ]}
+  loopBackIcon={RefreshCw}
+  loopBackText="Iterate & Improve"
+  loopBackDescription="Based on analysis insights, refine your application by improving prompts, adjusting parameters, or enhancing logic. The cycle continues as you progressively improve quality with each iteration."
+/>
+
+## Prerequisites
+
+```bash
+pip install --upgrade mlflow>=3.4 openai
+```
+
+## Step 1: Build & Trace Your Application
+
+Start with a traced GenAI application. This example shows a customer support bot, but the pattern applies to any LLM application. You can use the <APILink fn="mlflow.trace">mlflow.trace decorator</APILink> for manual instrumentation or <APILink fn="mlflow.openai.autolog">enable automatic tracing for OpenAI</APILink> as shown below.
+
+```python
+import mlflow
+import openai
+import os
+
+# Configure environment
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+mlflow.set_experiment("Customer Support Bot")
+
+# Enable automatic tracing for OpenAI
+mlflow.openai.autolog()
+
+
+class CustomerSupportBot:
+    def __init__(self):
+        self.client = openai.OpenAI()
+        self.knowledge_base = {
+            "refund": "Full refunds within 30 days with receipt.",
+            "shipping": "Standard: 5-7 days. Express available.",
+            "warranty": "1-year manufacturer warranty included.",
+        }
+
+    @mlflow.trace
+    def answer(self, question: str) -> str:
+        # Retrieve relevant context
+        context = self._get_context(question)
+
+        # Generate response
+        response = self.client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a helpful support assistant."},
+                {
+                    "role": "user",
+                    "content": f"Context: {context}\n\nQuestion: {question}",
+                },
+            ],
+            temperature=0.3,
+        )
+        return response.choices[0].message.content
+
+    def _get_context(self, question: str) -> str:
+        # Simple keyword matching for demo
+        for key, value in self.knowledge_base.items():
+            if key in question.lower():
+                return value
+        return "General customer support information."
+
+
+bot = CustomerSupportBot()
+```
+
+## Step 2: Capture Production Traces
+
+Run your application with real or test scenarios to capture traces. Later, you'll use <APILink fn="mlflow.search_traces">mlflow.search_traces()</APILink> to retrieve these traces for annotation and dataset creation.
+
+```python
+# Test scenarios
+test_questions = [
+    "What is your refund policy?",
+    "How long does shipping take?",
+    "Is my product under warranty?",
+    "Can I get express shipping?",
+]
+
+# Capture traces - automatically logged to the active experiment
+for question in test_questions:
+    response = bot.answer(question)
+```
+
+## Step 3: Add Ground Truth Expectations
+
+Add expectations to your traces to define what constitutes correct behavior. Use <APILink fn="mlflow.log_expectation">mlflow.log_expectation()</APILink> to annotate traces with ground truth values that will serve as your evaluation baseline.
+
+```python
+# Search for recent traces (uses current active experiment by default)
+traces = mlflow.search_traces(
+    max_results=10, return_type="list"  # Return list of Trace objects for iteration
+)
+
+# Add expectations to specific traces
+for trace in traces:
+    # Get the question from the root span inputs
+    root_span = trace.data._get_root_span()
+    question = (
+        root_span.inputs.get("question", "") if root_span and root_span.inputs else ""
+    )
+
+    if "refund" in question.lower():
+        mlflow.log_expectation(
+            trace_id=trace.info.trace_id,
+            name="key_information",
+            value={"must_mention": ["30 days", "receipt"], "tone": "helpful"},
+        )
+    elif "shipping" in question.lower():
+        mlflow.log_expectation(
+            trace_id=trace.info.trace_id,
+            name="key_information",
+            value={"must_mention": ["5-7 days"], "offers_express": True},
+        )
+```
+
+## Step 4: Create an Evaluation Dataset
+
+Transform your annotated traces into a reusable evaluation dataset. Use <APILink fn="mlflow.genai.datasets.create_dataset">create_dataset()</APILink> to initialize your dataset and <APILink fn="mlflow.entities.EvaluationDataset.merge_records">merge_records()</APILink> to add test cases from multiple sources.
+
+```python
+from mlflow.genai.datasets import create_dataset
+
+# Create dataset from current experiment
+dataset = create_dataset(
+    name="customer_support_qa_v1",
+    experiment_id=mlflow.get_experiment_by_name("Customer Support Bot").experiment_id,
+    tags={"stage": "validation", "domain": "customer_support"},
+)
+
+# Re-fetch traces to get the attached expectations
+# The expectations are now part of the trace data
+annotated_traces = mlflow.search_traces(
+    max_results=100,
+    return_type="list",  # Need list for merge_records
+)
+
+# Add traces to dataset
+dataset.merge_records(annotated_traces)
+
+# Optionally add manual test cases
+manual_tests = [
+    {
+        "inputs": {"question": "Can I return an item after 45 days?"},
+        "expectations": {"should_clarify": "30-day policy", "tone": "apologetic"},
+    },
+    {
+        "inputs": {"question": "Do you ship internationally?"},
+        "expectations": {"provides_alternatives": True},
+    },
+]
+dataset.merge_records(manual_tests)
+```
+
+## Step 5: Run Systematic Evaluation
+
+Evaluate your application against the dataset using built-in and custom scorers. Use <APILink fn="mlflow.genai.evaluate">mlflow.genai.evaluate()</APILink> to run comprehensive evaluations with scorers like <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink> for factual accuracy assessment. You can also create custom scorers using the <APILink fn="mlflow.genai.scorers.scorer">@scorer decorator</APILink> to evaluate domain-specific criteria.
+
+```python
+from mlflow.genai import evaluate
+from mlflow.genai.scorers import Correctness, Guidelines, scorer
+
+
+# Define custom scorer for your specific needs
+@scorer
+def contains_required_info(outputs: str, expectations: dict) -> float:
+    """Check if response contains required information."""
+    if "must_mention" not in expectations:
+        return 1.0
+
+    output_lower = outputs.lower()
+    mentioned = [term for term in expectations["must_mention"] if term in output_lower]
+    return len(mentioned) / len(expectations["must_mention"])
+
+
+# Configure evaluation
+scorers = [
+    Correctness(name="factual_accuracy"),
+    Guidelines(
+        name="support_quality",
+        guidelines="Response must be helpful, accurate, and professional",
+    ),
+    contains_required_info,
+]
+
+# Run evaluation
+results = evaluate(
+    data=dataset,
+    predict_fn=bot.answer,
+    scorers=scorers,
+    model_id="customer-support-bot-v1",
+)
+
+# Access results
+metrics = results.metrics
+detailed_results = results.tables["eval_results_table"]
+```
+
+## Step 6: Iterate and Improve
+
+Use evaluation results to improve your application, then re-evaluate using the same dataset.
+
+```python
+# Analyze results
+low_scores = detailed_results[detailed_results["factual_accuracy/score"] < 0.8]
+if not low_scores.empty:
+    # Identify patterns in failures
+    failed_questions = low_scores["inputs.question"].tolist()
+
+    # Example improvements based on failure analysis
+    bot.knowledge_base[
+        "refund"
+    ] = "Full refunds available within 30 days with original receipt. Store credit offered after 30 days."
+    bot.client.temperature = 0.2  # Reduce temperature for more consistent responses
+
+    # Re-evaluate with same dataset for comparison
+    improved_results = evaluate(
+        data=dataset,
+        predict_fn=bot.answer,  # Updated bot
+        scorers=scorers,
+        model_id="customer-support-bot-v2",
+    )
+
+    # Compare versions
+    improvement = (
+        improved_results.metrics["factual_accuracy/score"]
+        - metrics["factual_accuracy/score"]
+    )
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Custom Scorers"
+    description="Build sophisticated scorers for complex evaluation criteria"
+    href="/genai/eval-monitor/scorers"
+    linkText="Learn more →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="SDK Reference"
+    description="Deep dive into dataset management APIs"
+    href="/genai/datasets/sdk-guide"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Production Monitoring"
+    description="Set up continuous evaluation for production"
+    href="/genai/tracing/prod-tracing"
+    linkText="Learn more →"
+    containerHeight={64}
+  />
+</TilesGrid>

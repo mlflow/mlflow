@@ -694,8 +694,8 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 10) or importlib.util.find_spec("databricks.agents") is None,
-    reason="Requires Python 3.10 or higher and databricks.agents",
+    importlib.util.find_spec("databricks.agents") is None,
+    reason="Requires databricks.agents",
 )
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     # import here to avoid breaking this test suite on mlflow-skinny

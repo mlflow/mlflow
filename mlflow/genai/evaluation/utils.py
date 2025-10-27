@@ -1,8 +1,12 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Any, Optional, Union
+import math
+from concurrent.futures import Future, as_completed
+from typing import TYPE_CHECKING, Any, Collection
 
-from mlflow.entities import Assessment, Trace
+from mlflow.entities import Assessment, Trace, TraceData
+from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME, Feedback
+from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.constant import (
     AgentEvaluationReserverKey,
@@ -17,19 +21,32 @@ except ImportError:
     pass
 
 if TYPE_CHECKING:
-    from mlflow.genai.datasets import EvaluationDataset
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+    from mlflow.genai.evaluation.entities import EvalResult
 
     try:
         import pyspark.sql.dataframe
 
-        EvaluationDatasetTypes = Union[
-            pd.DataFrame, pyspark.sql.dataframe.DataFrame, list[dict], EvaluationDataset
-        ]
+        EvaluationDatasetTypes = (
+            pd.DataFrame
+            | pyspark.sql.dataframe.DataFrame
+            | list[dict]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
+        )
     except ImportError:
-        EvaluationDatasetTypes = Union[pd.DataFrame, list[dict], EvaluationDataset]
+        EvaluationDatasetTypes = (
+            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+        )
 
 
 _logger = logging.getLogger(__name__)
+
+USER_DEFINED_ASSESSMENT_NAME_KEY = "_user_defined_assessment_name"
+PGBAR_FORMAT = (
+    "{l_bar}{bar}| {n_fmt}/{total_fmt} [Elapsed: {elapsed}, Remaining: {remaining}] {postfix}"
+)
 
 
 def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
@@ -37,6 +54,9 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     Takes in a dataset in the format that `mlflow.genai.evaluate()` expects and
     converts it into a pandas DataFrame.
     """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
+
     if isinstance(data, list):
         # validate that every item in the list is a dict and has inputs as key
         for item in data:
@@ -48,6 +68,8 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
+    elif isinstance(data, (EntityEvaluationDataset, ManagedEvaluationDataset)):
+        df = data.to_df()
     else:
         try:
             from mlflow.utils.spark_utils import get_spark_dataframe_type
@@ -79,11 +101,10 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     return df
 
 
-def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
+def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the format that mlflow.genai.evaluate() expects and converts it into
-    to the current eval-set schema that Agent Evaluation takes in. The transformed schema should
-    be accepted by mlflow.evaluate().
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts it
+    into standardized Pandas DataFrame.
     The expected schema can be found at:
     https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
 
@@ -101,7 +122,7 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
     return (
         df.rename(columns=column_mapping)
         .pipe(_deserialize_trace_column_if_needed)
-        .pipe(_extract_request_from_trace)
+        .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
 
@@ -152,16 +173,22 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
     return df
 
 
-def _extract_request_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
+def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` columns to the dataframe if it is not already present.
-    This is for compatibility with mlflow.evaluate() that requires `request` column.
+    Add `request` and `response`columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
 
+    def _extract_attribute(trace_data: TraceData, attribute_name: str) -> Any:
+        if att := getattr(trace_data, attribute_name, None):
+            return json.loads(att)
+        return None
+
     if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: json.loads(trace.data.request))
+        df["request"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "request"))
+    if "response" not in df.columns:
+        df["response"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "response"))
     return df
 
 
@@ -201,20 +228,21 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
             "Please install it with `pip install databricks-agents`."
         )
 
+    from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
     from mlflow.types.llm import ChatCompletionRequest
 
     def eval_fn(
         request_id: str,
-        request: Union[ChatCompletionRequest, str],
-        response: Optional[Any],
-        expected_response: Optional[Any],
-        trace: Optional[Trace],
-        guidelines: Optional[Union[list[str], dict[str, list[str]]]],
-        expected_facts: Optional[list[str]],
-        expected_retrieved_context: Optional[list[dict[str, str]]],
-        custom_expected: Optional[dict[str, Any]],
+        request: ChatCompletionRequest | str,
+        response: Any | None,
+        expected_response: Any | None,
+        trace: Trace | None,
+        guidelines: list[str] | dict[str, list[str]] | None,
+        expected_facts: list[str] | None,
+        expected_retrieved_context: list[dict[str, str]] | None,
+        custom_expected: dict[str, Any] | None,
         **kwargs,
-    ) -> Union[int, float, bool, str, Assessment, list[Assessment]]:
+    ) -> int | float | bool | str | Assessment | list[Assessment]:
         # Condense all expectations into a single dict
         expectations = {}
         if expected_response is not None:
@@ -238,7 +266,149 @@ def _convert_scorer_to_legacy_metric(scorer: Scorer) -> EvaluationMetric:
         }
         return scorer.run(**merged)
 
-    return metric(
+    metric_instance = metric(
         eval_fn=eval_fn,
         name=scorer.name,
     )
+    # Add aggregations as an attribute since the metric decorator doesn't accept it
+    metric_instance.aggregations = scorer.aggregations
+    # Add attribute to indicate if this is a built-in scorer
+    metric_instance._is_builtin_scorer = isinstance(scorer, BuiltInScorer)
+
+    return metric_instance
+
+
+def standardize_scorer_value(scorer_name: str, value: Any) -> list[Feedback]:
+    """
+    Convert the scorer return value to a list of MLflow Assessment (Feedback) objects.
+
+    Scorer can return:
+    - A number, boolean, or string, a list of them.
+    - An Feedback object
+    - A list of Feedback objects
+
+    All of the above will be converted to a list of Feedback objects.
+    """
+    # None is a valid metric value, return an empty list
+    if value is None:
+        return []
+
+    # Primitives are valid metric values
+    if isinstance(value, (int, float, bool, str)):
+        return [
+            Feedback(
+                name=scorer_name,
+                source=make_code_type_assessment_source(scorer_name),
+                value=value,
+            )
+        ]
+
+    if isinstance(value, Feedback):
+        value.name = _get_custom_assessment_name(value, scorer_name)
+        return [value]
+
+    if isinstance(value, Collection):
+        assessments = []
+        for item in value:
+            if isinstance(item, Feedback):
+                # Scorer returns multiple assessments as a list.
+                item.name = _get_custom_assessment_name(item, scorer_name)
+                assessments.append(item)
+            else:
+                # If the item is not assessment, the list represents a single assessment
+                # value of list type. Convert it to a Feedback object.
+                assessments.append(
+                    Feedback(
+                        name=scorer_name,
+                        source=make_code_type_assessment_source(scorer_name),
+                        value=item,
+                    )
+                )
+        return assessments
+
+    raise MlflowException.invalid_parameter_value(
+        f"Got unsupported result from scorer '{scorer_name}'. "
+        f"Expected the metric value to be a number, or a boolean, or a string, "
+        "or an Feedback, or a list of Feedbacks. "
+        f"Got {value}.",
+    )
+
+
+def _get_custom_assessment_name(assessment: Feedback, scorer_name: str) -> str:
+    """Get the name of the custom assessment. Use assessment name if present and not a builtin judge
+    name, otherwise use the scorer name.
+
+    Args:
+        assessment: The assessment to get the name for.
+        scorer_name: The name of the scprer.
+    """
+    # If the user didn't provide a name, use the scorer name
+    if assessment.name == DEFAULT_FEEDBACK_NAME or (
+        assessment.metadata is not None
+        and assessment.metadata.get(USER_DEFINED_ASSESSMENT_NAME_KEY) == "false"
+    ):
+        return scorer_name
+    return assessment.name
+
+
+def make_code_type_assessment_source(scorer_name: str) -> AssessmentSource:
+    return AssessmentSource(source_type=AssessmentSourceType.CODE, source_id=scorer_name)
+
+
+def is_none_or_nan(value: Any) -> bool:
+    """
+    Checks whether a value is None or NaN.
+
+    NB: This function does not handle pandas.NA.
+    """
+    # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
+    return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def validate_tags(tags: Any) -> None:
+    """
+    Validate that tags are in the expected format: dict[str, str].
+
+    Args:
+        tags: The tags to validate.
+
+    Raises:
+        MlflowException: If tags are not in the correct format.
+    """
+    if is_none_or_nan(tags):
+        return
+
+    if not isinstance(tags, dict):
+        raise MlflowException.invalid_parameter_value(
+            f"Tags must be a dictionary, got {type(tags).__name__}. "
+        )
+
+    errors = []
+    for key in tags.keys():
+        if not isinstance(key, str):
+            errors.append(f"Key {key!r} has type {type(key).__name__}; expected str.")
+
+    if errors:
+        raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
+
+
+def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
+    """Wraps the as_completed function with a progress bar."""
+    futures_as_completed = as_completed(futures)
+
+    try:
+        from tqdm.auto import tqdm
+
+        futures_as_completed = tqdm(
+            futures_as_completed,
+            total=len(futures),
+            disable=False,
+            desc="Evaluating",
+            smoothing=0,  # 0 means using average speed for remaining time estimates
+            bar_format=PGBAR_FORMAT,
+        )
+    except ImportError:
+        # If tqdm is not installed, we don't show a progress bar
+        pass
+
+    return [future.result() for future in futures_as_completed]

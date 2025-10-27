@@ -1,3 +1,4 @@
+import functools
 import logging
 import os
 import tempfile
@@ -8,6 +9,7 @@ from packaging.version import Version
 import mlflow.pytorch
 from mlflow.exceptions import MlflowException
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
+from mlflow.tracking.fluent import _initialize_logged_model
 from mlflow.utils.autologging_utils import (
     BatchMetricsLogger,
     ExceptionSafeAbstractClass,
@@ -462,12 +464,27 @@ def patched_fit(original, self, *args, **kwargs):
     .. _EarlyStoppingCallback:
         https://pytorch-lightning.readthedocs.io/en/latest/early_stopping.html
     """
+    from mlflow.pytorch import _is_forecasting_model
+
     if not MIN_REQ_VERSION <= _pl_version <= MAX_REQ_VERSION:
         warnings.warn(
             "Autologging is known to be compatible with pytorch-lightning versions between "
             f"{MIN_REQ_VERSION} and {MAX_REQ_VERSION} and may not succeed with packages "
             "outside this range."
         )
+
+    model = args[0] if len(args) > 0 else kwargs["model"]
+    if _is_forecasting_model(model):
+        # The forecasting model predict method calls tensor board writer's add_hparams
+        # method, which triggers pytorch autologging. The patch is for disabling it.
+        original_predict = model.predict
+
+        @functools.wraps(original_predict)
+        def patched_predict(*args, **kwargs):
+            with disable_autologging():
+                return original_predict(*args, **kwargs)
+
+        model.predict = patched_predict
 
     with disable_autologging():
         run_id = mlflow.active_run().info.run_id
@@ -477,7 +494,9 @@ def patched_fit(original, self, *args, **kwargs):
         log_models = get_autologging_config(mlflow.pytorch.FLAVOR_NAME, "log_models", True)
         model_id = None
         if log_models:
-            model_id = mlflow.initialize_logged_model(name="model").model_id
+            model_id = _initialize_logged_model(
+                name="model", flavor=mlflow.pytorch.FLAVOR_NAME
+            ).model_id
         metrics_logger = BatchMetricsLogger(run_id, tracking_uri, model_id=model_id)
 
         log_every_n_epoch = get_autologging_config(

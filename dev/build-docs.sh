@@ -9,7 +9,7 @@
 #      (Note: This ensures that the DOCS_BASE_URL value is interpreted relative
 #      to the docs folder. For example, if running from the project root, the
 #      effective path will be: <root>/docs/docs/latest.)
-#   3. Installs dependencies via Yarn.
+#   3. Installs dependencies via npm.
 #   4. (Optional) Builds the API docs:
 #         - If --build-api-docs is provided, then the API docs are built.
 #         - If --with-r-docs is also provided, the build includes R docs;
@@ -22,7 +22,7 @@
 # Once complete, the script instructs the user to navigate into the docs folder
 # and run:
 #
-#     yarn serve --port <your_port_number>
+#     npm run serve -- --port <your_port_number>
 #
 # Options:
 #   --build-api-docs        Opt in to build the API docs (default: do not build)
@@ -149,10 +149,10 @@ fi
 log_success "NodeJS version $NODE_VERSION is valid."
 
 # -----------------------------------------------------------------------------
-# Check that Yarn is installed.
+# Check that npm is installed.
 # -----------------------------------------------------------------------------
-if ! command -v yarn >/dev/null 2>&1; then
-    log_error "Yarn is not installed. Please install Yarn from https://classic.yarnpkg.com/lang/en/docs/install/."
+if ! command -v npm >/dev/null 2>&1; then
+    log_error "npm is not installed. Please install npm from https://nodejs.org/."
     exit 1
 fi
 
@@ -169,10 +169,10 @@ log_info "Changing directory to docs/ ..."
 cd docs
 
 # -----------------------------------------------------------------------------
-# Install dependencies via Yarn.
+# Install dependencies via npm.
 # -----------------------------------------------------------------------------
-log_info "Installing dependencies with yarn..."
-yarn
+log_info "Installing dependencies with npm..."
+npm install
 log_success "Dependencies installed."
 
 # -----------------------------------------------------------------------------
@@ -183,10 +183,10 @@ log_success "Dependencies installed."
 if [ "$BUILD_API_DOCS" = true ]; then
     if [ "$WITH_R_DOCS" = true ]; then
         log_info "Building API docs including R documentation..."
-        yarn build-api-docs
+        npm run build-api-docs
     else
         log_info "Building API docs without R documentation..."
-        yarn build-api-docs:no-r
+        npm run build-api-docs:no-r
     fi
     log_success "API docs built successfully."
 else
@@ -197,14 +197,14 @@ fi
 # Update the API module references for link functionality
 # -----------------------------------------------------------------------------
 log_info "Updating API module links..."
-yarn update-api-modules
+npm run update-api-modules
 log_success "Updated API module links."
 
 # -----------------------------------------------------------------------------
 # Convert notebooks to MDX format.
 # -----------------------------------------------------------------------------
 log_info "Converting notebooks to MDX..."
-yarn convert-notebooks
+npm run convert-notebooks
 log_success "Notebooks converted to MDX."
 
 # -----------------------------------------------------------------------------
@@ -216,14 +216,14 @@ log_success "Notebooks converted to MDX."
 # -----------------------------------------------------------------------------
 export DOCS_BASE_URL
 log_info "DOCS_BASE_URL set to '${DOCS_BASE_URL}'."
-log_info "Building static site files with yarn..."
-yarn build
+log_info "Building static site files with npm..."
+npm run build
 log_success "Static site built successfully."
 
 # -----------------------------------------------------------------------------
 # Final instructions for the user.
 # -----------------------------------------------------------------------------
 log_info "To run the site locally, please navigate to the 'docs' folder and execute:"
-echo -e "${BOLD}yarn serve --port <your_port_number>${NC}"
-log_info "For example: ${BOLD}yarn serve --port 3000${NC}"
+echo -e "${BOLD}npm run serve -- --port <your_port_number>${NC}"
+log_info "For example: ${BOLD}npm run serve -- --port 3000${NC}"
 log_success "Static site build process completed."

@@ -24,7 +24,8 @@ from concurrent.futures import as_completed
 from contextlib import contextmanager
 from dataclasses import dataclass
 from subprocess import CalledProcessError, TimeoutExpired
-from typing import Any, Optional, Union
+from types import TracebackType
+from typing import Any
 from urllib.parse import unquote
 from urllib.request import pathname2url
 
@@ -757,8 +758,10 @@ def get_or_create_tmp_dir():
     else:
         tmp_dir = tempfile.mkdtemp()
         # mkdtemp creates a directory with permission 0o700
-        # change it to be 0o777 to ensure it can be seen in spark UDF
-        os.chmod(tmp_dir, 0o777)
+        # For Spark UDFs, we need to make it accessible to other processes
+        # Use 0o750 (owner: rwx, group: r-x, others: None) instead of 0o777
+        # This allows read/execute but not write for group and others
+        os.chmod(tmp_dir, 0o750)
         atexit.register(shutil.rmtree, tmp_dir, ignore_errors=True)
 
     return tmp_dir
@@ -826,7 +829,8 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
             # directory under the destination directory
             abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
+            if not os.path.exists(abs_dir_path):
+                os.mkdir(abs_dir_path)
         for filename in filenames:
             # For each file with name <filename> immediately under <dirpath>, copy that file to
             # the appropriate location in the destination directory
@@ -911,7 +915,7 @@ def chdir(path: str) -> None:
         os.chdir(cwd)
 
 
-def get_total_file_size(path: Union[str, pathlib.Path]) -> Optional[int]:
+def get_total_file_size(path: str | pathlib.Path) -> int | None:
     """Return the size of all files under given path, including files in subdirectories.
 
     Args:
@@ -976,3 +980,37 @@ def read_yaml(root: str, file_name: str) -> dict[str, Any]:
 
     with open(os.path.join(root, file_name)) as f:
         return yaml.safe_load(f)
+
+
+class ExclusiveFileLock:
+    """
+    Exclusive file lock (only works on Unix system)
+    """
+
+    def __init__(self, path: str):
+        if os.name == "nt":
+            raise MlflowException("ExclusiveFileLock class does not support Windows system.")
+        self.path = path
+        self.fd = None
+
+    def __enter__(self) -> None:
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Open file (create if missing)
+        self.fd = open(self.path, "w")
+        # Acquire exclusive lock (blocking)
+        fcntl.flock(self.fd, fcntl.LOCK_EX)
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ):
+        # Python on Windows does not have `fcntl` module, so importing it lazily.
+        import fcntl  # clint: disable=lazy-builtin-import
+
+        # Release lock
+        fcntl.flock(self.fd, fcntl.LOCK_UN)
+        self.fd.close()

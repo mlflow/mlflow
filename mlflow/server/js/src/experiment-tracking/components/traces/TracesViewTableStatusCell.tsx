@@ -1,5 +1,5 @@
 import type { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 import { CheckCircleIcon, ClockIcon, XCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewTracesStatusLabels } from './TracesView.utils';
 import { useIntl } from 'react-intl';

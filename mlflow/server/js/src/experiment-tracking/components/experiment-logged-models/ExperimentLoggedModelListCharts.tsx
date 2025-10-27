@@ -1,9 +1,10 @@
 import { Empty, Input, SearchIcon, Spinner, useDesignSystemTheme } from '@databricks/design-system';
 import { noop, uniq } from 'lodash';
-import { memo, ReactNode, useMemo, useCallback, useState } from 'react';
-import { LoggedModelProto } from '../../types';
-import { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIState';
-import { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
+import type { ReactNode } from 'react';
+import { memo, useMemo, useCallback, useState } from 'react';
+import type { LoggedModelProto } from '../../types';
+import type { ExperimentRunsChartsUIConfiguration } from '../experiment-page/models/ExperimentPageUIState';
+import type { RunsChartsRunData } from '../runs-charts/components/RunsCharts.common';
 import { RunsChartsDraggableCardsGridContextProvider } from '../runs-charts/components/RunsChartsDraggableCardsGridContext';
 import { RunsChartsFullScreenModal } from '../runs-charts/components/RunsChartsFullScreenModal';
 import { RunsChartsTooltipBody } from '../runs-charts/components/RunsChartsTooltipBody';
@@ -15,7 +16,8 @@ import {
   useRemoveRunsChartFn,
   useUpdateRunsChartsUIConfiguration,
 } from '../runs-charts/hooks/useRunsChartsUIConfiguration';
-import { RunsChartsCardConfig, RunsChartsMetricByDatasetEntry, RunsChartType } from '../runs-charts/runs-charts.types';
+import type { RunsChartsMetricByDatasetEntry } from '../runs-charts/runs-charts.types';
+import { RunsChartsCardConfig, RunsChartType } from '../runs-charts/runs-charts.types';
 import { useExperimentLoggedModelsChartsData } from './hooks/useExperimentLoggedModelsChartsData';
 import { useExperimentLoggedModelsChartsUIState } from './hooks/useExperimentLoggedModelsChartsUIState';
 import { useExperimentLoggedModelAllMetricsByDataset } from './hooks/useExperimentLoggedModelAllMetricsByDataset';
@@ -94,7 +96,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
     return (
       <div
         css={{
-          backgroundColor: theme.colors.backgroundSecondary,
+          backgroundColor: theme.colors.backgroundPrimary,
           paddingLeft: theme.spacing.md,
           paddingRight: theme.spacing.md,
           paddingBottom: theme.spacing.md,
@@ -215,7 +217,7 @@ export const ExperimentLoggedModelListCharts = memo(
       return (
         <div
           css={{
-            backgroundColor: theme.colors.backgroundSecondary,
+            backgroundColor: theme.colors.backgroundPrimary,
             paddingTop: theme.spacing.lg,
             borderTop: `1px solid ${theme.colors.border}`,
             borderLeft: `1px solid ${theme.colors.border}`,

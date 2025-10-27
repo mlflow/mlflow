@@ -1,6 +1,7 @@
 import { rest } from 'msw';
-import { REGISTERED_PROMPT_CONTENT_TAG_KEY } from './utils';
-import { KeyValueEntity, ModelAliasMap } from '../../types';
+import { REGISTERED_PROMPT_CONTENT_TAG_KEY, REGISTERED_PROMPT_SOURCE_RUN_ID } from './utils';
+import type { ModelAliasMap } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 
 export const getMockedRegisteredPromptSetTagsResponse = (spyFn = jest.fn()) =>
   rest.post('/ajax-api/2.0/mlflow/registered-models/set-tag', (req, res, ctx) => {

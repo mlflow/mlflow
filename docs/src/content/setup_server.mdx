@@ -1,0 +1,87 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="local" label="Local (pip)" default>
+
+For the fastest setup, you can install the [mlflow](https://pypi.org/project/mlflow/) Python package and run MLflow locally:
+
+```bash
+mlflow ui --backend-store-uri sqlite:///mlflow.db --port 5000
+```
+
+This will start the server at port 5000 on your local machine. Connect your notebook/IDE to the server by setting the tracking URI. You can also access to the MLflow UI at http://localhost:5000.
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+```
+
+You can also brows the MLflow UI at http://localhost:5000.
+
+</TabItem>
+
+<TabItem value="docker" label="Local (docker)">
+
+MLflow provides a Docker Compose file to start a local MLflow server with a postgres database and a minio server.
+
+```bash
+git clone https://github.com/mlflow/mlflow.git
+cd docker-compose
+cp .env.dev.example .env
+docker compose up -d
+```
+
+This will start the server at port 5000 on your local machine. Connect your notebook/IDE to the server by setting the tracking URI. You can also access to the MLflow UI at http://localhost:5000.
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+```
+
+Refer to the [instruction](https://github.com/mlflow/mlflow/tree/master/docker-compose/README.md) for more details, e.g., overriding the default environment variables.
+
+</TabItem>
+
+<TabItem value="remote" label="Remote MLflow Server">
+
+If you have a remote MLflow tracking server, configure the connection:
+
+```python
+import os
+import mlflow
+
+# Set your MLflow tracking URI
+os.environ["MLFLOW_TRACKING_URI"] = "http://your-mlflow-server:5000"
+# Or directly in code
+mlflow.set_tracking_uri("http://your-mlflow-server:5000")
+```
+
+</TabItem>
+
+<TabItem value="databricks" label="Databricks">
+
+If you have a Databricks account, configure the connection:
+
+```python
+import mlflow
+
+mlflow.login()
+```
+
+This will prompt you for your configuration details (Databricks Host url and a PAT).
+
+</TabItem>
+
+</Tabs>
+</TabsWrapper>
+
+:::tip
+
+If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
+
+:::

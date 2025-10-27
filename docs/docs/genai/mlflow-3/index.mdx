@@ -24,7 +24,7 @@ MLflow 3 delivers best-in-class experiment tracking, observability, and performa
 Here are the short highlights of what's new in MLflow 3:
 
 <CardGroup cols={2}>
-  <TitleCard title="🎯 Improved Model Tracking for GenAI" link="/genai/data-model/logged-model" description="MLflow 3 introduces versioning mechanism purpose-built for GenAI applications not only model artifacts. The new LoggedModel entity serves as a metadata hub, linking each conceptual application version to its specific external code (e.g., a Git commit), configurations, with other MLflow entities like traces and evaluation runs. The new versioning mechanism also work seamlessly for traditional ML models and deep learning checkpoints." />
+  <TitleCard title="🎯 Improved Model Tracking for GenAI" link="/ml/model" description="MLflow 3 introduces versioning mechanism purpose-built for GenAI applications not only model artifacts. The new LoggedModel entity serves as a metadata hub, linking each conceptual application version to its specific external code (e.g., a Git commit), configurations, with other MLflow entities like traces and evaluation runs. The new versioning mechanism also work seamlessly for traditional ML models and deep learning checkpoints." />
 
   <TitleCard title="🔗 Comprehensive Performance Tracking & Observability" link="/genai/tracing" description="Enhanced model tracking provides comprehensive lineage between models, runs, traces, prompts, and evaluation metrics. The new model-centric design allows you to group traces and metrics from different development environments and production, enabling rich comparisons across model versions." />
 
@@ -32,7 +32,7 @@ Here are the short highlights of what's new in MLflow 3:
 
   <TitleCard title="👥 Human-in-the-Loop Feedback" link="https://docs.databricks.com/aws/en/mlflow3/genai/human-feedback/dev-annotations" description="Real-world GenAI applications need human oversight. MLflow 3 now tracks human annotations and feedback for model predictions, enabling streamlined human-in-the-loop evaluation cycles. This creates a collaborative environment where data scientists, domain experts, and stakeholders can efficiently improve model quality together. (Note: Currently available in Databricks Managed MLflow. Open source release coming in the next few months.)" />
 
-  <TitleCard title="⚡️ State-of-the-Art Prompt Optimization" link="/genai/prompt-version-mgmt/optimize-prompts" description="Transform prompt engineering from art to science. The MLflow Prompt Registry now includes prompt optimization capabilities built on top of the state-of-the-art research, allowing you to automatically improve prompts using evaluation feedback and labeled datasets. This includes versioning, tracking, and systematic prompt engineering workflows." />
+  <TitleCard title="⚡️ State-of-the-Art Prompt Optimization" link="/genai/prompt-registry/optimize-prompts" description="Transform prompt engineering from art to science. The MLflow Prompt Registry now includes prompt optimization capabilities built on top of the state-of-the-art research, allowing you to automatically improve prompts using evaluation feedback and labeled datasets. This includes versioning, tracking, and systematic prompt engineering workflows." />
 
   <TitleCard title="📚 Revamped Website and Documentation" link="https://mlflow.org/" description="The MLflow documentation and website has been fully redesigned to support two main user journeys: GenAI development and classic machine learning workflows. The new structure offers dedicated sections for GenAI features (including LLMs, prompt engineering, and tracing), and traditional ML capabilities such as experiment tracking, model registry, deployment, and evaluation." />
 </CardGroup>
@@ -42,7 +42,7 @@ Here are the short highlights of what's new in MLflow 3:
 Install MLflow 3 by running the following command:
 
 ```bash
-pip install 'mlflow>=3.1'
+pip install "mlflow>=3.1"
 ```
 
 Resources:
@@ -69,7 +69,7 @@ It highlights the integration of the LoggedModel lineage feature with runs and t
 
 #### Register a prompt template
 
-First, we create a prompt template and register it with [MLflow Prompt Registry](/genai/prompt-version-mgmt/prompt-registry).
+First, we create a prompt template and register it with [MLflow Prompt Registry](/genai/prompt-registry/).
 
 ```python
 import mlflow

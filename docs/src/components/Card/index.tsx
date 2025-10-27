@@ -2,11 +2,12 @@ import clsx from 'clsx';
 import styles from './card.module.css';
 import Link from '@docusaurus/Link';
 
-export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
+export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
       isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns,
+      noGap && styles.NoGap,
     )}
   >
     {children}
@@ -65,11 +66,19 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
 );
 
 export const SmallLogoCard = ({ children, link }) => (
-  <Card link={link}>
-    <div className={styles.SmallLogoCardContent}>
-      <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
-    </div>
-  </Card>
+  <div className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}>
+    {link ? (
+      <Link className={clsx(styles.Link)} to={link}>
+        <div className={styles.SmallLogoCardContent}>
+          <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
+        </div>
+      </Link>
+    ) : (
+      <div className={styles.SmallLogoCardContent}>
+        <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
+      </div>
+    )}
+  </div>
 );
 
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
@@ -105,14 +114,27 @@ export const NewFeatureCard = ({ children, description, name, releaseVersion, le
   </Card>
 );
 
-export const TitleCard = ({ title, description, link = '' }): JSX.Element => (
+export const TitleCard = ({
+  title,
+  description,
+  link = '',
+  headerRight = undefined,
+  children = undefined,
+}): JSX.Element => (
   <Card link={link}>
     <div className={styles.TitleCardContent}>
-      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
-        {title}
+      <div className={clsx(styles.TitleCardHeader)}>
+        <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
+          {title}
+        </div>
+        <div className={styles.TitleCardHeaderRight}>{headerRight}</div>
       </div>
       <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: '12px 0' }} />
-      <p className={clsx(styles.TextColor)}>{description}</p>
+      {children ? (
+        <div className={clsx(styles.TextColor)}>{children}</div>
+      ) : (
+        <p className={clsx(styles.TextColor)} dangerouslySetInnerHTML={{ __html: description }} />
+      )}
     </div>
   </Card>
 );

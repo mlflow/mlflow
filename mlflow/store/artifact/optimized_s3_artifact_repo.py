@@ -53,8 +53,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         addressing_style=None,
         s3_endpoint_url=None,
         s3_upload_extra_args=None,
+        tracking_uri=None,
+        registry_uri: str | None = None,
     ):
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -135,8 +137,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if parsed.scheme != "s3":
             raise Exception(f"Not an S3 URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     @staticmethod
@@ -288,8 +289,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
                 subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
-                if subdir_rel_path.endswith("/"):
-                    subdir_rel_path = subdir_rel_path[:-1]
+                subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get("Contents", []):

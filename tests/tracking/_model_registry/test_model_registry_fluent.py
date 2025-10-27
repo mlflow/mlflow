@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from unittest import mock
 
@@ -186,10 +187,7 @@ def test_prompt_alias(tmp_path):
     mlflow.delete_prompt_alias("p1", alias="production")
     with pytest.raises(
         MlflowException,
-        match=(
-            r"Prompt (.*) does not exist."
-            r"|Prompt alias (.*) not found."
-        ),
+        match=(r"Prompt (.*) does not exist.|Prompt alias (.*) not found."),
     ):
         mlflow.load_prompt("prompts:/p1@production")
 
@@ -206,11 +204,37 @@ def test_prompt_associate_with_run(tmp_path):
     run_data = client.get_run(run.info.run_id)
     linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
     assert linked_prompts_tag is not None
+    assert len(json.loads(linked_prompts_tag)) == 1
+    assert json.loads(linked_prompts_tag)[0] == {
+        "name": "prompt_1",
+        "version": "1",
+    }
 
     linked_prompts = json.loads(linked_prompts_tag)
     assert len(linked_prompts) == 1
     assert linked_prompts[0]["name"] == "prompt_1"
     assert linked_prompts[0]["version"] == "1"
+
+    with mlflow.start_run() as run:
+        run_id_2 = run.info.run_id
+
+        # Prompt should be linked to the run even if it is loaded in a child thread
+        def task():
+            mlflow.load_prompt("prompt_1", version=1)
+
+        with ThreadPoolExecutor(max_workers=4) as executor:
+            futures = [executor.submit(task) for _ in range(10)]
+            for future in futures:
+                future.result()
+
+    run_data = client.get_run(run_id_2)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+    assert len(json.loads(linked_prompts_tag)) == 1
+    assert json.loads(linked_prompts_tag)[0] == {
+        "name": "prompt_1",
+        "version": "1",
+    }
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):
@@ -227,10 +251,12 @@ def test_register_model_prints_uc_model_version_url(monkeypatch):
             return_value="https://databricks.com",
         ) as mock_url,
         mock.patch(
-            "mlflow.tracking._model_registry.fluent.get_workspace_id", return_value=workspace_id
+            "mlflow.tracking._model_registry.fluent.get_workspace_id",
+            return_value=workspace_id,
         ) as mock_workspace_id,
         mock.patch(
-            "mlflow.MlflowClient.create_registered_model", return_value=RegisteredModel(name)
+            "mlflow.MlflowClient.create_registered_model",
+            return_value=RegisteredModel(name),
         ) as mock_create_model,
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
@@ -356,7 +382,8 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
 
     with (
         mock.patch(
-            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
         mock.patch(
@@ -409,7 +436,8 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
 
     with (
         mock.patch(
-            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
         mock.patch(
@@ -879,7 +907,10 @@ def test_load_prompt_caching_works():
 
         # Call with different version should hit the client again
         mock_client_load.return_value = PromptVersion(
-            name="cached_prompt", version=2, template="Hi, {{name}}!", creation_timestamp=123456790
+            name="cached_prompt",
+            version=2,
+            template="Hi, {{name}}!",
+            creation_timestamp=123456790,
         )
         prompt3 = mlflow.load_prompt("cached_prompt", version=2, link_to_model=False)
         assert prompt3.version == 2
@@ -906,13 +937,22 @@ def test_load_prompt_caching_respects_env_var():
         with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
             mock_client_load.side_effect = [
                 PromptVersion(
-                    name="prompt_1", version=1, template="Template 1", creation_timestamp=1
+                    name="prompt_1",
+                    version=1,
+                    template="Template 1",
+                    creation_timestamp=1,
                 ),
                 PromptVersion(
-                    name="prompt_2", version=1, template="Template 2", creation_timestamp=2
+                    name="prompt_2",
+                    version=1,
+                    template="Template 2",
+                    creation_timestamp=2,
                 ),
                 PromptVersion(
-                    name="prompt_1", version=1, template="Template 1", creation_timestamp=1
+                    name="prompt_1",
+                    version=1,
+                    template="Template 1",
+                    creation_timestamp=1,
                 ),
             ]
 
@@ -959,7 +999,10 @@ def test_load_prompt_skip_cache_for_allow_missing_none():
 
         # But if we find a prompt, the pattern will change
         mock_prompt = PromptVersion(
-            name="nonexistent_prompt", version=1, template="Found!", creation_timestamp=123
+            name="nonexistent_prompt",
+            version=1,
+            template="Found!",
+            creation_timestamp=123,
         )
         mock_client_load.return_value = mock_prompt
 
@@ -1041,7 +1084,10 @@ def test_load_prompt_caching_with_different_parameters():
 
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         mock_prompt = PromptVersion(
-            name="param_test", version=1, template="Hello, {{name}}!", creation_timestamp=123
+            name="param_test",
+            version=1,
+            template="Hello, {{name}}!",
+            creation_timestamp=123,
         )
         mock_client_load.return_value = mock_prompt
 
@@ -1067,3 +1113,280 @@ def test_load_prompt_caching_with_different_parameters():
 
         # Cache should work - either same count or only one additional call
         assert call_count_after_fourth <= call_count_after_third + 1
+
+
+def test_register_prompt_chat_format_integration():
+    """Test full integration of registering and using chat prompts."""
+    chat_template = [
+        {"role": "system", "content": "You are a {{style}} assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+
+    response_format = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+    }
+
+    # Register chat prompt
+    mlflow.register_prompt(
+        name="test_chat_integration",
+        template=chat_template,
+        response_format=response_format,
+        commit_message="Test chat prompt integration",
+        tags={"model": "test-model"},
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_chat_integration", version=1)
+    assert prompt.template == chat_template
+    assert prompt.response_format == response_format
+    assert prompt.commit_message == "Test chat prompt integration"
+    assert prompt.tags["model"] == "test-model"
+
+    # Test formatting
+    formatted = prompt.format(style="helpful", question="How are you?")
+    expected = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "How are you?"},
+    ]
+    assert formatted == expected
+
+
+def test_prompt_associate_with_run_chat_format():
+    """Test chat prompts associate with runs correctly."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello!"},
+    ]
+
+    mlflow.register_prompt(name="test_chat_run", template=chat_template)
+
+    with mlflow.start_run() as run:
+        mlflow.load_prompt("test_chat_run", version=1)
+
+    # Verify linking
+    client = MlflowClient()
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_chat_run"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_register_prompt_with_pydantic_response_format():
+    from pydantic import BaseModel
+
+    class ResponseSchema(BaseModel):
+        answer: str
+        confidence: float
+
+    # Register prompt with Pydantic response format
+    mlflow.register_prompt(
+        name="test_pydantic_response",
+        template="What is {{question}}?",
+        response_format=ResponseSchema,
+        commit_message="Test Pydantic response format",
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_pydantic_response", version=1)
+    assert prompt.response_format == ResponseSchema.model_json_schema()
+    assert prompt.commit_message == "Test Pydantic response format"
+
+
+def test_register_prompt_with_dict_response_format():
+    """Test registering prompts with dictionary response format."""
+    response_format = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+
+    # Register prompt with dict response format
+    mlflow.register_prompt(
+        name="test_dict_response",
+        template="Analyze this: {{text}}",
+        response_format=response_format,
+        tags={"analysis_type": "text"},
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_dict_response", version=1)
+    assert prompt.response_format == response_format
+    assert prompt.tags["analysis_type"] == "text"
+
+
+def test_register_prompt_text_backward_compatibility():
+    """Test that text prompt registration continues to work as before."""
+    # Register text prompt
+    mlflow.register_prompt(
+        name="test_text_backward",
+        template="Hello {{name}}!",
+        commit_message="Test backward compatibility",
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_text_backward", version=1)
+    assert prompt.is_text_prompt
+    assert prompt.template == "Hello {{name}}!"
+    assert prompt.commit_message == "Test backward compatibility"
+
+    # Test formatting
+    formatted = prompt.format(name="Alice")
+    assert formatted == "Hello Alice!"
+
+
+def test_register_prompt_complex_chat_template():
+    """Test registering prompts with complex chat templates."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    # Register complex chat prompt
+    mlflow.register_prompt(
+        name="test_complex_chat",
+        template=chat_template,
+        tags={"complexity": "high"},
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_complex_chat", version=1)
+    assert not prompt.is_text_prompt
+    assert prompt.template == chat_template
+    assert prompt.tags["complexity"] == "high"
+
+    # Test formatting
+    formatted = prompt.format(
+        style="friendly",
+        name="Alice",
+        greeting="Hello",
+        question="How are you?",
+        topic="wellbeing",
+    )
+    expected = [
+        {"role": "system", "content": "You are a friendly assistant named Alice."},
+        {"role": "user", "content": "Hello! How are you?"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about wellbeing.",
+        },
+    ]
+    assert formatted == expected
+
+
+def test_register_prompt_with_none_response_format():
+    # Register prompt with None response format
+    mlflow.register_prompt(
+        name="test_none_response", template="Hello {{name}}!", response_format=None
+    )
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_none_response", version=1)
+    assert prompt.response_format is None
+
+
+def test_register_prompt_with_empty_chat_template():
+    # Empty list should be treated as text prompt
+    mlflow.register_prompt(name="test_empty_chat", template=[])
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_empty_chat", version=1)
+    assert prompt.is_text_prompt
+    assert prompt.template == "[]"  # Empty list serialized as string
+
+
+def test_register_prompt_with_single_message_chat():
+    """Test registering prompts with single message chat template."""
+    chat_template = [{"role": "user", "content": "Hello {{name}}!"}]
+
+    # Register single message chat prompt
+    mlflow.register_prompt(name="test_single_message", template=chat_template)
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_single_message", version=1)
+    not prompt.is_text_prompt
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+
+def test_register_prompt_with_multiple_variables_in_chat():
+    """Test registering prompts with multiple variables in chat messages."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{style}} assistant named {{name}}.",
+        },
+        {"role": "user", "content": "{{greeting}}! {{question}}"},
+        {
+            "role": "assistant",
+            "content": "I understand you're asking about {{topic}}.",
+        },
+    ]
+
+    # Register prompt with multiple variables
+    mlflow.register_prompt(name="test_multiple_variables", template=chat_template)
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_multiple_variables", version=1)
+    expected_variables = {"style", "name", "greeting", "question", "topic"}
+    assert prompt.variables == expected_variables
+
+
+def test_register_prompt_with_mixed_content_types():
+    """Test registering prompts with mixed content types in chat messages."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+        {"role": "assistant", "content": "Hi there! How can I help you today?"},
+    ]
+
+    # Register prompt with mixed content
+    mlflow.register_prompt(name="test_mixed_content", template=chat_template)
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_mixed_content", version=1)
+    not prompt.is_text_prompt
+    assert prompt.template == chat_template
+    assert prompt.variables == {"name"}
+
+
+def test_register_prompt_with_nested_variables():
+    """Test registering prompts with nested variable names."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{user.preferences.style}} assistant.",
+        },
+        {
+            "role": "user",
+            "content": "Hello {{user.name}}! {{user.preferences.greeting}}",
+        },
+    ]
+
+    # Register prompt with nested variables
+    mlflow.register_prompt(name="test_nested_variables", template=chat_template)
+
+    # Load and verify
+    prompt = mlflow.load_prompt("test_nested_variables", version=1)
+    expected_variables = {
+        "user.preferences.style",
+        "user.name",
+        "user.preferences.greeting",
+    }
+    assert prompt.variables == expected_variables

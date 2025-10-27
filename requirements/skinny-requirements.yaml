@@ -13,6 +13,11 @@ cloudpickle:
   pip_release: cloudpickle
   max_major_version: 3
 
+python-dotenv:
+  pip_release: python-dotenv
+  minimum: "0.19.0"
+  max_major_version: 1
+
 gitpython:
   pip_release: gitpython
   minimum: "3.1.9"
@@ -70,6 +75,11 @@ opentelemetry-sdk:
   minimum: "1.9.0"
   max_major_version: 2
 
+opentelemetry-proto:
+  pip_release: opentelemetry-proto
+  minimum: "1.9.0"
+  max_major_version: 2
+
 databricks-sdk:
   pip_release: databricks-sdk
   minimum: "0.20.0"
@@ -77,7 +87,7 @@ databricks-sdk:
 
 pydantic:
   pip_release: pydantic
-  minimum: "1.10.8"
+  minimum: "2.0.0"
   max_major_version: 2
 
 typing-extensions:

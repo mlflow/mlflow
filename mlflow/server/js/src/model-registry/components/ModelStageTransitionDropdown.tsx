@@ -7,9 +7,10 @@ import {
   type PendingModelVersionActivity,
   ACTIVE_STAGES,
 } from '../constants';
-import _ from 'lodash';
+import { remove } from 'lodash';
 import { FormattedMessage } from 'react-intl';
-import { ModelStageTransitionFormModal, ModelStageTransitionFormModalValues } from './ModelStageTransitionFormModal';
+import type { ModelStageTransitionFormModalValues } from './ModelStageTransitionFormModal';
+import { ModelStageTransitionFormModal } from './ModelStageTransitionFormModal';
 
 type ModelStageTransitionDropdownProps = {
   currentStage?: string;
@@ -63,7 +64,7 @@ export class ModelStageTransitionDropdown extends React.Component<
 
   getNoneCurrentStages = (currentStage?: string) => {
     const stages = Object.values(Stages);
-    _.remove(stages, (s) => s === currentStage);
+    remove(stages, (s) => s === currentStage);
     return stages;
   };
 
@@ -124,7 +125,7 @@ export class ModelStageTransitionDropdown extends React.Component<
     const { currentStage } = this.props;
     return (
       <span>
-        <Dropdown overlay={this.getMenu()} trigger={['click']} className="stage-transition-dropdown">
+        <Dropdown overlay={this.getMenu()} trigger={['click']} className="mlflow-stage-transition-dropdown">
           <span>
             {StageTagComponents[currentStage ?? Stages.NONE]}
             <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />

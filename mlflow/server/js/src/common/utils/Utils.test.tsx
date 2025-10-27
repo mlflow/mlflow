@@ -851,7 +851,6 @@ test('mergeLoggedAndRegisteredModels should output registered models in order', 
   modelVersions[1].version = '2';
   modelVersions[1].creation_timestamp = 1000;
   models = Utils.mergeLoggedAndRegisteredModels(loggedModels, modelVersions);
-  // @ts-expect-error TODO: fix this
   expect(models[0].registeredModelVersion).toEqual('3');
   // Only one registered
   modelVersions = [modelVersions[0]];

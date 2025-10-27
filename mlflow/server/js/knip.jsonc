@@ -30,6 +30,6 @@
   ],
   // Only warn on unused files and exports
   "include": ["files", "exports"],
-  "ignore": ["**/*.d.ts", "src/shared/{databricks_edge,web-shared}/**/*.{js,jsx,ts,tsx}"],
+  "ignore": ["**/*.d.ts", "src/shared/{databricks_edge,web-shared}/**/*.{js,jsx,ts,tsx}", "**/*.{js,jsx,ts,tsx}"],
   "project": ["src/**/*.{js,jsx,ts,tsx}"]
 }

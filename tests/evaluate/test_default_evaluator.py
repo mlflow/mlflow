@@ -6,7 +6,6 @@ import os
 import re
 from os.path import join as path_join
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest import mock
 
 import numpy as np
@@ -1232,10 +1231,13 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     )
     eval_fn_args = [eval_df, builtin_metrics]
 
+    # Import the module directly to avoid mock.patch import issues
+    from mlflow.models.evaluation.utils import metric as metric_module
+
     def dummy_fn(*_):
         pass
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(dummy_fn, "dummy_fn", 0, None).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             "Did not log metric 'dummy_fn' at index 0 in the `extra_metrics` parameter"
@@ -1245,7 +1247,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def incorrect_return_type(*_):
         return ["stuff"], 3
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(incorrect_return_type, incorrect_return_type.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1256,7 +1258,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_scores(*_):
         return MetricValue(scores=5)
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_list_scores, non_list_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_list_scores.__name__}' at index 0 in the "
@@ -1266,7 +1268,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_numeric_scores(*_):
         return MetricValue(scores=[{"val": "string"}])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         MetricDefinition(non_numeric_scores, non_numeric_scores.__name__, 0).evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
             f"Did not log metric '{non_numeric_scores.__name__}' at index 0 in the `extra_metrics`"
@@ -1276,7 +1278,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_list_justifications(*_):
         return MetricValue(justifications="string")
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_list_justifications, non_list_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1288,7 +1290,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_str_justifications(*_):
         return MetricValue(justifications=[3, 4])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_str_justifications, non_str_justifications.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1300,7 +1302,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def non_dict_aggregates(*_):
         return MetricValue(aggregate_results=[5.0, 4.0])
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(non_dict_aggregates, non_dict_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1312,7 +1314,7 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     def wrong_type_aggregates(*_):
         return MetricValue(aggregate_results={"toxicity": 0.0, "hi": "hi"})
 
-    with mock.patch("mlflow.models.evaluation.utils.metric._logger.warning") as mock_warning:
+    with mock.patch.object(metric_module._logger, "warning") as mock_warning:
         metric = MetricDefinition(wrong_type_aggregates, wrong_type_aggregates.__name__, 0)
         metric.evaluate(eval_fn_args)
         mock_warning.assert_called_once_with(
@@ -1512,7 +1514,7 @@ def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_
 
 
 def test_custom_metric_logs_artifacts_from_paths(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
+    binary_logistic_regressor_model_uri, breast_cancer_dataset, tmp_path
 ):
     fig_x = 8.0
     fig_y = 5.0
@@ -1563,25 +1565,24 @@ def test_custom_metric_logs_artifacts_from_paths(
         custom_artifacts=[example_custom_artifact],
     )
 
-    with TemporaryDirectory() as tmp_dir:
-        for img_ext in img_formats:
-            assert f"test_{img_ext}_artifact" in result.artifacts
-            assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
-            assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
+    for img_ext in img_formats:
+        assert f"test_{img_ext}_artifact" in result.artifacts
+        assert f"test_{img_ext}_artifact.{img_ext}" in artifacts
+        assert isinstance(result.artifacts[f"test_{img_ext}_artifact"], ImageEvaluationArtifact)
 
-            fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
-            ax = fig.subplots()
-            ax.plot([1, 2, 3])
-            fig.savefig(path_join(tmp_dir, f"test.{img_ext}"), format=img_ext)
+        fig = Figure(figsize=(fig_x, fig_y), dpi=fig_dpi)
+        ax = fig.subplots()
+        ax.plot([1, 2, 3])
+        fig.savefig(path_join(tmp_path, f"test.{img_ext}"), format=img_ext)
 
-            saved_img = Image.open(path_join(tmp_dir, f"test.{img_ext}"))
-            result_img = result.artifacts[f"test_{img_ext}_artifact"].content
+        saved_img = Image.open(path_join(tmp_path, f"test.{img_ext}"))
+        result_img = result.artifacts[f"test_{img_ext}_artifact"].content
 
-            for img in (saved_img, result_img):
-                img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
-                assert img.format.lower() == img_ext_qualified
-                assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
-                assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
+        for img in (saved_img, result_img):
+            img_ext_qualified = "jpeg" if img_ext == "jpg" else img_ext
+            assert img.format.lower() == img_ext_qualified
+            assert img.size == (fig_x * fig_dpi, fig_y * fig_dpi)
+            assert pytest.approx(img.info.get("dpi"), 0.001) == (fig_dpi, fig_dpi)
 
     assert "test_json_artifact" in result.artifacts
     assert "test_json_artifact.json" in artifacts
@@ -3320,7 +3321,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -4085,17 +4086,18 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
             {
                 "inputs": ["words random", "This is a sentence."],
                 "ground_truth": ["words random", "This is a sentence."],
+                "custom_column": ["test", "test"],
             }
         )
         custom_metric = make_genai_metric_from_prompt(
             name="custom llm judge",
-            judge_prompt="This is a custom judge prompt.",
+            judge_prompt="This is a custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.0},
         )
         another_custom_metric = make_genai_metric_from_prompt(
             name="another custom llm judge",
-            judge_prompt="This is another custom judge prompt.",
+            judge_prompt="This is another custom judge prompt. {custom_column}.",
             greater_is_better=False,
             parameters={"temperature": 0.7},
         )
@@ -4475,7 +4477,6 @@ def test_classifier_evaluation_scenarios(
 def test_classifier_evaluation_error_conditions(
     data, evaluator_config, expected_error, error_message_pattern, description
 ):
-    """Test error conditions in classifier evaluation."""
     with pytest.raises(expected_error, match=error_message_pattern):
         mlflow.evaluate(
             data=data,

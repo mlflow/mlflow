@@ -9,13 +9,9 @@ from tests.tracing.helper import reset_autolog_state  # noqa: F401
 
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-            "SERPAPI_API_KEY": "test",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
+    monkeypatch.setenv("SERPAPI_API_KEY", "test")
     importlib.reload(openai)
 
 

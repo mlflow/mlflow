@@ -65,3 +65,15 @@
   height: auto;
   object-fit: contain;
 }
+
+/* Add subtle background for X logo for better contrast */
+.tileCard[href*='x.com'] .tileImage {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+/* Dark mode specific styling for X logo */
+[data-theme='dark'] .tileCard[href*='x.com'] .tileImage {
+  background: rgba(255, 255, 255, 0.08);
+}

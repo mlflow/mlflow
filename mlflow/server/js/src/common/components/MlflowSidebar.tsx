@@ -2,16 +2,16 @@ import {
   BeakerIcon,
   Button,
   DropdownMenu,
+  HomeIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { Link, matchPath, useLocation, Location, useNavigate } from '../../common/utils/RoutingUtils';
+import type { Location } from '../utils/RoutingUtils';
+import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
-import { Interpolation } from '@emotion/react';
-import { Theme } from '@databricks/design-system/dist/theme';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
 import { useState } from 'react';
 import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
@@ -22,6 +22,8 @@ import {
 } from '../../experiment-tracking/pages/prompts/hooks/useCreatePromptModal';
 import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
+
+const isHomeActive = (location: Location) => matchPath({ path: '/', end: true }, location.pathname);
 
 const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
@@ -42,6 +44,15 @@ export function MlflowSidebar() {
   });
 
   const menuItems = [
+    {
+      key: 'home',
+      icon: <HomeIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.rootRoute,
+        isActive: isHomeActive,
+        children: <FormattedMessage defaultMessage="Home" description="Sidebar link for home page" />,
+      },
+    },
     {
       key: 'experiments',
       icon: <BeakerIcon />,
@@ -123,12 +134,14 @@ export function MlflowSidebar() {
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content side="right" sideOffset={theme.spacing.sm} align="start">
-          {menuItems.map(({ key, icon, dropdownProps }) => (
-            <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
-              <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
-              {dropdownProps.children}
-            </DropdownMenu.Item>
-          ))}
+          {menuItems
+            .filter((item) => item.dropdownProps !== undefined)
+            .map(({ key, icon, dropdownProps }) => (
+              <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
+                <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
+                {dropdownProps.children}
+              </DropdownMenu.Item>
+            ))}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 

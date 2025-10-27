@@ -2,12 +2,6 @@
  * This file aggregates utility functions for enabling features configured by flags.
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
-/**
- * Disable legacy charts on "compare runs" page in favor of a new chart view
- */
-export const shouldDisableLegacyRunCompareCharts = () => false;
-
-export const shouldEnableExperimentPageAutoRefresh = () => true;
 
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 /**
@@ -15,22 +9,6 @@ export const shouldEnableRunDetailsPageAutoRefresh = () => true;
  */
 export const shouldEnablePromptLab = () => true;
 
-export const shouldUseExperimentPageChartViewAsDefault = () => false;
-
-/**
- * Difference view charts feature
- */
-export const shouldEnableDifferenceViewCharts = () => true;
-
-/**
- * Keeping original lines when smoothing.
- */
-export const shouldEnableChartsOriginalLinesWhenSmoothing = () => false;
-/**
- * Enable to use larger color selection (palette of 400 colors) and murmur hashing of
- * run UUIDs for color assignment
- */
-export const shouldEnableLargerColorSelection = () => false;
 /**
  * Enable chart expressions feature
  */
@@ -51,11 +29,13 @@ export const shouldEnableNewDifferenceViewCharts = () => false;
 export const shouldEnableDifferenceViewChartsV3 = () => false;
 export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
-export const shouldEnableTracingUI = () => true;
-export const shouldEnableRunDetailsPageTracesTab = () => true;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
+/**
+ * Determines if the regexp-based auto runs search filter is enabled.
+ * This should be disabled in OSS since backend does not support it yet.
+ */
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
@@ -63,15 +43,8 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
-export const isExperimentLoggedModelsUIEnabled = () => true;
-export const isLoggedModelsFilteringAndSortingEnabled = () => true;
-export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
-
-/**
- * Determines if evaluation results online monitoring UI is enabled
- */
-export const isExperimentEvalResultsMonitoringUIEnabled = () => false;
-export const shouldUseRenamedUnifiedTracesTab = () => true;
+export const isLoggedModelsFilteringAndSortingEnabled = () => false;
+export const isRunPageLoggedModelsTableEnabled = () => true;
 
 /**
  * Flags enabling fetching data via GraphQL for particular views:
@@ -82,8 +55,89 @@ export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
 
 /**
+ * Determines if experiment kind inference is enabled.
+ */
+export const shouldEnableExperimentKindInference = () => true;
+
+/**
+ * Determines if the new prompts tab on DB platform is enabled.
+ */
+export const shouldEnablePromptsTabOnDBPlatform = () => false;
+
+export const shouldEnablePromptTags = () => false;
+
+export const shouldUseSharedTaggingUI = () => false;
+
+export const shouldDisableReproduceRunButton = () => false;
+
+export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
+  return false;
+};
+
+/**
+ * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
+ */
+export const shouldUseGetLoggedModelsBatchAPI = () => {
+  return false;
+};
+
+/**
+ * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
+ */
+export const shouldEnableExperimentPageChildRoutes = () => {
+  return false;
+};
+
+/**
  * A flag determining if we should display the new models UI.
  */
 export const shouldShowModelsNextUI = () => {
   return true;
+};
+
+export const shouldEnableTracesV3View = () => {
+  return true;
+};
+
+export const shouldEnableTraceInsights = () => {
+  return false;
+};
+
+export const shouldEnableTracesSyncUI = () => {
+  return false;
+};
+
+/**
+ * Total number of traces that will be fetched via mlflow traces 3.0 search api in eval tab
+ */
+export const getEvalTabTotalTracesLimit = () => {
+  return 1000;
+};
+
+/**
+ * Determines if evaluation results online monitoring UI is enabled
+ */
+export const isExperimentEvalResultsMonitoringUIEnabled = () => {
+  return true;
+};
+
+export const shouldUseUnifiedArtifactBrowserForLoggedModels = () => {
+  return false;
+};
+
+export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
+  return false;
+};
+
+export const shouldEnableTagGrouping = () => {
+  return true;
+};
+
+/**
+ * Determines if the assessments pane should be disabled when trace info fetch fails.
+ * In OSS, we keep the pane enabled to avoid confusing users (showing stale data is better than nothing).
+ * In Databricks, we disable it because playground creates fake traces that can't have assessments.
+ */
+export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
+  return false;
 };

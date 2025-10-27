@@ -28,23 +28,18 @@ import {
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
-import {
-  shouldEnableExperimentPageAutoRefresh,
-  shouldEnablePromptLab,
-  shouldUseRenamedUnifiedTracesTab,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnablePromptLab } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { ToggleIconButton } from '../../../../../common/components/ToggleIconButton';
-import { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
+import type { ErrorWrapper } from '../../../../../common/utils/ErrorWrapper';
 import { LIFECYCLE_FILTER } from '../../../../constants';
-import { UpdateExperimentViewStateFn } from '../../../../types';
+import type { UpdateExperimentViewStateFn } from '../../../../types';
 import { useExperimentIds } from '../../hooks/useExperimentIds';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { getStartTimeColumnDisplayName } from '../../utils/experimentPage.common-utils';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
-import { ExperimentViewRefreshButton } from './ExperimentViewRefreshButton';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
 import type { ExperimentStoreEntities, DatasetSummary, ExperimentViewRunsCompareMode } from '../../../../types';
 import { datasetSummariesEqual } from '../../../../utils/DatasetUtils';
@@ -53,10 +48,8 @@ import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewB
 import { useCreateNewRun } from '../../hooks/useCreateNewRun';
 import { useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import { useUpdateExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 
 export type ExperimentViewRunsControlsFiltersProps = {
@@ -168,23 +161,24 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             flexWrap: 'wrap' as const,
           }}
         >
-          {(pageViewMode !== 'ARTIFACT' || shouldUseRenamedUnifiedTracesTab()) && (
-            <SegmentedControlGroup
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_184"
-              name="runs-view-mode"
-              value={pageViewMode}
-              onChange={({ target }) => {
-                const { value } = target;
-                const newValue = value as ExperimentViewRunsCompareMode;
+          <SegmentedControlGroup
+            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_184"
+            name="runs-view-mode"
+            value={pageViewMode}
+            onChange={({ target }) => {
+              const { value } = target;
+              const newValue = value as ExperimentViewRunsCompareMode;
 
-                if (pageViewMode === newValue) {
-                  return;
-                }
+              if (pageViewMode === newValue) {
+                return;
+              }
 
-                setViewModeInURL(newValue);
-              }}
-            >
-              <SegmentedControlButton value="TABLE">
+              setViewModeInURL(newValue);
+            }}
+          >
+            <SegmentedControlButton
+              value="TABLE"
+              icon={
                 <Tooltip
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
                   content={intl.formatMessage({
@@ -194,8 +188,11 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 >
                   <ListIcon />
                 </Tooltip>
-              </SegmentedControlButton>
-              <SegmentedControlButton value="CHART">
+              }
+            />
+            <SegmentedControlButton
+              value="CHART"
+              icon={
                 <Tooltip
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
                   content={intl.formatMessage({
@@ -205,30 +202,32 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 >
                   <ChartLineIcon />
                 </Tooltip>
-              </SegmentedControlButton>
-              {shouldUseRenamedUnifiedTracesTab() && (
-                <SegmentedControlButton value="ARTIFACT" disabled={areRunsGrouped}>
-                  <Tooltip
-                    componentId="mlflow.experiment_page.mode.artifact"
-                    content={
-                      areRunsGrouped
-                        ? intl.formatMessage({
-                            defaultMessage: 'Unavailable when runs are grouped',
-                            description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
-                          })
-                        : intl.formatMessage({
-                            defaultMessage: 'Artifact evaluation',
-                            description:
-                              'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
-                          })
-                    }
-                  >
-                    <TableIcon />
-                  </Tooltip>
-                </SegmentedControlButton>
-              )}
-            </SegmentedControlGroup>
-          )}
+              }
+            />
+            <SegmentedControlButton
+              value="ARTIFACT"
+              disabled={areRunsGrouped}
+              icon={
+                <Tooltip
+                  componentId="mlflow.experiment_page.mode.artifact"
+                  content={
+                    areRunsGrouped
+                      ? intl.formatMessage({
+                          defaultMessage: 'Unavailable when runs are grouped',
+                          description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
+                        })
+                      : intl.formatMessage({
+                          defaultMessage: 'Artifact evaluation',
+                          description:
+                            'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+                        })
+                  }
+                >
+                  <TableIcon />
+                </Tooltip>
+              }
+            />
+          </SegmentedControlGroup>
 
           <RunsSearchAutoComplete
             runsData={runsData}
@@ -250,7 +249,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               onClear={() => {
                 setUrlSearchFacets({ startTime: 'ALL' });
               }}
-              data-test-id="start-time-select-dropdown"
+              data-testid="start-time-select-dropdown"
             />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
@@ -259,7 +258,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                     key={startTimeKey}
                     checked={startTimeKey === startTime}
                     title={startTimeColumnLabels[startTimeKey]}
-                    data-test-id={`start-time-select-${startTimeKey}`}
+                    data-testid={`start-time-select-${startTimeKey}`}
                     value={startTimeKey}
                     onChange={() => {
                       setUrlSearchFacets({ startTime: startTimeKey });
@@ -336,7 +335,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DialogComboboxTrigger
                 allowClear
                 onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
-                data-test-id="datasets-select-dropdown"
+                data-testid="datasets-select-dropdown"
                 showTagAfterValueCount={1}
                 disabled={!hasDatasets}
               />
@@ -349,7 +348,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                           key={summary.name + summary.digest + summary.context}
                           checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
                           title={summary.name}
-                          data-test-id={`dataset-dropdown-${summary.name}`}
+                          data-testid={`dataset-dropdown-${summary.name}`}
                           value={summary.name}
                           onChange={() => updateDatasetsFilter(summary)}
                         >
@@ -418,27 +417,24 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   description="Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
                 />
               </DropdownMenu.CheckboxItem>
-              {shouldEnableExperimentPageAutoRefresh() && (
-                <>
-                  <DropdownMenu.Separator />
-                  <DropdownMenu.CheckboxItem
-                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_402"
-                    checked={autoRefreshEnabled}
-                    onClick={() =>
-                      updateUIState((state) => ({
-                        ...state,
-                        autoRefreshEnabled: !state.autoRefreshEnabled,
-                      }))
-                    }
-                  >
-                    <DropdownMenu.ItemIndicator />
-                    <FormattedMessage
-                      defaultMessage="Auto-refresh"
-                      description="String for the auto-refresh button that refreshes the runs list automatically"
-                    />
-                  </DropdownMenu.CheckboxItem>
-                </>
-              )}
+
+              <DropdownMenu.Separator />
+              <DropdownMenu.CheckboxItem
+                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_402"
+                checked={autoRefreshEnabled}
+                onClick={() =>
+                  updateUIState((state) => ({
+                    ...state,
+                    autoRefreshEnabled: !state.autoRefreshEnabled,
+                  }))
+                }
+              >
+                <DropdownMenu.ItemIndicator />
+                <FormattedMessage
+                  defaultMessage="Auto-refresh"
+                  description="String for the auto-refresh button that refreshes the runs list automatically"
+                />
+              </DropdownMenu.CheckboxItem>
             </DropdownMenu.Content>
           </DropdownMenu.Root>
 
@@ -464,7 +460,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               />
             </LegacyTooltip>
           )}
-          {!shouldEnableExperimentPageAutoRefresh() && <ExperimentViewRefreshButton refreshRuns={refreshRuns} />}
           {/* TODO: Add tooltip to guide users to this button */}
           {!isComparingExperiments && (
             <DropdownMenu.Root>

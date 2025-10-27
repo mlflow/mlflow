@@ -1,7 +1,5 @@
 """add model registry tables to db
 
-Revision ID: 2b4d017a5e9b
-Revises: 89d4b8295536
 Create Date: 2019-10-14 12:20:12.874424
 
 """

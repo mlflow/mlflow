@@ -78,7 +78,6 @@ export class GenericInputModal extends Component<Props, State> {
       // Checking isValidElement is the safe way and avoids a typescript
       // error too.
       if (React.isValidElement(child)) {
-        // @ts-expect-error TODO: fix this
         return React.cloneElement(child, { innerRef: this.formRef });
       }
       return child;
