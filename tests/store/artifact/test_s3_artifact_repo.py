@@ -515,3 +515,169 @@ def test_trace_data(s3_artifact_root):
     mock_trace_data = {"spans": [], "request": {"test": 1}, "response": {"test": 2}}
     repo.upload_trace_data(json.dumps(mock_trace_data))
     assert repo.download_trace_data() == mock_trace_data
+
+
+def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, monkeypatch):
+    """
+    Test that bucket ownership verification is applied when
+    MLFLOW_S3_BUCKET_OWNER is set.
+    """
+    file_name = "test.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_text = "Hello world!"
+
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    monkeypatch.setenv("MLFLOW_S3_BUCKET_OWNER", "123456789012")
+
+    repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
+    assert repo_with_owner._bucket_owner == "123456789012"
+    with mock.patch.object(repo_with_owner, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        repo_with_owner.log_artifact(file_path)
+        mock_s3.upload_file.assert_called_once()
+        call_kwargs = mock_s3.upload_file.call_args[1]
+        assert "ExtraArgs" in call_kwargs
+        assert call_kwargs["ExtraArgs"]["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_path):
+    """
+    Test that bucket ownership verification is not applied when
+    MLFLOW_S3_BUCKET_OWNER is not set.
+    """
+    file_name = "test.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_text = "Hello world!"
+
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    assert s3_artifact_repo._bucket_owner is None
+    with mock.patch.object(s3_artifact_repo, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        s3_artifact_repo.log_artifact(file_path)
+        mock_s3.upload_file.assert_called_once()
+        call_kwargs = mock_s3.upload_file.call_args[1]
+        if "ExtraArgs" in call_kwargs:
+            assert "ExpectedBucketOwner" not in call_kwargs["ExtraArgs"]
+
+
+def test_bucket_takeover_scenario(s3_artifact_root, tmp_path, monkeypatch):
+    """
+    Test the bucket takeover scenario where:
+    1. A user creates and uses a bucket (e.g., `my-mlflow-artifacts`)
+    2. The bucket is deleted
+    3. An attacker creates a new bucket with the same name
+    4. MLflow continues to use the same bucket URI, unknowingly sending
+       artifacts to the attacker's bucket
+
+    This test verifies that when MLFLOW_S3_BUCKET_OWNER is set, operations
+    will fail if the bucket owner doesn't match, preventing the takeover attack.
+    """
+    file_name = "sensitive_data.txt"
+    file_path = os.path.join(tmp_path, file_name)
+    file_text = "Sensitive information"
+
+    with open(file_path, "w") as f:
+        f.write(file_text)
+
+    monkeypatch.setenv("MLFLOW_S3_BUCKET_OWNER", "123456789012")
+
+    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
+    with mock.patch.object(repo_with_owner, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        mock_s3.upload_file.side_effect = botocore.exceptions.ClientError(
+            {
+                "Error": {
+                    "Code": "AccessDenied",
+                    "Message": "The bucket owner does not match the expected bucket owner",
+                }
+            },
+            "PutObject",
+        )
+        with pytest.raises(
+            botocore.exceptions.ClientError,
+            match=r"The bucket owner does not match the expected bucket owner",
+        ):
+            repo_with_owner.log_artifact(file_path)
+
+
+def test_list_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatch):
+    """Test that list_artifacts includes ExpectedBucketOwner when configured."""
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    monkeypatch.setenv("MLFLOW_S3_BUCKET_OWNER", "123456789012")
+
+    repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
+    repo_with_owner.log_artifacts(str(subdir))
+    with mock.patch.object(repo_with_owner, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        mock_paginator = mock.Mock()
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [{"Contents": [], "CommonPrefixes": []}]
+        repo_with_owner.list_artifacts()
+        mock_paginator.paginate.assert_called_once()
+        call_kwargs = mock_paginator.paginate.call_args[1]
+        assert "ExpectedBucketOwner" in call_kwargs
+        assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
+    """Test that multipart upload includes ExpectedBucketOwner when configured."""
+    monkeypatch.setenv("MLFLOW_S3_BUCKET_OWNER", "123456789012")
+
+    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
+    with mock.patch.object(repo_with_owner, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        mock_s3.create_multipart_upload.return_value = {"UploadId": "test-upload-id"}
+        mock_s3.generate_presigned_url.return_value = "https://example.com/presigned"
+        repo_with_owner.create_multipart_upload("local_file", num_parts=2)
+        mock_s3.create_multipart_upload.assert_called_once()
+        call_kwargs = mock_s3.create_multipart_upload.call_args[1]
+        assert "ExpectedBucketOwner" in call_kwargs
+        assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
+        presigned_calls = mock_s3.generate_presigned_url.call_args_list
+        for call in presigned_calls:
+            params = call[1]["Params"]
+            assert "ExpectedBucketOwner" in params
+            assert params["ExpectedBucketOwner"] == "123456789012"
+
+
+def test_delete_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatch):
+    """Test that delete_artifacts includes ExpectedBucketOwner when configured."""
+    subdir = tmp_path / "subdir"
+    subdir.mkdir()
+    path_a = subdir / "a.txt"
+    path_a.write_text("A")
+
+    monkeypatch.setenv("MLFLOW_S3_BUCKET_OWNER", "123456789012")
+
+    repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
+    repo_with_owner.log_artifacts(str(subdir))
+    with mock.patch.object(repo_with_owner, "_get_s3_client") as mock_client:
+        mock_s3 = mock.Mock()
+        mock_client.return_value = mock_s3
+        mock_paginator = mock.Mock()
+        mock_s3.get_paginator.return_value = mock_paginator
+        mock_paginator.paginate.return_value = [
+            {"Contents": [{"Key": "some/path/a.txt"}], "CommonPrefixes": []}
+        ]
+        repo_with_owner.delete_artifacts()
+        mock_paginator.paginate.assert_called_once()
+        paginate_call_kwargs = mock_paginator.paginate.call_args[1]
+        assert "ExpectedBucketOwner" in paginate_call_kwargs
+        assert paginate_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+        mock_s3.delete_objects.assert_called_once()
+        delete_call_kwargs = mock_s3.delete_objects.call_args[1]
+        assert "ExpectedBucketOwner" in delete_call_kwargs
+        assert delete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
