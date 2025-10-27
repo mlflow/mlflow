@@ -1,3 +1,4 @@
+from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -44,11 +45,18 @@ class TraceData:
             return root_span.get_attribute(SpanAttributeKey.INTERMEDIATE_OUTPUTS)
 
         if len(self.spans) > 1:
-            return {
-                span.name: span.outputs
-                for span in self.spans
-                if span.parent_id and span.outputs is not None
-            }
+            result = {}
+            # spans may have duplicate names, so deduplicate the names by appending an index number.
+            span_name_counter = Counter(span.name for span in self.spans)
+            span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
+            for span in self.spans:
+                span_name = span.name
+                if count := span_name_counter.get(span_name):
+                    span_name_counter[span_name] += 1
+                    span_name = f"{span_name}_{count}"
+                if span.parent_id and span.outputs is not None:
+                    result[span_name] = span.outputs
+            return result
 
     def _get_root_span(self) -> Span | None:
         for span in self.spans:
