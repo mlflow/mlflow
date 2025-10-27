@@ -366,7 +366,8 @@ class DatabricksTracingRestStore(RestStore):
         sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
         if sql_warehouse_id is None:
             raise MlflowException.invalid_parameter_value(
-                "SQL warehouse ID is required for searching traces by model ID in UC tables."
+                "SQL warehouse ID is required for searching traces by model ID in UC tables, "
+                f"set it with the `{MLFLOW_TRACING_SQL_WAREHOUSE_ID.name}` environment variable."
             )
 
         request = SearchUnifiedTraces(
