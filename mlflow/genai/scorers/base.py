@@ -3,7 +3,7 @@ import inspect
 import logging
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any, Callable, Literal, TypeAlias
+from typing import Any, Callable, Literal, TypeAlias, get_args, get_origin
 
 from pydantic import BaseModel, PrivateAttr
 
@@ -387,12 +387,9 @@ class Scorer(BaseModel):
             return {"type": response_format.__name__}
 
         # Handle Literal types
-        import typing
-
-        if hasattr(typing, "get_origin") and typing.get_origin(response_format) is Literal:
-            if hasattr(typing, "get_args"):
-                literal_values = typing.get_args(response_format)
-                return {"type": "Literal", "values": list(literal_values)}
+        if get_origin(response_format) is Literal:
+            literal_values = get_args(response_format)
+            return {"type": "Literal", "values": list(literal_values)}
 
         # Unsupported type
         raise MlflowException.invalid_parameter_value(

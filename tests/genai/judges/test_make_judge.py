@@ -3,6 +3,7 @@ import sys
 import types
 import typing
 from dataclasses import asdict
+from typing import Literal
 from unittest import mock
 from unittest.mock import patch
 
@@ -2537,8 +2538,6 @@ def test_make_judge_serialization_with_result_type():
     assert restored_bool._result_type == bool
 
     # Test with Literal type
-    from typing import Literal
-
     judge_literal = make_judge(
         name="literal_judge",
         instructions="Rate {{ outputs }} quality",
