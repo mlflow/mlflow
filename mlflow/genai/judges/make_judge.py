@@ -1,8 +1,33 @@
+import typing
+
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
+
+
+def _validate_result_type(result_type: type | None) -> None:
+    """Validate that result_type is one of the supported types for serialization."""
+    if result_type is None:
+        return
+
+    # Check for basic types
+    if result_type in (str, int, float, bool):
+        return
+
+    # Check for Literal type
+    if typing.get_origin(result_type) is typing.Literal:
+        return
+
+    # If we get here, it's an unsupported type
+    from mlflow.exceptions import MlflowException
+
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported result_type: {result_type}. "
+        f"Only str, int, float, bool, and Literal types are supported for serialization. "
+        f"Pydantic BaseModel types are not supported."
+    )
 
 
 @experimental(version="3.4.0")
@@ -12,6 +37,7 @@ def make_judge(
     instructions: str,
     model: str | None = None,
     description: str | None = None,
+    result_type: type | None = None,
 ) -> Judge:
     """
 
@@ -29,6 +55,9 @@ def make_judge(
                       supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         description: A description of what the judge evaluates
+        result_type: Optional type specification for the 'value' field of the Feedback object.
+                        Supported types: int, float, str, bool and Literal[values].
+                        Pydantic BaseModel types are not supported for serialization.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -93,7 +122,12 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
+    _validate_result_type(result_type)
 
     return InstructionsJudge(
-        name=name, instructions=instructions, model=model, description=description
+        name=name,
+        instructions=instructions,
+        model=model,
+        description=description,
+        result_type=result_type,
     )

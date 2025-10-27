@@ -426,6 +426,7 @@ def invoke_judge_model(
     assessment_name: str,
     trace: Trace | None = None,
     num_retries: int = 10,
+    response_format: type[pydantic.BaseModel] | None = None,
 ) -> Feedback:
     """
     Invoke the judge model.
@@ -443,6 +444,7 @@ def invoke_judge_model(
         assessment_name: The name of the assessment.
         trace: Optional trace object for context.
         num_retries: Number of retries on transient failures when using litellm.
+        response_format: Optional Pydantic model class for structured output format.
 
     Returns:
         Feedback object with the judge's assessment.
@@ -474,6 +476,7 @@ def invoke_judge_model(
                 prompt=prompt,
                 assessment_name=assessment_name,
                 num_retries=num_retries,
+                response_format=response_format,
             )
             feedback = output.feedback
             feedback.trace_id = trace.info.trace_id if trace is not None else None
@@ -524,6 +527,7 @@ def invoke_judge_model(
             messages=messages,
             trace=trace,
             num_retries=num_retries,
+            response_format=response_format,
         )
     elif trace is not None:
         raise MlflowException(
@@ -716,7 +720,11 @@ def _parse_databricks_model_response(
 
 
 def _invoke_databricks_model(
-    *, model_name: str, prompt: str, num_retries: int
+    *,
+    model_name: str,
+    prompt: str,
+    num_retries: int,
+    response_format: type[pydantic.BaseModel] | None = None,
 ) -> InvokeDatabricksModelOutput:
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
@@ -727,17 +735,24 @@ def _invoke_databricks_model(
     last_exception = None
     for attempt in range(num_retries + 1):
         try:
+            # Build request payload
+            payload = {
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": prompt,
+                    }
+                ],
+            }
+
+            # Add response_schema if provided
+            if response_format is not None:
+                payload["response_schema"] = response_format.model_json_schema()
+
             res = requests.post(
                 url=api_url,
                 headers={"Authorization": f"Bearer {host_creds.token}"},
-                json={
-                    "messages": [
-                        {
-                            "role": "user",
-                            "content": prompt,
-                        }
-                    ],
-                },
+                json=payload,
             )
         except (requests.RequestException, requests.ConnectionError) as e:
             last_exception = e
@@ -872,11 +887,13 @@ def _invoke_databricks_judge_model(
     prompt: str,
     assessment_name: str,
     num_retries: int = 10,
+    response_format: type[pydantic.BaseModel] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
     output = _invoke_databricks_model(
         model_name=model_name,
         prompt=prompt,
         num_retries=num_retries,
+        response_format=response_format,
     )
     try:
         response_dict = json.loads(output.response)

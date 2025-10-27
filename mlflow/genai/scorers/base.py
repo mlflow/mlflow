@@ -271,12 +271,18 @@ class Scorer(BaseModel):
                     f"{'; '.join(errors)}"
                 )
 
+            # Deserialize result_type if present
+            result_type = None
+            if "result_type" in data and data["result_type"] is not None:
+                result_type = cls._deserialize_response_format(data["result_type"])
+
             try:
                 return InstructionsJudge(
                     name=serialized.name,
                     description=serialized.description,
                     instructions=data["instructions"],
                     model=data["model"],
+                    result_type=result_type,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:
@@ -368,6 +374,66 @@ class Scorer(BaseModel):
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
+
+    @staticmethod
+    def _serialize_response_format(response_format: type) -> dict[str, Any]:
+        """
+        Serialize a response_format type to a JSON-compatible dict.
+
+        Supports: str, int, float, bool, and Literal types.
+        """
+        # Handle basic types
+        if response_format in (str, int, float, bool):
+            return {"type": response_format.__name__}
+
+        # Handle Literal types
+        import typing
+
+        if hasattr(typing, "get_origin") and typing.get_origin(response_format) is Literal:
+            if hasattr(typing, "get_args"):
+                literal_values = typing.get_args(response_format)
+                return {"type": "Literal", "values": list(literal_values)}
+
+        # Unsupported type
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported response_format type: {response_format}. "
+            f"Only str, int, float, bool, and Literal types are supported for serialization."
+        )
+
+    @staticmethod
+    def _deserialize_response_format(serialized: dict[str, Any]) -> type:
+        """
+        Deserialize a response_format from a JSON-compatible dict.
+
+        Supports: str, int, float, bool, and Literal types.
+        """
+        if not isinstance(serialized, dict) or "type" not in serialized:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid response_format serialization: {serialized}"
+            )
+
+        type_name = serialized["type"]
+
+        # Handle basic types
+        if type_name == "str":
+            return str
+        elif type_name == "int":
+            return int
+        elif type_name == "float":
+            return float
+        elif type_name == "bool":
+            return bool
+        elif type_name == "Literal":
+            if "values" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"Literal type missing 'values' field: {serialized}"
+                )
+            # Reconstruct Literal type
+            return Literal[tuple(serialized["values"])]
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Unsupported response_format type: {type_name}"
+            )
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment

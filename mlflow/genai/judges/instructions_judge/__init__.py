@@ -3,6 +3,7 @@ import logging
 from dataclasses import asdict
 from typing import Any
 
+import pydantic
 from pydantic import PrivateAttr
 
 import mlflow
@@ -63,6 +64,7 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
+    _result_type: type | None = PrivateAttr()
 
     def __init__(
         self,
@@ -70,6 +72,7 @@ class InstructionsJudge(Judge):
         instructions: str,
         model: str | None = None,
         description: str | None = None,
+        result_type: type | None = None,
         **kwargs,
     ):
         """
@@ -80,6 +83,8 @@ class InstructionsJudge(Judge):
             instructions: Natural language instructions for evaluation
             model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
             description: A description of what the judge evaluates
+            result_type: Optional type for the result field in the response.
+                           If None, the default judge response schema will be used.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -97,6 +102,7 @@ class InstructionsJudge(Judge):
 
         self._instructions = instructions
         self._model = model or get_default_model()
+        self._result_type = result_type
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -396,11 +402,24 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
+        if self._result_type is not None:
+            response_format = pydantic.create_model(
+                "ResponseFormat",
+                result=(
+                    self._result_type,
+                    pydantic.Field(description=self.description or "The result of the evaluation"),
+                ),
+                rationale=(str, pydantic.Field(description="The rationale for the evaluation")),
+            )
+        else:
+            response_format = None
+
         return invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
             trace=trace if is_trace_based else None,
+            response_format=response_format,
         )
 
     @property
@@ -448,16 +467,22 @@ class InstructionsJudge(Judge):
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
+        from mlflow.genai.scorers.base import Scorer
+
+        pydantic_data = {
+            "instructions": self._instructions,
+            "model": self._model,
+        }
+        if self._result_type is not None:
+            pydantic_data["result_type"] = Scorer._serialize_response_format(self._result_type)
+
         serialized_scorer = SerializedScorer(
             name=self.name,
             description=self.description,
             aggregations=self.aggregations,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
-            instructions_judge_pydantic_data={
-                "instructions": self._instructions,
-                "model": self._model,
-            },
+            instructions_judge_pydantic_data=pydantic_data,
             builtin_scorer_class=None,
             builtin_scorer_pydantic_data=None,
             call_source=None,

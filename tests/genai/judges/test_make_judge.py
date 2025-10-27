@@ -1,12 +1,14 @@
 import json
 import sys
 import types
+import typing
 from dataclasses import asdict
 from unittest import mock
 from unittest.mock import patch
 
 import litellm
 import pandas as pd
+import pydantic
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
@@ -106,7 +108,7 @@ def mock_invoke_judge_model(monkeypatch):
     calls = []
     captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name, trace=None):
+    def _mock(model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
 
@@ -117,6 +119,8 @@ def mock_invoke_judge_model(monkeypatch):
                 "prompt": prompt,
                 "assessment_name": assessment_name,
                 "trace": trace,
+                "num_retries": num_retries,
+                "response_format": response_format,
             }
         )
 
@@ -546,13 +550,17 @@ def test_trace_with_expectations_allowed():
 def test_call_with_trace_supported(mock_trace, monkeypatch):
     captured_args = {}
 
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+    def mock_invoke(
+        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+    ):
         captured_args.update(
             {
                 "model_uri": model_uri,
                 "prompt": prompt,
                 "assessment_name": assessment_name,
                 "trace": trace,
+                "num_retries": num_retries,
+                "response_format": response_format,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -1329,7 +1337,9 @@ def test_instructions_judge_works_with_evaluate_on_trace(
 def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     captured_prompt = None
 
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+    def mock_invoke(
+        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+    ):
         nonlocal captured_prompt
         captured_prompt = prompt
         return Feedback(name=assessment_name, value=True)
@@ -2449,3 +2459,127 @@ def test_instructions_judge_repr():
     # Should show first 30 characters + "..."
     assert "instructions='This is a very long instructio..." in repr_long
     assert "template_variables=['inputs', 'outputs']" in repr_long
+
+
+def test_make_judge_with_result_type(monkeypatch):
+    captured_response_format = None
+
+    def mock_litellm_completion(**kwargs):
+        nonlocal captured_response_format
+        captured_response_format = kwargs.get("response_format")
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        mock_response.choices[0].message = litellm.Message(
+            role="assistant",
+            content='{"result": 5, "rationale": "Excellent quality work"}',
+            tool_calls=None,
+        )
+        return mock_response
+
+    monkeypatch.setattr("litellm.completion", mock_litellm_completion)
+
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the quality of {{ outputs }} on a scale of 1-5",
+        model="openai:/gpt-4",
+        result_type=int,
+    )
+
+    result = judge(outputs={"text": "Great work!"})
+
+    # Verify response_format was correctly captured by litellm.completion
+    assert captured_response_format is not None
+    assert issubclass(captured_response_format, pydantic.BaseModel)
+
+    model_fields = captured_response_format.model_fields
+    assert "result" in model_fields
+    assert "rationale" in model_fields
+
+    assert model_fields["result"].annotation == int
+    assert model_fields["rationale"].annotation == str
+
+    assert result.value == 5
+    assert result.rationale == "Excellent quality work"
+
+
+def test_make_judge_serialization_with_result_type():
+    # Test with int type
+    judge_int = make_judge(
+        name="int_judge",
+        instructions="Rate {{ outputs }} from 1-10",
+        model="openai:/gpt-4",
+        result_type=int,
+    )
+
+    serialized = judge_int.model_dump()
+    assert "instructions_judge_pydantic_data" in serialized
+    assert "result_type" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["result_type"] == {"type": "int"}
+
+    restored_judge = Scorer.model_validate(serialized)
+    assert isinstance(restored_judge, InstructionsJudge)
+    assert restored_judge.name == "int_judge"
+    assert restored_judge._result_type == int
+
+    # Test with bool type
+    judge_bool = make_judge(
+        name="bool_judge",
+        instructions="Is {{ outputs }} correct?",
+        model="openai:/gpt-4",
+        result_type=bool,
+    )
+
+    serialized_bool = judge_bool.model_dump()
+    assert serialized_bool["instructions_judge_pydantic_data"]["result_type"] == {"type": "bool"}
+
+    restored_bool = Scorer.model_validate(serialized_bool)
+    assert restored_bool._result_type == bool
+
+    # Test with Literal type
+    from typing import Literal
+
+    judge_literal = make_judge(
+        name="literal_judge",
+        instructions="Rate {{ outputs }} quality",
+        model="openai:/gpt-4",
+        result_type=Literal["good", "bad", "neutral"],
+    )
+
+    serialized_literal = judge_literal.model_dump()
+    assert serialized_literal["instructions_judge_pydantic_data"]["result_type"] == {
+        "type": "Literal",
+        "values": ["good", "bad", "neutral"],
+    }
+
+    restored_literal = Scorer.model_validate(serialized_literal)
+    assert typing.get_origin(restored_literal._result_type) is Literal
+    assert set(typing.get_args(restored_literal._result_type)) == {"good", "bad", "neutral"}
+
+
+def test_make_judge_validates_result_type():
+    # Valid types should work
+    make_judge(
+        name="int_judge", instructions="Rate {{ outputs }}", model="openai:/gpt-4", result_type=int
+    )
+    make_judge(
+        name="str_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        result_type=str,
+    )
+
+    # Unsupported types should be rejected
+    class CustomModel(pydantic.BaseModel):
+        score: int
+
+    with pytest.raises(
+        MlflowException,
+        match="Unsupported result_type: <class 'tests.genai.judges.test_make_judge.CustomModel'>",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            result_type=CustomModel,
+        )

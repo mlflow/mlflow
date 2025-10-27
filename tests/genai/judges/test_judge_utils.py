@@ -849,6 +849,54 @@ def test_invoke_databricks_model_connection_error_with_retries() -> None:
         mock_get_creds.assert_called_once()
 
 
+def test_invoke_databricks_model_with_response_schema():
+    class ResponseFormat(BaseModel):
+        result: int
+        rationale: str
+
+    # Mock the Databricks API call
+    captured_payload = None
+
+    def mock_post(*args, **kwargs):
+        nonlocal captured_payload
+        captured_payload = kwargs.get("json")
+
+        mock_response = mock.Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": '{"result": 8, "rationale": "Good quality"}'}}],
+            "usage": {"prompt_tokens": 10, "completion_tokens": 5},
+            "id": "test-request-id",
+        }
+        return mock_response
+
+    # Mock Databricks host creds
+    mock_creds = mock.Mock()
+    mock_creds.host = "https://test.databricks.com"
+    mock_creds.token = "test-token"
+
+    with (
+        mock.patch("mlflow.genai.judges.utils.requests.post", side_effect=mock_post),
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
+        ),
+    ):
+        output = _invoke_databricks_model(
+            model_name="my-endpoint",
+            prompt="Rate this",
+            num_retries=1,
+            response_format=ResponseFormat,
+        )
+
+        # Verify response_schema was included in the payload
+        assert captured_payload is not None
+        assert "response_schema" in captured_payload
+        assert captured_payload["response_schema"] == ResponseFormat.model_json_schema()
+
+        # Verify the response was returned correctly
+        assert output.response == '{"result": 8, "rationale": "Good quality"}'
+
+
 def test_record_success_telemetry_with_databricks_agents() -> None:
     from mlflow.genai.judges.utils import _record_judge_model_usage_success_databricks_telemetry
 
@@ -1657,3 +1705,39 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
     assert second_call_messages[1].role == "assistant"
     assert second_call_messages[2].role == "tool"
     assert "trace_data" in second_call_messages[2].content
+
+
+def test_invoke_judge_model_with_custom_response_format():
+    class ResponseFormat(BaseModel):
+        result: int
+        rationale: str
+
+    # Mock litellm to return structured JSON
+    mock_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": '{"result": 8, "rationale": "High quality"}',
+                    "tool_calls": None,
+                }
+            }
+        ]
+    )
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_completion:
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt=[ChatMessage(role="user", content="Evaluate this")],
+            assessment_name="test_judge",
+            response_format=ResponseFormat,
+        )
+
+    # Verify the result was correctly parsed and converted to dict
+    assert feedback.name == "test_judge"
+    assert feedback.value == 8
+    assert feedback.rationale == "High quality"
+
+    # Verify response_format was passed to litellm.completion
+    call_kwargs = mock_completion.call_args.kwargs
+    assert "response_format" in call_kwargs
+    assert call_kwargs["response_format"] == ResponseFormat
