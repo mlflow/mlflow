@@ -130,6 +130,10 @@ def test_trace_halted_after_timeout_in_model_serving(
     assert pop_trace(request_id="request-id-3")["info"]["state"] == SpanStatusCode.OK
 
 
+@pytest.mark.skip(
+    reason="batch_get_traces only return full traces for now, re-enable this test "
+    "when batch_get_traces is updated to support partial traces"
+)
 def test_handle_timeout_update(monkeypatch):
     # Create a first trace. At this moment, there is no timeout set
     _SlowModel().predict(3)

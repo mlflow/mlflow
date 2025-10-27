@@ -3480,11 +3480,11 @@ class SqlAlchemyStore(AbstractStore):
                     trace_stats = json.loads(trace_stats)
                     num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
                     if len(sql_spans) != num_spans:
-                        _logger.debug(
+                        _logger.warning(
                             f"Trace {trace_info.trace_id} is not fully exported yet, "
                             f"expecting {num_spans} spans but got {len(sql_spans)}"
                         )
-                        return []
+                        continue
 
                 spans = [Span.from_dict(json.loads(sql_span.content)) for sql_span in sql_spans]
                 # TODO: extract inputs/outputs if not existing
