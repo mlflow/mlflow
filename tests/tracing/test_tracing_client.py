@@ -139,7 +139,7 @@ def test_tracing_client_calculate_trace_filter_correlation_without_base_filter()
 
 
 @pytest.mark.parametrize("sql_warehouse_id", [None, "some-warehouse-id"])
-def test_tracing_client_search_traces_with_model_id(monkeypatch, sql_warehouse_id):
+def test_tracing_client_search_traces_with_model_id(monkeypatch, sql_warehouse_id: str | None):
     if sql_warehouse_id:
         monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, sql_warehouse_id)
     else:

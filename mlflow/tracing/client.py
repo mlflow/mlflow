@@ -274,8 +274,8 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            # if sql_warehouse_id is not set then we convert model_id to filter_string
-            # otherwise we need to pass model_id to the store (e.g. databricks for online traces)
+            # if sql_warehouse_id is not set then we convert model_id to filter_string,
+            # because `_search_unified_traces` requires sql warehouse id existing.
             if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None:
                 filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
                 model_id = None
