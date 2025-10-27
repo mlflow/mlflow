@@ -1,4 +1,4 @@
-import typing
+from typing import Literal, get_origin
 
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
@@ -17,7 +17,7 @@ def _validate_result_type(result_type: type | None) -> None:
         return
 
     # Check for Literal type
-    if typing.get_origin(result_type) is typing.Literal:
+    if get_origin(result_type) is Literal:
         return
 
     # If we get here, it's an unsupported type
