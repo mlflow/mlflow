@@ -95,38 +95,10 @@ export const useExperimentListQuery = ({
     initialValue: [{ id: 'last_update_time', desc: true }],
   });
 
-  // Track previous filter/sorting values to detect actual changes
-  const prevFiltersRef = useRef<{
-    searchFilter?: string;
-    tagsFilter?: TagFilter[];
-    sorting?: string; // Serialized for comparison
-  }>({
-    searchFilter,
-    tagsFilter,
-    sorting: JSON.stringify(sorting),
-  });
-
   // Reset pagination when filters or sorting changes
   useEffect(() => {
-    const prevFilters = prevFiltersRef.current;
-    const currentSortingSerialized = JSON.stringify(sorting);
-
-    // Only reset if values actually changed (not just reference changes)
-    if (
-      prevFilters.searchFilter !== searchFilter ||
-      JSON.stringify(prevFilters.tagsFilter) !== JSON.stringify(tagsFilter) ||
-      prevFilters.sorting !== currentSortingSerialized
-    ) {
-      setCurrentPageToken(undefined);
-      previousPageTokens.current = [];
-
-      // Update ref with current values
-      prevFiltersRef.current = {
-        searchFilter,
-        tagsFilter,
-        sorting: currentSortingSerialized,
-      };
-    }
+    setCurrentPageToken(undefined);
+    previousPageTokens.current = [];
   }, [searchFilter, tagsFilter, sorting]);
 
   const pageSizeSelect: CursorPaginationProps['pageSizeSelect'] = {
