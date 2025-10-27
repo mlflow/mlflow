@@ -248,6 +248,7 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB188", # slice-to-remove-prefix-or-suffix
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
@@ -287,6 +288,7 @@ select = [
   "S102",    # exec-builtin
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
+  "S506",    # unsafe-yaml-load
   "SIM101",  # duplicate-isinstance-call
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
