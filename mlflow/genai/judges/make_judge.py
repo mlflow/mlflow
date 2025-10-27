@@ -1,6 +1,5 @@
-from typing import Literal, get_args, get_origin
+from typing import Any, Literal, get_args, get_origin
 
-from mlflow.entities.assessment import FeedbackValueType
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
@@ -8,7 +7,7 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
 
 
-def _validate_feedback_value_type(feedback_value_type: type[FeedbackValueType]) -> None:
+def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     """
     Validate that feedback_value_type is one of the supported types for serialization.
 
@@ -91,7 +90,7 @@ def make_judge(
     instructions: str,
     model: str | None = None,
     description: str | None = None,
-    feedback_value_type: type[FeedbackValueType] = str,
+    feedback_value_type: Any = str,
 ) -> Judge:
     """
 
@@ -132,6 +131,7 @@ def make_judge(
 
             import mlflow
             from mlflow.genai.judges import make_judge
+            from typing import Literal
 
             # Create a judge that evaluates response quality using template variables
             quality_judge = make_judge(
@@ -142,6 +142,7 @@ def make_judge(
                     "complete, and professional."
                 ),
                 model="openai:/gpt-4",
+                feedback_value_type=Literal["yes", "no"],
             )
 
             # Evaluate a response

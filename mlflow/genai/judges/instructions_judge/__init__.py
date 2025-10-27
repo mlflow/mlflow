@@ -7,7 +7,7 @@ import pydantic
 from pydantic import PrivateAttr
 
 import mlflow
-from mlflow.entities.assessment import Feedback, FeedbackValueType
+from mlflow.entities.assessment import Feedback
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -64,7 +64,7 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
-    _feedback_value_type: type[FeedbackValueType] | None = PrivateAttr()
+    _feedback_value_type: Any = PrivateAttr()
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ class InstructionsJudge(Judge):
         instructions: str,
         model: str | None = None,
         description: str | None = None,
-        feedback_value_type: type[FeedbackValueType] = str,
+        feedback_value_type: Any = str,
         **kwargs,
     ):
         """
