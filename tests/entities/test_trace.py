@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import json
 import re
 from datetime import datetime
@@ -6,7 +7,6 @@ from typing import Any
 from unittest import mock
 
 import pytest
-from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
@@ -103,6 +103,7 @@ def test_json_deserialization(monkeypatch):
             "tags": {
                 "mlflow.traceName": "predict",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
+                "mlflow.trace.spansLocation": mock.ANY,
             },
         },
         "data": {
@@ -116,7 +117,7 @@ def test_json_deserialization(monkeypatch):
                     "end_time_unix_nano": trace.data.spans[0].end_time_ns,
                     "events": [],
                     "status": {
-                        "code": "OK",
+                        "code": "STATUS_CODE_OK",
                         "message": "",
                     },
                     "attributes": {
@@ -136,7 +137,7 @@ def test_json_deserialization(monkeypatch):
                     "end_time_unix_nano": trace.data.spans[1].end_time_ns,
                     "events": [],
                     "status": {
-                        "code": "OK",
+                        "code": "STATUS_CODE_OK",
                         "message": "",
                     },
                     "attributes": {
@@ -171,16 +172,9 @@ def test_trace_serialize_pydantic_model():
     assert json.loads(data_json) == {"x": 1, "y": "foo"}
 
 
-def _is_langchain_v0_1():
-    try:
-        import langchain
-
-        return Version(langchain.__version__) >= Version("0.1")
-    except ImportError:
-        return None
-
-
-@pytest.mark.skipif(not _is_langchain_v0_1(), reason="langchain>=0.1 is not installed")
+@pytest.mark.skipif(
+    importlib.util.find_spec("langchain") is None, reason="langchain is not installed"
+)
 def test_trace_serialize_langchain_base_message():
     from langchain_core.messages import BaseMessage
 
@@ -279,13 +273,13 @@ def test_trace_pandas_dataframe_columns():
 @pytest.mark.parametrize(
     ("span_type", "name", "expected"),
     [
-        (None, None, ["run", "add_one_1", "add_one_2", "add_two", "multiply_by_two"]),
+        (None, None, ["run", "add_one", "add_one_2", "add_two", "multiply_by_two"]),
         (SpanType.CHAIN, None, ["run"]),
         (None, "add_two", ["add_two"]),
-        (None, re.compile(r"add.*"), ["add_one_1", "add_one_2", "add_two"]),
-        (None, re.compile(r"^add"), ["add_one_1", "add_one_2", "add_two"]),
+        (None, re.compile(r"add.*"), ["add_one", "add_one_2", "add_two"]),
+        (None, re.compile(r"^add"), ["add_one", "add_one_2", "add_two"]),
         (None, re.compile(r"_two$"), ["add_two", "multiply_by_two"]),
-        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one_1", "add_one_2"]),
+        (None, re.compile(r".*ONE", re.IGNORECASE), ["add_one", "add_one_2"]),
         (SpanType.TOOL, "multiply_by_two", ["multiply_by_two"]),
         (SpanType.AGENT, None, []),
         (None, "non_existent", []),
@@ -464,3 +458,90 @@ def test_search_assessments():
     assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
     assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
     assert trace.search_assessments(type="expectation") == [assessments[3]]
+
+
+def test_trace_to_and_from_proto():
+    @mlflow.trace
+    def invoke(x):
+        return x + 1
+
+    @mlflow.trace
+    def test(x):
+        return invoke(x)
+
+    test(1)
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    proto_trace = trace.to_proto()
+    assert proto_trace.trace_info.trace_id == trace.info.request_id
+    assert proto_trace.trace_info.trace_location == trace.info.trace_location.to_proto()
+    assert len(proto_trace.spans) == 2
+    assert proto_trace.spans[0].name == "test"
+    assert proto_trace.spans[1].name == "invoke"
+
+    trace_from_proto = Trace.from_proto(proto_trace)
+    assert trace_from_proto.to_dict() == trace.to_dict()
+
+
+def test_trace_from_dict_load_old_trace():
+    trace_dict = {
+        "info": {
+            "trace_id": "tr-ee17184669c265ffdcf9299b36f6dccc",
+            "trace_location": {
+                "type": "MLFLOW_EXPERIMENT",
+                "mlflow_experiment": {"experiment_id": "0"},
+            },
+            "request_time": "2025-10-22T04:14:54.524Z",
+            "state": "OK",
+            "trace_metadata": {
+                "mlflow.trace_schema.version": "3",
+                "mlflow.traceInputs": '"abc"',
+                "mlflow.source.type": "LOCAL",
+                "mlflow.source.git.branch": "branch-3.4",
+                "mlflow.source.name": "a.py",
+                "mlflow.source.git.commit": "78d075062b120597050bf2b3839a426feea5ea4c",
+                "mlflow.user": "serena.ruan",
+                "mlflow.traceOutputs": '"def"',
+                "mlflow.source.git.repoURL": "git@github.com:mlflow/mlflow.git",
+                "mlflow.trace.sizeBytes": "1226",
+            },
+            "tags": {
+                "mlflow.artifactLocation": "mlflow-artifacts:/0/traces",
+                "mlflow.traceName": "test",
+            },
+            "request_preview": '"abc"',
+            "response_preview": '"def"',
+            "execution_duration_ms": 60,
+        },
+        "data": {
+            "spans": [
+                {
+                    "trace_id": "7hcYRmnCZf/c+SmbNvbczA==",
+                    "span_id": "3ElmHER9IVU=",
+                    "trace_state": "",
+                    "parent_span_id": "",
+                    "name": "test",
+                    "start_time_unix_nano": 1761106494524157000,
+                    "end_time_unix_nano": 1761106494584860000,
+                    "attributes": {
+                        "mlflow.spanOutputs": '"def"',
+                        "mlflow.spanType": '"UNKNOWN"',
+                        "mlflow.spanInputs": '"abc"',
+                        "mlflow.traceRequestId": '"tr-ee17184669c265ffdcf9299b36f6dccc"',
+                        "test": '"test"',
+                    },
+                    "status": {"message": "", "code": "STATUS_CODE_OK"},
+                }
+            ]
+        },
+    }
+    trace = Trace.from_dict(trace_dict)
+    assert trace.info.trace_id == "tr-ee17184669c265ffdcf9299b36f6dccc"
+    assert trace.info.request_time == 1761106494524
+    assert trace.info.execution_duration == 60
+    assert trace.info.trace_location == TraceLocation.from_experiment_id("0")
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].inputs == "abc"
+    assert trace.data.spans[0].outputs == "def"
+    assert trace.data.spans[0].start_time_ns == 1761106494524157000
+    assert trace.data.spans[0].end_time_ns == 1761106494584860000

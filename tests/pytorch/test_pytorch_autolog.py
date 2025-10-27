@@ -754,3 +754,24 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         ]
         == 2
     )
+
+
+def test_autologging_disabled_for_forecasting_model_predict():
+    from tests.pytorch.test_forecasting_model import _gen_forecasting_model_and_data
+
+    mlflow.pytorch.autolog()
+
+    n_series = 10
+    max_prediction_length = 20
+
+    deepar, data = _gen_forecasting_model_and_data(
+        n_series=n_series,
+        timesteps=100,
+        max_prediction_length=max_prediction_length,
+    )
+
+    last_run_id = mlflow.last_active_run().info.run_id
+    deepar.predict(data)
+
+    # assert `deepar.predict` does not trigger autologging (i.e. no new run is created)
+    assert mlflow.last_active_run().info.run_id == last_run_id

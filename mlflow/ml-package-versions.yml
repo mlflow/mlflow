@@ -59,9 +59,25 @@ pytorch-lightning:
     minimum: "2.1.1"
     maximum: "2.5.5"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
+      ">= 0.0.0":
+        [
+          "scikit-learn",
+          "torchvision",
+          "protobuf<4.0.0",
+          "tensorboard",
+          "greenlet<3",
+          "pytorch-forecasting",
+        ]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
+
+  models:
+    minimum: "2.1.1"
+    maximum: "2.5.5"
+    requirements:
+      ">= 0.0.0": ["pytorch-forecasting"]
+    run: |
+      pytest tests/pytorch/test_forecasting_model.py
 
 keras:
   package_info:
@@ -347,6 +363,8 @@ prophet:
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
       ">= 0.0.0": ["numpy<2"]
+      # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0: https://github.com/facebook/prophet/issues/2697
+      "<= 1.2.0": ["cmdstanpy<1.3.0"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -517,6 +535,8 @@ transformers:
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
+      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+      "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
@@ -667,7 +687,6 @@ langchain:
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
 
-      # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
     test_tracing_sdk: true
 
@@ -839,7 +858,7 @@ crewai:
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI
+      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
     maximum: "0.203.1"

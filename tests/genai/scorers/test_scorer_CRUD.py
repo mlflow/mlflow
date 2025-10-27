@@ -2,7 +2,7 @@ from unittest.mock import ANY, Mock, patch
 
 import mlflow
 from mlflow.genai.scorers import Scorer, scorer
-from mlflow.genai.scorers.base import Scorer, ScorerSamplingConfig, ScorerStatus
+from mlflow.genai.scorers.base import ScorerSamplingConfig, ScorerStatus
 from mlflow.genai.scorers.registry import (
     delete_scorer,
     get_scorer,
@@ -12,77 +12,82 @@ from mlflow.genai.scorers.registry import (
 
 
 def test_mlflow_backend_scorer_operations():
-    """Test all scorer operations with MLflow backend"""
+    with (
+        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+    ):
+        experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
+        mlflow.set_experiment(experiment_id=experiment_id)
 
-    experiment_id = mlflow.create_experiment("test_scorer_mlflow_backend_experiment")
-    mlflow.set_experiment(experiment_id=experiment_id)
+        @scorer
+        def test_mlflow_scorer_v1(outputs) -> bool:
+            return len(outputs) > 0
 
-    @scorer
-    def test_mlflow_scorer_v1(outputs) -> bool:
-        return len(outputs) > 0
+        assert test_mlflow_scorer_v1.status == ScorerStatus.UNREGISTERED
+        # Test register operation
+        registered_scorer_v1 = test_mlflow_scorer_v1.register(
+            experiment_id=experiment_id, name="test_mlflow_scorer"
+        )
 
-    assert test_mlflow_scorer_v1.status == ScorerStatus.UNREGISTERED
-    # Test register operation
-    registered_scorer_v1 = test_mlflow_scorer_v1.register(
-        experiment_id=experiment_id, name="test_mlflow_scorer"
-    )
+        assert registered_scorer_v1.status == ScorerStatus.STOPPED
 
-    assert registered_scorer_v1.status == ScorerStatus.STOPPED
+        # Register a second version of the scorer
+        @scorer
+        def test_mlflow_scorer_v2(outputs) -> bool:
+            return len(outputs) > 10  # Different logic for v2
 
-    # Register a second version of the scorer
-    @scorer
-    def test_mlflow_scorer_v2(outputs) -> bool:
-        return len(outputs) > 10  # Different logic for v2
+        # Register the scorer in the active experiment.
+        registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
+        assert registered_scorer_v2.name == "test_mlflow_scorer"
 
-    # Register the scorer in the active experiment.
-    registered_scorer_v2 = test_mlflow_scorer_v2.register(name="test_mlflow_scorer")
-    assert registered_scorer_v2.name == "test_mlflow_scorer"
+        # Test list operation
+        scorers = list_scorers(experiment_id=experiment_id)
+        assert len(scorers) == 1
+        assert scorers[0]._original_func.__name__ == "test_mlflow_scorer_v2"
 
-    # Test list operation
-    scorers = list_scorers(experiment_id=experiment_id)
-    assert len(scorers) == 1
-    assert scorers[0]._original_func.__name__ == "test_mlflow_scorer_v2"
+        # Test list versions
+        scorer_versions = list_scorer_versions(
+            name="test_mlflow_scorer", experiment_id=experiment_id
+        )
+        assert len(scorer_versions) == 2
 
-    # Test list versions
-    scorer_versions = list_scorer_versions(name="test_mlflow_scorer", experiment_id=experiment_id)
-    assert len(scorer_versions) == 2
+        # Test get_scorer with specific version
+        retrieved_scorer_v1 = get_scorer(
+            name="test_mlflow_scorer", experiment_id=experiment_id, version=1
+        )
+        assert retrieved_scorer_v1._original_func.__name__ == "test_mlflow_scorer_v1"
 
-    # Test get_scorer with specific version
-    retrieved_scorer_v1 = get_scorer(
-        name="test_mlflow_scorer", experiment_id=experiment_id, version=1
-    )
-    assert retrieved_scorer_v1._original_func.__name__ == "test_mlflow_scorer_v1"
+        retrieved_scorer_v2 = get_scorer(
+            name="test_mlflow_scorer", experiment_id=experiment_id, version=2
+        )
+        assert retrieved_scorer_v2._original_func.__name__ == "test_mlflow_scorer_v2"
 
-    retrieved_scorer_v2 = get_scorer(
-        name="test_mlflow_scorer", experiment_id=experiment_id, version=2
-    )
-    assert retrieved_scorer_v2._original_func.__name__ == "test_mlflow_scorer_v2"
+        retrieved_scorer_latest = get_scorer(name="test_mlflow_scorer", experiment_id=experiment_id)
+        assert retrieved_scorer_latest._original_func.__name__ == "test_mlflow_scorer_v2"
 
-    retrieved_scorer_latest = get_scorer(name="test_mlflow_scorer", experiment_id=experiment_id)
-    assert retrieved_scorer_latest._original_func.__name__ == "test_mlflow_scorer_v2"
+        # Test delete_scorer with specific version
+        delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=2)
+        scorers_after_delete = list_scorers(experiment_id=experiment_id)
+        assert len(scorers_after_delete) == 1
+        assert scorers_after_delete[0]._original_func.__name__ == "test_mlflow_scorer_v1"
 
-    # Test delete_scorer with specific version
-    delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=2)
-    scorers_after_delete = list_scorers(experiment_id=experiment_id)
-    assert len(scorers_after_delete) == 1
-    assert scorers_after_delete[0]._original_func.__name__ == "test_mlflow_scorer_v1"
+        delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=1)
+        scorers_after_delete = list_scorers(experiment_id=experiment_id)
+        assert len(scorers_after_delete) == 0
 
-    delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version=1)
-    scorers_after_delete = list_scorers(experiment_id=experiment_id)
-    assert len(scorers_after_delete) == 0
+        # test delete all versions
+        test_mlflow_scorer_v1.register(experiment_id=experiment_id, name="test_mlflow_scorer")
+        test_mlflow_scorer_v2.register(experiment_id=experiment_id, name="test_mlflow_scorer")
+        delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version="all")
+        assert len(list_scorers(experiment_id=experiment_id)) == 0
 
-    # test delete all versions
-    test_mlflow_scorer_v1.register(experiment_id=experiment_id, name="test_mlflow_scorer")
-    test_mlflow_scorer_v2.register(experiment_id=experiment_id, name="test_mlflow_scorer")
-    delete_scorer(name="test_mlflow_scorer", experiment_id=experiment_id, version="all")
-    assert len(list_scorers(experiment_id=experiment_id)) == 0
-
-    # Clean up
-    mlflow.delete_experiment(experiment_id)
+        # Clean up
+        mlflow.delete_experiment(experiment_id)
 
 
 def test_databricks_backend_scorer_operations():
     """Test all scorer operations with Databricks backend"""
+    from mlflow.genai.scorers.registry import DatabricksStore
 
     # Mock the scheduled scorer responses
     mock_scheduled_scorer = Mock()
@@ -92,9 +97,10 @@ def test_databricks_backend_scorer_operations():
     mock_scheduled_scorer.filter_string = "test_filter"
 
     with (
-        patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
-        ),
+        patch("mlflow.tracking.get_tracking_uri", return_value="databricks"),
+        patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True),
+        patch("mlflow.genai.scorers.base.is_databricks_uri", return_value=True),
+        patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_get_store,
         patch("mlflow.genai.scorers.registry.DatabricksStore.add_registered_scorer") as mock_add,
         patch(
             "mlflow.genai.scorers.registry.DatabricksStore.list_scheduled_scorers",
@@ -109,6 +115,10 @@ def test_databricks_backend_scorer_operations():
             return_value=None,
         ) as mock_delete,
     ):
+        # Set up the store mock
+        mock_store = DatabricksStore()
+        mock_get_store.return_value = mock_store
+
         # Test register operation
         @scorer
         def test_databricks_scorer(outputs) -> bool:
