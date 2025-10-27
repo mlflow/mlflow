@@ -1,5 +1,6 @@
-from typing import Literal, get_origin
+from typing import Literal, get_args, get_origin
 
+from mlflow.entities.assessment import FeedbackValueType
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
@@ -7,25 +8,78 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
 
 
-def _validate_result_type(result_type: type | None) -> None:
-    """Validate that result_type is one of the supported types for serialization."""
-    if result_type is None:
-        return
+def _validate_feedback_value_type(feedback_value_type: type[FeedbackValueType]) -> None:
+    """
+    Validate that feedback_value_type is one of the supported types for serialization.
 
-    # Check for basic types
-    if result_type in (str, int, float, bool):
+    Supported types match FeedbackValueType:
+    - PbValueType: int, float, str, bool
+    - Literal types with PbValueType values
+    - dict[str, PbValueType]
+    - list[PbValueType]
+    """
+
+    # Check for basic PbValueType (float, int, str, bool)
+    if feedback_value_type in (str, int, float, bool):
         return
 
     # Check for Literal type
-    if get_origin(result_type) is Literal:
+    origin = get_origin(feedback_value_type)
+    if origin is Literal:
+        # Validate that all literal values are of PbValueType
+        literal_values = get_args(feedback_value_type)
+        for value in literal_values:
+            if not isinstance(value, (str, int, float, bool)):
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"Literal type contains unsupported value type: {type(value).__name__}. "
+                    f"Literal values must be str, int, float, or bool."
+                )
         return
+
+    # Check for dict[str, PbValueType]
+    if origin is dict:
+        args = get_args(feedback_value_type)
+        if len(args) == 2:
+            key_type, value_type = args
+            # Key must be str
+            if key_type != str:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"dict key type must be str, got {key_type}"
+                )
+            # Value must be a PbValueType
+            if value_type not in (str, int, float, bool):
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"dict value type must be str, int, float, or bool, got {value_type}"
+                )
+            return
+
+    # Check for list[PbValueType]
+    if origin is list:
+        args = get_args(feedback_value_type)
+        if len(args) == 1:
+            element_type = args[0]
+            # Element must be a PbValueType
+            if element_type not in (str, int, float, bool):
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"list element type must be str, int, float, or bool, got {element_type}"
+                )
+            return
 
     # If we get here, it's an unsupported type
     from mlflow.exceptions import MlflowException
 
     raise MlflowException.invalid_parameter_value(
-        f"Unsupported result_type: {result_type}. "
-        f"Only str, int, float, bool, and Literal types are supported for serialization. "
+        f"Unsupported feedback_value_type: {feedback_value_type}. "
+        f"Supported types (FeedbackValueType): str, int, float, bool, Literal[...], "
+        f"dict[str, PbValueType], and list[PbValueType]. "
         f"Pydantic BaseModel types are not supported."
     )
 
@@ -37,7 +91,7 @@ def make_judge(
     instructions: str,
     model: str | None = None,
     description: str | None = None,
-    result_type: type | None = None,
+    feedback_value_type: type[FeedbackValueType] = str,
 ) -> Judge:
     """
 
@@ -55,9 +109,20 @@ def make_judge(
                       supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         description: A description of what the judge evaluates
-        result_type: Optional type specification for the 'value' field of the Feedback object.
-                        Supported types: int, float, str, bool and Literal[values].
-                        Pydantic BaseModel types are not supported for serialization.
+        feedback_value_type: Optional type specification for the 'value' field in the Feedback
+                        object. When specified, the judge will use structured outputs to enforce
+                        this type. Default is str.
+
+                        Supported types (matching FeedbackValueType):
+                        - int: Integer ratings (e.g., 1-5 scale)
+                        - float: Floating point scores (e.g., 0.0-1.0)
+                        - str: Text responses
+                        - bool: Yes/no evaluations
+                        - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
+                        - dict[str, PbValueType]: Dictionary with string keys and PbValueType values
+                        - list[PbValueType]: List of PbValueType values
+
+                        Note: Pydantic BaseModel types are not supported.
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters
@@ -122,12 +187,12 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
-    _validate_result_type(result_type)
+    _validate_feedback_value_type(feedback_value_type)
 
     return InstructionsJudge(
         name=name,
         instructions=instructions,
         model=model,
         description=description,
-        result_type=result_type,
+        feedback_value_type=feedback_value_type,
     )

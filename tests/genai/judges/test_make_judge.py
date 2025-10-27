@@ -2462,7 +2462,7 @@ def test_instructions_judge_repr():
     assert "template_variables=['inputs', 'outputs']" in repr_long
 
 
-def test_make_judge_with_result_type(monkeypatch):
+def test_make_judge_with_feedback_value_type(monkeypatch):
     captured_response_format = None
 
     def mock_litellm_completion(**kwargs):
@@ -2484,7 +2484,7 @@ def test_make_judge_with_result_type(monkeypatch):
         name="test_judge",
         instructions="Rate the quality of {{ outputs }} on a scale of 1-5",
         model="openai:/gpt-4",
-        result_type=int,
+        feedback_value_type=int,
     )
 
     result = judge(outputs={"text": "Great work!"})
@@ -2504,68 +2504,122 @@ def test_make_judge_with_result_type(monkeypatch):
     assert result.rationale == "Excellent quality work"
 
 
-def test_make_judge_serialization_with_result_type():
+def test_make_judge_serialization_with_feedback_value_type():
     # Test with int type
     judge_int = make_judge(
         name="int_judge",
         instructions="Rate {{ outputs }} from 1-10",
         model="openai:/gpt-4",
-        result_type=int,
+        feedback_value_type=int,
     )
 
     serialized = judge_int.model_dump()
     assert "instructions_judge_pydantic_data" in serialized
-    assert "result_type" in serialized["instructions_judge_pydantic_data"]
-    assert serialized["instructions_judge_pydantic_data"]["result_type"] == {"type": "int"}
+    assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {"type": "int"}
 
     restored_judge = Scorer.model_validate(serialized)
     assert isinstance(restored_judge, InstructionsJudge)
     assert restored_judge.name == "int_judge"
-    assert restored_judge._result_type == int
+    assert restored_judge._feedback_value_type == int
 
     # Test with bool type
     judge_bool = make_judge(
         name="bool_judge",
         instructions="Is {{ outputs }} correct?",
         model="openai:/gpt-4",
-        result_type=bool,
+        feedback_value_type=bool,
     )
 
     serialized_bool = judge_bool.model_dump()
-    assert serialized_bool["instructions_judge_pydantic_data"]["result_type"] == {"type": "bool"}
+    assert serialized_bool["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "bool"
+    }
 
     restored_bool = Scorer.model_validate(serialized_bool)
-    assert restored_bool._result_type == bool
+    assert restored_bool._feedback_value_type == bool
 
     # Test with Literal type
     judge_literal = make_judge(
         name="literal_judge",
         instructions="Rate {{ outputs }} quality",
         model="openai:/gpt-4",
-        result_type=Literal["good", "bad", "neutral"],
+        feedback_value_type=Literal["good", "bad", "neutral"],
     )
 
     serialized_literal = judge_literal.model_dump()
-    assert serialized_literal["instructions_judge_pydantic_data"]["result_type"] == {
+    assert serialized_literal["instructions_judge_pydantic_data"]["feedback_value_type"] == {
         "type": "Literal",
         "values": ["good", "bad", "neutral"],
     }
 
     restored_literal = Scorer.model_validate(serialized_literal)
-    assert typing.get_origin(restored_literal._result_type) is Literal
-    assert set(typing.get_args(restored_literal._result_type)) == {"good", "bad", "neutral"}
+    assert typing.get_origin(restored_literal._feedback_value_type) is Literal
+    assert set(typing.get_args(restored_literal._feedback_value_type)) == {"good", "bad", "neutral"}
+
+    # Test with dict[str, int] type
+    judge_dict = make_judge(
+        name="dict_judge",
+        instructions="Rate {{ outputs }} with scores",
+        model="openai:/gpt-4",
+        feedback_value_type=dict[str, int],
+    )
+
+    serialized_dict = judge_dict.model_dump()
+    assert serialized_dict["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "dict",
+        "key_type": "str",
+        "value_type": "int",
+    }
+
+    restored_dict = Scorer.model_validate(serialized_dict)
+    assert typing.get_origin(restored_dict._feedback_value_type) is dict
+    assert typing.get_args(restored_dict._feedback_value_type) == (str, int)
+
+    # Test with list[str] type
+    judge_list = make_judge(
+        name="list_judge",
+        instructions="List issues in {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=list[str],
+    )
+
+    serialized_list = judge_list.model_dump()
+    assert serialized_list["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "list",
+        "element_type": "str",
+    }
+
+    restored_list = Scorer.model_validate(serialized_list)
+    assert typing.get_origin(restored_list._feedback_value_type) is list
+    assert typing.get_args(restored_list._feedback_value_type) == (str,)
 
 
-def test_make_judge_validates_result_type():
+def test_make_judge_validates_feedback_value_type():
     # Valid types should work
     make_judge(
-        name="int_judge", instructions="Rate {{ outputs }}", model="openai:/gpt-4", result_type=int
+        name="int_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=int,
     )
     make_judge(
         name="str_judge",
         instructions="Evaluate {{ outputs }}",
         model="openai:/gpt-4",
-        result_type=str,
+        feedback_value_type=str,
+    )
+    make_judge(
+        name="dict_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=dict[str, int],
+    )
+    make_judge(
+        name="list_judge",
+        instructions="List {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=list[str],
     )
 
     # Unsupported types should be rejected
@@ -2574,11 +2628,11 @@ def test_make_judge_validates_result_type():
 
     with pytest.raises(
         MlflowException,
-        match=r"Unsupported result_type: .+CustomModel.+Only str, int, float, bool, and Literal",
+        match=r"Unsupported feedback_value_type: .+CustomModel",
     ):
         make_judge(
             name="invalid_judge",
             instructions="Rate {{ outputs }}",
             model="openai:/gpt-4",
-            result_type=CustomModel,
+            feedback_value_type=CustomModel,
         )

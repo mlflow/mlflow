@@ -271,10 +271,11 @@ class Scorer(BaseModel):
                     f"{'; '.join(errors)}"
                 )
 
-            # Deserialize result_type if present
-            result_type = None
-            if "result_type" in data and data["result_type"] is not None:
-                result_type = InstructionsJudge._deserialize_response_format(data["result_type"])
+            feedback_value_type = None
+            if "feedback_value_type" in data and data["feedback_value_type"] is not None:
+                feedback_value_type = InstructionsJudge._deserialize_response_format(
+                    data["feedback_value_type"]
+                )
 
             try:
                 return InstructionsJudge(
@@ -282,7 +283,7 @@ class Scorer(BaseModel):
                     description=serialized.description,
                     instructions=data["instructions"],
                     model=data["model"],
-                    result_type=result_type,
+                    feedback_value_type=feedback_value_type,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:

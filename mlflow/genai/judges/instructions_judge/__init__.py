@@ -7,7 +7,7 @@ import pydantic
 from pydantic import PrivateAttr
 
 import mlflow
-from mlflow.entities.assessment import Feedback
+from mlflow.entities.assessment import Feedback, FeedbackValueType
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -64,7 +64,7 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
-    _result_type: type | None = PrivateAttr()
+    _feedback_value_type: type[FeedbackValueType] | None = PrivateAttr()
 
     def __init__(
         self,
@@ -72,7 +72,7 @@ class InstructionsJudge(Judge):
         instructions: str,
         model: str | None = None,
         description: str | None = None,
-        result_type: type | None = None,
+        feedback_value_type: type[FeedbackValueType] = str,
         **kwargs,
     ):
         """
@@ -83,8 +83,9 @@ class InstructionsJudge(Judge):
             instructions: Natural language instructions for evaluation
             model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
             description: A description of what the judge evaluates
-            result_type: Optional type for the result field in the response.
-                           If None, the default judge response schema will be used.
+            feedback_value_type: Optional type for the 'value' field in the Feedback response.
+                           Default is str. Supported types (FeedbackValueType): int, float,
+                           str, bool, Literal types, dict[str, PbValueType], and list[PbValueType].
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -102,7 +103,7 @@ class InstructionsJudge(Judge):
 
         self._instructions = instructions
         self._model = model or get_default_model()
-        self._result_type = result_type
+        self._feedback_value_type = feedback_value_type
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -402,11 +403,11 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
-        if self._result_type is not None:
+        if self._feedback_value_type is not None:
             response_format = pydantic.create_model(
                 "ResponseFormat",
                 result=(
-                    self._result_type,
+                    self._feedback_value_type,
                     pydantic.Field(description=self.description or "The result of the evaluation"),
                 ),
                 rationale=(str, pydantic.Field(description="The rationale for the evaluation")),
@@ -470,21 +471,46 @@ class InstructionsJudge(Judge):
         """
         Serialize a response_format type to a JSON-compatible dict.
 
-        Supports: str, int, float, bool, and Literal types.
+        Supports all FeedbackValueType types:
+        - PbValueType: str, int, float, bool
+        - Literal types
+        - dict[str, PbValueType]
+        - list[PbValueType]
         """
-        # Handle basic types
+        # Handle basic types (PbValueType: float, int, str, bool)
         if response_format in (str, int, float, bool):
             return {"type": response_format.__name__}
 
+        origin = get_origin(response_format)
+
         # Handle Literal types
-        if get_origin(response_format) is Literal:
+        if origin is Literal:
             literal_values = get_args(response_format)
             return {"type": "Literal", "values": list(literal_values)}
 
+        # Handle dict[str, PbValueType]
+        if origin is dict:
+            args = get_args(response_format)
+            if len(args) == 2:
+                key_type, value_type = args
+                return {
+                    "type": "dict",
+                    "key_type": key_type.__name__,
+                    "value_type": value_type.__name__,
+                }
+
+        # Handle list[PbValueType]
+        if origin is list:
+            args = get_args(response_format)
+            if len(args) == 1:
+                element_type = args[0]
+                return {"type": "list", "element_type": element_type.__name__}
+
         # Unsupported type
         raise MlflowException.invalid_parameter_value(
-            f"Unsupported response_format type: {response_format}. "
-            f"Only str, int, float, bool, and Literal types are supported for serialization."
+            f"Unsupported feedback_value_type type: {response_format}. "
+            f"Only str, int, float, bool, Literal, dict[str, PbValueType], and "
+            f"list[PbValueType] types are supported for serialization."
         )
 
     @staticmethod
@@ -492,7 +518,11 @@ class InstructionsJudge(Judge):
         """
         Deserialize a response_format from a JSON-compatible dict.
 
-        Supports: str, int, float, bool, and Literal types.
+        Supports all FeedbackValueType types:
+        - PbValueType: str, int, float, bool
+        - Literal types
+        - dict[str, PbValueType]
+        - list[PbValueType]
         """
         if not isinstance(serialized, dict) or "type" not in serialized:
             raise MlflowException.invalid_parameter_value(
@@ -501,26 +531,54 @@ class InstructionsJudge(Judge):
 
         type_name = serialized["type"]
 
-        # Handle basic types
-        if type_name == "str":
-            return str
-        elif type_name == "int":
-            return int
-        elif type_name == "float":
-            return float
-        elif type_name == "bool":
-            return bool
-        elif type_name == "Literal":
+        # Map type names to actual types
+        type_map = {"str": str, "int": int, "float": float, "bool": bool}
+
+        # Handle basic types (PbValueType: float, int, str, bool)
+        if type_name in type_map:
+            return type_map[type_name]
+
+        # Handle Literal type
+        if type_name == "Literal":
             if "values" not in serialized:
                 raise MlflowException.invalid_parameter_value(
                     f"Literal type missing 'values' field: {serialized}"
                 )
             # Reconstruct Literal type
             return Literal[tuple(serialized["values"])]
-        else:
-            raise MlflowException.invalid_parameter_value(
-                f"Unsupported response_format type: {type_name}"
-            )
+
+        # Handle dict type
+        if type_name == "dict":
+            if "key_type" not in serialized or "value_type" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"dict type missing 'key_type' or 'value_type' field: {serialized}"
+                )
+            key_type = type_map.get(serialized["key_type"])
+            value_type = type_map.get(serialized["value_type"])
+            if key_type is None or value_type is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid key_type or value_type in dict serialization: {serialized}"
+                )
+            return dict[key_type, value_type]
+
+        # Handle list type
+        if type_name == "list":
+            if "element_type" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"list type missing 'element_type' field: {serialized}"
+                )
+            element_type = type_map.get(serialized["element_type"])
+            if element_type is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid element_type in list serialization: {serialized}"
+                )
+            return list[element_type]
+
+        # Unsupported type
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported feedback_value_type type: {type_name}. "
+            f"Only str, int, float, bool, Literal, dict, and list types are supported."
+        )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
@@ -528,8 +586,10 @@ class InstructionsJudge(Judge):
             "instructions": self._instructions,
             "model": self._model,
         }
-        if self._result_type is not None:
-            pydantic_data["result_type"] = self._serialize_response_format(self._result_type)
+        if self._feedback_value_type is not None:
+            pydantic_data["feedback_value_type"] = self._serialize_response_format(
+                self._feedback_value_type
+            )
 
         serialized_scorer = SerializedScorer(
             name=self.name,
