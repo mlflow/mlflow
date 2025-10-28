@@ -317,12 +317,9 @@ def mock_databricks_tracking_uri():
     # Ensure scorer store resolves to Databricks regardless of ambient env
     with (
         mock.patch(
-            "mlflow.genai.scorers.registry.utils._resolve_tracking_uri", return_value="databricks"
-        ) as mock_uri,
-        mock.patch(
             "mlflow.tracking._tracking_service.utils._resolve_tracking_uri",
             return_value="databricks",
-        ),
+        ) as mock_uri,
         mock.patch(
             "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
         ),
