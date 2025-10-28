@@ -9,7 +9,7 @@ from mlflow.genai.evaluation.telemetry import (
     _CLIENT_NAME_HEADER,
     _CLIENT_VERSION_HEADER,
     _SESSION_ID_HEADER,
-    emit_custom_metric_usage_event_if_databricks,
+    emit_custom_metric_event,
 )
 from mlflow.genai.judges import make_judge
 from mlflow.genai.scorers import Correctness, Guidelines
@@ -38,7 +38,7 @@ class IsEmpty(Scorer):
         return outputs == ""
 
 
-def test_emit_custom_metric_usage_event_if_databricks():
+def test_emit_custom_metric_event():
     from databricks.agents.evals import metric
 
     # Legacy custom metrics
@@ -61,7 +61,7 @@ def test_emit_custom_metric_usage_event_if_databricks():
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
     ):
-        emit_custom_metric_usage_event_if_databricks(
+        emit_custom_metric_event(
             scorers=scorers,
             eval_count=10,
             aggregated_metrics={
@@ -126,7 +126,7 @@ def test_emit_custom_metric_usage_event_skip_outside_databricks():
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=False),
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
     ):
-        emit_custom_metric_usage_event_if_databricks(
+        emit_custom_metric_event(
             scorers=[is_concise, is_correct],
             eval_count=10,
             aggregated_metrics={"is_concise/mean": 0.1, "is_correct/mean": 0.2},
@@ -140,7 +140,7 @@ def test_emit_custom_metric_usage_event_with_sessions():
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
     ):
         for _ in range(3):
-            emit_custom_metric_usage_event_if_databricks(
+            emit_custom_metric_event(
                 scorers=[is_concise, is_correct],
                 eval_count=10,
                 aggregated_metrics={"is_concise/mean": 0.1, "is_correct/mean": 0.2},

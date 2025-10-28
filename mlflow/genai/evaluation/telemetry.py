@@ -22,12 +22,10 @@ _sessions = threading.local()
 _SESSION_KEY = "genai-eval-session"
 
 
-def emit_custom_metric_usage_event_if_databricks(
+def emit_custom_metric_event(
     scorers: list[Scorer], eval_count: int | None, aggregated_metrics: dict[str, float]
 ):
-    """
-    Emit usage events for custom scorers and metrics usage if running on Databricks.
-    """
+    """Emit events for custom scorers and metrics usage if running on Databricks"""
     if not is_databricks_uri(mlflow.get_tracking_uri()):
         return
 
