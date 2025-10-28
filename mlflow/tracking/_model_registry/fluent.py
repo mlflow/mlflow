@@ -806,17 +806,8 @@ def _load_prompt_not_cached(
     Load prompt from client, handling URI parsing.
     """
     client = MlflowClient()
-
-    # Use utility to handle URI vs name+version parsing
-    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-    if parsed_name_or_uri.startswith("prompts:/"):
-        # For URIs, don't pass version parameter
-        return client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
-    else:
-        # For names, use the parsed version
-        return client.load_prompt(
-            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
-        )
+    prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
+    return client.load_prompt(prompt_uri, allow_missing=allow_missing)
 
 
 @require_prompt_registry
