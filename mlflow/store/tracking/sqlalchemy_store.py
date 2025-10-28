@@ -2780,12 +2780,11 @@ class SqlAlchemyStore(AbstractStore):
             if max_traces:
                 filters.append(
                     SqlTraceInfo.request_id.in_(
-                        session.query(SqlTraceInfo.request_id)
-                        .filter(*filters)
+                        select(SqlTraceInfo.request_id)
+                        .where(and_(*filters))
                         # Delete the oldest traces first
                         .order_by(SqlTraceInfo.timestamp_ms)
                         .limit(max_traces)
-                        .subquery()
                     )
                 )
 
