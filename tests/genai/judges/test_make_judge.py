@@ -2639,3 +2639,25 @@ def test_make_judge_validates_feedback_value_type():
             model="openai:/gpt-4",
             feedback_value_type=CustomModel,
         )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The `feedback_value_type` argument does not support a dict type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=dict[str, CustomModel],
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The `feedback_value_type` argument does not support a list type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=list[CustomModel],
+        )

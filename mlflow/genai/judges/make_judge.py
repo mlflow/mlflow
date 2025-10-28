@@ -32,7 +32,8 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
-                    f"Literal type contains unsupported value type: {type(value).__name__}. "
+                    "The `feedback_value_type` argument does not support a Literal type"
+                    f"with non-primitive types, but got {type(value).__name__}. "
                     f"Literal values must be str, int, float, or bool."
                 )
         return
@@ -54,7 +55,8 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
-                    f"dict value type must be str, int, float, or bool, got {value_type}"
+                    "The `feedback_value_type` argument does not support a dict type"
+                    f"with non-primitive values, but got {value_type.__name__}"
                 )
             return
 
@@ -68,7 +70,8 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
-                    f"list element type must be str, int, float, or bool, got {element_type}"
+                    "The `feedback_value_type` argument does not support a list type"
+                    f"with non-primitive values, but got {element_type.__name__}"
                 )
             return
 
