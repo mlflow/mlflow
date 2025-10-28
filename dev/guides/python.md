@@ -294,3 +294,20 @@ def test_foo():
 def test_foo(input: str, expected: int):
     assert foo(input) == expected
 ```
+
+## Avoid Custom Messages in Test Asserts
+
+Pytest's assertion introspection provides detailed failure information automatically. Avoid adding custom messages to `assert` statements in tests unless absolutely necessary.
+
+```python
+# Bad
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3, f"Expected 3 items, got {len(items)}"
+
+
+# Good
+def test_list_items():
+    items = list_items()
+    assert len(items) == 3
+```
