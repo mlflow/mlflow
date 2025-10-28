@@ -274,7 +274,6 @@ Once the above code finishes, run the following command in a separate terminal a
 mlflow ui
 ```
 
-
 ## 💭 Support
 
 - For help or questions about MLflow usage (e.g. "how do I do X?") visit the [documentation](https://mlflow.org/docs/latest).
