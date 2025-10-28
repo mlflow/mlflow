@@ -273,7 +273,6 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    # If env_pack exists, attempt staging the model for model serving.
     if validated_env_pack:
         eprint(
             f"Staging model {create_version_response.name} "

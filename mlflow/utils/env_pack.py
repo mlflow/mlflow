@@ -40,11 +40,9 @@ def _validate_env_pack(env_pack):
       ``install_dependencies`` field.
     - None
     """
-    # No env_pack provided
     if env_pack is None:
         return None
 
-    # Shortcut: string value
     if isinstance(env_pack, str):
         if env_pack == "databricks_model_serving":
             return EnvPackConfig(name="databricks_model_serving", install_dependencies=True)
@@ -52,7 +50,6 @@ def _validate_env_pack(env_pack):
             f"Invalid env_pack value: {env_pack!r}. Expected: 'databricks_model_serving'."
         )
 
-    # EnvPackConfig
     if isinstance(env_pack, EnvPackConfig):
         if env_pack.name != "databricks_model_serving":
             raise MlflowException.invalid_parameter_value(
