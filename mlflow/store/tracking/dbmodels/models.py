@@ -2048,25 +2048,28 @@ class SqlSecret(Base):
     """
     Secret name: `String` (limit 255 characters). Unique identifier for the secret.
     """
-    ciphertext = Column(LargeBinary, nullable=False)
+    encrypted_value = Column(LargeBinary, nullable=False)
     """
-    Encrypted secret data: `LargeBinary`. Contains the AES-GCM encrypted secret value.
-    """
-    iv = Column(LargeBinary, nullable=False)
-    """
-    Initialization vector (nonce): `LargeBinary`. 12 bytes for AES-GCM.
+    Encrypted secret data: `LargeBinary`. Combined nonce (12 bytes) + AES-GCM ciphertext +
+    tag (16 bytes). The secret value is encrypted using envelope encryption with a DEK, and
+    the nonce is prepended for storage. AAD (Additional Authenticated Data) from secret_id
+    and secret_name is included during encryption to prevent ciphertext substitution attacks.
     """
     wrapped_dek = Column(LargeBinary, nullable=False)
     """
-    Wrapped data encryption key: `LargeBinary`. DEK encrypted by KEK (32 bytes).
+    Wrapped data encryption key: `LargeBinary`. DEK encrypted by KEK.
+    The DEK is a randomly generated 256-bit AES key used to encrypt the secret value.
     """
-    kek_version = Column(Integer, nullable=False)
+    kek_version = Column(Integer, nullable=False, default=1)
     """
     KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
+    Used for KEK rotation - allows multiple KEK versions to coexist during migration.
     """
-    aad_hash = Column(LargeBinary, nullable=False)
+    masked_value = Column(String(100), nullable=False)
     """
-    Additional authenticated data hash: `LargeBinary`. SHA-256 hash of (secret_id || secret_name).
+    Masked secret value: `String` (limit 100 characters). Shows partial secret for identification.
+    Format: prefix (3-4 chars) + "..." + suffix (last 4 chars), e.g., "sk-...xyz123".
+    Helps users identify shared secrets without exposing the full value.
     """
     is_shared = Column(Boolean, nullable=False, default=False)
     """
@@ -2129,9 +2132,9 @@ class SqlSecretBinding(Base):
     """
     Resource ID: `String` (limit 255 characters). ID of the resource using this secret.
     """
-    binding_name = Column(String(255), nullable=False)
+    field_name = Column(String(255), nullable=False)
     """
-    Binding name: `String` (limit 255 characters). Field name for the secret (e.g., api_key).
+    Field name: `String` (limit 255 characters). Environment variable name (e.g., OPENAI_API_KEY).
     """
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
     """
@@ -2158,7 +2161,7 @@ class SqlSecretBinding(Base):
     __table_args__ = (
         PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
         UniqueConstraint(
-            "resource_type", "resource_id", "binding_name", name="unique_binding_per_resource"
+            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
         ),
         Index("index_secrets_bindings_secret_id", "secret_id"),
         Index("index_secrets_bindings_resource_type_resource_id", "resource_type", "resource_id"),
