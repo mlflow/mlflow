@@ -133,10 +133,8 @@ from mlflow.genai.judges.tools.get_span_performance_and_timing_report import (
     GetSpanPerformanceAndTimingReportTool,
 )
 from mlflow.genai.judges.tools.get_trace_info import GetTraceInfoTool
-from mlflow.genai.judges.tools.get_traces_in_session import GetTracesInSession
 from mlflow.genai.judges.tools.list_spans import ListSpansTool
 from mlflow.genai.judges.tools.search_trace_regex import SearchTraceRegexTool
-from mlflow.genai.judges.tools.search_traces import SearchTracesTool
 
 _judge_tool_registry.register(GetTraceInfoTool())
 _judge_tool_registry.register(GetRootSpanTool())
@@ -144,5 +142,3 @@ _judge_tool_registry.register(GetSpanTool())
 _judge_tool_registry.register(ListSpansTool())
 _judge_tool_registry.register(SearchTraceRegexTool())
 _judge_tool_registry.register(GetSpanPerformanceAndTimingReportTool())
-_judge_tool_registry.register(GetTracesInSession())
-_judge_tool_registry.register(SearchTracesTool())
