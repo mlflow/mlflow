@@ -24,8 +24,6 @@ def test_validate_function_parameters():
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
         _validate_function_parameters(test_func, {"a": 1})
 
-    assert True  # If we get here, the exception was properly raised
-
     # Test with multiple missing required parameters
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
         _validate_function_parameters(test_func, {})
