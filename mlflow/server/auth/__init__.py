@@ -366,6 +366,27 @@ def sender_is_admin():
     return store.get_user(username).is_admin
 
 
+def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
+    """
+    Filter experiment IDs to only include those the user has read access to.
+
+    Args:
+        experiment_ids: List of experiment IDs to filter
+
+    Returns:
+        Filtered list of experiment IDs the user can read
+    """
+    if not auth_config or sender_is_admin():
+        return experiment_ids
+
+    username = authenticate_request().username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+
+
 def username_is_sender():
     """Validate if the request username is the sender"""
     username = _get_request_param("username")

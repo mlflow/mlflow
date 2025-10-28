@@ -1216,14 +1216,7 @@ def search_runs_impl(request_message):
     # NB: Local import to avoid circular dependency (auth imports from handlers)
     from mlflow.server import auth
 
-    if auth.auth_config and not auth.sender_is_admin():
-        username = auth.authenticate_request().username
-        perms = auth.store.list_experiment_permissions(username)
-        can_read = {p.experiment_id: auth.get_permission(p.permission).can_read for p in perms}
-        default_can_read = auth.get_permission(auth.auth_config.default_permission).can_read
-        experiment_ids = [
-            exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)
-        ]
+    experiment_ids = auth.filter_experiment_ids(experiment_ids)
 
     order_by = request_message.order_by
     run_entities = _get_tracking_store().search_runs(
