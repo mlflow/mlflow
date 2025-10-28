@@ -246,6 +246,4 @@ class MlflowV3SpanExporter(SpanExporter):
         Whether to log spans to artifacts. Overridden by UC table exporter to False.
         """
         # If the spans are stored in tracking store, we should not log them to artifacts.
-        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE.value:
-            return False
-        return True
+        return trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value
