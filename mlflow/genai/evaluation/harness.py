@@ -26,7 +26,11 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.trace_utils import _does_store_support_trace_linking, create_minimal_trace
+from mlflow.genai.utils.trace_utils import (
+    _does_store_support_trace_linking,
+    batch_link_traces_to_run,
+    create_minimal_trace,
+)
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.tracing.utils.copy import copy_trace_to_experiment
@@ -76,6 +80,9 @@ def run(
             for eval_item in eval_items
         ]
         eval_results = complete_eval_futures_with_progress_base(futures)
+
+    # Link traces to the run if the backend support it
+    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
 
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
@@ -224,6 +231,13 @@ def _log_assessments(
                 **(assessment.metadata or {}),
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
+
+        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
+        if root_span := trace.data._get_root_span():
+            assessment.span_id = root_span.span_id
+        else:
+            _logger.debug(f"No root span found for trace {trace.info.trace_id}")
+
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
     # Get the trace to fetch newly created assessments.
