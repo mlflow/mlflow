@@ -141,7 +141,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --model claude-haiku-4-5 --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
+          timeout 10m claude --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="

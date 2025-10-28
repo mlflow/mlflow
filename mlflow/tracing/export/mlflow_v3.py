@@ -8,10 +8,11 @@ from opentelemetry.sdk.trace.export import SpanExporter
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.exceptions import RestException
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import SpansLocation, TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
@@ -43,9 +44,6 @@ class MlflowV3SpanExporter(SpanExporter):
 
         # Display handler is no-op when running outside of notebooks.
         self._display_handler = get_display_handler()
-
-        # Whether to log spans to artifacts. Overridden to False for UC table exporter.
-        self._should_log_spans_to_artifacts = True
 
         # A flag to cache the failure of exporting spans so that the client will not try to export
         # spans again and trigger excessive server side errors. Default to True (optimistically
@@ -195,7 +193,7 @@ class MlflowV3SpanExporter(SpanExporter):
             if trace:
                 add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace(trace.info)
-                if self._should_log_spans_to_artifacts:
+                if self._should_log_spans_to_artifacts(returned_trace_info):
                     self._client._upload_trace_data(returned_trace_info, trace.data)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
@@ -242,3 +240,10 @@ class MlflowV3SpanExporter(SpanExporter):
             return False
 
         return self._is_async_enabled
+
+    def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
+        """
+        Whether to log spans to artifacts. Overridden by UC table exporter to False.
+        """
+        # We only log traces to artifacts when the tracking store doesn't support span logging
+        return trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value
