@@ -334,9 +334,11 @@ A: No, prompt versions are immutable once created. To update a prompt, create a 
 
 #### Q: How to dynamically load the latest version of a prompt?
 
-A: You can load the latest version of a prompt by using the `@latest` alias. This is the reserved alias name and MLflow will automatically find the latest available version of the prompt.
+A: You can load the latest version of a prompt by passing the name only, or using the `@latest` alias. This is the reserved alias name and MLflow will automatically find the latest available version of the prompt.
 
 ```python
+prompt = mlflow.genai.load_prompt("summarization-prompt")
+# or
 prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@latest")
 ```
 
