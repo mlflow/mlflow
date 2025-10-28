@@ -5,7 +5,9 @@ import pytest
 from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
+from mlflow.entities.span import Span
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation, TraceLocationType
 from mlflow.entities.trace_state import TraceState
@@ -20,6 +22,7 @@ from mlflow.genai.judges.tools.types import (
     JudgeToolFeedback,
     JudgeToolTraceInfo,
 )
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.types.llm import ToolDefinition
 
 from tests.tracing.helper import create_mock_otel_span
@@ -215,10 +218,6 @@ def mock_trace() -> Trace:
 
 @pytest.fixture
 def mock_search_traces_list() -> list[Trace]:
-    from mlflow.entities.span import Span
-    from mlflow.entities.trace_data import TraceData
-    from mlflow.tracing.constant import SpanAttributeKey
-
     source = AssessmentSource(source_type=AssessmentSourceType.HUMAN)
 
     # Create trace 1 with request and response in root span
@@ -396,9 +395,6 @@ def test_search_traces_tool_invoke_invalid_trace_json(mock_trace: Trace) -> None
 
 def test_search_traces_tool_invoke_partial_failure(mock_trace: Trace) -> None:
     tool = SearchTracesTool()
-    from mlflow.entities.span import Span
-    from mlflow.entities.trace_data import TraceData
-    from mlflow.tracing.constant import SpanAttributeKey
 
     # First trace will fail (missing data)
     invalid_trace1_info = TraceInfo(

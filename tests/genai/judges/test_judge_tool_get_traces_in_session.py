@@ -19,7 +19,6 @@ def test_get_traces_in_session_tool_name() -> None:
 
 
 def test_get_traces_in_session_tool_get_definition() -> None:
-    """Test that the tool returns a valid tool definition."""
     tool = GetTracesInSession()
     definition = tool.get_definition()
 
@@ -39,7 +38,6 @@ def test_get_traces_in_session_tool_get_definition() -> None:
 
 
 def create_mock_trace(session_id: str | None = None) -> Trace:
-    """Helper function to create mock trace objects."""
     tags = {}
     if session_id:
         tags["session.id"] = session_id
@@ -124,7 +122,6 @@ def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
 
 
 def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
-    """Test that tool raises error when no session.id is found in trace tags."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace(session_id=None)
 
@@ -135,7 +132,6 @@ def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
 
 
 def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
-    """Test error when session.id has invalid format."""
     tool = GetTracesInSession()
     current_trace = create_mock_trace("session@123!invalid")
 
@@ -146,7 +142,6 @@ def test_get_traces_in_session_tool_invoke_invalid_session_id() -> None:
 
 
 def test_get_traces_in_session_tool_invoke_empty_result() -> None:
-    """Test tool behavior when no traces are found."""
     with patch(
         "mlflow.genai.judges.tools.get_traces_in_session.SearchTracesTool"
     ) as mock_search_tool_class:
