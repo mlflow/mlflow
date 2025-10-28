@@ -27,7 +27,7 @@ from flask import (
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
-from mlflow.entities import Experiment, Run
+from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
 from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
@@ -87,7 +87,6 @@ from mlflow.protos.service_pb2 import (
     RestoreRun,
     SearchExperiments,
     SearchLoggedModels,
-    SearchRuns,
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
@@ -632,60 +631,6 @@ def delete_can_manage_registered_model_permission(resp: Response):
     store.delete_registered_model_permission(name, username)
 
 
-def filter_search_runs(resp: Response) -> None:
-    """
-    Filter out runs from experiments the user cannot read.
-    """
-    if sender_is_admin():
-        return
-
-    response_message = SearchRuns.Response()
-    parse_dict(resp.json, response_message)
-
-    username = authenticate_request().username
-    perms = store.list_experiment_permissions(username)
-    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
-    default_can_read = get_permission(auth_config.default_permission).can_read
-
-    # filter out runs that the user does not have read access to
-    for run in list(response_message.runs):
-        if not can_read.get(run.info.experiment_id, default_can_read):
-            response_message.runs.remove(run)
-
-    # paginate to fill the max_results value
-    request_message = _get_request_message(SearchRuns())
-    while (
-        len(response_message.runs) < request_message.max_results
-        and response_message.next_page_token != ""
-    ):
-        refetched: PagedList[Run] = _get_tracking_store().search_runs(
-            experiment_ids=list(request_message.experiment_ids),
-            filter_string=request_message.filter,
-            run_view_type=request_message.run_view_type,
-            max_results=request_message.max_results,
-            order_by=request_message.order_by,
-            page_token=response_message.next_page_token,
-        )
-        refetched = refetched[: request_message.max_results - len(response_message.runs)]
-        if len(refetched) == 0:
-            response_message.next_page_token = ""
-            break
-
-        refetched_readable_proto = [
-            r.to_proto() for r in refetched if can_read.get(r.info.experiment_id, default_can_read)
-        ]
-        response_message.runs.extend(refetched_readable_proto)
-
-        # recalculate next page token based on filtered out runs
-        start_offset = SearchUtils.parse_start_offset_from_page_token(
-            response_message.next_page_token
-        )
-        final_offset = start_offset + len(refetched)
-        response_message.next_page_token = SearchUtils.create_page_token(final_offset)
-
-    resp.data = message_to_json(response_message)
-
-
 def filter_search_experiments(resp: Response):
     if sender_is_admin():
         return
@@ -883,7 +828,6 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchExperiments: filter_search_experiments,
     SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
-    SearchRuns: filter_search_runs,
     RenameRegisteredModel: rename_registered_model_permission,
 }
 
