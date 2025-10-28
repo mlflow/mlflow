@@ -7,7 +7,6 @@ from pydantic import BaseModel
 from starlette.responses import StreamingResponse
 
 from mlflow.types.chat import ChatCompletionRequest
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 EMPTY_CHOICES = "EMPTY_CHOICES"
 LIST_CONTENT = "LIST_CONTENT"
@@ -21,10 +20,7 @@ def health():
 
 
 def chat_response(payload: ChatCompletionRequest):
-    if IS_PYDANTIC_V2_OR_NEWER:
-        dumped_input = json.dumps([m.model_dump(exclude_unset=True) for m in payload.messages])
-    else:
-        dumped_input = json.dumps([m.dict(exclude_unset=True) for m in payload.messages])
+    dumped_input = json.dumps([m.model_dump(exclude_unset=True) for m in payload.messages])
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion",

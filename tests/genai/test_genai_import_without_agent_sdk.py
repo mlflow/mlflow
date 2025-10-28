@@ -13,7 +13,7 @@ from mlflow.genai.scorers.base import Scorer
 
 # Test `mlflow.genai` namespace
 def test_mlflow_genai_star_import_succeeds():
-    exec("from mlflow.genai import *")
+    import mlflow.genai  # noqa: F401
 
 
 def test_namespaced_import_raises_when_agents_not_installed():
@@ -22,7 +22,7 @@ def test_namespaced_import_raises_when_agents_not_installed():
     import mlflow.genai
 
     # Mock to simulate Databricks environment without databricks-agents installed
-    with patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
             mlflow.genai.create_dataset("test_schema")
 
@@ -35,26 +35,26 @@ def test_namespaced_import_raises_when_agents_not_installed():
 
 # Test `mlflow.genai.datasets` namespace
 def test_mlflow_genai_datasets_star_import_succeeds():
-    exec("from mlflow.genai.datasets import *")
+    import mlflow.genai.datasets  # noqa: F401
 
 
 def test_create_dataset_raises_when_agents_not_installed():
     # Mock to simulate Databricks environment without databricks-agents installed
-    with patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
             create_dataset("test_dataset")
 
 
 def test_get_dataset_raises_when_agents_not_installed():
     # Mock to simulate Databricks environment without databricks-agents installed
-    with patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
             get_dataset("test_dataset")
 
 
 def test_delete_dataset_raises_when_agents_not_installed():
     # Mock to simulate Databricks environment without databricks-agents installed
-    with patch("mlflow.genai.datasets.is_databricks_default_tracking_uri", return_value=True):
+    with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
         with pytest.raises(ImportError, match="The `databricks-agents` package is required"):
             delete_dataset("test_dataset")
 

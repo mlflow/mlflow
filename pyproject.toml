@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.5.1.dev0"
+version = "3.5.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -37,7 +37,6 @@ dependencies = [
   "databricks-sdk<1,>=0.20.0",
   "docker<8,>=4.0.0",
   "fastapi<1",
-  "fastmcp<3,>=2.0.0",
   "gitpython<4,>=3.1.9",
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
@@ -51,7 +50,7 @@ dependencies = [
   "pandas<3",
   "protobuf<7,>=3.12.0",
   "pyarrow<22,>=4.0.0",
-  "pydantic<3,>=1.10.8",
+  "pydantic<3,>=2.0.0",
   "python-dotenv<2,>=0.19.0",
   "pyyaml<7,>=5.1",
   "requests<3,>=2.17.3",
@@ -112,6 +111,7 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
+mcp = ["fastmcp<3,>=2.0.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
@@ -194,6 +194,13 @@ build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
 required-version = "==0.8.18"
+constraint-dependencies = [
+  "click!=8.3.0",
+  "langchain<1.0.0",
+  # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
+  # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
+  "xgboost<3.1.0",
+]
 
 [tool.uv.pip]
 torch-backend = "cpu"
@@ -241,6 +248,7 @@ select = [
   "DTZ003",  # call-datetime-utcnow
   "E",       # error
   "F",       # Pyflakes
+  "FURB188", # slice-to-remove-prefix-or-suffix
   "C4",      # flake8-comprehensions
   "I",       # isort
   "ISC001",  # single-line-implicit-string-concatenation
@@ -277,8 +285,10 @@ select = [
   "RUF013",  # implicit-optional
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
+  "S102",    # exec-builtin
   "S307",    # suspicious-eval-usage
   "S324",    # hashlib-insecure-hash-function
+  "S506",    # unsafe-yaml-load
   "SIM101",  # duplicate-isinstance-call
   "SIM108",  # if-else-block-instead-of-if-exp
   "SIM114",  # if-with-same-arms
@@ -371,6 +381,8 @@ example-rules = [
 ]
 # This file intentionally shows problematic code as an example of what NOT to do
 "docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
+# Multi-assign has better readability in this example.
+"docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
@@ -441,6 +453,9 @@ filterwarnings = [
   "error:getName\\(\\) is deprecated, get the name attribute instead:DeprecationWarning",
   # Prevent deprecated non-integer arguments to randrange() from being used
   "error:non-integer arguments to randrange\\(\\) have been deprecated:DeprecationWarning",
+  # Prevent usage of deprecated Pydantic v2.0 features
+  "error::pydantic.PydanticDeprecatedSince20:mlflow",
+  "error::pydantic.PydanticDeprecatedSince20:tests",
 ]
 timeout = 1200
 

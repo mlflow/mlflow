@@ -25,12 +25,13 @@ export const ModelTraceExplorerSummarySpans = ({
 
   const rootInputs = rootNode.inputs;
   const rootOutputs = rootNode.outputs;
+  const chatMessageFormat = rootNode.chatMessageFormat;
   const exceptions = getSpanExceptionEvents(rootNode);
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
 
-  const inputList = createListFromObject(rootInputs);
-  const outputList = createListFromObject(rootOutputs);
+  const inputList = createListFromObject(rootInputs).filter(({ value }) => value !== 'null');
+  const outputList = createListFromObject(rootOutputs).filter(({ value }) => value !== 'null');
 
   return (
     <div
@@ -84,7 +85,13 @@ export const ModelTraceExplorerSummarySpans = ({
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           {inputList.map(({ key, value }, index) => (
-            <ModelTraceExplorerFieldRenderer key={key || index} title={key} data={value} renderMode={renderMode} />
+            <ModelTraceExplorerFieldRenderer
+              key={key || index}
+              title={key}
+              data={value}
+              renderMode={renderMode}
+              chatMessageFormat={chatMessageFormat}
+            />
           ))}
         </div>
       </ModelTraceExplorerCollapsibleSection>
@@ -104,7 +111,13 @@ export const ModelTraceExplorerSummarySpans = ({
       >
         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
           {outputList.map(({ key, value }, index) => (
-            <ModelTraceExplorerFieldRenderer key={key || index} title={key} data={value} renderMode={renderMode} />
+            <ModelTraceExplorerFieldRenderer
+              key={key || index}
+              title={key}
+              data={value}
+              renderMode={renderMode}
+              chatMessageFormat={chatMessageFormat}
+            />
           ))}
         </div>
       </ModelTraceExplorerCollapsibleSection>
