@@ -855,14 +855,6 @@ class Scorer(BaseModel):
             sig = inspect.signature(self.__call__)
             params = {param: None for param in sig.parameters if param != "self"}
             result = self(**params)
-
-            # Only validate if the result is a list of Feedback objects
-            if isinstance(result, list) and len(result) > 0:
-                if all(isinstance(item, Feedback) for item in result):
-                    validate_feedback_names_unique(result, self.name)
-        except MlflowException:
-            # Re-raise MlflowException from validation - these are intentional errors
-            raise
         except Exception as e:
             # If the scorer can't be called with None values, skip validation
             # This is acceptable because:
@@ -872,6 +864,12 @@ class Scorer(BaseModel):
                 f"Skipping multi-feedback name validation for scorer '{self.name}' "
                 f"because it cannot be called with None parameters: {e}"
             )
+            return
+
+        # Only validate if the result is a list of Feedback objects
+        if isinstance(result, list) and len(result) > 0:
+            if all(isinstance(item, Feedback) for item in result):
+                validate_feedback_names_unique(result, self.name)
 
     def _check_can_be_registered(self, error_message: str | None = None) -> None:
         from mlflow.genai.judges.instructions_judge import InstructionsJudge
