@@ -1,3 +1,5 @@
+from pydantic import ConfigDict
+
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 from mlflow.types.chat import BaseRequestPayload
 
@@ -16,8 +18,7 @@ class RequestPayload(BaseRequestPayload, RequestModel):
     prompt: str
     model: str | None = None
 
-    class Config:
-        json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 class Choice(ResponseModel):
@@ -54,8 +55,7 @@ class ResponsePayload(ResponseModel):
     choices: list[Choice]
     usage: CompletionsUsage
 
-    class Config:
-        json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 class StreamDelta(ResponseModel):
@@ -93,5 +93,4 @@ class StreamResponsePayload(ResponseModel):
     model: str
     choices: list[StreamChoice]
 
-    class Config:
-        json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

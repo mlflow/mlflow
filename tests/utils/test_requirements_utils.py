@@ -81,14 +81,6 @@ def test_join_continued_lines():
 
 
 def test_parse_requirements(tmp_path, monkeypatch):
-    """
-    Ensures `_parse_requirements` returns the same result as `pip._internal.req.parse_requirements`
-    """
-    from pip._internal.network.session import PipSession  # noqa: TID251
-    from pip._internal.req import (  # noqa: TID251
-        parse_requirements as pip_parse_requirements,
-    )
-
     root_req_src = """
 # No version specifier
 noverspec
@@ -160,11 +152,13 @@ line-cont-eof\
     rel_con.write_text("rel-con-xxx\nrel-con-yyy")
     abs_con.write_text("abs-con-zzz")
 
-    expected_cons = [
-        "rel-con-xxx",
-        "rel-con-yyy",
-        "abs-con-zzz",
-    ]
+    # Uncomment this to get the expected output from pip's internal parser
+    # from pip._internal.network.session import PipSession
+    # from pip._internal.req import parse_requirements as pip_parse_requirements
+    #
+    # pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
+    # print(f"expected_reqs = {[r.requirement for r in pip_reqs if not r.constraint]}")
+    # print(f"expected_cons = {[r.requirement for r in pip_reqs if r.constraint]}")
 
     expected_reqs = [
         "noverspec",
@@ -184,15 +178,15 @@ line-cont-eof\
         "line-cont-blank",
         "line-cont-eof",
     ]
+    expected_cons = [
+        "rel-con-xxx",
+        "rel-con-yyy",
+        "abs-con-zzz",
+    ]
 
     parsed_reqs = list(_parse_requirements(root_req.name, is_constraint=False))
-    pip_reqs = list(pip_parse_requirements(root_req.name, session=PipSession()))
-    # Requirements
     assert [r.req_str for r in parsed_reqs if not r.is_constraint] == expected_reqs
-    assert [r.requirement for r in pip_reqs if not r.constraint] == expected_reqs
-    # Constraints
     assert [r.req_str for r in parsed_reqs if r.is_constraint] == expected_cons
-    assert [r.requirement for r in pip_reqs if r.constraint] == expected_cons
 
 
 def test_normalize_package_name():

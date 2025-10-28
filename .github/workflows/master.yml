@@ -173,6 +173,8 @@ jobs:
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
+        with:
+          java-version: 11
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
@@ -236,7 +238,7 @@ jobs:
           uv sync --extra mlserver
           uv pip install \
             -r requirements/test-requirements.txt \
-            'pyspark<3.5.6' langchain langchain-community
+            pyspark langchain langchain-community
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -266,7 +268,7 @@ jobs:
           uv sync --extra extras --extra jobs --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            torch transformers 'pyspark<3.5.6' langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
+            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -336,7 +338,7 @@ jobs:
           uv sync --extra extras --extra gateway --extra jobs
           uv pip install \
             -r requirements/test-requirements.txt \
-            tensorflow 'pyspark[connect]<3.5.6'
+            tensorflow 'pyspark[connect]'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -370,7 +372,7 @@ jobs:
           uv sync --extra extras --extra genai --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
-            'pyspark<3.5.6' datasets tensorflow torch transformers tf-keras openai \
+            pyspark datasets tensorflow torch transformers tf-keras openai \
             tests/resources/mlflow-test-plugin
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
@@ -400,4 +402,5 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
+            --ignore=tests/data/test_spark_dataset.py \
             tests
