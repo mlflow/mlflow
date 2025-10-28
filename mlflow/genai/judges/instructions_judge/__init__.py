@@ -24,7 +24,6 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
-    ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
@@ -402,11 +401,6 @@ class InstructionsJudge(Judge):
             assessment_name=self.name,
             trace=trace if is_trace_based else None,
         )
-
-    @property
-    def kind(self) -> ScorerKind:
-        """Return the kind of scorer this judge represents."""
-        return ScorerKind.CLASS
 
     def _validate_model_format(self) -> None:
         """
