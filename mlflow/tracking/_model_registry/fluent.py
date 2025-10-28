@@ -94,7 +94,7 @@ def register_model(
             the model dependencies is optionally first installed into the current Python
             environment, and then the complete environment will be packaged and included
             in the registered model artifacts. If the string shortcut "databricks_model_serving" is
-            used, then model dependencies will be installed in the current environemtn. This is
+            used, then model dependencies will be installed in the current environment. This is
             useful when deploying the model to a serving environment like Databricks Model Serving.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
@@ -210,8 +210,7 @@ def _register_model(
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
     # Passing in the string value is a shortcut for passing in the EnvPackConfig
-    # Validate early; `_validate_env_pack` will raise on invalid inputs and is a no-op
-    # (returns None) for valid values or None.
+    # Validate early; `_validate_env_pack` will raise on invalid inputs.
     validated_env_pack = _validate_env_pack(env_pack)
 
     # If env_pack is supported and indicates Databricks Model Serving, pack env and
