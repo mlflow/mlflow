@@ -45,10 +45,10 @@ from mlflow.utils.databricks_utils import (
     stage_model_for_databricks_model_serving,
 )
 from mlflow.utils.env_pack import (
-    EnvPackType,
     EnvPackConfig,
-    pack_env_for_databricks_model_serving,
+    EnvPackType,
     _validate_env_pack,
+    pack_env_for_databricks_model_serving,
 )
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
@@ -217,7 +217,8 @@ def _register_model(
     # log the resulting artifacts.
     if validated_env_pack:
         eprint(
-            f"Packing environment for Databricks Model Serving with install_dependencies {validated_env_pack.install_dependencies}..."
+            "Packing environment for Databricks Model Serving with install_dependencies "
+            + f"{validated_env_pack.install_dependencies}..."
         )
         with pack_env_for_databricks_model_serving(
             model_uri,

@@ -4,14 +4,14 @@ import sys
 import tarfile
 import tempfile
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Generator, Literal
-from dataclasses import dataclass
 
 import yaml
-from mlflow.exceptions import MlflowException
 
 from mlflow.artifacts import download_artifacts
+from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion, get_databricks_runtime_version
 from mlflow.utils.environment import _REQUIREMENTS_FILE_NAME
@@ -53,7 +53,8 @@ def _validate_env_pack(env_pack):
     if isinstance(env_pack, EnvPackConfig):
         if env_pack.name != "databricks_model_serving":
             raise MlflowException.invalid_parameter_value(
-                f"Invalid EnvPackConfig.name: {env_pack.name!r}. Expected 'databricks_model_serving'."
+                f"Invalid EnvPackConfig.name: {env_pack.name!r}. "
+                + "Expected 'databricks_model_serving'."
             )
         if not isinstance(env_pack.install_dependencies, bool):
             raise MlflowException.invalid_parameter_value(

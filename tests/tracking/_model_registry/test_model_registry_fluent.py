@@ -310,7 +310,6 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
 
 @pytest.mark.parametrize("install_deps", [True, False])
 def test_register_model_with_env_pack_config(tmp_path, install_deps):
-    """Test that register_model correctly integrates with environment packing functionality, using the EnvPackConfig."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
