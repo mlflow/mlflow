@@ -88,7 +88,7 @@ jobs:
           OUTPUT_FILE="/tmp/output.json"
 
           EXIT_CODE=0
-          timeout 20m claude --model claude-haiku-4-5 --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          timeout 20m claude --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then

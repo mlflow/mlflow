@@ -178,6 +178,14 @@ def mock_client():
         yield client
 
 
+@pytest.fixture
+def mock_otel_trace_start_time():
+    # mock the start time of a trace, ensuring the root span has
+    # a smaller start time than child spans.
+    with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=0):
+        yield
+
+
 @pytest.mark.parametrize("with_active_run", [True, False])
 @pytest.mark.parametrize("wrap_sync_func", [True, False])
 def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
@@ -299,7 +307,7 @@ def test_trace_stream(wrap_sync_func):
 
     # Spans for the chid 'square' function
     for i in range(3):
-        assert trace.data.spans[i + 1].name == f"square_{i + 1}"
+        assert trace.data.spans[i + 1].name == "square"
         assert trace.data.spans[i + 1].inputs == {"t": i}
         assert trace.data.spans[i + 1].outputs == i**2
         assert trace.data.spans[i + 1].parent_id == root_span.span_id
@@ -538,9 +546,9 @@ def test_trace_handle_exception_during_streaming():
     assert len(spans) == 3
     assert spans[0].name == "predict_stream"
     assert spans[0].status.status_code == SpanStatusCode.ERROR
-    assert spans[1].name == "some_operation_raise_error_1"
+    assert spans[1].name == "some_operation_raise_error"
     assert spans[1].status.status_code == SpanStatusCode.OK
-    assert spans[2].name == "some_operation_raise_error_2"
+    assert spans[2].name == "some_operation_raise_error"
     assert spans[2].status.status_code == SpanStatusCode.ERROR
 
     # One chunk event + one exception event
@@ -708,8 +716,8 @@ def test_start_span_context_manager(async_logging_enabled):
     assert trace.data.response == "25"
     assert len(trace.data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in trace.data.spans}
-    root_span = span_name_to_span["root_span"]
+    root_span = trace.data.spans[0]
+    assert root_span.name == "root_span"
     assert root_span.parent_id is None
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
@@ -718,8 +726,8 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 25,
     }
 
-    # Span with duplicate name should be renamed to have an index number like "_1", "_2", ...
-    child_span_1 = span_name_to_span["child_span_1"]
+    child_span_1 = trace.data.spans[1]
+    assert child_span_1.name == "child_span"
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 2,
@@ -730,7 +738,8 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 5,
     }
 
-    child_span_2 = span_name_to_span["child_span_2"]
+    child_span_2 = trace.data.spans[2]
+    assert child_span_2.name == "child_span"
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
@@ -1154,21 +1163,15 @@ def test_search_traces_with_multiple_spans_with_same_name():
 
     df = mlflow.search_traces(
         extract_fields=[
-            "duplicate_name.inputs.y",
             "duplicate_name.inputs.x",
+            "duplicate_name.inputs.y",
             "duplicate_name.inputs.z",
-            "duplicate_name_1.inputs.x",
-            "duplicate_name_1.inputs.y",
-            "duplicate_name_2.inputs.z",
         ]
     )
     # Duplicate spans would all be null
-    assert df["duplicate_name.inputs.y"].isnull().all()
     assert df["duplicate_name.inputs.x"].isnull().all()
-    assert df["duplicate_name.inputs.z"].isnull().all()
-    assert df["duplicate_name_1.inputs.x"].tolist() == [2]
-    assert df["duplicate_name_1.inputs.y"].tolist() == [5]
-    assert df["duplicate_name_2.inputs.z"].tolist() == [7]
+    assert df["duplicate_name.inputs.y"].isnull().all()
+    assert df["duplicate_name.inputs.z"].tolist() == [7]
 
 
 # Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
@@ -1942,7 +1945,7 @@ _SAMPLE_REMOTE_TRACE = {
 }
 
 
-def test_add_trace():
+def test_add_trace(mock_otel_trace_start_time):
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():
         return {"prediction": 1, "trace": _SAMPLE_REMOTE_TRACE}
@@ -1999,7 +2002,7 @@ def test_add_trace_no_current_active_trace():
     parent_span, child_span, grandchild_span = trace.data.spans
     assert parent_span.name == "Remote Trace <remote>"
     rs = remote_trace.data.spans[0]
-    assert parent_span.start_time_ns == rs.start_time_ns
+    assert parent_span.start_time_ns == rs.start_time_ns - 1
     assert parent_span.end_time_ns == rs.end_time_ns
     assert child_span.name == rs.name
     assert child_span.parent_id is parent_span.span_id
@@ -2014,7 +2017,7 @@ def test_add_trace_no_current_active_trace():
         assert child_span.attributes[k] == rs.attributes[k]
 
 
-def test_add_trace_specific_target_span():
+def test_add_trace_specific_target_span(mock_otel_trace_start_time):
     span = start_span_no_context(name="parent")
     mlflow.add_trace(_SAMPLE_REMOTE_TRACE, target=span)
     span.end()

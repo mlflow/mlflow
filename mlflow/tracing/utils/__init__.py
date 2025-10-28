@@ -5,7 +5,7 @@ import inspect
 import json
 import logging
 import uuid
-from collections import Counter, defaultdict
+from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import asdict, is_dataclass
 from functools import lru_cache
@@ -174,31 +174,6 @@ def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
         # yet so always set it to False.
         is_remote=False,
     )
-
-
-def deduplicate_span_names_in_place(spans: list[LiveSpan]):
-    """
-    Deduplicate span names in the trace data by appending an index number to the span name.
-
-    This is only applied when there are multiple spans with the same name. The span names
-    are modified in place to avoid unnecessary copying.
-
-    E.g.
-        ["red", "red"] -> ["red_1", "red_2"]
-        ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
-
-    Args:
-        spans: A list of spans to deduplicate.
-    """
-    # Use _original_name to handle incremental deduplication correctly
-    span_name_counter = Counter(span._original_name for span in spans)
-    # Apply renaming only for duplicated spans
-    span_name_counter = {name: 1 for name, count in span_name_counter.items() if count > 1}
-    # Add index to the duplicated span names
-    for span in spans:
-        if count := span_name_counter.get(span._original_name):
-            span_name_counter[span._original_name] += 1
-            span._span._name = f"{span._original_name}_{count}"
 
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:

@@ -55,8 +55,7 @@ def _parse_abfss_uri(uri):
     account_name = match.group(2)
     domain_suffix = match.group(3)
     path = parsed.path
-    if path.startswith("/"):
-        path = path[1:]
+    path = path.removeprefix("/")
     return filesystem, account_name, domain_suffix, path
 
 
@@ -153,8 +152,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 continue
             if result.is_directory:
                 subdir = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:
                 file_name = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
