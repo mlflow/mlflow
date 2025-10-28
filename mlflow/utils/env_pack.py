@@ -20,7 +20,7 @@ from mlflow.utils.logging_utils import eprint
 EnvPackType = Literal["databricks_model_serving"]
 
 
-@dataclass
+@dataclass(kw_only=True)
 class EnvPackConfig:
     name: EnvPackType
     install_dependencies: bool = True
@@ -42,12 +42,12 @@ def _validate_env_pack(env_pack):
     """
     # No env_pack provided
     if env_pack is None:
-        return
+        return None
 
     # Shortcut: string value
     if isinstance(env_pack, str):
         if env_pack == "databricks_model_serving":
-            return
+            return EnvPackConfig(name="databricks_model_serving", install_dependencies=True)
         raise MlflowException.invalid_parameter_value(
             f"Invalid env_pack value: {env_pack!r}. Expected: 'databricks_model_serving'."
         )
@@ -62,7 +62,7 @@ def _validate_env_pack(env_pack):
             raise MlflowException.invalid_parameter_value(
                 "EnvPackConfig.install_dependencies must be a bool."
             )
-        return
+        return env_pack
 
     # Anything else is invalid
     raise MlflowException.invalid_parameter_value(

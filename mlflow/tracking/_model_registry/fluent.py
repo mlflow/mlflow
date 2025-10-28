@@ -90,10 +90,12 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
-        env_pack: If specified, the model dependencies will first be installed into the current
-            Python environment, and then the complete environment will be packaged and included
-            in the registered model artifacts. This is useful when deploying the model to a
-            serving environment like Databricks Model Serving.
+        env_pack: Either a string or an EnvPackConfig. If specified,
+            the model dependencies is optionally first installed into the current Python
+            environment, and then the complete environment will be packaged and included
+            in the registered model artifacts. If the string shortcut "databricks_model_serving" is
+            used, then model dependencies will be installed in the current environemtn. This is
+            useful when deploying the model to a serving environment like Databricks Model Serving.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -210,21 +212,17 @@ def _register_model(
     # Passing in the string value is a shortcut for passing in the EnvPackConfig
     # Validate early; `_validate_env_pack` will raise on invalid inputs and is a no-op
     # (returns None) for valid values or None.
-    _validate_env_pack(env_pack)
-    is_databricks_env_pack = env_pack is not None
+    validated_env_pack = _validate_env_pack(env_pack)
 
     # If env_pack is supported and indicates Databricks Model Serving, pack env and
     # log the resulting artifacts.
-    if is_databricks_env_pack:
-        install_dependencies = (
-            env_pack.install_dependencies if isinstance(env_pack, EnvPackConfig) else True
-        )
+    if validated_env_pack:
         eprint(
-            f"Packing environment for Databricks Model Serving with install_dependencies {install_dependencies}..."
+            f"Packing environment for Databricks Model Serving with install_dependencies {validated_env_pack.install_dependencies}..."
         )
         with pack_env_for_databricks_model_serving(
             model_uri,
-            enforce_pip_requirements=install_dependencies,
+            enforce_pip_requirements=validated_env_pack.install_dependencies,
         ) as artifacts_path_with_env:
             client.log_model_artifacts(model_id, artifacts_path_with_env)
 
@@ -276,7 +274,7 @@ def _register_model(
         )
 
     # If env_pack exists, attempt staging the model for model serving.
-    if is_databricks_env_pack:
+    if validated_env_pack:
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "
