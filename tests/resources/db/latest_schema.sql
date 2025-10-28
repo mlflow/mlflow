@@ -89,18 +89,18 @@ CREATE TABLE registered_models (
 CREATE TABLE secrets (
 	secret_id VARCHAR(36) NOT NULL,
 	secret_name VARCHAR(255) NOT NULL,
-	ciphertext BLOB NOT NULL,
-	iv BLOB NOT NULL,
+	encrypted_value BLOB NOT NULL,
 	wrapped_dek BLOB NOT NULL,
 	kek_version INTEGER NOT NULL,
-	aad_hash BLOB NOT NULL,
+	masked_value VARCHAR(100) NOT NULL,
 	is_shared BOOLEAN NOT NULL,
 	state VARCHAR(36) NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
+	CONSTRAINT unique_secret_name UNIQUE (secret_name)
 )
 
 
@@ -263,14 +263,14 @@ CREATE TABLE secrets_bindings (
 	secret_id VARCHAR(36) NOT NULL,
 	resource_type VARCHAR(50) NOT NULL,
 	resource_id VARCHAR(255) NOT NULL,
-	binding_name VARCHAR(255) NOT NULL,
+	field_name VARCHAR(255) NOT NULL,
 	created_at BIGINT NOT NULL,
 	created_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	CONSTRAINT secrets_bindings_pk PRIMARY KEY (binding_id),
 	CONSTRAINT fk_secrets_bindings_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE,
-	CONSTRAINT unique_binding_per_resource UNIQUE (resource_type, resource_id, binding_name)
+	CONSTRAINT unique_binding_per_resource UNIQUE (resource_type, resource_id, field_name)
 )
 
 

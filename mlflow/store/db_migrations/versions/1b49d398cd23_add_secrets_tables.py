@@ -21,11 +21,10 @@ def upgrade():
         "secrets",
         sa.Column("secret_id", sa.String(length=36), nullable=False),
         sa.Column("secret_name", sa.String(length=255), nullable=False),
-        sa.Column("ciphertext", sa.LargeBinary(), nullable=False),
-        sa.Column("iv", sa.LargeBinary(), nullable=False),
+        sa.Column("encrypted_value", sa.LargeBinary(), nullable=False),
         sa.Column("wrapped_dek", sa.LargeBinary(), nullable=False),
-        sa.Column("kek_version", sa.Integer(), nullable=False),
-        sa.Column("aad_hash", sa.LargeBinary(), nullable=False),
+        sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
+        sa.Column("masked_value", sa.String(length=100), nullable=False),
         sa.Column("is_shared", sa.Boolean(), nullable=False, default=False),
         sa.Column("state", sa.String(length=36), nullable=False, default="ACTIVE"),
         sa.Column("created_by", sa.String(length=255), nullable=True),
@@ -43,6 +42,7 @@ def upgrade():
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("secret_id", name="secrets_pk"),
+        sa.UniqueConstraint("secret_name", name="unique_secret_name"),
     )
     with op.batch_alter_table("secrets", schema=None) as batch_op:
         batch_op.create_index(
@@ -56,7 +56,7 @@ def upgrade():
         sa.Column("secret_id", sa.String(length=36), nullable=False),
         sa.Column("resource_type", sa.String(length=50), nullable=False),
         sa.Column("resource_id", sa.String(length=255), nullable=False),
-        sa.Column("binding_name", sa.String(length=255), nullable=False),
+        sa.Column("field_name", sa.String(length=255), nullable=False),
         sa.Column(
             "created_at",
             sa.BigInteger(),
@@ -79,7 +79,7 @@ def upgrade():
         ),
         sa.PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
         sa.UniqueConstraint(
-            "resource_type", "resource_id", "binding_name", name="unique_binding_per_resource"
+            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
         ),
     )
     with op.batch_alter_table("secrets_bindings", schema=None) as batch_op:
