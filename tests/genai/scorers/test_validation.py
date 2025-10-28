@@ -315,7 +315,7 @@ def test_validate_feedback_names_unique_with_single_feedback():
 def mock_databricks_tracking_uri():
     """Mock Databricks tracking URI."""
     with mock.patch(
-        "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        "mlflow.tracking._tracking_service.utils._resolve_tracking_uri", return_value="databricks"
     ) as mock_uri:
         yield mock_uri
 
