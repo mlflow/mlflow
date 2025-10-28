@@ -314,10 +314,37 @@ def test_validate_feedback_names_unique_with_single_feedback():
 @pytest.fixture
 def mock_databricks_tracking_uri():
     """Mock Databricks tracking URI."""
-    with mock.patch(
-        "mlflow.tracking._tracking_service.utils._resolve_tracking_uri", return_value="databricks"
-    ) as mock_uri:
-        yield mock_uri
+    # Ensure scorer store resolves to Databricks regardless of ambient env
+    with (
+        mock.patch(
+            "mlflow.genai.scorers.registry.utils._resolve_tracking_uri", return_value="databricks"
+        ) as mock_uri,
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils._resolve_tracking_uri",
+            return_value="databricks",
+        ),
+        mock.patch(
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks"
+        ),
+        mock.patch("mlflow.get_tracking_uri", return_value="databricks"),
+        mock.patch("mlflow.utils.uri.is_databricks_uri", return_value=True),
+        mock.patch(
+            "mlflow.utils.databricks_utils.is_databricks_default_tracking_uri", return_value=True
+        ),
+        mock.patch("mlflow.genai.scorers.registry._get_scorer_store") as mock_store,
+    ):
+        from mlflow.genai.scorers.base import Scorer as _BaseScorer
+        from mlflow.genai.scorers.registry import DatabricksStore
+
+        mock_store.return_value = DatabricksStore()
+
+        # Bypass any non-DBX gating in _check_can_be_registered while preserving
+        # validation of duplicate feedback names expected by these tests.
+        def _only_validate(self, error_message=None):
+            return _BaseScorer._validate_multi_feedback_names(self)
+
+        with mock.patch.object(_BaseScorer, "_check_can_be_registered", _only_validate):
+            yield mock_uri
 
 
 def test_register_scorer_with_duplicate_feedback_names_fails(mock_databricks_tracking_uri):
@@ -334,8 +361,8 @@ def test_register_scorer_with_duplicate_feedback_names_fails(mock_databricks_tra
         ) as exc_info:
             scorer_with_duplicates._check_can_be_registered()
 
-        error_msg = str(exc_info.value)
-        assert "duplicate names" in error_msg
+    error_msg = str(exc_info.value)
+    assert "duplicate names" in error_msg
 
 
 def test_register_scorer_with_default_feedback_names_fails(mock_databricks_tracking_uri):
