@@ -273,7 +273,7 @@ class Scorer(BaseModel):
 
             feedback_value_type = str  # default to str
             if "feedback_value_type" in data and data["feedback_value_type"] is not None:
-                feedback_value_type = InstructionsJudge._deserialize_response_format(
+                feedback_value_type = InstructionsJudge._deserialize_feedback_value_type(
                     data["feedback_value_type"]
                 )
 

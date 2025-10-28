@@ -464,7 +464,7 @@ class InstructionsJudge(Judge):
         )
 
     @staticmethod
-    def _serialize_response_format(response_format: type) -> dict[str, Any]:
+    def _serialize_feedback_value_type(feedback_value_type: Any) -> dict[str, Any]:
         """
         Serialize a response_format type to a JSON-compatible dict.
 
@@ -511,7 +511,7 @@ class InstructionsJudge(Judge):
         )
 
     @staticmethod
-    def _deserialize_response_format(serialized: dict[str, Any]) -> type:
+    def _deserialize_feedback_value_type(serialized: dict[str, Any]) -> type:
         """
         Deserialize a response_format from a JSON-compatible dict.
 
@@ -584,7 +584,7 @@ class InstructionsJudge(Judge):
             "model": self._model,
         }
         if self._feedback_value_type is not None:
-            pydantic_data["feedback_value_type"] = self._serialize_response_format(
+            pydantic_data["feedback_value_type"] = self._serialize_feedback_value_type(
                 self._feedback_value_type
             )
 
