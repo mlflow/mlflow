@@ -40,6 +40,8 @@ from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
+from mlflow.entities.secret import Secret, SecretState
+from mlflow.entities.secret_binding import SecretBinding
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
 from mlflow.entities.span_event import SpanEvent
@@ -76,6 +78,9 @@ __all__ = [
     "RunStatus",
     "RunTag",
     "ScorerVersion",
+    "Secret",
+    "SecretBinding",
+    "SecretState",
     "SourceType",
     "ViewType",
     "LifecycleStage",

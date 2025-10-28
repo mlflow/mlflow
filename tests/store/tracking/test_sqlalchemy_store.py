@@ -46,6 +46,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.secret import SecretState
 from mlflow.entities.span import Span, create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
@@ -90,6 +91,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlSecret,
+    SqlSecretBinding,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -338,6 +341,25 @@ def store_and_trace_info(store):
             response_preview=None,
         ),
     )
+
+
+@pytest.fixture
+def create_secret(store):
+    def _create_secret(**kwargs):
+        defaults = {
+            "secret_name": f"test_secret_{uuid.uuid4().hex[:8]}",
+            "ciphertext": b"ciphertext_default______",
+            "iv": b"iv_12_bytes_",
+            "wrapped_dek": b"wrapped_dek_32_bytes_here_ok",
+            "kek_version": 1,
+            "aad_hash": b"aad_hash_sha256_32_bytes_here",
+            "is_shared": False,
+            "state": "ACTIVE",
+        }
+        defaults.update(kwargs)
+        return store._create_secret(**defaults)
+
+    return _create_secret
 
 
 def _get_store(tmp_path: Path):
@@ -9189,3 +9211,464 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert len(traces[0].data.spans) == 1
     assert traces[0].data.spans[0].name == "incomplete_span"
     assert traces[0].data.spans[0].status.status_code == "OK"
+
+
+def test_secret_model(create_secret):
+    secret_entity = create_secret(
+        secret_name="my_api_key",
+        created_by="user@example.com",
+    )
+
+    assert secret_entity.secret_name == "my_api_key"
+    assert secret_entity.is_shared is False
+    assert secret_entity.state == SecretState.ACTIVE
+    assert secret_entity.created_by == "user@example.com"
+    assert secret_entity.last_updated_by == "user@example.com"
+    assert secret_entity.secret_id is not None
+
+
+def test_secret_binding_model(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(is_shared=True)
+
+    binding_entity = store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_123",
+        field_name="api_key",
+        created_by="user@example.com",
+    )
+
+    assert binding_entity.secret_id == secret_entity.secret_id
+    assert binding_entity.resource_type == "SCORER_JOB"
+    assert binding_entity.resource_id == "job_123"
+    assert binding_entity.field_name == "api_key"
+    assert binding_entity.created_by == "user@example.com"
+    assert binding_entity.last_updated_by == "user@example.com"
+
+
+def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
+    shared_ciphertext = b"shared_encrypted_api_key"
+    shared_iv = b"shared_iv_12"
+    shared_wrapped_dek = b"shared_wrapped_dek_32_bytes_"
+    shared_kek_version = 1
+    shared_aad_hash = b"shared_aad_hash_32_bytes_here"
+
+    shared_secret = create_secret(
+        secret_name="company_openai_key",
+        ciphertext=shared_ciphertext,
+        iv=shared_iv,
+        wrapped_dek=shared_wrapped_dek,
+        kek_version=shared_kek_version,
+        aad_hash=shared_aad_hash,
+        is_shared=True,
+    )
+
+    store._create_secret_binding(
+        secret_id=shared_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="scorer_job_1",
+        field_name="llm_api_key",
+    )
+    store._create_secret_binding(
+        secret_id=shared_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="scorer_job_2",
+        field_name="llm_api_key",
+    )
+    store._create_secret_binding(
+        secret_id=shared_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="scorer_job_3",
+        field_name="llm_api_key",
+    )
+
+    secrets_retrieved_1 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "scorer_job_1")
+
+    retrieved_1 = secrets_retrieved_1["llm_api_key"]
+    secrets_retrieved_2 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "scorer_job_2")
+
+    retrieved_2 = secrets_retrieved_2["llm_api_key"]
+    secrets_retrieved_3 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "scorer_job_3")
+
+    retrieved_3 = secrets_retrieved_3["llm_api_key"]
+
+    assert retrieved_1.secret_id == shared_secret.secret_id
+    assert retrieved_2.secret_id == shared_secret.secret_id
+    assert retrieved_3.secret_id == shared_secret.secret_id
+
+    for retrieved in [retrieved_1, retrieved_2, retrieved_3]:
+        assert retrieved.ciphertext == shared_ciphertext
+        assert retrieved.iv == shared_iv
+        assert retrieved.wrapped_dek == shared_wrapped_dek
+        assert retrieved.kek_version == shared_kek_version
+        assert retrieved.aad_hash == shared_aad_hash
+        assert retrieved.is_shared is True
+
+
+def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(is_shared=True)
+
+    binding_1 = store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_1",
+        field_name="api_key",
+    )
+    binding_2 = store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_2",
+        field_name="api_key",
+    )
+
+    store._delete_secret(secret_entity.secret_id)
+
+    # After deleting secret, batch retrieval returns empty (bindings CASCADE deleted)
+    secrets_job1 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_1")
+    assert secrets_job1 == {}
+
+    secrets_job2 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_2")
+    assert secrets_job2 == {}
+
+    with store.ManagedSessionMaker() as session:
+        remaining_bindings = (
+            session.query(SqlSecretBinding)
+            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
+            .all()
+        )
+        assert len(remaining_bindings) == 0, "Bindings should be CASCADE deleted"
+
+        remaining_secret = (
+            session.query(SqlSecret).filter(SqlSecret.secret_id == secret_entity.secret_id).first()
+        )
+        assert remaining_secret is None, "Secret should be deleted"
+
+
+def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_secret):
+    secret_1 = create_secret(secret_name="openai_key")
+    secret_2 = create_secret(secret_name="anthropic_key")
+
+    binding_1 = store._create_secret_binding(
+        secret_id=secret_1.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_999",
+        field_name="openai_key",
+    )
+
+    binding_2 = store._create_secret_binding(
+        secret_id=secret_2.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_999",
+        field_name="anthropic_key",
+    )
+
+    secrets_retrieved_1 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_999")
+
+    retrieved_1 = secrets_retrieved_1["openai_key"]
+    assert retrieved_1.secret_id == secret_1.secret_id
+
+    secrets_retrieved_2 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_999")
+
+    retrieved_2 = secrets_retrieved_2["anthropic_key"]
+    assert retrieved_2.secret_id == secret_2.secret_id
+
+    store._delete_secret(secret_1.secret_id)
+    store._delete_secret(secret_2.secret_id)
+
+    with store.ManagedSessionMaker() as session:
+        remaining_bindings = (
+            session.query(SqlSecretBinding)
+            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
+            .all()
+        )
+        assert len(remaining_bindings) == 0, "Both bindings should be CASCADE deleted"
+
+    # After deleting secrets, batch retrieval returns empty
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_999")
+    assert secrets == {}
+
+
+def test_secret_unique_constraint(create_secret):
+    create_secret(secret_name="duplicate_name")
+
+    with pytest.raises(MlflowException, match="already exists"):
+        create_secret(secret_name="duplicate_name")
+
+
+def test_secret_key_rotation(store: SqlAlchemyStore, create_secret):
+    old_ciphertext = b"old_encrypted_key_______"
+    old_iv = b"old_iv_12___"
+    old_wrapped_dek = b"old_wrapped_dek_32_bytes_here"
+    old_kek_version = 1
+    old_aad_hash = b"old_aad_hash_32_bytes_here___"
+
+    secret_v1 = create_secret(
+        secret_name="rotatable_key",
+        ciphertext=old_ciphertext,
+        iv=old_iv,
+        wrapped_dek=old_wrapped_dek,
+        kek_version=old_kek_version,
+        aad_hash=old_aad_hash,
+        is_shared=False,
+        created_by="admin",
+    )
+
+    store._create_secret_binding(
+        secret_id=secret_v1.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_123",
+        field_name="api_key",
+    )
+
+    secrets_sql_secret_v1 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_123")
+
+    sql_secret_v1 = secrets_sql_secret_v1["api_key"]
+    assert sql_secret_v1.ciphertext == old_ciphertext
+    assert sql_secret_v1.iv == old_iv
+    assert sql_secret_v1.wrapped_dek == old_wrapped_dek
+    assert sql_secret_v1.kek_version == old_kek_version
+
+    new_ciphertext = b"new_encrypted_key_______"
+    new_iv = b"new_iv_12___"
+    new_wrapped_dek = b"new_wrapped_dek_32_bytes_here"
+    new_kek_version = 2
+    new_aad_hash = b"new_aad_hash_32_bytes_here___"
+
+    secret_v2 = store._update_secret(
+        secret_id=secret_v1.secret_id,
+        ciphertext=new_ciphertext,
+        iv=new_iv,
+        wrapped_dek=new_wrapped_dek,
+        kek_version=new_kek_version,
+        aad_hash=new_aad_hash,
+        state=SecretState.ACTIVE.value,
+        updated_by="different_user",
+    )
+
+    assert secret_v2.secret_id == secret_v1.secret_id
+    assert secret_v2.is_shared is False
+    assert secret_v2.created_by == "admin"
+    assert secret_v2.last_updated_by == "different_user"
+
+    secrets_sql_secret_v2 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_123")
+
+    sql_secret_v2 = secrets_sql_secret_v2["api_key"]
+    assert sql_secret_v2.secret_id == secret_v1.secret_id
+    assert sql_secret_v2.ciphertext == new_ciphertext
+    assert sql_secret_v2.iv == new_iv
+    assert sql_secret_v2.wrapped_dek == new_wrapped_dek
+    assert sql_secret_v2.kek_version == new_kek_version
+    assert sql_secret_v2.aad_hash == new_aad_hash
+    assert sql_secret_v2.created_by == "admin"
+    assert sql_secret_v2.last_updated_by == "different_user"
+
+
+def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(is_shared=True)
+
+    store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_123",
+        field_name="api_key",
+    )
+
+    with pytest.raises(MlflowException, match="already exists"):
+        store._create_secret_binding(
+            secret_id=secret_entity.secret_id,
+            resource_type="SCORER_JOB",
+            resource_id="job_123",
+            field_name="api_key",
+        )
+
+
+def test_get_encrypted_secret_by_binding(store: SqlAlchemyStore, create_secret):
+    ciphertext = b"encrypted_data_here"
+    iv = b"iv_12_bytes_"
+    wrapped_dek = b"wrapped_dek_32_bytes_here_ok"
+    kek_version = 2
+    aad_hash = b"aad_hash_sha256_32_bytes_here"
+
+    secret_entity = create_secret(
+        secret_name="test_encrypted_secret",
+        ciphertext=ciphertext,
+        iv=iv,
+        wrapped_dek=wrapped_dek,
+        kek_version=kek_version,
+        aad_hash=aad_hash,
+    )
+
+    store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="scorer_999",
+        field_name="openai_key",
+    )
+
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "scorer_999")
+    sql_secret = secrets["openai_key"]
+
+    assert sql_secret.secret_id == secret_entity.secret_id
+    assert sql_secret.secret_name == "test_encrypted_secret"
+    assert sql_secret.ciphertext == ciphertext
+    assert sql_secret.iv == iv
+    assert sql_secret.wrapped_dek == wrapped_dek
+    assert sql_secret.kek_version == kek_version
+    assert sql_secret.aad_hash == aad_hash
+    assert sql_secret.is_shared is False
+    assert sql_secret.state == "ACTIVE"
+
+
+def test_get_encrypted_secret_inactive_state(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(state="REVOKED")
+
+    store._create_secret_binding(
+        secret_id=secret_entity.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="scorer_123",
+        field_name="api_key",
+    )
+
+    # Batch retrieval filters out inactive secrets
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "scorer_123")
+    assert secrets == {}  # No active secrets found
+
+
+def test_get_encrypted_secret_filters_by_state(store: SqlAlchemyStore, create_secret):
+    """Test that batch query filters by ACTIVE state and excludes inactive secrets."""
+
+    # Test 1: ACTIVE secret is successfully retrieved
+    active_secret = create_secret(secret_name="active_secret", state="ACTIVE")
+    store._create_secret_binding(
+        secret_id=active_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_1",
+        field_name="active_key",
+    )
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_1")
+    assert "active_key" in secrets
+    assert secrets["active_key"].secret_id == active_secret.secret_id
+    assert secrets["active_key"].state == "ACTIVE"
+
+    # Test 2: REVOKED secret is filtered out
+    revoked_secret = create_secret(secret_name="revoked_secret", state="REVOKED")
+    store._create_secret_binding(
+        secret_id=revoked_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_2",
+        field_name="revoked_key",
+    )
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_2")
+    assert secrets == {}  # No active secrets
+
+    # Test 3: ROTATED secret is filtered out
+    rotated_secret = create_secret(secret_name="rotated_secret", state="ROTATED")
+    store._create_secret_binding(
+        secret_id=rotated_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_3",
+        field_name="rotated_key",
+    )
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_3")
+    assert secrets == {}  # No active secrets
+
+
+def test_get_encrypted_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
+    """Test batch retrieval of all secrets for a resource in a single query."""
+
+    # Test 1: Empty case - no secrets configured
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "empty_job")
+    assert secrets == {}
+
+    # Test 2: Single secret
+    secret_1 = create_secret(secret_name="openai_key", state="ACTIVE")
+    store._create_secret_binding(
+        secret_id=secret_1.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_1",
+        field_name="openai_key",
+    )
+
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_1")
+    assert len(secrets) == 1
+    assert "openai_key" in secrets
+    assert secrets["openai_key"].secret_id == secret_1.secret_id
+    assert secrets["openai_key"].state == "ACTIVE"
+
+    # Test 3: Multiple secrets for same resource (main use case)
+    secret_2 = create_secret(secret_name="anthropic_key", state="ACTIVE")
+    secret_3 = create_secret(secret_name="db_password", state="ACTIVE")
+
+    store._create_secret_binding(
+        secret_id=secret_2.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_2",
+        field_name="anthropic_key",
+    )
+    store._create_secret_binding(
+        secret_id=secret_3.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_2",
+        field_name="db_password",
+    )
+
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_2")
+    assert len(secrets) == 2
+    assert set(secrets.keys()) == {"anthropic_key", "db_password"}
+    assert secrets["anthropic_key"].secret_id == secret_2.secret_id
+    assert secrets["db_password"].secret_id == secret_3.secret_id
+
+    # Test 4: Only ACTIVE secrets returned (inactive ones filtered out)
+    active_secret = create_secret(secret_name="active_api_key", state="ACTIVE")
+    revoked_secret = create_secret(secret_name="revoked_api_key", state="REVOKED")
+    rotated_secret = create_secret(secret_name="rotated_api_key", state="ROTATED")
+
+    store._create_secret_binding(
+        secret_id=active_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_3",
+        field_name="active_key",
+    )
+    store._create_secret_binding(
+        secret_id=revoked_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_3",
+        field_name="revoked_key",
+    )
+    store._create_secret_binding(
+        secret_id=rotated_secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_3",
+        field_name="rotated_key",
+    )
+
+    secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_3")
+    assert len(secrets) == 1
+    assert "active_key" in secrets
+    assert "revoked_key" not in secrets
+    assert "rotated_key" not in secrets
+
+    # Test 5: Different resources are isolated
+    secret_4 = create_secret(secret_name="job4_secret", state="ACTIVE")
+    secret_5 = create_secret(secret_name="job5_secret", state="ACTIVE")
+
+    store._create_secret_binding(
+        secret_id=secret_4.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_4",
+        field_name="api_key",
+    )
+    store._create_secret_binding(
+        secret_id=secret_5.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job_5",
+        field_name="api_key",
+    )
+
+    secrets_job4 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_4")
+    secrets_job5 = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_5")
+
+    assert len(secrets_job4) == 1
+    assert len(secrets_job5) == 1
+    assert secrets_job4["api_key"].secret_id == secret_4.secret_id
+    assert secrets_job5["api_key"].secret_id == secret_5.secret_id
