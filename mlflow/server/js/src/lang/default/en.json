@@ -147,6 +147,10 @@
     "defaultMessage": "Service unavailable error",
     "description": "Request failed due to service being available (HTTP STATUS 503) generic error message"
   },
+  "/akgwX": {
+    "defaultMessage": "Show {hiddenMessageCount} more",
+    "description": "Button label to expand and show hidden conversation messages in model trace explorer"
+  },
   "/fwKFW": {
     "defaultMessage": "No prompts created",
     "description": "A header for the empty state in the prompts table"
@@ -4879,6 +4883,10 @@
     "defaultMessage": "Prompt Name",
     "description": "Header for prompt name column in linked prompts table on logged model details page"
   },
+  "nugZSE": {
+    "defaultMessage": "Show less",
+    "description": "Button label to collapse conversation messages in model trace explorer"
+  },
   "nvjkTA": {
     "defaultMessage": "False",
     "description": "False assessment label"
@@ -4906,6 +4914,10 @@
   "o8YPlv": {
     "defaultMessage": "Dataset tracking",
     "description": "Home page news card title four"
+  },
+  "oBJ8xc": {
+    "defaultMessage": "Cost",
+    "description": "Label for the cost metadata associated with a judge feedback"
   },
   "oBKd1E": {
     "defaultMessage": "Value",
