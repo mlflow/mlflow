@@ -5,13 +5,12 @@
   padding: 0.25rem 0.5rem;
   background: var(--prism-background-color);
   position: sticky;
-  top: 50px;
+  top: var(--ifm-navbar-height, 3.125rem); /* Stick below the Docusaurus navbar; fallback for safety */
 }
 
 .languageLabel {
   font-size: 0.75rem;
   font-weight: 600;
-  color: grey;
-  padding: 5px;
-  top: 0px;
+  color: var(--ifm-color-emphasis-600);
+  padding: 0.3125rem;
 }
