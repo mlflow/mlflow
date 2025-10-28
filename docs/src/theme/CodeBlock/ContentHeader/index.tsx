@@ -9,7 +9,10 @@ export interface ContentHeaderProps {
 
 export default function ContentHeader({ language }: ContentHeaderProps): ReactNode {
   return (
-    <div className={clsx(styles.codeBlockHeader)}>
+    <div
+      className={clsx(styles.codeBlockHeader)}
+      aria-label={`Code block header for ${language} code with copy and toggle buttons`}
+    >
       <span className={styles.languageLabel}>{language}</span>
       <Buttons />
     </div>
