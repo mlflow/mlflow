@@ -31,7 +31,11 @@ export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
+/**
+ * Determines if the regexp-based auto runs search filter is enabled.
+ * This should be disabled in OSS since backend does not support it yet.
+ */
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;

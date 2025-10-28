@@ -36,6 +36,7 @@ from mlflow.protos.databricks_pb2 import (
 from mlflow.telemetry.events import InvokeCustomJudgeModelEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.telemetry.utils import _is_in_databricks
+from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.version import VERSION
 
@@ -471,7 +472,7 @@ def invoke_judge_model(
                 stacklevel=2,
             )
         try:
-            output = _invoke_databricks_judge_model(
+            output = _invoke_databricks_serving_endpoint_for_judge(
                 model_name=model_name,
                 prompt=prompt,
                 assessment_name=assessment_name,
@@ -519,9 +520,9 @@ def invoke_judge_model(
 
     # Handle all other cases (including non-Databricks, ChatMessage prompts, traces)
     messages = [ChatMessage(role="user", content=prompt)] if isinstance(prompt, str) else prompt
-
+    total_cost = None
     if _is_litellm_available():
-        response = _invoke_litellm_and_handle_tools(
+        response, total_cost = _invoke_litellm_and_handle_tools(
             provider=model_provider,
             model_name=model_name,
             messages=messages,
@@ -554,12 +555,15 @@ def invoke_judge_model(
             error_code=BAD_REQUEST,
         ) from e
 
+    metadata = {AssessmentMetadataKey.JUDGE_COST: total_cost} if total_cost else None
+
     feedback = Feedback(
         name=assessment_name,
         value=response_dict["result"],
         rationale=_sanitize_justification(response_dict.get("rationale", "")),
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id=model_uri),
         trace_id=trace.info.trace_id if trace is not None else None,
+        metadata=metadata,
     )
 
     if "error" in response_dict:
@@ -728,6 +732,7 @@ def _invoke_databricks_model(
 ) -> InvokeDatabricksModelOutput:
     from mlflow.utils.databricks_utils import get_databricks_host_creds
 
+    # B-Step62: Why not use mlflow deployment client?
     host_creds = get_databricks_host_creds()
     api_url = f"{host_creds.host}/serving-endpoints/{model_name}/invocations"
 
@@ -881,7 +886,7 @@ class InvokeJudgeModelHelperOutput:
     num_completion_tokens: int | None
 
 
-def _invoke_databricks_judge_model(
+def _invoke_databricks_serving_endpoint_for_judge(
     *,
     model_name: str,
     prompt: str,
@@ -889,7 +894,7 @@ def _invoke_databricks_judge_model(
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
-    output = _invoke_databricks_model(
+    output = _invoke_databricks_serving_endpoint(
         model_name=model_name,
         prompt=prompt,
         num_retries=num_retries,
@@ -1087,7 +1092,7 @@ def _invoke_litellm_and_handle_tools(
     trace: Trace | None,
     num_retries: int,
     response_format: type[pydantic.BaseModel] | None = None,
-) -> str:
+) -> tuple[str, float | None]:
     """
     Invoke litellm with retry support and handle tool calling loop.
 
@@ -1102,7 +1107,7 @@ def _invoke_litellm_and_handle_tools(
                        schema-based extraction.
 
     Returns:
-        The model's response content.
+        Tuple of the model's response content and the total cost.
 
     Raises:
         MlflowException: If the request fails after all retries.
@@ -1136,6 +1141,7 @@ def _invoke_litellm_and_handle_tools(
 
     max_iterations = MLFLOW_JUDGE_MAX_ITERATIONS.get()
     iteration_count = 0
+    total_cost = None
 
     while True:
         iteration_count += 1
@@ -1182,9 +1188,14 @@ def _invoke_litellm_and_handle_tools(
                 else:
                     raise
 
+            if cost := _extract_response_cost(response):
+                if total_cost is None:
+                    total_cost = 0
+                total_cost += cost
+
             message = response.choices[0].message
             if not message.tool_calls:
-                return message.content
+                return message.content, total_cost
 
             messages.append(message)
             tool_response_messages = _process_tool_calls(tool_calls=message.tool_calls, trace=trace)
@@ -1194,6 +1205,11 @@ def _invoke_litellm_and_handle_tools(
             raise
         except Exception as e:
             raise MlflowException(f"Failed to invoke the judge via litellm: {e}") from e
+
+
+def _extract_response_cost(response: "litellm.Completion") -> float | None:
+    if hidden_params := getattr(response, "_hidden_params", None):
+        return hidden_params.get("response_cost")
 
 
 def _create_mlflow_tool_call_from_litellm(

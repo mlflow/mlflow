@@ -73,6 +73,8 @@ class SpanAttributeKey:
 
 class AssessmentMetadataKey:
     SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
+    # Total LLM cost spent for generating the feedback (llm-as-a-judge).
+    JUDGE_COST = "mlflow.assessment.judgeCost"
 
 
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
@@ -123,6 +125,7 @@ GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
 # This is used to determine where the spans are stored when exporting.
 class SpansLocation(str, Enum):
     TRACKING_STORE = "TRACKING_STORE"
+    ARTIFACT_REPO = "ARTIFACT_REPO"
 
 
 # Path to the notebook trace renderer directory
