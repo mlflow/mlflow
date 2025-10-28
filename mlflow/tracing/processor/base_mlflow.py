@@ -22,7 +22,6 @@ from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
 from mlflow.tracing.trace_manager import _Trace
 from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
-    deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
@@ -109,7 +108,6 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 if trace is not None:
                     if span._parent is None:
                         self._update_trace_info(trace, span)
-                    deduplicate_span_names_in_place(list(trace.span_dict.values()))
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
 
