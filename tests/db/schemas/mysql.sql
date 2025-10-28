@@ -260,7 +260,7 @@ CREATE TABLE secrets_bindings (
 	secret_id VARCHAR(36) NOT NULL,
 	resource_type VARCHAR(50) NOT NULL,
 	resource_id VARCHAR(255) NOT NULL,
-	binding_name VARCHAR(255) NOT NULL,
+	field_name VARCHAR(255) NOT NULL,
 	created_at BIGINT NOT NULL,
 	created_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,

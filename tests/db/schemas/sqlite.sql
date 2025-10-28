@@ -100,7 +100,8 @@ CREATE TABLE secrets (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
+	CONSTRAINT unique_secret_name UNIQUE (secret_name)
 )
 
 
@@ -263,14 +264,14 @@ CREATE TABLE secrets_bindings (
 	secret_id VARCHAR(36) NOT NULL,
 	resource_type VARCHAR(50) NOT NULL,
 	resource_id VARCHAR(255) NOT NULL,
-	binding_name VARCHAR(255) NOT NULL,
+	field_name VARCHAR(255) NOT NULL,
 	created_at BIGINT NOT NULL,
 	created_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	CONSTRAINT secrets_bindings_pk PRIMARY KEY (binding_id),
 	CONSTRAINT fk_secrets_bindings_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE,
-	CONSTRAINT unique_binding_per_resource UNIQUE (resource_type, resource_id, binding_name)
+	CONSTRAINT unique_binding_per_resource UNIQUE (resource_type, resource_id, field_name)
 )
 
 
@@ -457,4 +458,3 @@ CREATE TABLE trace_tags (
 	CONSTRAINT trace_tag_pk PRIMARY KEY (key, request_id),
 	CONSTRAINT fk_trace_tags_request_id FOREIGN KEY(request_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
 )
-

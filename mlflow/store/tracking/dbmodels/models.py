@@ -2129,9 +2129,9 @@ class SqlSecretBinding(Base):
     """
     Resource ID: `String` (limit 255 characters). ID of the resource using this secret.
     """
-    binding_name = Column(String(255), nullable=False)
+    field_name = Column(String(255), nullable=False)
     """
-    Binding name: `String` (limit 255 characters). Field name for the secret (e.g., api_key).
+    Field name: `String` (limit 255 characters). Environment variable name (e.g., OPENAI_API_KEY).
     """
     created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
     """
@@ -2158,7 +2158,7 @@ class SqlSecretBinding(Base):
     __table_args__ = (
         PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
         UniqueConstraint(
-            "resource_type", "resource_id", "binding_name", name="unique_binding_per_resource"
+            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
         ),
         Index("index_secrets_bindings_secret_id", "secret_id"),
         Index("index_secrets_bindings_resource_type_resource_id", "resource_type", "resource_id"),
