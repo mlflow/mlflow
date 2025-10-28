@@ -291,18 +291,6 @@ def _agent_executor_contains_unsupported_llm(lc_model, _SUPPORTED_LLMS):
 
 # temp_dir is only required when lc_model could be a file path
 def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
-    try:
-        import langchain.chains.base
-        import langchain.chains.llm
-    except ImportError:
-        pass
-
-    try:
-        import langchain.llms.huggingface_hub
-        import langchain.llms.openai  # noqa: F401
-    except ImportError:
-        pass
-
     if isinstance(lc_model, str):
         return _validate_and_get_model_code_path(lc_model, temp_dir)
 

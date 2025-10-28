@@ -26,14 +26,10 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Any
 
-from mlflow.langchain._compat import import_base_callback_handler
+from mlflow.langchain._compat import import_base_callback_handler, try_import_chain
 
 BaseCallbackHandler = import_base_callback_handler()
-
-try:
-    import langchain.chains
-except ImportError:
-    pass
+Chain = try_import_chain()
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -101,7 +97,7 @@ class APIRequest:
     """
 
     index: int
-    lc_model: langchain.chains.base.Chain
+    lc_model: Any
     request_json: dict[str, Any]
     results: list[tuple[int, str]]
     errors: dict[int, str]
@@ -177,7 +173,7 @@ class APIRequest:
                 response = self._try_convert_response(response)
         else:
             # return_only_outputs is invalid for stream call
-            if isinstance(self.lc_model, langchain.chains.base.Chain) and not self.stream:
+            if Chain and isinstance(self.lc_model, Chain) and not self.stream:
                 kwargs = {"return_only_outputs": True}
             else:
                 kwargs = {}

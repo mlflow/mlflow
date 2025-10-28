@@ -43,7 +43,7 @@ from mlflow.langchain.utils.logging import (
 if TYPE_CHECKING:
     try:
         from langchain.schema.runnable import Runnable
-    except (ImportError, ModuleNotFoundError):
+    except ImportError:
         from langchain_core.runnables import Runnable
 
 _STEPS_FOLDER_NAME = "steps"
