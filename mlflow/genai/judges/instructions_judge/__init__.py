@@ -475,19 +475,19 @@ class InstructionsJudge(Judge):
         - list[PbValueType]
         """
         # Handle basic types (PbValueType: float, int, str, bool)
-        if response_format in (str, int, float, bool):
-            return {"type": response_format.__name__}
+        if feedback_value_type in (str, int, float, bool):
+            return {"type": feedback_value_type.__name__}
 
-        origin = get_origin(response_format)
+        origin = get_origin(feedback_value_type)
 
         # Handle Literal types
         if origin is Literal:
-            literal_values = get_args(response_format)
+            literal_values = get_args(feedback_value_type)
             return {"type": "Literal", "values": list(literal_values)}
 
         # Handle dict[str, PbValueType]
         if origin is dict:
-            args = get_args(response_format)
+            args = get_args(feedback_value_type)
             if len(args) == 2:
                 key_type, value_type = args
                 return {
@@ -498,14 +498,14 @@ class InstructionsJudge(Judge):
 
         # Handle list[PbValueType]
         if origin is list:
-            args = get_args(response_format)
+            args = get_args(feedback_value_type)
             if len(args) == 1:
                 element_type = args[0]
                 return {"type": "list", "element_type": element_type.__name__}
 
         # Unsupported type
         raise MlflowException.invalid_parameter_value(
-            f"Unsupported feedback_value_type type: {response_format}. "
+            f"Unsupported feedback_value_type type: {feedback_value_type}. "
             f"Only str, int, float, bool, Literal, dict[str, PbValueType], and "
             f"list[PbValueType] types are supported for serialization."
         )
