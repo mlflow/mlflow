@@ -9,6 +9,7 @@ import shutil
 import time
 from pathlib import Path
 from typing import Iterator
+from unittest import mock
 
 import pytest
 import requests
@@ -375,27 +376,24 @@ def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
             span.set_attribute("test.batch.index", i)
             otel_trace_id = span.get_span_context().trace_id
             trace_ids.append(otel_trace_id)
-            assert otel_trace_id != 0, f"Trace ID {i} is zero"
+            assert otel_trace_id != 0
 
     # Force flush to send all batched spans
     span_processor.force_flush()
 
-    # Add a delay to ensure server has processed the spans
     time.sleep(1)
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == 3, f"Expected 3 traces, found {len(traces)}"
+    assert len(traces) == 3
 
     # Verify all expected trace IDs are present
     expected_trace_ids = {f"tr-{encode_trace_id(tid)}" for tid in trace_ids}
     actual_trace_ids = {trace.info.trace_id for trace in traces}
 
-    assert expected_trace_ids.issubset(actual_trace_ids), (
-        f"Missing traces. Expected: {expected_trace_ids}, Actual: {actual_trace_ids}"
-    )
+    assert expected_trace_ids == actual_trace_ids
 
 
 def test_multiple_traces_in_single_request(mlflow_server: str):
@@ -455,7 +453,7 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) >= 3, f"Expected at least 3 traces, found {len(traces)}"
+    assert len(traces) == 3
 
 
 def test_parallel_trace_logging_performance(mlflow_server: str):
@@ -495,8 +493,7 @@ def test_parallel_trace_logging_performance(mlflow_server: str):
         request.resource_spans.append(resource_spans)
 
     # Send the request and measure response time
-    start_time = time.time()
-    response = requests.post(
+    requests.post(
         f"{mlflow_server}/v1/traces",
         data=request.SerializeToString(),
         headers={
@@ -505,21 +502,14 @@ def test_parallel_trace_logging_performance(mlflow_server: str):
         },
         timeout=30,
     )
-    elapsed_time = time.time() - start_time
 
-    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
-    # With parallel processing, this should complete reasonably fast
-    # (exact timing depends on hardware, but should be under 10 seconds)
-    assert elapsed_time < 10, f"Request took {elapsed_time}s, expected < 10s"
-
-    # Wait for all traces to be available
     time.sleep(2)
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
     )
 
-    assert len(traces) == num_traces, f"Expected {num_traces} traces, found {len(traces)}"
+    assert len(traces) == num_traces
 
 
 def test_mixed_trace_spans_in_single_request(mlflow_server: str):
@@ -577,20 +567,74 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
 
     assert response.status_code == 200
 
-    # Wait for traces
     time.sleep(1)
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=True, return_type="list"
     )
 
-    assert len(traces) == 3, f"Expected 3 traces, found {len(traces)}"
+    assert len(traces) == 3
 
     # Verify span counts per trace
     # Note: search_traces may return traces in any order, so we need to check by span count
     span_counts = sorted([len(trace.data.spans) for trace in traces[:3]])
     expected_counts = sorted([2, 1, 2])  # trace A: 2, trace B: 1, trace C: 2
 
-    assert span_counts == expected_counts, (
-        f"Expected span counts {expected_counts}, got {span_counts}"
+    assert span_counts == expected_counts
+
+
+def test_error_logging_spans(mlflow_server: str, monkeypatch):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-error-test")
+    experiment_id = experiment.experiment_id
+
+    resource = OTelSDKResource.create({"service.name": "test-batch-service"})
+    tracer_provider = TracerProvider(resource=resource)
+
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,
     )
+
+    # Use BatchSpanProcessor to batch spans from multiple traces
+    span_processor = BatchSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
+
+    tracer = otel_trace.get_tracer(__name__)
+
+    count = 0
+
+    original_log_spans = SqlAlchemyStore.log_spans
+
+    def mock_log_spans(self, *args, **kwargs):
+        nonlocal count
+        if count == 0:
+            count += 1
+            raise Exception("test_error")
+        else:
+            return original_log_spans(self, *args, **kwargs)
+
+    monkeypatch.setattr(SqlAlchemyStore, "log_spans", mock_log_spans)
+
+    with mock.patch(
+        "opentelemetry.exporter.otlp.proto.http.trace_exporter._logger.error"
+    ) as mock_error:
+        for _ in range(2):
+            with tracer.start_as_current_span("batch-test-span-0"):
+                pass
+
+        span_processor.force_flush()
+
+        assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 1

@@ -117,10 +117,11 @@ async def export_traces(
         store = _get_tracking_store()
 
         # Helper function to log spans for a single trace
-        def log_trace_spans(trace_id, trace_spans):
+        def log_trace_spans(trace_id, trace_spans) -> str:
             store.log_spans(x_mlflow_experiment_id, trace_spans)
             return trace_id
 
+        errors = {}
         try:
             # Log each trace's spans in parallel using ThreadPoolExecutor
             with ThreadPoolExecutor(
@@ -142,19 +143,25 @@ async def export_traces(
                         store_name = store.__class__.__name__
                         raise HTTPException(
                             status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                            detail=f"REST OTLP span logging is not supported by {store_name}",
+                            detail=f"{store_name} does not support logging spans via OTLP REST API",
                         )
                     except Exception as e:
-                        raise HTTPException(
-                            status_code=422,
-                            detail=f"Cannot store OpenTelemetry spans for trace {trace_id}: {e}",
-                        )
+                        errors[trace_id] = e
         except HTTPException:
             raise  # Re-raise HTTP exceptions without wrapping
         except Exception as e:
             raise HTTPException(
                 status_code=422,
                 detail=f"Error logging spans: {e}",
+            )
+
+        if errors:
+            error_msg = "\n".join(
+                [f"Trace {trace_id}: {error}" for trace_id, error in errors.items()]
+            )
+            raise HTTPException(
+                status_code=422,
+                detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
     return OTelExportTraceServiceResponse()
