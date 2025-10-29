@@ -90,35 +90,39 @@ def test_emit_custom_metric_event():
     assert headers[_CLIENT_NAME_HEADER] == "mlflow"
 
     event = json.loads(call_args["json_body"])
-    assert event["metric_names"] == ["is_concise", "is_correct", "is_empty", "not_empty", "is_kind"]
+    assert len(event["metric_names"]) == 5
+    assert all(isinstance(name, str) for name in event["metric_names"])
     assert event["eval_count"] == 10
     assert event["metrics"] == [
         {
-            "name": "is_concise",
+            "name": mock.ANY,
             "average": 0.1,
             "count": 10,
         },
         {
-            "name": "is_correct",
+            "name": mock.ANY,
             "average": 0.4,
             "count": 10,
         },
         {
-            "name": "is_empty",
+            "name": mock.ANY,
             "average": 0.5,
             "count": 10,
         },
         {
-            "name": "not_empty",
+            "name": mock.ANY,
             "average": None,
             "count": 10,
         },
         {
-            "name": "is_kind",
+            "name": mock.ANY,
             "average": 0.9,
             "count": 10,
         },
     ]
+    # Metric names should be hashed
+    assert isinstance(event["metrics"][0]["name"], str)
+    assert event["metrics"][0]["name"] != "is_concise"
 
 
 def test_emit_custom_metric_usage_event_skip_outside_databricks():

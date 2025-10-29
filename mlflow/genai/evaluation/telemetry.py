@@ -1,3 +1,4 @@
+import hashlib
 import json
 import threading
 import uuid
@@ -30,24 +31,28 @@ def emit_custom_metric_event(
         return
 
     custom_metrics = list(filter(_is_custom_scorer, scorers))
+    metric_name_to_hash = {m.name: _hash_metric_name(m.name) for m in custom_metrics}
 
-    metric_stats = {m.name: {"average": None, "count": eval_count} for m in custom_metrics}
+    metric_stats = {
+        hashed_name: {"average": None, "count": eval_count}
+        for hashed_name in metric_name_to_hash.values()
+    }
     for metric_key, metric_value in aggregated_metrics.items():
         name, aggregation = metric_key.split("/", 1)
-        if name in metric_stats and aggregation == "mean":
-            metric_stats[name]["average"] = metric_value
+        hashed_name = metric_name_to_hash.get(name)
+        if hashed_name is not None and aggregation == "mean":
+            metric_stats[hashed_name]["average"] = metric_value
 
     metric_stats = [
         {
-            "name": name,
-            "average": metric_stats[name]["average"],
-            "count": metric_stats[name]["count"],
+            "name": hashed_name,
+            "average": metric_stats[hashed_name]["average"],
+            "count": metric_stats[hashed_name]["count"],
         }
-        for name in metric_stats
+        for hashed_name in metric_stats
     ]
-
     event_payload = {
-        "metric_names": [metric.name for metric in custom_metrics],
+        "metric_names": list(metric_name_to_hash.values()),
         "eval_count": eval_count,
         "metrics": metric_stats,
     }
@@ -85,3 +90,8 @@ def _get_or_create_session_id() -> str:
     if not hasattr(_sessions, _SESSION_KEY):
         setattr(_sessions, _SESSION_KEY, str(uuid.uuid4()))
     return getattr(_sessions, _SESSION_KEY)
+
+
+def _hash_metric_name(metric_name: str) -> str:
+    """Hash metric name in un-recoverable way to avoid leaking sensitive information"""
+    return hashlib.sha256(metric_name.encode("utf-8")).hexdigest()
