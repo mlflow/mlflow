@@ -118,12 +118,12 @@ class SearchTracesTool(JudgeTool):
 
     @property
     def name(self) -> str:
-        return ToolNames.SEARCH_TRACES
+        return ToolNames._SEARCH_TRACES
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name=ToolNames.SEARCH_TRACES,
+                name=ToolNames._SEARCH_TRACES,
                 description=(
                     "Search for traces within the same MLflow experiment as the current trace. "
                     "Returns trace metadata including trace_id, request_time, state, request, "

@@ -30,7 +30,7 @@ from tests.tracing.helper import create_mock_otel_span
 
 def test_search_traces_tool_name() -> None:
     tool = SearchTracesTool()
-    assert tool.name == "search_traces"
+    assert tool.name == "_search_traces"
 
 
 def test_search_traces_tool_get_definition() -> None:
@@ -38,7 +38,7 @@ def test_search_traces_tool_get_definition() -> None:
     definition = tool.get_definition()
 
     assert isinstance(definition, ToolDefinition)
-    assert definition.function.name == "search_traces"
+    assert definition.function.name == "_search_traces"
     assert "Search for traces within the same MLflow experiment" in definition.function.description
     assert definition.function.parameters.type == "object"
     assert definition.function.parameters.required == []

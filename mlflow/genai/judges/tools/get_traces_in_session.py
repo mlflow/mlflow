@@ -27,12 +27,12 @@ class GetTracesInSession(JudgeTool):
 
     @property
     def name(self) -> str:
-        return ToolNames.GET_TRACES_IN_SESSION
+        return ToolNames._GET_TRACES_IN_SESSION
 
     def get_definition(self) -> ToolDefinition:
         return ToolDefinition(
             function=FunctionToolDefinition(
-                name=ToolNames.GET_TRACES_IN_SESSION,
+                name=ToolNames._GET_TRACES_IN_SESSION,
                 description=(
                     "Retrieve traces from the same session for multi-turn evaluation. "
                     "Extracts the session ID from the current trace's tags and searches for other "

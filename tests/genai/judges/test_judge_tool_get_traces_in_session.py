@@ -15,7 +15,7 @@ from mlflow.types.llm import ToolDefinition
 
 def test_get_traces_in_session_tool_name() -> None:
     tool = GetTracesInSession()
-    assert tool.name == "get_traces_in_session"
+    assert tool.name == "_get_traces_in_session"
 
 
 def test_get_traces_in_session_tool_get_definition() -> None:
@@ -23,7 +23,7 @@ def test_get_traces_in_session_tool_get_definition() -> None:
     definition = tool.get_definition()
 
     assert isinstance(definition, ToolDefinition)
-    assert definition.function.name == "get_traces_in_session"
+    assert definition.function.name == "_get_traces_in_session"
     assert "session" in definition.function.description.lower()
     assert "multi-turn evaluation" in definition.function.description.lower()
     assert definition.function.parameters.type == "object"
