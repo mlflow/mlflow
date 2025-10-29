@@ -19,6 +19,7 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 - First check for environment variables:
   - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER`
+  - Then use `gh pr view <PR_NUMBER> --repo <owner/repo> --json 'title,body'` to retrieve the PR title and description
 - Otherwise:
   - Use `gh pr view --json 'title,body,url,number'` to get PR info for the current branch
   - Parse the output to extract owner, repo, PR number, title, and description
