@@ -899,7 +899,7 @@ def test_invoke_databricks_model_with_response_schema():
             "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
         ),
     ):
-        output = _invoke_databricks_model(
+        output = _invoke_databricks_serving_endpoint(
             model_name="my-endpoint",
             prompt="Rate this",
             num_retries=1,
