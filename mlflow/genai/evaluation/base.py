@@ -265,11 +265,7 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    eval_start_time = int(time.time() * 1000)
-
-    result = _run_harness(data, scorers, predict_fn, model_id)
-
-    return result
+    return _run_harness(data, scorers, predict_fn, model_id)
 
 
 @record_usage_event(GenAIEvaluateEvent)

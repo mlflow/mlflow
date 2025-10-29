@@ -187,6 +187,7 @@ def _compute_eval_scores(
             scorer_func = scorer.run
 
             if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+                # TODO: Replace SpanType.CHAIN with SpanType.EVALUATOR once PR 18532 is merged
                 scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.CHAIN)(scorer_func)
 
             value = scorer_func(

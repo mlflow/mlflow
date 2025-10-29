@@ -1019,7 +1019,6 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
     for trace in traces:
         for a in trace.info.assessments:
             if isinstance(a, Feedback):
-                print(a.metadata)
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
             elif isinstance(a, Expectation):
