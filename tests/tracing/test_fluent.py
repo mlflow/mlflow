@@ -2418,6 +2418,9 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
     assert "test_span" in found_span_names
 
 
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
 def test_search_traces_with_full_text():
     with mlflow.start_span(name="test_span") as span:
         span.set_attribute("llm.inputs", "How's the result?")
