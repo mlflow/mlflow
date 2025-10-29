@@ -1223,7 +1223,8 @@ def search_runs_impl(request_message):
     try:
         from mlflow.server import auth
 
-        experiment_ids = auth.filter_experiment_ids(experiment_ids)
+        if auth.auth_config:
+            experiment_ids = auth.filter_experiment_ids(experiment_ids)
     except ImportError:
         # Auth module not available (Flask-WTF not installed), skip filtering
         pass
