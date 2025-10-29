@@ -17,8 +17,10 @@ var BigNumber = null;
 // (c) BSD-3-Clause
 // https://github.com/fastify/secure-json-parse/graphs/contributors and https://github.com/hapijs/bourne/graphs/contributors
 
-const suspectProtoRx = /(?:_|\\u005[Ff])(?:_|\\u005[Ff])(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff])(?:_|\\u005[Ff])/;
-const suspectConstructorRx = /(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072)/;
+const suspectProtoRx =
+  /(?:_|\\u005[Ff])(?:_|\\u005[Ff])(?:p|\\u0070)(?:r|\\u0072)(?:o|\\u006[Ff])(?:t|\\u0074)(?:o|\\u006[Ff])(?:_|\\u005[Ff])(?:_|\\u005[Ff])/;
+const suspectConstructorRx =
+  /(?:c|\\u0063)(?:o|\\u006[Ff])(?:n|\\u006[Ee])(?:s|\\u0073)(?:t|\\u0074)(?:r|\\u0072)(?:u|\\u0075)(?:c|\\u0063)(?:t|\\u0074)(?:o|\\u006[Ff])(?:r|\\u0072)/;
 
 /*
     json_parse.js
@@ -100,7 +102,7 @@ var json_parse = function (options) {
     alwaysParseAsBig: false, // toggles whether all numbers should be Big
     useNativeBigInt: false, // toggles whether to use native BigInt instead of bignumber.js
     protoAction: 'error',
-    constructorAction: 'error',
+    constructorAction: 'error'
   };
 
   // If there are options, then use them to override the default _options
@@ -113,8 +115,7 @@ var json_parse = function (options) {
     }
     _options.alwaysParseAsBig =
       options.alwaysParseAsBig === true ? options.alwaysParseAsBig : false;
-    _options.useNativeBigInt =
-      options.useNativeBigInt === true ? options.useNativeBigInt : false;
+    _options.useNativeBigInt = options.useNativeBigInt === true ? options.useNativeBigInt : false;
 
     if (typeof options.constructorAction !== 'undefined') {
       if (
@@ -155,7 +156,7 @@ var json_parse = function (options) {
       f: '\f',
       n: '\n',
       r: '\r',
-      t: '\t',
+      t: '\t'
     },
     text,
     error = function (m) {
@@ -165,7 +166,7 @@ var json_parse = function (options) {
         name: 'SyntaxError',
         message: m,
         at: at,
-        text: text,
+        text: text
       };
     },
     next = function (c) {
@@ -223,17 +224,17 @@ var json_parse = function (options) {
           return !_options.alwaysParseAsBig
             ? number
             : _options.useNativeBigInt
-            ? BigInt(number)
-            : new BigNumber(number);
+              ? BigInt(number)
+              : new BigNumber(number);
         else
           // Number with fractional part should be treated as number(double) including big integers in scientific notation, i.e 1.79e+308
           return _options.storeAsString
             ? string
             : /[\.eE]/.test(string)
-            ? number
-            : _options.useNativeBigInt
-            ? BigInt(string)
-            : new BigNumber(string);
+              ? number
+              : _options.useNativeBigInt
+                ? BigInt(string)
+                : new BigNumber(string);
       }
     },
     string = function () {
@@ -354,10 +355,7 @@ var json_parse = function (options) {
           key = string();
           white();
           next(':');
-          if (
-            _options.strict === true &&
-            Object.hasOwnProperty.call(object, key)
-          ) {
+          if (_options.strict === true && Object.hasOwnProperty.call(object, key)) {
             error('Duplicate key "' + key + '"');
           }
 
