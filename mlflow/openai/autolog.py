@@ -11,6 +11,7 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
+from mlflow.openai._agent_tracer import clear_other_trace_processors
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.telemetry.events import AutologgingEvent
@@ -38,6 +39,7 @@ def autolog(
     disable_for_unsupported_versions=False,
     silent=False,
     log_traces=True,
+    disable_openai_agent_tracer=True,
 ):
     """
     Enables (or disables) and configures autologging from OpenAI to MLflow.
@@ -58,6 +60,8 @@ def autolog(
             autologging.
         log_traces: If ``True``, traces are logged for OpenAI models. If ``False``, no traces are
             collected during inference. Default to ``True``.
+        disable_openai_agent_tracer: If ``True``, disable the OpenAI Agent SDK tracer. If ``False``,
+            enable the OpenAI Agent SDK tracer. Default to ``True``.
     """
     if Version(importlib.metadata.version("openai")).major < 1:
         raise MlflowException("OpenAI autologging is only supported for openai >= 1.0.0")
@@ -88,6 +92,9 @@ def autolog(
             add_mlflow_trace_processor,
             remove_mlflow_trace_processor,
         )
+
+        if disable_openai_agent_tracer:
+            clear_other_trace_processors()
 
         if log_traces and not disable:
             add_mlflow_trace_processor()

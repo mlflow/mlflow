@@ -5,7 +5,7 @@ import logging
 from typing import Any
 
 import agents.tracing as oai
-from agents import add_trace_processor
+from agents import add_trace_processor, set_trace_processors
 from agents.tracing.setup import GLOBAL_TRACE_PROVIDER
 
 from mlflow.entities.span import SpanType
@@ -53,6 +53,17 @@ _SPAN_TYPE_MAP = {
     OpenAISpanType.GUARDRAIL: SpanType.TOOL,
     # Default to chain type
 }
+
+
+def clear_other_trace_processors():
+    """
+    Clear other trace processors to avoid warnings.
+    https://github.com/openai/openai-agents-python/issues/1387#issuecomment-3165660183
+    """
+    try:
+        set_trace_processors([])
+    except ImportError:
+        pass
 
 
 def add_mlflow_trace_processor():
