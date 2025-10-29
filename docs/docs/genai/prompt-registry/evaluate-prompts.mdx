@@ -124,7 +124,7 @@ import openai
 
 def predict(data: pd.DataFrame) -> list[str]:
     predictions = []
-    prompt = mlflow.load_prompt("prompts:/summarization-prompt/1")
+    prompt = mlflow.load_prompt("prompts:/summarization-prompt@latest")
 
     for _, row in data.iterrows():
         # Fill in variables in the prompt template

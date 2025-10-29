@@ -157,7 +157,7 @@ async def test_chat_completions_autolog_under_current_active_span(client):
     parent_span = trace.data.spans[0]
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
-    assert child_span.name == "AsyncCompletions_1" if client._is_async else "Completions_1"
+    assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
     assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
