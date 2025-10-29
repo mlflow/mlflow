@@ -83,7 +83,7 @@ def test_object_to_dict_one_required_param():
 
 
 def test_construct_prompt_template_object_success(qa_prompt_template):
-    kwargs = qa_prompt_template.dict()
+    kwargs = qa_prompt_template.model_dump()
     observed = _construct_prompt_template_object(PromptTemplate, kwargs)
     assert observed == qa_prompt_template
 

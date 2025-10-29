@@ -21,6 +21,9 @@ import mlflow
 
 prompt_name = "my-sdk-prompt"
 
+# Load the latest version of the prompt
+mlflow.genai.load_prompt(name_or_uri=f"prompts:/{prompt_name}@latest")
+
 # Load by specific version (assuming version 1 exists)
 mlflow.genai.load_prompt(name_or_uri=f"prompts:/{prompt_name}/1")
 
