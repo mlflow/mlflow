@@ -2044,9 +2044,10 @@ class SqlSecret(Base):
     """
     Secret ID: `String` (limit 36 characters). *Primary Key* for ``secrets`` table.
     """
-    secret_name = Column(String(255), unique=True, nullable=False)
+    secret_name = Column(String(255), nullable=False)
     """
-    Secret name: `String` (limit 255 characters). Unique identifier for the secret.
+    Secret name: `String` (limit 255 characters). User-provided name for the secret.
+    Unique only for shared secrets (enforced at application layer).
     """
     encrypted_value = Column(LargeBinary, nullable=False)
     """

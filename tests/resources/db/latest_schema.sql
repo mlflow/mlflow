@@ -99,8 +99,7 @@ CREATE TABLE secrets (
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255),
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT secrets_pk PRIMARY KEY (secret_id),
-	CONSTRAINT unique_secret_name UNIQUE (secret_name)
+	CONSTRAINT secrets_pk PRIMARY KEY (secret_id)
 )
 
 
