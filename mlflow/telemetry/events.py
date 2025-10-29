@@ -28,6 +28,17 @@ class CreatePromptEvent(Event):
     name: str = "create_prompt"
 
 
+class LoadPromptEvent(Event):
+    name: str = "load_prompt"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        name_or_uri = arguments.get("name_or_uri", "")
+        # Check if alias is used (format: "prompts:/name@alias" or just "name@alias")
+        uses_alias = "@" in name_or_uri
+        return {"uses_alias": uses_alias}
+
+
 class StartTraceEvent(Event):
     name: str = "start_trace"
 
