@@ -897,6 +897,11 @@ from mlflow.cli import scorers
 
 cli.add_command(scorers.commands)
 
+# Add secrets CLI commands
+from mlflow.cli import secrets
+
+cli.add_command(secrets.commands)
+
 # Add AI commands CLI
 cli.add_command(ai_commands.commands)
 
