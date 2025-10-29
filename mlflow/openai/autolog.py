@@ -11,7 +11,6 @@ from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.exceptions import MlflowException
-from mlflow.openai._agent_tracer import clear_other_trace_processors
 from mlflow.openai.constant import FLAVOR_NAME
 from mlflow.openai.utils.chat_schema import set_span_chat_attributes
 from mlflow.telemetry.events import AutologgingEvent
@@ -90,6 +89,7 @@ def autolog(
 
         from mlflow.openai._agent_tracer import (
             add_mlflow_trace_processor,
+            clear_other_trace_processors,
             remove_mlflow_trace_processor,
         )
 
