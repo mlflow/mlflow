@@ -755,15 +755,9 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-
+        prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
         try:
-            if parsed_name_or_uri.startswith("prompts:/"):
-                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-            else:
-                name = parsed_name_or_uri
-                version_or_alias = parsed_version
-
+            name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)

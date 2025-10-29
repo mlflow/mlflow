@@ -131,7 +131,7 @@ client = OpenAI()
 
 @mlflow.trace
 def predict_fn(question: str) -> str:
-    prompt = mlflow.genai.load_prompt("prompts:/qa_prompt/latest")
+    prompt = mlflow.genai.load_prompt("prompts:/qa_prompt@latest")
     rendered_prompt = prompt.format(question=question)
 
     response = client.chat.completions.create(
