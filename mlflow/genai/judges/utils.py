@@ -723,7 +723,7 @@ def _parse_databricks_model_response(
     )
 
 
-def _invoke_databricks_model(
+def _invoke_databricks_serving_endpoint(
     *,
     model_name: str,
     prompt: str,
