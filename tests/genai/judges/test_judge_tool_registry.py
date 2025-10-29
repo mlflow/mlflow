@@ -189,8 +189,11 @@ def test_builtin_tools_are_properly_registered():
     tools = list_judge_tools()
     registered_tool_names = {t.name for t in tools if not isinstance(t, MockTool)}
 
+    # Only include tool constants that don't start with underscore (public tools)
     all_tool_constants = {
-        value for name, value in inspect.getmembers(ToolNames) if not name.startswith("_")
+        value
+        for name, value in inspect.getmembers(ToolNames)
+        if not name.startswith("_") and isinstance(value, str)
     }
 
     assert all_tool_constants == registered_tool_names

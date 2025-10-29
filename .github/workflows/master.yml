@@ -200,17 +200,15 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras uvicorn
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest \
+          uv run --no-sync pytest \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
