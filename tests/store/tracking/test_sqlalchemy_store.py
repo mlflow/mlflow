@@ -5595,6 +5595,38 @@ def test_log_outputs(store: SqlAlchemyStore):
     assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
 
 
+def test_search_runs_returns_outputs(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    run1 = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="run_with_model", tags=[]
+    )
+    model1 = store.create_logged_model(experiment_id=exp_id)
+    store.log_outputs(run1.info.run_id, [LoggedModelOutput(model1.model_id, 0)])
+
+    run2 = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=1, run_name="run_without_model", tags=[]
+    )
+
+    result = store.search_runs(
+        experiment_ids=[exp_id],
+        filter_string="",
+        run_view_type=ViewType.ACTIVE_ONLY,
+    )
+
+    assert len(result) == 2
+
+    run_with_model = next(r for r in result if r.info.run_id == run1.info.run_id)
+    assert run_with_model.outputs is not None
+    assert len(run_with_model.outputs.model_outputs) == 1
+    assert run_with_model.outputs.model_outputs[0].model_id == model1.model_id
+    assert run_with_model.outputs.model_outputs[0].step == 0
+
+    run_without_model = next(r for r in result if r.info.run_id == run2.info.run_id)
+    assert run_without_model.outputs is not None
+    assert len(run_without_model.outputs.model_outputs) == 0
+
+
 @pytest.mark.parametrize("tags_count", [0, 1, 2])
 def test_get_run_inputs(store, tags_count):
     run = _run_factory(store)

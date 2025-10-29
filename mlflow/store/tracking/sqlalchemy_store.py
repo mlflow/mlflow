@@ -1546,17 +1546,23 @@ class SqlAlchemyStore(AbstractStore):
             runs = [run.to_mlflow_entity() for run in queried_runs]
             run_ids = [run.info.run_id for run in runs]
 
-            # add inputs to runs
+            # add inputs and outputs to runs
             inputs = self._get_run_inputs(run_uuids=run_ids, session=session)
-            runs_with_inputs = []
+            model_outputs_map = self._get_model_outputs_bulk(run_ids=run_ids, session=session)
+            runs_with_inputs_outputs = []
             for i, run in enumerate(runs):
-                runs_with_inputs.append(
-                    Run(run.info, run.data, RunInputs(dataset_inputs=inputs[i]))
+                runs_with_inputs_outputs.append(
+                    Run(
+                        run.info,
+                        run.data,
+                        RunInputs(dataset_inputs=inputs[i]),
+                        RunOutputs(model_outputs_map[run.info.run_id]),
+                    )
                 )
 
-            next_page_token = compute_next_token(len(runs_with_inputs))
+            next_page_token = compute_next_token(len(runs_with_inputs_outputs))
 
-        return runs_with_inputs, next_page_token
+        return runs_with_inputs_outputs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
@@ -1811,6 +1817,34 @@ class SqlAlchemyStore(AbstractStore):
             )
             .all()
         ]
+
+    def _get_model_outputs_bulk(
+        self,
+        run_ids: list[str],
+        session: sqlalchemy.orm.Session,
+    ) -> dict[str, list[LoggedModelOutput]]:
+        """
+        Fetch model outputs for multiple runs in a single query.
+        Returns a dict mapping run_id to list of LoggedModelOutput.
+        """
+        outputs = (
+            session.query(SqlInput)
+            .filter(
+                SqlInput.source_type == "RUN_OUTPUT",
+                SqlInput.source_id.in_(run_ids),
+                SqlInput.destination_type == "MODEL_OUTPUT",
+            )
+            .all()
+        )
+
+        outputs_per_run = defaultdict(list)
+        for output in outputs:
+            outputs_per_run[output.source_id].append(
+                LoggedModelOutput(model_id=output.destination_id, step=output.step)
+            )
+
+        # Ensure all run_ids are present in the result, even if they have no outputs
+        return {run_id: outputs_per_run.get(run_id, []) for run_id in run_ids}
 
     #######################################################################################
     # Logged models
