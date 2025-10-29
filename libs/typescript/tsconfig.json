@@ -9,10 +9,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "baseUrl": "./",
-    "paths": {
-      "@test-helpers/*": ["tests/helpers/*"]
-    }
+    "emitDecoratorMetadata": true
   }
 }
