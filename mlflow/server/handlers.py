@@ -1220,9 +1220,13 @@ def search_runs_impl(request_message):
     experiment_ids = list(request_message.experiment_ids)
 
     # NB: Local import to avoid circular dependency (auth imports from handlers)
-    from mlflow.server import auth
+    try:
+        from mlflow.server import auth
 
-    experiment_ids = auth.filter_experiment_ids(experiment_ids)
+        experiment_ids = auth.filter_experiment_ids(experiment_ids)
+    except ImportError:
+        # Auth module not available (Flask-WTF not installed), skip filtering
+        pass
 
     order_by = request_message.order_by
     run_entities = _get_tracking_store().search_runs(
