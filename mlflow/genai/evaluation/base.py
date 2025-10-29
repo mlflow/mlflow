@@ -465,12 +465,14 @@ def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
                 )
 
         # If the endpoint doesn't return a trace, manually create a trace with request/response.
-        mlflow.log_trace(
+        span = mlflow.start_span_no_context(
             name="predict",
-            request=kwargs,
-            response=result,
-            start_time_ms=start_time_ms,
-            execution_time_ms=end_time_ms - start_time_ms,
+            inputs=kwargs,
+            start_time_ns=start_time_ms * 1000000,
+        )
+        span.end(
+            outputs=result,
+            end_time_ns=end_time_ms * 1000000,
         )
         return result
 
