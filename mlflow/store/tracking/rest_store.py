@@ -38,6 +38,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
@@ -403,16 +404,35 @@ class RestStore(AbstractStore):
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
-        req_body = message_to_json(
-            DeleteTraces(
-                experiment_id=experiment_id,
-                max_timestamp_millis=max_timestamp_millis,
-                max_traces=max_traces,
-                request_ids=trace_ids,
+        # If deleting by trace_ids and the number exceeds the batch size limit,
+        # split into batches to avoid hitting the Databricks server limit
+        if trace_ids and len(trace_ids) > _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get():
+            batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
+            total_deleted = 0
+            for i in range(0, len(trace_ids), batch_size):
+                batch = trace_ids[i : i + batch_size]
+                req_body = message_to_json(
+                    DeleteTraces(
+                        experiment_id=experiment_id,
+                        max_timestamp_millis=None,
+                        max_traces=None,
+                        request_ids=batch,
+                    )
+                )
+                res = self._call_endpoint(DeleteTraces, req_body)
+                total_deleted += res.traces_deleted
+            return total_deleted
+        else:
+            req_body = message_to_json(
+                DeleteTraces(
+                    experiment_id=experiment_id,
+                    max_timestamp_millis=max_timestamp_millis,
+                    max_traces=max_traces,
+                    request_ids=trace_ids,
+                )
             )
-        )
-        res = self._call_endpoint(DeleteTraces, req_body)
-        return res.traces_deleted
+            res = self._call_endpoint(DeleteTraces, req_body)
+            return res.traces_deleted
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
