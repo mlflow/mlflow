@@ -75,4 +75,4 @@ graphene:
 huey:
   pip_release: huey
   minimum: "2.5.0"
-  max_major_version: 3
+  max_major_version: 2
