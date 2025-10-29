@@ -375,17 +375,8 @@ def test_make_reflective_dataset_with_traces(
     assert system_data[1]["expectations"] == {"expected_response": "Paris"}
 
 
-@pytest.mark.parametrize(
-    ("gepa_version", "enable_tracking"),
-    [
-        ("0.0.9", True),
-        ("0.0.5", False),
-        ("0.0.10", True),
-        ("0.0.10", False),
-        ("0.1.0", True),
-        ("0.1.0", False),
-    ],
-)
+@pytest.mark.parametrize("gepa_version", ["0.0.9", "0.0.18", "0.1.0"])
+@pytest.mark.parametrize("enable_tracking", [True, False])
 def test_gepa_optimizer_version_check(
     sample_train_data: list[dict[str, Any]],
     sample_target_prompts: dict[str, str],
