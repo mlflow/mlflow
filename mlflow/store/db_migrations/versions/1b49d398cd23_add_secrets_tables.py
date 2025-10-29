@@ -42,7 +42,6 @@ def upgrade():
             nullable=False,
         ),
         sa.PrimaryKeyConstraint("secret_id", name="secrets_pk"),
-        sa.UniqueConstraint("secret_name", name="unique_secret_name"),
     )
     with op.batch_alter_table("secrets", schema=None) as batch_op:
         batch_op.create_index(
