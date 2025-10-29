@@ -376,15 +376,22 @@ def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
     Returns:
         Filtered list of experiment IDs the user can read
     """
-    if not auth_config or sender_is_admin():
+    if not auth_config:
         return experiment_ids
 
-    username = authenticate_request().username
-    perms = store.list_experiment_permissions(username)
-    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
-    default_can_read = get_permission(auth_config.default_permission).can_read
+    try:
+        if sender_is_admin():
+            return experiment_ids
 
-    return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+        username = authenticate_request().username
+        perms = store.list_experiment_permissions(username)
+        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+        default_can_read = get_permission(auth_config.default_permission).can_read
+
+        return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+    except (RuntimeError, AttributeError):
+        # Auth system not fully initialized, skip filtering
+        return experiment_ids
 
 
 def username_is_sender():
