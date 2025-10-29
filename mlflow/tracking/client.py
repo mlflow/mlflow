@@ -1158,6 +1158,7 @@ class MlflowClient:
         include_spans: bool = True,
         model_id: str | None = None,
         locations: list[str] | None = None,
+        match_text: str | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1179,6 +1180,8 @@ class MlflowClient:
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
+            match_text: If specified, perform a full text search on span content. This cannot be
+                used together with `filter_string` parameter.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1201,6 +1204,7 @@ class MlflowClient:
             include_spans=include_spans,
             model_id=model_id,
             locations=locations,
+            match_text=match_text,
         )
 
     def start_trace(

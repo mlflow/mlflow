@@ -937,6 +937,7 @@ def test_search_traces(return_type, mock_client):
         model_id=None,
         include_spans=True,
         locations=["1"],
+        match_text=None,
     )
 
 
@@ -983,6 +984,7 @@ def test_search_traces_with_pagination(mock_client):
         "include_spans": True,
         "model_id": None,
         "locations": ["1"],
+        "match_text": None,
     }
     mock_client.search_traces.assert_has_calls(
         [
@@ -1008,6 +1010,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         model_id=None,
         include_spans=True,
         locations=["123"],
+        match_text=None,
     )
 
 
@@ -2259,6 +2262,28 @@ def test_search_traces_with_sql_warehouse_id(mock_client):
     assert os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] == "warehouse456"
 
 
+def test_search_traces_with_full_text(mock_client):
+    mock_client.search_traces.return_value = PagedList([], token=None)
+
+    # Test with match_text
+    mlflow.search_traces(locations=["123"], match_text="test query")
+
+    # Verify that search_traces was called with the converted filter_string
+    mock_client.search_traces.assert_called_once()
+    call_kwargs = mock_client.search_traces.call_args.kwargs
+    assert call_kwargs["locations"] == ["123"]
+    assert call_kwargs["match_text"] == "test query"
+
+
+def test_search_traces_full_text_not_allowed_with_filter_string():
+    with pytest.raises(
+        MlflowException, match="Cannot specify both `match_text` and `filter_string`."
+    ):
+        mlflow.search_traces(
+            locations=["test_exp_id"], filter_string='span.name = "test"', match_text="query text"
+        )
+
+
 @skip_when_testing_trace_sdk
 def test_set_destination_in_threads(async_logging_enabled):
     # This test makes sure `set_destination` obeys thread-local behavior.
@@ -2391,3 +2416,35 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
     assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
     found_span_names = [span.name for span in traces[0].data.spans]
     assert "test_span" in found_span_names
+
+
+def test_search_traces_with_full_text():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("llm.inputs", "How's the result?")
+        span.set_attribute("llm.outputs", "the number increased 90%")
+        trace_id_1 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_outputs({"outputs": 1234567})
+        span.set_attribute("test", "the number increased")
+        trace_id_2 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("test", "result including 'single quotes'")
+        trace_id_3 = span.trace_id
+
+    traces = mlflow.search_traces(match_text="How's the result?", return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1
+
+    traces = mlflow.search_traces(match_text="1234567", return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_2
+
+    traces = mlflow.search_traces(match_text="result including 'single quotes'", return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_3
+
+    traces = mlflow.search_traces(match_text="increased 90%", return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1

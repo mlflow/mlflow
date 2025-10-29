@@ -1725,33 +1725,7 @@ class SearchTraceUtils(SearchUtils):
         return identifier["type"], identifier["key"], is_ascending
 
     @classmethod
-    def _is_plain_text_search(cls, filter_string):
-        """
-        Check if the filter string is a plain text search (no SQL operators like =, !=, LIKE, etc.)
-        Returns True if it's plain text that should be converted to span.content LIKE search.
-        The requirement is that the filter string must be wrapped in backticks and contain
-        exactly two backticks.
-        """
-        return (
-            filter_string
-            and filter_string.startswith("`")
-            and filter_string.endswith("`")
-            and filter_string.count("`") == 2
-        )
-
-    @classmethod
     def parse_search_filter_for_search_traces(cls, filter_string):
-        # Check if filter_string is wrapped in backticks for plain text search
-        # This allows users to explicitly indicate plain text: `search term`
-        # Only treat as plain text if there are no other backticks inside
-        if cls._is_plain_text_search(filter_string):
-            # Extract the plain text (remove backticks)
-            plain_text = filter_string[1:-1]
-            # Escape single quotes to prevent SQL syntax errors
-            # Note: We don't escape % and _ because they can be useful as wildcards
-            escaped = plain_text.replace('"', '\\"')
-            filter_string = f'span.content LIKE "%{escaped}%"'
-
         parsed = cls.parse_search_filter(filter_string)
         return [cls._replace_key_to_tag_or_metadata(p) for p in parsed]
 
