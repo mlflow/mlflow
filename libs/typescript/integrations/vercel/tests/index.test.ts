@@ -141,8 +141,7 @@ describe('vercel autologging integration', () => {
       expect(span.name).toBe('ai.streamText');
       expect(span.spanType).toBe(mlflow.SpanType.LLM);
       expect(span.inputs).toEqual({ prompt: 'What is mlflow?' });
-      // Vercel AI SDK doesn't propagate streaming response to telemetry
-      expect(span.outputs).toBeUndefined();
+      expect(span.outputs).toBeDefined();
       expect(span.startTime).toBeDefined();
       expect(span.endTime).toBeDefined();
     });

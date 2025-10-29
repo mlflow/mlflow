@@ -1,7 +1,7 @@
-import JSONBigInt from 'json-bigint';
 import fastStringify from 'fast-safe-stringify';
 
 // Configure json-bigint to handle large integers
+const JSONBigInt = require('./json-bigint/index.js');
 const JSONBig = JSONBigInt({
   useNativeBigInt: true,
   alwaysParseAsBig: false,

@@ -298,7 +298,6 @@ export class LiveSpan extends Span {
    * Set an attribute on the span
    * @param key Attribute key
    * @param value Attribute value
-   * @param force Whether to force the attribute to be set even if the span has ended
    */
   setAttribute(key: string, value: any): void {
     this._attributesRegistry.set(key, value, this.allowMutatingEndedSpan);
@@ -568,7 +567,7 @@ class SpanAttributesRegistry {
 
     if (allowMutatingEndedSpan && this._span.ended) {
       // Directly set the attribute value to bypass the isSpanEnded check.
-      this._span.attributes[key] = value;
+      this._span.attributes[key] = safeJsonStringify(value);
       return;
     }
 

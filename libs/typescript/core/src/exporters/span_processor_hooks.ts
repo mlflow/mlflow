@@ -29,7 +29,7 @@ export function getOnSpanEndHooks(): OnSpanEndHook[] {
 }
 
 export function executeOnSpanStartHooks(span: OTelSpan): void {
-  // Execute onEnd hooks for autologging integrations
+  // Execute onStart hooks for autologging integrations
   const hooks = getOnSpanStartHooks();
   if (hooks.length === 0) {
     return;

@@ -4,15 +4,15 @@ const OPTIONAL_INTEGRATIONS = ['mlflow-openai', 'mlflow-vercel'];
  * Attempt to load optional integration packages when they are installed.
  * Any missing module is silently ignored. Other failures are logged.
  */
-export async function tryEnableOptionalIntegrations(): Promise<void> {
+export function tryEnableOptionalIntegrations(): void {
   for (const integration of OPTIONAL_INTEGRATIONS) {
-    await importOptionalModule(integration);
+    importOptionalModule(integration);
   }
 }
 
-async function importOptionalModule(moduleId: string): Promise<void> {
+function importOptionalModule(moduleId: string): void {
   try {
-    await import(moduleId);
+    require(moduleId);
   } catch (error) {
     if (isModuleNotFound(error, moduleId)) {
       return;

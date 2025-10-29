@@ -48,10 +48,7 @@ export function vercelOnSpanEndHook(span: LiveSpan): void {
 }
 
 function isVercelAISpan(span: LiveSpan): boolean {
-  return (
-    Boolean(span.attributes) &&
-    Object.prototype.hasOwnProperty.call(span.attributes, VERCEL_OPERATION_ID_ATTRIBUTE)
-  );
+  return VERCEL_OPERATION_ID_ATTRIBUTE in span.attributes;
 }
 
 function extractInputs(span: LiveSpan): Record<string, unknown> | undefined {
@@ -59,11 +56,11 @@ function extractInputs(span: LiveSpan): Record<string, unknown> | undefined {
     return undefined;
   }
 
-  if (Object.prototype.hasOwnProperty.call(span.attributes, VERCEL_PROMPT_MESSAGES_ATTRIBUTE)) {
+  if (VERCEL_PROMPT_MESSAGES_ATTRIBUTE in span.attributes) {
     return { messages: span.attributes[VERCEL_PROMPT_MESSAGES_ATTRIBUTE] };
   }
 
-  if (Object.prototype.hasOwnProperty.call(span.attributes, VERCEL_PROMPT_ATTRIBUTE)) {
+  if (VERCEL_PROMPT_ATTRIBUTE in span.attributes) {
     return span.attributes[VERCEL_PROMPT_ATTRIBUTE] as Record<string, unknown>;
   }
 
@@ -75,7 +72,7 @@ function extractOutputs(span: LiveSpan): Record<string, unknown> | undefined {
     return undefined;
   }
 
-  if (Object.prototype.hasOwnProperty.call(span.attributes, VERCEL_RESPONSE_TEXT_ATTRIBUTE)) {
+  if (VERCEL_RESPONSE_TEXT_ATTRIBUTE in span.attributes) {
     return { text: span.attributes[VERCEL_RESPONSE_TEXT_ATTRIBUTE] as string };
   }
 
