@@ -98,9 +98,9 @@ The old evaluation API accepts MLflow model URI as an evaluation target. The new
   </tr>
   <tr>
     <td style={{ maxWidth: '50%', verticalAlign: 'top' }}>
-      <pre style={{ overflowX: 'auto', margin: 0 }}>
+      <pre style={{ whiteSpace: 'pre', overflowX: 'auto', margin: 0 }}>
         <code className="language-python">{`# Log the model first before evaluation
-  with mlflow.start_run() as run:
+with mlflow.start_run() as run:
       logged_model_info = mlflow.openai.log_model(
           model="gpt-5-mini",
           task=openai.chat.completions,
@@ -112,22 +112,22 @@ The old evaluation API accepts MLflow model URI as an evaluation target. The new
       )
 
 # Pass the model URI to the evaluation API.
-
 mlflow.evaluate(model=logged_model_info.model_uri, ...)
 `}</code>
       </pre>
     </td>
     <td style={{ maxWidth: '50%', verticalAlign: 'top' }}>
-      <pre style={{ overflowX: 'auto', margin: 0 }}>
-        <code className="language-python">{`def predict_fn(question: str) -> str:
-response = openai.OpenAI().chat.completions.create(
-model="gpt-5-mini",
-messages=[
-{"role": "system", "content": "Answer the following question in two sentences"},
-{"role": "user", "content": question},
-],
-)
-return response.choices[0].message.content
+      <pre style={{ whiteSpace: 'pre', overflowX: 'auto', margin: 0 }}>
+        <code className="language-python">{`# Define a function that runs predictions.
+def predict_fn(question: str) -> str:
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-5-mini",
+        messages=[
+            {"role": "system", "content": "Answer the following question in two sentences"},
+            {"role": "user", "content": question},
+        ],
+    )
+    return response.choices[0].message.content
 
 mlflow.genai.evaluate(predict_fn=predict_fn, ...)
 `}</code>
@@ -165,7 +165,7 @@ The dataset format has been changed to be more flexible and consistent. The new 
   </tr>
   <tr>
     <td style={{ maxWidth: '50%', verticalAlign: 'top' }}>
-      <pre style={{ overflowX: 'auto', margin: 0 }}>
+      <pre style={{ whiteSpace: 'pre', overflowX: 'auto', margin: 0 }}>
         <code className="language-python">{`eval_data = pd.DataFrame(
     {
         "inputs": [
@@ -184,32 +184,32 @@ The dataset format has been changed to be more flexible and consistent. The new 
 )
 
 mlflow.evaluate(
-data=eval_data, # Needed to specify the ground truth and prediction # columns name, otherwise MLflow does not recognize them.
-targets="ground_truth",
-predictions="predictions
-...
+    data=eval_data, # Needed to specify the ground truth and prediction # columns name, otherwise MLflow does not recognize them.
+    targets="ground_truth",
+    predictions="predictions",
+    ...
 )
 `}</code>
       </pre>
     </td>
     <td style={{ maxWidth: '50%', verticalAlign: 'top' }}>
-      <pre style={{ overflowX: 'auto', margin: 0 }}>
+      <pre style={{ whiteSpace: 'pre', overflowX: 'auto', margin: 0 }}>
         <code className="language-python">{`eval_data = [
-{
-"inputs": {"question": "What is MLflow?"},
-"outputs": "MLflow is an open-source MLOps platform",
-"expectations": {"answer": "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle."},
-},
-{
-"inputs": {"question": "What is Spark?"},
-"outputs": "Apache Spark is an open-source distributed computing engine.",
-"expectations": {"answer": "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics."},
-},
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "outputs": "MLflow is an open-source MLOps platform",
+        "expectations": {"answer": "MLflow is an open-source platform for managing the end-to-end machine learning (ML) lifecycle."},
+    },
+    {
+        "inputs": {"question": "What is Spark?"},
+        "outputs": "Apache Spark is an open-source distributed computing engine.",
+        "expectations": {"answer": "Apache Spark is an open-source, distributed computing system designed for big data processing and analytics."},
+    },
 ]
 
 mlflow.genai.evaluate(
-data=eval_data,
-...
+    data=eval_data,
+    ...
 )
 `}</code>
 
@@ -266,7 +266,7 @@ The new evaluation API supports a rich set of built-in and custom LLM-as-a-Judge
 The new evaluation API supports defining custom LLM-as-a-Judge metrics from a custom prompt template. This eliminates a lot of complexity and over-abstractions from the previous `make_genai_metric` and `make_genai_metric_from_prompt` APIs.
 
 ```python
-from mlflow.genai.scorers import make_judge
+from mlflow.genai import make_judge
 
 answer_similarity = make_judge(
     name="answer_similarity",
@@ -331,7 +331,7 @@ Please open an feature request in [GitHub](https://github.com/mlflow/mlflow/issu
 
 See [MLflow 2 documentation](https://mlflow.org/docs/2.22.1/llms/llm-evaluate) for the legacy evaluation API.
 
-### Q: When the legacy evaluation API will be removed?
+### Q: When will the legacy evaluation API be removed?
 
 It will likely be removed in MLflow 3.7.0 or a few releases after that.
 
