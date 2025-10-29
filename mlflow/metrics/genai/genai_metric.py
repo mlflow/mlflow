@@ -554,6 +554,7 @@ def make_genai_metric(
         examples,
         model,
         *(parameters,) if parameters is not None else (),
+        include_input=include_input,
     ).to_dict()
 
     def eval_fn(

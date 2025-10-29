@@ -748,7 +748,7 @@ def test_kind_property():
         name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
     )
 
-    assert judge.kind == ScorerKind.CLASS
+    assert judge.kind == ScorerKind.BUILTIN
 
 
 @pytest.mark.parametrize(

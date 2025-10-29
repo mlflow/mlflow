@@ -657,14 +657,10 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe, is_in_databri
     mlflow.genai.evaluate(data=traces, scorers=[RelevanceToQuery()])
 
 
-def test_max_workers_env_var(is_in_databricks, monkeypatch):
-    harness_module = (
-        "databricks.rag_eval.evaluation" if is_in_databricks else "mlflow.genai.evaluation"
-    )
-
+def test_max_workers_env_var(monkeypatch):
     def _validate_max_workers(expected_max_workers):
         with mock.patch(
-            f"{harness_module}.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
+            "mlflow.genai.evaluation.harness.ThreadPoolExecutor", wraps=ThreadPoolExecutor
         ) as mock_executor:
             mlflow.genai.evaluate(
                 data=[
@@ -686,10 +682,10 @@ def test_max_workers_env_var(is_in_databricks, monkeypatch):
     monkeypatch.setenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", "20")
     _validate_max_workers(20)
 
-    # legacy env var is supported for databricks
-    if is_in_databricks:
-        monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
-        _validate_max_workers(30)
+    # legacy env var for backward compatibility
+    monkeypatch.delenv("MLFLOW_GENAI_EVAL_MAX_WORKERS", raising=False)
+    monkeypatch.setenv("RAG_EVAL_MAX_WORKERS", "30")
+    _validate_max_workers(30)
 
 
 def test_dataset_name_is_logged_correctly(is_in_databricks):
