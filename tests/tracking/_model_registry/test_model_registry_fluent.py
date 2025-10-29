@@ -349,19 +349,16 @@ def test_register_model_with_env_pack_config(tmp_path, install_deps):
             ),
         )
 
-        # Verify pack_env was called with correct arguments
         mock_pack_env.assert_called_once_with(
             "models:/test-model/1",
             enforce_pip_requirements=install_deps,
         )
 
-        # Verify log_model_artifacts was called with correct arguments
         mock_log_artifacts.assert_called_once_with(
             None,
             str(mock_artifacts_dir),
         )
 
-        # Verify stage_model was called with correct arguments
         mock_stage_model.assert_called_once_with(
             model_name="Model 1",
             model_version="1",

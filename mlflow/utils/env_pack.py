@@ -54,7 +54,7 @@ def _validate_env_pack(env_pack):
         if env_pack.name != "databricks_model_serving":
             raise MlflowException.invalid_parameter_value(
                 f"Invalid EnvPackConfig.name: {env_pack.name!r}. "
-                + "Expected 'databricks_model_serving'."
+                "Expected 'databricks_model_serving'."
             )
         if not isinstance(env_pack.install_dependencies, bool):
             raise MlflowException.invalid_parameter_value(

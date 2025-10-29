@@ -91,7 +91,7 @@ def register_model(
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
         env_pack: Either a string or an EnvPackConfig. If specified,
-            the model dependencies is optionally first installed into the current Python
+            the model dependencies are optionally first installed into the current Python
             environment, and then the complete environment will be packaged and included
             in the registered model artifacts. If the string shortcut "databricks_model_serving" is
             used, then model dependencies will be installed in the current environment. This is
@@ -218,7 +218,7 @@ def _register_model(
     if validated_env_pack:
         eprint(
             "Packing environment for Databricks Model Serving with install_dependencies "
-            + f"{validated_env_pack.install_dependencies}..."
+            f"{validated_env_pack.install_dependencies}..."
         )
         with pack_env_for_databricks_model_serving(
             model_uri,
