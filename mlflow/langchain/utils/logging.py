@@ -160,7 +160,7 @@ def supported_lc_types():
     return base_lc_types() + lc_runnables_types() + langgraph_types()
 
 
-# Wrapping as a function to avoid callign supported_lc_types() at import time
+# Wrapping as a function to avoid calling supported_lc_types() at import time
 def get_unsupported_model_message(model_type):
     return (
         "MLflow langchain flavor only supports subclasses of "
@@ -199,11 +199,6 @@ def _get_special_chain_info_or_none(chain):
 
 @lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
-    try:
-        from mlflow.langchain.retriever_chain import _RetrieverChain
-    except ImportError:
-        _RetrieverChain = None
-
     class_name_to_loader_arg = {
         "langchain.chains.RetrievalQA": "retriever",
         "langchain.chains.APIChain": "requests_wrapper",
@@ -215,8 +210,12 @@ def _get_map_of_special_chain_class_to_loader_arg():
         class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
 
     class_to_loader_arg = {}
-    if _RetrieverChain is not None:
+    try:
+        from mlflow.langchain.retriever_chain import _RetrieverChain
+
         class_to_loader_arg[_RetrieverChain] = "retriever"
+    except ImportError:
+        pass
 
     for class_name, loader_arg in class_name_to_loader_arg.items():
         try:
@@ -342,7 +341,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
         except ImportError:
             raise mlflow.MlflowException.invalid_parameter_value(
                 "_RetrieverChain is not available. It requires langchain<1.0.0. "
-                "For langchain 1.0.0+, please use LangGraph instead."
+                "For langchain>=1.0.0, please use LangGraph instead."
             )
 
         if loader_fn is None:
@@ -510,15 +509,17 @@ def _load_base_lcs(
     model_type = conf.get(_MODEL_TYPE_KEY)
     loader_arg = conf.get(_LOADER_ARG_KEY)
 
+    load_chain = None
     try:
         from langchain.chains.loading import load_chain
     except ImportError:
-        load_chain = None
+        pass
 
+    _RetrieverChain = None
     try:
         from mlflow.langchain.retriever_chain import _RetrieverChain
     except ImportError:
-        _RetrieverChain = None
+        pass
 
     if loader_arg is not None:
         if loader_fn_path is None:
@@ -533,16 +534,16 @@ def _load_base_lcs(
             if load_chain is None:
                 raise mlflow.MlflowException(
                     "Cannot load model: langchain.chains.loading.load_chain is not available. "
-                    "This may be because you're using langchain 1.0.0+. "
-                    "Please use a model saved with langchain 1.0.0+."
+                    "This may be because you're using langchain>=1.0.0. "
+                    "Please use a model saved with langchain>=1.0.0."
                 )
             model = _patch_loader(load_chain)(lc_model_path, **kwargs)
     elif agent_path is None and tools_path is None:
         if load_chain is None:
             raise mlflow.MlflowException(
                 "Cannot load model: langchain.chains.loading.load_chain is not available. "
-                "This may be because you're using langchain 1.0.0+. "
-                "Please use a model saved with langchain 1.0.0+."
+                "This may be because you're using langchain>=1.0.0. "
+                "Please use a model saved with langchain>=1.0.0."
             )
         model = _patch_loader(load_chain)(lc_model_path)
     else:
@@ -557,8 +558,8 @@ def _load_base_lcs(
         if load_chain is None:
             raise mlflow.MlflowException(
                 "Cannot load model: langchain.chains.loading.load_chain is not available. "
-                "This may be because you're using langchain 1.0.0+. "
-                "Please use a model saved with langchain 1.0.0+."
+                "This may be because you're using langchain>=1.0.0. "
+                "Please use a model saved with langchain>=1.0.0."
             )
 
         llm = _patch_loader(load_chain)(lc_model_path)
