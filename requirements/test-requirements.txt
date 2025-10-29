@@ -38,4 +38,3 @@ polars>=1
 dspy
 # required for testing mlflow.genai.optimize.optimizers
 gepa
-
