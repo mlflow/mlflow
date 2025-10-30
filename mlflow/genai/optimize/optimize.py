@@ -256,7 +256,7 @@ def _build_eval_fn(
         def _run_single(record: dict[str, Any]):
             inputs = record["inputs"]
             # use expectations if provided, otherwise use outputs
-            outputs = record.get("expectations") or {"expected_response": record.get("outputs")}
+            expectations = record.get("expectations") or {"expected_response": record.get("outputs")}
             eval_request_id = str(uuid.uuid4())
             # set prediction context to retrieve the trace by the request id,
             # and set is_evaluate to True to disable async trace logging
@@ -269,12 +269,12 @@ def _build_eval_fn(
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers
             score = metric_fn(
-                inputs=inputs, outputs=program_outputs, expectations=outputs, trace=trace
+                inputs=inputs, outputs=program_outputs, expectations=expectations, trace=trace
             )
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,
-                expectations=outputs,
+                expectations=expectations,
                 score=score,
                 trace=trace,
             )
