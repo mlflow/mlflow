@@ -609,6 +609,9 @@ mlflow.entities.run_outputs.RunOutputs
 mlflow.entities.run_status.RunStatus
 mlflow.entities.run_tag.RunTag
 mlflow.entities.scorer.ScorerVersion
+mlflow.entities.secret.Secret
+mlflow.entities.secret_binding.SecretBinding
+mlflow.entities.secret_binding.SecretResourceType
 mlflow.entities.source_type.SourceType
 mlflow.entities.span.LiveSpan
 mlflow.entities.span.NoOpSpan

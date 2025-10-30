@@ -11539,24 +11539,26 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
     assert updated.secret_name == secret.secret_name
     assert updated.last_updated_by == "admin"
 
+    job_id = f"job_{uuid.uuid4().hex[:8]}"
     store._bind_secret(
         secret_id=secret.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_123",
+        resource_id=job_id,
         field_name="api_key",
     )
 
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_123")
+    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, job_id)
     assert secrets["api_key"] == "new-value-456"
 
 
 def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(is_shared=True)
 
+    job_id = f"job_{uuid.uuid4().hex[:8]}"
     store._bind_secret(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_123",
+        resource_id=job_id,
         field_name="api_key",
     )
 
@@ -11564,7 +11566,7 @@ def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret)
         store._bind_secret(
             secret_id=secret_entity.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
-            resource_id="job_123",
+            resource_id=job_id,
             field_name="api_key",
         )
 
