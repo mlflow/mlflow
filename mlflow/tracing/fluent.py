@@ -683,7 +683,11 @@ def search_traces(
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
-        extract_fields: Specify fields to extract from traces using the format
+        extract_fields:
+            .. deprecated:: 3.6.0
+                This parameter is deprecated, we will remove it in a future version.
+
+            Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
 
             .. note::
