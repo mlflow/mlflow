@@ -182,7 +182,7 @@ def test_langgraph_tracing_with_custom_span():
     assert inner_span.outputs == "It's always sunny in sf"
 
     inner_runnable_span = next(s for s in spans if s.parent_id == inner_span.span_id)
-    assert inner_runnable_span.name == "RunnableSequence_2"
+    assert inner_runnable_span.name == "RunnableSequence"
 
 
 @skip_when_testing_trace_sdk

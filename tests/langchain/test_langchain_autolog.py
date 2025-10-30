@@ -368,13 +368,13 @@ def test_runnable_sequence_autolog(async_logging_enabled):
         # Since the chain includes parallel execution, the order of some
         # spans is not deterministic.
         assert spans == {
-            ("RunnableSequence_1", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
             ("RunnableParallel<question,chat_history>", "CHAIN"),
-            ("RunnableSequence_2", "CHAIN"),
-            ("RunnableLambda_1", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
+            ("RunnableLambda", "CHAIN"),
             ("extract_question", "CHAIN"),
-            ("RunnableSequence_3", "CHAIN"),
-            ("RunnableLambda_2", "CHAIN"),
+            ("RunnableSequence", "CHAIN"),
+            ("RunnableLambda", "CHAIN"),
             ("extract_history", "CHAIN"),
             ("PromptTemplate", "CHAIN"),
             ("FakeChatModel", "CHAT_MODEL"),

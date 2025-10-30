@@ -53,7 +53,8 @@ class JudgeToolRegistry:
 
         if function_name not in self._tools:
             raise MlflowException(
-                f"Tool '{function_name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
+                f"Tool '{function_name}' not found in registry",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
         tool = self._tools[function_name]
 

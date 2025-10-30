@@ -16,7 +16,10 @@ def check_model_prediction(predict_fn: Callable[..., Any], sample_input: Any):
         predict_fn: The predict function to be evaluated.
         sample_input: A sample input to the model.
     """
-    _logger.info("Testing model prediction with the first sample in the dataset.")
+    _logger.info(
+        "Testing model prediction with the first sample in the dataset. To disable this check, "
+        "set the MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION environment variable to True."
+    )
 
     # Wrap the function to add a decorator for disabling tracing
     @trace_disabled

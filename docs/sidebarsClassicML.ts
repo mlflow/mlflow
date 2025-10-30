@@ -22,55 +22,11 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
+          label: 'Set Up MLflow',
         },
         {
-          type: 'category',
-          label: 'Your First MLflow Model: Complete Tutorial',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step1-tracking-server',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step2-mlflow-client',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step3-create-experiment',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step4-experiment-search',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step5-synthetic-data',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step6-logging-a-run',
-            },
-            {
-              type: 'category',
-              label: 'Notebooks',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'getting-started/logging-first-model/notebooks/logging-first-model-ipynb',
-                  label: 'Logging First Model',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'getting-started/logging-first-model/notebooks/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'getting-started/logging-first-model/index',
-          },
+          type: 'doc',
+          id: 'getting-started/quickstart',
         },
         {
           type: 'doc',
@@ -79,32 +35,6 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/deep-learning',
-        },
-        {
-          type: 'category',
-          label: 'Model Registry Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step1-register-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step2-explore-registered-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step3-load-model',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'getting-started/registering-first-model/index',
-          },
-        },
-        {
-          type: 'doc',
-          id: 'getting-started/tracking-server-overview/index',
         },
       ],
       link: {
@@ -510,18 +440,8 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'MLflow Tracking',
           items: [
             {
-              type: 'category',
-              label: 'Quickstart ⚡',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracking/quickstart/notebooks/tracking_quickstart-ipynb',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'tracking/quickstart/index',
-              },
+              type: 'doc',
+              id: 'tracking/quickstart/index',
             },
             {
               type: 'doc',

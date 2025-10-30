@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 

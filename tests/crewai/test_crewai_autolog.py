@@ -420,14 +420,14 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_2.outputs == _LLM_ANSWER
     # LLM - tool calling
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "LLM.call_1"
+    assert span_3.name == "LLM.call"
     assert span_3.span_type == SpanType.LLM
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
     # LLM - return answer
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "LLM.call_2"
+    assert span_4.name == "LLM.call"
     assert span_4.span_type == SpanType.LLM
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
@@ -514,7 +514,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     }
     # Task
     span_1 = traces[0].data.spans[1]
-    assert span_1.name == "Task.execute_sync_1"
+    assert span_1.name == "Task.execute_sync"
     assert span_1.span_type == SpanType.CHAIN
     assert span_1.parent_id is span_0.span_id
     assert span_1.inputs == {
@@ -534,7 +534,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     }
     # Agent
     span_2 = traces[0].data.spans[2]
-    assert span_2.name == "Agent.execute_task_1"
+    assert span_2.name == "Agent.execute_task"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
     assert span_2.inputs == {
@@ -544,7 +544,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_2.outputs == _LLM_ANSWER
     # LLM
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "LLM.call_1"
+    assert span_3.name == "LLM.call"
     assert span_3.span_type == SpanType.LLM
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
@@ -552,7 +552,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
 
     # Create Long Term Memory
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "CrewAgentExecutor._create_long_term_memory_1"
+    assert span_4.name == "CrewAgentExecutor._create_long_term_memory"
     assert span_4.span_type == SpanType.MEMORY
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs == {
@@ -566,7 +566,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
 
     # Task
     span_5 = traces[0].data.spans[5]
-    assert span_5.name == "Task.execute_sync_2"
+    assert span_5.name == "Task.execute_sync"
     assert span_5.span_type == SpanType.CHAIN
     assert span_5.parent_id is span_0.span_id
     assert span_5.inputs == {
@@ -586,7 +586,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     }
     # Agent
     span_6 = traces[0].data.spans[6]
-    assert span_6.name == "Agent.execute_task_2"
+    assert span_6.name == "Agent.execute_task"
     assert span_6.span_type == SpanType.AGENT
     assert span_6.parent_id is span_5.span_id
     assert span_6.inputs == {
@@ -596,14 +596,14 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_6.outputs == _LLM_ANSWER
     # LLM
     span_7 = traces[0].data.spans[7]
-    assert span_7.name == "LLM.call_2"
+    assert span_7.name == "LLM.call"
     assert span_7.span_type == SpanType.LLM
     assert span_7.parent_id is span_6.span_id
     assert span_7.inputs["messages"] is not None
     assert span_7.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     # Create Long Term Memory
     span_8 = traces[0].data.spans[8]
-    assert span_8.name == "CrewAgentExecutor._create_long_term_memory_2"
+    assert span_8.name == "CrewAgentExecutor._create_long_term_memory"
     assert span_8.span_type == SpanType.MEMORY
     assert span_8.parent_id is span_6.span_id
     assert span_8.inputs == {

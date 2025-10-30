@@ -30,8 +30,8 @@ export const ModelTraceExplorerSummarySpans = ({
   const hasIntermediateNodes = intermediateNodes.length > 0;
   const hasExceptions = exceptions.length > 0;
 
-  const inputList = createListFromObject(rootInputs);
-  const outputList = createListFromObject(rootOutputs);
+  const inputList = createListFromObject(rootInputs).filter(({ value }) => value !== 'null');
+  const outputList = createListFromObject(rootOutputs).filter(({ value }) => value !== 'null');
 
   return (
     <div
