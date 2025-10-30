@@ -685,7 +685,7 @@ def search_traces(
         order_by: List of order_by clauses.
         extract_fields:
             .. deprecated:: 3.6.0
-                This parameter is deprecated, we will remove it in a future version.
+                This parameter is deprecated and will be removed in a future version.
 
             Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
