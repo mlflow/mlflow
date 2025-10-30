@@ -317,7 +317,7 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
     assert isinstance(
-        AmazonBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected
+        AmazonBedrockConfig.model_validate({"aws_config": aws_config}).aws_config, expected
     )
 
 

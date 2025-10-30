@@ -21,9 +21,9 @@ class MockAbstractStore(AbstractStore, ABC):
 
 
 @pytest.fixture
-@patch.multiple(MockAbstractStore, __abstractmethods__=set())
 def store():
-    return MockAbstractStore()
+    with patch.multiple(MockAbstractStore, __abstractmethods__=set()):
+        yield MockAbstractStore()
 
 
 @pytest.fixture

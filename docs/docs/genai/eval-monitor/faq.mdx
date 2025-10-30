@@ -62,3 +62,32 @@ mlflow.genai.evaluate(
     scorers=[Correctness()],
 )
 ```
+
+## How to migrate from MLflow 2 LLM Evaluation?
+
+See the [Migrating from MLflow 2 LLM Evaluation](/genai/eval-monitor/legacy-llm-evaluation) guide.
+
+## How do I track the cost of LLM judges?
+
+MLflow visualizes the cost of LLM judges in the assessment pane of the trace details page.
+When you open an assessment logged by an LLM judge, you can see the cost incurred for running the judge model.
+This feature is available only when you have the [LiteLLM](https://github.com/BerriAI/litellm) library installed.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/tracking-judge-cost.png" alt="LLM Judge Cost" width="90%" />
+
+Managing the balance between cost and accuracy is important.
+To use a more cost-effective LLM model while maintaining accuracy, you can leverage the [LLM Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) feature.
+
+## How do I debug my scorers?
+
+To debug your scorers, you can enable tracing for the scorer functions by setting the `MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING` environment variable to `true`.
+
+```bash
+export MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING=true
+```
+
+When this is set to `true`, MLflow will trace scorer executions during the evaluation and allow
+you to inspect the input, output, and internal steps during the scorer execution.
+
+To view the scorer trace, you can open the assessment pane of the trace details page and click the
+"View trace" link.

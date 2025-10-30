@@ -5,7 +5,7 @@ import type { ReduxState, ThunkDispatch } from '../../../../redux-types';
 import { createChartAxisRangeKey } from '../components/RunsCharts.common';
 import { getSampledMetricHistoryBulkAction } from '../../../sdk/SampledMetricHistoryService';
 import type { SampledMetricsByRunUuidState } from '@mlflow/mlflow/src/experiment-tracking/types';
-import { EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../../../utils/MetricsUtils';
 import Utils from '../../../../common/utils/Utils';
 import { shouldEnableGraphQLSampledMetrics } from '../../../../common/utils/FeatureUtils';
 import { useSampledMetricHistoryGraphQL } from './useSampledMetricHistoryGraphQL';
@@ -158,7 +158,10 @@ const useSampledMetricHistoryREST = (params: {
         return;
       }
 
-      refreshTimeoutRef.current = window.setTimeout(scheduleRefresh, EXPERIMENT_RUNS_METRIC_AUTO_REFRESH_INTERVAL);
+      refreshTimeoutRef.current = window.setTimeout(
+        scheduleRefresh,
+        EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL,
+      );
     };
 
     fetchMetricsFn().then(scheduleRefresh);

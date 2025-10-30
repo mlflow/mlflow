@@ -755,15 +755,9 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-
+        prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
         try:
-            if parsed_name_or_uri.startswith("prompts:/"):
-                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-            else:
-                name = parsed_name_or_uri
-                version_or_alias = parsed_version
-
+            name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
@@ -874,6 +868,34 @@ class MlflowClient:
                 )
         """
         return self._tracking_client.link_traces_to_run(trace_ids, run_id)
+
+    @experimental(version="3.5.0")
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                # Unlink multiple V4 traces from a run
+                client.unlink_traces_from_run(
+                    trace_ids=[
+                        "trace://catalog.schema/abc123",
+                        "trace://catalog.schema/def456",
+                    ],
+                    run_id="run_abc",
+                )
+        """
+        return self._tracking_client.unlink_traces_from_run(trace_ids, run_id)
 
     # TODO: Use model_id in MLflow 3.0
     @experimental(version="3.0.0")
@@ -4234,6 +4256,16 @@ class MlflowClient:
                 logged_model = self.get_logged_model(model_id)
                 # models:/<model_id> source is not supported by WSMR
                 new_source = logged_model.artifact_location
+        elif (
+            is_databricks_unity_catalog_uri(self._registry_uri)
+            and not is_databricks_uri(tracking_uri)
+            and model_id is not None
+        ):
+            logged_model = self.get_logged_model(model_id)
+            new_source = logged_model.artifact_location
+            if run_id is None:
+                run_id = logged_model.source_run_id
+            model_id = None
 
         return self._get_registry_client().create_model_version(
             name=name,

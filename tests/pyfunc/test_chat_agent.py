@@ -88,7 +88,7 @@ class SimpleDictChatAgent(ChatAgent):
         self, messages: list[ChatAgentMessage], context: ChatContext, custom_inputs: dict[str, Any]
     ) -> ChatAgentResponse:
         mock_response = get_mock_response(messages)
-        return ChatAgentResponse(**mock_response).model_dump_compat()
+        return ChatAgentResponse(**mock_response).model_dump()
 
 
 class ChatAgentWithCustomInputs(ChatAgent):
@@ -142,7 +142,7 @@ def test_chat_agent_trace(tmp_path):
     assert traces[0].info.tags[TraceTagKey.TRACE_NAME] == "predict"
     request = json.loads(traces[0].data.request)
     assert [{k: v for k, v in msg.items() if k != "id"} for msg in request["messages"]] == [
-        {k: v for k, v in ChatAgentMessage(**msg).model_dump_compat().items() if k != "id"}
+        {k: v for k, v in ChatAgentMessage(**msg).model_dump().items() if k != "id"}
         for msg in messages
     ]
 

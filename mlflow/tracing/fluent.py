@@ -34,16 +34,15 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
-    SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
     exclude_immutable_tags,
     get_otel_attribute,
 )
-from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
+from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -648,7 +647,7 @@ def get_trace(trace_id: str, silent: bool = False) -> Trace | None:
     except MlflowException as e:
         if not silent:
             _logger.warning(
-                f"Failed to get trace from the tracking store: {e}"
+                f"Failed to get trace from the tracking store: {e} "
                 "For full traceback, set logging level to debug.",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
@@ -862,13 +861,7 @@ def search_traces(
     )
 
     if return_type == "pandas":
-        results = traces_to_df(results)
-        if extract_fields:
-            results = extract_span_inputs_outputs(
-                traces=results,
-                fields=extract_fields,
-                col_name=SPANS_COLUMN_NAME,
-            )
+        results = traces_to_df(results, extract_fields=extract_fields)
 
     return results
 
@@ -1323,7 +1316,10 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
                 for k, v in remote_root_span.attributes.items()
                 if k != SpanAttributeKey.REQUEST_ID
             },
-            start_time_ns=remote_root_span.start_time_ns,
+            # ensure this span has a smaller start time than the remote trace
+            # so when it's loaded the order is correct when sorting by start time
+            # TODO: deprecate this function once we fully support OTel traces
+            start_time_ns=remote_root_span.start_time_ns - 1,
         )
         _merge_trace(
             trace=trace,
@@ -1337,6 +1333,8 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
+# TODO: remove this function in 3.7.0
+@deprecated(since="3.6.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,
@@ -1455,8 +1453,13 @@ def _merge_trace(
             parent_span_id=parent_span_id,
             trace_id=target_trace_id,
             otel_trace_id=new_trace_id,
+            # the trace should be ended after it's registered in the trace manager
+            # otherwise the exporter cannot find the trace to export
+            end_trace=False,
         )
         trace_manager.register_span(cloned_span)
+        # end the cloned span to ensure it's processed by the exporter
+        cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:

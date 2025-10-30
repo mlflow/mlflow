@@ -8,8 +8,10 @@ from unittest import mock
 import pytest
 import yaml
 
+from mlflow.exceptions import MlflowException
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+from mlflow.utils.env_pack import EnvPackConfig, _validate_env_pack
 
 
 @pytest.fixture
@@ -245,6 +247,40 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
             "models:/test-model/1"
         ) as artifacts_dir:
             assert Path(artifacts_dir).exists()
+
+
+@pytest.mark.parametrize(
+    "test_input",
+    [
+        None,
+        "databricks_model_serving",
+        EnvPackConfig(name="databricks_model_serving", install_dependencies=True),
+        EnvPackConfig(name="databricks_model_serving", install_dependencies=False),
+    ],
+)
+def test_validate_env_pack_with_valid_inputs(test_input):
+    # valid string should not raise; None should be treated as no-op
+    if test_input is None:
+        assert _validate_env_pack(test_input) is None
+    else:
+        assert _validate_env_pack(test_input) is not None
+
+
+@pytest.mark.parametrize(
+    ("test_input", "error_message"),
+    [
+        (EnvPackConfig(name="other", install_dependencies=True), "Invalid EnvPackConfig.name*"),
+        (
+            EnvPackConfig(name="databricks_model_serving", install_dependencies="yes"),
+            "EnvPackConfig.install_dependencies must be a bool.",
+        ),
+        ({"name": "databricks_model_serving"}, "env_pack must be either None*"),
+        ("something_else", "Invalid env_pack value*"),
+    ],
+)
+def test_validate_env_pack_throws_errors_on_invalid_inputs(test_input, error_message):
+    with pytest.raises(MlflowException, match=error_message):
+        _validate_env_pack(test_input)
 
 
 def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
