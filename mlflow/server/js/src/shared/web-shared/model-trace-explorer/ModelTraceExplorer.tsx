@@ -59,11 +59,14 @@ export const ModelTraceExplorerImpl = ({
   const isTraceInitialLoading = isMountingTrace && isFetching;
 
   useEffect(() => {
+    // Update internal state when the incoming modelTrace changes
+    // (not only when traceId changes). This enables live refreshes
+    // for the same traceId (e.g., polling while spans are exporting).
     setModelTrace(initialModelTrace);
     setIsMountingTrace(true);
     // reset the model trace when the traceId changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [traceId]);
+  }, [traceId, initialModelTrace]);
 
   useEffect(() => {
     if (isMountingTrace && !isFetching) {

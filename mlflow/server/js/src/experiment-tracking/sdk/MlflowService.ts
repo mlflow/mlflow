@@ -289,19 +289,24 @@ export class MlflowService {
    */
   static getExperimentTraceV3 = (
     traceId: string,
-    { allowPartial = true }: { allowPartial?: boolean } = {},
+    // allowPartial kept for compatibility but not sent due to server GET validation.
+    _opts: { allowPartial?: boolean } = {},
   ) => {
     type GetExperimentTraceV3Response = {
       trace?: {
         trace_info?: ModelTraceInfo;
-        // The payload structure matches ModelTraceData returned by artifact route
+        // Some servers return spans at the top-level under `trace.spans`
+        spans?: ModelTraceData['spans'];
+        // Others may nest under `trace.data.spans`
         data?: ModelTraceData;
       };
     };
 
+    // Note: do not send allow_partial as a query param; server validates it as a boolean
+    // on raw query args and rejects string values. The proto default is true.
     return getJson({
       relativeUrl: `ajax-api/3.0/mlflow/traces/get`,
-      data: { trace_id: traceId, allow_partial: allowPartial },
+      data: { trace_id: traceId },
     }) as Promise<GetExperimentTraceV3Response>;
   };
 
