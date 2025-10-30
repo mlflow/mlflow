@@ -135,7 +135,7 @@ def create_metric_from_scorers(
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
     """
-    from mlflow.entities import Feedback
+    from mlflow.entities.assessment import Feedback
     from mlflow.genai.judges import CategoricalRating
 
     def _convert_to_numeric(score: Any) -> float | None:
