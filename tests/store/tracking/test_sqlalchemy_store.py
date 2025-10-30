@@ -161,6 +161,7 @@ def create_test_span(
     end_ns=2000000000,
     span_type="LLM",
     trace_num=12345,
+    attributes=None,
 ) -> Span:
     """
     Create an MLflow span for testing with minimal boilerplate.
@@ -176,6 +177,7 @@ def create_test_span(
         end_ns: End time in nanoseconds
         span_type: Span type (default: "LLM")
         trace_num: Trace ID number for context (default: 12345)
+        attributes: Attributes dictionary
 
     Returns:
         MLflow Span object ready for use in tests
@@ -183,6 +185,7 @@ def create_test_span(
     context = create_mock_span_context(trace_num, span_id)
     parent_context = create_mock_span_context(trace_num, parent_id) if parent_id else None
 
+    attributes = attributes or {}
     otel_span = OTelReadableSpan(
         name=name,
         context=context,
@@ -190,6 +193,7 @@ def create_test_span(
         attributes={
             "mlflow.traceRequestId": json.dumps(trace_id),
             "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
+            **{k: json.dumps(v, cls=TraceJSONEncoder) for k, v in attributes.items()},
         },
         start_time=start_ns,
         end_time=end_ns,
@@ -4879,6 +4883,85 @@ def test_search_traces_with_span_name_filter(store: SqlAlchemyStore):
     # Test no matches
     traces, _ = store.search_traces([exp_id], filter_string='span.name = "nonexistent"')
     assert len(traces) == 0
+
+
+def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_plain_text_search")
+
+    # Create traces with spans that have different content
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different content
+    span1 = create_test_span(
+        trace1_id,
+        name="database_query",
+        span_id=111,
+        span_type="FUNCTION",
+        attributes={"llm.inputs": "what's MLflow?"},
+    )
+    span2 = create_test_span(
+        trace2_id,
+        name="api_request",
+        span_id=222,
+        span_type="TOOL",
+        attributes={"response.token.usage": "123"},
+    )
+    span3 = create_test_span(
+        trace3_id,
+        name="computation",
+        span_id=333,
+        span_type="FUNCTION",
+        attributes={"llm.outputs": 'MLflow is a tool for " testing " ...'},
+    )
+    span4 = create_test_span(
+        trace3_id,
+        name="result",
+        span_id=444,
+        parent_id=333,
+        span_type="WORKFLOW",
+        attributes={"test": '"the number increased 90%"'},
+    )
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3, span4])
+
+    # Test full text search using trace.text LIKE
+    # match span name
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%database_query%"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    # match span type
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%FUNCTION%"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # match span content / attributes
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%what\'s MLflow?%"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.text LIKE "%MLflow is a tool for%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace3_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%llm.%"')
+    trace_ids = {t.trace_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%90%%"')
+    assert len(traces) == 1
+    assert traces[0].trace_id == trace3_id
 
 
 def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):

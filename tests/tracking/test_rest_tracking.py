@@ -2651,6 +2651,45 @@ def test_search_traces_parameter_validation(mlflow_client):
         mlflow_client.search_traces(locations=["catalog.schema"])
 
 
+def test_search_traces_match_text(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support full text search")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("search traces full text")
+
+    # Create test traces
+    def _create_trace(name, attributes):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        span.set_attributes(attributes)
+        mlflow_client.end_trace(request_id=span.trace_id, status=TraceStatus.OK)
+        return span.trace_id
+
+    trace_id_1 = _create_trace(name="trace1", attributes={"test": "value1"})
+    trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
+    trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
+
+    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+    )
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+    )
+    assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+    )
+    assert [t.info.trace_id for t in traces] == [trace_id_3]
+
+
 def test_delete_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
