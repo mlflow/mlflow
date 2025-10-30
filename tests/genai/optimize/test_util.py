@@ -206,4 +206,6 @@ def test_validate_train_data_errors(train_data, scorers, expected_error):
     ],
 )
 def test_validate_train_data_success(train_data):
-    validate_train_data(train_data)
+    import pandas as pd
+
+    validate_train_data(pd.DataFrame(train_data), [], lambda **kwargs: None)
