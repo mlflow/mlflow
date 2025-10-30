@@ -94,10 +94,14 @@ export const ModelTraceExplorerDetailView = ({
 
   // initial render
   useLayoutEffect(() => {
-    // expand all nodes up to the default depth when the tree changes
-    const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
-    setExpandedKeys(new Set(list));
-  }, [filteredTreeNodes, setExpandedKeys]);
+    // On first load, expand nodes up to the default depth.
+    // Do not reset expanded nodes on background refresh to avoid flicker.
+    if (!expandedKeys || expandedKeys.size === 0) {
+      const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
+      setExpandedKeys(new Set(list));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredTreeNodes]);
 
   const leftPaneMinWidth = useMemo(() => {
     // min width necessary to render all the spans in the tree accounting for indentation

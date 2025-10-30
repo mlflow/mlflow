@@ -210,7 +210,8 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
           }}
           footer={null} // Hide the footer
         >
-          {currentTraceQueryResult.isFetching && (
+          {/* Show skeleton only for initial load (no data yet), not for background refetches */}
+          {!currentTraceQueryResult.data && (currentTraceQueryResult.isLoading || currentTraceQueryResult.isFetching) && (
             <GenericSkeleton
               label="Loading trace..."
               style={{
