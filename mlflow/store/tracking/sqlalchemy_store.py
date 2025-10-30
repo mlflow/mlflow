@@ -111,13 +111,13 @@ from mlflow.tracing.constant import (
     TraceSizeStatsKey,
     TraceTagKey,
 )
+from mlflow.tracing.otel.translation import translate_loaded_span, translate_span_when_storing
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
     aggregate_usage_from_spans,
     generate_request_id_v2,
     truncate_request_response_preview,
 )
-from mlflow.tracing.utils.span_translation import translate_loaded_span, translate_span_when_storing
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (

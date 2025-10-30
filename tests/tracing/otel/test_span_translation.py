@@ -1,37 +1,44 @@
 import json
+from typing import Any
 from unittest import mock
 
 import pytest
 
 from mlflow.entities.span import Span, SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils.span_translation import (
+from mlflow.tracing.otel.translation import (
     translate_loaded_span,
     translate_span_type_from_otel,
     translate_span_when_storing,
 )
+from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
+from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
+from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 
 
 @pytest.mark.parametrize(
-    ("attr_key", "otel_kind", "expected_type"),
+    ("translator", "otel_kind", "expected_type"),
     [
-        ("openinference.span.kind", "LLM", SpanType.LLM),
-        ("openinference.span.kind", "CHAIN", SpanType.CHAIN),
-        ("openinference.span.kind", "AGENT", SpanType.AGENT),
-        ("openinference.span.kind", "TOOL", SpanType.TOOL),
-        ("openinference.span.kind", "RETRIEVER", SpanType.RETRIEVER),
-        ("openinference.span.kind", "EMBEDDING", SpanType.EMBEDDING),
-        ("openinference.span.kind", "RERANKER", SpanType.RERANKER),
-        ("openinference.span.kind", "GUARDRAIL", SpanType.GUARDRAIL),
-        ("openinference.span.kind", "EVALUATOR", SpanType.EVALUATOR),
-        ("traceloop.span.kind", "workflow", SpanType.WORKFLOW),
-        ("traceloop.span.kind", "task", SpanType.TASK),
-        ("traceloop.span.kind", "agent", SpanType.AGENT),
-        ("traceloop.span.kind", "tool", SpanType.TOOL),
+        (OpenInferenceTranslator, "LLM", SpanType.LLM),
+        (OpenInferenceTranslator, "CHAIN", SpanType.CHAIN),
+        (OpenInferenceTranslator, "AGENT", SpanType.AGENT),
+        (OpenInferenceTranslator, "TOOL", SpanType.TOOL),
+        (OpenInferenceTranslator, "RETRIEVER", SpanType.RETRIEVER),
+        (OpenInferenceTranslator, "EMBEDDING", SpanType.EMBEDDING),
+        (OpenInferenceTranslator, "RERANKER", SpanType.RERANKER),
+        (OpenInferenceTranslator, "GUARDRAIL", SpanType.GUARDRAIL),
+        (OpenInferenceTranslator, "EVALUATOR", SpanType.EVALUATOR),
+        (TraceloopTranslator, "workflow", SpanType.WORKFLOW),
+        (TraceloopTranslator, "task", SpanType.TASK),
+        (TraceloopTranslator, "agent", SpanType.AGENT),
+        (TraceloopTranslator, "tool", SpanType.TOOL),
     ],
 )
-def test_translate_span_type_from_otel(attr_key, otel_kind, expected_type):
-    attributes = {attr_key: otel_kind}
+def test_translate_span_type_from_otel(
+    translator: OtelSchemaTranslator, otel_kind: str, expected_type: SpanType
+):
+    attributes = {translator.SPAN_KIND_ATTRIBUTE_KEY: otel_kind}
     result = translate_span_type_from_otel(attributes)
     assert result == expected_type
 
@@ -40,8 +47,8 @@ def test_translate_span_type_from_otel(attr_key, otel_kind, expected_type):
     "attributes",
     [
         {"some.other.attribute": "value"},
-        {"openinference.span.kind": "UNKNOWN_TYPE"},
-        {"traceloop.span.kind": "unknown_type"},
+        {OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY: "UNKNOWN_TYPE"},
+        {TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY: "unknown_type"},
     ],
 )
 def test_translate_span_type_returns_none(attributes):
@@ -52,8 +59,8 @@ def test_translate_span_type_returns_none(attributes):
 @pytest.mark.parametrize(
     ("attr_key", "attr_value", "expected_type"),
     [
-        ("openinference.span.kind", json.dumps("LLM"), SpanType.LLM),
-        ("traceloop.span.kind", json.dumps("agent"), SpanType.AGENT),
+        (OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("LLM"), SpanType.LLM),
+        (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("agent"), SpanType.AGENT),
     ],
 )
 def test_json_serialized_values(attr_key, attr_value, expected_type):
@@ -62,20 +69,11 @@ def test_json_serialized_values(attr_key, attr_value, expected_type):
     assert result == expected_type
 
 
-def test_openinference_takes_precedence():
-    attributes = {
-        "openinference.span.kind": "LLM",
-        "traceloop.span.kind": "workflow",
-    }
-    result = translate_span_type_from_otel(attributes)
-    assert result == SpanType.LLM
-
-
 @pytest.mark.parametrize(
     ("attr_key", "attr_value", "expected_type"),
     [
-        ("openinference.span.kind", "LLM", SpanType.LLM),
-        ("traceloop.span.kind", "agent", SpanType.AGENT),
+        (OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, "LLM", SpanType.LLM),
+        (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, "agent", SpanType.AGENT),
     ],
 )
 def test_translate_loaded_span_sets_span_type(attr_key, attr_value, expected_type):
@@ -115,24 +113,20 @@ def test_translate_loaded_span_edge_cases(span_dict, should_have_span_type, expe
 
 
 @pytest.mark.parametrize(
-    ("input_tokens_key", "output_tokens_key", "total_tokens_key"),
-    [
-        ("gen_ai.usage.input_tokens", "gen_ai.usage.output_tokens", "llm.usage.total_tokens"),
-        ("gen_ai.usage.prompt_tokens", "gen_ai.usage.completion_tokens", None),
-        ("llm.token_count.prompt", "llm.token_count.completion", "llm.token_count.total"),
-    ],
+    "translator", [OpenInferenceTranslator, GenAiTranslator, TraceloopTranslator]
 )
-def test_translate_token_usage_from_otel(input_tokens_key, output_tokens_key, total_tokens_key):
+@pytest.mark.parametrize("total_token_exists", [True, False])
+def test_translate_token_usage_from_otel(translator: OtelSchemaTranslator, total_token_exists):
     span = mock.Mock(spec=Span)
     span.parent_id = "parent_123"
     span_dict = {
         "attributes": {
-            input_tokens_key: 100,
-            output_tokens_key: 50,
+            translator.INPUT_TOKEN_KEY: 100,
+            translator.OUTPUT_TOKEN_KEY: 50,
         }
     }
-    if total_tokens_key:
-        span_dict["attributes"][total_tokens_key] = 150
+    if total_token_exists:
+        span_dict["attributes"][translator.TOTAL_TOKEN_KEY] = 150
 
     span.to_dict.return_value = span_dict
 
@@ -189,70 +183,68 @@ def test_translate_token_usage_edge_cases(
 
 
 @pytest.mark.parametrize(
-    ("input_key", "input_value"),
-    [
-        ("input.value", "test input"),
-        ("traceloop.entity.input", {"query": "test"}),
-    ],
+    "translator", [OpenInferenceTranslator, GenAiTranslator, TraceloopTranslator]
 )
-def test_translate_inputs_for_root_span(input_key, input_value):
+@pytest.mark.parametrize(
+    "input_value",
+    ["test input", {"query": "test"}, 123],
+)
+@pytest.mark.parametrize("parent_id", [None, "parent_123"])
+def test_translate_inputs_for_spans(
+    parent_id: str | None, translator: OtelSchemaTranslator, input_value: Any
+):
     span = mock.Mock(spec=Span)
-    span.parent_id = None  # Root span
-    span_dict = {"attributes": {input_key: input_value}}
+    span.parent_id = parent_id
+    span_dict = {"attributes": {translator.INPUT_VALUE_KEY: json.dumps(input_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
 
-    assert result["attributes"][SpanAttributeKey.INPUTS] == input_value
+    assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
 
 
 @pytest.mark.parametrize(
-    ("output_key", "output_value"),
-    [
-        ("output.value", "test output"),
-        ("traceloop.entity.output", {"result": "success"}),
-    ],
+    "translator", [OpenInferenceTranslator, GenAiTranslator, TraceloopTranslator]
 )
-def test_translate_outputs_for_root_span(output_key, output_value):
+@pytest.mark.parametrize("parent_id", [None, "parent_123"])
+def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSchemaTranslator):
+    output_value = "test output"
     span = mock.Mock(spec=Span)
-    span.parent_id = None  # Root span
-    span_dict = {"attributes": {output_key: output_value}}
+    span.parent_id = parent_id
+    span_dict = {"attributes": {translator.OUTPUT_VALUE_KEY: json.dumps(output_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
 
-    assert result["attributes"][SpanAttributeKey.OUTPUTS] == output_value
+    assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
 
 
 @pytest.mark.parametrize(
     (
         "parent_id",
         "attributes",
-        "should_have_inputs",
         "expected_inputs",
-        "should_have_outputs",
         "expected_outputs",
     ),
     [
         (
             "parent_123",
-            {"input.value": "test input", "output.value": "test output"},
-            False,
-            None,
-            False,
-            None,
+            {
+                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("test input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("test output"),
+            },
+            "test input",
+            "test output",
         ),
         (
             None,
             {
                 SpanAttributeKey.INPUTS: json.dumps("existing input"),
                 SpanAttributeKey.OUTPUTS: json.dumps("existing output"),
-                "input.value": "new input",
-                "output.value": "new output",
+                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("new input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("new output"),
             },
-            True,
             "existing input",
-            True,
             "existing output",
         ),
     ],
@@ -260,9 +252,7 @@ def test_translate_outputs_for_root_span(output_key, output_value):
 def test_translate_inputs_outputs_edge_cases(
     parent_id,
     attributes,
-    should_have_inputs,
     expected_inputs,
-    should_have_outputs,
     expected_outputs,
 ):
     span = mock.Mock(spec=Span)
@@ -272,16 +262,9 @@ def test_translate_inputs_outputs_edge_cases(
 
     result = translate_span_when_storing(span)
 
-    if should_have_inputs:
-        assert SpanAttributeKey.INPUTS in result["attributes"]
-        inputs = json.loads(result["attributes"][SpanAttributeKey.INPUTS])
-        assert inputs == expected_inputs
-    else:
-        assert SpanAttributeKey.INPUTS not in result["attributes"]
-
-    if should_have_outputs:
-        assert SpanAttributeKey.OUTPUTS in result["attributes"]
-        outputs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
-        assert outputs == expected_outputs
-    else:
-        assert SpanAttributeKey.OUTPUTS not in result["attributes"]
+    assert SpanAttributeKey.INPUTS in result["attributes"]
+    inputs = json.loads(result["attributes"][SpanAttributeKey.INPUTS])
+    assert inputs == expected_inputs
+    assert SpanAttributeKey.OUTPUTS in result["attributes"]
+    outputs = json.loads(result["attributes"][SpanAttributeKey.OUTPUTS])
+    assert outputs == expected_outputs
