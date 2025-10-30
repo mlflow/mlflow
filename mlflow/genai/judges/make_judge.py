@@ -91,9 +91,9 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
 def make_judge(
     name: str,
     instructions: str,
+    feedback_value_type: Any,
     model: str | None = None,
     description: str | None = None,
-    feedback_value_type: Any = str,
 ) -> Judge:
     """
 
@@ -109,11 +109,8 @@ def make_judge(
                       template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
                       or {{ trace }} to reference evaluation data. Custom variables are not
                       supported.
-        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
-        description: A description of what the judge evaluates
-        feedback_value_type: Optional type specification for the 'value' field in the Feedback
-                        object. When specified, the judge will use structured outputs to enforce
-                        this type. Default is str.
+        feedback_value_type: Type specification for the 'value' field in the Feedback
+                        object. The judge will use structured outputs to enforce this type.
 
                         Supported types (matching FeedbackValueType):
                         - int: Integer ratings (e.g., 1-5 scale)
@@ -125,6 +122,8 @@ def make_judge(
                         - list[PbValueType]: List of PbValueType values
 
                         Note: Pydantic BaseModel types are not supported.
+        model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+        description: A description of what the judge evaluates
 
     Returns:
         An InstructionsJudge instance configured with the provided parameters

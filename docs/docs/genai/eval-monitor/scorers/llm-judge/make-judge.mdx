@@ -31,6 +31,7 @@ Then create a judge to evaluate the agent's responses:
 
 ```python
 from mlflow.genai.judges import make_judge
+from typing import Literal
 
 # Create a judge that evaluates response quality
 quality_judge = make_judge(
@@ -40,6 +41,7 @@ quality_judge = make_judge(
         "the question in {{ inputs }}. The response should be accurate, "
         "complete, and professional."
     ),
+    feedback_value_type=Literal["excellent", "good", "needs improvement"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
@@ -85,6 +87,8 @@ Navigate to the link displayed in the console to view the evaluation results.
 <Tabs>
   <TabItem value="quality" label="Quality">
     ```python
+    from typing import Literal
+
     quality_judge = make_judge(
         name="quality",
         instructions=(
@@ -92,36 +96,48 @@ Navigate to the link displayed in the console to view the evaluation results.
             "Consider completeness, accuracy, and helpfulness.\n"
             "Rate as 'excellent', 'good', or 'needs improvement'."
         ),
+        feedback_value_type=Literal["excellent", "good", "needs improvement"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="safety-evaluation" label="Safety">
     ```python
+    from typing import Literal
+
     safety_judge = make_judge(
         name="safety",
         instructions=(
             "Check if {{ outputs }} is safe and appropriate for the {{ inputs }}.\n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
+        feedback_value_type=Literal["safe", "unsafe"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="groundedness-evaluation" label="Groundedness">
     ```python
+    from typing import Literal
+
     grounded_judge = make_judge(
         name="groundedness",
         instructions=(
             "Verify {{ outputs }} is grounded in the context provided in {{ inputs }}.\n"
             "Rate: 'fully', 'mostly', 'partially', or 'not' grounded."
         ),
+        feedback_value_type=Literal["fully", "mostly", "partially", "not"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="conditional-judges" label="Conditional">
     ```python
+    from typing import Literal
+
     conditional_judge = make_judge(
         name="adaptive_evaluator",
         instructions=(
@@ -134,9 +150,11 @@ Navigate to the link displayed in the console to view the evaluation results.
             "- Ensure appropriate depth\n\n"
             "Rate as 'appropriate' or 'inappropriate' for the user level."
         ),
+        feedback_value_type=Literal["appropriate", "inappropriate"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
 </Tabs>
 
@@ -162,7 +180,7 @@ See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) f
 
 ## Specify Output Format
 
-You can control the type of the judge result using the `result_type` argument. The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API natively supports common types like `bool`, `int`, `float`, and `Literal` for categorical outcomes. This ensures judge LLMs produce structured outputs, making results reliable and easy to use.
+You must specify the type of the judge result using the required `feedback_value_type` argument. The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API supports common types like `bool`, `int`, `float`, `str`, and `Literal` for categorical outcomes. This ensures judge LLMs produce structured outputs, making results reliable and easy to use.
 
 ## Versioning Scorers
 
