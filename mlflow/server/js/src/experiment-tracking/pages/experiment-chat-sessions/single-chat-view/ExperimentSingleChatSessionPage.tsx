@@ -119,7 +119,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         }}
       >
         <Drawer.Content
-          componentId=""
+          componentId="mlflow.experiment.chat-session.trace-data-drawer"
           title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
           width="90vw"
           expandContentToFullHeight
