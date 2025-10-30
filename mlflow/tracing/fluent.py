@@ -801,6 +801,12 @@ def search_traces(
         )
         os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
 
+    if extract_fields is not None:
+        warnings.warn(
+            "The `extract_fields` parameter is deprecated, we will remove it in a future version.",
+            category=FutureWarning,
+        )
+
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
         try:
