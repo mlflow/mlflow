@@ -1,9 +1,8 @@
 import os
 
 from mlflow.metrics import genai
-from mlflow.metrics.base import (
-    MetricValue,
-)
+from mlflow.metrics.base import MetricValue
+from mlflow.metrics.genai.utils import _MIGRATION_GUIDE
 from mlflow.metrics.metric_definitions import (
     _accuracy_eval_fn,
     _ari_eval_fn,
@@ -31,8 +30,10 @@ from mlflow.models import (
     EvaluationMetric,
     make_metric,
 )
+from mlflow.utils.annotations import deprecated
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def latency() -> EvaluationMetric:
     """
     This function will create a metric for calculating latency. Latency is determined by the time
@@ -46,7 +47,7 @@ def latency() -> EvaluationMetric:
     )
 
 
-# general text metrics
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def token_count(encoding: str = "cl100k_base") -> EvaluationMetric:
     """
     This function will create a metric for calculating token_count. Token count is calculated
@@ -84,6 +85,7 @@ def token_count(encoding: str = "cl100k_base") -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def toxicity() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `toxicity`_ using the model
@@ -109,6 +111,7 @@ def toxicity() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def flesch_kincaid_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `flesch kincaid grade level`_ using
@@ -132,6 +135,7 @@ def flesch_kincaid_grade_level() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def ari_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `automated readability index`_ using
@@ -155,7 +159,7 @@ def ari_grade_level() -> EvaluationMetric:
     )
 
 
-# question answering metrics
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def exact_match() -> EvaluationMetric:
     """
     This function will create a metric for calculating `accuracy`_ using sklearn.
@@ -169,7 +173,7 @@ def exact_match() -> EvaluationMetric:
     )
 
 
-# text summarization metrics
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rouge1() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge1`_.
@@ -190,6 +194,7 @@ def rouge1() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rouge2() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge2`_.
@@ -210,6 +215,7 @@ def rouge2() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rougeL() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeL`_.
@@ -230,6 +236,7 @@ def rougeL() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def rougeLsum() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeLsum`_.
@@ -250,6 +257,7 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
@@ -268,6 +276,7 @@ def precision_at_k(k) -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def recall_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``recall_at_k`` for retriever models.
@@ -288,6 +297,7 @@ def recall_at_k(k) -> EvaluationMetric:
     )
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def ndcg_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for evaluating `NDCG@k`_ for retriever models.
@@ -448,6 +458,7 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
+@deprecated(since="3.4.0", impact=_MIGRATION_GUIDE)
 def bleu() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `bleu`_.

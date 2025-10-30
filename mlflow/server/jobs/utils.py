@@ -436,13 +436,6 @@ def _check_requirements(backend_store_uri: str | None = None) -> None:
     if os.name == "nt":
         raise MlflowException("MLflow job backend does not support Windows system.")
 
-    try:
-        import huey  # noqa: F401
-    except ImportError:
-        raise MlflowException(
-            "MLflow job backend requires 'huey<3,>=2.5.0' package but it is not installed"
-        )
-
     if shutil.which("uv") is None:
         raise MlflowException("MLflow job backend requires 'uv' but it is not installed.")
 

@@ -4,6 +4,7 @@ from typing import Any
 
 from mlflow.entities import Span
 from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.utils.annotations import deprecated
 
 
 @dataclass
@@ -30,9 +31,14 @@ class TraceData:
     def to_dict(self) -> dict[str, Any]:
         return {"spans": [span.to_dict() for span in self.spans]}
 
+    # TODO: remove this property in 3.7.0
     @property
+    @deprecated(since="3.6.0", alternative="trace.search_spans(name=...)")
     def intermediate_outputs(self) -> dict[str, Any] | None:
         """
+        .. deprecated:: 3.6.0
+            Use `trace.search_spans(name=...)` to search for spans and get the outputs.
+
         Returns intermediate outputs produced by the model or agent while handling the request.
         There are mainly two flows to return intermediate outputs:
         1. When a trace is generate by the `mlflow.log_trace` API,

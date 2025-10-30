@@ -42,7 +42,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -1333,6 +1333,8 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
+# TODO: remove this function in 3.7.0
+@deprecated(since="3.6.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,
