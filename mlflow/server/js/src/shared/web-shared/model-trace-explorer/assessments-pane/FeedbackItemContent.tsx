@@ -11,9 +11,9 @@ import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
-import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
-import { useParams } from '../../genai-traces-table/utils/RoutingUtils';
+import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../constants';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
@@ -28,10 +28,10 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
-  const judgeTraceId = feedback.metadata?.['mlflow.assessment.scorerTraceId'];
+  const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
   const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
 
-  const judgeCost = feedback.metadata?.['mlflow.assessment.judgeCost'];
+  const judgeCost = feedback.metadata?.[MLFLOW_ASSESSMENT_JUDGE_COST];
   const formattedCost = (() => {
     if (judgeCost === null) {
       return undefined;

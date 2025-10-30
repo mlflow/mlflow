@@ -15,6 +15,10 @@ import type {
   RunEvaluationTracesRetrievalChunk,
   TraceInfoV3,
 } from '../types';
+import {
+  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
+  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
+} from '../../model-trace-explorer/constants';
 
 // This is the key used by the eval harness to record
 // which chunk a given retrieval assessment corresponds to.
@@ -24,8 +28,6 @@ const MLFLOW_ASSESSMENT_ROOT_CAUSE_ASSESSMENT = 'root_cause_assessment';
 const MLFLOW_ASSESSMENT_ROOT_CAUSE_RATIONALE = 'root_cause_rationale';
 const MLFLOW_ASSESSMENT_SUGGESTED_ACTION = 'suggested_action';
 export const MLFLOW_SOURCE_RUN_KEY = 'mlflow.sourceRun';
-export const MLFLOW_TRACE_SOURCE_SCORER_NAME = 'mlflow.trace.sourceScorer';
-export const MLFLOW_ASSESSMENT_SOURCE_RUN_ID = 'mlflow.assessment.sourceRunId';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
 
@@ -90,7 +92,7 @@ export const filterTracesByAssessmentSourceRunId = (
     });
 
     // Filter out the scorer traces.
-    const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME];
+    const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG];
     if (sourceScorerName) {
       return acc;
     }
