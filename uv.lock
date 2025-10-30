@@ -884,7 +884,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "(python_full_version < '3.13' and implementation_name != 'PyPy') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -3463,6 +3463,7 @@ dependencies = [
     { name = "gitpython" },
     { name = "graphene" },
     { name = "gunicorn", marker = "sys_platform != 'win32'" },
+    { name = "huey" },
     { name = "importlib-metadata" },
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3534,9 +3535,6 @@ genai = [
 ]
 jfrog = [
     { name = "mlflow-jfrog-plugin" },
-]
-jobs = [
-    { name = "huey" },
 ]
 langchain = [
     { name = "langchain" },
@@ -3636,7 +3634,7 @@ requires-dist = [
     { name = "google-cloud-storage", marker = "extra == 'extras'", specifier = ">=1.30.0" },
     { name = "graphene", specifier = "<4" },
     { name = "gunicorn", marker = "sys_platform != 'win32'", specifier = "<24" },
-    { name = "huey", marker = "extra == 'jobs'", specifier = ">=2.5.0,<3" },
+    { name = "huey", specifier = ">=2.5.0,<3" },
     { name = "importlib-metadata", specifier = ">=3.7.0,!=4.7.0,<9" },
     { name = "kubernetes", marker = "extra == 'extras'" },
     { name = "langchain", marker = "extra == 'langchain'", specifier = ">=0.3.4,<=0.3.27" },
@@ -3678,7 +3676,7 @@ requires-dist = [
     { name = "watchfiles", marker = "extra == 'gateway'", specifier = "<2" },
     { name = "watchfiles", marker = "extra == 'genai'", specifier = "<2" },
 ]
-provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth", "jobs"]
+provides-extras = ["extras", "databricks", "mlserver", "gateway", "genai", "mcp", "sqlserver", "aliyun-oss", "jfrog", "langchain", "auth"]
 
 [package.metadata.requires-dev]
 build = [

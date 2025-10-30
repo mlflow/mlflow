@@ -357,7 +357,6 @@ def build(package_type: PackageType) -> None:
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
-                "jobs": ["huey<3,>=2.5.0"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING
