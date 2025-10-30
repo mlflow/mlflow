@@ -695,12 +695,12 @@ MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
 
-#: By default, MLflow uses OpenTelemetry's default TracerProvider to generate traces. Set this to
-#: True to let MLflow use a separate TracerProvider instance for tracing, which is useful when
-#: you want to avoid conflicts with other telemetry clients.
-#: (default: ``False``)
+#: By default, MLflow uses an isolated TracerProvider instance to generate traces, instead of the
+#: default OpenTelemetry TracerProvider. Set this to False to let MLflow use the default OTel
+# TracerProvider and allow mixing MLflow SDK and Otel SDK to generate a single trace.
+#: (default: ``True``)
 MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER = _BooleanEnvironmentVariable(
-    "MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER", False
+    "MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER", True
 )
 
 # Default addressing style to use for boto client
