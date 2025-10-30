@@ -442,7 +442,7 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
         timeout=10,
     )
 
-    assert response.status_code == 200, f"Expected 200, got {response.status_code}"
+    assert response.status_code == 200
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
@@ -523,15 +523,17 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
         trace_id_hex = f"{trace_id_num + 2000:016x}" + "0" * 16
 
         for span_num in range(span_count):
-            span = OTelProtoSpan()
-            span.trace_id = bytes.fromhex(trace_id_hex)
-            span.span_id = bytes.fromhex(f"{trace_id_num * 100 + span_num:08x}" + "0" * 8)
-            span.name = f"mixed-span-{trace_name}-{span_num}"
-            span.start_time_unix_nano = 1000000000 + span_num * 1000
-            span.end_time_unix_nano = 2000000000 + span_num * 1000
+            span = OTelProtoSpan(
+                trace_id=bytes.fromhex(trace_id_hex),
+                span_id=bytes.fromhex(f"{trace_id_num * 100 + span_num:08x}" + "0" * 8),
+                name=f"mixed-span-{trace_name}-{span_num}",
+                start_time_unix_nano=1000000000 + span_num * 1000,
+                end_time_unix_nano=2000000000 + span_num * 1000,
+            )
 
-            scope = InstrumentationScope()
-            scope.name = "mixed-test-scope"
+            scope = InstrumentationScope(
+                name="mixed-test-scope",
+            )
 
             scope_spans = ScopeSpans()
             scope_spans.scope.CopyFrom(scope)
@@ -561,16 +563,11 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
     )
 
     assert len(traces) == 3
-
-    # Verify span counts per trace
-    # Note: search_traces may return traces in any order, so we need to check by span count
-    span_counts = sorted([len(trace.data.spans) for trace in traces[:3]])
-    expected_counts = sorted([2, 1, 2])  # trace A: 2, trace B: 1, trace C: 2
-
-    assert span_counts == expected_counts
+    span_counts = [len(trace.data.spans) for trace in traces]
+    assert span_counts == [2, 1, 2]
 
 
-def test_error_logging_spans(mlflow_server: str, monkeypatch):
+def test_error_logging_spans(mlflow_server: str):
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-error-test")
     experiment_id = experiment.experiment_id
@@ -595,23 +592,22 @@ def test_error_logging_spans(mlflow_server: str, monkeypatch):
 
     tracer = otel_trace.get_tracer(__name__)
 
-    count = 0
-
     original_log_spans = SqlAlchemyStore.log_spans
+    call_count = {"count": 0}
 
     def mock_log_spans(self, *args, **kwargs):
-        nonlocal count
-        if count == 0:
-            count += 1
+        if call_count["count"] == 0:
+            call_count["count"] += 1
             raise Exception("test_error")
         else:
             return original_log_spans(self, *args, **kwargs)
 
-    monkeypatch.setattr(SqlAlchemyStore, "log_spans", mock_log_spans)
-
-    with mock.patch(
-        "opentelemetry.exporter.otlp.proto.http.trace_exporter._logger.error"
-    ) as mock_error:
+    with (
+        mock.patch.object(SqlAlchemyStore, "log_spans", mock_log_spans),
+        mock.patch(
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter._logger.error"
+        ) as mock_error,
+    ):
         for _ in range(2):
             with tracer.start_as_current_span("batch-test-span-0"):
                 pass
