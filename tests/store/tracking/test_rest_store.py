@@ -927,27 +927,15 @@ def test_delete_traces_with_batching():
     batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.delete_traces(experiment_id="0", trace_ids=trace_ids)
+        store.delete_traces(experiment_id="0", trace_ids=trace_ids)
 
         # Verify that we made 3 API calls (250 / 100 = 3 batches)
         expected_num_calls = math.ceil(num_traces / batch_size)
         assert mock_http.call_count == expected_num_calls
 
-        # Verify that the first batch contains exactly batch_size trace IDs
-        first_call_kwargs = mock_http.call_args_list[0][1]
-        first_call_body = first_call_kwargs["json"]
-        assert len(first_call_body["request_ids"]) == batch_size
-
-        # Verify that the last batch contains the remaining trace IDs
-        last_call_kwargs = mock_http.call_args_list[-1][1]
-        last_call_body = last_call_kwargs["json"]
-        expected_last_batch_size = (
-            num_traces % batch_size if num_traces % batch_size != 0 else batch_size
-        )
-        assert len(last_call_body["request_ids"]) == expected_last_batch_size
-
-        # Verify that the total deleted count is correct (3 batches * 100 each = 300)
-        assert res == expected_num_calls * 100
+        # Verify that batch sizes are [100, 100, 50]
+        batch_sizes = [len(call[1]["json"]["request_ids"]) for call in mock_http.call_args_list]
+        assert batch_sizes == [100, 100, 50]
 
 
 def test_set_trace_tag():

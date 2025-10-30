@@ -404,9 +404,9 @@ class RestStore(AbstractStore):
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
-        # If deleting by trace_ids and the number exceeds the batch size limit,
-        # split into batches to avoid hitting the Databricks server limit
-        if trace_ids and len(trace_ids) > _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get():
+        # If deleting by trace_ids, split into batches to avoid hitting the
+        # Databricks server limit
+        if trace_ids and len(trace_ids):
             batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
             total_deleted = 0
             for i in range(0, len(trace_ids), batch_size):
@@ -414,8 +414,8 @@ class RestStore(AbstractStore):
                 req_body = message_to_json(
                     DeleteTraces(
                         experiment_id=experiment_id,
-                        max_timestamp_millis=None,
-                        max_traces=None,
+                        max_timestamp_millis=max_timestamp_millis,
+                        max_traces=max_traces,
                         request_ids=batch,
                     )
                 )
