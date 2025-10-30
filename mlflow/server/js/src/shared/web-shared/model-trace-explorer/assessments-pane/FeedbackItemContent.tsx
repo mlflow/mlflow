@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 
@@ -132,10 +132,13 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
       )}
       {judgeTraceHref && (
         <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
-          <FormattedMessage
-            defaultMessage="View trace"
-            description="Link text for navigating to the corresponding judge trace"
-          />
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="View trace"
+              description="Link text for navigating to the corresponding judge trace"
+            />
+            <NewWindowIcon css={{ fontSize: 12 }} />
+          </span>
         </Link>
       )}
     </div>
