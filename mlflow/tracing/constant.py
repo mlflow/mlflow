@@ -1,3 +1,6 @@
+from enum import Enum
+
+
 # NB: These keys are placeholders and subject to change
 class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
@@ -21,6 +24,7 @@ class TraceMetadataKey:
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "mlflow.eval.requestId"
+    SPANS_LOCATION = "mlflow.trace.spansLocation"
 
 
 class TokenUsageKey:
@@ -69,6 +73,8 @@ class SpanAttributeKey:
 
 class AssessmentMetadataKey:
     SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
+    # Total LLM cost spent for generating the feedback (llm-as-a-judge).
+    JUDGE_COST = "mlflow.assessment.judgeCost"
 
 
 # All storage backends are guaranteed to support request_metadata key/value up to 250 characters
@@ -113,3 +119,14 @@ ASSESSMENT_ID_PREFIX = "a-"
 # To make sure get_trace API does not fail due to this delay, we retry up to a reasonable timeout.
 # Setting 15 seconds because the initial version of the backend is known to have 1~5 seconds delay.
 GET_TRACE_V4_RETRY_TIMEOUT_SECONDS = 15
+
+
+# The location of the spans in the trace.
+# This is used to determine where the spans are stored when exporting.
+class SpansLocation(str, Enum):
+    TRACKING_STORE = "TRACKING_STORE"
+    ARTIFACT_REPO = "ARTIFACT_REPO"
+
+
+# Path to the notebook trace renderer directory
+TRACE_RENDERER_ASSET_PATH = "/static-files/lib/notebook-trace-renderer"

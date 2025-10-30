@@ -122,7 +122,7 @@ prompt = mlflow.genai.register_prompt(
 
 # Define prediction function that includes prompt.format() call for your target prompt(s)
 def predict_fn(question: str) -> str:
-    prompt = mlflow.genai.load_prompt("prompts:/math_tutor/latest")
+    prompt = mlflow.genai.load_prompt("prompts:/math_tutor@latest")
     completion = openai.OpenAI().chat.completions.create(
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt.format(question=question)}],

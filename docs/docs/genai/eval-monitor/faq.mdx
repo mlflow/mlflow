@@ -62,3 +62,18 @@ mlflow.genai.evaluate(
     scorers=[Correctness()],
 )
 ```
+
+## How to migrate from MLflow 2 LLM Evaluation?
+
+See the [Migrating from MLflow 2 LLM Evaluation](/genai/eval-monitor/legacy-llm-evaluation) guide.
+
+## How do I track the cost of LLM judges?
+
+MLflow visualizes the cost of LLM judges in the assessment pane of the trace details page.
+When you open an assessment logged by an LLM judge, you can see the cost incurred for running the judge model.
+This feature is available only when you have the [LiteLLM](https://github.com/BerriAI/litellm) library installed.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/tracking-judge-cost.png" alt="LLM Judge Cost" width="90%" />
+
+Managing the balance between cost and accuracy is important.
+To use a more cost-effective LLM model while maintaining accuracy, you can leverage the [LLM Judge Alignment](/genai/eval-monitor/scorers/llm-judge/alignment) feature.

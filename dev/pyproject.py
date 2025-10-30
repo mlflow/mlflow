@@ -351,12 +351,12 @@ def build(package_type: PackageType) -> None:
                 ],
                 "gateway": gateways_requirements,
                 "genai": gateways_requirements,
+                "mcp": ["fastmcp<3,>=2.0.0"],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
-                "jobs": ["huey<3,>=2.5.0"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING

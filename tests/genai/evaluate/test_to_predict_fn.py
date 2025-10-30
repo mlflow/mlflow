@@ -8,8 +8,29 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 
-from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import V2_TRACE_DICT
+
+_DUMMY_CHAT_RESPONSE = {
+    "id": "1",
+    "object": "text_completion",
+    "created": "2021-10-01T00:00:00.000000Z",
+    "model": "gpt-4o-mini",
+    "choices": [
+        {
+            "index": 0,
+            "message": {
+                "content": "This is a response",
+                "role": "assistant",
+            },
+            "finish_reason": "length",
+        }
+    ],
+    "usage": {
+        "prompt_tokens": 1,
+        "completion_tokens": 1,
+        "total_tokens": 2,
+    },
+}
 
 
 @pytest.fixture
@@ -260,3 +281,100 @@ def test_to_predict_fn_handles_trace_without_tags(
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
     assert len(trace_data.spans) == 3
     mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace_data)
+
+
+def test_to_predict_fn_reuses_trace_in_dual_write_mode(
+    sample_rag_trace, mock_deploy_client, mock_tracing_client
+):
+    """
+    Test that when an endpoint logs traces to both inference table and MLflow experiment
+    (dual-write mode), the trace is reused instead of being re-logged.
+
+    This happens when MLFLOW_EXPERIMENT_ID env var is set in the serving endpoint.
+    """
+    # Set up an experiment context
+    experiment_id = "test-experiment-123"
+    with mock.patch(
+        "mlflow.genai.evaluation.base._get_experiment_id", return_value=experiment_id
+    ) as mock_get_experiment_id:
+        # Create a trace dict with experiment_id matching the current experiment
+        trace_dict = sample_rag_trace.to_dict()
+        trace_dict["info"]["trace_location"] = {
+            "mlflow_experiment": {"experiment_id": experiment_id}
+        }
+
+        mock_deploy_client.predict.return_value = {
+            **_DUMMY_CHAT_RESPONSE,
+            "databricks_output": {"trace": trace_dict},
+        }
+        messages = [
+            {"content": "You are a helpful assistant.", "role": "system"},
+            {"content": "What is Spark?", "role": "user"},
+        ]
+
+        predict_fn = to_predict_fn("endpoints:/chat")
+        response = predict_fn(messages=messages)
+
+        mock_deploy_client.predict.assert_called_once_with(
+            endpoint="chat",
+            inputs={
+                "messages": messages,
+                "databricks_options": {"return_trace": True},
+            },
+        )
+        assert response == _DUMMY_CHAT_RESPONSE
+
+        # The trace should NOT be copied when it's already in the current experiment
+        mock_tracing_client.start_trace.assert_not_called()
+        mock_tracing_client._upload_trace_data.assert_not_called()
+        mock_get_experiment_id.assert_called_once()
+
+
+def test_to_predict_fn_copies_trace_when_experiment_differs(
+    sample_rag_trace, mock_deploy_client, mock_tracing_client
+):
+    """
+    Test that when an endpoint returns a trace from a different experiment,
+    the trace is still copied to the current experiment.
+    """
+    # Set up an experiment context
+    current_experiment_id = "current-experiment-123"
+    endpoint_experiment_id = "different-experiment-456"
+
+    with mock.patch(
+        "mlflow.genai.evaluation.base._get_experiment_id", return_value=current_experiment_id
+    ) as mock_get_experiment_id:
+        # Create a trace dict with a different experiment_id
+        trace_dict = sample_rag_trace.to_dict()
+        trace_dict["info"]["trace_location"] = {
+            "mlflow_experiment": {"experiment_id": endpoint_experiment_id}
+        }
+
+        mock_deploy_client.predict.return_value = {
+            **_DUMMY_CHAT_RESPONSE,
+            "databricks_output": {"trace": trace_dict},
+        }
+        messages = [
+            {"content": "You are a helpful assistant.", "role": "system"},
+            {"content": "What is Spark?", "role": "user"},
+        ]
+
+        predict_fn = to_predict_fn("endpoints:/chat")
+        response = predict_fn(messages=messages)
+
+        mock_deploy_client.predict.assert_called_once_with(
+            endpoint="chat",
+            inputs={
+                "messages": messages,
+                "databricks_options": {"return_trace": True},
+            },
+        )
+        assert response == _DUMMY_CHAT_RESPONSE
+
+        # The trace SHOULD be copied when experiments differ
+        mock_tracing_client.start_trace.assert_called_once()
+        trace_info = mock_tracing_client.start_trace.call_args[0][0]
+        # Copied trace should have a new trace ID
+        assert trace_info.trace_id != sample_rag_trace.info.trace_id
+        mock_tracing_client._upload_trace_data.assert_called_once()
+        mock_get_experiment_id.assert_called_once()

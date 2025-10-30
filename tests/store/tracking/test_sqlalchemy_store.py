@@ -99,7 +99,10 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    SpansLocation,
     TraceMetadataKey,
+    TraceSizeStatsKey,
+    TraceTagKey,
 )
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils import mlflow_tags
@@ -4486,6 +4489,7 @@ def test_start_trace(store: SqlAlchemyStore):
         "tag1": "apple",
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
+        TraceTagKey.SPANS_LOCATION: SpansLocation.TRACKING_STORE.value,
     }
     assert trace_info == store.get_trace_info(trace_id)
 
@@ -4499,6 +4503,7 @@ def _create_trace(
     state=TraceState.OK,
     trace_metadata=None,
     tags=None,
+    client_request_id=None,
 ) -> TraceInfo:
     """Helper function to create a test trace in the database."""
     if not store.get_experiment(experiment_id):
@@ -4512,6 +4517,7 @@ def _create_trace(
         state=state,
         tags=tags or {},
         trace_metadata=trace_metadata or {},
+        client_request_id=client_request_id,
     )
     return store.start_trace(trace_info)
 
@@ -4666,11 +4672,6 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
         ("trace.tags.foo = 'bar'", r"Invalid attribute key 'tags\.foo'"),
         ("trace.status < 'OK'", r"Invalid comparator '<'"),
         ("name IN ('foo', 'bar')", r"Invalid comparator 'IN'"),
-        # We don't support LIKE/ILIKE operators for trace search because it may
-        # cause performance issues with large attributes and tags.
-        ("name LIKE 'b%'", r"Invalid comparator 'LIKE'"),
-        ("name ILIKE 'd%'", r"Invalid comparator 'ILIKE'"),
-        ("tag.color LIKE 're%'", r"Invalid comparator 'LIKE'"),
     ],
 )
 def test_search_traces_with_invalid_filter(store_with_traces, filter_string, error):
@@ -4884,14 +4885,1411 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
 
     # Test invalid span attribute should raise error
     with pytest.raises(
-        MlflowException, match="Invalid span attribute 'type'. Supported attributes: name."
+        MlflowException,
+        match=(
+            "Invalid span attribute 'duration'. Supported attributes: content, name, status, type."
+        ),
     ):
-        store.search_traces([exp_id], filter_string='span.type = "FUNCTION"')
+        store.search_traces([exp_id], filter_string='span.duration = "1000"')
 
     with pytest.raises(
-        MlflowException, match="Invalid span attribute 'status'. Supported attributes: name."
+        MlflowException,
+        match=(
+            "Invalid span attribute 'parent_id'. Supported attributes: content, name, status, type."
+        ),
     ):
-        store.search_traces([exp_id], filter_string='span.status = "OK"')
+        store.search_traces([exp_id], filter_string='span.parent_id = "123"')
+
+
+def test_search_traces_with_span_type_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_type_search")
+
+    # Create traces with spans that have different types
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different types
+    span1 = create_test_span(trace1_id, name="llm_call", span_id=111, span_type="LLM")
+    span2 = create_test_span(trace2_id, name="retriever_call", span_id=222, span_type="RETRIEVER")
+    span3 = create_test_span(trace3_id, name="chain_call", span_id=333, span_type="CHAIN")
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test exact match
+    traces, _ = store.search_traces([exp_id], filter_string='span.type = "LLM"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test IN operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type IN ("LLM", "RETRIEVER")')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    # Test NOT IN operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type NOT IN ("LLM", "RETRIEVER")')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test != operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type != "LLM"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace2_id, trace3_id}
+
+    # Test LIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type LIKE "LLM"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test ILIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.type ILIKE "llm"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_with_span_status_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_status_search")
+
+    # Create traces with spans that have different statuses
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different statuses
+    span1 = create_test_span(
+        trace1_id, name="success_span", span_id=111, status=trace_api.StatusCode.OK
+    )
+    span2 = create_test_span(
+        trace2_id, name="error_span", span_id=222, status=trace_api.StatusCode.ERROR
+    )
+    span3 = create_test_span(
+        trace3_id, name="unset_span", span_id=333, status=trace_api.StatusCode.UNSET
+    )
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test exact match with OK status
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "OK"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test exact match with ERROR status
+    traces, _ = store.search_traces([exp_id], filter_string='span.status = "ERROR"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test IN operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.status IN ("OK", "ERROR")')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    # Test != operator
+    traces, _ = store.search_traces([exp_id], filter_string='span.status != "ERROR"')
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace3_id}
+
+
+def create_test_span_with_content(
+    trace_id,
+    name="test_span",
+    span_id=111,
+    parent_id=None,
+    status=trace_api.StatusCode.UNSET,
+    status_desc=None,
+    start_ns=1000000000,
+    end_ns=2000000000,
+    span_type="LLM",
+    trace_num=12345,
+    custom_attributes=None,
+    inputs=None,
+    outputs=None,
+) -> Span:
+    context = create_mock_span_context(trace_num, span_id)
+    parent_context = create_mock_span_context(trace_num, parent_id) if parent_id else None
+
+    attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id),
+        "mlflow.spanType": json.dumps(span_type, cls=TraceJSONEncoder),
+    }
+
+    # Add custom attributes
+    if custom_attributes:
+        for key, value in custom_attributes.items():
+            attributes[f"mlflow.spanAttribute.{key}"] = json.dumps(value, cls=TraceJSONEncoder)
+
+    # Add inputs and outputs
+    if inputs:
+        attributes["mlflow.spanInputs"] = json.dumps(inputs, cls=TraceJSONEncoder)
+    if outputs:
+        attributes["mlflow.spanOutputs"] = json.dumps(outputs, cls=TraceJSONEncoder)
+
+    otel_span = OTelReadableSpan(
+        name=name,
+        context=context,
+        parent=parent_context,
+        attributes=attributes,
+        start_time=start_ns,
+        end_time=end_ns,
+        status=trace_api.Status(status, status_desc),
+        resource=_OTelResource.get_empty(),
+    )
+    return create_mlflow_span(otel_span, trace_id, span_type)
+
+
+def test_search_traces_with_span_content_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_content_search")
+
+    # Create traces
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different content
+    span1 = create_test_span_with_content(
+        trace1_id,
+        name="gpt_span",
+        span_id=111,
+        span_type="LLM",
+        custom_attributes={"model": "gpt-4", "temperature": 0.7},
+        inputs={"prompt": "Tell me about machine learning"},
+        outputs={"response": "Machine learning is a subset of AI"},
+    )
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="claude_span",
+        span_id=222,
+        span_type="LLM",
+        custom_attributes={"model": "claude-3", "max_tokens": 1000},
+        inputs={"query": "What is neural network?"},
+        outputs={"response": "A neural network is..."},
+    )
+
+    span3 = create_test_span_with_content(
+        trace3_id,
+        name="vector_span",
+        span_id=333,
+        span_type="RETRIEVER",
+        custom_attributes={"database": "vector_store"},
+        inputs={"search": "embeddings"},
+        outputs={"documents": ["doc1", "doc2"]},
+    )
+
+    # Add spans to store
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test LIKE operator for model in content
+    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%gpt-4%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test LIKE operator for input text
+    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%neural network%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test LIKE operator for attribute
+    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%temperature%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test ILIKE operator (case-insensitive)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.content ILIKE "%MACHINE LEARNING%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test LIKE with wildcard patterns
+    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%model%"')
+    assert len(traces) == 2  # Both LLM spans have "model" in their attributes
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    # Test searching for array content
+    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%doc1%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+
+def test_search_traces_with_combined_span_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_combined_span_search")
+
+    # Create traces
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create spans with various combinations
+    span1 = create_test_span_with_content(
+        trace1_id,
+        name="llm_success",
+        span_id=111,
+        span_type="LLM",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"model": "gpt-4"},
+    )
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="llm_error",
+        span_id=222,
+        span_type="LLM",
+        status=trace_api.StatusCode.ERROR,
+        custom_attributes={"model": "gpt-3.5"},
+    )
+
+    span3 = create_test_span_with_content(
+        trace3_id,
+        name="retriever_success",
+        span_id=333,
+        span_type="RETRIEVER",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"database": "pinecone"},
+    )
+
+    span4 = create_test_span_with_content(
+        trace4_id,
+        name="llm_success_claude",
+        span_id=444,
+        span_type="LLM",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"model": "claude-3"},
+    )
+
+    # Add spans to store (must log spans for each trace separately)
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+
+    # Test: type = LLM AND status = OK
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.type = "LLM" AND span.status = "OK"'
+    )
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace4_id}
+
+    # Test: type = LLM AND content contains gpt
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.type = "LLM" AND span.content LIKE "%gpt%"'
+    )
+    assert len(traces) == 2
+    assert {t.request_id for t in traces} == {trace1_id, trace2_id}
+
+    # Test: name LIKE pattern AND status = OK
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name LIKE "%success%" AND span.status = "OK"'
+    )
+    assert len(traces) == 3
+    assert {t.request_id for t in traces} == {trace1_id, trace3_id, trace4_id}
+
+    # Test: Complex combination - (type = LLM AND status = OK) AND content LIKE gpt
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='span.type = "LLM" AND span.status = "OK" AND span.content LIKE "%gpt-4%"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_span_filters_with_no_results(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_no_results")
+
+    # Create a trace with a span
+    trace_id = "trace1"
+    _create_trace(store, trace_id, exp_id)
+
+    span = create_test_span_with_content(
+        trace_id,
+        name="test_span",
+        span_id=111,
+        span_type="LLM",
+        status=trace_api.StatusCode.OK,
+        custom_attributes={"model": "gpt-4"},
+    )
+
+    store.log_spans(exp_id, [span])
+
+    # Test searching for non-existent type
+    traces, _ = store.search_traces([exp_id], filter_string='span.type = "NONEXISTENT"')
+    assert len(traces) == 0
+
+    # Test searching for non-existent content
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.content LIKE "%nonexistent_model%"'
+    )
+    assert len(traces) == 0
+
+    # Test contradictory conditions
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.type = "LLM" AND span.type = "RETRIEVER"'
+    )
+    assert len(traces) == 0
+
+
+def test_search_traces_with_span_attributes_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_attributes_search")
+
+    # Create traces with spans having custom attributes
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different custom attributes
+    span1 = create_test_span_with_content(
+        trace1_id,
+        name="llm_span",
+        span_id=111,
+        span_type="LLM",
+        custom_attributes={"model": "gpt-4", "temperature": 0.7, "max_tokens": 1000},
+    )
+
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="llm_span",
+        span_id=222,
+        span_type="LLM",
+        custom_attributes={"model": "claude-3", "temperature": 0.5, "provider": "anthropic"},
+    )
+
+    span3 = create_test_span_with_content(
+        trace3_id,
+        name="retriever_span",
+        span_id=333,
+        span_type="RETRIEVER",
+        custom_attributes={"database": "pinecone", "top_k": 10, "similarity.threshold": 0.8},
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.attributes.model LIKE "%gpt-4%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.temperature LIKE "%0.7%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.provider LIKE "%anthropic%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.database LIKE "%pinecone%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.nonexistent LIKE "%value%"'
+    )
+    assert len(traces) == 0
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.similarity.threshold LIKE "%0.8%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+
+def test_search_traces_with_feedback_and_expectation_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_feedback_expectation_search")
+
+    # Create multiple traces
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create feedback for trace1 and trace2
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="correctness",
+        value=True,
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+        rationale="The response is accurate",
+    )
+
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="correctness",
+        value=False,
+        source=AssessmentSource(source_type="LLM_JUDGE", source_id="gpt-4"),
+        rationale="The response contains errors",
+    )
+
+    feedback3 = Feedback(
+        trace_id=trace2_id,
+        name="helpfulness",
+        value=5,
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    # Create expectations for trace3 and trace4
+    expectation1 = Expectation(
+        trace_id=trace3_id,
+        name="response_length",
+        value=150,
+        source=AssessmentSource(source_type="CODE", source_id="length_checker"),
+    )
+
+    expectation2 = Expectation(
+        trace_id=trace4_id,
+        name="response_length",
+        value=200,
+        source=AssessmentSource(source_type="CODE", source_id="length_checker"),
+    )
+
+    expectation3 = Expectation(
+        trace_id=trace4_id,
+        name="latency_ms",
+        value=1000,
+        source=AssessmentSource(source_type="CODE", source_id="latency_monitor"),
+    )
+
+    # Store assessments
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(feedback3)
+    store.create_assessment(expectation1)
+    store.create_assessment(expectation2)
+    store.create_assessment(expectation3)
+
+    # Test: Search for traces with correctness feedback = True
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "true"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: Search for traces with correctness feedback = False
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.correctness = "false"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Search for traces with helpfulness feedback = 5
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.helpfulness = "5"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Search for traces with response_length expectation = 150
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "150"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: Search for traces with response_length expectation = 200
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.response_length = "200"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+    # Test: Search for traces with latency_ms expectation = 1000
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.latency_ms = "1000"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+    # Test: Combined filter with AND - trace with multiple expectations
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='expectation.response_length = "200" AND expectation.latency_ms = "1000"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+    # Test: Search for non-existent feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.nonexistent = "value"')
+    assert len(traces) == 0
+
+    # Test: Search for non-existent expectation
+    traces, _ = store.search_traces([exp_id], filter_string='expectation.nonexistent = "value"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_run_id(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_run_id")
+    run1_id = "run1"
+    run2_id = "run2"
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"mlflow.sourceRun": run1_id})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"mlflow.sourceRun": run2_id})
+    _create_trace(store, trace3_id, exp_id)
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run1"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    traces, _ = store.search_traces([exp_id], filter_string='trace.run_id = "run3"')
+    assert len(traces) == 0
+
+
+def test_search_traces_with_client_request_id_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_client_request_id")
+
+    # Create traces with different client_request_ids
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, client_request_id="client-req-abc")
+    _create_trace(store, trace2_id, exp_id, client_request_id="client-req-xyz")
+    _create_trace(store, trace3_id, exp_id, client_request_id=None)
+
+    # Test: Exact match with =
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id = "client-req-abc"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: Not equal with !=
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id != "client-req-abc"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: LIKE pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id LIKE "%abc%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: ILIKE case-insensitive pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id ILIKE "%ABC%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_with_name_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_name_like")
+
+    # Create traces with different names
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={TraceTagKey.TRACE_NAME: "GenerateResponse"})
+    _create_trace(store, trace2_id, exp_id, tags={TraceTagKey.TRACE_NAME: "QueryDatabase"})
+    _create_trace(store, trace3_id, exp_id, tags={TraceTagKey.TRACE_NAME: "GenerateEmbedding"})
+
+    # Test: LIKE with prefix
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name LIKE "Generate%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: LIKE with suffix
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name LIKE "%Database"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: ILIKE case-insensitive
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name ILIKE "%response%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: ILIKE with wildcard in middle
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name ILIKE "%generate%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+
+def test_search_traces_with_tag_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_like")
+
+    # Create traces with different tag values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, tags={"environment": "production-us-east-1"})
+    _create_trace(store, trace2_id, exp_id, tags={"environment": "production-us-west-2"})
+    _create_trace(store, trace3_id, exp_id, tags={"environment": "staging-us-east-1"})
+
+    # Test: LIKE with prefix
+    traces, _ = store.search_traces([exp_id], filter_string='tag.environment LIKE "production%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: LIKE with suffix
+    traces, _ = store.search_traces([exp_id], filter_string='tag.environment LIKE "%-us-east-1"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: ILIKE case-insensitive
+    traces, _ = store.search_traces([exp_id], filter_string='tag.environment ILIKE "%PRODUCTION%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+
+def test_search_traces_with_feedback_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_feedback_like")
+
+    # Create traces with different feedback values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create feedback with string values that can be pattern matched
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="comment",
+        value="Great response! Very helpful.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="comment",
+        value="Response was okay but could be better.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    feedback3 = Feedback(
+        trace_id=trace3_id,
+        name="comment",
+        value="Not helpful at all.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user3@example.com"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(feedback3)
+
+    # Test: LIKE pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.comment LIKE "%helpful%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: ILIKE case-insensitive pattern matching
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.comment ILIKE "%GREAT%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: LIKE with negation - response was okay
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.comment LIKE "%okay%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+
+def test_search_traces_with_expectation_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_expectation_like")
+
+    # Create traces with different expectation values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create expectations with string values
+    expectation1 = Expectation(
+        trace_id=trace1_id,
+        name="output_format",
+        value="JSON with nested structure",
+        source=AssessmentSource(source_type="CODE", source_id="validator"),
+    )
+
+    expectation2 = Expectation(
+        trace_id=trace2_id,
+        name="output_format",
+        value="XML document",
+        source=AssessmentSource(source_type="CODE", source_id="validator"),
+    )
+
+    expectation3 = Expectation(
+        trace_id=trace3_id,
+        name="output_format",
+        value="JSON array",
+        source=AssessmentSource(source_type="CODE", source_id="validator"),
+    )
+
+    store.create_assessment(expectation1)
+    store.create_assessment(expectation2)
+    store.create_assessment(expectation3)
+
+    # Test: LIKE pattern matching
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='expectation.output_format LIKE "%JSON%"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: ILIKE case-insensitive
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='expectation.output_format ILIKE "%xml%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: LIKE with specific pattern
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='expectation.output_format LIKE "%nested%"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+
+def test_search_traces_with_metadata_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_like")
+
+    # Create traces with different metadata values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(
+        store, trace1_id, exp_id, trace_metadata={"custom_field": "production-deployment-v1"}
+    )
+    _create_trace(
+        store, trace2_id, exp_id, trace_metadata={"custom_field": "production-deployment-v2"}
+    )
+    _create_trace(
+        store, trace3_id, exp_id, trace_metadata={"custom_field": "staging-deployment-v1"}
+    )
+
+    # Test: LIKE with prefix
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.custom_field LIKE "production%"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: LIKE with suffix
+    traces, _ = store.search_traces([exp_id], filter_string='metadata.custom_field LIKE "%-v1"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: ILIKE case-insensitive
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.custom_field ILIKE "%PRODUCTION%"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+
+def test_search_traces_with_combined_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_combined_filters")
+
+    # Create traces with various attributes
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        tags={TraceTagKey.TRACE_NAME: "GenerateResponse", "env": "production"},
+        client_request_id="req-prod-001",
+    )
+    _create_trace(
+        store,
+        trace2_id,
+        exp_id,
+        tags={TraceTagKey.TRACE_NAME: "GenerateResponse", "env": "staging"},
+        client_request_id="req-staging-001",
+    )
+    _create_trace(
+        store,
+        trace3_id,
+        exp_id,
+        tags={TraceTagKey.TRACE_NAME: "QueryDatabase", "env": "production"},
+        client_request_id="req-prod-002",
+    )
+    _create_trace(
+        store,
+        trace4_id,
+        exp_id,
+        tags={TraceTagKey.TRACE_NAME: "QueryDatabase", "env": "staging"},
+        client_request_id="req-staging-002",
+    )
+
+    # Test: Combine LIKE filters with AND
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='trace.name LIKE "Generate%" AND tag.env = "production"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: Combine ILIKE with exact match
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='trace.client_request_id ILIKE "%PROD%" AND trace.name = "QueryDatabase"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: Multiple LIKE conditions
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='trace.name LIKE "%Response%" AND trace.client_request_id LIKE "%-staging-%"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: ILIKE on tag with exact match on another field
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='tag.env ILIKE "%STAGING%" AND trace.name != "GenerateResponse"',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+def test_search_traces_with_client_request_id_edge_cases(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_client_request_id_edge")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    # Various client_request_id formats
+    _create_trace(store, trace1_id, exp_id, client_request_id="simple")
+    _create_trace(store, trace2_id, exp_id, client_request_id="with-dashes-123")
+    _create_trace(store, trace3_id, exp_id, client_request_id="WITH_UNDERSCORES_456")
+    _create_trace(store, trace4_id, exp_id, client_request_id=None)
+
+    # Test: LIKE with wildcard at start
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id LIKE "%123"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: LIKE with wildcard at end
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id LIKE "WITH%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: ILIKE finds case-insensitive match
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id ILIKE "with%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    # Test: Exact match still works
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id = "simple"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: != excludes matched trace
+    traces, _ = store.search_traces([exp_id], filter_string='trace.client_request_id != "simple"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+
+def test_search_traces_with_name_ilike_variations(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_name_ilike_variations")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id, tags={TraceTagKey.TRACE_NAME: "USER_LOGIN"})
+    _create_trace(store, trace2_id, exp_id, tags={TraceTagKey.TRACE_NAME: "user_logout"})
+    _create_trace(store, trace3_id, exp_id, tags={TraceTagKey.TRACE_NAME: "User_Profile_Update"})
+    _create_trace(store, trace4_id, exp_id, tags={TraceTagKey.TRACE_NAME: "AdminDashboard"})
+
+    # Test: ILIKE finds all user-related traces regardless of case
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name ILIKE "user%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: ILIKE with wildcard in middle
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name ILIKE "%_log%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: LIKE is case-sensitive (should not match)
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name LIKE "user%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id}  # Only lowercase match
+
+    # Test: Exact match with !=
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name != "USER_LOGIN"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id, trace4_id}
+
+
+def test_search_traces_with_span_name_like_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_name_like")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create spans with different names
+    span1 = create_test_span_with_content(
+        trace1_id, name="llm.generate_response", span_id=111, span_type="LLM"
+    )
+    span2 = create_test_span_with_content(
+        trace2_id, name="llm.generate_embedding", span_id=222, span_type="LLM"
+    )
+    span3 = create_test_span_with_content(
+        trace3_id, name="database.query_users", span_id=333, span_type="TOOL"
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+
+    # Test: LIKE with prefix
+    traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "llm.%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: LIKE with suffix
+    traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "%_response"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: ILIKE case-insensitive
+    traces, _ = store.search_traces([exp_id], filter_string='span.name ILIKE "%GENERATE%"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: LIKE with wildcard in middle
+    traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "%base.%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+
+def test_search_traces_with_empty_and_special_characters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_special_chars")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        tags={"special": "test@example.com"},
+        client_request_id="req-123",
+    )
+    _create_trace(
+        store,
+        trace2_id,
+        exp_id,
+        tags={"special": "user#admin"},
+        client_request_id="req-456",
+    )
+    _create_trace(
+        store,
+        trace3_id,
+        exp_id,
+        tags={"special": "path/to/file"},
+        client_request_id="req-789",
+    )
+
+    # Test: LIKE with @ character
+    traces, _ = store.search_traces([exp_id], filter_string='tag.special LIKE "%@%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: LIKE with # character
+    traces, _ = store.search_traces([exp_id], filter_string='tag.special LIKE "%#%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: LIKE with / character
+    traces, _ = store.search_traces([exp_id], filter_string='tag.special LIKE "%/%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: ILIKE case-insensitive with special chars
+    traces, _ = store.search_traces([exp_id], filter_string='tag.special ILIKE "%ADMIN%"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+
+def test_search_traces_with_timestamp_ms_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_timestamp_ms")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    base_time = 1000000  # Use a fixed base time for consistency
+
+    _create_trace(store, trace1_id, exp_id, request_time=base_time)
+    _create_trace(store, trace2_id, exp_id, request_time=base_time + 5000)
+    _create_trace(store, trace3_id, exp_id, request_time=base_time + 10000)
+    _create_trace(store, trace4_id, exp_id, request_time=base_time + 15000)
+
+    # Test: = (equals)
+    traces, _ = store.search_traces([exp_id], filter_string=f"trace.timestamp_ms = {base_time}")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: != (not equals)
+    traces, _ = store.search_traces([exp_id], filter_string=f"trace.timestamp_ms != {base_time}")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id, trace4_id}
+
+    # Test: > (greater than)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.timestamp_ms > {base_time + 5000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: >= (greater than or equal)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.timestamp_ms >= {base_time + 5000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id, trace4_id}
+
+    # Test: < (less than)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.timestamp_ms < {base_time + 10000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: <= (less than or equal)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.timestamp_ms <= {base_time + 10000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: Combined conditions (range query)
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string=f"trace.timestamp_ms >= {base_time + 5000} "
+        f"AND trace.timestamp_ms < {base_time + 15000}",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+
+def test_search_traces_with_execution_time_ms_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_execution_time_ms")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    base_time = 1000000
+
+    # Create traces with different execution times
+    _create_trace(store, trace1_id, exp_id, request_time=base_time, execution_duration=100)
+    _create_trace(store, trace2_id, exp_id, request_time=base_time, execution_duration=500)
+    _create_trace(store, trace3_id, exp_id, request_time=base_time, execution_duration=1000)
+    _create_trace(store, trace4_id, exp_id, request_time=base_time, execution_duration=2000)
+    _create_trace(store, trace5_id, exp_id, request_time=base_time, execution_duration=5000)
+
+    # Test: = (equals)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms = 1000")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: != (not equals)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms != 1000")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace4_id, trace5_id}
+
+    # Test: > (greater than)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms > 1000")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace4_id, trace5_id}
+
+    # Test: >= (greater than or equal)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms >= 1000")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id, trace5_id}
+
+    # Test: < (less than)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms < 1000")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: <= (less than or equal)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.execution_time_ms <= 1000")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: Combined conditions (find traces with execution time between 500ms and 2000ms)
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string="trace.execution_time_ms >= 500 AND trace.execution_time_ms <= 2000",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id, trace4_id}
+
+
+def test_search_traces_with_end_time_ms_all_operators(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_end_time_ms_all_ops")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    base_time = 1000000
+
+    # end_time_ms = timestamp_ms + execution_time_ms
+    # trace1: starts at base_time, runs 1000ms -> ends at base_time + 1000
+    # trace2: starts at base_time, runs 3000ms -> ends at base_time + 3000
+    # trace3: starts at base_time, runs 5000ms -> ends at base_time + 5000
+    # trace4: starts at base_time, runs 10000ms -> ends at base_time + 10000
+    _create_trace(store, trace1_id, exp_id, request_time=base_time, execution_duration=1000)
+    _create_trace(store, trace2_id, exp_id, request_time=base_time, execution_duration=3000)
+    _create_trace(store, trace3_id, exp_id, request_time=base_time, execution_duration=5000)
+    _create_trace(store, trace4_id, exp_id, request_time=base_time, execution_duration=10000)
+
+    # Test: = (equals)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms = {base_time + 3000}"
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: != (not equals)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms != {base_time + 3000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id, trace4_id}
+
+    # Test: > (greater than)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms > {base_time + 3000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: >= (greater than or equal)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms >= {base_time + 3000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id, trace4_id}
+
+    # Test: < (less than)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms < {base_time + 5000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: <= (less than or equal)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string=f"trace.end_time_ms <= {base_time + 5000}"
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: Combined conditions (range query)
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string=f"trace.end_time_ms > {base_time + 1000} "
+        f"AND trace.end_time_ms < {base_time + 10000}",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+
+def test_search_traces_with_status_operators(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_status_operators")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    # Create traces with different statuses
+    _create_trace(store, trace1_id, exp_id, state=TraceState.OK)
+    _create_trace(store, trace2_id, exp_id, state=TraceState.OK)
+    _create_trace(store, trace3_id, exp_id, state=TraceState.ERROR)
+    _create_trace(store, trace4_id, exp_id, state=TraceState.IN_PROGRESS)
+
+    # Test: = (equals) for OK status
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status = 'OK'")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: = (equals) for ERROR status
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status = 'ERROR'")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: != (not equals)
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status != 'OK'")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: LIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status LIKE 'OK'")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: ILIKE operator
+    traces, _ = store.search_traces([exp_id], filter_string="trace.status ILIKE 'error'")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: Using different aliases (attributes.status and status)
+    traces, _ = store.search_traces([exp_id], filter_string="attributes.status = 'OK'")
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string="status = 'IN_PROGRESS'")
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+def test_search_traces_with_combined_numeric_and_string_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_combined_numeric_string")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    base_time = 1000000
+
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        request_time=base_time,
+        execution_duration=100,
+        tags={TraceTagKey.TRACE_NAME: "FastQuery"},
+        state=TraceState.OK,
+    )
+    _create_trace(
+        store,
+        trace2_id,
+        exp_id,
+        request_time=base_time + 1000,
+        execution_duration=500,
+        tags={TraceTagKey.TRACE_NAME: "SlowQuery"},
+        state=TraceState.OK,
+    )
+    _create_trace(
+        store,
+        trace3_id,
+        exp_id,
+        request_time=base_time + 2000,
+        execution_duration=2000,
+        tags={TraceTagKey.TRACE_NAME: "FastQuery"},
+        state=TraceState.ERROR,
+    )
+    _create_trace(
+        store,
+        trace4_id,
+        exp_id,
+        request_time=base_time + 3000,
+        execution_duration=5000,
+        tags={TraceTagKey.TRACE_NAME: "SlowQuery"},
+        state=TraceState.ERROR,
+    )
+
+    # Test: Fast queries (execution time < 1000ms) with OK status
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string="trace.execution_time_ms < 1000 AND trace.status = 'OK'",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: Slow queries (execution time >= 2000ms)
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string="trace.execution_time_ms >= 2000",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: Traces that started after base_time + 1000 with ERROR status
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string=f"trace.timestamp_ms > {base_time + 1000} AND trace.status = 'ERROR'",
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    # Test: FastQuery traces with execution time < 500ms
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string='trace.name = "FastQuery" AND trace.execution_time_ms < 500',
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: Complex query with time range and name pattern
+    traces, _ = store.search_traces(
+        [exp_id],
+        filter_string=(
+            f"trace.timestamp_ms >= {base_time} "
+            f"AND trace.timestamp_ms <= {base_time + 2000} "
+            'AND trace.name LIKE "%Query%"'
+        ),
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
 
 
 def test_set_and_delete_tags(store: SqlAlchemyStore):
@@ -4901,6 +6299,7 @@ def test_set_and_delete_tags(store: SqlAlchemyStore):
 
     # Delete system tag for easier testing
     store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
+    store.delete_trace_tag(trace_id, TraceTagKey.SPANS_LOCATION)
 
     assert store.get_trace_info(trace_id).tags == {}
 
@@ -8253,6 +9652,26 @@ def test_link_traces_to_run_100_limit(store: SqlAlchemyStore):
         store.link_traces_to_run(trace_ids, run.info.run_id)
 
 
+def test_link_traces_to_run_duplicate_trace_ids(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    trace_ids = ["trace-1", "trace-2", "trace-3", "trace-4"]
+    for trace_id in trace_ids:
+        trace_info = _create_trace_info(trace_id, exp_id)
+        store.start_trace(trace_info)
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test_run")
+    search_args = {"experiment_ids": [exp_id], "filter_string": f"run_id = '{run.info.run_id}'"}
+
+    store.link_traces_to_run(["trace-1", "trace-2", "trace-3"], run.info.run_id)
+
+    assert len(store.search_traces(**search_args)[0]) == 3
+
+    store.link_traces_to_run(["trace-3", "trace-4"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
+
+    store.link_traces_to_run(["trace-1", "trace-2"], run.info.run_id)
+    assert len(store.search_traces(**search_args)[0]) == 4
+
+
 def test_scorer_operations(store: SqlAlchemyStore):
     """
     Test the scorer operations: register_scorer, list_scorers, get_scorer, and delete_scorer.
@@ -8878,3 +10297,321 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result_no_base.filter1_count == 9
     assert result_no_base.filter2_count == 7
     assert result_no_base.joint_count == 5
+
+
+def test_batch_get_traces_basic(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_batch_get_traces")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.UNSET,
+            start_ns=1_500_000_000,
+            end_ns=1_800_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    traces = store.batch_get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
+
+    assert len(loaded_spans) == 2
+
+    root_span = next(s for s in loaded_spans if s.name == "root_span")
+    child_span = next(s for s in loaded_spans if s.name == "child_span")
+
+    assert root_span.trace_id == trace_id
+    assert root_span.span_id == "000000000000006f"
+    assert root_span.parent_id is None
+    assert root_span.start_time_ns == 1_000_000_000
+    assert root_span.end_time_ns == 2_000_000_000
+
+    assert child_span.trace_id == trace_id
+    assert child_span.span_id == "00000000000000de"
+    assert child_span.parent_id == "000000000000006f"
+    assert child_span.start_time_ns == 1_500_000_000
+    assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_batch_get_traces_empty_trace(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    traces = store.batch_get_traces([trace_id])
+    assert traces == []
+
+
+def test_batch_get_traces_ordering(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_ordering")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="second_span",
+            span_id=222,
+            start_ns=2_000_000_000,
+            end_ns=3_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="first_span",
+            span_id=111,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="third_span",
+            span_id=333,
+            start_ns=3_000_000_000,
+            end_ns=4_000_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    traces = store.batch_get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
+
+    assert len(loaded_spans) == 3
+    assert loaded_spans[0].name == "first_span"
+    assert loaded_spans[1].name == "second_span"
+    assert loaded_spans[2].name == "third_span"
+
+    assert loaded_spans[0].start_time_ns == 1_000_000_000
+    assert loaded_spans[1].start_time_ns == 2_000_000_000
+    assert loaded_spans[2].start_time_ns == 3_000_000_000
+
+
+def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_complex")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="complex_span",
+        status_code=trace_api.StatusCode.ERROR,
+        status_description="Test error",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "llm.model_name": "gpt-4",
+        "llm.input_tokens": 100,
+        "llm.output_tokens": 50,
+        "custom.key": "custom_value",
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span])
+    traces = store.batch_get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    assert loaded_span.status.status_code == "ERROR"
+    assert loaded_span.status.description == "Test error"
+
+    assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.input_tokens") == 100
+    assert loaded_span.attributes.get("llm.output_tokens") == 50
+    assert loaded_span.attributes.get("custom.key") == "custom_value"
+
+
+def test_batch_get_traces_multiple_traces(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_multiple")
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+
+    spans_trace_1 = [
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span1",
+            span_id=111,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id_1,
+            name="trace1_span2",
+            span_id=112,
+            trace_num=12345,
+        ),
+    ]
+
+    spans_trace_2 = [
+        create_test_span(
+            trace_id=trace_id_2,
+            name="trace2_span1",
+            span_id=221,
+            trace_num=67890,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans_trace_1)
+    store.log_spans(experiment_id, spans_trace_2)
+    traces = store.batch_get_traces([trace_id_1, trace_id_2])
+
+    assert len(traces) == 2
+
+    # Find traces by ID since order might not be guaranteed
+    trace_1 = next(t for t in traces if t.info.trace_id == trace_id_1)
+    trace_2 = next(t for t in traces if t.info.trace_id == trace_id_2)
+
+    loaded_spans_1 = trace_1.data.spans
+    loaded_spans_2 = trace_2.data.spans
+
+    assert len(loaded_spans_1) == 2
+    assert len(loaded_spans_2) == 1
+
+    trace_1_spans = [span.to_dict() for span in loaded_spans_1]
+    trace_2_spans = [span.to_dict() for span in loaded_spans_2]
+
+    assert [span.to_dict() for span in loaded_spans_1] == trace_1_spans
+    assert [span.to_dict() for span in loaded_spans_2] == trace_2_spans
+
+
+def test_batch_get_traces_preserves_json_serialization(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_load_spans_json")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    original_span = create_test_span(
+        trace_id=trace_id,
+        name="json_test_span",
+        span_id=111,
+        status=trace_api.StatusCode.OK,
+        start_ns=1_000_000_000,
+        end_ns=2_000_000_000,
+        trace_num=12345,
+    )
+
+    store.log_spans(experiment_id, [original_span])
+    traces = store.batch_get_traces([trace_id])
+
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
+
+    assert len(loaded_spans) == 1
+    loaded_span = loaded_spans[0]
+
+    assert loaded_span.name == original_span.name
+    assert loaded_span.trace_id == original_span.trace_id
+    assert loaded_span.span_id == original_span.span_id
+    assert loaded_span.start_time_ns == original_span.start_time_ns
+    assert loaded_span.end_time_ns == original_span.end_time_ns
+
+
+def test_batch_get_traces_integration_with_trace_handler(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_integration")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="integration_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE.value
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    loaded_spans = traces[0].data.spans
+    assert len(loaded_spans) == 1
+    assert loaded_spans[0].name == "integration_span"
+
+
+def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_incomplete_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="incomplete_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,
+                    }
+                ),
+            },
+        )
+    )
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 0
+
+    # add another complete trace
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    spans = [
+        create_test_span(
+            trace_id=trace_id_2,
+            name="incomplete_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id_2,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+        )
+    )
+    traces = store.batch_get_traces([trace_id, trace_id_2])
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_2
+    assert traces[0].info.status == TraceState.OK
+    assert len(traces[0].data.spans) == 1
+    assert traces[0].data.spans[0].name == "incomplete_span"
+    assert traces[0].data.spans[0].status.status_code == "OK"

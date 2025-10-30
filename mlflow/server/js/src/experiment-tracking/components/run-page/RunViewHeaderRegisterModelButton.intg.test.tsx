@@ -119,7 +119,7 @@ describe('RunViewHeaderRegisterModelButton integration', () => {
     expect(createRegisteredModelApi).toHaveBeenCalledWith('a-new-model', expect.anything());
     expect(createModelVersionApi).toHaveBeenCalledWith(
       'a-new-model',
-      'file://some/artifact/path/another_artifact_path',
+      'runs:/testRunUuid/another_artifact_path',
       'testRunUuid',
       [],
       expect.anything(),
