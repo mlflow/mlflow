@@ -1,5 +1,40 @@
 """
-Agent server for generic python
+FastAPI-based server for hosting MLflow agents with multiple protocol support.
+
+This module provides a production-ready agent server that supports multiple agent types:
+- ResponsesAgent (agent/v1/responses): OpenAI-compatible responses format
+- ChatCompletion (agent/v1/chat): OpenAI chat completion format
+- ChatAgent (agent/v2/chat): MLflow's enhanced chat agent format
+
+Key Features:
+- Decorator-based function registration (@invoke, @stream) for easy agent development
+- Protocol-specific request/response validation using AgentValidator
+- Context-aware request header management for Databricks Apps authentication
+- Streaming and non-streaming response support with Server-Sent Events (SSE)
+- MLflow tracing integration with automatic span creation and attribute setting
+- Static file serving for optional agent UI components
+- CORS middleware for cross-origin requests
+- Health check endpoint for monitoring
+
+Architecture:
+- AgentServer: Main FastAPI application with route setup and middleware
+- AgentValidator: Protocol-specific validation for requests and responses
+- Context isolation: Thread-safe request header management using contextvars
+- Function registration: Global decorators for invoke/stream endpoint functions
+
+Usage:
+    from mlflow.pyfunc.agent_server import AgentServer, invoke, stream
+
+    @invoke()
+    def my_agent_invoke(request):
+        return {"response": "Hello"}
+
+    @stream()
+    async def my_agent_stream(request):
+        yield {"delta": {"content": "Hello"}}
+
+    server = AgentServer(agent_type="agent/v1/responses")
+    server.run("my_app:server.app")
 """
 
 import argparse
@@ -16,7 +51,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from utils import set_request_headers
 
 import mlflow
 from mlflow.pyfunc import ResponsesAgent
@@ -148,7 +182,8 @@ class AgentValidator:
             return result
         else:
             raise ValueError(
-                f"Result needs to be a pydantic model, dataclass, or dict. Unsupported result type: {type(result)}, result: {result}"
+                f"Result needs to be a pydantic model, dataclass, or dict. "
+                f"Unsupported result type: {type(result)}, result: {result}"
             )
 
 

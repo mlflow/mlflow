@@ -2,8 +2,6 @@ import contextvars
 import os
 import subprocess
 
-from databricks.sdk import WorkspaceClient
-
 import mlflow
 
 # Context-isolated storage for request headers
@@ -33,10 +31,14 @@ def get_forwarded_access_token() -> str | None:
     return get_header("x-forwarded-access-token")
 
 
-def get_obo_workspace_client() -> WorkspaceClient:
+def get_obo_workspace_client():
     """Get a workspace client with the token from the
-    x-forwarded-access-token header for OBO authentication
+    `x-forwarded-access-token` header for OBO authentication
     """
+    try:
+        from databricks.sdk import WorkspaceClient
+    except ImportError:
+        raise ImportError("databricks-sdk is required to use OBO authentication")
     return WorkspaceClient(token=get_forwarded_access_token(), auth_type="pat")
 
 
@@ -100,7 +102,6 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
 
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
     # in local development, we use a fallback app name
-    # TODO: add a fallback app name
     app_name = os.getenv("DATABRICKS_APP_NAME", "local-dev")
 
     # Get current git commit hash for versioning
