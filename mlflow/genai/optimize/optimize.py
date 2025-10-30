@@ -224,7 +224,9 @@ def optimize_prompts(
 
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
-    metric_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], float],
+    metric_fn: Callable[
+        [dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], tuple[float, dict[str, str]]
+    ],
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.

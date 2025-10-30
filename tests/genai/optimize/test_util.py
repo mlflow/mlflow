@@ -132,16 +132,24 @@ def test_model_name_parameter(input_dict, model_name):
 
 
 @pytest.mark.parametrize(
-    ("categorical_value", "expected_score"),
+    ("score", "expected_score"),
     [
         (CategoricalRating.YES, 1.0),
         (CategoricalRating.NO, 0.0),
+        ("yes", 1.0),
+        ("no", 0.0),
+        (True, 1.0),
+        (False, 0.0),
+        (1, 1.0),
+        (0, 0.0),
+        (1.0, 1.0),
+        (0.0, 0.0),
     ],
 )
-def test_create_metric_from_scorers_with_categorical_rating(categorical_value, expected_score):
+def test_create_metric_from_scorers_with_single_score(score, expected_score):
     @scorer(name="test_scorer")
     def test_scorer(inputs, outputs):
-        return Feedback(name="test_scorer", value=categorical_value, rationale="test rationale")
+        return Feedback(name="test_scorer", value=score, rationale="test rationale")
 
     metric = create_metric_from_scorers([test_scorer])
 

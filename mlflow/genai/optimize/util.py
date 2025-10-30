@@ -140,12 +140,15 @@ def create_metric_from_scorers(
     from mlflow.genai.judges import CategoricalRating
 
     def _convert_to_numeric(score: Any) -> float | None:
-        """Convert a value to numeric, handling CategoricalRating and common types."""
-        if isinstance(score, (int, float, bool)):
+        """Convert a value to numeric, handling Feedback and primitive types."""
+        if isinstance(score, Feedback):
+            score = score.value
+        if score == CategoricalRating.YES:
+            return 1.0
+        elif score == CategoricalRating.NO:
+            return 0.0
+        elif isinstance(score, (int, float, bool)):
             return float(score)
-        elif isinstance(score, Feedback) and isinstance(score.value, CategoricalRating):
-            # Convert CategoricalRating to numeric: YES=1.0, NO=0.0
-            return 1.0 if score.value == CategoricalRating.YES else 0.0
         return None
 
     def metric(
