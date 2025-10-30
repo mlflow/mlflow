@@ -80,7 +80,7 @@ class HuggingFaceDatasetSource(DatasetSource):
                 f"Found duplicated arguments in `HuggingFaceDatasetSource` and "
                 f"`kwargs`: {intersecting_keys}. Please remove them from `kwargs`."
             )
-            load_kwargs.update(kwargs)
+        load_kwargs.update(kwargs)
         return datasets.load_dataset(**load_kwargs)
 
     @staticmethod
