@@ -134,7 +134,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
           >
             <ContextProviders // prettier-ignore
             >
-              <ModelTraceExplorer modelTrace={selectedTrace as ModelTrace} />
+              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace as ModelTrace} />}
             </ContextProviders>
           </div>
         </Drawer.Content>

@@ -47,6 +47,7 @@ export const ExperimentPageSideNav = ({
         paddingTop: theme.spacing.sm,
         paddingRight: theme.spacing.sm,
         borderRight: `1px solid ${theme.colors.border}`,
+        boxSizing: 'content-box',
         width: SIDE_NAV_COLLAPSED_WIDTH,
         [`& .${COLLAPSED_CLASS_NAME}`]: {
           display: 'flex',

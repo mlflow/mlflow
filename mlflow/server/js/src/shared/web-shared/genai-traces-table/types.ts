@@ -197,7 +197,7 @@ export enum FilterOperator {
 // little more thought from the UX side (e.g. we need to remove the
 // value input for IS NOT NULL filters)
 export enum HiddenFilterOperator {
-  IS_NOT_NULL = 'IS NOT NULL',
+  ILIKE = 'ILIKE',
 }
 
 export interface AssessmentDropdownSuggestionItem {

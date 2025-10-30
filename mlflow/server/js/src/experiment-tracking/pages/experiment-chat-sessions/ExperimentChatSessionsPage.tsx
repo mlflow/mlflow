@@ -11,7 +11,7 @@ import {
   GenAIChatSessionsTable,
   HiddenFilterOperator,
 } from '@databricks/web-shared/genai-traces-table';
-import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import {
   createTraceLocationForExperiment,
@@ -21,6 +21,7 @@ import {
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
+import { ErrorBoundary } from 'react-error-boundary';
 
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
@@ -80,13 +81,21 @@ const ExperimentChatSessionsPageImpl = () => {
   );
 };
 
-const ExperimentChatSessionsPage = withErrorBoundary(
-  ErrorUtils.mlflowServices.CHAT_SESSIONS,
-  ExperimentChatSessionsPageImpl,
-  <FormattedMessage
-    defaultMessage="An error occurred while rendering chat sessions."
-    description="Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
-  />,
-);
+const ExperimentChatSessionsPage = () => {
+  return (
+    <ErrorBoundary
+      fallback={
+        <FormattedMessage
+          defaultMessage="An error occurred while rendering chat sessions."
+          description="Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
+        />
+      }
+    >
+      <MonitoringConfigProvider>
+        <ExperimentChatSessionsPageImpl />
+      </MonitoringConfigProvider>
+    </ErrorBoundary>
+  );
+};
 
 export default ExperimentChatSessionsPage;

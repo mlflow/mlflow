@@ -14,8 +14,8 @@ export const getChatSessionsFilter = ({
   return [
     {
       column: `${CUSTOM_METADATA_COLUMN_ID}:${SESSION_ID_METADATA_KEY}`,
-      operator: sessionId ? FilterOperator.EQUALS : HiddenFilterOperator.IS_NOT_NULL,
-      value: sessionId ?? '',
+      operator: sessionId ? FilterOperator.EQUALS : HiddenFilterOperator.ILIKE,
+      value: sessionId ?? '%',
     },
   ];
 };

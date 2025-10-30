@@ -30,7 +30,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           <ModelTraceExplorerChatMessage
             key={index}
             message={message}
-            css={{ maxWidth: '60%', alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end' }}
+            css={{ maxWidth: '80%', alignSelf: message.role === 'user' ? 'flex-start' : 'flex-end' }}
           />
         ))}
       </div>
