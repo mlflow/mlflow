@@ -809,6 +809,7 @@ def search_traces(
         warnings.warn(
             "The `extract_fields` parameter is deprecated, we will remove it in a future version.",
             category=FutureWarning,
+            stacklevel=2,
         )
 
     # Default to "pandas" only if the pandas library is installed
