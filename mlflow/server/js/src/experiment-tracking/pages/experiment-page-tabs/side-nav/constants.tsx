@@ -47,16 +47,6 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
-          defaultMessage="Scorers"
-          description="Label for the scorers tab in the MLflow experiment navbar"
-        />
-      ),
-      icon: <GavelIcon />,
-      tabName: ExperimentPageTabName.Scorers,
-    },
-    {
-      label: (
-        <FormattedMessage
           defaultMessage="Datasets"
           description="Label for the datasets tab in the MLflow experiment navbar"
         />
@@ -74,38 +64,8 @@ const ExperimentPageSideNavGenAIConfig = {
       icon: <PlusMinusSquareIcon />,
       tabName: ExperimentPageTabName.EvaluationRuns,
     },
-    {
-      label: (
-        <FormattedMessage
-          defaultMessage="Labeling schemas"
-          description="Label for the labeling schemas tab in the MLflow experiment navbar"
-        />
-      ),
-      icon: <TextBoxIcon />,
-      tabName: ExperimentPageTabName.LabelingSchemas,
-    },
-    {
-      label: (
-        <FormattedMessage
-          defaultMessage="Labeling sessions"
-          description="Label for the labeling sessions tab in the MLflow experiment navbar"
-        />
-      ),
-      icon: <UserGroupIcon />,
-      tabName: ExperimentPageTabName.LabelingSessions,
-    },
   ],
   'prompts-versions': [
-    {
-      label: (
-        <FormattedMessage
-          defaultMessage="Prompts"
-          description="Label for the prompts tab in the MLflow experiment navbar"
-        />
-      ),
-      icon: <TextBoxIcon />,
-      tabName: ExperimentPageTabName.Prompts,
-    },
     {
       label: (
         <FormattedMessage
@@ -172,7 +132,7 @@ export const getExperimentPageSideNavSectionLabel = (
     case 'prompts-versions':
       return (
         <FormattedMessage
-          defaultMessage="Prompts & versions"
+          defaultMessage="Versions"
           description="Label for the prompts & versions section in the MLflow experiment navbar"
         />
       );
@@ -194,7 +154,6 @@ export const useExperimentPageSideNavConfig = ({
     experimentKind === ExperimentKind.GENAI_DEVELOPMENT_INFERRED
   ) {
     const baseConfig = {
-      ...ExperimentPageSideNavGenAIConfig,
       ...(hasTrainingRuns
         ? {
             // append training runs to top-level if they exist
@@ -214,6 +173,7 @@ export const useExperimentPageSideNavConfig = ({
         : {
             'top-level': [],
           }),
+      ...ExperimentPageSideNavGenAIConfig,
     };
 
     if (shouldEnableChatSessionsTab()) {

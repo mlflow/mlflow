@@ -115,10 +115,6 @@
     "defaultMessage": "role",
     "description": "Placeholder for chat message role input"
   },
-  "/I2HBZ": {
-    "defaultMessage": "Scorers",
-    "description": "Label for the scorers tab in the MLflow experiment navbar"
-  },
   "/K6wBr": {
     "defaultMessage": "Input data or prompt template have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
@@ -1078,10 +1074,6 @@
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
   },
-  "9/KT56": {
-    "defaultMessage": "Prompts",
-    "description": "Label for the prompts tab in the MLflow experiment navbar"
-  },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Text for time in seconds since given date for MLflow views"
@@ -2026,10 +2018,6 @@
     "defaultMessage": "Time created",
     "description": "Header for the time created column in the experiments table"
   },
-  "JVjHVb": {
-    "defaultMessage": "Prompts & versions",
-    "description": "Label for the prompts & versions section in the MLflow experiment navbar"
-  },
   "JW0GbU": {
     "defaultMessage": "You can set a maximum of {maxLength} values",
     "description": "Error message when trying to submit a key-value pair form with more than the maximum allowed values"
@@ -2297,10 +2285,6 @@
   "MUUYWZ": {
     "defaultMessage": "Created at",
     "description": "Label for the creation timestamp of a logged model on the logged model details page"
-  },
-  "MZCW9F": {
-    "defaultMessage": "Labeling schemas",
-    "description": "Label for the labeling schemas tab in the MLflow experiment navbar"
   },
   "MatV9u": {
     "defaultMessage": "Create",
@@ -4571,6 +4555,10 @@
     "defaultMessage": "Boolean",
     "description": "Boolean select menu option for assessment data type"
   },
+  "k4uWRg": {
+    "defaultMessage": "Versions",
+    "description": "Label for the prompts & versions section in the MLflow experiment navbar"
+  },
   "kA+QJr": {
     "defaultMessage": "Overview",
     "description": "Run details page > tab selector > overview tab"
@@ -5294,10 +5282,6 @@
   "rNkAcB": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
-  },
-  "rPbiUM": {
-    "defaultMessage": "Labeling sessions",
-    "description": "Label for the labeling sessions tab in the MLflow experiment navbar"
   },
   "rRhMQt": {
     "defaultMessage": "Execution time (ms)",

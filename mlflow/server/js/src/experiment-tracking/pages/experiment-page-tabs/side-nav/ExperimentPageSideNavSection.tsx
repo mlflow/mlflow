@@ -75,6 +75,7 @@ export const ExperimentPageSideNavSection = ({
                 backgroundColor: isActive ? theme.colors.actionDefaultBackgroundHover : undefined,
                 color: isActive ? theme.colors.actionDefaultIconHover : theme.colors.actionDefaultIconDefault,
                 height: theme.typography.lineHeightBase,
+                boxSizing: 'content-box',
                 ':hover': { backgroundColor: theme.colors.actionDefaultBackgroundHover },
               }}
             >

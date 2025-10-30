@@ -69,6 +69,13 @@ const getExperimentPageRouteDefs = () => {
             () => import('./pages/experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
           ),
         },
+        {
+          path: RoutePaths.experimentPageTabDatasets,
+          pageId: PageId.experimentPageTabDatasets,
+          element: createLazyRouteElement(
+            () => import('./pages/experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage'),
+          ),
+        },
       ],
     },
   ];

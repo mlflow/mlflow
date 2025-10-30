@@ -10,6 +10,10 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabRuns]: ExperimentPageTabName.Runs,
     [RoutePaths.experimentPageTabTraces]: ExperimentPageTabName.Traces,
     [RoutePaths.experimentPageTabModels]: ExperimentPageTabName.Models,
+    [RoutePaths.experimentPageTabEvaluationRuns]: ExperimentPageTabName.EvaluationRuns,
+    [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
+    [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
+    [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );
@@ -32,6 +36,7 @@ export const useGetExperimentPageActiveTabByRoute = () => {
     const tabName = getTabNameFromRoutePath(pathname);
     return tabName;
   }, [pathname]);
+
   return {
     tabName: tabNameFromRoute,
     topLevelTabName: getTopLevelTab(tabNameFromRoute),
