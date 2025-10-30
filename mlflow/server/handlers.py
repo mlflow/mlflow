@@ -1217,7 +1217,18 @@ def search_runs_impl(request_message):
         run_view_type = ViewType.from_proto(request_message.run_view_type)
     filter_string = request_message.filter
     max_results = request_message.max_results
-    experiment_ids = request_message.experiment_ids
+    experiment_ids = list(request_message.experiment_ids)
+
+    # NB: Local import to avoid circular dependency (auth imports from handlers)
+    try:
+        from mlflow.server import auth
+
+        if auth.auth_config:
+            experiment_ids = auth.filter_experiment_ids(experiment_ids)
+    except ImportError:
+        # Auth module not available (Flask-WTF not installed), skip filtering
+        pass
+
     order_by = request_message.order_by
     run_entities = _get_tracking_store().search_runs(
         experiment_ids=experiment_ids,
