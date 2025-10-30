@@ -165,6 +165,78 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
 
 
 @pytest.mark.parametrize(
+    ("primitive_value", "expected_score"),
+    [
+        (5, 5.0),
+        (3.14, 3.14),
+        (True, 1.0),
+        (False, 0.0),
+    ],
+)
+def test_create_metric_from_scorers_with_feedback_primitive_values(primitive_value, expected_score):
+    @scorer(name="test_scorer")
+    def test_scorer(inputs, outputs):
+        return Feedback(name="test_scorer", value=primitive_value)
+
+    metric = create_metric_from_scorers([test_scorer])
+
+    result = metric({"input": "test"}, {"output": "result"}, {})
+    assert result == expected_score
+
+
+def test_create_metric_from_scorers_with_mixed_feedback_types():
+    @scorer(name="scorer1")
+    def scorer1(inputs, outputs):
+        return Feedback(name="scorer1", value=10)
+
+    @scorer(name="scorer2")
+    def scorer2(inputs, outputs):
+        return Feedback(name="scorer2", value=2.5)
+
+    @scorer(name="scorer3")
+    def scorer3(inputs, outputs):
+        return Feedback(name="scorer3", value=True)
+
+    metric = create_metric_from_scorers([scorer1, scorer2, scorer3])
+
+    # Should sum: 10.0 + 2.5 + 1.0 = 13.5
+    result = metric({"input": "test"}, {"output": "result"}, {})
+    assert result == 13.5
+
+
+def test_create_metric_from_scorers_with_feedback_and_direct_values():
+    @scorer(name="scorer1")
+    def scorer1(inputs, outputs):
+        return Feedback(name="scorer1", value=5)
+
+    @scorer(name="scorer2")
+    def scorer2(inputs, outputs):
+        return 3
+
+    metric = create_metric_from_scorers([scorer1, scorer2])
+
+    # Should sum: 5.0 + 3.0 = 8.0
+    result = metric({"input": "test"}, {"output": "result"}, {})
+    assert result == 8.0
+
+
+def test_create_metric_from_scorers_with_feedback_and_categorical():
+    @scorer(name="scorer1")
+    def scorer1(inputs, outputs):
+        return Feedback(name="scorer1", value=10)
+
+    @scorer(name="scorer2")
+    def scorer2(inputs, outputs):
+        return Feedback(name="scorer2", value=CategoricalRating.YES)
+
+    metric = create_metric_from_scorers([scorer1, scorer2])
+
+    # Should sum: 10.0 + 1.0 = 11.0
+    result = metric({"input": "test"}, {"output": "result"}, {})
+    assert result == 11.0
+
+
+@pytest.mark.parametrize(
     ("train_data", "expected_error"),
     [
         # Empty inputs

@@ -144,6 +144,8 @@ def create_metric_from_scorers(
         elif isinstance(score, Feedback) and isinstance(score.value, CategoricalRating):
             # Convert CategoricalRating to numeric: YES=1.0, NO=0.0
             return 1.0 if score.value == CategoricalRating.YES else 0.0
+        elif isinstance(score, Feedback) and isinstance(score.value, (int, float, bool)):
+            return float(score.value)
         return None
 
     def metric(
