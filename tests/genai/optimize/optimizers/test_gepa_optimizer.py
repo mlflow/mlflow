@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from packaging.version import Version
 
 from mlflow.genai.optimize.optimizers.gepa_optimizer import GepaPromptOptimizer
 from mlflow.genai.optimize.types import EvaluationResultRecord, PromptOptimizerOutput
@@ -372,3 +373,46 @@ def test_make_reflective_dataset_with_traces(
     assert system_data[1]["inputs"] == {"question": "What is the capital of France?"}
     assert system_data[1]["outputs"] == "Paris"
     assert system_data[1]["expectations"] == {"expected_response": "Paris"}
+
+
+@pytest.mark.parametrize("gepa_version", ["0.0.9", "0.0.18", "0.1.0"])
+@pytest.mark.parametrize("enable_tracking", [True, False])
+def test_gepa_optimizer_version_check(
+    sample_train_data: list[dict[str, Any]],
+    sample_target_prompts: dict[str, str],
+    mock_eval_fn: Any,
+    gepa_version: str,
+    enable_tracking: bool,
+):
+    mock_gepa_module = MagicMock()
+    mock_modules = {
+        "gepa": mock_gepa_module,
+        "gepa.core": MagicMock(),
+        "gepa.core.adapter": MagicMock(),
+    }
+    mock_result = Mock()
+    mock_result.best_candidate = sample_target_prompts
+    mock_result.val_aggregate_scores = []
+    mock_gepa_module.optimize.return_value = mock_result
+    mock_gepa_module.EvaluationBatch = MagicMock()
+
+    optimizer = GepaPromptOptimizer(reflection_model="openai:/gpt-4o")
+
+    with (
+        patch.dict(sys.modules, mock_modules),
+        patch("importlib.metadata.version", return_value=gepa_version),
+    ):
+        optimizer.optimize(
+            eval_fn=mock_eval_fn,
+            train_data=sample_train_data,
+            target_prompts=sample_target_prompts,
+            enable_tracking=enable_tracking,
+        )
+
+    call_kwargs = mock_gepa_module.optimize.call_args.kwargs
+
+    if Version(gepa_version) < Version("0.0.10"):
+        assert "use_mlflow" not in call_kwargs
+    else:
+        assert "use_mlflow" in call_kwargs
+        assert call_kwargs["use_mlflow"] == enable_tracking
