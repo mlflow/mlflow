@@ -181,7 +181,8 @@ def create_metric_from_scorers(
 
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
-            return sum(numeric_scores.values()), rationales
+            # We average the scores to get the score between 0 and 1.
+            return sum(numeric_scores.values()) / len(numeric_scores), rationales
 
         # Otherwise, report error with actual types
         non_convertible = {

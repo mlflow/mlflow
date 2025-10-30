@@ -169,9 +169,9 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
 
     metric = create_metric_from_scorers([scorer1, scorer2])
 
-    # Should sum: 1.0 + 1.0 = 2.0
+    # Should average: (1.0 + 1.0) / 2 = 1.0
     result = metric({"input": "test"}, {"output": "result"}, {}, None)
-    assert result[0] == 2.0
+    assert result[0] == 1.0
     assert result[1] == {"scorer1": "rationale1", "scorer2": "rationale2"}
 
 
