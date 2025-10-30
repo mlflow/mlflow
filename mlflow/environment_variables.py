@@ -872,12 +872,6 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
 )
 
-#: Maximum number of workers to use for otel clients trace logging to mlflow server.
-#: (default: ``10``)
-MLFLOW_OTEL_ENDPOINT_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
-    "MLFLOW_OTEL_ENDPOINT_TRACE_LOGGING_MAX_WORKERS", int, 10
-)
-
 #: Maximum number of export tasks to queue for async trace logging.
 #: When the queue is full, new export tasks will be dropped.
 #: (default: ``1000``)

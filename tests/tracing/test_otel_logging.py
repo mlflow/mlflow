@@ -456,13 +456,9 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
     assert len(traces) == 3
 
 
-def test_parallel_trace_logging_performance(mlflow_server: str):
-    """
-    Test that parallel trace logging works correctly with many traces.
-    This verifies the ThreadPoolExecutor implementation.
-    """
+def test_logging_many_traces_in_single_request(mlflow_server: str):
     mlflow.set_tracking_uri(mlflow_server)
-    experiment = mlflow.set_experiment("otel-parallel-test")
+    experiment = mlflow.set_experiment("otel-many-traces-test")
     experiment_id = experiment.experiment_id
 
     # Create a request with 15 different traces (exceeds the 10 thread pool limit)
@@ -474,12 +470,12 @@ def test_parallel_trace_logging_performance(mlflow_server: str):
         trace_id_hex = f"{trace_num + 1000:016x}" + "0" * 16
         span.trace_id = bytes.fromhex(trace_id_hex)
         span.span_id = bytes.fromhex(f"{trace_num + 1000:08x}" + "0" * 8)
-        span.name = f"parallel-test-span-{trace_num}"
+        span.name = f"many-traces-test-span-{trace_num}"
         span.start_time_unix_nano = 1000000000 + trace_num * 1000
         span.end_time_unix_nano = 2000000000 + trace_num * 1000
 
         scope = InstrumentationScope()
-        scope.name = "parallel-test-scope"
+        scope.name = "many-traces-test-scope"
 
         scope_spans = ScopeSpans()
         scope_spans.scope.CopyFrom(scope)
@@ -631,6 +627,10 @@ def test_error_logging_spans(mlflow_server: str, monkeypatch):
 
         span_processor.force_flush()
 
+        assert any(
+            "Failed to log OpenTelemetry spans" in error[0][2]
+            for error in mock_error.call_args_list
+        )
         assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
 
     traces = mlflow.search_traces(

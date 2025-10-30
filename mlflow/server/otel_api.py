@@ -11,7 +11,6 @@ to MLflow spans, which requires more complex conversion logic.
 """
 
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -20,7 +19,6 @@ from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTrace
 from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
-from mlflow.environment_variables import MLFLOW_OTEL_ENDPOINT_TRACE_LOGGING_MAX_WORKERS
 from mlflow.server.handlers import _get_tracking_store
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
@@ -116,44 +114,21 @@ async def export_traces(
     if spans_by_trace_id:
         store = _get_tracking_store()
 
-        # Helper function to log spans for a single trace
-        def log_trace_spans(trace_id, trace_spans) -> str:
-            store.log_spans(x_mlflow_experiment_id, trace_spans)
-            return trace_id
-
+        # Note: Benchmarking shows that ThreadPoolExecutor does not improve performance
+        # for SQLite backends and can actually degrade performance due to write contention.
+        # Sequential logging is simpler and faster for typical use cases.
         errors = {}
-        try:
-            # Log each trace's spans in parallel using ThreadPoolExecutor
-            with ThreadPoolExecutor(
-                max_workers=MLFLOW_OTEL_ENDPOINT_TRACE_LOGGING_MAX_WORKERS.get(),
-                thread_name_prefix="MlflowOTelEndpointTraceLoggingWorker",
-            ) as executor:
-                # Submit all trace logging tasks
-                future_to_trace = {
-                    executor.submit(log_trace_spans, trace_id, trace_spans): trace_id
-                    for trace_id, trace_spans in spans_by_trace_id.items()
-                }
-
-                # Wait for all tasks to complete and check for errors
-                for future in as_completed(future_to_trace):
-                    trace_id = future_to_trace[future]
-                    try:
-                        future.result()
-                    except NotImplementedError:
-                        store_name = store.__class__.__name__
-                        raise HTTPException(
-                            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                            detail=f"{store_name} does not support logging spans via OTLP REST API",
-                        )
-                    except Exception as e:
-                        errors[trace_id] = e
-        except HTTPException:
-            raise  # Re-raise HTTP exceptions without wrapping
-        except Exception as e:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Error logging spans: {e}",
-            )
+        for trace_id, trace_spans in spans_by_trace_id.items():
+            try:
+                store.log_spans(x_mlflow_experiment_id, trace_spans)
+            except NotImplementedError:
+                store_name = store.__class__.__name__
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=f"{store_name} does not support logging spans via OTLP REST API",
+                )
+            except Exception as e:
+                errors[trace_id] = e
 
         if errors:
             error_msg = "\n".join(
