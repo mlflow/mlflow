@@ -413,12 +413,12 @@ def create_aad(secret_id: str, secret_name: str) -> bytes:
     return aad_str.encode("utf-8")
 
 
-def mask_secret_value(secret_value: str | dict[str, Any]) -> str | dict[str, Any]:
+def mask_secret_value(secret_value: str | dict[str, Any]) -> str:
     """
     Generate a masked version of a secret for display purposes.
 
     For strings, shows the first 3-4 characters and last 4 characters with "..." in between.
-    For dicts, recursively masks all string values while preserving the structure.
+    For dicts, returns a summary of the structure to avoid exceeding database column limits.
     This allows users to identify secrets without exposing the full value.
 
     Args:
@@ -427,17 +427,33 @@ def mask_secret_value(secret_value: str | dict[str, Any]) -> str | dict[str, Any
     Note that for strings shorter than 8 characters, this function returns "***" to avoid
     information leakage. For API keys with common prefixes (sk-, ghp_, etc.), it shows the
     prefix. The function always shows the last 4 characters to help with key identification.
-    For dicts, all string values are masked recursively. Masked values are stored as plaintext
+    For dicts, returns a summary like "<dict: 3 keys (api_key, username, password)>" that
+    fits within database VARCHAR(100) limits. Masked values are stored as plaintext
     and are NOT reversible.
 
     Returns:
-        Masked string or dict suitable for display
+        Masked string suitable for display (always returns str, even for dict inputs)
     """
     if isinstance(secret_value, dict):
-        return {key: mask_secret_value(value) for key, value in secret_value.items()}
+        keys = list(secret_value.keys())
+        num_keys = len(keys)
+
+        if num_keys == 0:
+            return "<dict: empty>"
+        elif num_keys <= 3:
+            key_names = ", ".join(keys)
+        else:
+            key_names = ", ".join(keys[:3]) + f", +{num_keys - 3} more"
+
+        result = f"<dict: {num_keys} key{'s' if num_keys != 1 else ''} ({key_names})>"
+
+        if len(result) > 95:
+            result = result[:92] + "...>"
+
+        return result
 
     if not isinstance(secret_value, str):
-        return secret_value
+        return "***"
 
     if len(secret_value) < 8:
         return "***"

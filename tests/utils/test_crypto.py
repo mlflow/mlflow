@@ -320,17 +320,22 @@ def test_mask_secret_value_short(short_secret):
 @pytest.mark.parametrize(
     ("secret_dict", "expected_masked"),
     [
-        ({"api_key": "sk-proj-1234567890abcdef"}, {"api_key": "sk-...cdef"}),
+        ({"api_key": "sk-proj-1234567890abcdef"}, "<dict: 1 key (api_key)>"),
         (
             {"username": "admin-user", "password": "secret123"},
-            {"username": "adm...user", "password": "sec...t123"},
+            "<dict: 2 keys (username, password)>",
         ),
-        ({"token": "ghp_1234567890abcdef"}, {"token": "ghp_...cdef"}),
+        ({"token": "ghp_1234567890abcdef"}, "<dict: 1 key (token)>"),
         (
             {"config": {"host": "localhost", "port": 8080}},
-            {"config": {"host": "loc...host", "port": 8080}},
+            "<dict: 1 key (config)>",
         ),
-        ({"short": "abc"}, {"short": "***"}),
+        ({"short": "abc"}, "<dict: 1 key (short)>"),
+        ({}, "<dict: empty>"),
+        (
+            {"key1": "val1", "key2": "val2", "key3": "val3", "key4": "val4"},
+            "<dict: 4 keys (key1, key2, key3, +1 more)>",
+        ),
     ],
 )
 def test_mask_secret_value_dict(secret_dict, expected_masked):
@@ -341,7 +346,26 @@ def test_mask_secret_value_dict(secret_dict, expected_masked):
 def test_mask_secret_value_nested_dict():
     secret = {"outer": {"inner": {"api_key": "sk-abc123xyz", "enabled": True}}}
     masked = mask_secret_value(secret)
-    assert masked == {"outer": {"inner": {"api_key": "sk-...3xyz", "enabled": True}}}
+    assert masked == "<dict: 1 key (outer)>"
+
+
+def test_mask_secret_value_dict_with_very_long_key_names():
+    long_key = "a" * 200
+    secret = {long_key: "value"}
+    masked = mask_secret_value(secret)
+
+    assert len(masked) <= 100
+    assert masked.endswith("...>")
+    assert masked.startswith("<dict: 1 key (")
+
+    secret_multiple = {
+        "key1_" + "a" * 100: "val1",
+        "key2_" + "b" * 100: "val2",
+        "key3_" + "c" * 100: "val3",
+    }
+    masked_multiple = mask_secret_value(secret_multiple)
+    assert len(masked_multiple) <= 100
+    assert masked_multiple.endswith("...>")
 
 
 @pytest.mark.parametrize(
