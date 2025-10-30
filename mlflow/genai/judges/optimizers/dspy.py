@@ -127,6 +127,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     name=self._judge_name,
                     instructions=self.signature.instructions,
                     model=judge_model,
+                    feedback_value_type=str,
                 )
                 feedback: Feedback = judge(**kwargs)
                 return dspy.Prediction(
@@ -212,7 +213,10 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
 
                 optimized_instructions = optimized_program.signature.instructions
                 return make_judge(
-                    name=judge.name, instructions=optimized_instructions, model=judge.model
+                    name=judge.name,
+                    instructions=optimized_instructions,
+                    model=judge.model,
+                    feedback_value_type=str,
                 )
 
         except Exception as e:

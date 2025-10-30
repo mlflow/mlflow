@@ -791,6 +791,7 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
 
     traces = [
