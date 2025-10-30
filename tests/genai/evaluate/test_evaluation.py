@@ -630,7 +630,7 @@ def test_empty_scorers_allowed():
 
     data = [{"inputs": {"question": "What is MLflow?"}, "outputs": "MLflow is an ML platform"}]
 
-    with mock.patch("mlflow.genai.evaluation.base._evaluate_oss") as mock_evaluate_oss:
+    with mock.patch("mlflow.genai.evaluation.base._run_harness") as mock_evaluate_oss:
         mock_evaluate_oss.return_value = mock_result
         result = mlflow.genai.evaluate(data=data, scorers=[])
 
