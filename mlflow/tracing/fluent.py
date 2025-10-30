@@ -807,7 +807,7 @@ def search_traces(
 
     if extract_fields is not None:
         warnings.warn(
-            "The `extract_fields` parameter is deprecated, we will remove it in a future version.",
+            "The `extract_fields` parameter is deprecated and will be removed in a future version.",
             category=FutureWarning,
             stacklevel=2,
         )
