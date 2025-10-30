@@ -7,19 +7,23 @@ import { APILink } from "@site/src/components/APILink";
 
 # Optimize Prompts (Experimental)
 
-MLflow offers the <APILink fn="mlflow.genai.optimize_prompts" /> API, enabling you to automatically improve your prompts using evaluation metrics and training data. This powerful feature allows you to enhance prompt effectiveness across any agent framework by applying prompt optimization algorithms, reducing manual effort and ensuring consistent quality.
+**The simple way to continuously improve your AI agents and prompts.**
+
+MLflow's prompt optimization lets you systematically enhance your AI applications with minimal code changes. Whether you're building with LangChain, OpenAI Agent, CrewAI, or your own custom implementation, MLflow provides a universal path from initial prototyping to steady improvement.
+
+**Minimum rewrites, no lock-in, just better prompts.**
 
 Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
 
-:::tip Key Benefits
+:::tip Why Use MLflow Prompt Optimization?
 
-- **Automatic Improvement**: Optimize prompts based on evaluation metrics without manual tuning
-- **Data-Driven Optimization**: Uses your training data and custom scorers to guide optimization
-- **Framework Agnostic**: Works with any agent framework, providing broad compatibility
-- **Joint Optimization**: Enable the simultaneous refinement of multiple prompts for best overall performance
-- **Flexible Evaluation**: Support for custom scorers and aggregation function
-- **Version Control**: Automatically registers optimized prompts in MLflow Prompt Registry
-- **Extensible**: Plug in custom optimization algorithms by extending the base class
+- **Zero Framework Lock-in**: Works with ANY agent framework—LangChain, OpenAI Agent, CrewAI, or custom solutions
+- **Minimal Code Changes**: Add a few lines to start optimizing; no architectural rewrites needed
+- **Data-Driven Improvement**: Automatically learn from your evaluation data and custom metrics
+- **Multi-Prompt Optimization**: Jointly optimize multiple prompts for complex agent workflows
+- **Granular Control**: Optimize single prompts or entire multi-prompt workflows—you decide what to improve
+- **Production-Ready**: Built-in version control and registry for seamless deployment
+- **Extensible**: Bring your own optimization algorithms with simple base class extension
 
 :::
 
@@ -393,9 +397,11 @@ optimized_plan = result.optimized_prompts[0]
 optimized_answer = result.optimized_prompts[1]
 ```
 
-### Use Agent Framework
+### Works with Any Agent Framework
 
-You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
+MLflow's optimization is **framework-agnostic**—it works seamlessly with LangChain, DSPy, CrewAI, AutoGen, or any custom framework. No need to rewrite your existing agents or switch frameworks.
+
+The example below shows how easy it is to optimize prompts in a LangChain workflow with minimal changes. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
 
 ```python
 import mlflow
