@@ -56,7 +56,6 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
-from mlflow.entities.secret import SecretState
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -128,6 +127,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
 from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.utils.crypto import KEKManager, decrypt_secret, encrypt_secret, mask_secret_value
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -2338,62 +2338,98 @@ class SqlAlchemyStore(AbstractStore):
     def _create_secret(
         self,
         secret_name: str,
-        ciphertext: bytes,
-        iv: bytes,
-        wrapped_dek: bytes,
-        kek_version: int,
-        aad_hash: bytes,
-        is_shared: bool,
-        state: str,
+        secret_value: str | dict[str, Any],
+        is_shared: bool = False,
         created_by: str | None = None,
     ) -> Secret:
         """
-        Create a new secret in the database.
+        Create a new secret with encrypted storage using envelope encryption.
+
+        For shared secrets, enforces uniqueness by name to ensure deterministic lookups.
+        Private (non-shared) secrets have no name restrictions.
 
         Args:
-            secret_name: Unique name for the secret.
-            ciphertext: Encrypted secret value.
-            iv: Initialization vector (nonce) for AES-GCM.
-            wrapped_dek: Data encryption key wrapped with KEK.
-            kek_version: Version of KEK used to wrap the DEK.
-            aad_hash: SHA-256 hash of AAD (secret_id:secret_name).
-            is_shared: Whether secret can be reused across resources.
-            state: Secret state ('ACTIVE', 'REVOKED', 'ROTATED').
-            created_by: Username of creator (optional).
+            secret_name: Name for the secret. Must be unique among shared secrets
+                if is_shared=True.
+            secret_value: Secret value to encrypt. Can be a string or dict with arbitrary structure.
+            is_shared: Whether the secret can be reused across multiple resources.
+            created_by: Username of the creator. Optional.
 
         Returns:
-            Secret entity with metadata (excludes crypto fields).
-
-        Raises:
-            MlflowException: If secret_name already exists.
+            Secret entity with metadata (encrypted fields not exposed).
         """
         with self.ManagedSessionMaker() as session:
-            secret_id = uuid.uuid4().hex
-            current_time = int(time.time() * 1000)
+            # NB: Shared secrets must have unique names to ensure that a user can always
+            # retrieve the correct secret by name. For non-shared secrets, multiple secrets
+            # with the same name can exist since they are scoped to a specific resource
+            # via secret bindings.
+            if is_shared:
+                existing = (
+                    session.query(SqlSecret)
+                    .filter_by(
+                        secret_name=secret_name,
+                        is_shared=True,
+                    )
+                    .first()
+                )
+                if existing:
+                    raise MlflowException(
+                        f"Shared secret with name '{secret_name}' already exists. "
+                        f"Choose a different name or delete the existing secret first. "
+                        f"(ID: {existing.secret_id}).",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    )
 
+            secret_id = uuid.uuid4().hex
+
+            masked_value = mask_secret_value(secret_value)
+            if isinstance(masked_value, dict):
+                masked_value = json.dumps(masked_value)
+
+            encrypted = encrypt_secret(
+                secret_value=secret_value,
+                kek_manager=KEKManager(),
+                secret_id=secret_id,
+                secret_name=secret_name,
+            )
+
+            current_time = get_current_time_millis()
             sql_secret = SqlSecret(
                 secret_id=secret_id,
                 secret_name=secret_name,
-                ciphertext=ciphertext,
-                iv=iv,
-                wrapped_dek=wrapped_dek,
-                kek_version=kek_version,
-                aad_hash=aad_hash,
+                encrypted_value=encrypted.encrypted_value,
+                wrapped_dek=encrypted.wrapped_dek,
+                masked_value=masked_value,
                 is_shared=is_shared,
-                state=state,
-                created_by=created_by,
+                kek_version=encrypted.kek_version,
                 created_at=current_time,
-                last_updated_by=created_by,
                 last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
             )
 
-            try:
-                session.add(sql_secret)
-                session.flush()
-            except IntegrityError as e:
+            session.add(sql_secret)
+            session.commit()
+
+            return sql_secret.to_mlflow_entity()
+
+    def _get_secret_info(self, secret_id: str) -> Secret:
+        """
+        Retrieve metadata for a secret by ID (does not decrypt the value).
+
+        Args:
+            secret_id: ID of the secret to retrieve.
+
+        Returns:
+            Secret entity with metadata (encrypted value not included).
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+
+            if not sql_secret:
                 raise MlflowException(
-                    f"Secret with name '{secret_name}' already exists. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
+                    f"Secret with ID '{secret_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
             return sql_secret.to_mlflow_entity()
@@ -2401,83 +2437,74 @@ class SqlAlchemyStore(AbstractStore):
     def _update_secret(
         self,
         secret_id: str,
-        ciphertext: bytes,
-        iv: bytes,
-        wrapped_dek: bytes,
-        kek_version: int,
-        aad_hash: bytes,
-        state: str,
+        secret_value: str | dict[str, Any],
         updated_by: str | None = None,
     ) -> Secret:
         """
-        Update an existing secret's crypto material (key rotation).
+        Update an existing secret's value (key rotation).
 
         This preserves the secret_id and all bindings, allowing transparent key rotation.
 
         Args:
-            secret_id: UUID of the secret to update.
-            ciphertext: New encrypted secret value.
-            iv: New initialization vector (nonce) for AES-GCM.
-            wrapped_dek: New data encryption key wrapped with KEK.
-            kek_version: Version of KEK used to wrap the DEK.
-            aad_hash: SHA-256 hash of AAD (secret_id:secret_name).
-            state: Secret state ('ACTIVE', 'REVOKED', 'ROTATED').
-            updated_by: Username of updater (optional).
+            secret_id: ID of the secret to update.
+            secret_value: New secret value to encrypt.
+            updated_by: Username of the updater. Optional.
 
         Returns:
-            Secret entity with updated metadata (excludes crypto fields).
-
-        Raises:
-            MlflowException: If secret not found.
+            Updated Secret entity with new encrypted value.
         """
         with self.ManagedSessionMaker() as session:
-            sql_secret = session.query(SqlSecret).filter(SqlSecret.secret_id == secret_id).first()
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
 
-            if sql_secret is None:
+            if not sql_secret:
                 raise MlflowException(
                     f"Secret with ID '{secret_id}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            current_time = int(time.time() * 1000)
+            masked_value = mask_secret_value(secret_value)
+            if isinstance(masked_value, dict):
+                masked_value = json.dumps(masked_value)
 
-            # Update crypto fields and state
-            sql_secret.ciphertext = ciphertext
-            sql_secret.iv = iv
-            sql_secret.wrapped_dek = wrapped_dek
-            sql_secret.kek_version = kek_version
-            sql_secret.aad_hash = aad_hash
-            sql_secret.state = state
+            encrypted = encrypt_secret(
+                secret_value=secret_value,
+                kek_manager=KEKManager(),
+                secret_id=sql_secret.secret_id,
+                secret_name=sql_secret.secret_name,
+            )
+
+            sql_secret.encrypted_value = encrypted.encrypted_value
+            sql_secret.wrapped_dek = encrypted.wrapped_dek
+            sql_secret.kek_version = encrypted.kek_version
+            sql_secret.masked_value = masked_value
             sql_secret.last_updated_by = updated_by
-            sql_secret.last_updated_at = current_time
+            sql_secret.last_updated_at = get_current_time_millis()
 
-            session.flush()
+            session.commit()
             session.refresh(sql_secret)
 
             return sql_secret.to_mlflow_entity()
 
     def _delete_secret(self, secret_id: str) -> None:
         """
-        Delete a secret and all its bindings (CASCADE).
+        Permanently delete a secret and all its bindings (CASCADE).
 
         Args:
-            secret_id: UUID of the secret to delete.
-
-        Raises:
-            MlflowException: If secret not found.
+            secret_id: ID of the secret to delete.
         """
         with self.ManagedSessionMaker() as session:
-            sql_secret = session.query(SqlSecret).filter(SqlSecret.secret_id == secret_id).first()
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
 
-            if sql_secret is None:
+            if not sql_secret:
                 raise MlflowException(
                     f"Secret with ID '{secret_id}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
             session.delete(sql_secret)
+            session.commit()
 
-    def _create_secret_binding(
+    def _bind_secret(
         self,
         secret_id: str,
         resource_type: str,
@@ -2486,32 +2513,47 @@ class SqlAlchemyStore(AbstractStore):
         created_by: str | None = None,
     ) -> SecretBinding:
         """
-        Create a binding between a secret and a resource.
+        Bind a secret to a specific resource field.
+
+        A secret binding associates a secret with a particular field on a resource,
+        allowing the secret to be retrieved when accessing that resource.
 
         Args:
-            secret_id: UUID of the secret to bind.
-            resource_type: Type of resource (e.g., 'SCORER_JOB').
-            resource_id: ID of the resource.
-            field_name: Name of the field (e.g., 'OPENAI_API_KEY').
-            created_by: Username of creator (optional).
+            secret_id: ID of the secret to bind.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used.
+            created_by: Username of the creator. Optional.
 
         Returns:
-            SecretBinding entity.
-
-        Raises:
-            MlflowException: If binding already exists or secret not found.
+            SecretBinding entity representing the new binding.
         """
         with self.ManagedSessionMaker() as session:
-            # Verify secret exists
-            sql_secret = session.query(SqlSecret).filter(SqlSecret.secret_id == secret_id).first()
-            if sql_secret is None:
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+            if not sql_secret:
                 raise MlflowException(
                     f"Secret with ID '{secret_id}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            existing = (
+                session.query(SqlSecretBinding)
+                .filter_by(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    field_name=field_name,
+                )
+                .first()
+            )
+            if existing:
+                raise MlflowException(
+                    f"Binding already exists for resource_type='{resource_type}', "
+                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
                 )
 
             binding_id = uuid.uuid4().hex
-            current_time = int(time.time() * 1000)
+            current_time = get_current_time_millis()
 
             sql_binding = SqlSecretBinding(
                 binding_id=binding_id,
@@ -2525,94 +2567,98 @@ class SqlAlchemyStore(AbstractStore):
                 last_updated_at=current_time,
             )
 
-            try:
-                session.add(sql_binding)
-                session.flush()
-            except IntegrityError as e:
-                raise MlflowException(
-                    f"Binding already exists for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'. Error: {e}",
-                    RESOURCE_ALREADY_EXISTS,
-                )
+            session.add(sql_binding)
+            session.commit()
 
             return sql_binding.to_mlflow_entity()
 
-    def _delete_secret_binding(self, binding_id: str) -> None:
+    def _unbind_secret(
+        self,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+    ) -> None:
         """
-        Delete a secret binding.
+        Remove a secret binding from a resource field.
+
+        The secret itself is not deleted, only the binding is removed.
 
         Args:
-            binding_id: UUID of the binding to delete.
-
-        Raises:
-            MlflowException: If binding not found.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field to unbind.
         """
         with self.ManagedSessionMaker() as session:
             sql_binding = (
                 session.query(SqlSecretBinding)
-                .filter(SqlSecretBinding.binding_id == binding_id)
+                .filter_by(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    field_name=field_name,
+                )
                 .first()
             )
 
-            if sql_binding is None:
+            if not sql_binding:
                 raise MlflowException(
-                    f"Secret binding with ID '{binding_id}' not found.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    f"Secret binding not found for resource_type='{resource_type}', "
+                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
             session.delete(sql_binding)
+            session.commit()
 
-    def _get_encrypted_secrets_for_resource(
-        self, resource_type: str, resource_id: str
-    ) -> dict[str, SqlSecret]:
+    def _get_secrets_for_resource(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> dict[str, str | dict[str, Any]]:
         """
-        Batch retrieve ALL encrypted secrets for a resource in a single query.
+        Retrieve and decrypt all secrets bound to a specific resource.
 
-        This is the preferred method for retrieving secrets when a resource needs
-        multiple secrets (e.g., a job with multiple API keys). Uses a single JOIN
-        query for optimal performance.
-
-        Results are ordered by created_at DESC, so if multiple bindings exist with
-        the same field_name (due to race conditions before unique constraint), the
-        most recently created binding takes precedence.
+        Returns a dictionary mapping field names to decrypted secret values.
 
         Args:
-            resource_type: Type of resource (e.g., 'SCORER_JOB').
-            resource_id: ID of the resource.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
 
         Returns:
-            Dict mapping field_name -> SqlSecret with all crypto fields.
-            Only returns ACTIVE secrets. Empty dict if no secrets found.
-
-        Example:
-            secrets = store._get_encrypted_secrets_for_resource("SCORER_JOB", "job_123")
-            # Returns: {"OPENAI_API_KEY": SqlSecret(...), "ANTHROPIC_API_KEY": SqlSecret(...)}
+            Dictionary mapping field names to decrypted secret values.
+            String and dict values are returned as-is without wrapping.
         """
         with self.ManagedSessionMaker() as session:
-            # Single query with JOIN to get all ACTIVE secrets for this resource
-            # Ordered by created_at DESC so newest bindings take precedence
             results = (
                 session.query(SqlSecretBinding, SqlSecret)
                 .join(SqlSecret, SqlSecretBinding.secret_id == SqlSecret.secret_id)
                 .filter(
                     SqlSecretBinding.resource_type == resource_type,
                     SqlSecretBinding.resource_id == resource_id,
-                    SqlSecret.state == SecretState.ACTIVE.value,
                 )
-                .order_by(SqlSecretBinding.created_at.desc())
                 .all()
             )
 
-            # Build dict mapping field_name -> SqlSecret
-            # Since we iterate in DESC order, first occurrence wins (newest)
-            secrets = {}
-            for binding, secret in results:
-                session.expunge(secret)
-                # Only add if not already present (newest wins)
-                if binding.field_name not in secrets:
-                    secrets[binding.field_name] = secret
+            kek_manager = KEKManager()
+            decrypted_secrets = {}
 
-            return secrets
+            for binding, sql_secret in results:
+                try:
+                    decrypted_value = decrypt_secret(
+                        encrypted_value=sql_secret.encrypted_value,
+                        wrapped_dek=sql_secret.wrapped_dek,
+                        kek_manager=kek_manager,
+                        secret_id=sql_secret.secret_id,
+                        secret_name=sql_secret.secret_name,
+                    )
+                    decrypted_secrets[binding.field_name] = decrypted_value
+                except Exception as e:
+                    raise MlflowException(
+                        f"Failed to decrypt secret '{sql_secret.secret_name}' "
+                        f"(ID: {sql_secret.secret_id}): {e}",
+                        error_code=INTERNAL_ERROR,
+                    )
+
+            return decrypted_secrets
 
     def _apply_order_by_search_logged_models(
         self,

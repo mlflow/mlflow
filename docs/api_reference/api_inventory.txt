@@ -455,6 +455,8 @@ mlflow.entities.ScorerVersion.from_proto
 mlflow.entities.ScorerVersion.to_proto
 mlflow.entities.Secret
 mlflow.entities.SecretBinding
+mlflow.entities.SecretResourceType
+mlflow.entities.SecretResourceType.from_string
 mlflow.entities.SourceType
 mlflow.entities.SourceType.from_string
 mlflow.entities.SourceType.to_string

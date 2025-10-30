@@ -2133,14 +2133,13 @@ class SqlSecret(Base):
         Returns:
             mlflow.entities.secret.Secret
         """
-        from mlflow.entities.secret import Secret, SecretState
+        from mlflow.entities.secret import Secret
 
         return Secret(
             secret_id=self.secret_id,
             secret_name=self.secret_name,
             masked_value=self.masked_value,
             is_shared=self.is_shared,
-            state=SecretState(self.state),
             created_by=self.created_by,
             created_at=self.created_at,
             last_updated_by=self.last_updated_by,

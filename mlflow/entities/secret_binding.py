@@ -1,6 +1,48 @@
 from dataclasses import dataclass
+from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+
+
+class SecretResourceType(str, Enum):
+    """
+    Enum defining valid resource types that can have secrets bound to them.
+
+    This enum restricts what resources can use secrets, providing type safety
+    and preventing arbitrary resource types from being used.
+    """
+
+    SCORER_JOB = "SCORER_JOB"
+    """LLM judge scorer jobs that need API keys for LLM providers."""
+
+    GLOBAL = "GLOBAL"
+    """Global workspace-level secrets that aren't bound to specific resources."""
+
+    @classmethod
+    def from_string(cls, resource_type_str: str) -> "SecretResourceType":
+        """
+        Convert a string to a SecretResourceType enum.
+
+        Args:
+            resource_type_str: String representation of the resource type.
+
+        Returns:
+            SecretResourceType enum value.
+
+        Raises:
+            ValueError: If the resource type string is not valid.
+        """
+        try:
+            return cls(resource_type_str)
+        except ValueError:
+            valid_types = ", ".join([t.value for t in cls])
+            raise ValueError(
+                f"Invalid resource type: '{resource_type_str}'. Valid types are: {valid_types}"
+            )
+
+    def __str__(self) -> str:
+        """Return the string value of the enum."""
+        return self.value
 
 
 @dataclass
