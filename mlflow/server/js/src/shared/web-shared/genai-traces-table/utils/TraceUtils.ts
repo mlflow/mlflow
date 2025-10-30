@@ -24,6 +24,7 @@ const MLFLOW_ASSESSMENT_ROOT_CAUSE_ASSESSMENT = 'root_cause_assessment';
 const MLFLOW_ASSESSMENT_ROOT_CAUSE_RATIONALE = 'root_cause_rationale';
 const MLFLOW_ASSESSMENT_SUGGESTED_ACTION = 'suggested_action';
 export const MLFLOW_SOURCE_RUN_KEY = 'mlflow.sourceRun';
+export const MLFLOW_TRACE_SOURCE_SCORER_NAME = 'mlflow.trace.sourceScorer';
 export const MLFLOW_ASSESSMENT_SOURCE_RUN_ID = 'mlflow.assessment.sourceRunId';
 
 export const MLFLOW_INTERNAL_PREFIX = 'mlflow.';
@@ -62,24 +63,25 @@ export const getTracesTagKeys = (traces: TraceInfoV3[]): string[] => {
   );
 };
 
+/**
+ * Filter out the traces that are not created by the given evaluation run.
+ *
+ * NB: This utility is also used for the general trace view in a Run Detail page.
+ *
+ * @param traces - The traces to filter.
+ * @param runUuid - The run UUID to filter by.
+ * @returns The filtered traces.
+ */
 export const filterTracesByAssessmentSourceRunId = (
   traces: TraceInfoV3[] | undefined,
   runUuid?: string | null,
 ): TraceInfoV3[] | undefined => {
-  if (!traces) {
-    return traces;
-  }
-
-  if (!runUuid) {
+  if (!traces || !runUuid) {
     return traces;
   }
 
   return traces.reduce<TraceInfoV3[]>((acc, trace) => {
-    const assessments = trace.assessments;
-    if (!assessments || assessments.length === 0) {
-      // No assessments are logged, should not show this trace in the evaluation results.
-      return acc;
-    }
+    const assessments = trace.assessments || [];
 
     // Filter assessments to those that are created by this evaluation run.
     const filteredAssessments = assessments.filter((assessment) => {
@@ -87,10 +89,13 @@ export const filterTracesByAssessmentSourceRunId = (
       return !sourceRunId || sourceRunId === runUuid;
     });
 
-    if (filteredAssessments.length === 0) {
+    // Filter out the scorer traces.
+    const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME];
+    if (sourceScorerName) {
       return acc;
     }
 
+    // Early return to avoid the overhead of copying the trace and assessments below.
     if (filteredAssessments.length === assessments.length) {
       acc.push(trace);
       return acc;

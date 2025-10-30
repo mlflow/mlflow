@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 
@@ -11,11 +11,15 @@ import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { Link } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { useParams } from '../../genai-traces-table/utils/RoutingUtils';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
   const { nodeMap, activeView } = useModelTraceExplorerViewState();
+  const { experimentId } = useParams();
 
   const value = feedback.feedback.value;
 
@@ -25,8 +29,7 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
 
   const judgeTraceId = feedback.metadata?.['mlflow.assessment.scorerTraceId'];
-  const judgeTraceHref = judgeTraceId ? getJudgeTraceHref(judgeTraceId) : undefined;
-  const shouldShowJudgeTraceSection = Boolean(judgeTraceHref);
+  const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
 
   const judgeCost = feedback.metadata?.['mlflow.assessment.judgeCost'];
   const formattedCost = (() => {
@@ -127,46 +130,18 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
         </div>
       )}
-      {shouldShowJudgeTraceSection && (
-        <Typography.Link
-          href={judgeTraceHref}
-          openInNewTab
-          componentId="shared.model-trace-explorer.feedback-cost.trace-link"
-        >
+      {judgeTraceHref && (
+        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
           <FormattedMessage
             defaultMessage="View trace"
             description="Link text for navigating to the corresponding judge trace"
           />
-        </Typography.Link>
+        </Link>
       )}
     </div>
   );
 };
 
-/**
- * Returns the href for the judge trace link.
- *
- * @param id - The ID of the judge trace.
- * @returns The href for the judge trace.
- */
-const getJudgeTraceHref = (id: string) => {
-  const { pathname, hash } = window.location;
-  const experimentMatchFromHash = hash?.match(/\/experiments\/(\d+|[^/]+)/);
-  const experimentMatchFromPath = pathname?.match(/\/experiments\/(\d+|[^/]+)/);
-  const experimentId = experimentMatchFromHash?.[1] ?? experimentMatchFromPath?.[1];
-
-  if (experimentId) {
-    const basePath = `/experiments/${experimentId}/traces?selectedEvaluationId=${encodeURIComponent(id)}`;
-    // If the router uses hash history, preserve it so the link works in a new tab.
-    if (hash?.includes('/experiments/')) {
-      return `#${basePath}`;
-    }
-    return basePath;
-  }
-
-  // Fallback when we cannot infer the experiment: open traces view with evaluation selection.
-  if (hash) {
-    return `#${`/traces?selectedEvaluationId=${encodeURIComponent(id)}`}`;
-  }
-  return `/traces?selectedEvaluationId=${encodeURIComponent(id)}`;
+const getJudgeTraceHref = (experimentId: string, judgeTraceId: string) => {
+  return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
 };
