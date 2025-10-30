@@ -381,8 +381,6 @@ def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
     # Force flush to send all batched spans
     span_processor.force_flush()
 
-    time.sleep(1)
-
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
     )
@@ -446,9 +444,6 @@ def test_multiple_traces_in_single_request(mlflow_server: str):
 
     assert response.status_code == 200, f"Expected 200, got {response.status_code}"
 
-    # Wait for traces to be available
-    time.sleep(1)
-
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
     )
@@ -496,10 +491,8 @@ def test_logging_many_traces_in_single_request(mlflow_server: str):
             "Content-Type": "application/x-protobuf",
             MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
         },
-        timeout=30,
+        timeout=10,
     )
-
-    time.sleep(2)
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=False, return_type="list"
@@ -562,8 +555,6 @@ def test_mixed_trace_spans_in_single_request(mlflow_server: str):
     )
 
     assert response.status_code == 200
-
-    time.sleep(1)
 
     traces = mlflow.search_traces(
         experiment_ids=[experiment_id], include_spans=True, return_type="list"
