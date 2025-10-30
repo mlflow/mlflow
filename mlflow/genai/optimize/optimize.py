@@ -5,6 +5,7 @@ from contextlib import nullcontext
 from typing import TYPE_CHECKING, Any, Callable
 
 import mlflow
+from mlflow.entities import Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
 from mlflow.exceptions import MlflowException
@@ -176,7 +177,7 @@ def optimize_prompts(
     """
     train_data_df = _convert_eval_set_to_df(train_data)
     converted_train_data = train_data_df.to_dict("records")
-    validate_train_data(converted_train_data)
+    validate_train_data(train_data_df, scorers, predict_fn)
 
     predict_fn = convert_predict_fn(
         predict_fn=predict_fn, sample_input=converted_train_data[0]["inputs"]
@@ -223,7 +224,7 @@ def optimize_prompts(
 
 def _build_eval_fn(
     predict_fn: Callable[..., Any],
-    metric_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any]], float],
+    metric_fn: Callable[[dict[str, Any], dict[str, Any], dict[str, Any], Trace | None], float],
 ) -> Callable[[dict[str, str], list[dict[str, Any]]], list[EvaluationResultRecord]]:
     """
     Build an evaluation function that uses the candidate prompts to evaluate the predict_fn.
@@ -267,7 +268,9 @@ def _build_eval_fn(
 
             trace = mlflow.get_trace(eval_request_id, silent=True)
             # Use metric function created from scorers
-            score = metric_fn(inputs=inputs, outputs=program_outputs, expectations=outputs)
+            score = metric_fn(
+                inputs=inputs, outputs=program_outputs, expectations=outputs, trace=trace
+            )
             return EvaluationResultRecord(
                 inputs=inputs,
                 outputs=program_outputs,

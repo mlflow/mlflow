@@ -4,6 +4,7 @@ import pytest
 from pydantic import BaseModel
 
 from mlflow.entities.assessment import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.judges import CategoricalRating
 from mlflow.genai.optimize.util import (
     create_metric_from_scorers,
@@ -144,7 +145,7 @@ def test_create_metric_from_scorers_with_categorical_rating(categorical_value, e
 
     metric = create_metric_from_scorers([test_scorer])
 
-    result = metric({"input": "test"}, {"output": "result"}, {})
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
     assert result == expected_score
 
 
@@ -160,32 +161,32 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     metric = create_metric_from_scorers([scorer1, scorer2])
 
     # Should sum: 1.0 + 1.0 = 2.0
-    result = metric({"input": "test"}, {"output": "result"}, {})
+    result = metric({"input": "test"}, {"output": "result"}, {}, None)
     assert result == 2.0
 
 
 @pytest.mark.parametrize(
-    ("train_data", "expected_error"),
+    ("train_data", "scorers", "expected_error"),
     [
         # Empty inputs
         (
             [{"inputs": {}, "outputs": "result"}],
+            [],
             "Record 0 is missing required 'inputs' field or it is empty",
         ),
         # Missing inputs
-        ([{"outputs": "result"}], "Record 0 is missing required 'inputs' field"),
-        # Missing both outputs and expectations
-        ([{"inputs": {"text": "hello"}}], "Record 0 must have at least one non-empty field"),
-        # Both outputs and expectations are None
         (
-            [{"inputs": {"text": "hello"}, "outputs": None, "expectations": None}],
-            "Record 0 must have at least one non-empty field",
+            [{"outputs": "result"}],
+            [],
+            "Record 0 is missing required 'inputs' field or it is empty",
         ),
     ],
 )
-def test_validate_train_data_errors(train_data, expected_error):
-    with pytest.raises(ValueError, match=expected_error):
-        validate_train_data(train_data)
+def test_validate_train_data_errors(train_data, scorers, expected_error):
+    import pandas as pd
+
+    with pytest.raises(MlflowException, match=expected_error):
+        validate_train_data(pd.DataFrame(train_data), scorers, lambda **kwargs: None)
 
 
 @pytest.mark.parametrize(

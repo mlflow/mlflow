@@ -4,8 +4,11 @@ from typing import TYPE_CHECKING, Any, Callable
 
 from pydantic import BaseModel, create_model
 
+from mlflow.entities import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer
+from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers
 from mlflow.tracking.client import MlflowClient
 
 if TYPE_CHECKING:
@@ -64,30 +67,28 @@ def prompt_optimization_autolog(
                 mlflow.log_metric("final_eval_score", output.final_eval_score)
 
 
-def validate_train_data(train_data: list[dict[str, Any]]) -> None:
+def validate_train_data(
+    train_data: "pd.DataFrame", scorers: list[Scorer], predict_fn: Callable[..., Any] | None = None
+) -> None:
     """
     Validate that training data has required fields for prompt optimization.
 
     Args:
-        train_data: List of training data records converted to dict format.
+        train_data: Training data as a pandas DataFrame.
+        scorers: Scorers to validate the training data for.
+        predict_fn: The predict function to validate the training data for.
 
     Raises:
-        ValueError: If any record is missing required fields or has empty required fields.
+        MlflowException: If any record is missing required 'inputs' field or it is empty.
     """
-    for i, record in enumerate(train_data):
+    for i, record in enumerate(train_data.to_dict("records")):
         if "inputs" not in record or not record["inputs"]:
-            raise ValueError(f"Record {i} is missing required 'inputs' field or it is empty")
-
-        # Check that at least one of outputs or expectations is present and not None
-        # We explicitly check for None to allow falsy values like False, 0, or empty strings
-        has_outputs = record.get("outputs") is not None
-        has_expectations = record.get("expectations") is not None
-
-        if not has_outputs and not has_expectations:
-            raise ValueError(
-                f"Record {i} must have at least one non-empty field: 'outputs' or 'expectations'. "
-                f"Found outputs={record.get('outputs')}, expectations={record.get('expectations')}"
+            raise MlflowException.invalid_parameter_value(
+                f"Record {i} is missing required 'inputs' field or it is empty"
             )
+
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+    valid_data_for_builtin_scorers(train_data, builtin_scorers, predict_fn)
 
 
 def infer_type_from_value(value: Any, model_name: str = "Output") -> type:
@@ -150,12 +151,13 @@ def create_metric_from_scorers(
         inputs: Any,
         outputs: Any,
         expectations: dict[str, Any],
+        trace: Trace | None,
     ) -> float:
         scores = {}
 
         for scorer in scorers:
             scores[scorer.name] = scorer.run(
-                inputs=inputs, outputs=outputs, expectations=expectations
+                inputs=inputs, outputs=outputs, expectations=expectations, trace=trace
             )
 
         if objective is not None:
