@@ -65,21 +65,20 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
   </Card>
 );
 
-export const SmallLogoCard = ({ children, link }) => (
-  <div className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}>
-    {link ? (
-      <Link className={clsx(styles.Link)} to={link}>
-        <div className={styles.SmallLogoCardContent}>
-          <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
-        </div>
-      </Link>
-    ) : (
+export const SmallLogoCard = ({ children, link }) => {
+  const Wrapper = link ? Link : 'div';
+  return (
+    <Wrapper
+      className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}
+      {...(link && { to: link })}
+    >
       <div className={styles.SmallLogoCardContent}>
         <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
       </div>
-    )}
-  </div>
-);
+    </Wrapper>
+  );
+};
+
 
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
 
