@@ -119,6 +119,8 @@ async def test_autolog_agent():
 
     assert response.final_output == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
     traces = get_traces()
+    print([t.to_dict() for t in traces])
+    assert False
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
@@ -132,7 +134,7 @@ async def test_autolog_agent():
     assert spans[0].outputs == response.final_output
     assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Response_1"
+    assert spans[2].name == "Response"
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
     assert spans[2].outputs == [
@@ -151,7 +153,7 @@ async def test_autolog_agent():
     assert spans[3].parent_id == spans[1].span_id
     assert spans[4].name == "Spanish Agent"
     assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Response_2"
+    assert spans[5].name == "Response"
     assert spans[5].parent_id == spans[4].span_id
 
     # Validate chat attributes
@@ -386,6 +388,22 @@ async def test_disable_enable_autolog():
 
 @pytest.mark.asyncio
 async def test_autolog_agent_with_enabled_openai_agent_tracer():
+    import logging
+
+    # Set up logging capture for the openai.agents logger
+    class LogCapture(logging.Handler):
+        def __init__(self):
+            super().__init__()
+            self.records = []
+
+        def emit(self, record):
+            self.records.append(record)
+
+    log_capture = LogCapture()
+    openai_agents_logger = logging.getLogger("openai.agents")
+    openai_agents_logger.addHandler(log_capture)
+    openai_agents_logger.setLevel(logging.DEBUG)
+
     mlflow.openai.autolog(disable_openai_agent_tracer=False)
 
     # NB: We have to mock the OpenAI SDK responses to make agent works
@@ -464,6 +482,8 @@ async def test_autolog_agent_with_enabled_openai_agent_tracer():
 
     assert response.final_output == "¡Hola! Estoy bien, gracias. ¿Y tú, cómo estás?"
     traces = get_traces()
+    print([t.to_dict() for t in traces])
+    # assert False
     assert len(traces) == 1
     trace = traces[0]
     assert trace.info.status == "OK"
@@ -477,7 +497,7 @@ async def test_autolog_agent_with_enabled_openai_agent_tracer():
     assert spans[0].outputs == response.final_output
     assert spans[1].name == "Triage Agent"
     assert spans[1].parent_id == spans[0].span_id
-    assert spans[2].name == "Response_1"
+    assert spans[2].name == "Response"
     assert spans[2].parent_id == spans[1].span_id
     assert spans[2].inputs == [{"role": "user", "content": "Hola.  ¿Como estás?"}]
     assert spans[2].outputs == [
@@ -496,7 +516,7 @@ async def test_autolog_agent_with_enabled_openai_agent_tracer():
     assert spans[3].parent_id == spans[1].span_id
     assert spans[4].name == "Spanish Agent"
     assert spans[4].parent_id == spans[0].span_id
-    assert spans[5].name == "Response_2"
+    assert spans[5].name == "Response"
     assert spans[5].parent_id == spans[4].span_id
 
     # Validate chat attributes
@@ -517,3 +537,28 @@ async def test_autolog_agent_with_enabled_openai_agent_tracer():
         },
     ]
     assert SpanAttributeKey.CHAT_TOOLS not in spans[5].attributes
+
+    # Validate that the non-fatal API key error was logged
+    import time
+
+    time.sleep(5.0)  # Give background thread time to log the error
+
+    # Check captured logs from openai.agents logger
+    captured_messages = [record.getMessage() for record in log_capture.records]
+    api_key_errors = [msg for msg in captured_messages if "Incorrect API key provided" in msg]
+
+    # Print debug information
+    print(f"DEBUG: Captured {len(captured_messages)} log messages")
+    print(f"DEBUG: API key errors found: {len(api_key_errors)}")
+    if captured_messages:
+        print(f"DEBUG: Sample captured messages: {captured_messages[:5]}")
+
+    # Clean up first before assertions to avoid interference
+    openai_agents_logger.removeHandler(log_capture)
+
+    error_msg = api_key_errors[0]
+    print(f"SUCCESS: Captured expected API key error: {error_msg}")
+    assert "401" in error_msg
+    assert "Incorrect API key provided: test" in error_msg
+    assert "invalid_api_key" in error_msg
+    assert "[non-fatal]" in error_msg

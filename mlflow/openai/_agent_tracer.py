@@ -55,15 +55,12 @@ _SPAN_TYPE_MAP = {
 }
 
 
-def clear_other_trace_processors():
+def clear_trace_processors():
     """
     Clear other trace processors to avoid warnings.
     https://github.com/openai/openai-agents-python/issues/1387#issuecomment-3165660183
     """
-    try:
-        set_trace_processors([])
-    except ImportError:
-        pass
+    set_trace_processors([])
 
 
 def add_mlflow_trace_processor():
