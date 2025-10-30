@@ -285,6 +285,27 @@ export class MlflowService {
   };
 
   /**
+   * Traces API (V3): get a single trace (info + spans) with optional partial support.
+   */
+  static getExperimentTraceV3 = (
+    traceId: string,
+    { allowPartial = true }: { allowPartial?: boolean } = {},
+  ) => {
+    type GetExperimentTraceV3Response = {
+      trace?: {
+        trace_info?: ModelTraceInfo;
+        // The payload structure matches ModelTraceData returned by artifact route
+        data?: ModelTraceData;
+      };
+    };
+
+    return getJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/get`,
+      data: { trace_id: traceId, allow_partial: allowPartial },
+    }) as Promise<GetExperimentTraceV3Response>;
+  };
+
+  /**
    * Traces API: get credentials for data download
    */
   static getExperimentTraceData = <T = ModelTraceData>(traceRequestId: string) => {

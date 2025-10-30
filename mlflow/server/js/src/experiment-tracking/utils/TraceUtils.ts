@@ -20,14 +20,36 @@ export async function getTrace(traceId?: string, traceInfo?: ModelTrace['info'])
     return undefined;
   }
 
-  const [traceInfoResponse, traceData] = await Promise.all([
-    MlflowService.getExperimentTraceInfoV3(traceId),
-    MlflowService.getExperimentTraceData(traceId),
-  ]);
+  // Always fetch V3 TraceInfo first to decide where spans live
+  const traceInfoResponse = await MlflowService.getExperimentTraceInfoV3(traceId);
+  const traceInfo = traceInfoResponse?.trace?.trace_info || {};
 
+  // Check spans location tag to decide the source of span data
+  // If spans are in the tracking store, use V3 get-trace (allow_partial=true)
+  // Otherwise, fall back to artifact route
+  const spansLocation = (traceInfo as any)?.tags?.['mlflow.trace.spansLocation'];
+
+  if (spansLocation === 'TRACKING_STORE') {
+    try {
+      const traceResp = await MlflowService.getExperimentTraceV3(traceId, { allowPartial: true });
+      const v3Trace = traceResp?.trace;
+      if (v3Trace?.data) {
+        return {
+          info: v3Trace.trace_info || traceInfo,
+          data: v3Trace.data,
+        };
+      }
+      // If V3 response did not contain data for some reason, fall back to artifact route
+    } catch {
+      // swallow and fall back to artifact route below
+    }
+  }
+
+  // Artifact fallback (legacy path, or when spans are not in tracking store)
+  const traceData = await MlflowService.getExperimentTraceData(traceId);
   return traceData
     ? {
-        info: traceInfoResponse?.trace?.trace_info || {},
+        info: traceInfo,
         data: traceData,
       }
     : undefined;

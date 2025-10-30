@@ -570,69 +570,86 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
   const spanMap: { [span_id: string]: ModelTraceSpan } = {};
   const relationMap: { [span_id: string]: string[] } = {};
 
+  if (!spans || spans.length === 0) {
+    return null;
+  }
+
+  // Build lookup maps
   spans.forEach((span) => {
     const spanId = getModelTraceSpanId(span);
     spanMap[spanId] = span;
     relationMap[spanId] = [];
   });
 
+  // Populate child relationships only when the parent exists in the partial set
+  const topLevelSpanIds: string[] = [];
   spans.forEach((span) => {
     const spanId = getModelTraceSpanId(span);
     const parentId = getModelTraceSpanParentId(span);
-    if (parentId) {
-      if (!relationMap[parentId]) {
-        throw new Error('Tree structure is malformed!');
-      }
+    if (parentId && relationMap[parentId]) {
       relationMap[parentId].push(spanId);
+    } else if (!parentId || !relationMap[parentId]) {
+      // No parent or parent not present in this partial set → treat as top-level
+      topLevelSpanIds.push(spanId);
     }
   });
 
-  const rootSpan = spans.find((span) => !getModelTraceSpanParentId(span));
-  if (isNil(rootSpan)) {
-    return null;
-  }
+  // Compute a global time window for the tree (so partials render sanely)
+  const allStarts = spans.map((s) => getModelTraceSpanStartTime(s));
+  const allEnds = spans.map((s) => getModelTraceSpanEndTime(s));
+  const rootStart = Math.min(...allStarts);
+  const rootEnd = Math.max(...allEnds);
+  const assessmentMap = getAssessmentMap(trace.info);
 
-  const rootSpanId = getModelTraceSpanId(rootSpan);
   function getSpanNodeFromData(span_id: string): ModelTraceSpanNode {
     const span = spanMap[span_id];
-    // above we return if rootSpan is null, but for some
-    // reason typescript thinks it's still nullable here.
-    const rootStart = Number(getModelTraceSpanStartTime(rootSpan as ModelTraceSpan));
-    const rootEnd = Number(getModelTraceSpanEndTime(rootSpan as ModelTraceSpan));
     const children = relationMap[span_id].map(getSpanNodeFromData);
-    const assessmentMap = getAssessmentMap(trace.info);
 
-    // not using `isV2Span` here because for legacy reasons,
-    // V1 and V2 are rolled into in the same type. "parent_id" is
-    // the way we distinguish between the two.
     if (isV3ModelTraceSpan(span) || 'parent_id' in span) {
-      // reusing the same function for v2 and v3 as the changes are small
       return normalizeNewSpanData(span, rootStart, rootEnd, children, assessmentMap, traceId);
     }
 
     // v1 spans
-    const spanType = span.span_type ?? ModelSpanType.UNKNOWN;
+    const spanType = (span as any).span_type ?? ModelSpanType.UNKNOWN;
     return {
-      title: span.name,
+      title: (span as any).name,
       icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(spanType)} />,
       type: spanType as ModelSpanType,
-      key: span.context.span_id,
-      start: Number(span.start_time) - rootStart,
-      // default to the end of the root span if the span has no end time.
-      // this can happen if an exception was thrown in the span.
-      end: Number(span.end_time ?? rootEnd) - rootStart,
-      children: children,
-      inputs: span.inputs,
-      outputs: span.outputs,
-      attributes: span.attributes,
-      events: span.events,
-      parentId: span.parent_id ?? span.parent_span_id,
+      key: (span as any).context.span_id,
+      start: Number((span as any).start_time) - rootStart,
+      end: Number((span as any).end_time ?? rootEnd) - rootStart,
+      children,
+      inputs: (span as any).inputs,
+      outputs: (span as any).outputs,
+      attributes: (span as any).attributes,
+      events: (span as any).events,
+      parentId: (span as any).parent_id ?? (span as any).parent_span_id,
       assessments: [],
       traceId,
     };
   }
 
-  return getSpanNodeFromData(rootSpanId);
+  // If we have exactly one true root (no parent) and no orphans, return it directly
+  const trueRoots = spans.filter((s) => !getModelTraceSpanParentId(s)).map(getModelTraceSpanId);
+  const hasSingleTrueRoot = trueRoots.length === 1 && topLevelSpanIds.every((id) => id === trueRoots[0]);
+  if (hasSingleTrueRoot) {
+    return getSpanNodeFromData(trueRoots[0]);
+  }
+
+  // Otherwise, create a synthetic root and attach all top-level spans as children
+  const children = topLevelSpanIds.map(getSpanNodeFromData);
+  return {
+    title: traceId,
+    icon: <ModelTraceExplorerIcon type={getIconTypeForSpan(ModelSpanType.UNKNOWN)} />,
+    type: ModelSpanType.UNKNOWN,
+    key: traceId,
+    start: 0,
+    end: rootEnd - rootStart,
+    children,
+    // No inputs/outputs/attributes/events for the synthetic root
+    assessments: [],
+    traceId,
+  } as ModelTraceSpanNode;
 }
 
 // returns a map of { [span_id: string] : Assessment[] }
