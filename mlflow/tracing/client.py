@@ -237,7 +237,6 @@ class TracingClient:
         include_spans: bool = True,
         model_id: str | None = None,
         locations: list[str] | None = None,
-        match_text: str | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -260,8 +259,6 @@ class TracingClient:
             locations: A list of locations to search over. To search over experiments, provide
                 a list of experiment IDs. To search over UC tables on databricks, provide
                 a list of locations in the format `<catalog_name>.<schema_name>`.
-            match_text: If specified, perform a full text search on span content. This cannot be
-                used together with `filter_string` parameter.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -286,22 +283,6 @@ class TracingClient:
             if MLFLOW_TRACING_SQL_WAREHOUSE_ID.get() is None:
                 filter_string = f"request_metadata.`mlflow.modelId` = '{model_id}'"
                 model_id = None
-
-        if match_text is not None:
-            if filter_string:
-                raise MlflowException.invalid_parameter_value(
-                    message=("Cannot specify both `match_text` and `filter_string`."),
-                )
-
-            if '"' in match_text:
-                # This limitation is because sql store uses span.to_dict to convert span to dict,
-                # then dump it to json string. Even if we escape the quotes here, there's double
-                # escaping happening inside span.content so we cannot match. We need to fix this
-                # by updating how to save span content later.
-                raise MlflowException.invalid_parameter_value(
-                    message="Full text search cannot contain quotes.",
-                )
-            filter_string = f'span.content LIKE "%{match_text}%"'
 
         if run_id:
             run = self.store.get_run(run_id)

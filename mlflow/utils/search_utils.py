@@ -1584,6 +1584,8 @@ class SearchTraceUtils(SearchUtils):
         # The following keys are mapped to tags or metadata
         "name",
         "run_id",
+        # The following key is mapped to span attributes
+        "text",
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {
         "experiment_id",
@@ -1662,6 +1664,10 @@ class SearchTraceUtils(SearchUtils):
         "timestamp": "timestamp_ms",
         "execution_time": "execution_time_ms",
         "end_time": "end_time_ms",
+    }
+    # Map trace search keys to span attributes for full text search
+    SEARCH_KEY_TO_SPAN = {
+        "text": "content",
     }
 
     @classmethod
@@ -1745,6 +1751,9 @@ class SearchTraceUtils(SearchUtils):
         elif key in cls.SEARCH_KEY_TO_METADATA:
             parsed["type"] = cls._REQUEST_METADATA_IDENTIFIER
             parsed["key"] = cls.SEARCH_KEY_TO_METADATA[key]
+        elif key in cls.SEARCH_KEY_TO_SPAN:
+            parsed["type"] = cls._SPAN_IDENTIFIER
+            parsed["key"] = cls.SEARCH_KEY_TO_SPAN[key]
         elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
             parsed["key"] = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
         return parsed

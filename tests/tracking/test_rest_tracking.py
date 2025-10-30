@@ -2673,14 +2673,20 @@ def test_search_traces_match_text(mlflow_client, store_type):
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id], match_text="trace")
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+    )
     assert len([t.info.trace_id for t in traces]) == 3
     assert traces.token is None
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id], match_text="value")
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+    )
     assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
 
-    traces = mlflow_client.search_traces(experiment_ids=[experiment_id], match_text="I like it")
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+    )
     assert [t.info.trace_id for t in traces] == [trace_id_3]
 
 

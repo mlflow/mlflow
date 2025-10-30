@@ -4932,33 +4932,33 @@ def test_search_traces_with_full_text_filter(store: SqlAlchemyStore):
     store.log_spans(exp_id, [span2])
     store.log_spans(exp_id, [span3, span4])
 
-    # Test full text search using span.content LIKE
+    # Test full text search using trace.text LIKE
     # match span name
-    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%database_query%"')
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%database_query%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace1_id
 
     # match span type
-    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%FUNCTION%"')
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%FUNCTION%"')
     trace_ids = {t.trace_id for t in traces}
     assert trace_ids == {trace1_id, trace3_id}
 
     # match span content / attributes
-    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%what\'s MLflow?%"')
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%what\'s MLflow?%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace1_id
 
     traces, _ = store.search_traces(
-        [exp_id], filter_string='span.content LIKE "%MLflow is a tool for%"'
+        [exp_id], filter_string='trace.text LIKE "%MLflow is a tool for%"'
     )
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
 
-    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%llm.%"')
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%llm.%"')
     trace_ids = {t.trace_id for t in traces}
     assert trace_ids == {trace1_id, trace3_id}
 
-    traces, _ = store.search_traces([exp_id], filter_string='span.content LIKE "%90%%"')
+    traces, _ = store.search_traces([exp_id], filter_string='trace.text LIKE "%90%%"')
     assert len(traces) == 1
     assert traces[0].trace_id == trace3_id
 

@@ -667,7 +667,6 @@ def search_traces(
     sql_warehouse_id: str | None = None,
     include_spans: bool = True,
     locations: list[str] | None = None,
-    match_text: str | None = None,
 ) -> "pandas.DataFrame" | list[Trace]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -738,9 +737,6 @@ def search_traces(
             a list of experiment IDs. To search over UC tables on databricks, provide
             a list of locations in the format `<catalog_name>.<schema_name>`.
             If not provided, the search will be performed across the current active experiment.
-
-        match_text: If specified, perform a full text search on span content. This cannot be
-            used together with `filter_string` parameter.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -856,7 +852,6 @@ def search_traces(
             model_id=model_id,
             include_spans=include_spans,
             locations=locations,
-            match_text=match_text,
         )
 
     results = get_results_from_paginated_fn(
