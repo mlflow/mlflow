@@ -14,9 +14,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
-from mlflow.entities import (
-    Dataset as DatasetEntity,
-)
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import (
     DatasetInput,
     Experiment,
