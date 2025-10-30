@@ -26,6 +26,7 @@ export {
   useSearchMlflowTraces,
   useMlflowTracesTableMetadata,
   invalidateMlflowSearchTracesCache,
+  searchMlflowTracesQueryFn,
   SEARCH_MLFLOW_TRACES_QUERY_KEY,
 } from './hooks/useMlflowTraces';
 export { getEvalTabTotalTracesLimit } from './utils/FeatureUtils';
@@ -81,6 +82,7 @@ export {
   RESPONSE_COLUMN_ID,
   TOKENS_COLUMN_ID,
   TRACE_ID_COLUMN_ID,
+  CUSTOM_METADATA_COLUMN_ID,
 } from './hooks/useTableColumns';
 
 // Test utilities
@@ -89,3 +91,11 @@ export {
   createTestAssessmentInfo,
   createTestColumns,
 } from './test-fixtures/EvaluatedTraceTestUtils';
+
+export { shouldUseTracesV4API } from './utils/FeatureUtils';
+export { createTraceLocationForExperiment, createTraceLocationForUCSchema } from './utils/TraceLocationUtils';
+export type { GetTraceFunction } from './hooks/useGetTrace';
+export { useFetchTraceV4LazyQuery } from './hooks/useFetchTraceV4';
+export { doesTraceSupportV4API } from './utils/TraceLocationUtils';
+export { GenAIChatSessionsTable } from './sessions-table/GenAIChatSessionsTable';
+export { useGetTraces } from './hooks/useGetTraces';

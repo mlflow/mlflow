@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { shouldEnableExperimentPageChildRoutes } from '../../../../common/utils/FeatureUtils';
 import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
@@ -30,9 +29,6 @@ export const useGetExperimentPageActiveTabByRoute = () => {
   const { pathname } = useLocation();
 
   const tabNameFromRoute = useMemo(() => {
-    if (!shouldEnableExperimentPageChildRoutes()) {
-      return;
-    }
     const tabName = getTabNameFromRoutePath(pathname);
     return tabName;
   }, [pathname]);

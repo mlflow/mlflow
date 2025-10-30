@@ -10,10 +10,6 @@ export const shouldEnableUnifiedEvalTab = () => {
   return false;
 };
 
-export const shouldUseRunIdFilterInSearchTraces = () => {
-  return false;
-};
-
 /**
  * Page size for MLflow traces 3.0 search api used in eval tab
  */
@@ -27,4 +23,11 @@ export const getMlflowTracesSearchPageSize = () => {
  */
 export const getEvalTabTotalTracesLimit = () => {
   return 1000;
+};
+
+/**
+ * Determines if traces V4 API should be used to fetch traces
+ */
+export const shouldUseTracesV4API = () => {
+  return false;
 };

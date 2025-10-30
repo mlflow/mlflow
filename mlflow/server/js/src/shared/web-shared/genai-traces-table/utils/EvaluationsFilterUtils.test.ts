@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { filterEvaluationResults } from './EvaluationsFilterUtils';
 import type { AssessmentFilter, EvalTraceComparisonEntry } from '../types';
 
