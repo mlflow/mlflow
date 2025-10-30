@@ -125,7 +125,9 @@ async def export_traces(
                 store_name = store.__class__.__name__
                 raise HTTPException(
                     status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                    detail=f"{store_name} does not support logging spans via OTLP REST API",
+                    # NB: this error message must be the same as the one used in span exporter
+                    # to avoid emitting warnings for unsupported stores
+                    detail=f"REST OTLP span logging is not supported by {store_name}",
                 )
             except Exception as e:
                 errors[trace_id] = e
