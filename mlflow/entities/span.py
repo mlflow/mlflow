@@ -57,6 +57,10 @@ class SpanType:
     RERANKER = "RERANKER"
     MEMORY = "MEMORY"
     UNKNOWN = "UNKNOWN"
+    WORKFLOW = "WORKFLOW"
+    TASK = "TASK"
+    GUARDRAIL = "GUARDRAIL"
+    EVALUATOR = "EVALUATOR"
 
 
 def create_mlflow_span(
