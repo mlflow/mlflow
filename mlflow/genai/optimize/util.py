@@ -125,7 +125,8 @@ def create_metric_from_scorers(
         scorers: List of scorers to evaluate inputs, outputs, and expectations.
         objective: Optional function that aggregates scorer outputs into a single score.
                   Takes a dict mapping scorer names to scores and returns a float.
-                  If None and all scorers return numerical or CategoricalRating values,
+                  If None and all scorers return numerical values, CategoricalRating values,
+                  or Feedback with numerical/CategoricalRating values,
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
@@ -138,13 +139,14 @@ def create_metric_from_scorers(
     from mlflow.genai.judges import CategoricalRating
 
     def _convert_to_numeric(score: Any) -> float | None:
-        """Convert a value to numeric, handling CategoricalRating and common types."""
+        """Convert a value to numeric, handling Feedback, CategoricalRating and common types."""
         if isinstance(score, (int, float, bool)):
             return float(score)
         elif isinstance(score, Feedback) and isinstance(score.value, CategoricalRating):
             # Convert CategoricalRating to numeric: YES=1.0, NO=0.0
             return 1.0 if score.value == CategoricalRating.YES else 0.0
         elif isinstance(score, Feedback) and isinstance(score.value, (int, float, bool)):
+            # Extract primitive values from Feedback
             return float(score.value)
         return None
 
