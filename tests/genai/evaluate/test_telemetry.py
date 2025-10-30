@@ -60,6 +60,7 @@ def test_emit_custom_metric_event():
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
+        mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         emit_custom_metric_event(
             scorers=scorers,
@@ -129,6 +130,7 @@ def test_emit_custom_metric_usage_event_skip_outside_databricks():
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=False),
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
+        mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         emit_custom_metric_event(
             scorers=[is_concise, is_correct],
@@ -142,6 +144,7 @@ def test_emit_custom_metric_usage_event_with_sessions():
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),
         mock.patch("mlflow.genai.evaluation.telemetry.call_endpoint") as mock_call_endpoint,
+        mock.patch("mlflow.genai.evaluation.telemetry.get_databricks_host_creds"),
     ):
         for _ in range(3):
             emit_custom_metric_event(
