@@ -130,7 +130,8 @@ def create_metric_from_scorers(
                   uses default aggregation (sum for numerical, conversion for categorical).
 
     Returns:
-        A callable that takes (inputs, outputs, expectations) and returns a float score.
+        A callable that takes (inputs, outputs, expectations) and
+        returns a tuple of (float score, dict of rationales).
 
     Raises:
         MlflowException: If scorers return non-numerical values and no objective is provided.
@@ -154,14 +155,19 @@ def create_metric_from_scorers(
         trace: Trace | None,
     ) -> float:
         scores = {}
+        rationales = {}
 
         for scorer in scorers:
             scores[scorer.name] = scorer.run(
                 inputs=inputs, outputs=outputs, expectations=expectations, trace=trace
             )
 
+        for key, score in scores.items():
+            if isinstance(score, Feedback):
+                rationales[key] = score.rationale
+
         if objective is not None:
-            return objective(scores)
+            return objective(scores), rationales
 
         # Try to convert all scores to numeric
         numeric_scores = {}
@@ -172,7 +178,7 @@ def create_metric_from_scorers(
 
         # If all scores were convertible, use sum as default aggregation
         if len(numeric_scores) == len(scores):
-            return sum(numeric_scores.values())
+            return sum(numeric_scores.values()), rationales
 
         # Otherwise, report error with actual types
         non_convertible = {

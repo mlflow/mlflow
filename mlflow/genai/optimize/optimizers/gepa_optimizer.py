@@ -195,6 +195,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                                 "inputs": trajectory.inputs,
                                 "outputs": trajectory.outputs,
                                 "expectations": trajectory.expectations,
+                                "rationales": trajectory.rationales,
                                 "index": i,
                             }
                         )

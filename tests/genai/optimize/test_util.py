@@ -141,28 +141,30 @@ def test_model_name_parameter(input_dict, model_name):
 def test_create_metric_from_scorers_with_categorical_rating(categorical_value, expected_score):
     @scorer(name="test_scorer")
     def test_scorer(inputs, outputs):
-        return Feedback(name="test_scorer", value=categorical_value)
+        return Feedback(name="test_scorer", value=categorical_value, rationale="test rationale")
 
     metric = create_metric_from_scorers([test_scorer])
 
     result = metric({"input": "test"}, {"output": "result"}, {}, None)
-    assert result == expected_score
+    assert result[0] == expected_score
+    assert result[1] == {"test_scorer": "test rationale"}
 
 
 def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     @scorer(name="scorer1")
     def scorer1(inputs, outputs):
-        return Feedback(name="scorer1", value=CategoricalRating.YES)
+        return Feedback(name="scorer1", value=CategoricalRating.YES, rationale="rationale1")
 
     @scorer(name="scorer2")
     def scorer2(inputs, outputs):
-        return Feedback(name="scorer2", value=CategoricalRating.YES)
+        return Feedback(name="scorer2", value=CategoricalRating.YES, rationale="rationale2")
 
     metric = create_metric_from_scorers([scorer1, scorer2])
 
     # Should sum: 1.0 + 1.0 = 2.0
     result = metric({"input": "test"}, {"output": "result"}, {}, None)
-    assert result == 2.0
+    assert result[0] == 2.0
+    assert result[1] == {"scorer1": "rationale1", "scorer2": "rationale2"}
 
 
 @pytest.mark.parametrize(

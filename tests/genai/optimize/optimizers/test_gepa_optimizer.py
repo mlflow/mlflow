@@ -50,6 +50,7 @@ def mock_eval_fn():
                     expectations=record["outputs"],
                     score=0.8,
                     trace={"info": "mock trace"},
+                    rationales={"score": "mock rationale"},
                 )
             )
         return results
