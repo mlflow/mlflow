@@ -12,6 +12,7 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
+from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
@@ -84,7 +85,7 @@ class InstructionsJudge(Judge):
             description: A description of what the judge evaluates
             feedback_value_type: Optional type for the 'value' field in the Feedback response.
                            Default is str. Supported types (FeedbackValueType): int, float,
-                           str, bool, Literal types, dict[str, PbValueType], and list[PbValueType].
+                           str, bool, Literal types, as well as a dict and list of these types.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
@@ -255,8 +256,13 @@ class InstructionsJudge(Judge):
         output_fields = self.get_output_fields()
 
         if is_trace_based:
+            # include the value type in the description too so that models that don't support
+            # structured outputs with tool calls can still understand the type.
             evaluation_rating_fields = "\n".join(
-                [f"- {field.name}: {field.description}" for field in output_fields]
+                [
+                    f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
+                    for field in output_fields
+                ]
             )
             return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
@@ -267,6 +273,29 @@ class InstructionsJudge(Judge):
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
             return add_output_format_instructions(base_prompt, output_fields=output_fields)
+
+    def get_output_fields(self) -> list[JudgeField]:
+        """Get the output fields for this judge."""
+        return [
+            JudgeField(
+                name="result",
+                description=self.description or _RESULT_FIELD_DESCRIPTION,
+                value_type=self._feedback_value_type,
+            ),
+            JudgeField(
+                name="rationale",
+                description=_RATIONALE_FIELD_DESCRIPTION,
+                value_type=str,
+            ),
+        ]
+
+    def _format_type(self, value_type: Any) -> str:
+        if value_type in (str, int, float, bool):
+            return value_type.__name__
+        elif get_origin(value_type) is Literal:
+            return f"Literal[{', '.join(get_args(value_type))}]"
+        # dict and list
+        return str(value_type)
 
     def _build_user_message(
         self,
@@ -406,9 +435,9 @@ class InstructionsJudge(Judge):
             "ResponseFormat",
             result=(
                 self._feedback_value_type or str,
-                pydantic.Field(description=self.description or "The result of the evaluation"),
+                pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
             ),
-            rationale=(str, pydantic.Field(description="The rationale for the evaluation")),
+            rationale=(str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)),
         )
 
         return invoke_judge_model(
@@ -460,115 +489,101 @@ class InstructionsJudge(Judge):
     @staticmethod
     def _serialize_feedback_value_type(feedback_value_type: Any) -> dict[str, Any]:
         """
-        Serialize a response_format type to a JSON-compatible dict.
+        Serialize a feedback_value_type to JSON Schema format.
 
         Supports all FeedbackValueType types:
-        - PbValueType: str, int, float, bool
-        - Literal types
-        - dict[str, PbValueType]
-        - list[PbValueType]
+        - PbValueType: float, int, str, bool
+        - Literal types (as enum)
+        - dict[str, PbValueType] (as object with additionalProperties)
+        - list[PbValueType] (as array with items)
+
+        Returns a JSON Schema representation of the type.
         """
-        # Handle basic types (PbValueType: float, int, str, bool)
-        if feedback_value_type in (str, int, float, bool):
-            return {"type": feedback_value_type.__name__}
-
-        origin = get_origin(feedback_value_type)
-
-        # Handle Literal types
-        if origin is Literal:
-            literal_values = get_args(feedback_value_type)
-            return {"type": "Literal", "values": list(literal_values)}
-
-        # Handle dict[str, PbValueType]
-        if origin is dict:
-            args = get_args(feedback_value_type)
-            if len(args) == 2:
-                key_type, value_type = args
-                return {
-                    "type": "dict",
-                    "key_type": key_type.__name__,
-                    "value_type": value_type.__name__,
-                }
-
-        # Handle list[PbValueType]
-        if origin is list:
-            args = get_args(feedback_value_type)
-            if len(args) == 1:
-                element_type = args[0]
-                return {"type": "list", "element_type": element_type.__name__}
-
-        # Unsupported type
-        raise MlflowException.invalid_parameter_value(
-            f"Unsupported feedback_value_type type: {feedback_value_type}. "
-            f"Only str, int, float, bool, Literal, dict[str, PbValueType], and "
-            f"list[PbValueType] types are supported for serialization."
+        model = pydantic.create_model(
+            "FeedbackValueSchema",
+            result=feedback_value_type,
         )
+        return model.model_json_schema()["properties"]["result"]
 
     @staticmethod
     def _deserialize_feedback_value_type(serialized: dict[str, Any]) -> type:
         """
-        Deserialize a response_format from a JSON-compatible dict.
+        Deserialize a feedback_value_type from JSON Schema format.
 
         Supports all FeedbackValueType types:
         - PbValueType: str, int, float, bool
-        - Literal types
-        - dict[str, PbValueType]
-        - list[PbValueType]
+        - Literal types (from enum)
+        - dict[str, PbValueType] (from object with additionalProperties)
+        - list[PbValueType] (from array with items)
         """
         if not isinstance(serialized, dict) or "type" not in serialized:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid response_format serialization: {serialized}"
+                f"Invalid feedback_value_type serialization: {serialized}"
             )
 
-        type_name = serialized["type"]
+        schema_type = serialized["type"]
 
-        # Map type names to actual types
-        type_map = {"str": str, "int": int, "float": float, "bool": bool}
+        # Map JSON Schema types back to Python types
+        type_map = {
+            "string": str,
+            "integer": int,
+            "number": float,
+            "boolean": bool,
+        }
 
-        # Handle basic types (PbValueType: float, int, str, bool)
-        if type_name in type_map:
-            return type_map[type_name]
-
-        # Handle Literal type
-        if type_name == "Literal":
-            if "values" not in serialized:
+        # Handle enum (Literal types)
+        if "enum" in serialized:
+            enum_values = serialized["enum"]
+            if not enum_values:
                 raise MlflowException.invalid_parameter_value(
-                    f"Literal type missing 'values' field: {serialized}"
+                    f"Enum must have at least one value: {serialized}"
                 )
-            # Reconstruct Literal type
-            return Literal[tuple(serialized["values"])]
+            return Literal[tuple(enum_values)]
 
-        # Handle dict type
-        if type_name == "dict":
-            if "key_type" not in serialized or "value_type" not in serialized:
-                raise MlflowException.invalid_parameter_value(
-                    f"dict type missing 'key_type' or 'value_type' field: {serialized}"
-                )
-            key_type = type_map.get(serialized["key_type"])
-            value_type = type_map.get(serialized["value_type"])
-            if key_type is None or value_type is None:
-                raise MlflowException.invalid_parameter_value(
-                    f"Invalid key_type or value_type in dict serialization: {serialized}"
-                )
-            return dict[key_type, value_type]
+        # Handle basic types
+        if schema_type in type_map:
+            return type_map[schema_type]
 
-        # Handle list type
-        if type_name == "list":
-            if "element_type" not in serialized:
+        # Handle object (dict) type
+        if schema_type == "object":
+            if "additionalProperties" not in serialized:
                 raise MlflowException.invalid_parameter_value(
-                    f"list type missing 'element_type' field: {serialized}"
+                    f"Object type missing 'additionalProperties' field: {serialized}"
                 )
-            element_type = type_map.get(serialized["element_type"])
+            value_schema = serialized["additionalProperties"]
+            if "type" not in value_schema:
+                raise MlflowException.invalid_parameter_value(
+                    f"additionalProperties missing 'type' field: {serialized}"
+                )
+            value_type = type_map.get(value_schema["type"])
+            if value_type is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported value type in object: {value_schema['type']}"
+                )
+            return dict[str, value_type]
+
+        # Handle array (list) type
+        if schema_type == "array":
+            if "items" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"Array type missing 'items' field: {serialized}"
+                )
+            items_schema = serialized["items"]
+            if "type" not in items_schema:
+                raise MlflowException.invalid_parameter_value(
+                    f"items missing 'type' field: {serialized}"
+                )
+            element_type = type_map.get(items_schema["type"])
             if element_type is None:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid element_type in list serialization: {serialized}"
+                    f"Unsupported element type in array: {items_schema['type']}"
                 )
             return list[element_type]
 
         # Unsupported type
         raise MlflowException.invalid_parameter_value(
-            f"Unsupported feedback_value_type type: {type_name}. "
-            f"Only str, int, float, bool, Literal, dict, and list types are supported."
+            f"Unsupported JSON Schema type: {schema_type}. "
+            f"Only string, integer, number, boolean, object, and array are supported."
         )
 
     def model_dump(self, **kwargs) -> dict[str, Any]:

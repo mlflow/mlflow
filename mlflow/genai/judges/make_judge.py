@@ -18,8 +18,11 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     - list[PbValueType]
     """
 
+    from mlflow.entities.assessment import PbValueType
+
     # Check for basic PbValueType (float, int, str, bool)
-    if feedback_value_type in (str, int, float, bool):
+    pb_value_types = get_args(PbValueType)
+    if feedback_value_type in pb_value_types:
         return
 
     # Check for Literal type
@@ -28,7 +31,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
         # Validate that all literal values are of PbValueType
         literal_values = get_args(feedback_value_type)
         for value in literal_values:
-            if not isinstance(value, (str, int, float, bool)):
+            if not isinstance(value, pb_value_types):
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
@@ -51,7 +54,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
                     f"dict key type must be str, got {key_type}"
                 )
             # Value must be a PbValueType
-            if value_type not in (str, int, float, bool):
+            if value_type not in pb_value_types:
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
@@ -66,7 +69,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
         if len(args) == 1:
             element_type = args[0]
             # Element must be a PbValueType
-            if element_type not in (str, int, float, bool):
+            if element_type not in pb_value_types:
                 from mlflow.exceptions import MlflowException
 
                 raise MlflowException.invalid_parameter_value(
@@ -81,7 +84,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
     raise MlflowException.invalid_parameter_value(
         f"Unsupported feedback_value_type: {feedback_value_type}. "
         f"Supported types (FeedbackValueType): str, int, float, bool, Literal[...], "
-        f"dict[str, PbValueType], and list[PbValueType]. "
+        f"as well as a dict and list of these types. "
         f"Pydantic BaseModel types are not supported."
     )
 

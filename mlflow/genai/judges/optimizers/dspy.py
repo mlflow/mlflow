@@ -108,6 +108,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                 super().__init__(create_dspy_signature(judge))
                 self._judge_model: str = judge.model
                 self._judge_name: str = judge.name
+                self._judge_feedback_value_type: Any = getattr(judge, "_feedback_value_type", str)
 
             def forward(self, *args, **kwargs):
                 # If an LLM is supplied via kwargs, extract the model URI and use it,
@@ -127,7 +128,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     name=self._judge_name,
                     instructions=self.signature.instructions,
                     model=judge_model,
-                    feedback_value_type=str,
+                    feedback_value_type=self._judge_feedback_value_type,
                 )
                 feedback: Feedback = judge(**kwargs)
                 return dspy.Prediction(
@@ -216,7 +217,7 @@ class DSPyAlignmentOptimizer(AlignmentOptimizer):
                     name=judge.name,
                     instructions=optimized_instructions,
                     model=judge.model,
-                    feedback_value_type=str,
+                    feedback_value_type=getattr(judge, "_feedback_value_type", str),
                 )
 
         except Exception as e:

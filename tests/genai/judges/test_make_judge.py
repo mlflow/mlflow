@@ -1288,7 +1288,8 @@ def test_model_dump_uses_serialized_scorer_dataclass():
         serialization_version=1,
         instructions_judge_pydantic_data={
             "feedback_value_type": {
-                "type": "str",
+                "type": "string",
+                "title": "Result",
             },
             "instructions": "Evaluate {{ inputs }} and {{ outputs }}",
             "model": "openai:/gpt-3.5-turbo",
@@ -1447,8 +1448,8 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "step-by-step record" in system_content
     assert "provided to you" in system_content
     assert "Evaluation Rating Fields" in system_content
-    assert "- result: The evaluation rating/result" in system_content
-    assert "- rationale: Detailed explanation for the evaluation" in system_content
+    assert "- result (str): The evaluation rating/result" in system_content
+    assert "- rationale (str): Detailed explanation for the evaluation" in system_content
     assert "Instructions" in system_content
     assert "Analyze this {{ trace }} for quality" in system_content
 
@@ -2547,8 +2548,8 @@ def test_no_duplicate_output_fields_in_system_message():
 
     trace_system_msg = trace_judge._build_system_message(is_trace_based=True)
 
-    assert trace_system_msg.count("- result:") == 1
-    assert trace_system_msg.count("- rationale:") == 1
+    assert trace_system_msg.count("- result") == 1
+    assert trace_system_msg.count("- rationale") == 1
 
     assert "Please provide your assessment in the following JSON format" not in trace_system_msg
 
@@ -2645,7 +2646,10 @@ def test_make_judge_serialization_with_feedback_value_type():
     serialized = judge_int.model_dump()
     assert "instructions_judge_pydantic_data" in serialized
     assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
-    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {"type": "int"}
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "integer",
+        "title": "Result",
+    }
 
     restored_judge = Scorer.model_validate(serialized)
     assert isinstance(restored_judge, InstructionsJudge)
@@ -2662,7 +2666,8 @@ def test_make_judge_serialization_with_feedback_value_type():
 
     serialized_bool = judge_bool.model_dump()
     assert serialized_bool["instructions_judge_pydantic_data"]["feedback_value_type"] == {
-        "type": "bool"
+        "type": "boolean",
+        "title": "Result",
     }
 
     restored_bool = Scorer.model_validate(serialized_bool)
@@ -2678,8 +2683,9 @@ def test_make_judge_serialization_with_feedback_value_type():
 
     serialized_literal = judge_literal.model_dump()
     assert serialized_literal["instructions_judge_pydantic_data"]["feedback_value_type"] == {
-        "type": "Literal",
-        "values": ["good", "bad", "neutral"],
+        "type": "string",
+        "enum": ["good", "bad", "neutral"],
+        "title": "Result",
     }
 
     restored_literal = Scorer.model_validate(serialized_literal)
@@ -2696,9 +2702,9 @@ def test_make_judge_serialization_with_feedback_value_type():
 
     serialized_dict = judge_dict.model_dump()
     assert serialized_dict["instructions_judge_pydantic_data"]["feedback_value_type"] == {
-        "type": "dict",
-        "key_type": "str",
-        "value_type": "int",
+        "type": "object",
+        "additionalProperties": {"type": "integer"},
+        "title": "Result",
     }
 
     restored_dict = Scorer.model_validate(serialized_dict)
@@ -2715,8 +2721,9 @@ def test_make_judge_serialization_with_feedback_value_type():
 
     serialized_list = judge_list.model_dump()
     assert serialized_list["instructions_judge_pydantic_data"]["feedback_value_type"] == {
-        "type": "list",
-        "element_type": "str",
+        "type": "array",
+        "items": {"type": "string"},
+        "title": "Result",
     }
 
     restored_list = Scorer.model_validate(serialized_list)
