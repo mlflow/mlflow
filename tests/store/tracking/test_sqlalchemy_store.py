@@ -4970,7 +4970,8 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
     with pytest.raises(
         MlflowException,
         match=(
-            "Invalid span attribute 'duration'. Supported attributes: content, name, status, type."
+            "Invalid span attribute 'duration'. Supported attributes: name, status, "
+            "type, attributes.<attribute_name>."
         ),
     ):
         store.search_traces([exp_id], filter_string='span.duration = "1000"')
@@ -4978,10 +4979,17 @@ def test_search_traces_with_invalid_span_attribute(store: SqlAlchemyStore):
     with pytest.raises(
         MlflowException,
         match=(
-            "Invalid span attribute 'parent_id'. Supported attributes: content, name, status, type."
+            "Invalid span attribute 'parent_id'. Supported attributes: name, status, "
+            "type, attributes.<attribute_name>."
         ),
     ):
         store.search_traces([exp_id], filter_string='span.parent_id = "123"')
+
+    with pytest.raises(
+        MlflowException,
+        match="span.content comparator '=' not one of ",
+    ):
+        store.search_traces([exp_id], filter_string='span.content = "test"')
 
 
 def test_search_traces_with_span_type_filter(store: SqlAlchemyStore):

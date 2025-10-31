@@ -1641,7 +1641,9 @@ class SearchTraceUtils(SearchUtils):
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
     # Supported span attributes
-    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status", "content"}
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
+    _SPAN_CONTENT_KEY = "content"
+    VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {
         "name",
@@ -1667,7 +1669,7 @@ class SearchTraceUtils(SearchUtils):
     }
     # Map trace search keys to span attributes for full text search
     SEARCH_KEY_TO_SPAN = {
-        "text": "content",
+        "text": _SPAN_CONTENT_KEY,
     }
 
     @classmethod
@@ -1793,6 +1795,13 @@ class SearchTraceUtils(SearchUtils):
                     raise MlflowException(
                         f"span.{key_name} comparator '{comparator}' not one of "
                         f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            elif key_name == cls._SPAN_CONTENT_KEY:
+                if comparator not in cls.VALID_SPAN_CONTENT_COMPARATORS:
+                    raise MlflowException(
+                        f"span.{key_name} comparator '{comparator}' not one of "
+                        f"'{cls.VALID_SPAN_CONTENT_COMPARATORS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:
