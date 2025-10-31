@@ -51,9 +51,12 @@ def test_builtin_scorer_with_description():
 
 
 def test_builtin_scorer_without_description():
+    # Built-in scorers now have default descriptions for improved discoverability
     scorer_instance = RelevanceToQuery()
 
-    assert scorer_instance.description is None
+    assert scorer_instance.description is not None
+    assert isinstance(scorer_instance.description, str)
+    assert len(scorer_instance.description) > 0
 
 
 @pytest.mark.parametrize(
@@ -131,18 +134,20 @@ def test_scorer_deserialization_with_description():
 
 
 def test_backward_compatibility_scorer_without_description():
-    # Test decorator scorer
+    # Test decorator scorer - custom scorers still default to None
     @scorer
     def old_scorer(outputs) -> bool:
         return True
 
     assert old_scorer.description is None
 
-    # Test builtin scorer
+    # Test builtin scorer - built-in scorers now have default descriptions
     builtin = RelevanceToQuery()
-    assert builtin.description is None
+    assert builtin.description is not None
+    assert isinstance(builtin.description, str)
+    assert len(builtin.description) > 0
 
-    # Test InstructionsJudge
+    # Test InstructionsJudge - custom judges still default to None
     judge = InstructionsJudge(
         name="old_judge",
         instructions="Evaluate {{ outputs }}",
