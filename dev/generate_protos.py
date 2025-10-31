@@ -25,16 +25,11 @@ def gen_protos(
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
-
-    include_args = []
-    for include_path in protoc_include_paths:
-        include_args.append(f"-I={include_path}")
-
     subprocess.check_call(
         [
             protoc_bin,
             "--fatal_warnings",
-            *include_args,
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -49,15 +44,11 @@ def gen_stub_files(
     protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
-    include_args = []
-    for include_path in protoc_include_paths:
-        include_args.append(f"-I={include_path}")
-
     subprocess.check_call(
         [
             protoc_bin,
             "--fatal_warnings",
-            *include_args,
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -243,12 +234,9 @@ def main() -> None:
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        # Use committed OpenTelemetry proto files
-        otel_proto_dir = OTEL_PROTOS_DIR
-
         # Build include paths list
-        protoc3194_includes = [protoc3194_include, otel_proto_dir]
-        protoc5260_includes = [protoc5260_include, otel_proto_dir]
+        protoc3194_includes = [protoc3194_include, OTEL_PROTOS_DIR]
+        protoc5260_includes = [protoc5260_include, OTEL_PROTOS_DIR]
 
         gen_python_protos(protoc3194, protoc3194_includes, proto3194_out)
         gen_python_protos(protoc5260, protoc5260_includes, proto5260_out)
