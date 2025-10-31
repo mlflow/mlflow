@@ -57,10 +57,10 @@ def _configure_mlflow_tracking() -> None:
     3. If DATABRICKS_CONFIG_PROFILE is set, try to use profile-based authentication
     4. Fall back to "databricks" URI and let MLflow handle default authentication
     """
-    databricks_host = os.getenv("DATABRICKS_HOST")
-    databricks_token = os.getenv("DATABRICKS_TOKEN")
+    from mlflow.utils.databricks_utils import get_databricks_env_vars
 
-    if databricks_host and databricks_token:
+    env_vars = get_databricks_env_vars(mlflow.get_tracking_uri())
+    if env_vars.get("DATABRICKS_HOST") and env_vars.get("DATABRICKS_TOKEN"):
         logger.info("Using explicit DATABRICKS_HOST and DATABRICKS_TOKEN for authentication")
         return
 
@@ -70,7 +70,7 @@ def _configure_mlflow_tracking() -> None:
         return
 
     # Try profile-based authentication for local development
-    profile = os.getenv("DATABRICKS_CONFIG_PROFILE")
+    profile = env_vars.get("DATABRICKS_CONFIG_PROFILE")
     if profile:
         try:
             logger.info(f"Attempting to use Databricks CLI profile: {profile}")
