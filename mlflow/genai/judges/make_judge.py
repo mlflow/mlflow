@@ -121,8 +121,9 @@ def make_judge(
                         - str: Text responses
                         - bool: Yes/no evaluations
                         - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
-                        - dict[str, PbValueType]: Dictionary with string keys and PbValueType values
-                        - list[PbValueType]: List of PbValueType values
+                        - dict[str, int | float | str | bool]: Dictionary with string keys and int,
+                          float, str, or bool values.
+                        - list[int | float | str | bool]: List of int, float, str, or bool values
 
                         Note: Pydantic BaseModel types are not supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
