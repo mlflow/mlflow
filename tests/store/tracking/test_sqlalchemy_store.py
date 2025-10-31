@@ -10642,7 +10642,7 @@ from mlflow.entities import EvaluationDataset
         timeout=10,
     )
 
-    assert result.returncode == 0, f"Import failed: {result.stderr}"
+    assert result.returncode == 0
 
 
 def test_evaluation_dataset_not_in_entities_all():
