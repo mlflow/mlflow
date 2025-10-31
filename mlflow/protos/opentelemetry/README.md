@@ -2,22 +2,6 @@
 
 This directory contains the OpenTelemetry Protocol Buffer (protobuf) specifications.
 
-## Version
-
-**OpenTelemetry Proto Version**: v1.7.0
-
-Source: https://github.com/open-telemetry/opentelemetry-proto
-
-## Why Vendored?
-
-These proto files are committed directly to the MLflow repository instead of being
-downloaded during build time to:
-
-- Simplify the build process
-- Ensure reproducible builds
-- Avoid network dependencies during compilation
-- Provide better version control
-
 ## What's Included?
 
 MLflow only vendors the minimal set of OpenTelemetry proto files needed:
@@ -36,6 +20,7 @@ To update the OpenTelemetry proto files to a new version:
 
 1. Edit `dev/update-opentelemetry-protos.sh` and update the `VERSION` variable
 2. Run the script:
-   ```bash
-   bash dev/update-opentelemetry-protos.sh
+
+   ```sh
+   ./dev/update-opentelemetry-protos.sh
    ```
