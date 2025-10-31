@@ -51,6 +51,49 @@ describe('tracedGemini', () => {
   });
 
   describe('Generate Content', () => {
+    it('should trace models.generateContent() without parent span', async () => {
+      const gemini = new GoogleGenAI({ apiKey: 'test-key' });
+      const wrappedGemini = tracedGemini(gemini);
+
+      const result = await wrappedGemini.models.generateContent({
+        model: 'gemini-2.0-flash-001',
+        contents: 'Hello Gemini'
+      });
+
+      expect(result).toBeDefined();
+      expect(result.usageMetadata).toBeDefined();
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+
+      expect(trace.data.spans.length).toBe(1);
+
+      const llmSpan = trace.data.spans[0];
+      expect(llmSpan).toBeDefined();
+      expect(llmSpan.name).toBe('generateContent');
+      expect(llmSpan.spanType).toBe(mlflow.SpanType.LLM);
+      expect(llmSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(llmSpan.inputs).toEqual({
+        model: 'gemini-2.0-flash-001',
+        contents: 'Hello Gemini'
+      });
+      expect(llmSpan.outputs).toEqual(result);
+      expect(llmSpan.startTime).toBeDefined();
+      expect(llmSpan.endTime).toBeDefined();
+
+      const spanTokenUsage = llmSpan.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+      expect(spanTokenUsage).toBeDefined();
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe('number');
+      expect(spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe(10);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe(5);
+      expect(spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe(15);
+
+      const messageFormat = llmSpan.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+      expect(messageFormat).toBe('gemini');
+    });
+
     it('should trace models.generateContent()', async () => {
       const gemini = new GoogleGenAI({ apiKey: 'test-key' });
       const wrappedGemini = tracedGemini(gemini);
@@ -96,6 +139,9 @@ describe('tracedGemini', () => {
       expect(spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe(10);
       expect(spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe(5);
       expect(spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe(15);
+
+      const messageFormat = llmSpan.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+      expect(messageFormat).toBe('gemini');
     });
 
     it('should handle generateContent errors properly', async () => {

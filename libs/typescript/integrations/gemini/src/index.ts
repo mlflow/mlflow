@@ -86,6 +86,8 @@ function wrapWithTracing(fn: Function, methodName: string): Function {
           console.debug('Error extracting token usage', error);
         }
 
+        span.setAttribute(SpanAttributeKey.MESSAGE_FORMAT, 'gemini');
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
