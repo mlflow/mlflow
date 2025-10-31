@@ -33,6 +33,7 @@ def gen_protos(
     subprocess.check_call(
         [
             protoc_bin,
+            "--fatal_warnings",
             *include_args,
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
@@ -55,6 +56,7 @@ def gen_stub_files(
     subprocess.check_call(
         [
             protoc_bin,
+            "--fatal_warnings",
             *include_args,
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
