@@ -8367,7 +8367,7 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_dataset_crud_operations(store):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_dataset(
             name="test_eval_dataset",
@@ -8947,7 +8947,7 @@ def test_dataset_associations_and_lazy_loading(store):
 
     retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_datasets(experiment_ids=[experiment_ids[1]])
@@ -8957,13 +8957,13 @@ def test_dataset_associations_and_lazy_loading(store):
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_dataset_records(created_dataset.dataset_id, records)
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 
@@ -9862,7 +9862,7 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
 
 def test_dataset_experiment_associations(store):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         exp_ids = _create_experiments(
             store, ["exp_assoc_1", "exp_assoc_2", "exp_assoc_3", "exp_assoc_4"]
         )
