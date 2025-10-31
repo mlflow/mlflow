@@ -200,4 +200,3 @@ describe('normalizeConversation - Vercel AI', () => {
     });
   });
 });
-

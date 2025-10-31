@@ -79,7 +79,6 @@ export const SmallLogoCard = ({ children, link }) => {
   );
 };
 
-
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
 
 export const NewFeatureCard = ({ children, description, name, releaseVersion, learnMoreLink = '' }) => (

@@ -5,7 +5,7 @@ import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
 /**
  * Vercel AI SDK Input format:
- * 
+ *
  * Format 1 (with messages):
  * {
  *   messages: [
@@ -19,7 +19,7 @@ import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
  *     }
  *   ]
  * }
- * 
+ *
  * Format 2 (with prompt):
  * {
  *   prompt: "..."
@@ -55,7 +55,7 @@ type VercelAIPromptInput = {
 
 /**
  * Vercel AI SDK Output format:
- * 
+ *
  * {
  *   text?: string,
  *   response?: {
@@ -152,7 +152,7 @@ const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage
 
 /**
  * Normalize Vercel AI chat input format
- * 
+ *
  * Handles two formats:
  * 1. { messages: [...] }
  * 2. { prompt: "..." }
@@ -184,7 +184,7 @@ export const normalizeVercelAIChatInput = (obj: unknown): ModelTraceChatMessage[
 
 /**
  * Normalize Vercel AI chat output format
- * 
+ *
  * Handles various output formats:
  * 1. { text: "..." }
  * 2. { response: { text: "..." } }
@@ -199,7 +199,11 @@ export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage
   const typedObj = obj as any;
 
   // Check for messages in the response
-  if (has(obj, 'response.messages') && isArray(typedObj.response.messages) && typedObj.response.messages.every(isVercelAIMessage)) {
+  if (
+    has(obj, 'response.messages') &&
+    isArray(typedObj.response.messages) &&
+    typedObj.response.messages.every(isVercelAIMessage)
+  ) {
     return compact(typedObj.response.messages.map(processVercelAIMessage));
   }
 
@@ -230,4 +234,3 @@ export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage
 
   return null;
 };
-
