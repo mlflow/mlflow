@@ -129,7 +129,7 @@ uv run --all-extras bash dev/build-docs.sh --build-api-docs
 uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
 
 # Serve documentation locally (after building)
-cd docs && yarn serve --port 8080
+cd docs && npm run serve --port 8080
 ```
 
 ## Important Files
