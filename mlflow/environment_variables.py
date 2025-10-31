@@ -957,6 +957,10 @@ _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
 )
 
+_MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE", int, 100
+)
+
 #: Specifies the logging level for MLflow. This can be set to any valid logging level
 #: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
 #: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
