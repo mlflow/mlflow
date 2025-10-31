@@ -1464,9 +1464,6 @@ def _merge_trace(
             parent_span_id=parent_span_id,
             trace_id=target_trace_id,
             otel_trace_id=new_trace_id,
-            # the trace should be ended after it's registered in the trace manager
-            # otherwise the exporter cannot find the trace to export
-            end_trace=False,
         )
         trace_manager.register_span(cloned_span)
         # end the cloned span to ensure it's processed by the exporter

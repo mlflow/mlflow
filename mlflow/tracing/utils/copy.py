@@ -30,11 +30,9 @@ def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | No
             trace_id=new_trace_id,
             # Only set the experiment ID for the root span.
             experiment_id=experiment_id if old_span.parent_id is None else None,
-            # Non-root spans are not ended and exported because we only want to
-            # copy the root span for evaluation.
-            # Root span will be exported at the end.
-            end_trace=False,
         )
+        # we need to register the span to trace manager first before ending it
+        # otherwise the span will not be correctly exported
         trace_manager.register_span(new_span)
         if old_span.parent_id is None:
             new_root_span = new_span
