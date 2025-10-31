@@ -62,7 +62,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
         <ModelTraceExplorerFieldRenderer
           title={input?.key ?? 'input'}
           data={input?.value ?? 'null'}
-          renderMode="text"
+          renderMode="default"
         />
       </div>
       <div
@@ -78,7 +78,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
         <ModelTraceExplorerFieldRenderer
           title={output?.key ?? 'output'}
           data={output?.value ?? 'null'}
-          renderMode="text"
+          renderMode="default"
         />
       </div>
     </div>
