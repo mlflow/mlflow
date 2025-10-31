@@ -2,6 +2,13 @@ import json
 import os
 import posixpath
 import urllib.parse
+import mimetypes
+import platform
+
+if platform.system() == "Windows":
+    mimetypes.init()
+    mimetypes.add_type("text/csv", ".csv")
+
 from datetime import datetime, timezone
 from functools import lru_cache
 from mimetypes import guess_type
