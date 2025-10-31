@@ -97,6 +97,7 @@ class EvaluationResultRecord:
         expectations: The expected outputs.
         score: The score of the evaluation result.
         trace: The trace of the evaluation execution.
+        rationales: The rationales of the evaluation result.
     """
 
     inputs: dict[str, Any]
@@ -104,6 +105,7 @@ class EvaluationResultRecord:
     expectations: Any
     score: float
     trace: Trace
+    rationales: dict[str, str]
 
 
 @experimental(version="3.5.0")

@@ -20,7 +20,7 @@ from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.display_utils import display_evaluation_output
-from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
+from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
@@ -265,14 +265,7 @@ def evaluate(
     if predict_fn:
         predict_fn = convert_predict_fn(predict_fn=predict_fn, sample_input=sample_input)
 
-    eval_start_time = int(time.time() * 1000)
-
-    result = _run_harness(data, scorers, predict_fn, model_id)
-
-    # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(result.run_id, eval_start_time)
-
-    return result
+    return _run_harness(data, scorers, predict_fn, model_id)
 
 
 @record_usage_event(GenAIEvaluateEvent)

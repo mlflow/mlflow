@@ -12,6 +12,7 @@ from mlflow.genai.judges.tools.constants import ToolNames
 from mlflow.genai.judges.tools.search_traces import SearchTracesTool
 from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.types.llm import FunctionToolDefinition, ToolDefinition, ToolParamsSchema
 from mlflow.utils.annotations import experimental
 
@@ -35,7 +36,7 @@ class GetTracesInSession(JudgeTool):
                 name=ToolNames._GET_TRACES_IN_SESSION,
                 description=(
                     "Retrieve traces from the same session for multi-turn evaluation. "
-                    "Extracts the session ID from the current trace's tags and searches for other "
+                    "Extracts the session ID from the current trace and searches for other "
                     "traces in the same session to provide conversational context. "
                     "Returns a list of JudgeToolTraceInfo objects containing trace metadata, "
                     "request, and response."
@@ -83,11 +84,11 @@ class GetTracesInSession(JudgeTool):
         Raises:
             MlflowException: If session ID is not found or has invalid format
         """
-        session_id = trace.info.tags.get("session.id")
+        session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
 
         if not session_id:
             raise MlflowException(
-                "No session.id found in trace tags. Traces in session require a session ID "
+                "No session ID found in trace metadata. Traces in session require a session ID "
                 "to identify related traces within the same conversation session.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
@@ -102,7 +103,8 @@ class GetTracesInSession(JudgeTool):
             )
 
         filter_string = (
-            f"tags.`session.id` = '{session_id}' AND trace.timestamp < {trace.info.request_time}"
+            f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = '{session_id}' "
+            f"AND trace.timestamp < {trace.info.request_time}"
         )
 
         return SearchTracesTool().invoke(

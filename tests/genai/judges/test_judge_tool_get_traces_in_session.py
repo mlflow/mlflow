@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from mlflow.entities.trace import Trace
+from mlflow.entities.trace import Trace, TraceData
 from mlflow.entities.trace_info import TraceInfo as MlflowTraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.get_traces_in_session import GetTracesInSession
 from mlflow.genai.judges.tools.types import JudgeToolTraceInfo
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.tracing.utils import TraceMetadataKey
 from mlflow.types.llm import ToolDefinition
 
 
@@ -38,9 +39,9 @@ def test_get_traces_in_session_tool_get_definition() -> None:
 
 
 def create_mock_trace(session_id: str | None = None) -> Trace:
-    tags = {}
+    metadata = {}
     if session_id:
-        tags["session.id"] = session_id
+        metadata[TraceMetadataKey.TRACE_SESSION] = session_id
 
     trace_info = MlflowTraceInfo(
         trace_id="current-trace",
@@ -48,9 +49,9 @@ def create_mock_trace(session_id: str | None = None) -> Trace:
         request_time=1234567890,
         state=TraceState.OK,
         execution_duration=250,
-        tags=tags,
+        trace_metadata=metadata,
     )
-    return Trace(info=trace_info, data=None)
+    return Trace(info=trace_info, data=TraceData(spans=[]))
 
 
 def test_get_traces_in_session_tool_invoke_success() -> None:
@@ -94,7 +95,10 @@ def test_get_traces_in_session_tool_invoke_success() -> None:
 
         mock_search_tool.invoke.assert_called_once_with(
             trace=current_trace,
-            filter_string="tags.`session.id` = 'session-123' AND trace.timestamp < 1234567890",
+            filter_string=(
+                f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = 'session-123' "
+                "AND trace.timestamp < 1234567890"
+            ),
             order_by=None,
             max_results=20,
         )
@@ -115,7 +119,10 @@ def test_get_traces_in_session_tool_invoke_custom_parameters() -> None:
 
         mock_search_tool.invoke.assert_called_once_with(
             trace=current_trace,
-            filter_string="tags.`session.id` = 'session-456' AND trace.timestamp < 1234567890",
+            filter_string=(
+                f"metadata.`{TraceMetadataKey.TRACE_SESSION}` = 'session-456' "
+                "AND trace.timestamp < 1234567890"
+            ),
             order_by=["timestamp DESC"],
             max_results=50,
         )
@@ -125,7 +132,7 @@ def test_get_traces_in_session_tool_invoke_no_session_id() -> None:
     tool = GetTracesInSession()
     current_trace = create_mock_trace(session_id=None)
 
-    with pytest.raises(MlflowException, match="No session.id found in trace tags") as exc_info:
+    with pytest.raises(MlflowException, match="No session ID found in trace metadata") as exc_info:
         tool.invoke(current_trace)
 
     assert exc_info.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
