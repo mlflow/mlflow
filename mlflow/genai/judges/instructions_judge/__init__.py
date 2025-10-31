@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any, Literal, get_args, get_origin
+from typing import Any, Literal, get_origin
 
 import pydantic
 from pydantic import PrivateAttr
@@ -293,7 +293,7 @@ class InstructionsJudge(Judge):
         if value_type in (str, int, float, bool):
             return value_type.__name__
         elif get_origin(value_type) is Literal:
-            return f"Literal[{', '.join(get_args(value_type))}]"
+            return str(value_type).replace("typing.", "")
         # dict and list
         return str(value_type)
 

@@ -543,6 +543,11 @@ def invoke_judge_model(
                 "LiteLLM with `pip install litellm` to use this judge.",
                 error_code=BAD_REQUEST,
             )
+        if response_format is not None:
+            _logger.warning(
+                "Structured output is not supported by native LLM providers. Please install "
+                "LiteLLM with `pip install litellm` to use this judge.",
+            )
         response = _invoke_via_gateway(model_uri, model_provider, prompt)
 
     cleaned_response = _strip_markdown_code_blocks(response)

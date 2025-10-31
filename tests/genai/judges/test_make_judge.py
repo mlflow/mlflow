@@ -1433,7 +1433,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     judge = make_judge(
         name="test_judge",
         instructions="Analyze this {{ trace }} for quality",
-        feedback_value_type=str,
+        feedback_value_type=bool,
         model="openai:/gpt-4",
     )
 
@@ -1448,7 +1448,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "step-by-step record" in system_content
     assert "provided to you" in system_content
     assert "Evaluation Rating Fields" in system_content
-    assert "- result (str): The evaluation rating/result" in system_content
+    assert "- result (bool): The evaluation rating/result" in system_content
     assert "- rationale (str): Detailed explanation for the evaluation" in system_content
     assert "Instructions" in system_content
     assert "Analyze this {{ trace }} for quality" in system_content
@@ -2542,14 +2542,14 @@ def test_no_duplicate_output_fields_in_system_message():
     trace_judge = make_judge(
         name="trace_judge",
         instructions="Evaluate {{ trace }} for quality",
-        feedback_value_type=str,
+        feedback_value_type=Literal["good", "bad", "neutral"],
         model="openai:/gpt-4",
     )
 
     trace_system_msg = trace_judge._build_system_message(is_trace_based=True)
 
-    assert trace_system_msg.count("- result") == 1
-    assert trace_system_msg.count("- rationale") == 1
+    assert trace_system_msg.count("- result (Literal['good', 'bad', 'neutral'])") == 1
+    assert trace_system_msg.count("- rationale (str):") == 1
 
     assert "Please provide your assessment in the following JSON format" not in trace_system_msg
 
