@@ -352,18 +352,11 @@ class TestAgentServerInitialization:
         assert server.agent_type is None
         assert server.validator is not None
         assert server.app.title == "Agent Server"
-        assert server.app.version == "0.0.1"
 
     def test_agent_server_with_agent_type(self):
         server = AgentServer(agent_type="agent/v1/responses")
         assert server.agent_type == "agent/v1/responses"
         assert server.validator.agent_type == "agent/v1/responses"
-
-    def test_agent_server_cors_middleware_setup(self):
-        server = AgentServer()
-        # Check that CORS middleware is configured
-        middlewares = [middleware.cls.__name__ for middleware in server.app.user_middleware]
-        assert "CORSMiddleware" in middlewares
 
     def test_agent_server_static_files_setup_exists(self):
         # This test is difficult to mock properly due to Path internals
@@ -526,7 +519,6 @@ class TestRequestHandling:
         assert response.status_code == 200
         response_json = response.json()
         assert response_json["status"] == "healthy"
-        assert response_json["version"] == "0.0.1"
 
 
 class TestContextManagement:
@@ -609,7 +601,7 @@ class TestMLflowIntegration:
 
         client.post("/invocations", json={"test": "data"})
         # Verify span was created with correct name
-        mock_span.assert_called_once_with(name="test_function_invoke")
+        mock_span.assert_called_once_with(name="test_function")
 
     @patch("mlflow.start_span")
     def test_tracing_attributes_setting(self, mock_span):

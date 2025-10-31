@@ -278,7 +278,7 @@ class AgentServer:
         @self.app.get("/health")
         async def health_check() -> dict:
             """Health check endpoint for frontend connection testing"""
-            return {"status": "healthy", "version": "0.0.1"}
+            return {"status": "healthy"}
 
     async def _handle_invoke_request(
         self, data: dict, start_time: float, return_trace: bool
