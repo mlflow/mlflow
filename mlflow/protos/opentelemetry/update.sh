@@ -23,7 +23,7 @@ rm -rf proto
 echo "Fetching and extracting .proto files from: $ARCHIVE_URL"
 
 # Stream and extract only the proto files needed by MLflow
-curl -fsSL "$ARCHIVE_URL" | tar --strip-components=1 -xzf - --wildcards \
+curl -fsSL "$ARCHIVE_URL" | tar --strip-components=2 -xzf - --wildcards \
   '*/opentelemetry/proto/trace/v1/trace.proto' \
   '*/opentelemetry/proto/common/v1/common.proto' \
   '*/opentelemetry/proto/resource/v1/resource.proto'
