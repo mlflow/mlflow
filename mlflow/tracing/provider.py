@@ -29,8 +29,8 @@ from mlflow.entities.trace_location import (
 )
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
-    MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER,
     MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
@@ -63,11 +63,13 @@ _logger = logging.getLogger(__name__)
 class _TracerProviderWrapper:
     """
     A facade for the tracer provider.
-    MLflow uses two tracer providers depending on the MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER env var.
-    1. Use the global OpenTelemetry tracer provider singleton. This is the default behavior and
-       traces created by MLflow and OpenTelemetry SDK will be exported to the same destination.
-    2. Use an isolated tracer provider instance managed by MLflow. This is useful in an environment
-       where MLflow and OpenTelemetry SDK are used in different purposes.
+    MLflow uses different tracer providers depending on the MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER
+    environment variable setting.
+    1. Use an isolated tracer provider instance managed by MLflow. This is the default behavior such
+       that MLflow does not break an environment where MLflow and OpenTelemetry SDK are used in
+       different purposes.
+    2. Use the global OpenTelemetry tracer provider singleton and traces created by MLflow and
+        OpenTelemetry SDK will be exported to the same destination.
     """
 
     def __init__(self):
@@ -76,17 +78,17 @@ class _TracerProviderWrapper:
 
     @property
     def once(self) -> Once:
-        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider_once
         return trace._TRACER_PROVIDER_SET_ONCE
 
     def get(self) -> TracerProvider:
-        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider
         return trace.get_tracer_provider()
 
     def set(self, tracer_provider: TracerProvider):
-        if MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.get():
+        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
             # Bypass the once flag otherwise the update will be ignored.

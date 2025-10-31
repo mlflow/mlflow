@@ -3,13 +3,13 @@ from opentelemetry import trace as otel_trace
 import mlflow
 from mlflow.entities.span import SpanStatusCode, encode_span_id
 from mlflow.entities.trace_state import TraceState
-from mlflow.environment_variables import MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER
+from mlflow.environment_variables import MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER
 
 from tests.tracing.helper import get_traces
 
 
 def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatch):
-    monkeypatch.setenv(MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.name, "false")
+    monkeypatch.setenv(MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.name, "false")
 
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
@@ -67,7 +67,7 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
 
 
 def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypatch):
-    monkeypatch.setenv(MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.name, "false")
+    monkeypatch.setenv(MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.name, "false")
 
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
@@ -118,7 +118,7 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypa
 
 
 def test_mlflow_and_opentelemetry_isolated_tracing(monkeypatch):
-    monkeypatch.setenv(MLFLOW_TRACE_ISOLATE_TRACER_PROVIDER.name, "true")
+    monkeypatch.setenv(MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.name, "true")
 
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
