@@ -55,11 +55,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langgraph"
         },
         "models": {
-            "minimum": "0.2.42",
+            "minimum": "0.2.39",
             "maximum": "0.6.10"
         },
         "autologging": {
-            "minimum": "0.2.42",
+            "minimum": "0.2.39",
             "maximum": "0.6.10"
         }
     },
