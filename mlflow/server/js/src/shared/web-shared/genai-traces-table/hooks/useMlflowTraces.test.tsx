@@ -1,4 +1,3 @@
-import { jest, describe, test, expect, it, beforeEach } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -45,7 +44,7 @@ jest.mock('../utils/FetchUtils', () => ({
 }));
 
 // Mock global window.fetch
-global.fetch = jest.fn<typeof global.fetch>();
+global.fetch = jest.fn();
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -1353,7 +1352,6 @@ describe('invalidateMlflowSearchTracesCache', () => {
 
     // Verify that invalidateQueries was called with the correct key
     expect(invalidateQueriesSpy).toHaveBeenCalledTimes(1);
-    // @ts-expect-error 'queryKey' does not exist in type
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['searchMlflowTraces'] });
   });
 });

@@ -1,4 +1,3 @@
-import { describe, afterEach, jest, it, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 
 import { IntlProvider } from '@databricks/i18n';

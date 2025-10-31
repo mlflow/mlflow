@@ -1,4 +1,3 @@
-import { describe, it, expect } from '@jest/globals';
 import { uniq } from 'lodash';
 
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';

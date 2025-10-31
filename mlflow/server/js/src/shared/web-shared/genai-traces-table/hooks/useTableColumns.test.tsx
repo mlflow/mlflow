@@ -1,4 +1,3 @@
-import { jest, describe, afterEach, it, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import type { IntlShape } from '@databricks/i18n';
