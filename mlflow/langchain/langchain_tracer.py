@@ -23,7 +23,7 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, Spa
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import parse_token_usage
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -447,6 +447,11 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Start span for a chain run."""
         if metadata:
             kwargs.update({"metadata": metadata})
+            # NB: We need to guard this with active trace existence because sometimes LangGraph
+            # execute the callback within an isolated thread where the active trace is not set.
+            if thread_id := metadata.get("thread_id") and mlflow.get_current_active_trace_id():
+                mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
+
         # not considering streaming events for now
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chain"),

@@ -187,6 +187,22 @@ This way, the span for the `check_code` node will have child spans, which record
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
 
+### Thread ID Tracking
+
+Since MLflow 3.6, MLflow will automatically record the thread (session) ID for the trace and let you view a group of traces as a session in the UI. To enable this feature, you need to pass the `thread_id` in the config when invoking the graph.
+
+```python
+graph.invoke(inputs, {"configurable": {"thread_id": "1"}})
+```
+
+The thread ID will be recorded in the trace metadata and can be accessed in the `Attributes` tab in the MLflow UI.
+
+![LangGraph Thread ID](/images/llms/tracing/langgraph-thread-id.png)
+
+By clicking the session ID, you will be redirected to the session page where you can view all the traces in the session.
+
+![LangGraph Session Page](/images/llms/tracing/langgraph-session-page.png)
+
 ### Disable auto-tracing
 
 Auto tracing for LangGraph can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
