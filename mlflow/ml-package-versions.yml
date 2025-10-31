@@ -615,8 +615,8 @@ langchain:
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.7"
-    maximum: "1.0.3"
+    minimum: "0.3.4"
+    maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -657,8 +657,8 @@ langchain:
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.7"
-    maximum: "1.0.3"
+    minimum: "0.3.4"
+    maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -701,7 +701,7 @@ langgraph:
 
   models:
     minimum: "0.2.42"
-    maximum: "1.0.2"
+    maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -718,7 +718,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.42"
-    maximum: "1.0.2"
+    maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
           "langchain",

@@ -42,12 +42,12 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.3.7",
-            "maximum": "1.0.3"
+            "minimum": "0.3.4",
+            "maximum": "0.3.27"
         },
         "autologging": {
-            "minimum": "0.3.7",
-            "maximum": "1.0.3"
+            "minimum": "0.3.4",
+            "maximum": "0.3.27"
         }
     },
     "langgraph": {
@@ -56,11 +56,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.2.42",
-            "maximum": "1.0.2"
+            "maximum": "0.6.10"
         },
         "autologging": {
             "minimum": "0.2.42",
-            "maximum": "1.0.2"
+            "maximum": "0.6.10"
         }
     },
     "llama_index": {
