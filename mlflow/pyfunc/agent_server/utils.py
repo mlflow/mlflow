@@ -1,14 +1,17 @@
-import contextvars
+import logging
 import os
 import subprocess
+from contextvars import ContextVar
 
 import mlflow
 
 # Context-isolated storage for request headers
 # ensuring thread-safe access across async execution contexts
-_request_headers: contextvars.ContextVar[dict[str, str]] = contextvars.ContextVar(
+_request_headers: ContextVar[dict[str, str]] = ContextVar[dict[str, str]](
     "request_headers", default={}
 )
+
+logger = logging.getLogger(__name__)
 
 
 def set_request_headers(headers: dict[str, str]) -> None:
@@ -44,7 +47,8 @@ def get_obo_workspace_client():
 
 def _configure_mlflow_tracking() -> None:
     """
-    Configure MLflow tracking URI with robust authentication that works both locally and on Databricks Apps.
+    Configure MLflow tracking URI with robust authentication that works both locally and on
+    Databricks Apps.
 
     Priority order:
     1. If DATABRICKS_HOST and DATABRICKS_TOKEN are set, use them directly
@@ -52,40 +56,36 @@ def _configure_mlflow_tracking() -> None:
     3. If DATABRICKS_CONFIG_PROFILE is set, try to use profile-based authentication
     4. Fall back to "databricks" URI and let MLflow handle default authentication
     """
-    # Check if explicit host and token are provided (most reliable method)
     databricks_host = os.getenv("DATABRICKS_HOST")
     databricks_token = os.getenv("DATABRICKS_TOKEN")
 
     if databricks_host and databricks_token:
-        print("Using explicit DATABRICKS_HOST and DATABRICKS_TOKEN for authentication")
-        mlflow.set_tracking_uri("databricks")
+        logger.info("Using explicit DATABRICKS_HOST and DATABRICKS_TOKEN for authentication")
         return
 
-    # Check if we're running in Databricks Apps environment
     app_name = os.getenv("DATABRICKS_APP_NAME")
     if app_name:
-        print(
-            f"Running in Databricks Apps environment (app: {app_name}), using default authentication"
-        )
-        mlflow.set_tracking_uri("databricks")
+        logger.info(f"Running in Databricks Apps (app: {app_name}), using default authentication")
         return
 
     # Try profile-based authentication for local development
     profile = os.getenv("DATABRICKS_CONFIG_PROFILE")
     if profile:
         try:
-            print(f"Attempting to use Databricks CLI profile: {profile}")
+            logger.info(f"Attempting to use Databricks CLI profile: {profile}")
             mlflow.set_tracking_uri(f"databricks://{profile}")
             # Test the connection by trying to get the tracking URI
             tracking_uri = mlflow.get_tracking_uri()
-            print(f"Successfully configured MLflow with profile '{profile}': {tracking_uri}")
+            logger.info(f"Successfully configured MLflow with profile '{profile}': {tracking_uri}")
             return
         except Exception as e:
-            print(f"Failed to use profile '{profile}': {e}")
-            print("Falling back to default authentication")
+            logger.error(f"Failed to use profile '{profile}': {e}")
+            logger.info("Falling back to default authentication")
 
     # Final fallback: use default "databricks" URI
-    print("Using default Databricks authentication (relies on environment or default profile)")
+    logger.info(
+        "Using default Databricks authentication (relies on environment or default profile)"
+    )
     mlflow.set_tracking_uri("databricks")
 
 
@@ -93,7 +93,8 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
     """Initialize MLflow tracking and set active model."""
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
     assert experiment_id is not None, (
-        "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based logging and real time tracing. Refer to the README for more info."
+        "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based logging "
+        "and real time tracing. Refer to the README for more info."
     )
 
     # Configure MLflow tracking URI with robust authentication
@@ -102,8 +103,9 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
 
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
     # in local development, we use a fallback app name
-    app_name = os.getenv("DATABRICKS_APP_NAME", "local-dev")
+    app_name = os.getenv("DATABRICKS_APP_NAME", "local")
 
+    # TODO: migrate over to `enable_git_model_versioning` or merge functionality
     # Get current git commit hash for versioning
     try:
         git_commit = (
@@ -111,12 +113,12 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
         )
         version_identifier = f"git-{git_commit}"
     except subprocess.CalledProcessError:
-        version_identifier = "no-git-repo"  # Fallback if not in a git repo
+        version_identifier = "no-git"
     logged_model_name = f"{app_name}-{version_identifier}"
 
     # Set the active model context
     active_model_info = mlflow.set_active_model(name=logged_model_name)
-    print(
+    logger.info(
         f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
     )
 
@@ -131,4 +133,4 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
         uc_registered_model_info = mlflow.register_model(
             model_uri=active_model_info.model_uri, name=UC_MODEL_NAME
         )
-        print(f"Registered model to UC: {uc_registered_model_info}")
+        logger.info(f"Registered model to UC: {uc_registered_model_info}")

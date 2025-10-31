@@ -1,9 +1,8 @@
-import json
-import pytest
 from dataclasses import dataclass
-from unittest.mock import AsyncMock, Mock, patch
 from typing import AsyncGenerator
+from unittest.mock import Mock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
 from mlflow.pyfunc.agent_server import (
@@ -13,12 +12,12 @@ from mlflow.pyfunc.agent_server import (
     invoke,
     stream,
 )
-from mlflow.types.agent import ChatAgentChunk, ChatAgentRequest, ChatAgentResponse, ChatAgentMessage
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentRequest, ChatAgentResponse
 from mlflow.types.llm import (
+    ChatChoice,
     ChatCompletionChunk,
     ChatCompletionRequest,
     ChatCompletionResponse,
-    ChatChoice,
     ChatMessage,
 )
 from mlflow.types.responses import (
@@ -26,7 +25,6 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
-
 
 # Test Agent Classes for Validation - Functions instead of classes to avoid global decorator conflicts
 
@@ -533,7 +531,7 @@ class TestRequestHandling:
 
 class TestContextManagement:
     def test_request_headers_isolation(self):
-        from mlflow.pyfunc.agent_server.utils import set_request_headers, get_request_headers
+        from mlflow.pyfunc.agent_server.utils import get_request_headers, set_request_headers
 
         # Test that headers are isolated between contexts
         set_request_headers({"test": "value1"})
@@ -555,8 +553,8 @@ class TestContextManagement:
 
     def test_forwarded_access_token_extraction(self):
         from mlflow.pyfunc.agent_server.utils import (
-            set_request_headers,
             get_forwarded_access_token,
+            set_request_headers,
         )
 
         test_token = "test-token-123"
@@ -566,8 +564,8 @@ class TestContextManagement:
 
     def test_forwarded_access_token_missing(self):
         from mlflow.pyfunc.agent_server.utils import (
-            set_request_headers,
             get_forwarded_access_token,
+            set_request_headers,
         )
 
         set_request_headers({"other-header": "value"})
@@ -576,8 +574,8 @@ class TestContextManagement:
     @patch("databricks.sdk.WorkspaceClient")
     def test_obo_workspace_client(self, mock_workspace_client):
         from mlflow.pyfunc.agent_server.utils import (
-            set_request_headers,
             get_obo_workspace_client,
+            set_request_headers,
         )
 
         test_token = "test-token-123"
@@ -651,7 +649,7 @@ class TestMLflowIntegration:
         client.post("/invocations", json=request_data)
 
         # Verify span was created (this is the main functionality we can reliably test)
-        mock_span.assert_called_once_with(name="test_function_invoke")
+        mock_span.assert_called_once_with(name="test_function")
         # Verify the span context manager was used
         mock_span_instance.__enter__.assert_called_once()
         mock_span_instance.__exit__.assert_called_once()

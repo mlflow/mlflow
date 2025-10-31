@@ -41,6 +41,7 @@ import argparse
 import inspect
 import json
 import logging
+import os
 import time
 from dataclasses import asdict, is_dataclass
 from pathlib import Path
@@ -68,12 +69,14 @@ from mlflow.types.responses import (
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
+from mlflow.utils.annotations import experimental
 
 _invoke_function: Callable | None = None
 _stream_function: Callable | None = None
 AgentType = Literal["agent/v1/responses", "agent/v1/chat", "agent/v2/chat"]
 
 
+@experimental(version="3.6.0")
 def invoke() -> Callable:
     """Decorator to register a function as an invoke endpoint. Can only be used once."""
 
@@ -91,6 +94,7 @@ def get_invoke_function():
     return _invoke_function
 
 
+@experimental(version="3.6.0")
 def stream() -> Callable:
     """Decorator to register a function as a stream endpoint. Can only be used once."""
 
@@ -104,6 +108,7 @@ def stream() -> Callable:
     return decorator
 
 
+@experimental(version="3.6.0")
 class AgentValidator:
     def __init__(self, agent_type: AgentType | None = None):
         self.agent_type = agent_type
@@ -187,19 +192,12 @@ class AgentValidator:
             )
 
 
+@experimental(version="3.6.0")
 class AgentServer:
     def __init__(self, agent_type: AgentType | None = None):
         self.agent_type = agent_type
         self.validator = AgentValidator(agent_type)
-        self.app = FastAPI(title="Agent Server", version="0.0.1")
-
-        self.app.add_middleware(
-            CORSMiddleware,
-            allow_origins=["*"],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+        self.app = FastAPI(title="Agent Server")
 
         self.logger = logging.getLogger(__name__)
         self._setup_static_files()
@@ -207,7 +205,14 @@ class AgentServer:
 
     def _setup_static_files(self) -> None:
         """Setup static file serving for the UI"""
-        ui_dist_path = Path(__file__).parent.parent.parent / "ui/static"
+        ui_dist_path = os.getenv("MLFLOW_AGENT_SERVER_UI_PATH")
+        if ui_dist_path is None:
+            self.logger.warning(
+                "MLFLOW_AGENT_SERVER_UI_PATH environment variable is not set. UI will not be served."
+            )
+            return
+
+        ui_dist_path = Path(ui_dist_path).resolve()
 
         if ui_dist_path.exists():
             self.app.mount(
@@ -219,10 +224,6 @@ class AgentServer:
             @self.app.get("/")
             async def serve_ui():
                 return FileResponse(str(ui_dist_path / "index.html"))
-
-            @self.app.get("/databricks.svg")
-            async def serve_databricks_svg():
-                return FileResponse(str(ui_dist_path / "databricks.svg"))
         else:
             self.logger.warning(
                 f"UI dist folder not found at {ui_dist_path}. UI will not be served."
@@ -236,7 +237,7 @@ class AgentServer:
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")
         async def invocations_endpoint(request: Request):
-            # capture headers such as x-forwarded-access-token
+            # Capture headers such as x-forwarded-access-token
             # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
             set_request_headers(dict(request.headers))
 
@@ -290,7 +291,7 @@ class AgentServer:
         func_name = func.__name__
 
         try:
-            with mlflow.start_span(name=f"{func_name}_invoke") as span:
+            with mlflow.start_span(name=f"{func_name}") as span:
                 span.set_inputs(data)
                 if inspect.iscoroutinefunction(func):
                     result = await func(data)
@@ -354,7 +355,7 @@ class AgentServer:
         async def generate():
             nonlocal all_chunks
             try:
-                with mlflow.start_span(name=f"{func_name}_stream") as span:
+                with mlflow.start_span(name=f"{func_name}") as span:
                     span.set_inputs(data)
                     if inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func):
                         async for chunk in func(data):
@@ -446,6 +447,7 @@ class AgentServer:
         uvicorn.run(app_import_string, host=host, port=port, workers=workers, reload=reload)
 
 
+@experimental(version="3.6.0")
 def parse_server_args():
     """Parse command line arguments for the agent server"""
     parser = argparse.ArgumentParser(description="Start the agent server")
