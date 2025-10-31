@@ -1993,3 +1993,9 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     # Verify response was created
     assert response is not None
     assert response.status_code == 200
+
+
+def test_download_model_artifact_smoke():
+    c = app.test_client()
+    resp = c.get("/api/2.0/mlflow/model-versions/download?name=doesnotexist&version=1&path=model.pkl")
+    assert resp.status_code in (200, 404)

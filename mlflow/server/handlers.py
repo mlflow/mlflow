@@ -11,6 +11,9 @@ import time
 import urllib
 from functools import partial, wraps
 
+import mlflow.artifacts
+from mlflow.exceptions import MlflowException
+
 import requests
 from flask import Response, current_app, jsonify, request, send_file
 from google.protobuf import descriptor
@@ -3767,6 +3770,37 @@ def get_service_endpoints(service, get_handler):
                 ret.append((http_path, handler, [endpoint.method]))
     return ret
 
+def _download_model_artifact():
+    """
+    Download a model artifact (e.g. `model pkl`) for a registered model version.
+
+    Query params:
+      - name: registered model name
+      - version: model version number
+      - path: artifact path inside the model (e.g. "model.pkl" or "MLmodel")
+    """
+    name = request.args.get("name")
+    version = request.args.get("version")
+    path = request.args.get("path")
+
+    missing = [p for p in ("name", "version", "path") if not request.args.get(p)]
+    if missing:
+        return {
+            "error_code": "INVALID_PARAMETER_VALUE",
+            "message": f"Missing required parameter(s): {', '.join(missing)}",
+        }, 400
+
+    artifact_uri = f"models:/{name}/{version}/{path}"
+
+    try:
+        local_path = mlflow.artifacts.download_artifacts(artifact_uri)
+    except MlflowException as e:
+        return {"error_code": "RESOURCE_DOES_NOT_EXIST", "message": str(e)}, 404
+    except Exception as e:
+        return {"error_code": "INTERNAL_ERROR", "message": str(e)}, 500
+
+    return send_file(local_path, as_attachment=True)
+
 
 def get_endpoints(get_handler=get_handler):
     """
@@ -3778,7 +3812,10 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
-        + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + [
+            (_add_static_prefix("/graphql"), _graphql, ["GET", "POST"]),
+            ("/api/2.0/mlflow/model-versions/download", _download_model_artifact, ["GET"]),
+        ]
     )
 
 
