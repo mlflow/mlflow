@@ -49,45 +49,24 @@ def get_obo_workspace_client():
 def _configure_mlflow_tracking() -> None:
     """
     Configure MLflow tracking URI with robust authentication that works both locally and on
-    Databricks Apps.
-
-    Priority order:
-    1. If DATABRICKS_HOST and DATABRICKS_TOKEN are set, use them directly
-    2. If running on Databricks Apps (DATABRICKS_APP_NAME exists), use "databricks" URI
-    3. If DATABRICKS_CONFIG_PROFILE is set, try to use profile-based authentication
-    4. Fall back to "databricks" URI and let MLflow handle default authentication
+    Databricks Apps. Uses MLflow's standard authentication priority.
     """
-    from mlflow.utils.databricks_utils import get_databricks_env_vars
-
-    env_vars = get_databricks_env_vars(mlflow.get_tracking_uri())
-    if env_vars.get("DATABRICKS_HOST") and env_vars.get("DATABRICKS_TOKEN"):
-        logger.info("Using explicit DATABRICKS_HOST and DATABRICKS_TOKEN for authentication")
-        return
-
+    # Check if we're in Databricks Apps first (special case)
     app_name = os.getenv("DATABRICKS_APP_NAME")
     if app_name:
         logger.info(f"Running in Databricks Apps (app: {app_name}), using default authentication")
+        mlflow.set_tracking_uri("databricks")
         return
 
-    # Try profile-based authentication for local development
-    profile = env_vars.get("DATABRICKS_CONFIG_PROFILE")
-    if profile:
-        try:
-            logger.info(f"Attempting to use Databricks CLI profile: {profile}")
-            mlflow.set_tracking_uri(f"databricks://{profile}")
-            # Test the connection by trying to get the tracking URI
-            tracking_uri = mlflow.get_tracking_uri()
-            logger.info(f"Successfully configured MLflow with profile '{profile}': {tracking_uri}")
-            return
-        except Exception as e:
-            logger.error(f"Failed to use profile '{profile}': {e}")
-            logger.info("Falling back to default authentication")
-
-    # Final fallback: use default "databricks" URI
-    logger.info(
-        "Using default Databricks authentication (relies on environment or default profile)"
-    )
-    mlflow.set_tracking_uri("databricks")
+    # For all other cases, use MLflow's standard Databricks authentication
+    try:
+        mlflow.set_tracking_uri("databricks")
+        # This will trigger the full authentication chain automatically
+        tracking_uri = mlflow.get_tracking_uri()
+        logger.info(f"Successfully configured MLflow tracking: {tracking_uri}")
+    except Exception as e:
+        logger.error(f"Failed to configure Databricks authentication: {e}")
+        raise
 
 
 def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
@@ -99,7 +78,8 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
     )
 
     # Configure MLflow tracking URI with robust authentication
-    _configure_mlflow_tracking()
+    mlflow.set_tracking_uri("databricks")
+    # _configure_mlflow_tracking()
     mlflow.set_experiment(experiment_id=experiment_id)
 
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
