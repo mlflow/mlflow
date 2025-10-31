@@ -18,7 +18,7 @@ the additional files in the extraction list.
 
 To update the OpenTelemetry proto files to a new version:
 
-1. Edit `dev/update-opentelemetry-protos.sh` and update the `VERSION` variable
+1. Edit `dev/update-opentelemetry-protos.sh` and update the `COMMIT_SHA` variable
 2. Run the script:
 
    ```sh

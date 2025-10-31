@@ -8,8 +8,10 @@
 
 set -eo pipefail
 
-VERSION="v1.7.0"
-ARCHIVE_URL="https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/${VERSION}.tar.gz"
+# Commit SHA from opentelemetry-proto repository
+# v1.7.0: https://github.com/open-telemetry/opentelemetry-proto/commit/8654ab7a5a43ca25fe8046e59dcd6935c3f76de0
+COMMIT_SHA="8654ab7a5a43ca25fe8046e59dcd6935c3f76de0"
+ARCHIVE_URL="https://github.com/open-telemetry/opentelemetry-proto/archive/${COMMIT_SHA}.tar.gz"
 
 # Get repository root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
