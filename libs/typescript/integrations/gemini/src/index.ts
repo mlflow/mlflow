@@ -104,12 +104,17 @@ function getSpanType(methodName: string): SpanType | undefined {
       return undefined;
   }
 }
-
 function extractTokenUsage(response: any): TokenUsage | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const usage = response?.usageMetadata ?? response?.usage;
-
+  if (!usage) {
+    return undefined;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const input = usage.promptTokenCount;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const output = usage.candidatesTokenCount;
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
   const total = usage.totalTokenCount;
 
   if (input !== undefined && output !== undefined && total !== undefined) {

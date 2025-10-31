@@ -241,7 +241,7 @@ describe('tracedGemini', () => {
       expect(childSpan.endTime).toBeDefined();
     });
 
-    it('should not trace methods outside SUPPORTED_METHODS', async () => {
+    it('should not trace methods outside SUPPORTED_METHODS', () => {
       const gemini = new GoogleGenAI({ apiKey: 'test-key' });
       const wrappedGemini = tracedGemini(gemini);
 
