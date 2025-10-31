@@ -22,10 +22,17 @@ rm -rf proto
 
 echo "Fetching and extracting .proto files from: $ARCHIVE_URL"
 
-# Stream and extract only the proto files needed by MLflow
-curl -fsSL "$ARCHIVE_URL" | tar --strip-components=2 -xzf - --wildcards \
-  '*/opentelemetry/proto/trace/v1/trace.proto' \
-  '*/opentelemetry/proto/common/v1/common.proto' \
-  '*/opentelemetry/proto/resource/v1/resource.proto'
+# Download and extract to temp directory (works on both macOS BSD tar and GNU tar)
+TEMP_DIR=$(mktemp -d)
+trap "rm -rf ${TEMP_DIR}" EXIT
+
+curl -fsSL "$ARCHIVE_URL" | tar -xzf - -C "$TEMP_DIR"
+
+# Copy only the proto files we need
+EXTRACTED_DIR="${TEMP_DIR}/opentelemetry-proto-${COMMIT_SHA}"
+mkdir -p proto/trace/v1 proto/common/v1 proto/resource/v1
+cp "${EXTRACTED_DIR}/opentelemetry/proto/trace/v1/trace.proto" proto/trace/v1/
+cp "${EXTRACTED_DIR}/opentelemetry/proto/common/v1/common.proto" proto/common/v1/
+cp "${EXTRACTED_DIR}/opentelemetry/proto/resource/v1/resource.proto" proto/resource/v1/
 
 echo "Extraction complete."
