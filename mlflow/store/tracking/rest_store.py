@@ -406,7 +406,7 @@ class RestStore(AbstractStore):
     ) -> int:
         # If deleting by trace_ids, split into batches to avoid hitting the
         # Databricks server limit
-        if trace_ids and len(trace_ids):
+        if trace_ids:
             batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
             total_deleted = 0
             for i in range(0, len(trace_ids), batch_size):
