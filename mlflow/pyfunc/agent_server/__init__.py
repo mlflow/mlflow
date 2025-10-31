@@ -53,7 +53,13 @@ from pydantic import BaseModel
 
 import mlflow
 from mlflow.pyfunc import ResponsesAgent
-from mlflow.pyfunc.agent_server.utils import set_request_headers
+from mlflow.pyfunc.agent_server.utils import (
+    get_forwarded_access_token,
+    get_header,
+    get_obo_workspace_client,
+    get_request_headers,
+    set_request_headers,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.types.agent import ChatAgentChunk, ChatAgentRequest, ChatAgentResponse
 from mlflow.types.llm import (
@@ -68,6 +74,19 @@ from mlflow.types.responses import (
     ResponsesAgentStreamEvent,
 )
 from mlflow.utils.annotations import experimental
+
+__all__ = [
+    "set_request_headers",
+    "get_request_headers",
+    "get_forwarded_access_token",
+    "get_header",
+    "get_obo_workspace_client",
+    "AgentServer",
+    "invoke",
+    "stream",
+    "parse_server_args",
+]
+
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
