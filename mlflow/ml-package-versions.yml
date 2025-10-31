@@ -615,7 +615,7 @@ langchain:
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.4"
+    minimum: "0.3.7"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -657,7 +657,7 @@ langchain:
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.4"
+    minimum: "0.3.7"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -700,7 +700,7 @@ langgraph:
       pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.2.39"
+    minimum: "0.2.43"
     maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
@@ -717,7 +717,7 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.2.39"
+    minimum: "0.2.43"
     maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
@@ -744,7 +744,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.11.21"
-    maximum: "0.14.6"
+    maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -762,7 +762,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.11.21"
-    maximum: "0.14.6"
+    maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:

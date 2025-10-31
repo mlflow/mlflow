@@ -42,11 +42,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langchain"
         },
         "models": {
-            "minimum": "0.3.4",
+            "minimum": "0.3.7",
             "maximum": "0.3.27"
         },
         "autologging": {
-            "minimum": "0.3.4",
+            "minimum": "0.3.7",
             "maximum": "0.3.27"
         }
     },
@@ -55,11 +55,11 @@ _ML_PACKAGE_VERSIONS = {
             "pip_release": "langgraph"
         },
         "models": {
-            "minimum": "0.2.39",
+            "minimum": "0.2.43",
             "maximum": "0.6.10"
         },
         "autologging": {
-            "minimum": "0.2.39",
+            "minimum": "0.2.43",
             "maximum": "0.6.10"
         }
     },
@@ -70,11 +70,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.11.21",
-            "maximum": "0.14.6"
+            "maximum": "0.14.4"
         },
         "autologging": {
             "minimum": "0.11.21",
-            "maximum": "0.14.6"
+            "maximum": "0.14.4"
         }
     },
     "ag2": {
