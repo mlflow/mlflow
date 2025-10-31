@@ -101,7 +101,6 @@ export const RunViewChildRunsBox = ({ runUuid, experimentId }: { runUuid: string
             <Button
               componentId="mlflow.run_details.overview.child_runs.load_more_button"
               size="small"
-              type="secondary"
               onClick={() => loadChildRuns(nextPageToken)}
               loading={isLoading}
             >

@@ -10,6 +10,7 @@ The actual span ingestion logic would need to properly convert incoming OTel for
 to MLflow spans, which requires more complex conversion logic.
 """
 
+from collections import defaultdict
 from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
@@ -95,33 +96,47 @@ async def export_traces(
             detail="Invalid OpenTelemetry protobuf format",
         )
 
-    mlflow_spans = []
+    # Group spans by trace_id to support BatchSpanProcessor
+    # log_spans requires all spans in a batch to have the same trace_id
+    spans_by_trace_id = defaultdict(list)
     for resource_span in parsed_request.resource_spans:
         for scope_span in resource_span.scope_spans:
             for otel_proto_span in scope_span.spans:
                 try:
                     mlflow_span = Span.from_otel_proto(otel_proto_span)
-                    mlflow_spans.append(mlflow_span)
+                    spans_by_trace_id[mlflow_span.trace_id].append(mlflow_span)
                 except Exception:
                     raise HTTPException(
                         status_code=422,
                         detail="Cannot convert OpenTelemetry span to MLflow span",
                     )
 
-    if mlflow_spans:
+    if spans_by_trace_id:
         store = _get_tracking_store()
 
-        try:
-            store.log_spans(x_mlflow_experiment_id, mlflow_spans)
-        except NotImplementedError:
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail=f"REST OTLP span logging is not supported by {store.__class__.__name__}",
+        # Note: Benchmarking shows that ThreadPoolExecutor does not improve performance
+        # for SQLite backends and can actually degrade performance due to write contention.
+        # Sequential logging is simpler and faster for typical use cases.
+        errors = {}
+        for trace_id, trace_spans in spans_by_trace_id.items():
+            try:
+                store.log_spans(x_mlflow_experiment_id, trace_spans)
+            except NotImplementedError:
+                store_name = store.__class__.__name__
+                raise HTTPException(
+                    status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                    detail=f"{store_name} does not support logging spans via OTLP REST API",
+                )
+            except Exception as e:
+                errors[trace_id] = e
+
+        if errors:
+            error_msg = "\n".join(
+                [f"Trace {trace_id}: {error}" for trace_id, error in errors.items()]
             )
-        except Exception as e:
             raise HTTPException(
                 status_code=422,
-                detail=f"Cannot store OpenTelemetry spans: {e}",
+                detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
     return OTelExportTraceServiceResponse()

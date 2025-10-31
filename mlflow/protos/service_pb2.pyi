@@ -6,6 +6,7 @@ from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
+from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -784,6 +785,17 @@ class GetTraceInfoV3(_message.Message):
     trace_id: str
     def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
 
+class BatchGetTraces(_message.Message):
+    __slots__ = ("trace_ids",)
+    class Response(_message.Message):
+        __slots__ = ("traces",)
+        TRACES_FIELD_NUMBER: _ClassVar[int]
+        traces: _containers.RepeatedCompositeFieldContainer[Trace]
+        def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class SearchTraces(_message.Message):
     __slots__ = ("experiment_ids", "filter", "max_results", "order_by", "page_token")
     class Response(_message.Message):
@@ -957,10 +969,12 @@ class DeleteTraceTagV3(_message.Message):
     def __init__(self, request_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
-    __slots__ = ("trace_info",)
+    __slots__ = ("trace_info", "spans")
     TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SPANS_FIELD_NUMBER: _ClassVar[int]
     trace_info: TraceInfoV3
-    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
+    spans: _containers.RepeatedCompositeFieldContainer[_trace_pb2.Span]
+    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_trace_pb2.Span, _Mapping]]] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
     __slots__ = ("type", "mlflow_experiment", "inference_table")

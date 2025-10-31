@@ -30,7 +30,6 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
 from mlflow.types.chat import ChatTool, FunctionToolDefinition
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -90,11 +89,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         response_format = invocation_params.get("response_format")
         if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
             try:
-                invocation_params["response_format"] = (
-                    response_format.model_json_schema()
-                    if IS_PYDANTIC_V2_OR_NEWER
-                    else response_format.schema()
-                )
+                invocation_params["response_format"] = response_format.model_json_schema()
             except Exception as e:
                 _logger.error(
                     "Failed to generate JSON schema for response_format: %s", e, exc_info=True
@@ -341,7 +336,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         for raw_tool in raw_tools:
             # First, try to parse the raw tool dictionary as OpenAI-style tool
             try:
-                tool = ChatTool.validate_compat(raw_tool)
+                tool = ChatTool.model_validate(raw_tool)
                 tools.append(tool)
             except pydantic.ValidationError:
                 # If not OpenAI style, just try to extract the name and descriptions.
