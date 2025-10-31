@@ -92,4 +92,25 @@ describe('filterEvaluationResults', () => {
 
     expect(filteredResults).toEqual([evals[1]]);
   });
+
+  it('filter on search query matches in trace request preview', () => {
+    const evalsWithTraceInfo: EvalTraceComparisonEntry[] = [
+      {
+        currentRunValue: {
+          ...evals[0].currentRunValue!,
+          inputs: { inputs: 'paris' },
+        },
+      },
+      {
+        currentRunValue: {
+          ...evals[1].currentRunValue!,
+          inputs: { inputs: 'london' },
+        },
+      },
+    ];
+
+    const filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'paris');
+
+    expect(filteredResults).toEqual([evalsWithTraceInfo[0]]);
+  });
 });
