@@ -47,7 +47,11 @@ import {
 } from '../utils/FeatureUtils';
 import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
-import { convertTraceInfoV3ToRunEvalEntry, getCustomMetadataKeyFromColumnId } from '../utils/TraceUtils';
+import {
+  convertTraceInfoV3ToRunEvalEntry,
+  filterTracesByAssessmentSourceRunId,
+  getCustomMetadataKeyFromColumnId,
+} from '../utils/TraceUtils';
 
 interface SearchMlflowTracesRequest {
   locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
@@ -110,6 +114,8 @@ export const useMlflowTracesTableMetadata = ({
     enabled: !disabled,
   });
 
+  const filteredTraces = useMemo(() => filterTracesByAssessmentSourceRunId(traces, runUuid), [traces, runUuid]);
+
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
   const {
     data: otherTraces,
@@ -123,20 +129,25 @@ export const useMlflowTracesTableMetadata = ({
     sqlWarehouseId,
   });
 
+  const filteredOtherTraces = useMemo(
+    () => filterTracesByAssessmentSourceRunId(otherTraces, otherRunUuid),
+    [otherTraces, otherRunUuid],
+  );
+
   const evaluatedTraces = useMemo(() => {
-    if (!traces || isInnerLoading || error || !traces.length) {
+    if (!filteredTraces || isInnerLoading || error || !filteredTraces.length) {
       return [];
     }
-    return traces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [traces, isInnerLoading, error]);
+    return filteredTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
+  }, [filteredTraces, isInnerLoading, error]);
 
   const otherEvaluatedTraces = useMemo(() => {
     const isOtherLoading = isOtherInnerLoading && Boolean(otherRunUuid);
-    if (!otherTraces || isOtherLoading || otherError || !otherTraces.length) {
+    if (!filteredOtherTraces || isOtherLoading || otherError || !filteredOtherTraces.length) {
       return [];
     }
-    return otherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
-  }, [otherTraces, isOtherInnerLoading, otherError, otherRunUuid]);
+    return filteredOtherTraces.map((trace) => convertTraceInfoV3ToRunEvalEntry(trace));
+  }, [filteredOtherTraces, isOtherInnerLoading, otherError, otherRunUuid]);
 
   const assessmentInfos = useMemo(() => {
     return getAssessmentInfos(intl, evaluatedTraces || [], otherEvaluatedTraces || []);
@@ -145,7 +156,7 @@ export const useMlflowTracesTableMetadata = ({
   const tableFilterOptions = useMemo(() => {
     // Add source options
     const sourceMap = new Map<string, TableFilterOption>();
-    traces?.forEach((trace) => {
+    filteredTraces?.forEach((trace) => {
       const traceMetadata = trace.trace_metadata;
       if (traceMetadata) {
         const sourceName = traceMetadata[MlflowUtils.sourceNameTag];
@@ -161,7 +172,7 @@ export const useMlflowTracesTableMetadata = ({
     return {
       source: Array.from(sourceMap.values()).sort((a, b) => a.value.localeCompare(b.value)),
     } as TableFilterOptions;
-  }, [traces]);
+  }, [filteredTraces]);
 
   const allColumns = useTableColumns(intl, evaluatedTraces || [], assessmentInfos, runUuid, undefined, true);
 
@@ -343,6 +354,11 @@ export const useSearchMlflowTraces = ({
     return res;
   }, [evalTraceComparisonEntries, useClientSideFiltering, clientFilters, searchQuery, currentRunDisplayName]);
 
+  const tracesFilteredBySourceRun = useMemo(
+    () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
+    [filteredTraces, runUuid],
+  );
+
   if (disabled) {
     return {
       data: [],
@@ -352,7 +368,7 @@ export const useSearchMlflowTraces = ({
   }
 
   return {
-    data: filteredTraces,
+    data: tracesFilteredBySourceRun,
     isLoading: isInnerLoading,
     isFetching: isInnerFetching,
     error: error || undefined,
@@ -518,14 +534,16 @@ const useSearchMlflowTracesInner = ({
 const buildTracesFromSearchAndArtifacts = (
   artifactData: RunEvaluationTracesDataEntry[],
   searchRes: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>,
+  runUuid?: string,
 ): {
   data: RunEvaluationTracesDataEntry[];
   shouldUseTraceV3: boolean;
   error?: NetworkRequestError;
 } => {
   const { data: searchData, error } = searchRes;
+  const filteredSearchData = filterTracesByAssessmentSourceRunId(searchData, runUuid);
 
-  if (artifactData.length > 0 || error || !searchData || searchData.length === 0) {
+  if (artifactData.length > 0 || error || !filteredSearchData || filteredSearchData.length === 0) {
     return { data: artifactData, shouldUseTraceV3: false, error: error || undefined };
   }
 
@@ -533,7 +551,7 @@ const buildTracesFromSearchAndArtifacts = (
   // than RunEvaluationTracesDataEntry, so fill in all properties as empty
   // except for traceInfo.
   return {
-    data: searchData
+    data: filteredSearchData
       .filter((trace): trace is ModelTraceInfoV3 => trace !== null && trace !== undefined)
       .map((trace) => {
         return {
@@ -720,7 +738,7 @@ export const useMlflowTraces = (
   }
 
   return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes),
+    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
     isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
     refetchMlflowTraces: searchRes.refetch,
   };
