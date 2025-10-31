@@ -30,3 +30,4 @@ export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';
 export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
+export { registerOnSpanStartHook, registerOnSpanEndHook } from './exporters/span_processor_hooks';

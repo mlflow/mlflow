@@ -10,7 +10,7 @@ NB: These Pydantic models just alias the models defined in mlflow.types.chat to 
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 
@@ -69,8 +69,7 @@ class RequestPayload(ChatCompletionRequest, RequestModel):
     messages: list[RequestMessage] = Field(..., min_length=1)
     tools: list[ChatToolWithUC] | None = None
 
-    class Config:
-        json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -107,8 +106,7 @@ class ResponsePayload(ChatCompletionResponse, ResponseModel):
     # Override the `choices` field to use the Choice model
     choices: list[Choice]
 
-    class Config:
-        json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -129,5 +127,4 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
-    class Config:
-        json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

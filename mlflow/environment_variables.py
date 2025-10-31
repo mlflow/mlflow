@@ -662,6 +662,12 @@ MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
 )
 
+#: Enable tracing for evaluation scorers. By default (False), MLflow will not trace the scorer
+#: function calls. To trace the scorer functions for debugging purpose, set this to True.
+MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
+)
+
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
 #: inference or the process of capturing imported modules encounters any errors.
@@ -949,6 +955,10 @@ MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
 #: (default: ``10``)
 _MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
     "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
+)
+
+_MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE", int, 100
 )
 
 #: Specifies the logging level for MLflow. This can be set to any valid logging level

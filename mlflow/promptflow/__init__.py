@@ -14,6 +14,7 @@ Promptflow (native) format
 import logging
 import os
 import shutil
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -49,6 +50,12 @@ from mlflow.utils.model_utils import (
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "promptflow flavor is deprecated and will be removed in a future release",
+    FutureWarning,
+    stacklevel=2,
+)
 
 FLAVOR_NAME = "promptflow"
 
