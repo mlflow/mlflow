@@ -59,6 +59,7 @@ from mlflow.pyfunc.agent_server.utils import (
     get_obo_workspace_client,
     get_request_headers,
     set_request_headers,
+    setup_mlflow,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.types.agent import ChatAgentChunk, ChatAgentRequest, ChatAgentResponse
@@ -85,6 +86,7 @@ __all__ = [
     "invoke",
     "stream",
     "parse_server_args",
+    "setup_mlflow",
 ]
 
 
