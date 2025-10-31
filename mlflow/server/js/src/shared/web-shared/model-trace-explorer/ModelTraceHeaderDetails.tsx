@@ -6,6 +6,7 @@ import {
   useDesignSystemTheme,
   Tooltip,
   ClockIcon,
+  SpeechBubblePlusIcon,
 } from '@databricks/design-system';
 import { Notification } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
@@ -16,6 +17,7 @@ import { getModelTraceId } from './ModelTraceExplorer.utils';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
+import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 
 const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
@@ -99,6 +101,10 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
     return undefined;
   }, [rootNode]);
 
+  const sessionId = useMemo(() => {
+    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.['mlflow.trace.session'];
+  }, [modelTrace.info]);
+
   const getComponentId = useCallback((key: string) => `${BASE_TAG_COMPONENT_ID}.tag-${key}`, []);
 
   const handleTagClick = (text: string) => {
@@ -106,6 +112,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
   };
 
   const getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40);
+  const getTruncatedSessionLabel = (label: string) => (label.length > 10 ? `${label.slice(0, 10)}...` : label);
 
   const handleCopy = useCallback(() => {
     setShowNotification(true);
@@ -149,6 +156,23 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
             onCopy={handleCopy}
           />
         )}
+        {sessionId && (
+          <ModelTraceHeaderMetricSection
+            label={<FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />}
+            icon={<SpeechBubblePlusIcon css={{ fontSize: 12, display: 'flex' }} />}
+            value={sessionId}
+            tagKey="session"
+            color="default"
+            getTruncatedLabel={getTruncatedSessionLabel}
+            getComponentId={getComponentId}
+            onCopy={handleCopy}
+          />
+        )}
+        <ModelTraceHeaderMetadataPill
+          traceMetadata={(modelTrace.info as ModelTraceInfoV3)?.trace_metadata}
+          getTruncatedLabel={getTruncatedLabel}
+          getComponentId={getComponentId}
+        />
         {tags.length > 0 && (
           <div
             css={{
