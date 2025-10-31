@@ -69,16 +69,16 @@ from mlflow.types.responses import (
 )
 from mlflow.utils.annotations import experimental
 
-_invoke_function: Callable | None = None
-_stream_function: Callable | None = None
+_invoke_function: Callable[..., Any] | None = None
+_stream_function: Callable[..., Any] | None = None
 AgentType = Literal["agent/v1/responses", "agent/v1/chat", "agent/v2/chat"]
 
 
 @experimental(version="3.6.0")
-def invoke() -> Callable:
+def invoke() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to register a function as an invoke endpoint. Can only be used once."""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         global _invoke_function
         if _invoke_function is not None:
             raise ValueError("invoke decorator can only be used once")
@@ -93,10 +93,10 @@ def get_invoke_function():
 
 
 @experimental(version="3.6.0")
-def stream() -> Callable:
+def stream() -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to register a function as a stream endpoint. Can only be used once."""
 
-    def decorator(func: Callable):
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         global _stream_function
         if _stream_function is not None:
             raise ValueError("stream decorator can only be used once")
@@ -206,7 +206,8 @@ class AgentServer:
         ui_dist_path = os.getenv("MLFLOW_AGENT_SERVER_UI_PATH")
         if ui_dist_path is None:
             self.logger.warning(
-                "MLFLOW_AGENT_SERVER_UI_PATH environment variable is not set. UI will not be served."
+                "MLFLOW_AGENT_SERVER_UI_PATH environment variable is not set. "
+                "UI will not be served."
             )
             return
 
