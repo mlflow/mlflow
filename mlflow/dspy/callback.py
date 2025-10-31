@@ -177,6 +177,18 @@ class MlflowCallback(BaseCallback):
 
     @skip_if_trace_disabled
     def on_lm_end(self, call_id: str, outputs: Any | None, exception: Exception | None = None):
+        # Unpack Prediction objects for proper serialization in traces.
+        # While most LMs return strings that get parsed by adapters, some custom LM
+        # implementations or specific providers may return Prediction objects directly.
+        # DSPy's Prediction.__repr__ doesn't serialize well for trace display, so we
+        # unpack to dict format (similar to how on_module_end handles Prediction outputs).
+        if isinstance(outputs, dspy.Prediction):
+            outputs = outputs.toDict()
+        elif isinstance(outputs, list) and outputs and isinstance(outputs[0], dspy.Prediction):
+            # Handle lists of Prediction objects (e.g., when n > 1)
+            outputs = [
+                pred.toDict() if isinstance(pred, dspy.Prediction) else pred for pred in outputs
+            ]
         self._end_span(call_id, outputs, exception)
 
     @skip_if_trace_disabled

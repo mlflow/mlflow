@@ -1223,3 +1223,30 @@ def test_autolog_databricks_rm_retriever():
                 "id": "id2",
             },
         ]
+
+
+def test_callback_unpacks_prediction_objects():
+    pred = dspy.Prediction(answer="42", reasoning="math")
+    assert isinstance(pred, dspy.Prediction)
+
+    outputs = pred
+    if isinstance(outputs, dspy.Prediction):
+        outputs = outputs.toDict()
+
+    assert isinstance(outputs, dict)
+    assert outputs["answer"] == "42"
+    assert outputs["reasoning"] == "math"
+
+    pred_list = [
+        dspy.Prediction(answer="41"),
+        dspy.Prediction(answer="42"),
+        dspy.Prediction(answer="43"),
+    ]
+
+    outputs = pred_list
+    if isinstance(outputs, list) and outputs and isinstance(outputs[0], dspy.Prediction):
+        outputs = [p.toDict() if isinstance(p, dspy.Prediction) else p for p in outputs]
+
+    assert isinstance(outputs, list)
+    assert all(isinstance(o, dict) for o in outputs)
+    assert [o["answer"] for o in outputs] == ["41", "42", "43"]
