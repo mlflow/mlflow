@@ -5,6 +5,8 @@ import pathlib
 import random
 import re
 import shutil
+import subprocess
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -10617,21 +10619,30 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert traces[0].data.spans[0].status.status_code == "OK"
 
 
-def test_sqlalchemy_store_does_not_import_evaluation_dataset_at_module_level():
+def test_sqlalchemy_store_import_does_not_cause_circular_import():
     """
     Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
 
-    Verifies that the SqlAlchemyStore doesn't import EvaluationDataset at the module level,
-    which causes circular import issues if a user is using a store plugin that inherits from
-    SqlAlchemyStore during entrypoint registration (which bypasses lazy importation).
+    Verifies that importing SqlAlchemyStore (which imports EvaluationDataset) doesn't cause
+    circular import errors. This simulates what happens when a store plugin that inherits
+    from SqlAlchemyStore is loaded during entrypoint registration.
+
+    The circular import is prevented by lazy imports within evaluation_dataset.py methods,
+    not by avoiding the import at module level.
     """
-    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    code = """
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.entities import EvaluationDataset
+"""
 
-    assert SqlAlchemyStore is not None
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
 
-    import mlflow.store.tracking.sqlalchemy_store as store_module
-
-    assert not hasattr(store_module, "EvaluationDataset")
+    assert result.returncode == 0, f"Import failed: {result.stderr}"
 
 
 def test_evaluation_dataset_not_in_entities_all():
