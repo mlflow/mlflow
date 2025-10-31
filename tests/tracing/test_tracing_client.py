@@ -219,6 +219,7 @@ def test_tracing_client_get_trace_with_database_stored_spans():
     assert loaded_span.attributes.get("custom.attribute") == "test-value"
 
 
+@skip_when_testing_trace_sdk
 def test_tracing_client_get_trace_error_handling():
     client = TracingClient()
 
