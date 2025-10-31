@@ -625,11 +625,7 @@ const createMlflowSearchFilter = (
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
-            if (networkFilter.operator === HiddenFilterOperator.IS_NOT_NULL) {
-              filter.push(`${columnKey} IS NOT NULL`);
-            } else {
-              filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
-            }
+            filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
       }
