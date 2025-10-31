@@ -1856,7 +1856,7 @@ def test_evaluation_dataset_merge_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "get_dataset") as mock_get:
@@ -1971,7 +1971,7 @@ def test_evaluation_dataset_lazy_loading_records():
         last_update_time=1234567890,
     )
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_get_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_get_store:
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "_load_dataset_records") as mock_load:

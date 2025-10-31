@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
@@ -9,7 +11,10 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
+
+if TYPE_CHECKING:
+    from mlflow.entities import DatasetRecord, EvaluationDataset
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -23,9 +28,7 @@ import mlflow.store.db.utils
 from mlflow.entities import (
     Assessment,
     DatasetInput,
-    DatasetRecord,
     DatasetRecordSource,
-    EvaluationDataset,
     Expectation,
     Experiment,
     Feedback,

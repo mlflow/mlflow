@@ -10615,3 +10615,36 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert len(traces[0].data.spans) == 1
     assert traces[0].data.spans[0].name == "incomplete_span"
     assert traces[0].data.spans[0].status.status_code == "OK"
+
+
+def test_sqlalchemy_store_does_not_import_evaluation_dataset_at_module_level():
+    """
+    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
+
+    Verifies that the SqlAlchemyStore doesn't import EvaluationDataset at the module level,
+    which causes circular import issues if a user is using a store plugin that inherits from
+    SqlAlchemyStore during entrypoint registration (which bypasses lazy importation).
+    """
+    from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+    assert SqlAlchemyStore is not None
+
+    import mlflow.store.tracking.sqlalchemy_store as store_module
+
+    assert not hasattr(store_module, "EvaluationDataset")
+
+
+def test_evaluation_dataset_not_in_entities_all():
+    """
+    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
+
+    Verify that EvaluationDataset is excluded from mlflow.entities.__all__ to prevent
+    wildcard imports from triggering circular import during plugin registration. The manner
+    in which SQL store plugins are loaded, when extending from the base store implementation,
+    will trigger lazy loading which will create a circular import at initialization time.
+    This test ensures that the reference to EvaluationDataset is not entered into this
+    namespace to prevent future regressions for plugin users.
+    """
+    import mlflow.entities
+
+    assert "EvaluationDataset" not in mlflow.entities.__all__
