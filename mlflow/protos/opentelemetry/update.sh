@@ -3,7 +3,7 @@
 # Script to update OpenTelemetry proto files in the MLflow repository.
 #
 # Usage:
-#   ./dev/update-opentelemetry-protos.sh
+#   ./mlflow/protos/opentelemetry/update.sh
 #
 
 set -eo pipefail
@@ -13,14 +13,9 @@ set -eo pipefail
 COMMIT_SHA="8654ab7a5a43ca25fe8046e59dcd6935c3f76de0"
 ARCHIVE_URL="https://github.com/open-telemetry/opentelemetry-proto/archive/${COMMIT_SHA}.tar.gz"
 
-# Get repository root directory
+# Navigate to the directory containing this script
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-TARGET_DIR="${REPO_ROOT}/mlflow/protos/opentelemetry"
-
-# Create target directory and navigate to it
-mkdir -p "${TARGET_DIR}"
-cd "${TARGET_DIR}"
+cd "${SCRIPT_DIR}"
 
 # Remove existing proto directory
 rm -rf proto

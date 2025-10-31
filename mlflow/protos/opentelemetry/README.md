@@ -11,16 +11,16 @@ MLflow only vendors the minimal set of OpenTelemetry proto files needed:
 - `proto/resource/v1/resource.proto` - Resource attributes
 
 **Note:** This is intentionally a minimal subset. If MLflow needs additional OpenTelemetry
-proto files (e.g., metrics, logs), update `dev/update-opentelemetry-protos.sh` to include
-the additional files in the extraction list.
+proto files (e.g., metrics, logs), update `update.sh` to include the additional files in
+the extraction list.
 
 ## Updating
 
 To update the OpenTelemetry proto files to a new version:
 
-1. Edit `dev/update-opentelemetry-protos.sh` and update the `COMMIT_SHA` variable
+1. Edit `update.sh` and update the `COMMIT_SHA` variable
 2. Run the script:
 
    ```sh
-   ./dev/update-opentelemetry-protos.sh
+   ./mlflow/protos/opentelemetry/update.sh
    ```
