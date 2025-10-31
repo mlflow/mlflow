@@ -4,6 +4,7 @@ import subprocess
 from contextvars import ContextVar
 
 import mlflow
+from mlflow.tracking.fluent import _set_active_model
 
 # Context-isolated storage for request headers
 # ensuring thread-safe access across async execution contexts
@@ -117,7 +118,7 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
     logged_model_name = f"{app_name}-{version_identifier}"
 
     # Set the active model context
-    active_model_info = mlflow.set_active_model(name=logged_model_name)
+    active_model_info = _set_active_model(name=logged_model_name)
     logger.info(
         f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
     )

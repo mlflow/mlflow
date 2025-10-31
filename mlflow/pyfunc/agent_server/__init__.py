@@ -13,7 +13,6 @@ Key Features:
 - Streaming and non-streaming response support with Server-Sent Events (SSE)
 - MLflow tracing integration with automatic span creation and attribute setting
 - Static file serving for optional agent UI components
-- CORS middleware for cross-origin requests
 - Health check endpoint for monitoring
 
 Architecture:
@@ -48,7 +47,6 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -139,7 +137,7 @@ class AgentValidator:
                 f"Invalid data for {dataclass_class.__name__} (agent_type: {self.agent_type}): {e}"
             )
 
-    def validate_and_convert_request(self, data: dict) -> None:
+    def validate_and_convert_request(self, data: dict[str, Any]) -> None:
         """Validate request parameters based on agent type"""
         if self.agent_type is None:
             return data
@@ -172,7 +170,7 @@ class AgentValidator:
         elif self.agent_type == "agent/v2/chat":
             self.validate_dataclass(ChatAgentChunk, result)
 
-    def validate_and_convert_result(self, result: Any, stream: bool = False) -> dict:
+    def validate_and_convert_result(self, result: Any, stream: bool = False) -> dict[str, Any]:
         """Validate and convert the result into a dictionary if necessary"""
         if stream:
             self.validate_stream_response(result)
@@ -230,7 +228,7 @@ class AgentServer:
             )
 
     @staticmethod
-    def _get_databricks_output(trace_id: str) -> dict:
+    def _get_databricks_output(trace_id: str) -> dict[str, Any]:
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             return {"trace": trace.to_mlflow_trace().to_dict()}
 
@@ -276,13 +274,13 @@ class AgentServer:
                 return await self._handle_invoke_request(request_data, start_time, return_trace)
 
         @self.app.get("/health")
-        async def health_check() -> dict:
+        async def health_check() -> dict[str, str]:
             """Health check endpoint for frontend connection testing"""
             return {"status": "healthy"}
 
     async def _handle_invoke_request(
-        self, data: dict, start_time: float, return_trace: bool
-    ) -> dict:
+        self, data: dict[str, Any], start_time: float, return_trace: bool
+    ) -> dict[str, Any]:
         """Handle non-streaming invoke requests"""
         if _invoke_function is None:
             raise HTTPException(status_code=500, detail="No invoke function registered")
@@ -341,7 +339,7 @@ class AgentServer:
             raise HTTPException(status_code=500, detail=str(e))
 
     async def _handle_stream_request(
-        self, data: dict, start_time: float, return_trace: bool
+        self, data: dict[str, Any], start_time: float, return_trace: bool
     ) -> StreamingResponse:
         """Handle streaming requests"""
         if _stream_function is None:
@@ -350,7 +348,7 @@ class AgentServer:
         func = _stream_function
         func_name = func.__name__
 
-        all_chunks = []
+        all_chunks: list[dict[str, Any]] = []
 
         async def generate():
             nonlocal all_chunks
@@ -375,7 +373,7 @@ class AgentServer:
                         span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
                     elif self.agent_type == "agent/v1/chat":
 
-                        def _extract_content(chunk: ChatCompletionChunk | dict) -> str:
+                        def _extract_content(chunk: ChatCompletionChunk | dict[str, Any]) -> str:
                             if isinstance(chunk, dict):
                                 return (
                                     chunk.get("choices", [])[0].get("delta", {}).get("content", "")
