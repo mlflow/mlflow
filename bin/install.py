@@ -18,16 +18,21 @@ PlatformKey = tuple[
     Literal["linux", "darwin"],
     Literal["x86_64", "arm64"],
 ]
-ExtractType = Literal["gzip", "tar"]
+ExtractType = Literal["gzip", "tar", "binary"]
 
 
 @dataclass
 class Tool:
     name: str
     urls: dict[PlatformKey, str]  # platform -> URL mapping
+    version_args: list[str] | None = None  # Custom version check args (default: ["--version"])
 
     def get_url(self, platform_key: PlatformKey) -> str | None:
         return self.urls.get(platform_key)
+
+    def get_version_args(self) -> list[str]:
+        """Get version check arguments, defaulting to --version."""
+        return self.version_args or ["--version"]
 
     def get_extract_type(self, url: str) -> ExtractType:
         """Infer extract type from URL file extension."""
@@ -35,6 +40,9 @@ class Tool:
             return "gzip"
         elif url.endswith((".tar.gz", ".tgz")):
             return "tar"
+        elif url.endswith(".exe") or ("/" in url and not url.split("/")[-1].count(".")):
+            # Windows executables or files without extensions (plain binaries)
+            return "binary"
         else:
             # Default to tar for unknown extensions
             return "tar"
@@ -74,12 +82,26 @@ TOOLS = [
             (
                 "linux",
                 "x86_64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz",
+            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Linux_x86_64.tar.gz",
             (
                 "darwin",
                 "arm64",
-            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Darwin_arm64.tar.gz",
+            ): "https://github.com/open-policy-agent/conftest/releases/download/v0.63.0/conftest_0.63.0_Darwin_arm64.tar.gz",
         },
+    ),
+    Tool(
+        name="regal",
+        urls={
+            (
+                "linux",
+                "x86_64",
+            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Linux_x86_64",
+            (
+                "darwin",
+                "arm64",
+            ): "https://github.com/open-policy-agent/regal/releases/download/v0.36.1/regal_Darwin_arm64",
+        },
+        version_args=["version"],
     ),
 ]
 
@@ -130,6 +152,16 @@ def extract_tar_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
     raise FileNotFoundError(f"Could not find {binary_name} in archive")
 
 
+def download_binary_from_url(url: str, dest_dir: Path, binary_name: str) -> Path:
+    print(f"Downloading from {url}...")
+    output_path = dest_dir / binary_name
+
+    with urllib.request.urlopen(url) as response:
+        output_path.write_bytes(response.read())
+
+    return output_path
+
+
 def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
     # Check if tool already exists
     binary_path = dest_dir / tool.name
@@ -164,14 +196,17 @@ def install_tool(tool: Tool, dest_dir: Path, force: bool = False) -> None:
         binary_path = extract_gzip_from_url(url, dest_dir, tool.name)
     elif extract_type == "tar":
         binary_path = extract_tar_from_url(url, dest_dir, tool.name)
+    elif extract_type == "binary":
+        binary_path = download_binary_from_url(url, dest_dir, tool.name)
     else:
         raise ValueError(f"Unknown extract type: {extract_type}")
 
     # Make executable
     binary_path.chmod(0o755)
 
-    # Verify installation by running --version
-    subprocess.check_call([binary_path, "--version"], timeout=5)
+    # Verify installation by running version command
+    version_cmd = [binary_path] + tool.get_version_args()
+    subprocess.check_call(version_cmd, timeout=5)
     print(f"Successfully installed {tool.name} to {binary_path}")
 
 

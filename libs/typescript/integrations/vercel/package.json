@@ -1,0 +1,54 @@
+{
+  "name": "mlflow-vercel",
+  "version": "0.1.1",
+  "description": "Vercel AI SDK integration package for MLflow Tracing",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mlflow/mlflow.git"
+  },
+  "homepage": "https://mlflow.org/",
+  "author": {
+    "name": "MLflow",
+    "url": "https://mlflow.org/"
+  },
+  "bugs": {
+    "url": "https://github.com/mlflow/mlflow/issues"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "mlflow",
+    "tracing",
+    "observability",
+    "opentelemetry",
+    "llm",
+    "vercel",
+    "ai-sdk",
+    "javascript",
+    "typescript"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "peerDependencies": {
+    "mlflow-tracing": "^0.1.1",
+    "ai": ">=5.0.0"
+  },
+  "devDependencies": {
+    "jest": "^29.6.2",
+    "typescript": "^5.8.3",
+    "@ai-sdk/openai": ">=2.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist/"
+  ]
+}

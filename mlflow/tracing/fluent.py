@@ -42,7 +42,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.search import traces_to_df
 from mlflow.utils import get_results_from_paginated_fn
-from mlflow.utils.annotations import deprecated_parameter
+from mlflow.utils.annotations import deprecated, deprecated_parameter
 from mlflow.utils.validation import _validate_list_param
 
 _logger = logging.getLogger(__name__)
@@ -683,7 +683,11 @@ def search_traces(
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
-        extract_fields: Specify fields to extract from traces using the format
+        extract_fields:
+            .. deprecated:: 3.6.0
+                This parameter is deprecated and will be removed in a future version.
+
+            Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
 
             .. note::
@@ -800,6 +804,13 @@ def search_traces(
             category=FutureWarning,
         )
         os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
+    if extract_fields is not None:
+        warnings.warn(
+            "The `extract_fields` parameter is deprecated and will be removed in a future version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
 
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
@@ -1316,7 +1327,10 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
                 for k, v in remote_root_span.attributes.items()
                 if k != SpanAttributeKey.REQUEST_ID
             },
-            start_time_ns=remote_root_span.start_time_ns,
+            # ensure this span has a smaller start time than the remote trace
+            # so when it's loaded the order is correct when sorting by start time
+            # TODO: deprecate this function once we fully support OTel traces
+            start_time_ns=remote_root_span.start_time_ns - 1,
         )
         _merge_trace(
             trace=trace,
@@ -1330,6 +1344,8 @@ def add_trace(trace: Trace | dict[str, Any], target: LiveSpan | None = None):
         )
 
 
+# TODO: remove this function in 3.7.0
+@deprecated(since="3.6.0")
 def log_trace(
     name: str = "Task",
     request: Any | None = None,
@@ -1450,6 +1466,8 @@ def _merge_trace(
             otel_trace_id=new_trace_id,
         )
         trace_manager.register_span(cloned_span)
+        # end the cloned span to ensure it's processed by the exporter
+        cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:

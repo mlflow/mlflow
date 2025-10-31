@@ -1,9 +1,17 @@
+from unittest.mock import patch
+
 import pytest
 
 from mlflow.genai import scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.scorers import RelevanceToQuery
+
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
 
 
 def test_decorator_scorer_with_description():

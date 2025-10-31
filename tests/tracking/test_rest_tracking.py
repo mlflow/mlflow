@@ -38,6 +38,8 @@ from mlflow.entities import (
     RunInputs,
     RunTag,
     Span,
+    SpanEvent,
+    SpanStatusCode,
     ViewType,
 )
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -2581,6 +2583,22 @@ def test_start_trace(mlflow_client):
         assert "Failed to log span to MLflow backend" not in str(call)
 
 
+def test_get_trace(mlflow_client):
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("get trace")
+    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
+    mlflow_client.end_trace(request_id=span.request_id, status=TraceStatus.OK)
+    trace = mlflow_client.get_trace(span.request_id)
+    assert trace is not None
+    assert trace.info.request_id == span.request_id
+    assert trace.info.experiment_id == experiment_id
+    assert trace.info.state == TraceState.OK
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "test"
+    assert trace.data.spans[0].status.status_code == SpanStatusCode.OK
+    assert trace.data.spans[0].status.description == ""
+
+
 def test_search_traces(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
@@ -2631,6 +2649,45 @@ def test_search_traces_parameter_validation(mlflow_client):
         match="Locations must be a list of experiment IDs",
     ):
         mlflow_client.search_traces(locations=["catalog.schema"])
+
+
+def test_search_traces_match_text(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support full text search")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+    experiment_id = mlflow_client.create_experiment("search traces full text")
+
+    # Create test traces
+    def _create_trace(name, attributes):
+        span = mlflow_client.start_trace(name=name, experiment_id=experiment_id)
+        span.set_attributes(attributes)
+        mlflow_client.end_trace(request_id=span.trace_id, status=TraceStatus.OK)
+        return span.trace_id
+
+    trace_id_1 = _create_trace(name="trace1", attributes={"test": "value1"})
+    trace_id_2 = _create_trace(name="trace2", attributes={"test": "value2"})
+    trace_id_3 = _create_trace(name="trace3", attributes={"test3": "I like it"})
+
+    traces = mlflow_client.search_traces(experiment_ids=[experiment_id])
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%trace%'"
+    )
+    assert len([t.info.trace_id for t in traces]) == 3
+    assert traces.token is None
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%value%'"
+    )
+    assert {t.info.trace_id for t in traces} == {trace_id_1, trace_id_2}
+
+    traces = mlflow_client.search_traces(
+        experiment_ids=[experiment_id], filter_string="trace.text LIKE '%I like it%'"
+    )
+    assert [t.info.trace_id for t in traces] == [trace_id_3]
 
 
 def test_delete_traces(mlflow_client):
@@ -2786,16 +2843,13 @@ def test_set_and_delete_trace_tag(mlflow_client):
 def test_get_trace_artifact_handler(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
-    experiment_id = mlflow_client.create_experiment("get trace artifact")
-
-    span = mlflow_client.start_trace(name="test", experiment_id=experiment_id)
-    request_id = span.request_id
-    span.set_attributes({"fruit": "apple"})
-    mlflow_client.end_trace(request_id=request_id)
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
+        span.add_event(SpanEvent("test_event", timestamp=99999, attributes={"foo": "bar"}))
 
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/get-trace-artifact",
-        params={"request_id": request_id},
+        params={"request_id": span.trace_id},
     )
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"

@@ -78,17 +78,31 @@ jobs:
         run: |
           claude mcp add review --env "GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}" -- uv run --no-project dev/mcps/review.py
 
+      - name: Extract optional prompt from comment
+        if: github.event_name == 'issue_comment'
+        id: prompt
+        env:
+          COMMENT_BODY: ${{ github.event.comment.body }}
+        run: |
+          PROMPT=$(echo "$COMMENT_BODY" | sed 's|^/review\s*||' | xargs)
+          echo "prompt=$PROMPT" >> $GITHUB_OUTPUT
+
       - name: Review
         id: review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PROMPT: ${{ steps.prompt.outputs.prompt }}
         run: |
           OUTPUT_FILE="/tmp/output.json"
 
+          # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
+          ARGS=("/pr-review")
+          [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
+
           EXIT_CODE=0
-          timeout 20m claude --model claude-haiku-4-5 --print --verbose --output-format json "/pr-review" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
+          timeout 20m claude --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" 2>&1 || EXIT_CODE=$?
           if [ "${EXIT_CODE:-0}" -eq 124 ]; then
             echo "Warning: Claude command timed out after 20 minutes"
           elif [ "${EXIT_CODE:-0}" -ne 0 ]; then

@@ -898,6 +898,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
+    log_model_signatures=True,
 ):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -968,6 +969,7 @@ def autolog(
             epochs, the monitored metric may potentially be less reliable (it
             could reflect as little as 1 batch, since the metrics get reset
             every epoch). Defaults to `"epoch"`.
+        log_model_signatures: Whether to log model signature when `log_model` is True.
 
     .. code-block:: python
         :test:

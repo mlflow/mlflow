@@ -186,7 +186,7 @@ def test_chat_model():
     assert chat_model_span.name == "test_chat_model"
     assert chat_model_span.span_type == "CHAT_MODEL"
     assert chat_model_span.status.status_code == SpanStatusCode.OK
-    assert chat_model_span.inputs == [[msg.dict() for msg in input_messages]]
+    assert chat_model_span.inputs == [[msg.model_dump() for msg in input_messages]]
     assert chat_model_span.outputs["generations"][0][0]["text"] == "generated text"
 
 

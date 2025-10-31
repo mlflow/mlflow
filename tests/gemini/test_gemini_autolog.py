@@ -164,7 +164,7 @@ def test_generate_content_enable_disable_autolog(is_async):
             "model": "gemini-1.5-flash",
             "config": None,
         }
-        assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
+        assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 
         span1 = traces[0].data.spans[1]
         assert span1.name == f"{cls}._generate_content"
@@ -174,7 +174,7 @@ def test_generate_content_enable_disable_autolog(is_async):
             "model": "gemini-1.5-flash",
             "config": None,
         }
-        assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
+        assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 
         assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
             TokenUsageKey.INPUT_TOKENS: 6,
@@ -253,7 +253,7 @@ def test_generate_content_image_autolog():
         **extra,
     }
     assert span.inputs["contents"][1] == "Caption this image"
-    assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
+    assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 
     span1 = traces[0].data.spans[1]
     assert span1.name == f"{cls}._generate_content"
@@ -266,7 +266,7 @@ def test_generate_content_image_autolog():
         **extra,
     }
     assert span1.inputs["contents"][1] == "Caption this image"
-    assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
+    assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         TokenUsageKey.INPUT_TOKENS: 6,
@@ -441,9 +441,9 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span.name == f"{cls}.generate_content"
     assert span.span_type == SpanType.LLM
     assert span.inputs["contents"] == [
-        question_content.dict(),
-        tool_call_content.dict(),
-        tool_response_content.dict(),
+        question_content.model_dump(),
+        tool_call_content.model_dump(),
+        tool_response_content.model_dump(),
     ]
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
@@ -454,9 +454,9 @@ def test_generate_content_tool_calling_chat_history_autolog(is_async):
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == span.span_id
     assert span1.inputs["contents"] == [
-        question_content.dict(),
-        tool_call_content.dict(),
-        tool_response_content.dict(),
+        question_content.model_dump(),
+        tool_call_content.model_dump(),
+        tool_response_content.model_dump(),
     ]
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
@@ -491,7 +491,7 @@ def test_chat_session_autolog(is_async):
         assert span.name == "AsyncChat.send_message" if is_async else "Chat.send_message"
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
-        assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
+        assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.model_dump()
 
         mlflow.gemini.autolog(disable=True)
         _create_chat_and_send_message(is_async, "test content")

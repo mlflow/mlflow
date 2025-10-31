@@ -1,6 +1,7 @@
 import os
 import random
 import re
+from io import BytesIO
 from typing import Any, NamedTuple
 from unittest import mock
 
@@ -346,7 +347,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    scores = pd.read_json(resp.content.decode("utf-8"), orient="records").values.squeeze()
+    scores = pd.read_json(BytesIO(resp.content), orient="records").values.squeeze()
     np.testing.assert_array_almost_equal(scores, model.predict(inference_data))
 
 
