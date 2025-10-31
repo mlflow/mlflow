@@ -134,3 +134,8 @@ gunicorn.conf.py
 # except commands and skills
 !.claude/commands/
 !.claude/skills/
+
+# Generated JS files from TypeScript in docs
+docs/**/*.js
+docs/yarn.lock
+
