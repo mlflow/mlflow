@@ -424,12 +424,12 @@ def _get_permission_from_run_id_or_uuid() -> Permission:
 
 
 def validate_can_read_run_artifact():
-    """Validator for /get-artifact Flask route"""
+    """Checks READ permission on run artifacts."""
     return _get_permission_from_run_id_or_uuid().can_read
 
 
 def validate_can_update_run_artifact():
-    """Validator for /upload-artifact Flask route"""
+    """Checks UPDATE permission on run artifacts."""
     return _get_permission_from_run_id_or_uuid().can_update
 
 
@@ -451,7 +451,7 @@ def _get_permission_from_model_version() -> Permission:
 
 
 def validate_can_read_model_version_artifact():
-    """Validator for /model-versions/get-artifact Flask route"""
+    """Checks READ permission on model version artifacts."""
     return _get_permission_from_model_version().can_read
 
 
@@ -476,15 +476,12 @@ def _get_permission_from_trace_request_id() -> Permission:
 
 
 def validate_can_read_trace_artifact():
-    """Validator for /ajax-api/2.0/mlflow/get-trace-artifact Flask route"""
+    """Checks READ permission on trace artifacts."""
     return _get_permission_from_trace_request_id().can_read
 
 
 def validate_can_read_metric_history_bulk():
-    """
-    Validator for /ajax-api/2.0/mlflow/metrics/get-history-bulk Flask route.
-    Checks READ permission on all requested runs.
-    """
+    """Checks READ permission on all requested runs."""
     run_ids = request.args.to_dict(flat=False).get("run_id", [])
     if not run_ids:
         raise MlflowException(
@@ -509,18 +506,12 @@ def validate_can_read_metric_history_bulk():
 
 
 def validate_can_read_metric_history_bulk_interval():
-    """
-    Validator for /ajax-api/2.0/mlflow/metrics/get-history-bulk-interval Flask route.
-    Same logic as bulk metrics endpoint.
-    """
+    """Checks READ permission on all requested runs."""
     return validate_can_read_metric_history_bulk()
 
 
 def validate_can_search_datasets():
-    """
-    Validator for /ajax-api/2.0/mlflow/experiments/search-datasets Flask route.
-    Checks READ permission on the experiment.
-    """
+    """Checks READ permission on all requested experiments."""
     if request.method == "POST":
         data = request.json
         experiment_ids = data.get("experiment_ids", [])
@@ -547,10 +538,7 @@ def validate_can_search_datasets():
 
 
 def validate_can_create_promptlab_run():
-    """
-    Validator for /ajax-api/2.0/mlflow/runs/create-promptlab-run Flask route.
-    Checks UPDATE permission on the experiment (same as CreateRun).
-    """
+    """Checks UPDATE permission on the experiment."""
     data = request.json
     experiment_id = data.get("experiment_id")
     if not experiment_id:
@@ -568,12 +556,8 @@ def validate_can_create_promptlab_run():
 
 def validate_gateway_proxy():
     """
-    Validator for /ajax-api/2.0/mlflow/gateway-proxy Flask route.
-
-    This endpoint proxies requests to MLflow Deployments (AI Gateway) external services.
-    Returns empty list if MLFLOW_DEPLOYMENTS_TARGET is not configured.
-    No MLflow resource permissions are checked since this proxies to external services
-    that handle their own authorization.
+    Allows gateway proxy requests without permission checks.
+    This endpoint proxies to external services that handle their own authorization.
     """
     return True
 
