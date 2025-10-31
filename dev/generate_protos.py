@@ -1,5 +1,4 @@
 import platform
-import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -13,6 +12,7 @@ MACHINE = platform.machine()
 CACHE_DIR = Path(".cache/protobuf_cache")
 MLFLOW_PROTOS_DIR = Path("mlflow/protos")
 TEST_PROTOS_DIR = Path("tests/protos")
+OTEL_PROTOS_DIR = Path("mlflow/protos/opentelemetry")
 
 
 def gen_protos(
@@ -184,31 +184,6 @@ def download_file(url: str, output_path: Path) -> None:
     urllib.request.urlretrieve(url, output_path)
 
 
-def download_opentelemetry_protos(version: str = "v1.7.0") -> Path:
-    """
-    Download OpenTelemetry proto files from GitHub.
-    Returns the path to the opentelemetry-proto directory.
-    """
-    otel_proto_dir = CACHE_DIR / f"opentelemetry-proto-{version}"
-
-    if not otel_proto_dir.exists():
-        print(f"Downloading OpenTelemetry proto files {version}...")
-        with tempfile.TemporaryDirectory() as tmpdir:
-            zip_path = Path(tmpdir) / "otel-proto.zip"
-            download_file(
-                f"https://github.com/open-telemetry/opentelemetry-proto/archive/refs/tags/{version}.zip",
-                zip_path,
-            )
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(tmpdir)
-
-            # Move the extracted directory to cache
-            extracted_dir = Path(tmpdir) / f"opentelemetry-proto-{version[1:]}"  # Remove 'v' prefix
-            shutil.move(str(extracted_dir), str(otel_proto_dir))
-
-    return otel_proto_dir
-
-
 def download_and_extract_protoc(version: Literal["3.19.4", "26.0"]) -> tuple[Path, Path]:
     """
     Download and extract specific version protoc tool for Linux systems,
@@ -268,8 +243,8 @@ def main() -> None:
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        # Download OpenTelemetry proto files
-        otel_proto_dir = download_opentelemetry_protos()
+        # Use committed OpenTelemetry proto files
+        otel_proto_dir = OTEL_PROTOS_DIR
 
         # Build include paths list
         protoc3194_includes = [protoc3194_include, otel_proto_dir]
