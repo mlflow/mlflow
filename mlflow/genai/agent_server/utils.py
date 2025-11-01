@@ -35,14 +35,14 @@ def get_forwarded_access_token() -> str | None:
     return get_header("x-forwarded-access-token")
 
 
-def get_obo_workspace_client():
+def get_user_workspace_client():
     """Get a workspace client with the token from the
-    `x-forwarded-access-token` header for OBO authentication
+    `x-forwarded-access-token` header for user authentication
     """
     try:
         from databricks.sdk import WorkspaceClient
     except ImportError:
-        raise ImportError("databricks-sdk is required to use OBO authentication")
+        raise ImportError("databricks-sdk is required to use user authentication")
     return WorkspaceClient(token=get_forwarded_access_token(), auth_type="pat")
 
 

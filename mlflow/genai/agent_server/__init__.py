@@ -52,15 +52,15 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mlflow
-from mlflow.pyfunc import ResponsesAgent
-from mlflow.pyfunc.agent_server.utils import (
+from mlflow.genai.agent_server.utils import (
     get_forwarded_access_token,
     get_header,
-    get_obo_workspace_client,
     get_request_headers,
+    get_user_workspace_client,
     set_request_headers,
     setup_mlflow,
 )
+from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.types.agent import ChatAgentChunk, ChatAgentRequest, ChatAgentResponse
 from mlflow.types.llm import (
@@ -81,7 +81,7 @@ __all__ = [
     "get_request_headers",
     "get_forwarded_access_token",
     "get_header",
-    "get_obo_workspace_client",
+    "get_user_workspace_client",
     "AgentServer",
     "invoke",
     "stream",
@@ -158,7 +158,9 @@ class AgentValidator:
                 f"Invalid data for {dataclass_class.__name__} (agent_type: {self.agent_type}): {e}"
             )
 
-    def validate_and_convert_request(self, data: dict[str, Any]) -> None:
+    def validate_and_convert_request(
+        self, data: dict[str, Any]
+    ) -> dict[str, Any] | ResponsesAgentRequest | ChatCompletionRequest | ChatAgentRequest:
         """Validate request parameters based on agent type"""
         if self.agent_type is None:
             return data
