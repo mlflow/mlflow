@@ -261,3 +261,39 @@ def test_list_items():
     items = list_items()
     assert len(items) == 3
 ```
+
+---
+
+## Preserve function metadata and type information in decorators
+
+When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's signature for accurate type checking and autocompletion in IDEs.
+
+```python
+# Bad
+from typing import Any, Callable
+
+
+def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        ...
+        return f(*args, **kwargs)
+
+    return wrapper
+
+
+# Good
+import functools
+from typing import Callable, ParamSpec, TypeVar
+
+_P = ParamSpec("P")
+_R = TypeVar("R")
+
+
+def decorator(f: Callable[_P, _R]) -> Callable[_P, _R]:
+    @functools.wraps(f)
+    def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+        ...
+        return f(*args, **kwargs)
+
+    return wrapper
+```
