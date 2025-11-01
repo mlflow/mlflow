@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Index,
     Integer,
+    LargeBinary,
     PrimaryKeyConstraint,
     String,
     Text,
@@ -768,7 +769,7 @@ class SqlTraceTag(Base):
     # Key is unique within a request_id
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),
-        Index(f"index_{__tablename__}_request_id"),
+        Index(f"index_{__tablename__}_request_id", "request_id"),
     )
 
 
@@ -799,7 +800,7 @@ class SqlTraceMetadata(Base):
     # Key is unique within a request_id
     __table_args__ = (
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
-        Index(f"index_{__tablename__}_request_id"),
+        Index(f"index_{__tablename__}_request_id", "request_id"),
     )
 
 
@@ -2028,4 +2029,186 @@ class SqlJob(Base):
             result=self.result,
             retry_count=self.retry_count,
             last_update_time=self.last_update_time,
+        )
+
+
+class SqlSecret(Base):
+    """
+    DB model for secrets. These are recorded in ``secrets`` table.
+    Stores encrypted credentials used by MLflow resources (e.g., LLM provider API keys).
+    """
+
+    __tablename__ = "secrets"
+
+    secret_id = Column(String(36), nullable=False)
+    """
+    Secret ID: `String` (limit 36 characters). *Primary Key* for ``secrets`` table.
+    """
+    secret_name = Column(String(255), unique=True, nullable=False)
+    """
+    Secret name: `String` (limit 255 characters). Unique identifier for the secret.
+    """
+    ciphertext = Column(LargeBinary, nullable=False)
+    """
+    Encrypted secret data: `LargeBinary`. Contains the AES-GCM encrypted secret value.
+    """
+    iv = Column(LargeBinary, nullable=False)
+    """
+    Initialization vector (nonce): `LargeBinary`. 12 bytes for AES-GCM.
+    """
+    wrapped_dek = Column(LargeBinary, nullable=False)
+    """
+    Wrapped data encryption key: `LargeBinary`. DEK encrypted by KEK (32 bytes).
+    """
+    kek_version = Column(Integer, nullable=False)
+    """
+    KEK version: `Integer`. Indicates which KEK version was used to wrap the DEK.
+    """
+    aad_hash = Column(LargeBinary, nullable=False)
+    """
+    Additional authenticated data hash: `LargeBinary`. SHA-256 hash of (secret_id || secret_name).
+    """
+    is_shared = Column(Boolean, nullable=False, default=False)
+    """
+    Shared flag: `Boolean`. True if secret can be reused across resources, False for private.
+    """
+    state = Column(String(36), nullable=False, default="ACTIVE")
+    """
+    Secret state: `String` (limit 36 characters). Can be ACTIVE, REVOKED, or ROTATED.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("secret_id", name="secrets_pk"),
+        Index("index_secrets_is_shared_secret_name", "is_shared", "secret_name"),
+        Index("index_secrets_state", "state"),
+    )
+
+    def __repr__(self):
+        return f"<SqlSecret ({self.secret_id}, {self.secret_name}, {self.state})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        IMPORTANT: Only metadata fields are exposed. Cryptographic fields
+        (ciphertext, iv, wrapped_dek, kek_version, aad_hash) are NEVER
+        included in the entity and should only be accessed during
+        encryption/decryption operations.
+
+        Returns:
+            mlflow.entities.secret.Secret
+        """
+        from mlflow.entities.secret import Secret, SecretState
+
+        return Secret(
+            secret_id=self.secret_id,
+            secret_name=self.secret_name,
+            is_shared=self.is_shared,
+            state=SecretState(self.state),
+            created_by=self.created_by,
+            created_at=self.created_at,
+            last_updated_by=self.last_updated_by,
+            last_updated_at=self.last_updated_at,
+        )
+
+
+class SqlSecretBinding(Base):
+    """
+    DB model for secret bindings. These are recorded in ``secrets_bindings`` table.
+    Maps secrets to resources (e.g., binding an API key secret to an MLflow object).
+    """
+
+    __tablename__ = "secrets_bindings"
+
+    binding_id = Column(String(36), nullable=False)
+    """
+    Binding ID: `String` (limit 36 characters). *Primary Key* for ``secrets_bindings`` table.
+    """
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    """
+    resource_type = Column(String(50), nullable=False)
+    """
+    Resource type: `String` (limit 50 characters). E.g., SCORER_JOB.
+    """
+    resource_id = Column(String(255), nullable=False)
+    """
+    Resource ID: `String` (limit 255 characters). ID of the resource using this secret.
+    """
+    field_name = Column(String(255), nullable=False)
+    """
+    Field name: `String` (limit 255 characters). Environment variable name (e.g., OPENAI_API_KEY).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    secret = relationship("SqlSecret", backref=backref("bindings", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
+        UniqueConstraint(
+            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
+        ),
+        Index("index_secrets_bindings_secret_id", "secret_id"),
+        Index("index_secrets_bindings_resource_type_resource_id", "resource_type", "resource_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlSecretBinding ({self.binding_id}, {self.resource_type}, {self.resource_id})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.secret_binding.SecretBinding
+        """
+        from mlflow.entities.secret_binding import SecretBinding
+
+        return SecretBinding(
+            binding_id=self.binding_id,
+            secret_id=self.secret_id,
+            resource_type=self.resource_type,
+            resource_id=self.resource_id,
+            field_name=self.field_name,
+            created_at=self.created_at,
+            created_by=self.created_by,
+            last_updated_at=self.last_updated_at,
+            last_updated_by=self.last_updated_by,
         )

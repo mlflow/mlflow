@@ -458,6 +458,8 @@ mlflow.entities.RunTag.to_proto
 mlflow.entities.ScorerVersion
 mlflow.entities.ScorerVersion.from_proto
 mlflow.entities.ScorerVersion.to_proto
+mlflow.entities.Secret
+mlflow.entities.SecretBinding
 mlflow.entities.SourceType
 mlflow.entities.SourceType.from_string
 mlflow.entities.SourceType.to_string
