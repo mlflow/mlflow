@@ -30,14 +30,15 @@ def copy_trace_to_experiment(trace_dict: dict[str, Any], experiment_id: str | No
             trace_id=new_trace_id,
             # Only set the experiment ID for the root span.
             experiment_id=experiment_id if old_span.parent_id is None else None,
-            # Don't close the root span until the end so that we only export the trace
-            # after all spans are copied.
-            end_trace=old_span.parent_id is not None,
         )
+        # we need to register the span to trace manager first before ending it
+        # otherwise the span will not be correctly exported
         trace_manager.register_span(new_span)
         if old_span.parent_id is None:
             new_root_span = new_span
             new_trace_id = new_span.trace_id
+        else:
+            new_span.end(end_time_ns=old_span.end_time_ns)
 
     if new_trace_id is None:
         raise MlflowException(
