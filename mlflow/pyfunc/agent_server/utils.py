@@ -46,7 +46,7 @@ def get_obo_workspace_client():
     return WorkspaceClient(token=get_forwarded_access_token(), auth_type="pat")
 
 
-def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
+def setup_mlflow() -> None:
     """Initialize MLflow tracking and set active model."""
     experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
     assert experiment_id is not None, (
@@ -77,16 +77,3 @@ def setup_mlflow(*, register_model_to_uc: bool = False) -> None:
     logger.info(
         f"Active LoggedModel: '{active_model_info.name}', Model ID: '{active_model_info.model_id}'"
     )
-
-    if register_model_to_uc:
-        mlflow.set_registry_uri(os.getenv("MLFLOW_REGISTRY_URI"))
-        # TODO: fill in the catalog, schema, and model name for the UC model
-        catalog = "main"
-        schema = "default"
-        model_name = ""
-        assert model_name, "Please set the catalog, schema, and model name for the UC model"
-        UC_MODEL_NAME = f"{catalog}.{schema}.{model_name}"
-        uc_registered_model_info = mlflow.register_model(
-            model_uri=active_model_info.model_uri, name=UC_MODEL_NAME
-        )
-        logger.info(f"Registered model to UC: {uc_registered_model_info}")
