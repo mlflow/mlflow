@@ -262,8 +262,6 @@ def test_list_items():
     assert len(items) == 3
 ```
 
----
-
 ## Preserve function metadata and type information in decorators
 
 When writing decorators, always use `@functools.wraps` to preserve function metadata (like `__name__` and `__doc__`), and use `typing.ParamSpec` and `typing.TypeVar` to preserve the function's signature for accurate type checking and autocompletion in IDEs.
