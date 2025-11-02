@@ -210,22 +210,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'tracing/opentelemetry/export',
             },
-            {
-              type: 'category',
-              label: 'Integrations',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracing/opentelemetry/integrations/openinference',
-                  label: 'OpenInference',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/opentelemetry/integrations/openllmetry',
-                  label: 'OpenLLMetry',
-                },
-              ],
-            },
           ],
         },
         {
