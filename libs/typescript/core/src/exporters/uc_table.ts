@@ -7,18 +7,19 @@ import {
   SpanExporter
 } from '@opentelemetry/sdk-trace-base';
 import { Context } from '@opentelemetry/api';
+import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-proto';
 import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
-import { createTraceLocationFromUCSchema } from '../core/entities/trace_location';
+import { createTraceLocationFromUCSchema, getFullTableName } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
 import { SpanAttributeKey, TraceMetadataKey } from '../core/constants';
 import {
   convertHrTimeToMs,
-  deduplicateSpanNamesInPlace,
   aggregateUsageFromSpans
 } from '../core/utils';
 import { getConfig, getUCSchemaLocationFromConfig } from '../core/config';
 import { MlflowClient } from '../clients';
+import { LogSpans } from '../clients/spec';
 
 const TRACE_ID_V4_PREFIX = 'trace:/';
 
@@ -109,7 +110,6 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
     }
 
     this.updateTraceInfo(trace.info, span);
-    deduplicateSpanNamesInPlace(Array.from(trace.spanDict.values()));
 
     // Aggregate token usage from all spans and add to trace metadata
     const allSpans = Array.from(trace.spanDict.values());
@@ -150,15 +150,26 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
 
 export class UCSchemaSpanExporter implements SpanExporter {
   private _client: MlflowClient;
+  private _otlp_span_exporter: OTLPTraceExporter;
   private _pendingExports: Set<Promise<unknown>> = new Set();
 
   constructor(client: MlflowClient) {
     this._client = client;
+
+    const config = getConfig();
+    const location = getUCSchemaLocationFromConfig(config);
+    if (!location) {
+      throw new Error('No Unity Catalog schema found.');
+    }
+    const url = LogSpans.getEndpoint(config.host!);
+    const tableName = getFullTableName(location);
+    const headers = LogSpans.getHeaders(tableName, config.databricksToken);
+    this._otlp_span_exporter = new OTLPTraceExporter({url, headers});
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
 
-    this.logSpans(spans);
+    this._otlp_span_exporter.export(spans, (_) => {});
 
     for (const span of spans) {
       // Only export TraceInfo when the root span is ended
@@ -173,24 +184,6 @@ export class UCSchemaSpanExporter implements SpanExporter {
       }
 
       this.logTraceInfo(trace);
-    }
-  }
-
-  private async logSpans(spans: OTelReadableSpan[]): Promise<void> {
-    const location = getUCSchemaLocationFromConfig(getConfig());
-    if (!location) {
-      console.warn(`No Unity Catalog schema found. Skipping spans export.`);
-      return;
-    }
-
-    const exportPromise = this._client.logSpans(location, spans);
-    this._pendingExports.add(exportPromise);
-    try {
-      await exportPromise;
-    } catch (error: unknown) {
-      console.error('Failed to export spans:', error);
-    } finally {
-      this._pendingExports.delete(exportPromise);
     }
   }
 

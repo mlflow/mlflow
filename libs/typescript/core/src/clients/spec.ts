@@ -79,7 +79,7 @@ export namespace GetTraceInfoV3 {
  */
 export namespace LogSpans {
   export const DATABRICKS_UC_TABLE_HEADER = 'X-Databricks-UC-Table-Name';
-  export const CONTENT_TYPE = 'application/x-protobuf';
+  export const CONTENT_TYPE = 'application/json';
 
   export const getEndpoint = (host: string) => `${host}/api/2.0/otel/v1/traces`;
 
