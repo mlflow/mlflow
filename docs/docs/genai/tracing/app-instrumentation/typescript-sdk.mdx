@@ -44,7 +44,16 @@ Install the package from the [npm registry](https://www.npmjs.com/package/mlflow
 npm install mlflow-tracing
 ```
 
-After installation, connect your application to an MLflow server by following the [Connecting to an MLflow Server](/genai/tracing/app-instrumentation#2-connect-your-application-with-mlflow) guide.
+After installation, connect your application to an MLflow server by specifying the tracking URI and experiment ID.
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+mlflow.init({
+    trackingUri: "<your-tracking-server-uri>",
+    experimentId: "<your-experiment-id>",
+});
+```
 
 ## Basic Usage
 
