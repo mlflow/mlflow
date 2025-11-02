@@ -6,7 +6,7 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-from mlflow.pyfunc.agent_server import (
+from mlflow.genai.agent_server import (
     AgentServer,
     AgentValidator,
     get_invoke_function,

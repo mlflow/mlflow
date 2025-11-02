@@ -12,7 +12,6 @@ Key Features:
 - Context-aware request header management for Databricks Apps authentication
 - Streaming and non-streaming response support with Server-Sent Events (SSE)
 - MLflow tracing integration with automatic span creation and attribute setting
-- Static file serving for optional agent UI components
 - Health check endpoint for monitoring
 
 Architecture:
@@ -22,7 +21,7 @@ Architecture:
 - Function registration: Global decorators for invoke/stream endpoint functions
 
 Usage:
-    from mlflow.pyfunc.agent_server import AgentServer, invoke, stream
+    from mlflow.genai.agent_server import AgentServer, invoke, stream
 
     @invoke()
     def my_agent_invoke(request):
@@ -40,15 +39,12 @@ import argparse
 import inspect
 import json
 import logging
-import os
 import time
 from dataclasses import asdict, is_dataclass
-from pathlib import Path
 from typing import Any, Callable, Literal
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 import mlflow
@@ -221,35 +217,7 @@ class AgentServer:
         self.app = FastAPI(title="Agent Server")
 
         self.logger = logging.getLogger(__name__)
-        self._setup_static_files()
         self._setup_routes()
-
-    def _setup_static_files(self) -> None:
-        """Setup static file serving for the UI"""
-        ui_dist_path = os.getenv("MLFLOW_AGENT_SERVER_UI_PATH")
-        if ui_dist_path is None:
-            self.logger.warning(
-                "MLFLOW_AGENT_SERVER_UI_PATH environment variable is not set. "
-                "UI will not be served."
-            )
-            return
-
-        ui_dist_path = Path(ui_dist_path).resolve()
-
-        if ui_dist_path.exists():
-            self.app.mount(
-                "/assets", StaticFiles(directory=str(ui_dist_path / "assets")), name="assets"
-            )
-
-            from fastapi.responses import FileResponse
-
-            @self.app.get("/")
-            async def serve_ui():
-                return FileResponse(str(ui_dist_path / "index.html"))
-        else:
-            self.logger.warning(
-                f"UI dist folder not found at {ui_dist_path}. UI will not be served."
-            )
 
     @staticmethod
     def _get_databricks_output(trace_id: str) -> dict[str, Any]:
@@ -321,8 +289,8 @@ class AgentServer:
                     result = func(data)
 
                 result = self.validator.validate_and_convert_result(result)
-                duration = round(time.time() - start_time, 2)
-                span.set_attribute("duration_ms", duration)
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                span.set_attribute("duration_ms", duration_ms)
                 if self.agent_type == "agent/v1/responses":
                     span.set_attribute("mlflow.message.format", "openai")
                 span.set_outputs(result)
@@ -335,7 +303,7 @@ class AgentServer:
                 "Response sent",
                 extra={
                     "endpoint": "invoke",
-                    "duration_ms": duration,
+                    "duration_ms": duration_ms,
                     "response_size": len(json.dumps(result)),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -345,15 +313,15 @@ class AgentServer:
             return result
 
         except Exception as e:
-            duration = round(time.time() - start_time, 2)
-            span.set_attribute("duration_ms", duration)
+            duration_ms = round((time.time() - start_time) * 1000, 2)
+            span.set_attribute("duration_ms", duration_ms)
             span.set_outputs(f"Error: {e!s}")
 
             self.logger.error(
                 "Error response sent",
                 extra={
                     "endpoint": "invoke",
-                    "duration_ms": duration,
+                    "duration_ms": duration_ms,
                     "error": str(e),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -390,8 +358,8 @@ class AgentServer:
                             all_chunks.append(chunk)
                             yield f"data: {json.dumps(chunk)}\n\n"
 
-                    duration = round(time.time() - start_time, 2)
-                    span.set_attribute("duration_ms", duration)
+                    duration_ms = round((time.time() - start_time) * 1000, 2)
+                    span.set_attribute("duration_ms", duration_ms)
                     if self.agent_type == "agent/v1/responses":
                         span.set_attribute("mlflow.message.format", "openai")
                         span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
@@ -423,7 +391,7 @@ class AgentServer:
                     "Streaming response completed",
                     extra={
                         "endpoint": "stream",
-                        "duration_ms": duration,
+                        "duration_ms": duration_ms,
                         "total_chunks": len(all_chunks),
                         "function_name": func_name,
                         "return_trace": return_trace,
@@ -431,15 +399,15 @@ class AgentServer:
                 )
 
             except Exception as e:
-                duration = round(time.time() - start_time, 2)
-                span.set_attribute("duration_ms", duration)
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                span.set_attribute("duration_ms", duration_ms)
                 span.set_outputs(f"Error: {e!s}")
 
                 self.logger.error(
                     "Streaming response error",
                     extra={
                         "endpoint": "stream",
-                        "duration_ms": duration,
+                        "duration_ms": duration_ms,
                         "error": str(e),
                         "function_name": func_name,
                         "chunks_sent": len(all_chunks),
