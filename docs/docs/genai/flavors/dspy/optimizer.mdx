@@ -12,10 +12,6 @@ However, optimizers have the following challenges due to its black box nature:
 
 The MLflow DSPy flavor provides a convenient way to automatically track the optimization process and results. This allows you to analyze the optimization process and results more efficiently.
 
-:::warning attention
-As of MLflow 3.4.0, MLflow provides experiment types to separate classic ML/DL and GenAI UI features. It is highly recommended to use "Machine learning" experiment type when you use DSPy optimizer autologging.
-:::
-
 ## Enable Autologging
 
 To enable autologging for DSPy optimization, call <APILink fn="mlflow.dspy.autolog" /> at the beginning of your script or notebook with the following parameters. This will automatically log traces for your program execution as well as other metrics and artifacts such as program states, train datasets, and evaluation results depending on the configuration.

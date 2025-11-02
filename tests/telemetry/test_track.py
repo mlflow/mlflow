@@ -145,6 +145,7 @@ def test_is_telemetry_disabled_for_event():
     with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
         client = TelemetryClient()
         assert client is not None
+        client.activate()
         assert client.config is None
         with mock.patch("mlflow.telemetry.track.get_telemetry_client", return_value=client):
             # do not skip when config is not fetched yet
@@ -168,6 +169,7 @@ def test_is_telemetry_disabled_for_event():
     with mock.patch("mlflow.telemetry.client.requests.get", side_effect=mock_requests_get):
         client = TelemetryClient()
         assert client is not None
+        client.activate()
         assert client.config is None
         with (
             mock.patch("mlflow.telemetry.track.get_telemetry_client", return_value=client),

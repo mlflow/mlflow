@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest import mock
 
 from mlflow.entities import Metric
 from mlflow.evaluation import Assessment, Evaluation
@@ -125,8 +125,7 @@ def test_evaluation_to_from_dictionary():
     assert recreated_evaluation == evaluation
 
 
-@patch("time.time", return_value=1234567890)
-def test_evaluation_to_entity(mock_time):
+def test_evaluation_to_entity():
     inputs = {"feature1": 1.0, "feature2": 2.0}
     outputs = {"prediction": 0.5}
     assessments = [
@@ -151,7 +150,10 @@ def test_evaluation_to_entity(mock_time):
         error_message="An error occurred",
     )
 
-    entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
+    # Freeze time to ensure consistent timestamp in entity
+    with mock.patch("time.time", return_value=1234567890):
+        entity = evaluation._to_entity(run_id="run1", evaluation_id="eval1")
+        expected_assessments = [a._to_entity("eval1") for a in assessments]
     assert entity.evaluation_id == "eval1"
     assert entity.run_id == "run1"
     assert entity.inputs_id == evaluation.inputs_id
@@ -161,7 +163,7 @@ def test_evaluation_to_entity(mock_time):
     assert entity.targets == {"target1": 1.0}
     assert entity.error_code == "E001"
     assert entity.error_message == "An error occurred"
-    assert entity.assessments == [a._to_entity("eval1") for a in assessments]
+    assert entity.assessments == expected_assessments
     assert entity.metrics == metrics
     assert entity.tags == [
         EvaluationTag(key="tag1", value="value1"),

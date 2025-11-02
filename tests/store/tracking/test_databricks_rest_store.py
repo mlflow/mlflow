@@ -29,11 +29,8 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND
 from mlflow.protos.databricks_tracing_pb2 import (
     BatchGetTraces,
-    CreateAssessment,
     CreateTraceUCStorageLocation,
-    DeleteAssessment,
     DeleteTraceTag,
-    GetAssessment,
     GetTraceInfo,
     LinkExperimentToUCTraceLocation,
     SetTraceTag,
@@ -44,18 +41,22 @@ from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
-from mlflow.utils.databricks_tracing_utils import (
-    assessment_to_proto,
-    trace_info_to_proto,
-    trace_to_proto,
-)
+from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _V3_TRACE_REST_API_PATH_PREFIX,
     _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
 )
+
+
+@pytest.fixture
+def sql_warehouse_id(monkeypatch):
+    wh_id = "test-warehouse"
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, wh_id)
+    return wh_id
 
 
 def create_mock_spans(diff_trace_id=False):
@@ -79,6 +80,15 @@ def create_mock_spans(diff_trace_id=False):
     return [mock_span1, mock_span2]
 
 
+def _to_v4_trace(trace: Trace) -> Trace:
+    trace_location = TraceLocation.from_databricks_uc_schema("catalog", "schema")
+    trace.info.trace_location = trace_location
+    trace.info.trace_id = (
+        f"{TRACE_ID_V4_PREFIX}{trace_location.uc_schema.schema_location}/{trace.info.trace_id}"
+    )
+    return trace
+
+
 def _args(host_creds, endpoint, method, json_body, version, retry_timeout_seconds=None):
     res = {
         "host_creds": host_creds,
@@ -88,9 +98,9 @@ def _args(host_creds, endpoint, method, json_body, version, retry_timeout_second
     if retry_timeout_seconds is not None:
         res["retry_timeout_seconds"] = retry_timeout_seconds
     if method == "GET":
-        res["params"] = json.loads(json_body)
+        res["params"] = json.loads(json_body) if json_body is not None else None
     else:
-        res["json"] = json.loads(json_body)
+        res["json"] = json.loads(json_body) if json_body is not None else None
     return res
 
 
@@ -141,14 +151,11 @@ def test_create_trace_v4_uc_location(monkeypatch):
     # Mock successful v4 response
     response = mock.MagicMock()
     response.status_code = 200
-    expected_trace_info = MessageToDict(
-        trace_info_to_proto(trace_info), preserving_proto_field_name=True
-    )
+    expected_trace_info = MessageToDict(trace_info.to_proto(), preserving_proto_field_name=True)
     # The returned trace_id in proto should be otel_trace_id
     expected_trace_info.update({"trace_id": "123"})
     response.text = json.dumps(expected_trace_info)
 
-    expected_request = trace_info_to_proto(trace_info)
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         result = store.start_trace(trace_info)
         _verify_requests(
@@ -156,7 +163,7 @@ def test_create_trace_v4_uc_location(monkeypatch):
             creds,
             "traces/catalog.schema/123/info",
             "POST",
-            message_to_json(expected_request),
+            message_to_json(trace_info.to_proto()),
             version="4.0",
             retry_timeout_seconds=1,
         )
@@ -201,6 +208,7 @@ def test_get_trace_info(monkeypatch):
         span.set_outputs({"output": "result"})
 
     trace = mlflow.get_trace(span.trace_id)
+    trace = _to_v4_trace(trace)
     mock_response = GetTraceInfo.Response(trace=trace_to_proto(trace))
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
@@ -227,7 +235,7 @@ def test_get_trace_info(monkeypatch):
         assert f"/traces/{location}/{span.trace_id}/info" in endpoint
 
         assert isinstance(result, TraceInfo)
-        assert result.trace_id == span.trace_id
+        assert result.trace_id == trace.info.trace_id
 
 
 def test_get_trace_info_fallback_to_v3():
@@ -252,6 +260,23 @@ def test_get_trace_info_fallback_to_v3():
 
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
+
+
+def test_get_trace_info_missing_warehouse_id():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+    with mock.patch.object(
+        RestStore,
+        "_call_endpoint",
+        side_effect=RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "Could not resolve a SQL warehouse ID. Please provide one.",
+            }
+        ),
+    ):
+        with pytest.raises(MlflowException, match="SQL warehouse ID is required for "):
+            store.get_trace_info("trace:/catalog.schema/1234567890")
 
 
 def test_set_trace_tag():
@@ -324,7 +349,7 @@ def test_delete_trace_tag(monkeypatch):
     sql_warehouse_id = "warehouse_456"
     request = DeleteTraceTag(
         trace_id=trace_id,
-        location=location,
+        location_id=location,
         key="k",
     )
     response.text = "{}"
@@ -341,6 +366,37 @@ def test_delete_trace_tag(monkeypatch):
         mock_http.assert_called_once_with(
             host_creds=creds,
             endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/{request.key}",
+            method="DELETE",
+            json=expected_json,
+        )
+        assert res is None
+
+
+def test_delete_trace_tag_with_special_characters(monkeypatch):
+    """Test that trace tag keys with special characters like '/' are URL-encoded."""
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    location = "catalog.schema"
+    trace_id = "tr-1234"
+    sql_warehouse_id = "warehouse_456"
+    key_with_slash = "foo/bar"
+    response.text = "{}"
+
+    monkeypatch.setenv("MLFLOW_TRACING_SQL_WAREHOUSE_ID", sql_warehouse_id)
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.delete_trace_tag(
+            trace_id=f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}",
+            key=key_with_slash,
+        )
+        expected_json = {
+            "sql_warehouse_id": sql_warehouse_id,
+        }
+        # Verify that the key is URL-encoded in the endpoint (/ becomes %2F)
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/{trace_id}/tags/foo%2Fbar",
             method="DELETE",
             json=expected_json,
         )
@@ -387,15 +443,17 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
     trace1 = mlflow.get_trace(span1.trace_id)
     trace2 = mlflow.get_trace(span2.trace_id)
 
+    # trace obtained from OSS backend is still v3
+    trace1 = _to_v4_trace(trace1)
+    trace2 = _to_v4_trace(trace2)
+
     mock_response = BatchGetTraces.Response()
     mock_response.traces.extend([trace_to_proto(trace1), trace_to_proto(trace2)])
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
 
     location = "catalog.schema"
-    v4_trace_id_1 = f"{TRACE_ID_V4_PREFIX}{location}/{span1.trace_id}"
-    v4_trace_id_2 = f"{TRACE_ID_V4_PREFIX}{location}/{span2.trace_id}"
-    trace_ids = [v4_trace_id_1, v4_trace_id_2]
+    trace_ids = [trace1.info.trace_id, trace2.info.trace_id]
 
     with (
         mock.patch.object(store, "_call_endpoint", return_value=mock_response) as mock_call,
@@ -410,6 +468,7 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         request_body = call_args[0][1]
         request_data = json.loads(request_body)
         assert request_data["sql_warehouse_id"] == "test-warehouse"
+        # trace_ids in the request payload should be original OTel format
         assert request_data["trace_ids"] == [span1.trace_id, span2.trace_id]
 
         endpoint = call_args[1]["endpoint"]
@@ -418,8 +477,8 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         assert isinstance(result, list)
         assert len(result) == 2
         assert all(isinstance(trace, Trace) for trace in result)
-        assert result[0].info.trace_id == span1.trace_id
-        assert result[1].info.trace_id == span2.trace_id
+        assert result[0].info.trace_id == trace1.info.trace_id
+        assert result[1].info.trace_id == trace2.info.trace_id
 
 
 def test_search_traces_uc_schema(monkeypatch):
@@ -689,7 +748,8 @@ def test_search_traces_with_invalid_location():
         store.search_traces(locations=["catalog.schema.table_name"])
 
 
-def test_search_unified_traces():
+def test_search_unified_traces(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -903,86 +963,90 @@ def test_log_spans_to_uc_table_empty_spans():
     assert result == []
 
 
-@mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
-@mock.patch("mlflow.store.tracking.databricks_rest_store.http_request")
-@mock.patch("mlflow.store.tracking.databricks_rest_store.verify_rest_response")
 @pytest.mark.parametrize("diff_trace_id", [True, False])
-def test_log_spans_to_uc_table_success(
-    mock_verify, mock_http_request, mock_get_config, diff_trace_id
-):
+def test_log_spans_to_uc_table_success(diff_trace_id):
     # Mock configuration
     mock_config = mock.MagicMock()
     mock_config.authenticate.return_value = {"Authorization": "Bearer token"}
-    mock_get_config.return_value = mock_config
 
     spans = create_mock_spans(diff_trace_id)
 
     # Mock HTTP response
     mock_response = mock.MagicMock()
-    mock_http_request.return_value = mock_response
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
-    # Execute
-    store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.verify_rest_response"
+        ) as mock_verify,
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request", return_value=mock_response
+        ) as mock_http_request,
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
+            return_value=mock_config,
+        ) as mock_get_config,
+    ):
+        # Execute
+        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
     # Verify calls
     mock_get_config.assert_called_once_with("databricks")
     mock_http_request.assert_called_once()
-    mock_verify.assert_called_once_with(mock_response, "/api/2.0/tracing/otel/v1/traces")
+    mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
 
     # Verify HTTP request details
     call_kwargs = mock_http_request.call_args
     assert call_kwargs[1]["method"] == "POST"
-    assert call_kwargs[1]["endpoint"] == "/api/2.0/tracing/otel/v1/traces"
+    assert call_kwargs[1]["endpoint"] == "/api/2.0/otel/v1/traces"
     assert "Content-Type" in call_kwargs[1]["extra_headers"]
     assert call_kwargs[1]["extra_headers"]["Content-Type"] == "application/x-protobuf"
     assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
     assert call_kwargs[1]["extra_headers"]["X-Databricks-UC-Table-Name"] == "catalog.schema.spans"
 
 
-@mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
-def test_log_spans_to_uc_table_config_error(mock_get_config):
-    mock_get_config.side_effect = Exception("Config failed")
-
+def test_log_spans_to_uc_table_config_error():
     mock_span = mock.MagicMock(spec=Span, trace_id="trace123")
     spans = [mock_span]
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
-    with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
-        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
+        side_effect=Exception("Config failed"),
+    ):
+        with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
+            store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
 
-def test_create_assessment():
+def test_create_assessment(sql_warehouse_id):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
     response.text = json.dumps(
         {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_identifier": {
-                    "uc_schema": {
-                        "catalog_name": "catalog",
-                        "schema_name": "schema",
-                    },
-                    "trace_id": "1234",
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_identifier": {
+                "uc_schema": {
+                    "catalog_name": "catalog",
+                    "schema_name": "schema",
                 },
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-20T05:47:23Z",
-                "feedback": {"value": True},
-                "rationale": "rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
+                "trace_id": "1234",
+            },
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
+            "feedback": {"value": True},
+            "rationale": "rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
         }
     )
 
@@ -1000,20 +1064,15 @@ def test_create_assessment():
         span_id=None,
     )
 
-    request = CreateAssessment(
-        assessment=assessment_to_proto(feedback),
-    )
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.create_assessment(
-            assessment=feedback,
-        )
+        res = store.create_assessment(assessment=feedback)
 
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment",
+            f"traces/catalog.schema/1234/assessments?sql_warehouse_id={sql_warehouse_id}",
             "POST",
-            message_to_json(request),
+            message_to_json(assessment_to_proto(feedback)),
             version="4.0",
         )
         assert isinstance(res, Feedback)
@@ -1021,7 +1080,7 @@ def test_create_assessment():
         assert res.value == feedback.value
 
 
-def test_get_assessment():
+def test_get_assessment(sql_warehouse_id):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1029,25 +1088,22 @@ def test_get_assessment():
     trace_id = "trace:/catalog.schema/1234"
     response.text = json.dumps(
         {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "assessment_name",
-                "trace_id": trace_id,
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-20T05:47:23Z",
-                "feedback": {"value": True},
-                "rationale": "rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
+            "assessment_id": "1234",
+            "assessment_name": "assessment_name",
+            "trace_id": trace_id,
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
+            "feedback": {"value": True},
+            "rationale": "rationale",
+            "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
         }
     )
-    request = GetAssessment()
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.get_assessment(
             trace_id=trace_id,
@@ -1057,9 +1113,9 @@ def test_get_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            f"traces/catalog.schema/1234/assessments/1234?sql_warehouse_id={sql_warehouse_id}",
             "GET",
-            message_to_json(request),
+            json_body=None,
             version="4.0",
         )
         assert isinstance(res, Feedback)
@@ -1067,7 +1123,7 @@ def test_get_assessment():
         assert res.value is True
 
 
-def test_update_assessment():
+def test_update_assessment(sql_warehouse_id):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1075,50 +1131,45 @@ def test_update_assessment():
     trace_id = "trace:/catalog.schema/1234"
     response.text = json.dumps(
         {
-            "assessment": {
-                "assessment_id": "1234",
-                "assessment_name": "updated_assessment_name",
-                "trace_location": {
-                    "type": "UC_SCHEMA",
-                    "uc_schema": {
-                        "catalog_name": "catalog",
-                        "schema_name": "schema",
-                    },
-                },
-                "trace_id": "1234",
-                "source": {
-                    "source_type": "LLM_JUDGE",
-                    "source_id": "gpt-4o-mini",
-                },
-                "create_time": "2025-02-20T05:47:23Z",
-                "last_update_time": "2025-02-20T05:47:23Z",
-                "feedback": {"value": False},
-                "rationale": "updated_rationale",
-                "metadata": {"model": "gpt-4o-mini"},
-                "error": None,
-                "span_id": None,
-            }
-        }
-    )
-
-    request = {
-        "assessment": {
             "assessment_id": "1234",
+            "assessment_name": "updated_assessment_name",
             "trace_location": {
                 "type": "UC_SCHEMA",
                 "uc_schema": {
                     "catalog_name": "catalog",
                     "schema_name": "schema",
-                    "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
-                    "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
                 },
             },
             "trace_id": "1234",
+            "source": {
+                "source_type": "LLM_JUDGE",
+                "source_id": "gpt-4o-mini",
+            },
+            "create_time": "2025-02-20T05:47:23Z",
+            "last_update_time": "2025-02-20T05:47:23Z",
             "feedback": {"value": False},
             "rationale": "updated_rationale",
             "metadata": {"model": "gpt-4o-mini"},
+            "error": None,
+            "span_id": None,
+        }
+    )
+
+    request = {
+        "assessment_id": "1234",
+        "trace_location": {
+            "type": "UC_SCHEMA",
+            "uc_schema": {
+                "catalog_name": "catalog",
+                "schema_name": "schema",
+                "otel_spans_table_name": "mlflow_experiment_trace_otel_spans",
+                "otel_logs_table_name": "mlflow_experiment_trace_otel_logs",
+            },
         },
-        "update_mask": "feedback,rationale,metadata",
+        "trace_id": "1234",
+        "feedback": {"value": False},
+        "rationale": "updated_rationale",
+        "metadata": {"model": "gpt-4o-mini"},
     }
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         res = store.update_assessment(
@@ -1132,7 +1183,7 @@ def test_update_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            f"traces/catalog.schema/1234/assessments/1234?sql_warehouse_id={sql_warehouse_id}&update_mask=feedback,rationale,metadata",
             "PATCH",
             json.dumps(request),
             version="4.0",
@@ -1143,14 +1194,13 @@ def test_update_assessment():
         assert res.rationale == "updated_rationale"
 
 
-def test_delete_assessment():
+def test_delete_assessment(sql_warehouse_id):
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
     response.text = json.dumps({})
     trace_id = "trace:/catalog.schema/1234"
-    request = DeleteAssessment()
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
         store.delete_assessment(
             trace_id=trace_id,
@@ -1160,8 +1210,263 @@ def test_delete_assessment():
         _verify_requests(
             mock_http,
             creds,
-            "traces/catalog.schema/1234/assessment/1234",
+            f"traces/catalog.schema/1234/assessments/1234?sql_warehouse_id={sql_warehouse_id}",
             "DELETE",
-            message_to_json(request),
+            json_body=None,
             version="4.0",
         )
+
+
+def test_link_traces_to_run_with_v4_trace_ids_uses_batch_v4_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location = "catalog.schema"
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location}/trace123",
+        f"{TRACE_ID_V4_PREFIX}{location}/trace456",
+    ]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_traces_to_run(trace_ids=trace_ids, run_id=run_id)
+
+        expected_json = {
+            "location_id": location,
+            "trace_ids": ["trace123", "trace456"],
+            "run_id": run_id,
+        }
+
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate",
+            method="POST",
+            json=expected_json,
+        )
+
+
+def test_link_traces_to_run_with_v3_trace_ids_uses_v3_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    trace_ids = ["tr-123", "tr-456"]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_traces_to_run(trace_ids=trace_ids, run_id=run_id)
+
+        expected_json = {
+            "trace_ids": trace_ids,
+            "run_id": run_id,
+        }
+
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint="/api/2.0/mlflow/traces/link-to-run",
+            method="POST",
+            json=expected_json,
+        )
+
+
+def test_link_traces_to_run_with_mixed_v3_v4_trace_ids_handles_both():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location = "catalog.schema"
+    v3_trace_id = "tr-123"
+    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/trace456"
+    trace_ids = [v3_trace_id, v4_trace_id]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_traces_to_run(trace_ids=trace_ids, run_id=run_id)
+
+        # Should make 2 separate calls: one for V3 and one for V4
+        assert mock_http.call_count == 2
+
+        # Verify V3 call
+        v3_call = [call for call in mock_http.call_args_list if "2.0" in call.kwargs["endpoint"]][0]
+        assert v3_call.kwargs["endpoint"] == "/api/2.0/mlflow/traces/link-to-run"
+        assert v3_call.kwargs["json"]["trace_ids"] == [v3_trace_id]
+        assert v3_call.kwargs["json"]["run_id"] == run_id
+
+        # Verify V4 call
+        v4_call = [call for call in mock_http.call_args_list if "4.0" in call.kwargs["endpoint"]][0]
+        expected_v4_endpoint = f"/api/4.0/mlflow/traces/{location}/link-to-run/batchCreate"
+        assert v4_call.kwargs["endpoint"] == expected_v4_endpoint
+        assert v4_call.kwargs["json"]["trace_ids"] == ["trace456"]
+        assert v4_call.kwargs["json"]["run_id"] == run_id
+
+
+def test_link_traces_to_run_with_different_locations_groups_by_location():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location1 = "catalog1.schema1"
+    location2 = "catalog2.schema2"
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location1}/trace123",
+        f"{TRACE_ID_V4_PREFIX}{location2}/trace456",
+        f"{TRACE_ID_V4_PREFIX}{location1}/trace789",
+    ]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.link_traces_to_run(trace_ids=trace_ids, run_id=run_id)
+
+        # Should make 2 separate batch calls, one for each location
+        assert mock_http.call_count == 2
+
+        # Verify calls were made for both locations
+        calls = mock_http.call_args_list
+        call_endpoints = {call.kwargs["endpoint"] for call in calls}
+        expected_endpoints = {
+            f"/api/4.0/mlflow/traces/{location1}/link-to-run/batchCreate",
+            f"/api/4.0/mlflow/traces/{location2}/link-to-run/batchCreate",
+        }
+        assert call_endpoints == expected_endpoints
+
+        # Verify the trace IDs were grouped correctly
+        for call in calls:
+            endpoint = call.kwargs["endpoint"]
+            json_body = call.kwargs["json"]
+            if location1 in endpoint:
+                assert set(json_body["trace_ids"]) == {"trace123", "trace789"}
+            elif location2 in endpoint:
+                assert json_body["trace_ids"] == ["trace456"]
+            assert json_body["run_id"] == run_id
+
+
+def test_link_traces_to_run_with_empty_list_does_nothing():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        store.link_traces_to_run(trace_ids=[], run_id="run_abc")
+        mock_http.assert_not_called()
+
+
+def test_unlink_traces_from_run_with_v4_trace_ids_uses_batch_v4_endpoint():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location = "catalog.schema"
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location}/trace123",
+        f"{TRACE_ID_V4_PREFIX}{location}/trace456",
+    ]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
+
+        expected_json = {
+            "location_id": location,
+            "trace_ids": ["trace123", "trace456"],
+            "run_id": run_id,
+        }
+
+        mock_http.assert_called_once_with(
+            host_creds=creds,
+            endpoint=f"/api/4.0/mlflow/traces/{location}/unlink-from-run/batchDelete",
+            method="DELETE",
+            json=expected_json,
+        )
+
+
+def test_unlink_traces_from_run_with_v3_trace_ids_raises_error():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    trace_ids = ["tr-123", "tr-456"]
+    run_id = "run_abc"
+
+    with pytest.raises(
+        MlflowException,
+        match="Unlinking traces from runs is only supported for traces with UC schema",
+    ):
+        store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
+
+
+def test_unlink_traces_from_run_with_mixed_v3_v4_trace_ids_raises_error():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    location = "catalog.schema"
+    v3_trace_id = "tr-123"
+    v4_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/trace456"
+    trace_ids = [v3_trace_id, v4_trace_id]
+    run_id = "run_abc"
+
+    # Should raise error because V3 traces are not supported for unlinking
+    with pytest.raises(
+        MlflowException,
+        match="Unlinking traces from runs is only supported for traces with UC schema",
+    ):
+        store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
+
+
+def test_unlink_traces_from_run_with_different_locations_groups_by_location():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+    response.text = json.dumps({})
+
+    location1 = "catalog1.schema1"
+    location2 = "catalog2.schema2"
+    trace_ids = [
+        f"{TRACE_ID_V4_PREFIX}{location1}/trace123",
+        f"{TRACE_ID_V4_PREFIX}{location2}/trace456",
+        f"{TRACE_ID_V4_PREFIX}{location1}/trace789",
+    ]
+    run_id = "run_abc"
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.unlink_traces_from_run(trace_ids=trace_ids, run_id=run_id)
+
+        # Should make 2 separate batch calls, one for each location
+        assert mock_http.call_count == 2
+
+        # Verify calls were made for both locations
+        calls = mock_http.call_args_list
+        call_endpoints = {call.kwargs["endpoint"] for call in calls}
+        expected_endpoints = {
+            f"/api/4.0/mlflow/traces/{location1}/unlink-from-run/batchDelete",
+            f"/api/4.0/mlflow/traces/{location2}/unlink-from-run/batchDelete",
+        }
+        assert call_endpoints == expected_endpoints
+
+        # Verify the trace IDs were grouped correctly
+        for call in calls:
+            endpoint = call.kwargs["endpoint"]
+            json_body = call.kwargs["json"]
+            if location1 in endpoint:
+                assert set(json_body["trace_ids"]) == {"trace123", "trace789"}
+            elif location2 in endpoint:
+                assert json_body["trace_ids"] == ["trace456"]
+            assert json_body["run_id"] == run_id
+
+
+def test_unlink_traces_from_run_with_empty_list_does_nothing():
+    creds = MlflowHostCreds("https://hello")
+    store = DatabricksTracingRestStore(lambda: creds)
+
+    with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
+        store.unlink_traces_from_run(trace_ids=[], run_id="run_abc")
+        mock_http.assert_not_called()

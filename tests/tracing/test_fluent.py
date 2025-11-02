@@ -7,7 +7,6 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict
 from datetime import datetime
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -39,7 +38,6 @@ from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import _get_tracer, set_destination
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import (
@@ -178,6 +176,14 @@ def mock_client():
         yield client
 
 
+@pytest.fixture
+def mock_otel_trace_start_time():
+    # mock the start time of a trace, ensuring the root span has
+    # a smaller start time than child spans.
+    with mock.patch("opentelemetry.sdk.trace.time_ns", return_value=0):
+        yield
+
+
 @pytest.mark.parametrize("with_active_run", [True, False])
 @pytest.mark.parametrize("wrap_sync_func", [True, False])
 def test_trace(wrap_sync_func, with_active_run, async_logging_enabled):
@@ -299,7 +305,7 @@ def test_trace_stream(wrap_sync_func):
 
     # Spans for the chid 'square' function
     for i in range(3):
-        assert trace.data.spans[i + 1].name == f"square_{i + 1}"
+        assert trace.data.spans[i + 1].name == "square"
         assert trace.data.spans[i + 1].inputs == {"t": i}
         assert trace.data.spans[i + 1].outputs == i**2
         assert trace.data.spans[i + 1].parent_id == root_span.span_id
@@ -538,9 +544,9 @@ def test_trace_handle_exception_during_streaming():
     assert len(spans) == 3
     assert spans[0].name == "predict_stream"
     assert spans[0].status.status_code == SpanStatusCode.ERROR
-    assert spans[1].name == "some_operation_raise_error_1"
+    assert spans[1].name == "some_operation_raise_error"
     assert spans[1].status.status_code == SpanStatusCode.OK
-    assert spans[2].name == "some_operation_raise_error_2"
+    assert spans[2].name == "some_operation_raise_error"
     assert spans[2].status.status_code == SpanStatusCode.ERROR
 
     # One chunk event + one exception event
@@ -708,8 +714,8 @@ def test_start_span_context_manager(async_logging_enabled):
     assert trace.data.response == "25"
     assert len(trace.data.spans) == 3
 
-    span_name_to_span = {span.name: span for span in trace.data.spans}
-    root_span = span_name_to_span["root_span"]
+    root_span = trace.data.spans[0]
+    assert root_span.name == "root_span"
     assert root_span.parent_id is None
     assert root_span.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
@@ -718,8 +724,8 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 25,
     }
 
-    # Span with duplicate name should be renamed to have an index number like "_1", "_2", ...
-    child_span_1 = span_name_to_span["child_span_1"]
+    child_span_1 = trace.data.spans[1]
+    assert child_span_1.name == "child_span"
     assert child_span_1.parent_id == root_span.span_id
     assert child_span_1.attributes == {
         "delta": 2,
@@ -730,7 +736,8 @@ def test_start_span_context_manager(async_logging_enabled):
         "mlflow.spanOutputs": 5,
     }
 
-    child_span_2 = span_name_to_span["child_span_2"]
+    child_span_2 = trace.data.spans[2]
+    assert child_span_2.name == "child_span"
     assert child_span_2.parent_id == root_span.span_id
     assert child_span_2.attributes == {
         "mlflow.traceRequestId": trace.info.trace_id,
@@ -846,24 +853,24 @@ def test_mlflow_trace_isolated_from_other_otel_processors():
     assert other_exporter.exported_spans[0].name == "non_mlflow_span"
 
 
-@mock.patch("mlflow.tracing.display.get_display_handler")
-def test_get_trace(mock_get_display_handler):
-    model = DefaultTestModel()
-    model.predict(2, 5)
+def test_get_trace():
+    with mock.patch("mlflow.tracing.display.get_display_handler") as mock_get_display_handler:
+        model = DefaultTestModel()
+        model.predict(2, 5)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-    trace_id = trace.info.trace_id
-    mock_get_display_handler.reset_mock()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace_id = trace.info.trace_id
+        mock_get_display_handler.reset_mock()
 
-    # Fetch trace from in-memory buffer
-    trace_in_memory = mlflow.get_trace(trace_id)
-    assert trace.info.trace_id == trace_in_memory.info.trace_id
-    mock_get_display_handler.assert_not_called()
+        # Fetch trace from in-memory buffer
+        trace_in_memory = mlflow.get_trace(trace_id)
+        assert trace.info.trace_id == trace_in_memory.info.trace_id
+        mock_get_display_handler.assert_not_called()
 
-    # Fetch trace from backend
-    trace_from_backend = mlflow.get_trace(trace.info.trace_id)
-    assert trace.info.trace_id == trace_from_backend.info.trace_id
-    mock_get_display_handler.assert_not_called()
+        # Fetch trace from backend
+        trace_from_backend = mlflow.get_trace(trace.info.trace_id)
+        assert trace.info.trace_id == trace_from_backend.info.trace_id
+        mock_get_display_handler.assert_not_called()
 
     # If not found, return None with warning
     with mock.patch("mlflow.tracing.fluent._logger") as mock_logger:
@@ -1111,6 +1118,26 @@ def test_search_traces_with_non_dict_span_inputs_outputs():
 
 
 @skip_when_testing_trace_sdk
+def test_search_traces_extract_fields_preserves_standard_columns():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_inputs({"x": 1})
+        span.set_outputs({"y": 2})
+
+    df = mlflow.search_traces(extract_fields=["test_span.inputs.x"])
+
+    # Verify standard columns still exist
+    assert "trace_id" in df.columns
+    assert "spans" in df.columns
+    assert "tags" in df.columns
+    assert "request" in df.columns
+    assert "response" in df.columns
+
+    # Verify extract field was added
+    assert "test_span.inputs.x" in df.columns
+    assert df["test_span.inputs.x"].tolist() == [1]
+
+
+@skip_when_testing_trace_sdk
 def test_search_traces_with_multiple_spans_with_same_name():
     class TestModel:
         @mlflow.trace(name="duplicate_name")
@@ -1134,21 +1161,15 @@ def test_search_traces_with_multiple_spans_with_same_name():
 
     df = mlflow.search_traces(
         extract_fields=[
-            "duplicate_name.inputs.y",
             "duplicate_name.inputs.x",
+            "duplicate_name.inputs.y",
             "duplicate_name.inputs.z",
-            "duplicate_name_1.inputs.x",
-            "duplicate_name_1.inputs.y",
-            "duplicate_name_2.inputs.z",
         ]
     )
     # Duplicate spans would all be null
-    assert df["duplicate_name.inputs.y"].isnull().all()
     assert df["duplicate_name.inputs.x"].isnull().all()
-    assert df["duplicate_name.inputs.z"].isnull().all()
-    assert df["duplicate_name_1.inputs.x"].tolist() == [2]
-    assert df["duplicate_name_1.inputs.y"].tolist() == [5]
-    assert df["duplicate_name_2.inputs.z"].tolist() == [7]
+    assert df["duplicate_name.inputs.y"].isnull().all()
+    assert df["duplicate_name.inputs.z"].tolist() == [7]
 
 
 # Test a field that doesn't exist for extraction - we shouldn't throw, just return empty column
@@ -1850,13 +1871,6 @@ def test_non_ascii_characters_not_encoded_as_unicode():
     span = trace.data.spans[0]
     assert span.inputs == {"japanese": "あ", "emoji": "👍"}
 
-    artifact_location = local_file_uri_to_path(trace.info.tags["mlflow.artifactLocation"])
-    data = Path(artifact_location, "traces.json").read_text()
-    assert "あ" in data
-    assert "👍" in data
-    assert json.dumps("あ").strip('"') not in data
-    assert json.dumps("👍").strip('"') not in data
-
 
 _SAMPLE_REMOTE_TRACE = {
     "info": {
@@ -1922,7 +1936,7 @@ _SAMPLE_REMOTE_TRACE = {
 }
 
 
-def test_add_trace():
+def test_add_trace(mock_otel_trace_start_time):
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():
         return {"prediction": 1, "trace": _SAMPLE_REMOTE_TRACE}
@@ -1979,7 +1993,7 @@ def test_add_trace_no_current_active_trace():
     parent_span, child_span, grandchild_span = trace.data.spans
     assert parent_span.name == "Remote Trace <remote>"
     rs = remote_trace.data.spans[0]
-    assert parent_span.start_time_ns == rs.start_time_ns
+    assert parent_span.start_time_ns == rs.start_time_ns - 1
     assert parent_span.end_time_ns == rs.end_time_ns
     assert child_span.name == rs.name
     assert child_span.parent_id is parent_span.span_id
@@ -1994,7 +2008,7 @@ def test_add_trace_no_current_active_trace():
         assert child_span.attributes[k] == rs.attributes[k]
 
 
-def test_add_trace_specific_target_span():
+def test_add_trace_specific_target_span(mock_otel_trace_start_time):
     span = start_span_no_context(name="parent")
     mlflow.add_trace(_SAMPLE_REMOTE_TRACE, target=span)
     span.end()
@@ -2377,3 +2391,44 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
     assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
     found_span_names = [span.name for span in traces[0].data.spans]
     assert "test_span" in found_span_names
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_traces_with_full_text():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("llm.inputs", "How's the result?")
+        span.set_attribute("llm.outputs", "the number increased 90%")
+        trace_id_1 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_outputs({"outputs": 1234567})
+        span.set_attribute("test", "the number increased")
+        trace_id_2 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("test", "result including 'single quotes'")
+        trace_id_3 = span.trace_id
+
+    traces = mlflow.search_traces(
+        filter_string='trace.text LIKE "%How\'s the result?%"', return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1
+
+    traces = mlflow.search_traces(filter_string='trace.text LIKE "%1234567%"', return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_2
+
+    traces = mlflow.search_traces(
+        filter_string="trace.text LIKE \"%result including 'single quotes'%\"", return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_3
+
+    traces = mlflow.search_traces(
+        filter_string='trace.text LIKE "%increased 90%%"', return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1

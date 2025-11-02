@@ -117,11 +117,9 @@ class Trace(_MlflowObject):
         return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
-        from mlflow.utils.databricks_tracing_utils import trace_to_json
-
         return {
             "trace_id": self.info.trace_id,
-            "trace": trace_to_json(self),  # json string to be compatible with Spark DataFrame
+            "trace": self.to_json(),  # json string to be compatible with Spark DataFrame
             "client_request_id": self.info.client_request_id,
             "state": self.info.state,
             "request_time": self.info.request_time,
@@ -319,9 +317,16 @@ class Trace(_MlflowObject):
     def to_proto(self):
         """
         Convert into a proto object to sent to the MLflow backend.
-
-        NB: The Trace definition in MLflow backend doesn't include the `data` field,
-            but rather only contains TraceInfoV3.
         """
 
-        return ProtoTrace(trace_info=self.info.to_proto())
+        return ProtoTrace(
+            trace_info=self.info.to_proto(),
+            spans=[span.to_otel_proto() for span in self.data.spans],
+        )
+
+    @classmethod
+    def from_proto(cls, proto: ProtoTrace) -> "Trace":
+        return cls(
+            info=TraceInfo.from_proto(proto.trace_info),
+            data=TraceData(spans=[Span.from_otel_proto(span) for span in proto.spans]),
+        )

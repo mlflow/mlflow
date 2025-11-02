@@ -16,6 +16,14 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
+_ALLOWED_JOB_FUNCTION_LIST = [
+    # Putting all allowed job function in the list
+]
+
+if allowed_job_function_list_env := os.environ.get("_MLFLOW_ALLOWED_JOB_FUNCTION_LIST"):
+    _ALLOWED_JOB_FUNCTION_LIST += allowed_job_function_list_env.split(",")
+
+
 class TransientError(RuntimeError):
     """
     Raise `TransientError` in a job to trigger job retry
@@ -138,18 +146,23 @@ def submit_job(
         _validate_function_parameters,
     )
 
-    _check_requirements()
-
     if not MLFLOW_SERVER_ENABLE_JOB_EXECUTION.get():
         raise MlflowException(
             "Mlflow server job execution feature is not enabled, please set "
             "environment variable 'MLFLOW_SERVER_ENABLE_JOB_EXECUTION' to 'true' to enable it."
         )
 
+    _check_requirements()
+
     if not (isinstance(function, FunctionType) and "." not in function.__qualname__):
         raise MlflowException("The job function must be a python global function.")
 
     func_fullname = f"{function.__module__}.{function.__name__}"
+
+    if func_fullname not in _ALLOWED_JOB_FUNCTION_LIST:
+        raise MlflowException.invalid_parameter_value(
+            f"The function {func_fullname} is not in the allowed job function list"
+        )
 
     if not hasattr(function, "_job_fn_metadata"):
         raise MlflowException(

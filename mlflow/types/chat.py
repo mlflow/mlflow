@@ -3,25 +3,7 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel as _BaseModel
-from pydantic import Field
-
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
-
-
-class BaseModel(_BaseModel):
-    @classmethod
-    def validate_compat(cls, obj: Any):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return cls.model_validate(obj)
-        else:
-            return cls.parse_obj(obj)
-
-    def model_dump_compat(self, **kwargs):
-        if IS_PYDANTIC_V2_OR_NEWER:
-            return self.model_dump(**kwargs)
-        else:
-            return self.dict(**kwargs)
+from pydantic import BaseModel, Field
 
 
 class TextContentPart(BaseModel):
@@ -71,8 +53,8 @@ ContentType = Annotated[str | ContentPartsList, Field(union_mode="left_to_right"
 
 
 class Function(BaseModel):
-    name: str
-    arguments: str
+    name: str | None = None
+    arguments: str | None = None
 
     def to_tool_call(self, id=None) -> ToolCall:
         if id is None:
@@ -167,9 +149,7 @@ class BaseRequestPayload(BaseModel):
 
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
-    stop: list[str] | None = (
-        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
-    )
+    stop: list[str] | None = Field(None, min_length=1)
     max_tokens: int | None = Field(None, ge=1)
     stream: bool | None = None
     stream_options: dict[str, Any] | None = None
@@ -195,9 +175,17 @@ class ChatUsage(BaseModel):
     total_tokens: int | None = None
 
 
+class ToolCallDelta(BaseModel):
+    index: int
+    id: str | None = None
+    type: str | None = None
+    function: Function
+
+
 class ChatChoiceDelta(BaseModel):
     role: str | None = None
     content: str | None = None
+    tool_calls: list[ToolCallDelta] | None = None
 
 
 class ChatChunkChoice(BaseModel):
@@ -224,12 +212,8 @@ class ChatCompletionRequest(BaseRequestPayload):
     https://platform.openai.com/docs/api-reference/chat
     """
 
-    messages: list[ChatMessage] = (
-        Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
-    )
-    tools: list[ChatTool] | None = (
-        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
-    )
+    messages: list[ChatMessage] = Field(..., min_length=1)
+    tools: list[ChatTool] | None = Field(None, min_length=1)
 
 
 class ChatCompletionResponse(BaseModel):

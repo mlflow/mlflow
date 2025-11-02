@@ -12,10 +12,15 @@ from opentelemetry.trace import StatusCode as OTelStatusCode
 
 import mlflow
 from mlflow.entities import LiveSpan, Span, SpanEvent, SpanStatus, SpanStatusCode, SpanType
-from mlflow.entities.span import NoOpSpan, create_mlflow_span
+from mlflow.entities.span import (
+    NoOpSpan,
+    create_mlflow_span,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.utils import build_otel_context, encode_span_id, encode_trace_id
+from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
 
 def test_create_live_span():
@@ -440,10 +445,6 @@ def test_span_from_otel_proto_conversion():
     # Add attributes
     from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
 
-    attr1 = otel_proto.attributes.add()
-    attr1.key = "mlflow.traceRequestId"
-    _set_otel_proto_anyvalue(attr1.value, '{"request": "id"}')
-
     attr2 = otel_proto.attributes.add()
     attr2.key = "mlflow.spanType"
     _set_otel_proto_anyvalue(attr2.value, "CHAIN")
@@ -469,6 +470,7 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.end_time_ns == 2000000000
 
     # Verify IDs
+    assert mlflow_span.trace_id == "tr-12345678901234567890123456789012"
     assert mlflow_span.span_id == "1234567890123456"
     assert mlflow_span.parent_id == "0987654321098765"
 
@@ -485,6 +487,47 @@ def test_span_from_otel_proto_conversion():
     assert mlflow_span.events[0].name == "test_event"
     assert mlflow_span.events[0].timestamp == 1500000000
     assert mlflow_span.events[0].attributes["event_data"] == "event_value"
+
+
+def test_span_from_otel_proto_with_location():
+    # Create OTel proto span
+    otel_proto = OTelProtoSpan()
+    otel_proto.trace_id = bytes.fromhex("12345678901234567890123456789012")
+    otel_proto.span_id = bytes.fromhex("1234567890123456")
+    otel_proto.parent_span_id = bytes.fromhex("0987654321098765")
+    otel_proto.name = "proto_span_v4"
+    otel_proto.start_time_unix_nano = 1000000000
+    otel_proto.end_time_unix_nano = 2000000000
+
+    # Add status
+    otel_proto.status.code = OTelProtoStatus.STATUS_CODE_OK
+    otel_proto.status.message = ""
+
+    # Add attributes
+    attr1 = otel_proto.attributes.add()
+    attr1.key = "mlflow.spanType"
+    _set_otel_proto_anyvalue(attr1.value, "LLM")
+
+    # Convert to MLflow span with location
+    location = "catalog.schema"
+    mlflow_span = Span.from_otel_proto(otel_proto, location_id=location)
+
+    # Verify basic fields
+    assert mlflow_span.name == "proto_span_v4"
+    assert mlflow_span.start_time_ns == 1000000000
+    assert mlflow_span.end_time_ns == 2000000000
+
+    # Verify IDs
+    assert mlflow_span.span_id == "1234567890123456"
+    assert mlflow_span.parent_id == "0987654321098765"
+
+    # Verify trace_id is in v4 format with location
+    expected_trace_id = f"{TRACE_ID_V4_PREFIX}{location}/12345678901234567890123456789012"
+    assert mlflow_span.trace_id == expected_trace_id
+
+    # Verify the REQUEST_ID attribute also uses v4 format
+    request_id = mlflow_span.get_attribute("mlflow.traceRequestId")
+    assert request_id == expected_trace_id
 
 
 def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
@@ -546,3 +589,184 @@ def test_otel_roundtrip_conversion(sample_otel_span_for_conversion):
         assert rt_event.name == orig_event.name
         assert rt_event.timestamp == orig_event.timestamp
         assert rt_event.attributes == orig_event.attributes
+
+
+def test_span_from_dict_old_format():
+    span_dict = {
+        "trace_id": "6ST7JNq8BC4JRp0HA/vD6Q==",
+        "span_id": "Sd/l0Zs4M3g=",
+        "parent_span_id": None,
+        "name": "test_span",
+        "start_time_unix_nano": 1000000000,
+        "end_time_unix_nano": 2000000000,
+        "status": {"code": "STATUS_CODE_ERROR", "message": "Error occurred"},
+        "attributes": {
+            "mlflow.spanInputs": '{"query": "test"}',
+            "mlflow.spanOutputs": '{"result": "success"}',
+            "custom": "value",
+            "mlflow.traceRequestId": '"tr-e924fb24dabc042e09469d0703fbc3e9"',
+        },
+        "events": [],
+    }
+
+    # Deserialize it
+    recovered_span = Span.from_dict(span_dict)
+
+    # Verify all fields are recovered correctly
+    assert recovered_span.trace_id == "tr-e924fb24dabc042e09469d0703fbc3e9"
+    assert recovered_span.span_id == "49dfe5d19b383378"
+    assert recovered_span.parent_id is None
+    assert recovered_span.name == span_dict["name"]
+    assert recovered_span.start_time_ns == span_dict["start_time_unix_nano"]
+    assert recovered_span.end_time_ns == span_dict["end_time_unix_nano"]
+    assert recovered_span.status.status_code.value == "ERROR"
+    assert recovered_span.inputs == {"query": "test"}
+    assert recovered_span.outputs == {"result": "success"}
+    assert recovered_span.get_attribute("custom") == "value"
+
+
+def test_span_dict_v4_with_no_parent():
+    with mlflow.start_span("root_span") as span:
+        span.set_inputs({"x": 1})
+        span.set_outputs({"y": 2})
+
+    span_dict = span.to_dict()
+
+    # Root span should have None for parent_span_id
+    assert span_dict["parent_span_id"] is None
+
+    # Deserialize and verify
+    recovered = Span.from_dict(span_dict)
+    assert recovered.parent_id is None
+    assert recovered.name == "root_span"
+    assert recovered.inputs == {"x": 1}
+    assert recovered.outputs == {"y": 2}
+
+
+def test_span_from_dict_supports_both_status_code_formats():
+    with mlflow.start_span("test") as span:
+        span.set_status("OK")
+
+    span_dict = span.to_dict()
+
+    # Current code serializes as protobuf enum name
+    assert span_dict["status"]["code"] == "STATUS_CODE_OK"
+
+    # Verify we can deserialize protobuf enum name format (backward compatibility)
+    span_dict["status"]["code"] = "STATUS_CODE_ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
+
+    # Verify we can also deserialize enum value format
+    # (forward compatibility with older serialized data)
+    span_dict["status"]["code"] = "OK"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.OK
+
+    span_dict["status"]["code"] = "UNSET"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.UNSET
+
+    span_dict["status"]["code"] = "ERROR"
+    recovered = Span.from_dict(span_dict)
+    assert recovered.status.status_code == SpanStatusCode.ERROR
+
+
+def test_load_from_old_span_dict():
+    span_dict = {
+        "trace_id": "ZqqBulxlq2cwRCfKHxmDVA==",
+        "span_id": "/mCYZRxbTqw=",
+        "trace_state": "",
+        "parent_span_id": "f6qlKYqTw2E=",
+        "name": "custom",
+        "start_time_unix_nano": 1761103703884225000,
+        "end_time_unix_nano": 1761103703884454000,
+        "attributes": {
+            "mlflow.spanOutputs": "4",
+            "mlflow.spanType": '"LLM"',
+            "mlflow.spanInputs": '{"z": 3}',
+            "mlflow.traceRequestId": '"tr-66aa81ba5c65ab67304427ca1f198354"',
+            "delta": "1",
+            "mlflow.spanFunctionName": '"add_one"',
+        },
+        "status": {"message": "", "code": "STATUS_CODE_OK"},
+        "events": [
+            {
+                "time_unix_nano": 1761105506649041,
+                "name": "agent_action",
+                "attributes": {
+                    "tool": "search_web",
+                    "tool_input": '"What is MLflow?"',
+                    "log": "test",
+                },
+            }
+        ],
+    }
+    span = Span.from_dict(span_dict)
+    assert span.trace_id == "tr-66aa81ba5c65ab67304427ca1f198354"
+    assert span.span_id == "fe6098651c5b4eac"
+    assert span.parent_id == "7faaa5298a93c361"
+    assert span.name == "custom"
+    assert span.start_time_ns == 1761103703884225000
+    assert span.end_time_ns == 1761103703884454000
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.inputs == {"z": 3}
+    assert span.outputs == 4
+    assert len(span.events) == 1
+    assert span.events[0].name == "agent_action"
+    assert span.events[0].timestamp == 1761105506649041
+    assert span.events[0].attributes == {
+        "tool": "search_web",
+        "tool_input": '"What is MLflow?"',
+        "log": "test",
+    }
+
+
+def test_load_from_3_5_0_span_dict():
+    span_dict = {
+        "trace_id": "tr-66aa81ba5c65ab67304427ca1f198354",
+        "span_id": "fe6098651c5b4eac",
+        "trace_state": "",
+        "parent_span_id": "7faaa5298a93c361",
+        "name": "custom",
+        "start_time_unix_nano": 1761103703884225000,
+        "end_time_unix_nano": 1761103703884454000,
+        "attributes": {
+            "mlflow.spanOutputs": "4",
+            "mlflow.spanType": '"LLM"',
+            "mlflow.spanInputs": '{"z": 3}',
+            "mlflow.traceRequestId": '"tr-66aa81ba5c65ab67304427ca1f198354"',
+            "delta": "1",
+            "mlflow.spanFunctionName": '"add_one"',
+        },
+        "status": {"message": "", "code": "OK"},
+        "events": [
+            {
+                "time_unix_nano": 1761105506649041,
+                "name": "agent_action",
+                "attributes": {
+                    "tool": "search_web",
+                    "tool_input": '"What is MLflow?"',
+                    "log": "test",
+                },
+            }
+        ],
+    }
+    span = Span.from_dict(span_dict)
+    assert span.trace_id == "tr-66aa81ba5c65ab67304427ca1f198354"
+    assert span.span_id == "fe6098651c5b4eac"
+    assert span.parent_id == "7faaa5298a93c361"
+    assert span.name == "custom"
+    assert span.start_time_ns == 1761103703884225000
+    assert span.end_time_ns == 1761103703884454000
+    assert span.status == SpanStatus(SpanStatusCode.OK, description="")
+    assert span.inputs == {"z": 3}
+    assert span.outputs == 4
+    assert len(span.events) == 1
+    assert span.events[0].name == "agent_action"
+    assert span.events[0].timestamp == 1761105506649041
+    assert span.events[0].attributes == {
+        "tool": "search_web",
+        "tool_input": '"What is MLflow?"',
+        "log": "test",
+    }

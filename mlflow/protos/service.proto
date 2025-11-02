@@ -6,10 +6,10 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -586,6 +586,19 @@ service MlflowService {
     };
   }
 
+  // Get complete traces with spans for given trace identifiers.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/batchGet",
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Traces",
+    };
+  }
 
   // DEPRECATED. Use searchTracesV3 instead.
   rpc searchTraces (SearchTraces) returns (SearchTraces.Response) {
@@ -2127,6 +2140,17 @@ message GetTraceInfoV3 {
   }
 }
 
+message BatchGetTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the traces to fetch. Must be provided.
+  repeated string trace_ids = 1 [(validate_required) = true];
+
+  message Response {
+    // The fetched trace information.
+    repeated Trace traces = 1;
+  }
+}
 
 message SearchTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
@@ -2361,6 +2385,7 @@ message DeleteTraceTagV3 {
 
 message Trace {
   optional TraceInfoV3 trace_info = 1;
+  repeated opentelemetry.proto.trace.v1.Span spans = 2;
 }
 
 
@@ -3048,6 +3073,16 @@ message RegisterScorer {
   message Response {
     // The new version number for the scorer.
     optional int32 version = 1;
+    // The unique identifier for the scorer.
+    optional string scorer_id = 2;
+    // The experiment ID (same as request).
+    optional string experiment_id = 3;
+    // The scorer name (same as request).
+    optional string name = 4;
+    // The serialized scorer string (same as request).
+    optional string serialized_scorer = 5;
+    // The creation time of the scorer version (in milliseconds since epoch).
+    optional int64 creation_time = 6;
   }
 }
 
@@ -3124,4 +3159,6 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+  // The unique identifier for the scorer.
+  optional string scorer_id = 6;
 }

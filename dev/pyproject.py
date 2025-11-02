@@ -351,12 +351,12 @@ def build(package_type: PackageType) -> None:
                 ],
                 "gateway": gateways_requirements,
                 "genai": gateways_requirements,
+                "mcp": ["fastmcp<3,>=2.0.0"],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
-                "jobs": ["huey<3,>=2.5.0", "uv<1"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING
@@ -364,7 +364,7 @@ def build(package_type: PackageType) -> None:
             "urls": {
                 "homepage": "https://mlflow.org",
                 "issues": "https://github.com/mlflow/mlflow/issues",
-                "documentation": "https://mlflow.org/docs/latest/index.html",
+                "documentation": "https://mlflow.org/docs/latest",
                 "repository": "https://github.com/mlflow/mlflow",
             },
             "scripts": {

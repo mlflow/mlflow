@@ -24,7 +24,6 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
-    ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
@@ -64,7 +63,14 @@ class InstructionsJudge(Judge):
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
 
-    def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
+    def __init__(
+        self,
+        name: str,
+        instructions: str,
+        model: str | None = None,
+        description: str | None = None,
+        **kwargs,
+    ):
         """
         Initialize the InstructionsJudge.
 
@@ -72,10 +78,11 @@ class InstructionsJudge(Judge):
             name: The name of the judge
             instructions: Natural language instructions for evaluation
             model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+            description: A description of what the judge evaluates
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
-        super().__init__(name=name, aggregations=[], **kwargs)
+        super().__init__(name=name, description=description, aggregations=[], **kwargs)
 
         if not name or not isinstance(name, str):
             raise MlflowException(
@@ -395,11 +402,6 @@ class InstructionsJudge(Judge):
             trace=trace if is_trace_based else None,
         )
 
-    @property
-    def kind(self) -> ScorerKind:
-        """Return the kind of scorer this judge represents."""
-        return ScorerKind.CLASS
-
     def _validate_model_format(self) -> None:
         """
         Validate that the model is in a valid format.
@@ -442,6 +444,7 @@ class InstructionsJudge(Judge):
         """Override model_dump to serialize as a SerializedScorer."""
         serialized_scorer = SerializedScorer(
             name=self.name,
+            description=self.description,
             aggregations=self.aggregations,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,

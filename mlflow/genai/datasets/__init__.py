@@ -7,14 +7,16 @@ The API docs can be found here:
 """
 
 import logging
+import os
 import time
+from contextlib import contextmanager
 from typing import Any
 
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 from mlflow.store.tracking import SEARCH_EVALUATION_DATASETS_MAX_RESULTS
 from mlflow.tracking import get_tracking_uri
 from mlflow.utils.annotations import deprecated_parameter, experimental
-from mlflow.utils.databricks_utils import is_databricks_default_tracking_uri
+from mlflow.utils.uri import get_db_info_from_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
 
@@ -22,6 +24,41 @@ _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
     "Please install it with `pip install databricks-agents`."
 )
+
+_DATABRICKS_CONFIG_PROFILE_ENV_VAR = "DATABRICKS_CONFIG_PROFILE"
+
+
+@contextmanager
+def _databricks_profile_env():
+    """
+    Context manager that temporarily sets DATABRICKS_CONFIG_PROFILE based on the tracking URI.
+
+    This ensures that databricks.agents SDK functions use the correct profile specified
+    in the MLflow tracking URI. The databricks.agents SDK creates WorkspaceClient instances
+    internally without accepting profile parameters, so it relies on the
+    DATABRICKS_CONFIG_PROFILE environment variable to determine which profile to use.
+
+    The tracking URI profile takes precedence over any existing DATABRICKS_CONFIG_PROFILE
+    environment variable for the duration of MLflow operations. The original value is
+    restored after the operation completes.
+    """
+    tracking_uri = get_tracking_uri()
+    profile, _ = get_db_info_from_uri(tracking_uri)
+
+    if not profile:
+        yield
+        return
+
+    original_profile = os.environ.get(_DATABRICKS_CONFIG_PROFILE_ENV_VAR)
+    os.environ[_DATABRICKS_CONFIG_PROFILE_ENV_VAR] = profile
+
+    try:
+        yield
+    finally:
+        if original_profile is not None:
+            os.environ[_DATABRICKS_CONFIG_PROFILE_ENV_VAR] = original_profile
+        else:
+            os.environ.pop(_DATABRICKS_CONFIG_PROFILE_ENV_VAR, None)
 
 
 def _validate_databricks_params(
@@ -131,7 +168,7 @@ def create_dataset(
 
     experiment_ids = [experiment_id] if isinstance(experiment_id, str) else experiment_id
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         if tags is not None:
             raise NotImplementedError(
                 "Tags are not supported in Databricks environments. "
@@ -140,7 +177,8 @@ def create_dataset(
         try:
             from databricks.agents.datasets import create_dataset as db_create
 
-            return EvaluationDataset(db_create(name, experiment_ids))
+            with _databricks_profile_env():
+                return EvaluationDataset(db_create(name, experiment_ids))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
@@ -208,12 +246,13 @@ def delete_dataset(
         records, tags, and metadata will be permanently removed.
     """
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
         try:
             from databricks.agents.datasets import delete_dataset as db_delete
 
-            return db_delete(name)
+            with _databricks_profile_env():
+                return db_delete(name)
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
@@ -272,12 +311,13 @@ def get_dataset(
             dataset.merge_records(new_test_cases)
     """
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         _validate_databricks_params(name, dataset_id)
         try:
             from databricks.agents.datasets import get_dataset as db_get
 
-            return EvaluationDataset(db_get(name))
+            with _databricks_profile_env():
+                return EvaluationDataset(db_get(name))
         except ImportError as e:
             raise ImportError(_ERROR_MSG) from e
     else:
@@ -429,7 +469,7 @@ def search_datasets(
         This API is not available in Databricks environments. Use Unity Catalog
         search capabilities in Databricks instead.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset search is not available in Databricks. "
             "Use Unity Catalog search capabilities instead."
@@ -528,7 +568,7 @@ def set_dataset_tags(
         This API is not available in Databricks environments yet.
         Tags in Databricks are managed through Unity Catalog.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
@@ -578,7 +618,7 @@ def delete_dataset_tag(
         This API is not available in Databricks environments yet.
         Tags in Databricks are managed through Unity Catalog.
     """
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset tag operations are not available in Databricks yet. "
             "Tags are managed through Unity Catalog."
@@ -594,7 +634,7 @@ def _validate_association_operation():
     from mlflow.store.tracking.file_store import FileStore
     from mlflow.tracking._tracking_service.utils import _get_store
 
-    if is_databricks_default_tracking_uri(get_tracking_uri()):
+    if is_databricks_uri(get_tracking_uri()):
         raise NotImplementedError(
             "Dataset association operations are not available in Databricks yet. "
             "Associations are managed through Unity Catalog."

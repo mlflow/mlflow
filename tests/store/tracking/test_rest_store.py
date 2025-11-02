@@ -125,8 +125,7 @@ def mock_http_request():
     )
 
 
-@mock.patch("requests.Session.request")
-def test_successful_http_request(request):
+def test_successful_http_request():
     def mock_request(*args, **kwargs):
         # Filter out None arguments
         assert args == ("POST", "https://hello/api/2.0/mlflow/experiments/search")
@@ -143,39 +142,34 @@ def test_successful_http_request(request):
         response.text = '{"experiments": [{"name": "Exp!", "lifecycle_stage": "active"}]}'
         return response
 
-    request.side_effect = mock_request
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        experiments = store.search_experiments()
+        assert experiments[0].name == "Exp!"
 
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    experiments = store.search_experiments()
-    assert experiments[0].name == "Exp!"
 
-
-@mock.patch("requests.Session.request")
-def test_failed_http_request(request):
+def test_failed_http_request():
     response = mock.MagicMock()
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
-    request.return_value = response
+    with mock.patch("requests.Session.request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
+            store.search_experiments()
 
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST: No experiment"):
-        store.search_experiments()
 
-
-@mock.patch("requests.Session.request")
-def test_failed_http_request_custom_handler(request):
+def test_failed_http_request_custom_handler():
     response = mock.MagicMock()
     response.status_code = 404
     response.text = '{"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "No experiment"}'
-    request.return_value = response
 
-    store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
-    with pytest.raises(MyCoolException, match="cool"):
-        store.search_experiments()
+    with mock.patch("requests.Session.request", return_value=response):
+        store = CustomErrorHandlingRestStore(lambda: MlflowHostCreds("https://hello"))
+        with pytest.raises(MyCoolException, match="cool"):
+            store.search_experiments()
 
 
-@mock.patch("requests.Session.request")
-def test_response_with_unknown_fields(request):
+def test_response_with_unknown_fields():
     experiment_json = {
         "experiment_id": "1",
         "name": "My experiment",
@@ -188,12 +182,11 @@ def test_response_with_unknown_fields(request):
     response.status_code = 200
     experiments = {"experiments": [experiment_json]}
     response.text = json.dumps(experiments)
-    request.return_value = response
-
-    store = RestStore(lambda: MlflowHostCreds("https://hello"))
-    experiments = store.search_experiments()
-    assert len(experiments) == 1
-    assert experiments[0].name == "My experiment"
+    with mock.patch("requests.Session.request", return_value=response):
+        store = RestStore(lambda: MlflowHostCreds("https://hello"))
+        experiments = store.search_experiments()
+        assert len(experiments) == 1
+        assert experiments[0].name == "My experiment"
 
 
 def _args(host_creds, endpoint, method, json_body, use_v3=False, retry_timeout_seconds=None):
@@ -913,6 +906,36 @@ def test_delete_traces(delete_traces_kwargs):
         res = store.delete_traces(**delete_traces_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
+
+
+def test_delete_traces_with_batching():
+    """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
+    from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Create 250 trace IDs to test batching (should create 3 batches: 100, 100, 50)
+    num_traces = 250
+    trace_ids = [f"tr-{i}" for i in range(num_traces)]
+
+    # Each batch returns some number of deleted traces
+    response.text = json.dumps({"traces_deleted": 100})
+
+    batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.delete_traces(experiment_id="0", trace_ids=trace_ids)
+
+        # Verify that we made 3 API calls (250 / 100 = 3 batches)
+        expected_num_calls = math.ceil(num_traces / batch_size)
+        assert mock_http.call_count == expected_num_calls
+
+        # Verify that batch sizes are [100, 100, 50]
+        batch_sizes = [len(call[1]["json"]["request_ids"]) for call in mock_http.call_args_list]
+        assert batch_sizes == [100, 100, 50]
 
 
 def test_set_trace_tag():
@@ -2315,18 +2338,24 @@ def test_register_scorer():
         name = "accuracy_scorer"
         serialized_scorer = "serialized_scorer_data"
 
-        # Mock response
         mock_response = mock.MagicMock()
         mock_response.version = 1
+        mock_response.scorer_id = "test-scorer-id"
+        mock_response.experiment_id = experiment_id
+        mock_response.name = name
+        mock_response.serialized_scorer = serialized_scorer
+        mock_response.creation_time = 1234567890
         mock_call_endpoint.return_value = mock_response
 
-        # Call the method
-        version = store.register_scorer(experiment_id, name, serialized_scorer)
+        scorer_version = store.register_scorer(experiment_id, name, serialized_scorer)
 
-        # Verify result
-        assert version == 1
+        assert scorer_version.scorer_version == 1
+        assert scorer_version.scorer_id == "test-scorer-id"
+        assert scorer_version.experiment_id == experiment_id
+        assert scorer_version.scorer_name == name
+        assert scorer_version._serialized_scorer == serialized_scorer
+        assert scorer_version.creation_time == 1234567890
 
-        # Verify API call
         mock_call_endpoint.assert_called_once_with(
             RegisterScorer,
             message_to_json(

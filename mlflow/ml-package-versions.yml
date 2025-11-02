@@ -56,12 +56,28 @@ pytorch-lightning:
       pip install git+https://github.com/PytorchLightning/pytorch-lightning.git
 
   autologging:
-    minimum: "2.1.0"
+    minimum: "2.1.1"
     maximum: "2.5.5"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
+      ">= 0.0.0":
+        [
+          "scikit-learn",
+          "torchvision",
+          "protobuf<4.0.0",
+          "tensorboard",
+          "greenlet<3",
+          "pytorch-forecasting",
+        ]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
+
+  models:
+    minimum: "2.1.1"
+    maximum: "2.5.5"
+    requirements:
+      ">= 0.0.0": ["pytorch-forecasting"]
+    run: |
+      pytest tests/pytorch/test_forecasting_model.py
 
 keras:
   package_info:
@@ -201,10 +217,10 @@ onnx:
       pip install dist/*manylinux*.whl
 
   models:
-    minimum: "1.15.0"
-    maximum: "1.19.0"
+    minimum: "1.17.0"
+    maximum: "1.19.1"
     requirements:
-      ">= 0.0.0": ["onnxruntime", "torch", "scikit-learn"]
+      ">= 0.0.0": ["onnxruntime", "onnxscript", "torch", "scikit-learn"]
     run: |
       pytest tests/onnx/test_onnx_model_export.py
 
@@ -235,7 +251,7 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.7.2"
+    minimum: "3.7.4"
     maximum: "3.8.7"
     requirements:
       "< 3.8": ["numpy<2"]
@@ -347,6 +363,8 @@ prophet:
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
       ">= 0.0.0": ["numpy<2"]
+      # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0: https://github.com/facebook/prophet/issues/2697
+      "<= 1.2.0": ["cmdstanpy<1.3.0"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -406,8 +424,8 @@ h2o:
   package_info:
     pip_release: "h2o"
   models:
-    minimum: "3.44.0.1"
-    maximum: "3.46.0.7"
+    minimum: "3.44.0.2"
+    maximum: "3.46.0.8"
     run: |
       pytest tests/h2o
 
@@ -415,8 +433,8 @@ shap:
   package_info:
     pip_release: "shap"
   models:
-    minimum: "0.43.0"
-    maximum: "0.48.0"
+    minimum: "0.44.0"
+    maximum: "0.49.1"
     requirements:
       "< 0.46.0": ["numpy<1.24.0"]
     run: |
@@ -445,7 +463,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.38.2"
-    maximum: "4.57.0"
+    maximum: "4.57.1"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -489,7 +507,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.38.2"
-    maximum: "4.57.0"
+    maximum: "4.57.1"
     test_every_n_versions: 4
     unsupported: [
         # https://github.com/huggingface/transformers/issues/38269
@@ -517,6 +535,8 @@ transformers:
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
+      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+      "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
@@ -528,8 +548,8 @@ openai:
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "1.51.2"
-    maximum: "2.2.0"
+    minimum: "1.52.0"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -547,8 +567,8 @@ openai:
     # many test tasks for openai. Reducing the number of testing only for every 10 version.
     test_every_n_versions: 10
   autologging:
-    minimum: "1.51.2"
-    maximum: "2.2.0"
+    minimum: "1.52.0"
+    maximum: "2.3.0"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -595,7 +615,7 @@ langchain:
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.3"
+    minimum: "0.3.4"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -637,7 +657,7 @@ langchain:
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.3"
+    minimum: "0.3.4"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -667,7 +687,6 @@ langchain:
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
 
-      # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
     test_tracing_sdk: true
 
@@ -681,8 +700,8 @@ langgraph:
       pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.2.35"
-    maximum: "0.6.8"
+    minimum: "0.2.39"
+    maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -698,8 +717,8 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.2.35"
-    maximum: "0.6.8"
+    minimum: "0.2.39"
+    maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -724,7 +743,7 @@ llama_index:
       pip install git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
-    minimum: "0.11.17"
+    minimum: "0.11.19"
     maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
@@ -742,7 +761,7 @@ llama_index:
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
-    minimum: "0.11.17"
+    minimum: "0.11.19"
     maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
@@ -785,13 +804,15 @@ autogen:
     module_name: "autogen_agentchat"
   autologging:
     minimum: "0.4.9"
-    maximum: "0.7.4"
+    maximum: "0.7.5"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
           "autogen_ext",
+          # TODO: remove this pin after https://github.com/pydantic/pydantic/issues/12348 is resolved
+          "pydantic<2.12.0",
         ]
     run: pytest tests/autogen
     test_tracing_sdk: true
@@ -805,7 +826,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.41.0"
+    maximum: "1.44.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
@@ -821,7 +842,7 @@ anthropic:
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
-    minimum: "0.36.0"
+    minimum: "0.36.2"
     maximum: "0.69.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
@@ -837,10 +858,10 @@ crewai:
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI
+      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
-    maximum: "0.201.1"
+    maximum: "0.203.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -856,7 +877,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "1.8.1"
+    maximum: "2.1.4"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
     run: pytest tests/agno
@@ -884,7 +905,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.1.9"
-    maximum: "1.0.15"
+    maximum: "1.0.18"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -917,7 +938,7 @@ strands:
       pip install "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
-    maximum: "1.10.0"
+    maximum: "1.12.0"
     run: pytest tests/strands
     test_tracing_sdk: true
 
@@ -983,7 +1004,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.1.5"
+    minimum: "5.1.7"
     maximum: "6.1.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
@@ -1057,7 +1078,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.35.36"
-    maximum: "1.40.46"
+    minimum: "1.35.42"
+    maximum: "1.40.52"
     run: pytest tests/bedrock
     test_tracing_sdk: true
