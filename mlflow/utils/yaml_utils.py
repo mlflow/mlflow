@@ -1,7 +1,5 @@
 import codecs
-import json
 import os
-import pathlib
 import shutil
 import tempfile
 
@@ -18,7 +16,6 @@ except ImportError:
     from yaml import SafeLoader as YamlSafeLoader
 
 from mlflow.exceptions import MissingConfigException
-from mlflow.utils import merge_dicts
 
 
 def write_yaml(root, file_name, data, overwrite=False, sort_keys=True, ensure_yaml_extension=True):
@@ -107,61 +104,6 @@ def read_yaml(root, file_name):
         raise MissingConfigException(f"Yaml file '{file_path}' does not exist.")
     with codecs.open(file_path, mode="r", encoding=ENCODING) as yaml_file:
         return yaml.load(yaml_file, Loader=YamlSafeLoader)
-
-
-class UniqueKeyLoader(YamlSafeLoader):
-    def construct_mapping(self, node, deep=False):
-        mapping = set()
-        for key_node, _ in node.value:
-            key = self.construct_object(key_node, deep=deep)
-            if key in mapping:
-                raise ValueError(f"Duplicate '{key}' key found in YAML.")
-            mapping.add(key)
-        return super().construct_mapping(node, deep)
-
-
-def render_and_merge_yaml(root, template_name, context_name):
-    """Renders a Jinja2-templated YAML file based on a YAML context file, merge them, and return
-    result as a dictionary.
-
-    Args:
-        root: Root directory of the YAML files.
-        template_name: Name of the template file.
-        context_name: Name of the context file.
-
-    Returns:
-        Data in yaml file as dictionary.
-    """
-    from jinja2 import FileSystemLoader, StrictUndefined
-    from jinja2.sandbox import SandboxedEnvironment
-
-    template_path = os.path.join(root, template_name)
-    context_path = os.path.join(root, context_name)
-
-    for path in (template_path, context_path):
-        if not pathlib.Path(path).is_file():
-            raise MissingConfigException(f"Yaml file '{path}' does not exist.")
-
-    j2_env = SandboxedEnvironment(
-        loader=FileSystemLoader(root, encoding=ENCODING),
-        undefined=StrictUndefined,
-        line_comment_prefix="#",
-    )
-
-    def from_json(input_var):
-        with open(input_var, encoding="utf-8") as f:
-            return json.load(f)
-
-    j2_env.filters["from_json"] = from_json
-    # Compute final source of context file (e.g. my-profile.yml), applying Jinja filters
-    # like from_json as needed to load context information from files, then load into a dict
-    context_source = j2_env.get_template(context_name).render({})
-    context_dict = yaml.load(context_source, Loader=UniqueKeyLoader) or {}
-
-    # Substitute parameters from context dict into template
-    source = j2_env.get_template(template_name).render(context_dict)
-    rendered_template_dict = yaml.load(source, Loader=UniqueKeyLoader)
-    return merge_dicts(rendered_template_dict, context_dict)
 
 
 class safe_edit_yaml:

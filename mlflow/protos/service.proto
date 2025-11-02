@@ -6,7 +6,6 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";

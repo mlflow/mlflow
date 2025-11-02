@@ -67,6 +67,13 @@
       "rules": {
         "no-console": "off"
       }
+    },
+    {
+      "files": ["integrations/vercel/tests/*.test.ts"],
+      "rules": {
+        // AI SDK does not expose the type of createOpenAI return value
+        "@typescript-eslint/no-unsafe-call": "off"
+      }
     }
   ]
 }

@@ -34,6 +34,7 @@ from mlflow.telemetry.events import (
     GetLoggedModelEvent,
     GitModelVersioningEvent,
     InvokeCustomJudgeModelEvent,
+    LoadPromptEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
@@ -733,9 +734,11 @@ def test_invoke_custom_judge_model(
             with (
                 mock.patch(
                     "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
-                    return_value=mock_response,
+                    return_value=(mock_response, 10),
                 ),
-                mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
+                mock.patch(
+                    "mlflow.genai.judges.utils._invoke_databricks_serving_endpoint"
+                ) as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
@@ -824,3 +827,39 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
     finally:
         mlflow.autolog(disable=True)
+
+
+def test_load_prompt(mock_requests, mock_telemetry_client: TelemetryClient):
+    # Register a prompt first
+    prompt = mlflow.genai.register_prompt(
+        name="test_prompt",
+        template="Hello {{name}}",
+    )
+    mock_telemetry_client.flush()
+
+    # Set an alias for testing
+    mlflow.genai.set_prompt_alias(name="test_prompt", version=prompt.version, alias="production")
+
+    # Test load_prompt with version (no alias)
+    mlflow.genai.load_prompt(name_or_uri="test_prompt", version=prompt.version)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+    )
+
+    # Test load_prompt with URI and version (no alias)
+    mlflow.genai.load_prompt(name_or_uri=f"prompts:/test_prompt/{prompt.version}")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+    )
+
+    # Test load_prompt with alias
+    mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@production")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+    )
+
+    # Test load_prompt with @latest (special alias)
+    mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@latest")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+    )

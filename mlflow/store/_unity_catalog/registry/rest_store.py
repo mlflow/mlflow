@@ -515,7 +515,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateRegisteredModelRequest(
                 name=full_name,
                 description=description,
-                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id is not None else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)

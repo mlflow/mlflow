@@ -556,6 +556,239 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data?.[0].assessments?.[1].assessment_id).toBe('correctness');
     expect(result.current.data?.[0].assessments?.[1]?.feedback?.value).toBe('pass');
   });
+
+  test('filters out assessments belong to another run', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
+                feedback: { value: 'pass' },
+              },
+              {
+                assessment_id: 'a-2',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'other-run-1' },
+                feedback: { value: 'pass' },
+              },
+              {
+                assessment_id: 'a-3',
+                assessment_name: 'guidelines',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'other-run-2' },
+                feedback: { value: 'pass' },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+    expect(result.current.data?.[0].assessments).toHaveLength(1);
+    expect(result.current.data?.[0].assessments?.[0].assessment_id).toBe('a-1');
+    expect(result.current.data?.[0].assessments?.[0]?.feedback?.value).toBe('pass');
+  });
+
+  test('keep traces without assessments', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+  });
+
+  test('keep traces with manual assessments', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                feedback: { value: 'pass' },
+                source: {
+                  source_type: 'HUMAN',
+                  source_id: 'user-1',
+                },
+              },
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                expectation: { value: 'expected value' },
+                source: {
+                  source_type: 'HUMAN',
+                  source_id: 'user-2',
+                },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+    expect(result.current.data?.[0].assessments).toHaveLength(2);
+    expect(result.current.data?.[0].assessments?.[0].assessment_id).toBe('a-1');
+    expect(result.current.data?.[0].assessments?.[0]?.source?.source_id).toBe('user-1');
+    expect(result.current.data?.[0].assessments?.[1]?.expectation?.value).toBe('expected value');
+    expect(result.current.data?.[0].assessments?.[1]?.source?.source_id).toBe('user-2');
+  });
+
+  test('filters out scorer traces', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            tags: {
+              'mlflow.trace.sourceScorer': 'scorer-1',
+            },
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.data).toHaveLength(0);
+  });
+
+  test('keeps traces when assessments match the run or lack metadata', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            client_request_id: 'req-1',
+            trace_location: {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: { experiment_id: 'experiment-xyz' },
+            },
+            request_time: '2024-01-01T00:00:00Z',
+            state: 'OK',
+            assessments: [
+              {
+                assessment_id: 'a-1',
+                assessment_name: 'overall',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                metadata: { 'mlflow.assessment.sourceRunId': 'run-xyz' },
+                feedback: { value: 'pass' },
+              },
+              {
+                assessment_id: 'a-2',
+                assessment_name: 'guidelines',
+                trace_id: 'trace_1',
+                create_time: '2024-01-01T00:00:00Z',
+                last_update_time: '2024-01-01T00:00:00Z',
+                feedback: { value: 'pass' },
+              },
+            ],
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(() => useSearchMlflowTraces({ experimentId: 'experiment-xyz', runUuid: 'run-xyz' }), {
+      wrapper: createWrapper(),
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.data).toHaveLength(1);
+    expect(result.current.data?.[0].trace_id).toBe('trace_1');
+    expect(result.current.data?.[0].assessments?.length).toBe(2);
+  });
 });
 
 describe('useMlflowTraces', () => {

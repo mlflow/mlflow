@@ -344,7 +344,10 @@ def test_pydantic_model_validation(type_hint, example):
             get_args(type_hint)[0](**item) for item in example
         ]
     else:
-        assert _validate_data_against_type_hint(data=example.dict(), type_hint=type_hint) == example
+        assert (
+            _validate_data_against_type_hint(data=example.model_dump(), type_hint=type_hint)
+            == example
+        )
 
 
 @pytest.mark.parametrize(

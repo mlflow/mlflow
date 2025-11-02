@@ -1200,6 +1200,32 @@ def test_update_registered_model_description(mock_http, store):
 
 
 @mock_http_200
+@pytest.mark.parametrize(
+    "deployment_job_id",
+    [
+        "123",  # Actual deployment job id
+        "",  # Empty string is preserved to disconnect the model from a deployment job
+        None,  # Test with None
+    ],
+)
+def test_update_registered_model_deployment_job_id(mock_http, store, deployment_job_id):
+    name = "model_1"
+    description = "test model"
+
+    store.update_registered_model(
+        name=name, description=description, deployment_job_id=deployment_job_id
+    )
+    _verify_requests(
+        mock_http,
+        "registered-models/update",
+        "PATCH",
+        UpdateRegisteredModelRequest(
+            name=name, description=description, deployment_job_id=deployment_job_id
+        ),
+    )
+
+
+@mock_http_200
 def test_delete_registered_model(mock_http, store):
     name = "model_1"
     store.delete_registered_model(name=name)

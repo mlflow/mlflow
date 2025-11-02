@@ -195,6 +195,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
                                 "inputs": trajectory.inputs,
                                 "outputs": trajectory.outputs,
                                 "expectations": trajectory.expectations,
+                                "rationales": trajectory.rationales,
                                 "index": i,
                             }
                         )
@@ -215,7 +216,7 @@ class GepaPromptOptimizer(BasePromptOptimizer):
             "use_mlflow": enable_tracking,
         }
 
-        if Version(importlib.metadata.version("gepa")) < Version("0.10.0"):
+        if Version(importlib.metadata.version("gepa")) < Version("0.0.18"):
             kwargs.pop("use_mlflow")
         gepa_result = gepa.optimize(**kwargs)
 

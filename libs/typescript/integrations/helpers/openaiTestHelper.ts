@@ -11,6 +11,7 @@ import {
   EmbeddingCreateParams
 } from 'openai/resources/index';
 import { ResponseCreateParams, Response } from 'openai/resources/responses/responses';
+import { setupServer } from 'msw/node';
 
 /**
  * Create a realistic chat completion response
@@ -105,11 +106,11 @@ function createEmbeddingResponse(request: EmbeddingCreateParams): CreateEmbeddin
       index,
       embedding: Array(1536)
         .fill(0)
-        .map(() => Math.random() * 0.1 - 0.05) // Mock 1536-dimensional embedding
+        .map(() => Math.random() * 0.1 - 0.05)
     })),
     model: request.model,
     usage: {
-      prompt_tokens: inputs.length * 10, // Mock token count
+      prompt_tokens: inputs.length * 10,
       total_tokens: inputs.length * 10
     }
   };
@@ -119,21 +120,24 @@ function createEmbeddingResponse(request: EmbeddingCreateParams): CreateEmbeddin
  * Main MSW handlers for OpenAI API endpoints
  */
 export const openAIMockHandlers = [
-  // Chat completions (non-streaming)
   http.post('https://api.openai.com/v1/chat/completions', async ({ request }) => {
     const body = (await request.json()) as ChatCompletionCreateParams;
     return HttpResponse.json(createChatCompletionResponse(body));
   }),
-
-  // Responses API
   http.post('https://api.openai.com/v1/responses', async ({ request }) => {
     const body = (await request.json()) as ResponseCreateParams;
     return HttpResponse.json(createResponsesResponse(body));
   }),
-
-  // Embeddings API
   http.post('https://api.openai.com/v1/embeddings', async ({ request }) => {
     const body = (await request.json()) as EmbeddingCreateParams;
     return HttpResponse.json(createEmbeddingResponse(body));
   })
 ];
+
+export const openAIMswServer = setupServer(...openAIMockHandlers);
+
+export function useMockOpenAIServer(): void {
+  beforeAll(() => openAIMswServer.listen());
+  afterEach(() => openAIMswServer.resetHandlers());
+  afterAll(() => openAIMswServer.close());
+}

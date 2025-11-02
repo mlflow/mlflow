@@ -251,7 +251,7 @@ def _convert_chat_request(chat_request: dict[str, Any] | list[dict[str, Any]]):
 def _get_lc_model_input_fields(lc_model) -> set[str]:
     try:
         if hasattr(lc_model, "input_schema"):
-            return set(lc_model.input_schema.__fields__)
+            return set(lc_model.input_schema.model_fields)
     except Exception as e:
         _logger.debug(
             f"Unexpected exception while checking LangChain input schema for"
@@ -274,9 +274,10 @@ def _should_transform_request_json_for_chat(lc_model):
 
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
-    from langchain.agents import AgentExecutor
+    from mlflow.langchain._compat import try_import_agent_executor
 
-    if isinstance(lc_model, AgentExecutor):
+    AgentExecutor = try_import_agent_executor()
+    if AgentExecutor and isinstance(lc_model, AgentExecutor):
         return False
 
     input_fields = _get_lc_model_input_fields(lc_model)
