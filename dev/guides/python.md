@@ -273,9 +273,9 @@ from typing import Any, Callable
 
 def decorator(f: Callable[..., Any]) -> Callable[..., Any]:
     def wrapper(*args: Any, **kwargs: Any) -> Any:
-        ...
+        ...  # do something before
         res = f(*args, **kwargs)
-        ...
+        ...  # do something after
         return res
 
     return wrapper
@@ -292,9 +292,9 @@ _R = TypeVar("R")
 def decorator(f: Callable[_P, _R]) -> Callable[_P, _R]:
     @functools.wraps(f)
     def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
-        ...
+        ...  # do something before
         res = f(*args, **kwargs)
-        ...
+        ...  # do something after
         return res
 
     return wrapper
