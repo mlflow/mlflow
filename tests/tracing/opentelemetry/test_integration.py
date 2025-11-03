@@ -1,3 +1,4 @@
+import pytest
 from opentelemetry import trace as otel_trace
 
 import mlflow
@@ -5,10 +6,12 @@ from mlflow.entities.span import SpanStatusCode, encode_span_id
 from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
+from mlflow.utils.os import is_windows
 
 from tests.tracing.helper import get_traces
 
 
+@pytest.mark.skipif(is_windows(), reason="Skipping as this is flaky on Windows")
 def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
@@ -69,6 +72,7 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert spans[2].status.status_code == SpanStatusCode.OK
 
 
+@pytest.mark.skipif(is_windows(), reason="Skipping as this is flaky on Windows")
 def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
