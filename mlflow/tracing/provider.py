@@ -30,7 +30,7 @@ from mlflow.entities.trace_location import (
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
-    MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
@@ -63,7 +63,7 @@ _logger = logging.getLogger(__name__)
 class _TracerProviderWrapper:
     """
     A facade for the tracer provider.
-    MLflow uses different tracer providers depending on the MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER
+    MLflow uses different tracer providers depending on the MLFLOW_USE_DEFAULT_TRACER_PROVIDER
     environment variable setting.
     1. Use an isolated tracer provider instance managed by MLflow. This is the default behavior such
        that MLflow does not break an environment where MLflow and OpenTelemetry SDK are used in
@@ -78,17 +78,17 @@ class _TracerProviderWrapper:
 
     @property
     def once(self) -> Once:
-        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider_once
         return trace._TRACER_PROVIDER_SET_ONCE
 
     def get(self) -> TracerProvider:
-        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             return self._isolated_tracer_provider
         return trace.get_tracer_provider()
 
     def set(self, tracer_provider: TracerProvider):
-        if MLFLOW_USE_OTEL_DEFAULT_TRACER_PROVIDER.get():
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
             self._isolated_tracer_provider = tracer_provider
         else:
             # Bypass the once flag otherwise the update will be ignored.
@@ -99,6 +99,14 @@ class _TracerProviderWrapper:
     def get_or_init_tracer(self, module_name: str) -> trace.Tracer:
         self.once.do_once(_initialize_tracer_provider)
         return self.get().get_tracer(module_name)
+
+    def reset(self):
+        if MLFLOW_USE_DEFAULT_TRACER_PROVIDER.get():
+            self._isolated_tracer_provider = None
+            self._isolated_tracer_provider_once._done = False
+        else:
+            trace._TRACER_PROVIDER = None
+            trace._TRACER_PROVIDER_SET_ONCE._done = False
 
 
 provider = _TracerProviderWrapper()
@@ -641,7 +649,7 @@ def reset():
     _initialize_tracer_provider(disabled=True)
     # Flip the "once" flag to False so that
     # the next tracing operation will re-initialize the provider.
-    provider.once._done = False
+    provider.reset()
 
     # Reset the custom destination set by the user
     _MLFLOW_TRACE_USER_DESTINATION.reset()
