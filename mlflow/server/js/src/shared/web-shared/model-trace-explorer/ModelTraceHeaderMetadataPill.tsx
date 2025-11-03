@@ -42,7 +42,7 @@ export const ModelTraceHeaderMetadataPill = ({
 
   const metadataItems = useMemo(() => {
     const items = Object.entries(traceMetadata || {})
-      .filter(([k, v]) => v != null && v !== '' && !k.startsWith(MLFLOW_INTERNAL_PREFIX))
+      .filter(([k, v]) => v !== null && v !== '' && !k.startsWith(MLFLOW_INTERNAL_PREFIX))
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => ({ key, value, displayValue: formatTraceMetadataValue(value) }));
     return items;
