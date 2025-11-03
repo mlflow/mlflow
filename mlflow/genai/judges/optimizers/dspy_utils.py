@@ -6,9 +6,9 @@ from typing import TYPE_CHECKING, Any, Optional
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
+from mlflow.genai.judges.adapters.databricks_adapter import call_chat_completions
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
-from mlflow.genai.judges.utils import call_chat_completions
 from mlflow.genai.utils.trace_utils import (
     extract_expectations_from_trace,
     extract_request_from_trace,
