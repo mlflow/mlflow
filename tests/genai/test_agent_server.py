@@ -593,33 +593,3 @@ def test_tracing_attributes_setting():
         # Verify the span context manager was used
         mock_span_instance.__enter__.assert_called_once()
         mock_span_instance.__exit__.assert_called_once()
-
-
-def test_return_trace_integration():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
-    with patch("mlflow.start_span") as mock_span:
-        mock_span_instance = Mock()
-        mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
-        mock_span_instance.__exit__ = Mock(return_value=None)
-        mock_span_instance.trace_id = "test-trace-id"
-        mock_span.return_value = mock_span_instance
-
-        @invoke()
-        def test_function(request):
-            return {"result": "success"}
-
-        server = AgentServer()
-        # Mock the _get_in_memory_trace method to return serializable data
-        server._get_in_memory_trace = Mock(return_value={"trace": "data"})
-        client = TestClient(server.app)
-
-        request_data = {"test": "data", "return_trace": True}
-
-        response = client.post("/invocations", json=request_data)
-        response_json = response.json()
-        assert response_json["trace"] == "data"

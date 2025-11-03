@@ -10,20 +10,13 @@ from fastapi.responses import StreamingResponse
 
 import mlflow
 from mlflow.genai.agent_server.utils import set_request_headers
-from mlflow.genai.agent_server.validator import (
-    BaseAgentValidator,
-    ResponsesAgentValidator,
-)
+from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.types.llm import (
-    ChatCompletionChunk,
-)
 from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
-RETURN_TRACE_KEY = "return_trace"
 STREAM_KEY = "stream"
 
 AgentType = Literal["ResponsesAgent"]
@@ -80,8 +73,6 @@ class AgentServer:
             )
 
             is_streaming = data.get(STREAM_KEY, False)
-            return_trace = data.get(RETURN_TRACE_KEY, False)
-
             request_data = {k: v for k, v in data.items() if k != STREAM_KEY}
 
             try:
@@ -93,17 +84,15 @@ class AgentServer:
                 )
 
             if is_streaming:
-                return await self._handle_stream_request(request_data, return_trace)
+                return await self._handle_stream_request(request_data)
             else:
-                return await self._handle_invoke_request(request_data, return_trace)
+                return await self._handle_invoke_request(request_data)
 
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
             return {"status": "healthy"}
 
-    async def _handle_invoke_request(
-        self, request: dict[str, Any], return_trace: bool
-    ) -> dict[str, Any]:
+    async def _handle_invoke_request(self, request: dict[str, Any]) -> dict[str, Any]:
         from mlflow.genai.agent_server import _invoke_function
 
         if _invoke_function is None:
@@ -125,16 +114,12 @@ class AgentServer:
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                 span.set_outputs(result)
 
-                if return_trace:
-                    result |= self._get_in_memory_trace(span.trace_id)
-
             logger.debug(
                 "Response sent",
                 extra={
                     "endpoint": "invoke",
                     "response_size": len(json.dumps(result)),
                     "function_name": func_name,
-                    "return_trace": return_trace,
                 },
             )
 
@@ -147,28 +132,15 @@ class AgentServer:
                     "endpoint": "invoke",
                     "error": str(e),
                     "function_name": func_name,
-                    "return_trace": return_trace,
                 },
             )
 
             raise HTTPException(status_code=500, detail=str(e))
 
-    @staticmethod
-    def _extract_content(chunk: ChatCompletionChunk | dict[str, Any]) -> str:
-        if isinstance(chunk, dict):
-            choices = chunk.get("choices", [])
-            if not choices:
-                return ""
-            return choices[0].get("delta", {}).get("content", "")
-        if not chunk.choices:
-            return ""
-        return chunk.choices[0].delta.content or ""
-
     async def generate(
         self,
         func: Callable[..., Any],
         request: dict[str, Any],
-        return_trace: bool,
     ) -> AsyncGenerator[str, None]:
         func_name = func.__name__
         all_chunks: list[dict[str, Any]] = []
@@ -189,17 +161,8 @@ class AgentServer:
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
-                elif self.agent_type == "ChatCompletion":
-                    content = "".join(map(self._extract_content, all_chunks))
-                    span.set_outputs({"choices": [{"role": "assistant", "content": content}]})
-                elif self.agent_type == "ChatAgent":
-                    span.set_outputs({"messages": [chunk["delta"] for chunk in all_chunks]})
                 else:
                     span.set_outputs(all_chunks)
-
-                if return_trace:
-                    trace = self._get_in_memory_trace(span.trace_id)
-                    yield f"data: {json.dumps(trace)}\n\n"
 
                 yield "data: [DONE]\n\n"
 
@@ -209,7 +172,6 @@ class AgentServer:
                     "endpoint": "stream",
                     "total_chunks": len(all_chunks),
                     "function_name": func_name,
-                    "return_trace": return_trace,
                 },
             )
 
@@ -221,16 +183,13 @@ class AgentServer:
                     "error": str(e),
                     "function_name": func_name,
                     "chunks_sent": len(all_chunks),
-                    "return_trace": return_trace,
                 },
             )
 
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
             yield "data: [DONE]\n\n"
 
-    async def _handle_stream_request(
-        self, request: dict[str, Any], return_trace: bool
-    ) -> StreamingResponse:
+    async def _handle_stream_request(self, request: dict[str, Any]) -> StreamingResponse:
         from mlflow.genai.agent_server import _stream_function
 
         if _stream_function is None:
@@ -238,9 +197,7 @@ class AgentServer:
 
         func = _stream_function
 
-        return StreamingResponse(
-            self.generate(func, request, return_trace), media_type="text/event-stream"
-        )
+        return StreamingResponse(self.generate(func, request), media_type="text/event-stream")
 
     @staticmethod
     def parse_server_args():
@@ -250,7 +207,10 @@ class AgentServer:
             "--port", type=int, default=8000, help="Port to run the server on (default: 8000)"
         )
         parser.add_argument(
-            "--workers", type=int, default=1, help="Number of workers to run the server on (default: 1)"
+            "--workers",
+            type=int,
+            default=1,
+            help="Number of workers to run the server on (default: 1)",
         )
         parser.add_argument(
             "--reload",
