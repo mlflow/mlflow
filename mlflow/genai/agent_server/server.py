@@ -1,3 +1,4 @@
+import argparse
 import inspect
 import json
 import logging
@@ -11,8 +12,6 @@ import mlflow
 from mlflow.genai.agent_server.utils import set_request_headers
 from mlflow.genai.agent_server.validator import (
     BaseAgentValidator,
-    ChatAgentValidator,
-    ChatCompletionValidator,
     ResponsesAgentValidator,
 )
 from mlflow.pyfunc import ResponsesAgent
@@ -27,7 +26,7 @@ logger = logging.getLogger(__name__)
 RETURN_TRACE_KEY = "return_trace"
 STREAM_KEY = "stream"
 
-AgentType = Literal["ResponsesAgent", "ChatCompletion", "ChatAgent"]
+AgentType = Literal["ResponsesAgent"]
 
 
 @experimental(version="3.6.0")
@@ -37,10 +36,8 @@ class AgentServer:
     Args:
         agent_type: An optional parameter to specify the type of agent to serve. If provided,
         input/output validation and streaming tracing aggregation will be done automatically.
-        The agent type must be one of the following:
-        - "ResponsesAgent"
-        - "ChatCompletion"
-        - "ChatAgent"
+
+        Currently only "ResponsesAgent" is supported.
 
         If ``None``, no input/output validation and streaming tracing aggregation will be done.
         Default to ``None``.
@@ -50,10 +47,6 @@ class AgentServer:
         self.agent_type = agent_type
         if agent_type == "ResponsesAgent":
             self.validator = ResponsesAgentValidator()
-        elif agent_type == "ChatCompletion":
-            self.validator = ChatCompletionValidator()
-        elif agent_type == "ChatAgent":
-            self.validator = ChatAgentValidator()
         else:
             self.validator = BaseAgentValidator()
 
@@ -249,12 +242,30 @@ class AgentServer:
             self.generate(func, request, return_trace), media_type="text/event-stream"
         )
 
+    @staticmethod
+    def parse_server_args():
+        """Parse command line arguments for the agent server"""
+        parser = argparse.ArgumentParser(description="Start the agent server")
+        parser.add_argument(
+            "--port", type=int, default=8000, help="Port to run the server on (default: 8000)"
+        )
+        parser.add_argument(
+            "--workers", type=int, default=1, help="Number of workers to run the server on (default: 1)"
+        )
+        parser.add_argument(
+            "--reload",
+            action="store_true",
+            help="Reload the server on code changes (default: False)",
+        )
+        return parser.parse_args()
+
     def run(
         self,
         app_import_string: str,
         host: str = "0.0.0.0",
-        port: int = 8000,
-        workers: int = 1,
-        reload: bool = False,
     ) -> None:
-        uvicorn.run(app_import_string, host=host, port=port, workers=workers, reload=reload)
+        """Run the agent server with command line argument parsing."""
+        args = self.parse_server_args()
+        uvicorn.run(
+            app_import_string, host=host, port=args.port, workers=args.workers, reload=args.reload
+        )

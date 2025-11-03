@@ -3,13 +3,6 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from mlflow.types.agent import ChatAgentChunk, ChatAgentRequest, ChatAgentResponse
-from mlflow.types.llm import (
-    ChatCompletionChunk,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatMessage,
-)
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
@@ -59,37 +52,6 @@ class BaseAgentValidator:
                 f"Result needs to be a pydantic model, dataclass, or dict. "
                 f"Unsupported result type: {type(result)}, result: {result}"
             )
-
-
-@experimental(version="3.6.0")
-class ChatCompletionValidator(BaseAgentValidator):
-    def validate_and_convert_request(self, data: dict[str, Any]) -> ChatCompletionRequest:
-        for msg in data.get("messages", []):
-            self.validate_dataclass(ChatMessage, msg)
-        return ChatCompletionRequest(**data)
-
-    def validate_and_convert_result(self, result: Any, stream: bool = False) -> dict[str, Any]:
-        if stream:
-            self.validate_dataclass(ChatCompletionChunk, result)
-        else:
-            self.validate_dataclass(ChatCompletionResponse, result)
-
-        return super().validate_and_convert_result(result, stream)
-
-
-@experimental(version="3.6.0")
-class ChatAgentValidator(BaseAgentValidator):
-    def validate_and_convert_request(self, data: dict[str, Any]) -> ChatAgentRequest:
-        self.validate_pydantic(ChatAgentRequest, data)
-        return ChatAgentRequest(**data)
-
-    def validate_and_convert_result(self, result: Any, stream: bool = False) -> dict[str, Any]:
-        if stream:
-            self.validate_pydantic(ChatAgentChunk, result)
-        else:
-            self.validate_pydantic(ChatAgentResponse, result)
-
-        return super().validate_and_convert_result(result, stream)
 
 
 @experimental(version="3.6.0")

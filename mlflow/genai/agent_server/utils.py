@@ -26,18 +26,6 @@ def get_request_headers() -> dict[str, str]:
     return _request_headers.get()
 
 
-def get_user_workspace_client():
-    """Get a workspace client with the token from the
-    `x-forwarded-access-token` header for user authentication
-    """
-    try:
-        from databricks.sdk import WorkspaceClient
-    except ImportError:
-        raise ImportError("databricks-sdk is required to use user authentication")
-    access_token = get_request_headers().get("x-forwarded-access-token")
-    return WorkspaceClient(token=access_token, auth_type="pat")
-
-
 def setup_mlflow_git_based_version_tracking() -> None:
     """Initialize MLflow tracking and set active model with git-based version tracking."""
     experiment_id = _get_experiment_id()

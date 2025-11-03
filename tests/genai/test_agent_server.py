@@ -12,65 +12,12 @@ from mlflow.genai.agent_server import (
     invoke,
     stream,
 )
-from mlflow.genai.agent_server.validator import (
-    ChatAgentValidator,
-    ChatCompletionValidator,
-    ResponsesAgentValidator,
-)
-from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentRequest, ChatAgentResponse
-from mlflow.types.llm import (
-    ChatChoice,
-    ChatCompletionChunk,
-    ChatCompletionRequest,
-    ChatCompletionResponse,
-    ChatMessage,
-)
+from mlflow.genai.agent_server.validator import ResponsesAgentValidator
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,
     ResponsesAgentStreamEvent,
 )
-
-
-async def chatcompletions_invoke(request: ChatCompletionRequest) -> ChatCompletionResponse:
-    return ChatCompletionResponse(
-        id="chatcmpl-123",
-        model="test-model",
-        choices=[
-            ChatChoice(
-                message=ChatMessage(role="assistant", content="Hello from ChatCompletions agent!")
-            )
-        ],
-    )
-
-
-async def chatcompletions_stream(
-    request: ChatCompletionRequest,
-) -> AsyncGenerator[ChatCompletionChunk, None]:
-    yield ChatCompletionChunk(
-        id="chatcmpl-123",
-        model="test-model",
-        choices=[{"index": 0, "delta": {"content": "Hello"}, "finish_reason": None}],
-    )
-    yield ChatCompletionChunk(
-        id="chatcmpl-123",
-        model="test-model",
-        choices=[{"index": 0, "delta": {"content": " from stream!"}, "finish_reason": "stop"}],
-    )
-
-
-async def chatagent_invoke(request: ChatAgentRequest) -> ChatAgentResponse:
-    return ChatAgentResponse(
-        messages=[ChatAgentMessage(role="assistant", content="Hello from ChatAgent!", id="msg-123")]
-    )
-
-
-async def chatagent_stream(request: ChatAgentRequest) -> AsyncGenerator[ChatAgentChunk, None]:
-    yield ChatAgentChunk(delta=ChatAgentMessage(role="assistant", content="Hello", id="msg-123"))
-    yield ChatAgentChunk(
-        delta=ChatAgentMessage(role="assistant", content=" from ChatAgent stream!", id="msg-123"),
-        finish_reason="stop",
-    )
 
 
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
@@ -250,20 +197,6 @@ def test_validator_request_dict_responses_agent():
     assert isinstance(result, ResponsesAgentRequest)
 
 
-def test_validator_request_dict_chat_v1():
-    validator_chat_v1 = ChatCompletionValidator()
-    request_data = {"messages": [{"role": "user", "content": "Hello"}]}
-    result = validator_chat_v1.validate_and_convert_request(request_data)
-    assert isinstance(result, ChatCompletionRequest)
-
-
-def test_validator_request_dict_chat_v2():
-    validator_chat_v2 = ChatAgentValidator()
-    request_data = {"messages": [{"role": "user", "content": "Hello"}]}
-    result = validator_chat_v2.validate_and_convert_request(request_data)
-    assert isinstance(result, ChatAgentRequest)
-
-
 def test_validator_invalid_request_dict_raises_error():
     validator_responses = ResponsesAgentValidator()
     invalid_data = {"invalid": "structure"}
@@ -343,14 +276,6 @@ def test_validator_response_dataclass_format():
     assert "output" in result
 
 
-def test_validator_unsupported_output_type_raises_error():
-    validator_chat = ChatCompletionValidator()
-    unsupported_output = ["not", "a", "dict", "or", "model"]
-
-    with pytest.raises(ValueError, match="Invalid data for ChatCompletionResponse"):
-        validator_chat.validate_and_convert_result(unsupported_output)
-
-
 def test_validator_stream_response_formats():
     validator_responses = ResponsesAgentValidator()
     # Test streaming response validation for different agent types
@@ -366,28 +291,6 @@ def test_validator_stream_response_formats():
     )
 
     result = validator_responses.validate_and_convert_result(stream_event, stream=True)
-    assert isinstance(result, dict)
-
-
-def test_validator_chat_v1_stream_response():
-    validator_chat_v1 = ChatCompletionValidator()
-    chunk = ChatCompletionChunk(
-        id="123",
-        choices=[{"index": 0, "delta": {"content": "hello"}, "finish_reason": None}],
-        created=1234567890,
-        model="test",
-        object="chat.completion.chunk",
-    )
-
-    result = validator_chat_v1.validate_and_convert_result(chunk, stream=True)
-    assert isinstance(result, dict)
-
-
-def test_validator_chat_v2_stream_response():
-    validator_chat_v2 = ChatAgentValidator()
-    chunk = ChatAgentChunk(delta=ChatAgentMessage(content="hello", role="assistant", id="123"))
-
-    result = validator_chat_v2.validate_and_convert_result(chunk, stream=True)
     assert isinstance(result, dict)
 
 
@@ -616,20 +519,6 @@ def test_request_headers_isolation():
     assert result == "value2"
     # Original context should be unchanged
     assert get_request_headers()["test"] == "value1"
-
-
-def test_user_workspace_client():
-    with patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
-        from mlflow.genai.agent_server.utils import (
-            get_user_workspace_client,
-            set_request_headers,
-        )
-
-        test_token = "test-token-123"
-        set_request_headers({"x-forwarded-access-token": test_token})
-
-        get_user_workspace_client()
-        mock_workspace_client.assert_called_once_with(token=test_token, auth_type="pat")
 
 
 def test_tracing_span_creation():
