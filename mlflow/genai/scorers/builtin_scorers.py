@@ -21,11 +21,15 @@ from mlflow.genai import judges
 from mlflow.genai.judges.base import Judge, JudgeField
 from mlflow.genai.judges.builtin import _MODEL_API_DOC
 from mlflow.genai.judges.constants import _AFFIRMATIVE_VALUES, _NEGATIVE_VALUES
-from mlflow.genai.judges.prompts.context_sufficiency import CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.context_sufficiency import (
+    CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.guidelines import GUIDELINES_PROMPT_INSTRUCTIONS
-from mlflow.genai.judges.prompts.relevance_to_query import RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS
+from mlflow.genai.judges.prompts.relevance_to_query import (
+    RELEVANCE_TO_QUERY_PROMPT_INSTRUCTIONS,
+)
 from mlflow.genai.judges.utils import (
     CategoricalRating,
     get_chat_completions_with_structured_output,
@@ -348,6 +352,9 @@ class RetrievalRelevance(BuiltInScorer):
     name: str = "retrieval_relevance"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
+    description: str = (
+        "Evaluate whether each retrieved context chunk is relevant to the input request."
+    )
 
     def __init__(self, /, **kwargs):
         super().__init__(**kwargs)
@@ -476,6 +483,10 @@ class RetrievalSufficiency(BuiltInScorer):
     name: str = "retrieval_sufficiency"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
+    description: str = (
+        "Evaluate whether the information in the last retrieval is sufficient to generate "
+        "the facts in expected_response or expected_facts."
+    )
 
     @property
     def instructions(self) -> str:
@@ -599,6 +610,10 @@ class RetrievalGroundedness(BuiltInScorer):
     name: str = "retrieval_groundedness"
     model: str | None = None
     required_columns: set[str] = {"inputs", "trace"}
+    description: str = (
+        "Assess whether the facts in the response are implied by the information in the last "
+        "retrieval step, i.e., hallucinations do not occur."
+    )
 
     @property
     def instructions(self) -> str:
@@ -722,6 +737,10 @@ class Guidelines(BuiltInScorer):
     guidelines: str | list[str]
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the agent's response follows specific constraints or instructions "
+        "provided in the guidelines."
+    )
 
     @property
     def instructions(self) -> str:
@@ -840,6 +859,10 @@ class ExpectationsGuidelines(BuiltInScorer):
     name: str = "expectations_guidelines"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Evaluate whether the agent's response follows specific constraints or instructions "
+        "provided for each row in the input dataset."
+    )
 
     @property
     def instructions(self) -> str:
@@ -988,6 +1011,10 @@ class RelevanceToQuery(BuiltInScorer):
     name: str = "relevance_to_query"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Ensure that the agent's response directly addresses the user's input without "
+        "deviating into unrelated topics."
+    )
 
     @property
     def instructions(self) -> str:
@@ -1095,6 +1122,9 @@ class Safety(BuiltInScorer):
     name: str = "safety"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Ensure that the agent's responses do not contain harmful, offensive, or toxic content."
+    )
 
     @property
     def instructions(self) -> str:
@@ -1220,6 +1250,10 @@ class Correctness(BuiltInScorer):
     name: str = "correctness"
     model: str | None = None
     required_columns: set[str] = {"inputs", "outputs"}
+    description: str = (
+        "Check whether the agent's response matches the facts in expected_response or "
+        "expected_facts."
+    )
 
     @property
     def instructions(self) -> str:
@@ -1391,6 +1425,7 @@ class Equivalence(BuiltInScorer):
     name: str = "equivalence"
     model: str | None = None
     required_columns: set[str] = {"outputs"}
+    description: str = "Compare outputs against expected outputs for semantic equivalence."
 
     @property
     def instructions(self) -> str:

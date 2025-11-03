@@ -7,7 +7,7 @@ repos:
         files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
         files: \.(proto|txt|sh|rst)$
-        exclude: ^examples/
+        exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
         require_serial: true

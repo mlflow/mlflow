@@ -250,7 +250,10 @@ def save_model(
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         import langchain
-        from langchain.schema import BaseRetriever
+
+        from mlflow.langchain._compat import import_base_retriever
+
+        BaseRetriever = import_base_retriever()
 
         lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir)
 

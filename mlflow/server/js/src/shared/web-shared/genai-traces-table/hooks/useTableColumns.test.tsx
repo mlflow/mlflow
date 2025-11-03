@@ -130,6 +130,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -195,6 +196,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -455,7 +457,7 @@ describe('useTableColumns', () => {
           trace_id: '',
           trace_location: {} as any,
           // No trace_metadata
-        },
+        } as any,
       },
     ];
 
