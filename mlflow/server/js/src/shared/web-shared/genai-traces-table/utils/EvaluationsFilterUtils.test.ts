@@ -109,8 +109,12 @@ describe('filterEvaluationResults', () => {
       },
     ];
 
-    const filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'paris');
+    let filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'paris');
 
     expect(filteredResults).toEqual([evalsWithTraceInfo[0]]);
+
+    filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'inputs');
+
+    expect(filteredResults).toEqual(evalsWithTraceInfo);
   });
 });
