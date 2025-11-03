@@ -6,7 +6,7 @@ Key Features:
 - Automatic request and response validation for Responses API schema agents
 - Context-aware request header management for Databricks Apps authentication
 - MLflow tracing integration
-- Automatic command-line argument parsing for server configuration (e.g. --port, --workers, --reload)
+- Command-line argument parsing for server configuration (e.g. --port, --workers, --reload)
 
 Usage:
     from mlflow.genai.agent_server import AgentServer, invoke, stream
