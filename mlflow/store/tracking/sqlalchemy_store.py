@@ -3590,7 +3590,7 @@ class SqlAlchemyStore(AbstractStore):
                 if trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS):
                     trace_stats = json.loads(trace_stats)
                     num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
-                    if len(sorted_sql_spans) != num_spans:
+                    if len(sorted_sql_spans) < num_spans:
                         _logger.debug(
                             f"Trace {trace_info.trace_id} is not fully exported yet, "
                             f"expecting {num_spans} spans but got {len(sorted_sql_spans)}"
