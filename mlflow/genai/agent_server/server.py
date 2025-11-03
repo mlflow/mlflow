@@ -2,16 +2,21 @@ import inspect
 import json
 import logging
 import time
-from typing import Any
+from typing import Any, AsyncGenerator, Callable
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 import mlflow
-from mlflow.genai.agent_server.types import AgentType
+from mlflow.genai.agent_server import AgentType
 from mlflow.genai.agent_server.utils import set_request_headers
-from mlflow.genai.agent_server.validator import AgentValidator
+from mlflow.genai.agent_server.validator import (
+    BaseAgentValidator,
+    ChatAgentValidator,
+    ChatCompletionValidator,
+    ResponsesAgentValidator,
+)
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.types.llm import (
@@ -19,19 +24,43 @@ from mlflow.types.llm import (
 )
 from mlflow.utils.annotations import experimental
 
+logger = logging.getLogger(__name__)
+RETURN_TRACE_KEY = "return_trace"
+STREAM_KEY = "stream"
+
 
 @experimental(version="3.6.0")
 class AgentServer:
+    """FastAPI-based server for hosting agents.
+
+    Args:
+        agent_type: An optional parameter to specify the type of agent to serve. If provided,
+        input/output validation and streaming tracing aggregation will be done automatically.
+        The agent type must be one of the following:
+        - "ResponsesAgent"
+        - "ChatCompletion"
+        - "ChatAgent"
+
+        If ``None``, no input/output validation and streaming tracing aggregation will be done.
+        Default to ``None``.
+    """
+
     def __init__(self, agent_type: AgentType | None = None):
         self.agent_type = agent_type
-        self.validator = AgentValidator(agent_type)
-        self.app = FastAPI(title="Agent Server")
+        if agent_type == "ResponsesAgent":
+            self.validator = ResponsesAgentValidator()
+        elif agent_type == "ChatCompletion":
+            self.validator = ChatCompletionValidator()
+        elif agent_type == "ChatAgent":
+            self.validator = ChatAgentValidator()
+        else:
+            self.validator = BaseAgentValidator()
 
-        self.logger = logging.getLogger(__name__)
+        self.app = FastAPI(title="Agent Server")
         self._setup_routes()
 
     @staticmethod
-    def _get_databricks_output(trace_id: str) -> dict[str, Any]:
+    def get_in_memory_trace(trace_id: str) -> dict[str, Any]:
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             return {"trace": trace.to_mlflow_trace().to_dict()}
 
@@ -49,19 +78,19 @@ class AgentServer:
             except Exception as e:
                 raise HTTPException(status_code=400, detail=f"Invalid JSON in request body: {e!s}")
 
-            self.logger.info(
+            logger.debug(
                 "Request received",
                 extra={
                     "agent_type": self.agent_type,
                     "request_size": len(json.dumps(data)),
-                    "stream_requested": data.get("stream", False),
+                    "stream_requested": data.get(STREAM_KEY, False),
                 },
             )
 
-            is_streaming = data.get("stream", False)
-            return_trace = data.get("databricks_options", {}).get("return_trace", False)
+            is_streaming = data.get(STREAM_KEY, False)
+            return_trace = data.get(RETURN_TRACE_KEY, False)
 
-            request_data = {k: v for k, v in data.items() if k != "stream"}
+            request_data = {k: v for k, v in data.items() if k != STREAM_KEY}
 
             try:
                 request_data = self.validator.validate_and_convert_request(request_data)
@@ -82,7 +111,7 @@ class AgentServer:
             return {"status": "healthy"}
 
     async def _handle_invoke_request(
-        self, data: dict[str, Any], start_time: float, return_trace: bool
+        self, request: dict[str, Any], start_time: float, return_trace: bool
     ) -> dict[str, Any]:
         from mlflow.genai.agent_server import _invoke_function
 
@@ -94,24 +123,23 @@ class AgentServer:
 
         try:
             with mlflow.start_span(name=f"{func_name}") as span:
-                span.set_inputs(data)
+                span.set_inputs(request)
                 if inspect.iscoroutinefunction(func):
-                    result = await func(data)
+                    result = await func(request)
                 else:
-                    result = func(data)
+                    result = func(request)
 
                 result = self.validator.validate_and_convert_result(result)
                 duration_ms = round((time.time() - start_time) * 1000, 2)
                 span.set_attribute("duration_ms", duration_ms)
-                if self.agent_type == "agent/v1/responses":
+                if self.agent_type == "ResponsesAgent":
                     span.set_attribute("mlflow.message.format", "openai")
                 span.set_outputs(result)
 
                 if return_trace:
-                    databricks_output = self._get_databricks_output(span.trace_id)
-                    result["databricks_output"] = databricks_output
+                    result["trace"] = self.get_in_memory_trace(span.trace_id)
 
-            self.logger.info(
+            logger.debug(
                 "Response sent",
                 extra={
                     "endpoint": "invoke",
@@ -126,10 +154,7 @@ class AgentServer:
 
         except Exception as e:
             duration_ms = round((time.time() - start_time) * 1000, 2)
-            span.set_attribute("duration_ms", duration_ms)
-            span.set_outputs(f"Error: {e!s}")
-
-            self.logger.error(
+            logger.error(
                 "Error response sent",
                 extra={
                     "endpoint": "invoke",
@@ -142,8 +167,86 @@ class AgentServer:
 
             raise HTTPException(status_code=500, detail=str(e))
 
+    @staticmethod
+    def _extract_content(chunk: ChatCompletionChunk | dict[str, Any]) -> str:
+        if isinstance(chunk, dict):
+            return chunk.get("choices", [])[0].get("delta", {}).get("content", "")
+        if not chunk.choices:
+            return ""
+        return chunk.choices[0].delta.content or ""
+
+    async def generate(
+        self,
+        func: Callable[..., Any],
+        request: dict[str, Any],
+        start_time: float,
+        return_trace: bool,
+    ) -> AsyncGenerator[str, None]:
+        func_name = func.__name__
+        all_chunks: list[dict[str, Any]] = []
+        try:
+            with mlflow.start_span(name=f"{func_name}") as span:
+                span.set_inputs(request)
+                if inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func):
+                    async for chunk in func(request):
+                        chunk = self.validator.validate_and_convert_result(chunk, stream=True)
+                        all_chunks.append(chunk)
+                        yield f"data: {json.dumps(chunk)}\n\n"
+                else:
+                    for chunk in func(request):
+                        chunk = self.validator.validate_and_convert_result(chunk, stream=True)
+                        all_chunks.append(chunk)
+                        yield f"data: {json.dumps(chunk)}\n\n"
+
+                duration_ms = round((time.time() - start_time) * 1000, 2)
+                span.set_attribute("duration_ms", duration_ms)
+                if self.agent_type == "ResponsesAgent":
+                    span.set_attribute("mlflow.message.format", "openai")
+                    span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
+                elif self.agent_type == "ChatCompletion":
+                    content = "".join(map(self._extract_content, all_chunks))
+                    span.set_outputs({"choices": [{"role": "assistant", "content": content}]})
+                elif self.agent_type == "ChatAgent":
+                    span.set_outputs({"messages": [chunk["delta"] for chunk in all_chunks]})
+                else:
+                    span.set_outputs(all_chunks)
+
+                if return_trace:
+                    trace = self.get_in_memory_trace(span.trace_id)
+                    yield f"data: {json.dumps({'trace': trace})}\n\n"
+
+                yield "data: [DONE]\n\n"
+
+            logger.info(
+                "Streaming response completed",
+                extra={
+                    "endpoint": "stream",
+                    "duration_ms": duration_ms,
+                    "total_chunks": len(all_chunks),
+                    "function_name": func_name,
+                    "return_trace": return_trace,
+                },
+            )
+
+        except Exception as e:
+            duration_ms = round((time.time() - start_time) * 1000, 2)
+            logger.error(
+                "Streaming response error",
+                extra={
+                    "endpoint": "stream",
+                    "duration_ms": duration_ms,
+                    "error": str(e),
+                    "function_name": func_name,
+                    "chunks_sent": len(all_chunks),
+                    "return_trace": return_trace,
+                },
+            )
+
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+            yield "data: [DONE]\n\n"
+
     async def _handle_stream_request(
-        self, data: dict[str, Any], start_time: float, return_trace: bool
+        self, request: dict[str, Any], start_time: float, return_trace: bool
     ) -> StreamingResponse:
         from mlflow.genai.agent_server import _stream_function
 
@@ -151,87 +254,10 @@ class AgentServer:
             raise HTTPException(status_code=500, detail="No stream function registered")
 
         func = _stream_function
-        func_name = func.__name__
 
-        all_chunks: list[dict[str, Any]] = []
-
-        async def generate():
-            nonlocal all_chunks
-            try:
-                with mlflow.start_span(name=f"{func_name}") as span:
-                    span.set_inputs(data)
-                    if inspect.iscoroutinefunction(func) or inspect.isasyncgenfunction(func):
-                        async for chunk in func(data):
-                            chunk = self.validator.validate_and_convert_result(chunk, stream=True)
-                            all_chunks.append(chunk)
-                            yield f"data: {json.dumps(chunk)}\n\n"
-                    else:
-                        for chunk in func(data):
-                            chunk = self.validator.validate_and_convert_result(chunk, stream=True)
-                            all_chunks.append(chunk)
-                            yield f"data: {json.dumps(chunk)}\n\n"
-
-                    duration_ms = round((time.time() - start_time) * 1000, 2)
-                    span.set_attribute("duration_ms", duration_ms)
-                    if self.agent_type == "agent/v1/responses":
-                        span.set_attribute("mlflow.message.format", "openai")
-                        span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
-                    elif self.agent_type == "agent/v1/chat":
-
-                        def _extract_content(chunk: ChatCompletionChunk | dict[str, Any]) -> str:
-                            if isinstance(chunk, dict):
-                                return (
-                                    chunk.get("choices", [])[0].get("delta", {}).get("content", "")
-                                )
-                            if not chunk.choices:
-                                return ""
-                            return chunk.choices[0].delta.content or ""
-
-                        content = "".join(map(_extract_content, all_chunks))
-                        span.set_outputs({"choices": [{"role": "assistant", "content": content}]})
-                    elif self.agent_type == "agent/v2/chat":
-                        span.set_outputs({"messages": [chunk["delta"] for chunk in all_chunks]})
-                    else:
-                        span.set_outputs(all_chunks)
-
-                    if return_trace:
-                        databricks_output = self._get_databricks_output(span.trace_id)
-                        yield f"data: {json.dumps({'databricks_output': databricks_output})}\n\n"
-
-                    yield "data: [DONE]\n\n"
-
-                self.logger.info(
-                    "Streaming response completed",
-                    extra={
-                        "endpoint": "stream",
-                        "duration_ms": duration_ms,
-                        "total_chunks": len(all_chunks),
-                        "function_name": func_name,
-                        "return_trace": return_trace,
-                    },
-                )
-
-            except Exception as e:
-                duration_ms = round((time.time() - start_time) * 1000, 2)
-                span.set_attribute("duration_ms", duration_ms)
-                span.set_outputs(f"Error: {e!s}")
-
-                self.logger.error(
-                    "Streaming response error",
-                    extra={
-                        "endpoint": "stream",
-                        "duration_ms": duration_ms,
-                        "error": str(e),
-                        "function_name": func_name,
-                        "chunks_sent": len(all_chunks),
-                        "return_trace": return_trace,
-                    },
-                )
-
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
-                yield "data: [DONE]\n\n"
-
-        return StreamingResponse(generate(), media_type="text/event-stream")
+        return StreamingResponse(
+            self.generate(func, request, start_time, return_trace), media_type="text/event-stream"
+        )
 
     def run(
         self,

@@ -38,8 +38,8 @@ def get_user_workspace_client():
     return WorkspaceClient(token=access_token, auth_type="pat")
 
 
-def setup_mlflow() -> None:
-    """Initialize MLflow tracking and set active model."""
+def setup_mlflow_git_based_version_tracking() -> None:
+    """Initialize MLflow tracking and set active model with git-based version tracking."""
     experiment_id = _get_experiment_id()
     assert experiment_id is not None, (
         "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based logging "
@@ -53,7 +53,6 @@ def setup_mlflow() -> None:
     # in local development, we use a fallback app name
     app_name = os.getenv("DATABRICKS_APP_NAME", "local")
 
-    # TODO: migrate over to `enable_git_model_versioning` or merge functionality
     # Get current git commit hash for versioning
     try:
         git_commit = (
