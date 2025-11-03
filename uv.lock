@@ -3405,7 +3405,7 @@ wheels = [
 
 [[package]]
 name = "mlflow"
-version = "3.5.2.dev0"
+version = "3.6.0rc0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
