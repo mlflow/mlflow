@@ -196,7 +196,8 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
-    # Default feedback_value_type to str if not specified
+    # Default feedback_value_type to str if not specified (consistent with MLflow <= 3.5.x)
+    # TODO: Implement logic to allow the LLM to choose the appropriate value type if not specified
     if feedback_value_type is None:
         feedback_value_type = str
 
