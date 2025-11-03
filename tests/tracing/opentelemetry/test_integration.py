@@ -2,6 +2,7 @@ from opentelemetry import trace as otel_trace
 
 import mlflow
 from mlflow.entities.span import SpanStatusCode, encode_span_id
+from mlflow.entities.trace_location import MlflowExperimentLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 
@@ -11,7 +12,9 @@ from tests.tracing.helper import get_traces
 def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
+    # Use set_destination to trigger tracer provider initialization
     experiment_id = mlflow.set_experiment("test_experiment").experiment_id
+    mlflow.tracing.set_destination(MlflowExperimentLocation(experiment_id))
 
     otel_tracer = otel_trace.get_tracer(__name__)
     with otel_tracer.start_as_current_span("parent_span") as root_span:
