@@ -435,7 +435,7 @@ def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
         mock_store_instance = mock.MagicMock()
         mock_store.return_value = mock_store_instance
         mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")

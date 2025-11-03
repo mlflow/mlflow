@@ -5,6 +5,8 @@ import pathlib
 import random
 import re
 import shutil
+import subprocess
+import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -8869,7 +8871,7 @@ def test_assessment_with_error(store_and_trace_info):
 
 
 def test_dataset_crud_operations(store):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         experiment_ids = _create_experiments(store, ["test_exp_1", "test_exp_2"])
         created_dataset = store.create_dataset(
             name="test_eval_dataset",
@@ -9449,7 +9451,7 @@ def test_dataset_associations_and_lazy_loading(store):
 
     retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
     assert retrieved._experiment_ids is None
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(retrieved.experiment_ids) == set(experiment_ids)
 
     results = store.search_datasets(experiment_ids=[experiment_ids[1]])
@@ -9459,13 +9461,13 @@ def test_dataset_associations_and_lazy_loading(store):
     matching = [d for d in results if d.dataset_id == created_dataset.dataset_id]
     assert len(matching) == 1
     assert matching[0]._experiment_ids is None
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         assert set(matching[0].experiment_ids) == set(experiment_ids)
 
     records = [{"inputs": {"q": f"Q{i}"}, "expectations": {"a": f"A{i}"}} for i in range(5)]
     store.upsert_dataset_records(created_dataset.dataset_id, records)
 
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         retrieved = store.get_dataset(dataset_id=created_dataset.dataset_id)
         assert not retrieved.has_records()
 
@@ -10364,7 +10366,7 @@ def test_scorer_operations(store: SqlAlchemyStore):
 
 
 def test_dataset_experiment_associations(store):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store", return_value=store):
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store", return_value=store):
         exp_ids = _create_experiments(
             store, ["exp_assoc_1", "exp_assoc_2", "exp_assoc_3", "exp_assoc_4"]
         )
@@ -11117,6 +11119,118 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert len(traces[0].data.spans) == 1
     assert traces[0].data.spans[0].name == "incomplete_span"
     assert traces[0].data.spans[0].status.status_code == "OK"
+
+
+def test_sqlalchemy_store_import_does_not_cause_circular_import():
+    """
+    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
+
+    Store plugins that inherit from SqlAlchemyStore need to import it at module level, which
+    triggers imports of EvaluationDataset. The EvaluationDataset class in turn imports from
+    tracking service utilities, which can create a circular dependency if not handled carefully.
+
+    This test verifies that basic imports work without circular dependency errors. The circular
+    import is broken by using lazy imports within EvaluationDataset's methods rather than at
+    module level.
+    """
+    code = """
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.entities import EvaluationDataset
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
+
+
+def test_plugin_entrypoint_registration_does_not_fail():
+    """
+    Regression test for plugin loading issue (https://github.com/mlflow/mlflow/issues/18386).
+
+    When MLflow discovers and loads store plugins via entrypoints, it imports the plugin module
+    which typically defines a class inheriting from SqlAlchemyStore. This import chain needs to
+    work without ImportError.
+
+    This test simulates the entrypoint.load() process during plugin registration to ensure the
+    plugin module can be imported successfully.
+    """
+    code = """
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+class CustomTrackingStore(SqlAlchemyStore):
+    pass
+
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
+
+
+def test_plugin_can_create_dataset_without_name_error():
+    """
+    Regression test for plugin runtime usage (https://github.com/mlflow/mlflow/issues/18386).
+
+    Store plugins that inherit from SqlAlchemyStore need to be able to call methods like
+    create_dataset() which instantiate EvaluationDataset at runtime.
+
+    This test ensures that after a plugin loads, it can actually use store methods that reference
+    EvaluationDataset. This catches the actual runtime failure that users experienced, where the
+    plugin would load successfully but fail when trying to perform dataset operations.
+    """
+    code = """
+import tempfile
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+
+class PluginStore(SqlAlchemyStore):
+    pass
+
+with tempfile.TemporaryDirectory() as tmpdir:
+    db_path = f"{tmpdir}/test.db"
+    store = PluginStore(f"sqlite:///{db_path}", tmpdir)
+
+    dataset = store.create_dataset("test_dataset", tags={"key": "value"}, experiment_ids=[])
+
+    assert dataset is not None
+    assert dataset.name == "test_dataset"
+"""
+
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
+
+
+def test_evaluation_dataset_not_in_entities_all():
+    """
+    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
+
+    EvaluationDataset must be excluded from mlflow.entities.__all__ to prevent wildcard imports
+    from triggering circular dependencies. When store plugins are loaded via entrypoints, any
+    code that uses "from mlflow.entities import *" would pull in EvaluationDataset, which has
+    dependencies that create import cycles with the store infrastructure.
+
+    This test ensures EvaluationDataset remains importable directly but isn't exposed through
+    wildcard imports, allowing plugins to safely inherit from store classes without encountering
+    circular import issues during initialization.
+    """
+    import mlflow.entities
+
+    assert "EvaluationDataset" not in mlflow.entities.__all__
 
 
 def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
