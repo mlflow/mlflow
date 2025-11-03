@@ -122,7 +122,6 @@ from mlflow.tracing.utils import (
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -892,9 +891,9 @@ class SqlAlchemyStore(AbstractStore):
         if not metrics:
             return
 
-        metric_instances: list[SqlLoggedModelMetric] = []
         is_single_metric = len(metrics) == 1
         seen: set[Metric] = set()
+        sanitized_metrics: list[tuple[Metric, float]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
@@ -910,23 +909,34 @@ class SqlAlchemyStore(AbstractStore):
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            is_nan, value = self.sanitize_metric_value(metric.value)
-            metric_instances.append(
+            _, value = self.sanitize_metric_value(metric.value)
+            sanitized_metrics.append((metric, value))
+
+        if not sanitized_metrics:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            if experiment_id is None:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+                experiment_id = run.experiment_id
+
+            metric_instances = [
                 SqlLoggedModelMetric(
                     model_id=metric.model_id,
                     metric_name=metric.key,
                     metric_timestamp_ms=metric.timestamp,
                     metric_step=metric.step,
                     metric_value=value,
-                    experiment_id=experiment_id or _get_experiment_id(),
+                    experiment_id=experiment_id,
                     run_id=run_id,
                     dataset_uuid=dataset_uuid,
                     dataset_name=metric.dataset_name,
                     dataset_digest=metric.dataset_digest,
                 )
-            )
+                for metric, value in sanitized_metrics
+            ]
 
-        with self.ManagedSessionMaker() as session:
             try:
                 session.add_all(metric_instances)
                 session.commit()
