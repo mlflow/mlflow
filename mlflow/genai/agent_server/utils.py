@@ -3,9 +3,7 @@ import os
 import subprocess
 from contextvars import ContextVar
 
-import mlflow
-from mlflow.exceptions import MlflowException
-from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
+from mlflow.tracking.fluent import _set_active_model
 
 # Context-isolated storage for request headers
 # ensuring thread-safe access across async execution contexts
@@ -28,14 +26,14 @@ def get_request_headers() -> dict[str, str]:
 
 def setup_mlflow_git_based_version_tracking() -> None:
     """Initialize MLflow tracking and set active model with git-based version tracking."""
-    experiment_id = _get_experiment_id()
-    if experiment_id is None:
-        raise MlflowException(
-            "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based "
-            "version tracking and real time tracing."
-        )
+    # experiment_id = _get_experiment_id()
+    # if experiment_id is None:
+    #     raise MlflowException(
+    #         "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based "
+    #         "version tracking and real time tracing."
+    #     )
 
-    mlflow.set_experiment(experiment_id=experiment_id)
+    # mlflow.set_experiment(experiment_id=experiment_id)
 
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
     # in local development, we use a fallback app name

@@ -1,8 +1,9 @@
 import argparse
+import functools
 import inspect
 import json
 import logging
-from typing import Any, AsyncGenerator, Callable, Literal
+from typing import Any, AsyncGenerator, Callable, Literal, ParamSpec, TypeVar
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -19,6 +20,58 @@ logger = logging.getLogger(__name__)
 STREAM_KEY = "stream"
 
 AgentType = Literal["ResponsesAgent"]
+
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
+
+_invoke_function: Callable[..., Any] | None = None
+_stream_function: Callable[..., Any] | None = None
+
+
+def get_invoke_function():
+    return _invoke_function
+
+
+def get_stream_function():
+    return _stream_function
+
+
+@experimental(version="3.6.0")
+def invoke() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Decorator to register a function as an invoke endpoint. Can only be used once."""
+
+    def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
+        global _invoke_function
+        if _invoke_function is not None:
+            raise ValueError("invoke decorator can only be used once")
+        _invoke_function = func
+
+        @functools.wraps(func)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
+
+
+@experimental(version="3.6.0")
+def stream() -> Callable[[Callable[_P, _R]], Callable[_P, _R]]:
+    """Decorator to register a function as a stream endpoint. Can only be used once."""
+
+    def decorator(func: Callable[_P, _R]) -> Callable[_P, _R]:
+        global _stream_function
+        if _stream_function is not None:
+            raise ValueError("stream decorator can only be used once")
+        _stream_function = func
+
+        @functools.wraps(func)
+        def wrapper(*args: _P.args, **kwargs: _P.kwargs) -> _R:
+            return func(*args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 @experimental(version="3.6.0")
@@ -69,7 +122,7 @@ class AgentServer:
             is_streaming = data.pop(STREAM_KEY, False)
 
             try:
-                request_data = self.validator.validate_and_convert_request(request)
+                request_data = self.validator.validate_and_convert_request(data)
             except ValueError as e:
                 raise HTTPException(
                     status_code=400,
@@ -86,8 +139,6 @@ class AgentServer:
             return {"status": "healthy"}
 
     async def _handle_invoke_request(self, request: dict[str, Any]) -> dict[str, Any]:
-        from mlflow.genai.agent_server import _invoke_function
-
         if _invoke_function is None:
             raise HTTPException(status_code=500, detail="No invoke function registered")
 
@@ -183,8 +234,6 @@ class AgentServer:
             yield "data: [DONE]\n\n"
 
     async def _handle_stream_request(self, request: dict[str, Any]) -> StreamingResponse:
-        from mlflow.genai.agent_server import _stream_function
-
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
 

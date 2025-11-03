@@ -20,6 +20,15 @@ from mlflow.types.responses import (
 )
 
 
+@pytest.fixture(autouse=True)
+def reset_global_state():
+    """Reset global state before each test to ensure test isolation."""
+    import mlflow.genai.agent_server.server
+
+    mlflow.genai.agent_server.server._invoke_function = None
+    mlflow.genai.agent_server.server._stream_function = None
+
+
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
     return ResponsesAgentResponse(
         output=[
@@ -63,12 +72,6 @@ async def arbitrary_stream(request: dict) -> AsyncGenerator[dict, None]:
 
 
 def test_invoke_decorator_single_registration():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     @invoke()
     def my_invoke_function(request):
         return {"result": "success"}
@@ -80,12 +83,6 @@ def test_invoke_decorator_single_registration():
 
 
 def test_stream_decorator_single_registration():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     @stream()
     async def my_stream_function(request):
         yield {"delta": {"content": "hello"}}
@@ -95,12 +92,6 @@ def test_stream_decorator_single_registration():
 
 
 def test_multiple_invoke_registrations_raises_error():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     @invoke()
     def first_function(request):
         return {"result": "first"}
@@ -113,12 +104,6 @@ def test_multiple_invoke_registrations_raises_error():
 
 
 def test_multiple_stream_registrations_raises_error():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     @stream()
     def first_stream(request):
         yield {"delta": {"content": "first"}}
@@ -131,12 +116,6 @@ def test_multiple_stream_registrations_raises_error():
 
 
 def test_get_invoke_function_returns_registered():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     def my_function(request):
         return {"test": "data"}
 
@@ -151,12 +130,6 @@ def test_get_invoke_function_returns_registered():
 
 
 def test_decorator_preserves_function_metadata():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     @invoke()
     def test_function_with_metadata(request):
         """This is a test function with documentation."""
@@ -168,9 +141,6 @@ def test_decorator_preserves_function_metadata():
     # Verify that functools.wraps preserved the metadata
     assert wrapper.__name__ == "test_function_with_metadata"
     assert wrapper.__doc__ == "This is a test function with documentation."
-
-    # Test the same for stream decorator
-    mlflow.genai.agent_server._stream_function = None
 
     @stream()
     async def test_stream_with_metadata(request):
@@ -347,12 +317,6 @@ def test_agent_server_routes_registration():
 
 
 def test_invocations_endpoint_malformed_json():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     server = AgentServer()
     client = TestClient(server.app)
 
@@ -363,12 +327,6 @@ def test_invocations_endpoint_malformed_json():
 
 
 def test_invocations_endpoint_missing_invoke_function():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     server = AgentServer()
     client = TestClient(server.app)
 
@@ -379,12 +337,6 @@ def test_invocations_endpoint_missing_invoke_function():
 
 
 def test_invocations_endpoint_validation_error():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
@@ -397,12 +349,6 @@ def test_invocations_endpoint_validation_error():
 
 
 def test_invocations_endpoint_success_invoke():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     with patch("mlflow.start_span") as mock_span:
         # Mock the span context manager
         mock_span_instance = Mock()
@@ -445,12 +391,6 @@ def test_invocations_endpoint_success_invoke():
 
 
 def test_invocations_endpoint_success_stream():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     with patch("mlflow.start_span") as mock_span:
         # Mock the span context manager
         mock_span_instance = Mock()
@@ -522,12 +462,6 @@ def test_request_headers_isolation():
 
 
 def test_tracing_span_creation():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     with patch("mlflow.start_span") as mock_span:
         mock_span_instance = Mock()
         mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
@@ -547,12 +481,6 @@ def test_tracing_span_creation():
 
 
 def test_tracing_attributes_setting():
-    # Reset global state before test
-    import mlflow.genai.agent_server
-
-    mlflow.genai.agent_server._invoke_function = None
-    mlflow.genai.agent_server._stream_function = None
-
     with patch("mlflow.start_span") as mock_span:
         mock_span_instance = Mock()
         mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
