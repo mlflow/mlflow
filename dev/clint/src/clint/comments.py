@@ -14,6 +14,8 @@ class Noqa:
     lineno: int
     col_offset: int
     rules: set[str]
+    end_lineno: int
+    end_col_offset: int
 
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
@@ -23,6 +25,8 @@ class Noqa:
                 lineno=token.start[0],
                 col_offset=token.start[1],
                 rules=rules,
+                end_lineno=token.end[0],
+                end_col_offset=token.end[1],
             )
         return None
 

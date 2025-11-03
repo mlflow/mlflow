@@ -52,20 +52,45 @@ HasLocation: TypeAlias = (
 class Location:
     lineno: int
     col_offset: int
+    end_lineno: int | None = None
+    end_col_offset: int | None = None
 
     def __str__(self) -> str:
         return f"{self.lineno}:{self.col_offset}"
 
     @classmethod
     def from_node(cls, node: HasLocation) -> Self:
-        return cls(node.lineno - 1, node.col_offset)
+        end_lineno = getattr(node, "end_lineno", None)
+        end_col_offset = getattr(node, "end_col_offset", None)
+        return cls(
+            node.lineno - 1,
+            node.col_offset,
+            end_lineno - 1 if end_lineno is not None else None,
+            end_col_offset,
+        )
 
     @classmethod
     def from_noqa(cls, noqa: Noqa) -> Self:
-        return cls(noqa.lineno - 1, noqa.col_offset)
+        return cls(
+            noqa.lineno - 1,
+            noqa.col_offset,
+            noqa.end_lineno - 1,
+            noqa.end_col_offset,
+        )
 
     def __add__(self, other: "Location") -> "Location":
-        return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
+        end_lineno = None
+        end_col_offset = None
+        if self.end_lineno is not None and other.end_lineno is not None:
+            end_lineno = self.end_lineno + other.end_lineno
+        if self.end_col_offset is not None and other.end_col_offset is not None:
+            end_col_offset = self.end_col_offset + other.end_col_offset
+        return Location(
+            self.lineno + other.lineno,
+            self.col_offset + other.col_offset,
+            end_lineno,
+            end_col_offset,
+        )
 
 
 @dataclass
@@ -92,8 +117,10 @@ class Violation:
             "obj": None,
             "line": self.loc.lineno,
             "column": self.loc.col_offset,
-            "endLine": self.loc.lineno,
-            "endColumn": self.loc.col_offset,
+            "endLine": self.loc.end_lineno if self.loc.end_lineno is not None else self.loc.lineno,
+            "endColumn": self.loc.end_col_offset
+            if self.loc.end_col_offset is not None
+            else self.loc.col_offset,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
