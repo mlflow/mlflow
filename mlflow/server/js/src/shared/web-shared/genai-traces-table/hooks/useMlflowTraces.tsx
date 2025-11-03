@@ -738,7 +738,7 @@ export const useMlflowTraces = (
   }
 
   return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
+    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid ?? undefined),
     isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
     refetchMlflowTraces: searchRes.refetch,
   };

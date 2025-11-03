@@ -61,12 +61,10 @@ describe('ExperimentPageSideNav', () => {
 
       // Check evaluation section
       expect(screen.getByText('Evaluation')).toBeInTheDocument();
-      expect(screen.getByText('Scorers')).toBeInTheDocument();
       expect(screen.getByText('Datasets')).toBeInTheDocument();
 
       // Check prompts & versions section
-      expect(screen.getByText('Prompts & versions')).toBeInTheDocument();
-      expect(screen.getByText('Prompts')).toBeInTheDocument();
+      expect(screen.getByText('Versions')).toBeInTheDocument();
       expect(screen.getByText('Agent versions')).toBeInTheDocument();
     },
   );
