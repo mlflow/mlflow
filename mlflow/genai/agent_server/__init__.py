@@ -36,7 +36,7 @@ Usage:
 """
 
 import argparse
-from typing import Any, Callable, Literal
+from typing import Any, Callable
 
 from mlflow.genai.agent_server.server import AgentServer
 from mlflow.genai.agent_server.utils import (
@@ -56,10 +56,8 @@ __all__ = [
     "stream",
     "parse_server_args",
     "setup_mlflow_git_based_version_tracking",
-    "AgentType",
 ]
 
-AgentType = Literal["ResponsesAgent", "ChatCompletion", "ChatAgent"]
 
 _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None

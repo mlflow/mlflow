@@ -8,10 +8,14 @@ from fastapi.testclient import TestClient
 
 from mlflow.genai.agent_server import (
     AgentServer,
-    AgentValidator,
     get_invoke_function,
     invoke,
     stream,
+)
+from mlflow.genai.agent_server.validator import (
+    ChatAgentValidator,
+    ChatCompletionValidator,
+    ResponsesAgentValidator,
 )
 from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentRequest, ChatAgentResponse
 from mlflow.types.llm import (
@@ -204,7 +208,7 @@ def test_get_invoke_function_returns_registered():
 
 
 def test_validator_request_dict_responses_agent():
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     request_data = {
         "input": [
             {
@@ -219,21 +223,21 @@ def test_validator_request_dict_responses_agent():
 
 
 def test_validator_request_dict_chat_v1():
-    validator_chat_v1 = AgentValidator("agent/v1/chat")
+    validator_chat_v1 = ChatCompletionValidator()
     request_data = {"messages": [{"role": "user", "content": "Hello"}]}
     result = validator_chat_v1.validate_and_convert_request(request_data)
     assert isinstance(result, ChatCompletionRequest)
 
 
 def test_validator_request_dict_chat_v2():
-    validator_chat_v2 = AgentValidator("agent/v2/chat")
+    validator_chat_v2 = ChatAgentValidator()
     request_data = {"messages": [{"role": "user", "content": "Hello"}]}
     result = validator_chat_v2.validate_and_convert_request(request_data)
     assert isinstance(result, ChatAgentRequest)
 
 
 def test_validator_invalid_request_dict_raises_error():
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     invalid_data = {"invalid": "structure"}
 
     with pytest.raises(ValueError, match="Invalid data for ResponsesAgentRequest"):
@@ -248,7 +252,7 @@ def test_validator_none_type_returns_data_unchanged():
 
 
 def test_validator_response_dict_format():
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     response_dict = {
         "output": [
             {
@@ -267,7 +271,7 @@ def test_validator_response_dict_format():
 
 
 def test_validator_response_pydantic_format():
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     response_pydantic = ResponsesAgentResponse(
         output=[
             {
@@ -309,7 +313,7 @@ def test_validator_unsupported_output_type_raises_error():
 
 
 def test_validator_stream_response_formats():
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     # Test streaming response validation for different agent types
     stream_event = ResponsesAgentStreamEvent(
         type="response.output_item.done",
@@ -327,7 +331,7 @@ def test_validator_stream_response_formats():
 
 
 def test_validator_chat_v1_stream_response():
-    validator_chat_v1 = AgentValidator("agent/v1/chat")
+    validator_chat_v1 = ChatCompletionValidator()
     chunk = ChatCompletionChunk(
         id="123",
         choices=[{"index": 0, "delta": {"content": "hello"}, "finish_reason": None}],
@@ -341,7 +345,7 @@ def test_validator_chat_v1_stream_response():
 
 
 def test_validator_chat_v2_stream_response():
-    validator_chat_v2 = AgentValidator("agent/v2/chat")
+    validator_chat_v2 = ChatAgentValidator()
     chunk = ChatAgentChunk(delta=ChatAgentMessage(content="hello", role="assistant", id="123"))
 
     result = validator_chat_v2.validate_and_convert_result(chunk, stream=True)
@@ -350,7 +354,7 @@ def test_validator_chat_v2_stream_response():
 
 def test_arbitrary_dict_agent_fails_responses_validation():
     """Test that ArbitraryDictAgent output fails validation for agent/v1/responses"""
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     arbitrary_response = {
         "response": "Hello from ArbitraryDictAgent!",
         "arbitrary_field": "custom_value",
@@ -364,7 +368,7 @@ def test_arbitrary_dict_agent_fails_responses_validation():
 
 def test_responses_agent_passes_validation():
     """Test that ResponsesAgent output passes validation for agent/v1/responses"""
-    validator_responses = AgentValidator("agent/v1/responses")
+    validator_responses = ResponsesAgentValidator()
     valid_response = {
         "output": [
             {

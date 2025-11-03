@@ -2,14 +2,13 @@ import inspect
 import json
 import logging
 import time
-from typing import Any, AsyncGenerator, Callable
+from typing import Any, AsyncGenerator, Callable, Literal
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 import mlflow
-from mlflow.genai.agent_server import AgentType
 from mlflow.genai.agent_server.utils import set_request_headers
 from mlflow.genai.agent_server.validator import (
     BaseAgentValidator,
@@ -27,6 +26,8 @@ from mlflow.utils.annotations import experimental
 logger = logging.getLogger(__name__)
 RETURN_TRACE_KEY = "return_trace"
 STREAM_KEY = "stream"
+
+AgentType = Literal["ResponsesAgent", "ChatCompletion", "ChatAgent"]
 
 
 @experimental(version="3.6.0")
@@ -107,7 +108,6 @@ class AgentServer:
 
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
-            """Health check endpoint for frontend connection testing"""
             return {"status": "healthy"}
 
     async def _handle_invoke_request(
