@@ -733,4 +733,4 @@ def test_return_trace_integration():
 
         response = client.post("/invocations", json=request_data)
         response_json = response.json()
-        assert "trace" in response_json["trace"]
+        assert response_json["trace"] == "data"

@@ -132,7 +132,7 @@ class AgentServer:
                 span.set_outputs(result)
 
                 if return_trace:
-                    result["trace"] = self._get_in_memory_trace(span.trace_id)
+                    result |= self._get_in_memory_trace(span.trace_id)
 
             logger.debug(
                 "Response sent",
@@ -162,7 +162,10 @@ class AgentServer:
     @staticmethod
     def _extract_content(chunk: ChatCompletionChunk | dict[str, Any]) -> str:
         if isinstance(chunk, dict):
-            return chunk.get("choices", [])[0].get("delta", {}).get("content", "")
+            choices = chunk.get("choices", [])
+            if not choices:
+                return ""
+            return choices[0].get("delta", {}).get("content", "")
         if not chunk.choices:
             return ""
         return chunk.choices[0].delta.content or ""
@@ -202,7 +205,7 @@ class AgentServer:
 
                 if return_trace:
                     trace = self._get_in_memory_trace(span.trace_id)
-                    yield f"data: {json.dumps({'trace': trace})}\n\n"
+                    yield f"data: {json.dumps(trace)}\n\n"
 
                 yield "data: [DONE]\n\n"
 
