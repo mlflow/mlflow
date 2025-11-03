@@ -268,7 +268,7 @@ def cloud_storage_http_request(
     if method.lower() not in ("put", "get", "patch", "delete"):
         raise ValueError("Illegal http method: " + method)
     
-    # New addition: make timeout configurable via env var
+    # New addition -- make timeout configurable via env var
     if timeout is None:
         try:
             timeout = float(os.getenv("MLFLOW_HTTP_REQUEST_TIMEOUT", "0")) or None
