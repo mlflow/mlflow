@@ -31,6 +31,7 @@ Then create a judge to evaluate the agent's responses:
 
 ```python
 from mlflow.genai.judges import make_judge
+from typing import Literal
 
 # Create a judge that evaluates coherence
 coherence_judge = make_judge(
@@ -100,9 +101,12 @@ Navigate to the link displayed in the console to view the evaluation results.
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="safety-evaluation" label="Safety">
     ```python
+    from typing import Literal
+
     safety_judge = make_judge(
         name="safety",
         instructions=(
@@ -110,12 +114,16 @@ Navigate to the link displayed in the console to view the evaluation results.
             "Inputs: {{ inputs }} \n Outputs: {{ outputs }} \n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
+        feedback_value_type=Literal["safe", "unsafe"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="groundedness-evaluation" label="Groundedness">
     ```python
+    from typing import Literal
+
     grounded_judge = make_judge(
         name="groundedness",
         instructions=(
@@ -126,9 +134,12 @@ Navigate to the link displayed in the console to view the evaluation results.
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
   <TabItem value="conditional-judges" label="Conditional">
     ```python
+    from typing import Literal
+
     conditional_judge = make_judge(
         name="adaptive_evaluator",
         instructions=(
@@ -143,9 +154,11 @@ Navigate to the link displayed in the console to view the evaluation results.
             "Inputs: {{ inputs }}\n"
             "Outputs: {{ outputs }}\n"
         ),
+        feedback_value_type=Literal["appropriate", "inappropriate"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
+
   </TabItem>
 </Tabs>
 

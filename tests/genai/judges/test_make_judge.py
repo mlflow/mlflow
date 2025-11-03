@@ -1,12 +1,15 @@
 import json
 import sys
 import types
+import typing
 from dataclasses import asdict
+from typing import Literal
 from unittest import mock
 from unittest.mock import patch
 
 import litellm
 import pandas as pd
+import pydantic
 import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
@@ -110,7 +113,7 @@ def mock_invoke_judge_model(monkeypatch):
     calls = []
     captured_args = {}
 
-    def _mock(model_uri, prompt, assessment_name, trace=None):
+    def _mock(model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None):
         # Store call details in list format (for backward compatibility)
         calls.append((model_uri, prompt, assessment_name))
 
@@ -121,6 +124,8 @@ def mock_invoke_judge_model(monkeypatch):
                 "prompt": prompt,
                 "assessment_name": assessment_name,
                 "trace": trace,
+                "num_retries": num_retries,
+                "response_format": response_format,
             }
         )
 
@@ -210,7 +215,10 @@ def mock_trace():
 
 def test_make_judge_creates_instructions_judge():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     assert isinstance(judge, InstructionsJudge)
@@ -226,7 +234,11 @@ def test_make_judge_with_default_model(monkeypatch):
         lambda: expected_model,
     )
 
-    judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is accurate")
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is accurate",
+        feedback_value_type=str,
+    )
 
     assert judge.model == expected_model
 
@@ -242,7 +254,11 @@ def test_make_judge_with_databricks_default(monkeypatch):
 
     monkeypatch.setattr("mlflow.genai.judges.utils.is_databricks_uri", lambda x: True)
 
-    judge = make_judge(name="test_judge", instructions="Check if {{ outputs }} is valid")
+    judge = make_judge(
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+    )
 
     assert judge.model == "databricks"
 
@@ -257,7 +273,10 @@ def test_databricks_model_requires_databricks_agents(monkeypatch):
         match="To use 'databricks' as the judge model, the Databricks agents library",
     ):
         make_judge(
-            name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+            name="test_judge",
+            instructions="Check if {{ outputs }} is valid",
+            feedback_value_type=str,
+            model="databricks",
         )
 
 
@@ -272,6 +291,7 @@ def test_litellm_provider_requires_litellm(monkeypatch, provider):
         make_judge(
             name="test_judge",
             instructions="Check if {{ outputs }} is valid",
+            feedback_value_type=str,
             model=f"{provider}:/test-model",
         )
 
@@ -286,6 +306,7 @@ def test_native_providers_work_without_litellm(monkeypatch, provider):
     judge = make_judge(
         name=f"test_judge_{provider}",
         instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
         model=f"{provider}:/test-model",
     )
     assert judge.model == f"{provider}:/test-model"
@@ -314,7 +335,10 @@ def test_databricks_model_works_with_chat_completions(mock_databricks_rag_eval):
     )
 
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+        model="databricks",
     )
 
     result = judge(outputs={"text": "test output"})
@@ -343,7 +367,10 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     mock_databricks_rag_eval.get_context = lambda: MockContextInvalid()
 
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="databricks"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+        model="databricks",
     )
 
     result = judge(outputs={"text": "test output"})
@@ -407,7 +434,10 @@ def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
     )
 
     judge = make_judge(
-        name="trace_judge", instructions="Analyze {{ trace }} for errors", model="databricks"
+        name="trace_judge",
+        instructions="Analyze {{ trace }} for errors",
+        feedback_value_type=str,
+        model="databricks",
     )
     assert judge.model == "databricks"
 
@@ -438,7 +468,12 @@ def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
     ],
 )
 def test_template_variable_extraction(instructions, expected_vars):
-    judge = make_judge(name="test_judge", instructions=instructions, model="openai:/gpt-4")
+    judge = make_judge(
+        name="test_judge",
+        instructions=instructions,
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
 
     assert judge.template_variables == expected_vars
 
@@ -464,7 +499,12 @@ def test_custom_variables_rejected(instructions, error_pattern):
     with pytest.raises(
         MlflowException, match="Instructions template contains unsupported variables"
     ):
-        make_judge(name="test_judge", instructions=instructions, model="openai:/gpt-4")
+        make_judge(
+            name="test_judge",
+            instructions=instructions,
+            feedback_value_type=str,
+            model="openai:/gpt-4",
+        )
 
 
 @pytest.mark.parametrize(
@@ -490,7 +530,7 @@ def test_custom_variables_rejected(instructions, error_pattern):
 )
 def test_validation_errors(name, instructions, model, error_pattern):
     with pytest.raises(MlflowException, match=error_pattern):
-        make_judge(name=name, instructions=instructions, model=model)
+        make_judge(name=name, instructions=instructions, feedback_value_type=str, model=model)
 
 
 @pytest.mark.parametrize(
@@ -515,7 +555,10 @@ def test_valid_model_formats(monkeypatch, model):
         monkeypatch.setitem(sys.modules, "databricks.agents.evals.judges", mock_judges_module)
 
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model=model
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+        model=model,
     )
     assert judge.model == model
 
@@ -532,13 +575,19 @@ def test_valid_model_formats(monkeypatch, model):
 )
 def test_trace_variable_restrictions(instructions, model, error_pattern):
     with pytest.raises(MlflowException, match=error_pattern):
-        make_judge(name="test_judge", instructions=instructions, model=model)
+        make_judge(
+            name="test_judge",
+            instructions=instructions,
+            feedback_value_type=str,
+            model=model,
+        )
 
 
 def test_trace_with_inputs_outputs_allowed():
     judge1 = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} and {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
     assert judge1.template_variables == {"trace", "inputs"}
@@ -546,6 +595,7 @@ def test_trace_with_inputs_outputs_allowed():
     judge2 = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} and {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
     assert judge2.template_variables == {"trace", "outputs"}
@@ -555,6 +605,7 @@ def test_trace_with_expectations_allowed():
     judge = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} against {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -566,13 +617,17 @@ def test_trace_with_expectations_allowed():
 def test_call_with_trace_supported(mock_trace, monkeypatch):
     captured_args = {}
 
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+    def mock_invoke(
+        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+    ):
         captured_args.update(
             {
                 "model_uri": model_uri,
                 "prompt": prompt,
                 "assessment_name": assessment_name,
                 "trace": trace,
+                "num_retries": num_retries,
+                "response_format": response_format,
             }
         )
         return Feedback(name=assessment_name, value=True, rationale="Trace analyzed")
@@ -580,7 +635,10 @@ def test_call_with_trace_supported(mock_trace, monkeypatch):
     monkeypatch.setattr(mlflow.genai.judges.instructions_judge, "invoke_judge_model", mock_invoke)
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze this {{ trace }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     result = judge(trace=mock_trace)
@@ -596,7 +654,10 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
     captured_args = mock_invoke_judge_model.captured_args
 
     judge = make_judge(
-        name="test_judge", instructions="Analyze this {{ trace }}", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Analyze this {{ trace }}",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     # These should all work - trace-based judge ignores inputs/outputs
@@ -615,7 +676,10 @@ def test_call_trace_based_judge_ignores_inputs_outputs(mock_trace, mock_invoke_j
 
 def test_call_with_no_inputs_or_outputs():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     with pytest.raises(
@@ -628,6 +692,7 @@ def test_call_with_valid_outputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="formality_judge",
         instructions="Check if {{ outputs }} is formal",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -654,6 +719,7 @@ def test_call_with_valid_inputs_returns_feedback(mock_invoke_judge_model):
     judge = make_judge(
         name="input_judge",
         instructions="Check if {{ inputs }} is valid",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -678,6 +744,7 @@ def test_call_with_valid_inputs_and_outputs_returns_feedback(mock_invoke_judge_m
     judge = make_judge(
         name="inputs_outputs_judge",
         instructions="Check if {{ outputs }} matches {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -705,6 +772,7 @@ def test_call_with_expectations_as_json(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check {{ outputs }} against {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -726,6 +794,7 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{ inputs }} meets {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -756,7 +825,10 @@ def test_call_with_reserved_variables(mock_invoke_judge_model):
 
 def test_instructions_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is formal", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is formal",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     instructions = judge.instructions
@@ -765,7 +837,10 @@ def test_instructions_property():
 
 def test_kind_property():
     judge = make_judge(
-        name="test_judge", instructions="Check if {{ outputs }} is valid", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{ outputs }} is valid",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     assert judge.kind == ScorerKind.BUILTIN
@@ -796,6 +871,7 @@ def test_call_with_various_input_combinations(
     judge = make_judge(
         name="test_judge",
         instructions="Check {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -815,6 +891,7 @@ def test_prompt_formatting_with_all_reserved_variable_types(mock_invoke_judge_mo
         instructions=(
             "Inputs: {{ inputs }}, Outputs: {{ outputs }}, Expectations: {{ expectations }}"
         ),
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -850,6 +927,7 @@ def test_output_format_instructions_added(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{ outputs }} is formal",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -877,6 +955,7 @@ def test_output_format_instructions_with_complex_template(mock_invoke_judge_mode
     judge = make_judge(
         name="complex_judge",
         instructions="Evaluate {{ outputs }} considering {{ inputs }} and {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -912,6 +991,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions=original_instructions,
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -990,6 +1070,7 @@ def test_judge_registration_as_scorer(mock_invoke_judge_model):
     judge_v2 = make_judge(
         name="test_judge",
         instructions=v2_instructions,
+        feedback_value_type=str,
         model="openai:/gpt-4o",
     )
     version2 = store.register_scorer(experiment, judge_v2)
@@ -1026,6 +1107,7 @@ def test_judge_registration_with_reserved_variables(mock_invoke_judge_model):
     judge = make_judge(
         name="reserved_judge",
         instructions=instructions_with_reserved,
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1082,6 +1164,7 @@ def test_model_dump_comprehensive():
     basic_judge = make_judge(
         name="basic_judge",
         instructions="Check if {{ inputs }} is correct",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1123,6 +1206,7 @@ def test_model_dump_comprehensive():
     complex_judge = make_judge(
         name="complex_judge",
         instructions="Check if {{ inputs }} matches {{ expectations }}",
+        feedback_value_type=str,
         model="anthropic:/claude-3",
     )
 
@@ -1136,6 +1220,7 @@ def test_model_dump_comprehensive():
     default_model_judge = make_judge(
         name="default_judge",
         instructions="Evaluate {{ outputs }}",
+        feedback_value_type=str,
     )
 
     default_serialized = default_model_judge.model_dump()
@@ -1210,6 +1295,7 @@ def test_model_dump_uses_serialized_scorer_dataclass():
     judge = make_judge(
         name="test_dataclass_judge",
         instructions="Evaluate {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-3.5-turbo",
     )
 
@@ -1221,6 +1307,10 @@ def test_model_dump_uses_serialized_scorer_dataclass():
         mlflow_version=mlflow.__version__,
         serialization_version=1,
         instructions_judge_pydantic_data={
+            "feedback_value_type": {
+                "type": "string",
+                "title": "Result",
+            },
             "instructions": "Evaluate {{ inputs }} and {{ outputs }}",
             "model": "openai:/gpt-3.5-turbo",
         },
@@ -1242,6 +1332,7 @@ def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
     judge = make_judge(
         name="response_quality",
         instructions="Evaluate if the {{ outputs }} is helpful given {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1320,6 +1411,7 @@ def test_instructions_judge_works_with_evaluate_on_trace(
     judge = make_judge(
         name="trace_evaluator",
         instructions="Analyze this {{trace}} for quality and correctness",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
     data = pd.DataFrame({"trace": [trace]})
@@ -1333,7 +1425,9 @@ def test_instructions_judge_works_with_evaluate_on_trace(
 def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     captured_prompt = None
 
-    def mock_invoke(model_uri, prompt, assessment_name, trace=None):
+    def mock_invoke(
+        model_uri, prompt, assessment_name, trace=None, num_retries=10, response_format=None
+    ):
         nonlocal captured_prompt
         captured_prompt = prompt
         return Feedback(name=assessment_name, value=True)
@@ -1343,6 +1437,7 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     judge = make_judge(
         name="test_judge",
         instructions="Analyze this {{ trace }} for quality",
+        feedback_value_type=bool,
         model="openai:/gpt-4",
     )
 
@@ -1357,8 +1452,8 @@ def test_trace_prompt_augmentation(mock_trace, monkeypatch):
     assert "step-by-step record" in system_content
     assert "provided to you" in system_content
     assert "Evaluation Rating Fields" in system_content
-    assert "- result: The evaluation rating/result" in system_content
-    assert "- rationale: Detailed explanation for the evaluation" in system_content
+    assert "- result (bool): The evaluation rating/result" in system_content
+    assert "- rationale (str): Detailed explanation for the evaluation" in system_content
     assert "Instructions" in system_content
     assert "Analyze this {{ trace }} for quality" in system_content
 
@@ -1394,6 +1489,7 @@ def test_judge_accepts_various_input_output_data_types(
     judge = make_judge(
         name="test_judge",
         instructions="Compare {{inputs}} with {{outputs}}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1416,6 +1512,7 @@ def test_judge_rejects_scalar_expectations():
     judge = make_judge(
         name="test_judge",
         instructions="Compare {{ outputs }} to {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1430,6 +1527,7 @@ def test_judge_accepts_valid_dict_inputs(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Check if {{ inputs }} and {{ outputs }} are valid",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1453,6 +1551,7 @@ def test_judge_rejects_invalid_trace():
     judge = make_judge(
         name="test_judge",
         instructions="Analyze this {{ trace }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1465,6 +1564,7 @@ def test_judge_rejects_invalid_trace():
     inputs_judge = make_judge(
         name="inputs_judge",
         instructions="Check {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
     with pytest.raises(MlflowException, match="Must specify 'inputs'"):
@@ -1475,6 +1575,7 @@ def test_judge_accepts_valid_trace(mock_trace, mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Analyze this {{ trace }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1516,6 +1617,7 @@ def test_instructions_judge_with_chat_messages():
     judge = make_judge(
         name="response_quality",
         instructions="Evaluate if the {{ outputs }} is helpful given {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1545,6 +1647,7 @@ def test_trace_field_extraction_for_inputs_outputs_template(mock_invoke_judge_mo
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ outputs }} correctly answers {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1585,6 +1688,7 @@ def test_unused_parameters_warning(
     judge = make_judge(
         name="test_judge",
         instructions=instructions,
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1623,6 +1727,7 @@ def test_context_labels_added_to_interpolated_values(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{outputs}} answers {{inputs}} per {{expectations}}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1661,6 +1766,7 @@ def test_trace_field_extraction_with_non_dict_values(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ outputs }} correctly answers {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1691,6 +1797,7 @@ def test_trace_field_extraction_with_expectations(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ outputs }} meets {{ expectations }} for {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1735,6 +1842,7 @@ def test_trace_field_extraction_with_multiple_expectations(mock_invoke_judge_mod
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ outputs }} meets {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1781,6 +1889,7 @@ def test_trace_field_extraction_filters_non_human_expectations(mock_invoke_judge
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ outputs }} meets {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1829,6 +1938,7 @@ def test_trace_with_trace_template_ignores_extraction(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate the {{ trace }} for quality",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1853,6 +1963,7 @@ def test_field_based_template_with_trace_and_explicit_inputs(mock_invoke_judge_m
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1889,6 +2000,7 @@ def test_field_based_template_extracts_missing_fields_from_trace(
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate if {{ inputs }} matches {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1917,6 +2029,7 @@ def test_trace_based_template_with_additional_inputs(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate the {{ trace }} considering the reference {{ inputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1955,6 +2068,7 @@ def test_mixed_template_validation_allows_trace_with_fields():
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ trace }} against {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -1968,6 +2082,7 @@ def test_mixed_trace_and_fields_template_comprehensive(mock_invoke_judge_model):
             "Evaluate the {{ trace }} considering the reference {{ inputs }}, "
             "expected {{ outputs }}, and ground truth {{ expectations }}"
         ),
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2074,7 +2189,9 @@ def test_context_window_error_removes_tool_calls_and_retries(exception, monkeypa
     monkeypatch.setattr("litellm.token_counter", lambda model, messages: len(messages) * 20)
     monkeypatch.setattr("litellm.get_max_tokens", lambda model: 120)
 
-    judge = make_judge(name="test", instructions="test {{inputs}}", model="openai:/gpt-4")
+    judge = make_judge(
+        name="test", instructions="test {{inputs}}", feedback_value_type=str, model="openai:/gpt-4"
+    )
     judge(inputs={"input": "test"}, outputs={"output": "test"}, trace=mock_trace)
 
     # Verify pruning happened; we expect that 2 messages were removed (one tool call pair consisting
@@ -2089,7 +2206,10 @@ def test_non_context_error_does_not_trigger_pruning(monkeypatch):
     monkeypatch.setattr("litellm.completion", mock_completion)
 
     judge = make_judge(
-        name="test_judge", instructions="Check if {{inputs}} is correct", model="openai:/gpt-4"
+        name="test_judge",
+        instructions="Check if {{inputs}} is correct",
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
     with pytest.raises(MlflowException, match="some other error"):
         judge(inputs={"input": "test"}, outputs={"output": "test"})
@@ -2099,6 +2219,7 @@ def test_trace_template_with_expectations_extracts_correctly(mock_invoke_judge_m
     judge = make_judge(
         name="test_judge",
         instructions="Analyze the {{ trace }} to see if it meets {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2146,6 +2267,7 @@ def test_trace_template_with_outputs_not_interpolated(mock_invoke_judge_model):
         instructions=(
             "Check the {{ trace }} and ensure {{ outputs }} is valid. REPEAT: {{ outputs }}"
         ),
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2183,6 +2305,7 @@ def test_trace_template_field_values_appended_not_interpolated(mock_invoke_judge
     judge = make_judge(
         name="test_judge",
         instructions="Analyze {{ trace }} with {{ inputs }}, {{ outputs }}, and {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2233,6 +2356,7 @@ def test_trace_template_with_all_fields_extraction(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ trace }} against {{ inputs }}, {{ outputs }}, {{ expectations }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2288,6 +2412,7 @@ def test_trace_only_template_uses_two_messages_with_empty_user(mock_invoke_judge
     judge = make_judge(
         name="test_judge",
         instructions="Analyze this {{ trace }} for quality",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2320,6 +2445,7 @@ def test_no_warning_when_extracting_fields_from_trace(mock_invoke_judge_model):
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2346,6 +2472,7 @@ def test_warning_shown_for_explicitly_provided_unused_fields(mock_invoke_judge_m
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ inputs }} only",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2362,6 +2489,7 @@ def test_no_warning_for_trace_based_judge_with_extra_fields(mock_invoke_judge_mo
     judge = make_judge(
         name="test_judge",
         instructions="Evaluate {{ trace }} for quality",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2402,6 +2530,7 @@ def test_no_duplicate_output_fields_in_system_message():
     field_judge = make_judge(
         name="field_judge",
         instructions="Evaluate {{ inputs }} and {{ outputs }} for quality",
+        feedback_value_type=str,
         model="openai:/gpt-4",
     )
 
@@ -2417,13 +2546,14 @@ def test_no_duplicate_output_fields_in_system_message():
     trace_judge = make_judge(
         name="trace_judge",
         instructions="Evaluate {{ trace }} for quality",
+        feedback_value_type=Literal["good", "bad", "neutral"],
         model="openai:/gpt-4",
     )
 
     trace_system_msg = trace_judge._build_system_message(is_trace_based=True)
 
-    assert trace_system_msg.count("- result:") == 1
-    assert trace_system_msg.count("- rationale:") == 1
+    assert trace_system_msg.count("- result (Literal['good', 'bad', 'neutral'])") == 1
+    assert trace_system_msg.count("- rationale (str):") == 1
 
     assert "Please provide your assessment in the following JSON format" not in trace_system_msg
 
@@ -2431,7 +2561,12 @@ def test_no_duplicate_output_fields_in_system_message():
 def test_instructions_judge_repr():
     # Test short instructions that fit within display limit
     short_instructions = "Check {{ outputs }}"
-    judge = make_judge(name="test_judge", instructions=short_instructions, model="openai:/gpt-4")
+    judge = make_judge(
+        name="test_judge",
+        instructions=short_instructions,
+        feedback_value_type=str,
+        model="openai:/gpt-4",
+    )
 
     repr_str = repr(judge)
     assert "InstructionsJudge" in repr_str
@@ -2445,7 +2580,10 @@ def test_instructions_judge_repr():
         "This is a very long instruction that will be truncated {{ inputs }} and {{ outputs }}"
     )
     judge_long = make_judge(
-        name="long_judge", instructions=long_instructions, model="openai:/gpt-4"
+        name="long_judge",
+        instructions=long_instructions,
+        feedback_value_type=str,
+        model="openai:/gpt-4",
     )
 
     repr_long = repr(judge_long)
@@ -2455,3 +2593,208 @@ def test_instructions_judge_repr():
     # Should show first 30 characters + "..."
     assert "instructions='This is a very long instructio..." in repr_long
     assert "template_variables=['inputs', 'outputs']" in repr_long
+
+
+def test_make_judge_with_feedback_value_type(monkeypatch):
+    captured_response_format = None
+
+    def mock_litellm_completion(**kwargs):
+        nonlocal captured_response_format
+        captured_response_format = kwargs.get("response_format")
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        mock_response.choices[0].message = litellm.Message(
+            role="assistant",
+            content='{"result": 5, "rationale": "Excellent quality work"}',
+            tool_calls=None,
+        )
+        mock_response._hidden_params = None
+        return mock_response
+
+    monkeypatch.setattr("litellm.completion", mock_litellm_completion)
+
+    judge = make_judge(
+        name="test_judge",
+        instructions="Rate the quality of {{ outputs }} on a scale of 1-5",
+        model="openai:/gpt-4",
+        feedback_value_type=int,
+    )
+
+    result = judge(outputs={"text": "Great work!"})
+
+    # Verify response_format was correctly captured by litellm.completion
+    assert captured_response_format is not None
+    assert issubclass(captured_response_format, pydantic.BaseModel)
+
+    model_fields = captured_response_format.model_fields
+    assert "result" in model_fields
+    assert "rationale" in model_fields
+
+    assert model_fields["result"].annotation == int
+    assert model_fields["rationale"].annotation == str
+
+    assert result.value == 5
+    assert result.rationale == "Excellent quality work"
+
+
+def test_make_judge_serialization_with_feedback_value_type():
+    # Test with int type
+    judge_int = make_judge(
+        name="int_judge",
+        instructions="Rate {{ outputs }} from 1-10",
+        model="openai:/gpt-4",
+        feedback_value_type=int,
+    )
+
+    serialized = judge_int.model_dump()
+    assert "instructions_judge_pydantic_data" in serialized
+    assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "integer",
+        "title": "Result",
+    }
+
+    restored_judge = Scorer.model_validate(serialized)
+    assert isinstance(restored_judge, InstructionsJudge)
+    assert restored_judge.name == "int_judge"
+    assert restored_judge._feedback_value_type == int
+
+    # Test with bool type
+    judge_bool = make_judge(
+        name="bool_judge",
+        instructions="Is {{ outputs }} correct?",
+        model="openai:/gpt-4",
+        feedback_value_type=bool,
+    )
+
+    serialized_bool = judge_bool.model_dump()
+    assert serialized_bool["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "boolean",
+        "title": "Result",
+    }
+
+    restored_bool = Scorer.model_validate(serialized_bool)
+    assert restored_bool._feedback_value_type == bool
+
+    # Test with Literal type
+    judge_literal = make_judge(
+        name="literal_judge",
+        instructions="Rate {{ outputs }} quality",
+        model="openai:/gpt-4",
+        feedback_value_type=Literal["good", "bad", "neutral"],
+    )
+
+    serialized_literal = judge_literal.model_dump()
+    assert serialized_literal["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "string",
+        "enum": ["good", "bad", "neutral"],
+        "title": "Result",
+    }
+
+    restored_literal = Scorer.model_validate(serialized_literal)
+    assert typing.get_origin(restored_literal._feedback_value_type) is Literal
+    assert set(typing.get_args(restored_literal._feedback_value_type)) == {"good", "bad", "neutral"}
+
+    # Test with dict[str, int] type
+    judge_dict = make_judge(
+        name="dict_judge",
+        instructions="Rate {{ outputs }} with scores",
+        model="openai:/gpt-4",
+        feedback_value_type=dict[str, int],
+    )
+
+    serialized_dict = judge_dict.model_dump()
+    assert serialized_dict["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "object",
+        "additionalProperties": {"type": "integer"},
+        "title": "Result",
+    }
+
+    restored_dict = Scorer.model_validate(serialized_dict)
+    assert typing.get_origin(restored_dict._feedback_value_type) is dict
+    assert typing.get_args(restored_dict._feedback_value_type) == (str, int)
+
+    # Test with list[str] type
+    judge_list = make_judge(
+        name="list_judge",
+        instructions="List issues in {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=list[str],
+    )
+
+    serialized_list = judge_list.model_dump()
+    assert serialized_list["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "array",
+        "items": {"type": "string"},
+        "title": "Result",
+    }
+
+    restored_list = Scorer.model_validate(serialized_list)
+    assert typing.get_origin(restored_list._feedback_value_type) is list
+    assert typing.get_args(restored_list._feedback_value_type) == (str,)
+
+
+def test_make_judge_validates_feedback_value_type():
+    # Valid types should work
+    make_judge(
+        name="int_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=int,
+    )
+    make_judge(
+        name="str_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=str,
+    )
+    make_judge(
+        name="dict_judge",
+        instructions="Rate {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=dict[str, int],
+    )
+    make_judge(
+        name="list_judge",
+        instructions="List {{ outputs }}",
+        model="openai:/gpt-4",
+        feedback_value_type=list[str],
+    )
+
+    # Unsupported types should be rejected
+    class CustomModel(pydantic.BaseModel):
+        score: int
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Unsupported feedback_value_type: .+CustomModel",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=CustomModel,
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The `feedback_value_type` argument does not support a dict type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=dict[str, CustomModel],
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"The `feedback_value_type` argument does not support a list type",
+    ):
+        make_judge(
+            name="invalid_judge",
+            instructions="Rate {{ outputs }}",
+            model="openai:/gpt-4",
+            feedback_value_type=list[CustomModel],
+        )

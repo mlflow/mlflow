@@ -29,7 +29,7 @@ def make_judge_mock_builder(
     mock_feedback.value = "pass"
     mock_feedback.rationale = "Test rationale"
 
-    def mock_make_judge(name, instructions, model):
+    def mock_make_judge(name, instructions, model, feedback_value_type):
         if track_calls is not None and model == expected_model:
             track_calls.append(model)
         return MagicMock(return_value=mock_feedback)
@@ -357,7 +357,7 @@ def test_dspy_program_forward_lm_parameter_handling(lm_value, lm_model, expected
     make_judge_calls = []
     captured_args = {}
 
-    def track_make_judge(name, instructions, model):
+    def track_make_judge(name, instructions, model, feedback_value_type):
         make_judge_calls.append(model)
         captured_args["name"] = name
         captured_args["instructions"] = instructions
@@ -395,7 +395,7 @@ def test_dspy_program_uses_make_judge_with_optimized_instructions(sample_traces_
     )
     captured_instructions = None
 
-    def capture_make_judge(name, instructions, model):
+    def capture_make_judge(name, instructions, model, feedback_value_type):
         nonlocal captured_instructions
         captured_instructions = instructions
         mock_feedback = MagicMock()
