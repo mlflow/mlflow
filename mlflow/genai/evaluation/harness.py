@@ -193,8 +193,9 @@ def _compute_eval_scores(
             scorer_func = scorer.run
 
             if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
-                # TODO: Replace SpanType.CHAIN with SpanType.EVALUATOR once PR 18532 is merged
-                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.CHAIN)(scorer_func)
+                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                    scorer_func
+                )
 
             value = scorer_func(
                 inputs=eval_item.inputs,
@@ -218,7 +219,9 @@ def _compute_eval_scores(
             ]
 
         # Record the trace ID for the scorer function call.
-        if trace_id := mlflow.get_last_active_trace_id(thread_local=True):
+        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
+            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
+        ):
             for feedback in feedbacks:
                 feedback.metadata = {
                     **(feedback.metadata or {}),
