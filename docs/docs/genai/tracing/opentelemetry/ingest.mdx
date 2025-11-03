@@ -2,23 +2,23 @@
 
 :::info
 
-OpenTelemetry Trace ingestion is supported in **MLflow 3.6.0 and above**.
+OpenTelemetry trace ingestion is supported in **MLflow 3.6.0 and above**.
 
 :::
 
-## OpenTelemetry Endpoint (OTLP)
+## OpenTelemetry endpoint (OTLP)
 
-MLflow Server exposes `/v1/trace` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)) endpoint. This endpoint accepts traces from any OpenTelemetry native instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
+MLflow Server exposes an OTLP endpoint at `/v1/trace` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)). This endpoint accepts traces from any native OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc.
 
-To use this endpoint, you need to start MLflow Server with SQL-based backend store. The following command starts MLflow Server with SQLite backend store:
+To use this endpoint, start MLflow Server with a SQL-based backend store. The following command starts MLflow Server with an SQLite backend store:
 
 ```bash
 mlflow server --backend-store-uri sqlite:///mlflow.db
 ```
 
-To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI according to the [backend store documentation](/self-hosting/architecture/backend-store).
+To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store).
 
-In your application, configure the server endpoint and set the MLflow experiment ID to the OTLP header `x-mlflow-experiment-id`.
+In your application, configure the server endpoint and set the MLflow experiment ID in the OTLP header `x-mlflow-experiment-id`.
 
 ```bash
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/trace
@@ -27,7 +27,7 @@ export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
 
 :::note
 
-As of MLflow 3.6.0, MLflow Server only supports OTLP/HTTP endpoint. OTLP/gRPC endpoint is not supported yet.
+As of MLflow 3.6.0, MLflow Server supports only the OTLP/HTTP endpoint. The OTLP/gRPC endpoint is not yet supported.
 
 :::
 
@@ -42,7 +42,7 @@ from fastapi import FastAPI
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 
 # Set the endpoint and header
-MLFLOW_TRACKING_URI = "http://localhost:5000/v1/trace"
+MLFLOW_TRACKING_URI = "http://localhost:5000"
 MLFLOW_EXPERIMENT_ID = "123"
 
 os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = f"{MLFLOW_TRACKING_URI}/v1/trace"
@@ -55,7 +55,7 @@ app = FastAPI()
 FastAPIInstrumentor.instrument_app(app)
 
 
-@app.get("")
+@app.get("/")
 async def root():
     return {"message": "Hello, World!"}
 
@@ -66,7 +66,7 @@ if __name__ == "__main__":
 
 ## Using OpenTelemetry Collector
 
-[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) is a vendor-agnostic agent that can be used to collect, process, and export traces to various observability platforms. To configure OpenTelemetry Collector to ingest traces to MLflow, use the following configuration:
+[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) is a vendor-agnostic agent that can be used to collect, process, and export traces to various observability platforms. To configure OpenTelemetry Collector to ingest traces into MLflow, use the following configuration:
 
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
@@ -86,7 +86,7 @@ exporters:
   otlp:
     endpoint: ${MLFLOW_TRACKING_URI}/v1/trace
     headers:
-    x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
+      x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
 
 service:
   pipelines:
