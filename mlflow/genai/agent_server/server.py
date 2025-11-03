@@ -61,7 +61,7 @@ class AgentServer:
         self._setup_routes()
 
     @staticmethod
-    def get_in_memory_trace(trace_id: str) -> dict[str, Any]:
+    def _get_in_memory_trace(trace_id: str) -> dict[str, Any]:
         with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             return {"trace": trace.to_mlflow_trace().to_dict()}
 
@@ -137,7 +137,7 @@ class AgentServer:
                 span.set_outputs(result)
 
                 if return_trace:
-                    result["trace"] = self.get_in_memory_trace(span.trace_id)
+                    result["trace"] = self._get_in_memory_trace(span.trace_id)
 
             logger.debug(
                 "Response sent",
@@ -212,7 +212,7 @@ class AgentServer:
                     span.set_outputs(all_chunks)
 
                 if return_trace:
-                    trace = self.get_in_memory_trace(span.trace_id)
+                    trace = self._get_in_memory_trace(span.trace_id)
                     yield f"data: {json.dumps({'trace': trace})}\n\n"
 
                 yield "data: [DONE]\n\n"

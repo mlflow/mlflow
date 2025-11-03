@@ -30,11 +30,8 @@ from mlflow.types.responses import (
     ResponsesAgentStreamEvent,
 )
 
-# Test Agent Classes for Validation - Functions instead of classes
-
 
 async def chatcompletions_invoke(request: ChatCompletionRequest) -> ChatCompletionResponse:
-    """Test function for OpenAI-style ChatCompletion format (agent/v1/chat)"""
     return ChatCompletionResponse(
         id="chatcmpl-123",
         model="test-model",
@@ -49,7 +46,6 @@ async def chatcompletions_invoke(request: ChatCompletionRequest) -> ChatCompleti
 async def chatcompletions_stream(
     request: ChatCompletionRequest,
 ) -> AsyncGenerator[ChatCompletionChunk, None]:
-    """Test stream function for OpenAI-style ChatCompletion format (agent/v1/chat)"""
     yield ChatCompletionChunk(
         id="chatcmpl-123",
         model="test-model",
@@ -63,14 +59,12 @@ async def chatcompletions_stream(
 
 
 async def chatagent_invoke(request: ChatAgentRequest) -> ChatAgentResponse:
-    """Test function for MLflow's enhanced chat format (agent/v2/chat)"""
     return ChatAgentResponse(
         messages=[ChatAgentMessage(role="assistant", content="Hello from ChatAgent!", id="msg-123")]
     )
 
 
 async def chatagent_stream(request: ChatAgentRequest) -> AsyncGenerator[ChatAgentChunk, None]:
-    """Test stream function for MLflow's enhanced chat format (agent/v2/chat)"""
     yield ChatAgentChunk(delta=ChatAgentMessage(role="assistant", content="Hello", id="msg-123"))
     yield ChatAgentChunk(
         delta=ChatAgentMessage(role="assistant", content=" from ChatAgent stream!", id="msg-123"),
@@ -79,7 +73,6 @@ async def chatagent_stream(request: ChatAgentRequest) -> AsyncGenerator[ChatAgen
 
 
 async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-    """Test function for OpenAI-compatible responses format (agent/v1/responses)"""
     return ResponsesAgentResponse(
         output=[
             {
@@ -96,7 +89,6 @@ async def responses_invoke(request: ResponsesAgentRequest) -> ResponsesAgentResp
 async def responses_stream(
     request: ResponsesAgentRequest,
 ) -> AsyncGenerator[ResponsesAgentStreamEvent, None]:
-    """Test stream function for OpenAI-compatible responses format (agent/v1/responses)"""
     yield ResponsesAgentStreamEvent(
         type="response.output_item.done",
         item={
@@ -110,7 +102,6 @@ async def responses_stream(
 
 
 async def arbitrary_invoke(request: dict) -> dict:
-    """Test function using arbitrary dict format (not conforming to any protocol)"""
     return {
         "response": "Hello from ArbitraryDictAgent!",
         "arbitrary_field": "custom_value",
@@ -119,7 +110,6 @@ async def arbitrary_invoke(request: dict) -> dict:
 
 
 async def arbitrary_stream(request: dict) -> AsyncGenerator[dict, None]:
-    """Test stream function using arbitrary dict format (not conforming to any protocol)"""
     yield {"type": "custom_event", "data": "First chunk"}
     yield {"type": "custom_event", "data": "Second chunk", "final": True}
 
@@ -239,7 +229,7 @@ def test_validator_invalid_request_dict_raises_error():
     validator_responses = ResponsesAgentValidator()
     invalid_data = {"invalid": "structure"}
 
-    with pytest.raises((ValueError, AttributeError)):
+    with pytest.raises(ValueError, match="Invalid data for ResponsesAgentRequest"):
         validator_responses.validate_and_convert_request(invalid_data)
 
 
@@ -298,8 +288,6 @@ def test_validator_response_pydantic_format():
 
 def test_validator_response_dataclass_format():
     validator_responses = ResponsesAgentValidator()
-
-    # This test will fail due to validation, so let's test with a valid ResponsesAgentResponse instead
     valid_response = ResponsesAgentResponse(
         output=[
             {
@@ -320,7 +308,7 @@ def test_validator_unsupported_output_type_raises_error():
     validator_chat = ChatCompletionValidator()
     unsupported_output = ["not", "a", "dict", "or", "model"]
 
-    with pytest.raises((ValueError, AttributeError)):
+    with pytest.raises(ValueError, match="Invalid data for ChatCompletionResponse"):
         validator_chat.validate_and_convert_result(unsupported_output)
 
 
@@ -365,7 +353,6 @@ def test_validator_chat_v2_stream_response():
 
 
 def test_arbitrary_dict_agent_fails_responses_validation():
-    """Test that ArbitraryDictAgent output fails validation for agent/v1/responses"""
     validator_responses = ResponsesAgentValidator()
     arbitrary_response = {
         "response": "Hello from ArbitraryDictAgent!",
@@ -379,7 +366,6 @@ def test_arbitrary_dict_agent_fails_responses_validation():
 
 
 def test_responses_agent_passes_validation():
-    """Test that ResponsesAgent output passes validation for agent/v1/responses"""
     validator_responses = ResponsesAgentValidator()
     valid_response = {
         "output": [
@@ -407,9 +393,8 @@ def test_agent_server_initialization():
 
 
 def test_agent_server_with_agent_type():
-    server = AgentServer(agent_type="agent/v1/responses")
-    assert server.agent_type == "agent/v1/responses"
-    assert server.validator.agent_type == "agent/v1/responses"
+    server = AgentServer("ResponsesAgent")
+    assert server.agent_type == "ResponsesAgent"
 
 
 def test_agent_server_routes_registration():
@@ -458,7 +443,7 @@ def test_invocations_endpoint_validation_error():
     mlflow.genai.agent_server._invoke_function = None
     mlflow.genai.agent_server._stream_function = None
 
-    server = AgentServer(agent_type="agent/v1/responses")
+    server = AgentServer("ResponsesAgent")
     client = TestClient(server.app)
 
     # Send invalid request data for responses agent
@@ -466,7 +451,7 @@ def test_invocations_endpoint_validation_error():
     response = client.post("/invocations", json=invalid_data)
     assert response.status_code == 400
     response_json = response.json()
-    assert "Invalid parameters for agent/v1/responses" in response_json["detail"]
+    assert "Invalid parameters for ResponsesAgent" in response_json["detail"]
 
 
 def test_invocations_endpoint_success_invoke():
@@ -498,7 +483,7 @@ def test_invocations_endpoint_success_invoke():
                 ]
             }
 
-        server = AgentServer(agent_type="agent/v1/responses")
+        server = AgentServer("ResponsesAgent")
         client = TestClient(server.app)
 
         request_data = {
@@ -545,7 +530,7 @@ def test_invocations_endpoint_success_stream():
                 },
             )
 
-        server = AgentServer(agent_type="agent/v1/responses")
+        server = AgentServer("ResponsesAgent")
         client = TestClient(server.app)
 
         request_data = {
@@ -660,10 +645,9 @@ def test_tracing_attributes_setting():
                 ]
             }
 
-        server = AgentServer(agent_type="agent/v1/responses")
+        server = AgentServer("ResponsesAgent")
         client = TestClient(server.app)
 
-        # Send valid data for agent/v1/responses
         request_data = {
             "input": [
                 {
@@ -683,7 +667,7 @@ def test_tracing_attributes_setting():
         mock_span_instance.__exit__.assert_called_once()
 
 
-def test_databricks_output_integration():
+def test_return_trace_integration():
     # Reset global state before test
     import mlflow.genai.agent_server
 
@@ -702,15 +686,12 @@ def test_databricks_output_integration():
             return {"result": "success"}
 
         server = AgentServer()
-        # Mock the _get_databricks_output method to return serializable data
-        server._get_databricks_output = Mock(return_value={"trace": "data"})
+        # Mock the _get_in_memory_trace method to return serializable data
+        server._get_in_memory_trace = Mock(return_value={"trace": "data"})
         client = TestClient(server.app)
 
-        request_data = {"test": "data", "databricks_options": {"return_trace": True}}
+        request_data = {"test": "data", "return_trace": True}
 
         response = client.post("/invocations", json=request_data)
         response_json = response.json()
-
-        # Verify databricks_output is included in response
-        assert "databricks_output" in response_json
-        assert "trace" in response_json["databricks_output"]
+        assert "trace" in response_json["trace"]
