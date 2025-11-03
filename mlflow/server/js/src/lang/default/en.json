@@ -1178,6 +1178,10 @@
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
   },
+  "A6c78D": {
+    "defaultMessage": "Child runs loading",
+    "description": "Run page > Overview > Child runs loading"
+  },
   "A7R0ii": {
     "defaultMessage": "Copy path",
     "description": "Copy tooltip to copy experiment path from experiment runs table header"
@@ -1829,6 +1833,10 @@
   "HUf9qJ": {
     "defaultMessage": "Are you sure you want to delete {modelName}? This cannot be undone.",
     "description": "Confirmation message for delete model modal on model view page"
+  },
+  "HXbUkt": {
+    "defaultMessage": "Child runs",
+    "description": "Run page > Overview > Child runs"
   },
   "HYQHVk": {
     "defaultMessage": "See more",
@@ -4555,6 +4563,10 @@
     "defaultMessage": "Boolean",
     "description": "Boolean select menu option for assessment data type"
   },
+  "k0m460": {
+    "defaultMessage": "Failed to load child runs",
+    "description": "Run page > Overview > Child runs error"
+  },
   "k4uWRg": {
     "defaultMessage": "Versions",
     "description": "Label for the prompts & versions section in the MLflow experiment navbar"
@@ -5750,6 +5762,10 @@
   "wrNl6F": {
     "defaultMessage": "Preview",
     "description": "Label for the preview mode on the registered prompt details page"
+  },
+  "wtpLvY": {
+    "defaultMessage": "Load more",
+    "description": "Run page > Overview > Child runs load more"
   },
   "wusz4l": {
     "defaultMessage": "Input",

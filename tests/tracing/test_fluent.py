@@ -2391,3 +2391,44 @@ def test_traces_can_be_searched_by_span_properties(async_logging_enabled):
     assert len(traces) == 1, "Should find exactly one trace with span name 'test_span'"
     found_span_names = [span.name for span in traces[0].data.spans]
     assert "test_span" in found_span_names
+
+
+@pytest.mark.skipif(
+    IS_TRACING_SDK_ONLY, reason="Skipping test because mlflow or mlflow-skinny is not installed."
+)
+def test_search_traces_with_full_text():
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("llm.inputs", "How's the result?")
+        span.set_attribute("llm.outputs", "the number increased 90%")
+        trace_id_1 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_outputs({"outputs": 1234567})
+        span.set_attribute("test", "the number increased")
+        trace_id_2 = span.trace_id
+
+    with mlflow.start_span(name="test_span") as span:
+        span.set_attribute("test", "result including 'single quotes'")
+        trace_id_3 = span.trace_id
+
+    traces = mlflow.search_traces(
+        filter_string='trace.text LIKE "%How\'s the result?%"', return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1
+
+    traces = mlflow.search_traces(filter_string='trace.text LIKE "%1234567%"', return_type="list")
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_2
+
+    traces = mlflow.search_traces(
+        filter_string="trace.text LIKE \"%result including 'single quotes'%\"", return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_3
+
+    traces = mlflow.search_traces(
+        filter_string='trace.text LIKE "%increased 90%%"', return_type="list"
+    )
+    assert len(traces) == 1
+    assert traces[0].info.trace_id == trace_id_1

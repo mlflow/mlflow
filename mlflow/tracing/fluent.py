@@ -683,7 +683,11 @@ def search_traces(
         max_results: Maximum number of traces desired. If None, all traces matching the search
             expressions will be returned.
         order_by: List of order_by clauses.
-        extract_fields: Specify fields to extract from traces using the format
+        extract_fields:
+            .. deprecated:: 3.6.0
+                This parameter is deprecated and will be removed in a future version.
+
+            Specify fields to extract from traces using the format
             ``"span_name.[inputs|outputs].field_name"`` or ``"span_name.[inputs|outputs]"``.
 
             .. note::
@@ -800,6 +804,13 @@ def search_traces(
             category=FutureWarning,
         )
         os.environ["MLFLOW_TRACING_SQL_WAREHOUSE_ID"] = sql_warehouse_id
+
+    if extract_fields is not None:
+        warnings.warn(
+            "The `extract_fields` parameter is deprecated and will be removed in a future version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
 
     # Default to "pandas" only if the pandas library is installed
     if return_type is None:
@@ -1453,9 +1464,6 @@ def _merge_trace(
             parent_span_id=parent_span_id,
             trace_id=target_trace_id,
             otel_trace_id=new_trace_id,
-            # the trace should be ended after it's registered in the trace manager
-            # otherwise the exporter cannot find the trace to export
-            end_trace=False,
         )
         trace_manager.register_span(cloned_span)
         # end the cloned span to ensure it's processed by the exporter
