@@ -2796,26 +2796,8 @@ def test_make_judge_validates_feedback_value_type():
         )
 
 
-def test_make_judge_with_default_feedback_value_type():
+def test_make_judge_with_default_feedback_value_type(monkeypatch):
     # Test that feedback_value_type defaults to str when omitted
-    judge = make_judge(
-        name="default_judge",
-        instructions="Evaluate {{ outputs }}",
-        model="openai:/gpt-4",
-    )
-
-    # Verify serialization includes the default str type
-    serialized = judge.model_dump()
-    assert "instructions_judge_pydantic_data" in serialized
-    assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
-    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
-        "type": "string",
-        "title": "Result",
-    }
-
-
-def test_make_judge_default_feedback_value_type_with_execution(monkeypatch):
-    # Test that the default str type works correctly in execution
     captured_response_format = None
 
     def mock_litellm_completion(**kwargs):
@@ -2836,13 +2818,22 @@ def test_make_judge_default_feedback_value_type_with_execution(monkeypatch):
 
     judge = make_judge(
         name="default_judge",
-        instructions="Evaluate the quality of {{ outputs }}",
+        instructions="Evaluate {{ outputs }}",
         model="openai:/gpt-4",
     )
 
+    # Verify serialization includes the default str type
+    serialized = judge.model_dump()
+    assert "instructions_judge_pydantic_data" in serialized
+    assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "string",
+        "title": "Result",
+    }
+
+    # Verify execution with default str type
     result = judge(outputs={"text": "Great work!"})
 
-    # Verify response_format was correctly captured with str type
     assert captured_response_format is not None
     assert issubclass(captured_response_format, pydantic.BaseModel)
 
