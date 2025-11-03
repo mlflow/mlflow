@@ -236,10 +236,9 @@ class AgentServer:
     async def _handle_stream_request(self, request: dict[str, Any]) -> StreamingResponse:
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
-
-        func = _stream_function
-
-        return StreamingResponse(self.generate(func, request), media_type="text/event-stream")
+        return StreamingResponse(
+            self.generate(_stream_function, request), media_type="text/event-stream"
+        )
 
     @staticmethod
     def parse_server_args():
