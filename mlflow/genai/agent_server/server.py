@@ -13,7 +13,6 @@ from mlflow.genai.agent_server.utils import set_request_headers
 from mlflow.genai.agent_server.validator import BaseAgentValidator, ResponsesAgentValidator
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.utils.annotations import experimental
 
 logger = logging.getLogger(__name__)
@@ -46,11 +45,6 @@ class AgentServer:
         self.app = FastAPI(title="Agent Server")
         self._setup_routes()
 
-    @staticmethod
-    def _get_in_memory_trace(trace_id: str) -> dict[str, Any]:
-        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
-            return {"trace": trace.to_mlflow_trace().to_dict()}
-
     def _setup_routes(self) -> None:
         @self.app.post("/invocations")
         async def invocations_endpoint(request: Request):
@@ -72,11 +66,10 @@ class AgentServer:
                 },
             )
 
-            is_streaming = data.get(STREAM_KEY, False)
-            request_data = {k: v for k, v in data.items() if k != STREAM_KEY}
+            is_streaming = data.pop(STREAM_KEY, False)
 
             try:
-                request_data = self.validator.validate_and_convert_request(request_data)
+                request_data = self.validator.validate_and_convert_request(request)
             except ValueError as e:
                 raise HTTPException(
                     status_code=400,
