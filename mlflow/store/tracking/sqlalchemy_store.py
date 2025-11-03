@@ -106,18 +106,20 @@ from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     SpansLocation,
-    TokenUsageKey,
     TraceMetadataKey,
     TraceSizeStatsKey,
     TraceTagKey,
 )
-from mlflow.tracing.otel.translation import translate_loaded_span, translate_span_when_storing
+from mlflow.tracing.otel.translation import (
+    translate_loaded_span,
+    translate_span_when_storing,
+    update_token_usage,
+)
 from mlflow.tracing.utils import (
     TraceJSONEncoder,
-    aggregate_usage_from_spans,
     generate_request_id_v2,
-    truncate_request_response_preview,
 )
+from mlflow.tracing.utils.truncation import _get_truncated_preview
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -3408,15 +3410,9 @@ class SqlAlchemyStore(AbstractStore):
                 if span_token_usage := span_dict.get("attributes", {}).get(
                     SpanAttributeKey.CHAT_USAGE
                 ):
-                    span_token_usage = json.loads(span_token_usage)
-                    for key in [
-                        TokenUsageKey.INPUT_TOKENS,
-                        TokenUsageKey.OUTPUT_TOKENS,
-                        TokenUsageKey.TOTAL_TOKENS,
-                    ]:
-                        aggregated_token_usage[key] = (
-                            aggregated_token_usage.get(key, 0) + span_token_usage[key]
-                        )
+                    aggregated_token_usage = update_token_usage(
+                        aggregated_token_usage, span_token_usage
+                    )
 
                 content_json = json.dumps(span_dict, cls=TraceJSONEncoder)
 
@@ -3435,28 +3431,9 @@ class SqlAlchemyStore(AbstractStore):
 
                 session.merge(sql_span)
 
-                if (
-                    sql_trace_info.request_preview is None
-                    and span.parent_id is None
-                    and (
-                        trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
-                    )
-                ):
-                    update_dict[SqlTraceInfo.request_preview] = truncate_request_response_preview(
-                        trace_inputs
-                    )
-
-                if (
-                    sql_trace_info.response_preview is None
-                    and span.parent_id is None
-                    and (
-                        trace_outputs := span_dict.get("attributes", {}).get(
-                            SpanAttributeKey.OUTPUTS
-                        )
-                    )
-                ):
-                    update_dict[SqlTraceInfo.response_preview] = truncate_request_response_preview(
-                        trace_outputs
+                if span.parent_id is None:
+                    update_dict.update(
+                        self._update_trace_info_attributes(sql_trace_info, span_dict)
                     )
 
             trace_token_usage = (
@@ -3467,16 +3444,10 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 .one_or_none()
             )
-            trace_token_usage = json.loads(trace_token_usage.value) if trace_token_usage else {}
             if aggregated_token_usage:
-                for key in [
-                    TokenUsageKey.INPUT_TOKENS,
-                    TokenUsageKey.OUTPUT_TOKENS,
-                    TokenUsageKey.TOTAL_TOKENS,
-                ]:
-                    trace_token_usage[key] = (
-                        trace_token_usage.get(key, 0) + aggregated_token_usage[key]
-                    )
+                trace_token_usage = update_token_usage(
+                    trace_token_usage.value if trace_token_usage else {}, aggregated_token_usage
+                )
 
                 session.merge(
                     SqlTraceMetadata(
@@ -3493,6 +3464,36 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         return spans
+
+    def _update_trace_info_attributes(
+        self, sql_trace_info: SqlTraceInfo, span_dict: dict[str, Any]
+    ) -> dict[str, Any]:
+        """
+        Update trace info attributes based on span dictionary.
+
+        Args:
+            sql_trace_info: SqlTraceInfo object
+            span_dict: Dictionary of span
+
+        Returns:
+            Dictionary of update attributes
+        """
+        update_dict = {}
+        if sql_trace_info.request_preview is None and (
+            trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
+        ):
+            update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
+                trace_inputs, role="user"
+            )
+
+        if sql_trace_info.response_preview is None and (
+            trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
+        ):
+            update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
+                trace_outputs, role="assistant"
+            )
+
+        return update_dict
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:
         """
@@ -3598,10 +3599,6 @@ class SqlAlchemyStore(AbstractStore):
                     Span.from_dict(translate_loaded_span(json.loads(sql_span.content)))
                     for sql_span in sorted_sql_spans
                 ]
-                if TraceMetadataKey.TOKEN_USAGE not in trace_info.trace_metadata and (
-                    usage := aggregate_usage_from_spans(spans)
-                ):
-                    trace_info.trace_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
                 trace = Trace(info=trace_info, data=TraceData(spans=spans))
                 traces.append(trace)
 

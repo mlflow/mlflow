@@ -7,6 +7,7 @@ It uses modular translator classes for each OTEL schema for better organization
 and performance.
 """
 
+import json
 import logging
 from typing import Any
 
@@ -57,70 +58,34 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         attributes[SpanAttributeKey.OUTPUTS] = output_value
 
     # Translate token usage
-    if SpanAttributeKey.CHAT_USAGE not in attributes:
-        input_tokens = _get_input_tokens(attributes)
-        output_tokens = _get_output_tokens(attributes)
-        total_tokens = _get_total_tokens(attributes)
-
-        # Calculate total tokens if not provided but input/output are available
-        if input_tokens and output_tokens and (total_tokens is None):
-            total_tokens = int(input_tokens) + int(output_tokens)
-
-        if total_tokens:
-            usage_dict = {
-                TokenUsageKey.INPUT_TOKENS: int(input_tokens),
-                TokenUsageKey.OUTPUT_TOKENS: int(output_tokens),
-                TokenUsageKey.TOTAL_TOKENS: int(total_tokens),
-            }
-            attributes[SpanAttributeKey.CHAT_USAGE] = dump_span_attribute_value(usage_dict)
+    if SpanAttributeKey.CHAT_USAGE not in attributes and (
+        token_usage := _get_token_usage(attributes)
+    ):
+        attributes[SpanAttributeKey.CHAT_USAGE] = dump_span_attribute_value(token_usage)
 
     span_dict["attributes"] = attributes
     return span_dict
 
 
-def _get_input_tokens(attributes: dict[str, Any]) -> int | None:
+def _get_token_usage(attributes: dict[str, Any]) -> dict[str, Any]:
     """
-    Get input tokens from various OTEL semantic conventions.
-
-    Args:
-        attributes: Dictionary of span attributes
-
-    Returns:
-        Input token count or None if not found
+    Get token usage from various OTEL semantic conventions.
     """
     for translator in _TRANSLATORS:
-        if tokens := translator.get_input_tokens(attributes):
-            return tokens
+        input_tokens = translator.get_input_tokens(attributes)
+        output_tokens = translator.get_output_tokens(attributes)
+        total_tokens = translator.get_total_tokens(attributes)
 
+        # Calculate total tokens if not provided but input/output are available
+        if input_tokens and output_tokens and (total_tokens is None):
+            total_tokens = int(input_tokens) + int(output_tokens)
 
-def _get_output_tokens(attributes: dict[str, Any]) -> int | None:
-    """
-    Get output tokens from various OTEL semantic conventions.
-
-    Args:
-        attributes: Dictionary of span attributes
-
-    Returns:
-        Output token count or None if not found
-    """
-    for translator in _TRANSLATORS:
-        if tokens := translator.get_output_tokens(attributes):
-            return tokens
-
-
-def _get_total_tokens(attributes: dict[str, Any]) -> int | None:
-    """
-    Get total tokens from various OTEL semantic conventions.
-
-    Args:
-        attributes: Dictionary of span attributes
-
-    Returns:
-        Total token count or None if not found
-    """
-    for translator in _TRANSLATORS:
-        if tokens := translator.get_total_tokens(attributes):
-            return tokens
+        if input_tokens and output_tokens and total_tokens:
+            return {
+                TokenUsageKey.INPUT_TOKENS: int(input_tokens),
+                TokenUsageKey.OUTPUT_TOKENS: int(output_tokens),
+                TokenUsageKey.TOTAL_TOKENS: int(total_tokens),
+            }
 
 
 def _get_input_value(attributes: dict[str, Any]) -> Any:
@@ -193,3 +158,30 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
 
     span_dict["attributes"] = attributes
     return span_dict
+
+
+def update_token_usage(
+    current_token_usage: str | dict[str, Any], new_token_usage: str | dict[str, Any]
+) -> dict[str, Any]:
+    """
+    Update current token usage in-place by adding the new token usage.
+
+    Args:
+        current_token_usage: Current token usage, dictionary or JSON string
+        new_token_usage: New token usage, dictionary or JSON string
+
+    Returns:
+        Updated token usage dictionary
+    """
+    if isinstance(current_token_usage, str):
+        current_token_usage = json.loads(current_token_usage)
+    if isinstance(new_token_usage, str):
+        new_token_usage = json.loads(new_token_usage)
+    for key in [
+        TokenUsageKey.INPUT_TOKENS,
+        TokenUsageKey.OUTPUT_TOKENS,
+        TokenUsageKey.TOTAL_TOKENS,
+    ]:
+        current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage[key]
+
+    return current_token_usage

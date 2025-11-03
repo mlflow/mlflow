@@ -651,15 +651,3 @@ def construct_trace_id_v4(location: str, trace_id: str) -> str:
     Construct a trace ID for the given location and trace ID.
     """
     return f"{TRACE_ID_V4_PREFIX}{location}/{trace_id}"
-
-
-def truncate_request_response_preview(request_or_response: str) -> str:
-    """
-    Truncate the request or response preview to fit the max length.
-    """
-    value = json.loads(request_or_response)
-    if isinstance(value, str):
-        return value[:100]
-    if isinstance(value, (list, dict)):
-        return str(value)[:100]
-    return request_or_response[:100]
