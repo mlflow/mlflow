@@ -6,6 +6,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
+from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
@@ -109,6 +110,8 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 tags=tags,
             )
             self._trace_manager.register_trace(span.context.trace_id, trace_info)
+
+        self._trace_manager.register_span(create_mlflow_span(span, trace_id))
 
     def on_end(self, span: OTelReadableSpan) -> None:
         """
