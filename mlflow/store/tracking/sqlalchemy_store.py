@@ -4854,10 +4854,33 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 if key_name.startswith("attributes."):
                     attr_name = key_name[len("attributes.") :]
                     # Search within the content JSON for the specific attribute
-                    # Using JSON extraction with LIKE for broad database compatibility
-                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"{value}%'
-                    )
+                    # TODO: we should improve this by saving only the attributes into the table.
+                    if comparator == "RLIKE":
+                        # For RLIKE, transform the user pattern to match within JSON structure
+                        # The JSON structure is: "<attr>": "\"<value>\""
+                        # Values are JSON-encoded strings with escaped quotes
+                        transformed_value = value
+                        if value.startswith("^"):
+                            transformed_value = transformed_value[1:]
+                            search_prefix = '"\\\\"'
+                        else:
+                            search_prefix = '"\\\\".*'
+                        if value.endswith("$"):
+                            transformed_value = transformed_value[:-1]
+                            search_suffix = '\\\\"'
+                        else:
+                            search_suffix = ""
+                        search_pattern = (
+                            f'"{attr_name}": {search_prefix}{transformed_value}{search_suffix}'
+                        )
+                        val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlSpan.content, search_pattern
+                        )
+                    else:
+                        # For LIKE/ILIKE, use wildcards for broad matching
+                        val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlSpan.content, f'%"{attr_name}"{value}%'
+                        )
                 else:
                     span_column = getattr(SqlSpan, key_name)
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(

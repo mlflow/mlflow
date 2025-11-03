@@ -137,6 +137,8 @@ ARTIFACT_URI = "artifact_folder"
 
 pytestmark = pytest.mark.notrackingurimock
 
+IS_MSSQL = MLFLOW_TRACKING_URI.get() and MLFLOW_TRACKING_URI.get().startswith("mssql+pyodbc")
+
 
 # Helper functions for span tests
 def create_mock_span_context(trace_id_num=12345, span_id_num=111) -> trace_api.SpanContext:
@@ -5121,7 +5123,7 @@ def create_test_span_with_content(
     # Add custom attributes
     if custom_attributes:
         for key, value in custom_attributes.items():
-            attributes[f"mlflow.spanAttribute.{key}"] = json.dumps(value, cls=TraceJSONEncoder)
+            attributes[key] = json.dumps(value, cls=TraceJSONEncoder)
 
     # Add inputs and outputs
     if inputs:
@@ -5999,6 +6001,414 @@ def test_search_traces_with_span_name_like_filters(store: SqlAlchemyStore):
     traces, _ = store.search_traces([exp_id], filter_string='span.name LIKE "%base.%"')
     assert len(traces) == 1
     assert traces[0].request_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_name_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_name_rlike")
+
+    # Create traces with different names
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id, tags={TraceTagKey.TRACE_NAME: "GenerateResponse"})
+    _create_trace(store, trace2_id, exp_id, tags={TraceTagKey.TRACE_NAME: "QueryDatabase"})
+    _create_trace(store, trace3_id, exp_id, tags={TraceTagKey.TRACE_NAME: "GenerateEmbedding"})
+    _create_trace(store, trace4_id, exp_id, tags={TraceTagKey.TRACE_NAME: "api_v1_call"})
+
+    # Test: RLIKE with regex pattern matching "Generate" at start
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name RLIKE "^Generate"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: RLIKE with regex pattern matching "Database" at end
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name RLIKE "Database$"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: RLIKE with character class [RE]
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name RLIKE "^Generate[RE]"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id}
+
+    # Test: RLIKE with alternation (OR)
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name RLIKE "(Query|Embedding)"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    # Test: RLIKE with digit pattern
+    traces, _ = store.search_traces([exp_id], filter_string='trace.name RLIKE "v[0-9]+"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_tag_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_tag_rlike")
+
+    # Create traces with different tag values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id, tags={"environment": "production-us-east-1"})
+    _create_trace(store, trace2_id, exp_id, tags={"environment": "production-us-west-2"})
+    _create_trace(store, trace3_id, exp_id, tags={"environment": "staging-us-east-1"})
+    _create_trace(store, trace4_id, exp_id, tags={"environment": "dev-local"})
+
+    # Test: RLIKE with regex pattern for production environments
+    traces, _ = store.search_traces([exp_id], filter_string='tag.environment RLIKE "^production"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: RLIKE with pattern matching regions
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='tag.environment RLIKE "us-(east|west)-[0-9]"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: RLIKE with negation pattern (not starting with production/staging)
+    traces, _ = store.search_traces([exp_id], filter_string='tag.environment RLIKE "^dev"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_span_name_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_name_rlike")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+    trace5_id = "trace5"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
+
+    # Create spans with different names
+    span1 = create_test_span_with_content(
+        trace1_id, name="llm.generate_response", span_id=111, span_type="LLM"
+    )
+    span2 = create_test_span_with_content(
+        trace2_id, name="llm.generate_embedding", span_id=222, span_type="LLM"
+    )
+    span3 = create_test_span_with_content(
+        trace3_id, name="database.query_users", span_id=333, span_type="TOOL"
+    )
+    span4 = create_test_span_with_content(
+        trace4_id, name="api_v2_endpoint", span_id=444, span_type="TOOL"
+    )
+    span5 = create_test_span_with_content(
+        trace5_id, name="base.query_users", span_id=444, span_type="TOOL"
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+    store.log_spans(exp_id, [span5])
+
+    # Test: RLIKE with pattern matching llm namespace
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "^llm\\."')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: RLIKE with alternation for different operations
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "(response|users)"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id, trace5_id}
+
+    # Test: RLIKE with version pattern
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "v[0-9]+_"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+    # Test: RLIKE matching embedded substring
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "query"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "query_users"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name RLIKE "^database\\.query_users$"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_feedback_rlike")
+
+    # Create traces with different feedback values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+
+    # Create feedback with string values that can be pattern matched
+    from mlflow.entities.assessment import AssessmentSource, Feedback
+
+    feedback1 = Feedback(
+        trace_id=trace1_id,
+        name="comment",
+        value="Great response! Very helpful.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user1@example.com"),
+    )
+
+    feedback2 = Feedback(
+        trace_id=trace2_id,
+        name="comment",
+        value="Response was okay but could be better.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user2@example.com"),
+    )
+
+    feedback3 = Feedback(
+        trace_id=trace3_id,
+        name="comment",
+        value="Not helpful at all.",
+        source=AssessmentSource(source_type="HUMAN", source_id="user3@example.com"),
+    )
+
+    store.create_assessment(feedback1)
+    store.create_assessment(feedback2)
+    store.create_assessment(feedback3)
+
+    # Test: RLIKE pattern matching response patterns
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='feedback.comment RLIKE "Great.*helpful"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace1_id
+
+    # Test: RLIKE with alternation
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='feedback.comment RLIKE "(okay|better)"'
+    )
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: RLIKE matching negative feedback
+    traces, _ = store.search_traces([exp_id], filter_string='feedback.comment RLIKE "Not.*all"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_metadata_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_metadata_rlike")
+
+    # Create traces with different metadata values
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+
+    _create_trace(store, trace1_id, exp_id, trace_metadata={"version": "v1.2.3"})
+    _create_trace(store, trace2_id, exp_id, trace_metadata={"version": "v2.0.0-beta"})
+    _create_trace(store, trace3_id, exp_id, trace_metadata={"version": "v2.1.5"})
+
+    # Test: RLIKE with semantic version pattern (no anchors for SQLite compatibility)
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='metadata.version RLIKE "v[0-9]+\\.[0-9]+\\.[0-9]"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id}
+
+    # Test: RLIKE with version 2.x pattern
+    traces, _ = store.search_traces([exp_id], filter_string='metadata.version RLIKE "v2\\.[0-9]"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    # Test: RLIKE matching beta versions
+    traces, _ = store.search_traces([exp_id], filter_string='metadata.version RLIKE "beta"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_client_request_id_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_client_request_id_rlike")
+
+    # Create traces with different client_request_id patterns
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id, client_request_id="req-prod-us-east-123")
+    _create_trace(store, trace2_id, exp_id, client_request_id="req-prod-us-west-456")
+    _create_trace(store, trace3_id, exp_id, client_request_id="req-staging-eu-789")
+    _create_trace(store, trace4_id, exp_id, client_request_id="req-dev-local-001")
+
+    # Test: RLIKE with pattern matching production requests
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id RLIKE "^req-prod"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: RLIKE with pattern matching US regions
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id RLIKE "us-(east|west)"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: RLIKE with digit pattern - all traces end with 3 digits
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id RLIKE "[0-9]{3}$"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id, trace3_id, trace4_id}
+
+    # Test: RLIKE matching staging or dev environments
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='trace.client_request_id RLIKE "(staging|dev)"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_span_type_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_type_rlike")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create spans with different types
+    span1 = create_test_span_with_content(trace1_id, name="generate", span_id=111, span_type="LLM")
+    span2 = create_test_span_with_content(
+        trace2_id, name="embed", span_id=222, span_type="LLM_EMBEDDING"
+    )
+    span3 = create_test_span_with_content(
+        trace3_id, name="retrieve", span_id=333, span_type="RETRIEVER"
+    )
+    span4 = create_test_span_with_content(
+        trace4_id, name="chain", span_id=444, span_type="CHAIN_PARENT"
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+
+    # Test: RLIKE with pattern matching LLM types (LLM or LLM_*)
+    traces, _ = store.search_traces([exp_id], filter_string='span.type RLIKE "^LLM"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: RLIKE with pattern matching types ending with specific suffix
+    traces, _ = store.search_traces([exp_id], filter_string='span.type RLIKE "PARENT$"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+    # Test: RLIKE with character class for embedding or retriever
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.type RLIKE "(EMBEDDING|RETRIEVER)"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace3_id}
+
+    # Test: RLIKE matching underscore patterns
+    traces, _ = store.search_traces([exp_id], filter_string='span.type RLIKE "_"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace2_id, trace4_id}
+
+
+@pytest.mark.skipif(IS_MSSQL, reason="RLIKE is not supported for MSSQL database dialect.")
+def test_search_traces_with_span_attributes_rlike_filters(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_span_attributes_rlike")
+
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    _create_trace(store, trace1_id, exp_id)
+    _create_trace(store, trace2_id, exp_id)
+    _create_trace(store, trace3_id, exp_id)
+    _create_trace(store, trace4_id, exp_id)
+
+    # Create spans with different custom attributes
+    span1 = create_test_span_with_content(
+        trace1_id,
+        name="call1",
+        span_id=111,
+        span_type="LLM",
+        custom_attributes={"model": "gpt-4-turbo-preview", "provider": "openai"},
+    )
+    span2 = create_test_span_with_content(
+        trace2_id,
+        name="call2",
+        span_id=222,
+        span_type="LLM",
+        custom_attributes={"model": "gpt-3.5-turbo", "provider": "openai"},
+    )
+    span3 = create_test_span_with_content(
+        trace3_id,
+        name="call3",
+        span_id=333,
+        span_type="LLM",
+        custom_attributes={"model": "claude-3-opus-20240229", "provider": "anthropic"},
+    )
+    span4 = create_test_span_with_content(
+        trace4_id,
+        name="call4",
+        span_id=444,
+        span_type="LLM",
+        custom_attributes={"model": "claude-3-sonnet-20240229", "provider": "anthropic"},
+    )
+
+    store.log_spans(exp_id, [span1])
+    store.log_spans(exp_id, [span2])
+    store.log_spans(exp_id, [span3])
+    store.log_spans(exp_id, [span4])
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.attributes.model RLIKE "^gpt"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.attributes.model RLIKE "^claude"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace4_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.model RLIKE "(preview|[0-9]{8})"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace3_id, trace4_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.attributes.provider RLIKE "^openai"'
+    )
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.attributes.model RLIKE "turbo"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
 
 
 def test_search_traces_with_empty_and_special_characters(store: SqlAlchemyStore):
