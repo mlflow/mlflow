@@ -13,10 +13,7 @@ import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromUCSchema, getFullTableName } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
 import { SpanAttributeKey, TraceMetadataKey } from '../core/constants';
-import {
-  convertHrTimeToMs,
-  aggregateUsageFromSpans
-} from '../core/utils';
+import { convertHrTimeToMs, aggregateUsageFromSpans } from '../core/utils';
 import { getConfig, getUCSchemaLocationFromConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 import { LogSpans } from '../clients/spec';
@@ -158,16 +155,17 @@ export class UCSchemaSpanExporter extends OTLPTraceExporter {
     if (!location) {
       throw new Error('No Unity Catalog schema found.');
     }
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     const url = LogSpans.getEndpoint(config.host!);
     const tableName = getFullTableName(location);
     const headers = LogSpans.getHeaders(tableName, config.databricksToken);
-    super({url, headers});
+    super({ url, headers });
 
     this._client = client;
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
-  // Export spans to Databricks OTLP endpoint
+    // Export spans to Databricks OTLP endpoint
     super.export(spans, (_) => {});
 
     for (const span of spans) {
@@ -182,7 +180,8 @@ export class UCSchemaSpanExporter extends OTLPTraceExporter {
         console.warn(`No trace found for span ${span.name}. Skipping.`);
         continue;
       }
-      this.logTraceInfo(trace);
+      // Fire and track the async export; do not block span export
+      void this.logTraceInfo(trace);
     }
   }
 

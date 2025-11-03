@@ -3,7 +3,14 @@ import { JsonTraceSerializer } from '@opentelemetry/otlp-transformer';
 
 import { TraceInfo } from '../core/entities/trace_info';
 import { Trace } from '../core/entities/trace';
-import { CreateExperiment, CreateTraceV4, DeleteExperiment, GetTraceInfoV3, LogSpans, StartTraceV3 } from './spec';
+import {
+  CreateExperiment,
+  CreateTraceV4,
+  DeleteExperiment,
+  GetTraceInfoV3,
+  LogSpans,
+  StartTraceV3
+} from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
 import { ArtifactsClient, getArtifactsClient } from './artifacts';
@@ -119,7 +126,7 @@ export class MlflowClient {
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: serialized ? serialized.buffer as ArrayBuffer : undefined,
+      body: serialized ? (serialized.buffer as ArrayBuffer) : undefined
     });
 
     if (!response.ok) {

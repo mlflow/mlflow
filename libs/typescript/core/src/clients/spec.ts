@@ -58,7 +58,6 @@ export namespace BatchGetTracesV4 {
   }
 }
 
-
 /**
  * Get the TraceInfo entity for a given trace ID.
  */
@@ -96,7 +95,7 @@ export namespace LogSpans {
   ): Record<string, string> => {
     const headers: Record<string, string> = {
       [LogSpans.DATABRICKS_UC_TABLE_HEADER]: spanTableName,
-      'Content-Type': LogSpans.CONTENT_TYPE,
+      'Content-Type': LogSpans.CONTENT_TYPE
     };
     if (databricksToken) {
       headers['Authorization'] = `Bearer ${databricksToken}`;

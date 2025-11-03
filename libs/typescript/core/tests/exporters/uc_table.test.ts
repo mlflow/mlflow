@@ -22,14 +22,12 @@ describe('UCSchema exporters', () => {
     InMemoryTraceManager.reset();
 
     // Provide config expected by UCSchema exporters/processors
-    jest
-      .spyOn(configModule, 'getConfig')
-      .mockReturnValue({
-        trackingUri: 'databricks',
-        location: { catalog_name: CATALOG, schema_name: SCHEMA },
-        host: DATABRICKS_HOST,
-        databricksToken: TOKEN,
-      } as any);
+    jest.spyOn(configModule, 'getConfig').mockReturnValue({
+      trackingUri: 'databricks',
+      location: { catalog_name: CATALOG, schema_name: SCHEMA },
+      host: DATABRICKS_HOST,
+      databricksToken: TOKEN
+    } as any);
   });
 
   afterEach(() => {
@@ -41,24 +39,25 @@ describe('UCSchema exporters', () => {
       const dummyExporter = {
         export: jest.fn(),
         shutdown: jest.fn(),
-        forceFlush: jest.fn(),
+        forceFlush: jest.fn()
       } as any;
       const processor = new UCSchemaSpanProcessor(dummyExporter);
 
       const otelTraceId = 'test-trace-id-123';
-      const mockSpan = createMockOtelSpan('root', 'span-1', otelTraceId) as any;
+      const mockSpan = createMockOtelSpan('root', 'span-1', otelTraceId);
       // Ensure startTime is available for requestTime computation
       mockSpan.startTime = [1, 0];
 
-      processor.onStart(mockSpan as any, {} as any);
+      // Cast only for the onStart call which expects an OTel span
+      processor.onStart(mockSpan as unknown as any, {} as any);
 
       const expectedTraceId = `trace:/${CATALOG}.${SCHEMA}/${otelTraceId}`;
       // Attribute is set on the span
       expect(mockSpan.getAttribute(SpanAttributeKey.TRACE_ID)).toBe(expectedTraceId);
       // Mapping between OTel trace id and MLflow v4 trace id is registered
-      expect(
-        InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId)
-      ).toBe(expectedTraceId);
+      expect(InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId)).toBe(
+        expectedTraceId
+      );
     });
 
     it('onEnd updates trace info, aggregates token usage, and exports only for root span', () => {
@@ -66,7 +65,7 @@ describe('UCSchema exporters', () => {
       const dummyExporter = {
         export: jest.fn(),
         shutdown: jest.fn(),
-        forceFlush: jest.fn(),
+        forceFlush: jest.fn()
       } as any;
       const processor = new UCSchemaSpanProcessor(dummyExporter);
 
@@ -76,7 +75,7 @@ describe('UCSchema exporters', () => {
       // Start: registers trace and sets initial info
       const startSpan = createMockOtelSpan('root', 'span-root', otelTraceId) as any;
       startSpan.startTime = rootStartHrTime;
-      processor.onStart(startSpan as any, {} as any);
+      processor.onStart(startSpan, {} as any);
 
       // Register a child live span with token usage to be aggregated
       const mlflowTraceId = `trace:/${CATALOG}.${SCHEMA}/${otelTraceId}`;
@@ -84,7 +83,7 @@ describe('UCSchema exporters', () => {
       liveSpan.setAttribute(SpanAttributeKey.TOKEN_USAGE, {
         input_tokens: 3,
         output_tokens: 7,
-        total_tokens: 10,
+        total_tokens: 10
       });
       InMemoryTraceManager.getInstance().registerSpan(liveSpan);
 
@@ -95,7 +94,7 @@ describe('UCSchema exporters', () => {
         spanContext: () => ({ traceId: otelTraceId, spanId: 'span-root' }),
         status: { code: SpanStatusCode.OK },
         startTime: rootStartHrTime,
-        endTime: [12, 0],
+        endTime: [12, 0]
       } as any;
 
       processor.onEnd(endSpan);
@@ -129,14 +128,14 @@ describe('UCSchema exporters', () => {
         state: TraceState.IN_PROGRESS,
         traceMetadata: {},
         tags: {},
-        assessments: [],
+        assessments: []
       } as any);
       InMemoryTraceManager.getInstance().registerTrace(otelTraceId, traceInfo);
 
       const rootSpan = {
         name: 'root',
         parentSpanContext: undefined,
-        spanContext: () => ({ traceId: otelTraceId, spanId: 'span-1' }),
+        spanContext: () => ({ traceId: otelTraceId, spanId: 'span-1' })
       } as any;
 
       exporter.export([rootSpan], () => {});
@@ -158,7 +157,7 @@ describe('UCSchema exporters', () => {
       const childSpan = {
         name: 'child',
         parentSpanContext: { spanId: 'parent-1' },
-        spanContext: () => ({ traceId: 'otel-child', spanId: 'span-2' }),
+        spanContext: () => ({ traceId: 'otel-child', spanId: 'span-2' })
       } as any;
 
       exporter.export([childSpan], () => {});

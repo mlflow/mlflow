@@ -3,7 +3,12 @@ import fs from 'fs';
 import os from 'os';
 import { parse as parseIni } from 'ini';
 import { initializeSDK } from './provider';
-import { createTraceLocationFromExperimentId, createTraceLocationFromUCSchema, InferenceTableLocation, MlflowExperimentLocation, UCSchemaLocation } from './entities/trace_location';
+import {
+  createTraceLocationFromExperimentId,
+  createTraceLocationFromUCSchema,
+  MlflowExperimentLocation,
+  UCSchemaLocation
+} from './entities/trace_location';
 
 /**
  * Default Databricks profile name
@@ -74,17 +79,18 @@ export interface MLflowTracingConfig {
   trackingServerPassword?: string;
 }
 
-
 export function getExperimentIdFromConfig(config: MLflowTracingConfig): string | null {
   return (config.location as MlflowExperimentLocation)?.experimentId ?? null;
 }
 
-export function getUCSchemaLocationFromConfig(config: MLflowTracingConfig): UCSchemaLocation | null {
+export function getUCSchemaLocationFromConfig(
+  config: MLflowTracingConfig
+): UCSchemaLocation | null {
   if (config.location == null) {
     return null;
   }
-  if ("catalog_name" in config.location && "schema_name" in config.location) {
-    return config.location as UCSchemaLocation;
+  if ('catalog_name' in config.location && 'schema_name' in config.location) {
+    return config.location;
   }
   return null;
 }
@@ -159,13 +165,20 @@ let globalConfig: MLflowTracingConfig | null = null;
  */
 export function init(config: MLflowTracingInitOptions): void {
   const trackingUri = config.trackingUri ?? process.env.MLFLOW_TRACKING_URI;
-  const experimentId =
-    config.experimentId ??
-    (config.location && (config.location as any).experimentId) ??
-    process.env.MLFLOW_EXPERIMENT_ID;
 
-  const catalog = config.location && (config.location as any).catalog_name;
-  const schema = config.location && (config.location as any).schema_name;
+  let experimentId: string | undefined = config.experimentId ?? process.env.MLFLOW_EXPERIMENT_ID;
+  let catalog: string | undefined;
+  let schema: string | undefined;
+
+  if (config.location) {
+    const loc = config.location;
+    if ('experimentId' in loc) {
+      experimentId = experimentId ?? loc.experimentId;
+    } else if ('catalog_name' in loc && 'schema_name' in loc) {
+      catalog = loc.catalog_name;
+      schema = loc.schema_name;
+    }
+  }
 
   if (!trackingUri) {
     throw new Error(
@@ -181,14 +194,14 @@ export function init(config: MLflowTracingInitOptions): void {
     if (!experimentId && !(catalog && schema)) {
       throw new Error(
         'An MLflow experiment ID or a Unity Catalog schema is required, please provide the ' +
-        'corresponding option to init, or set the MLFLOW_EXPERIMENT_ID environment variable.'
+          'corresponding option to init, or set the MLFLOW_EXPERIMENT_ID environment variable.'
       );
     }
   } else {
     if (!experimentId) {
       throw new Error(
         'An MLflow experiment ID is required, please provide the experimentId option to init ' +
-        'or set the MLFLOW_EXPERIMENT_ID environment variable'
+          'or set the MLFLOW_EXPERIMENT_ID environment variable'
       );
     }
 
@@ -197,11 +210,18 @@ export function init(config: MLflowTracingInitOptions): void {
     }
   }
 
-  const location =
-    catalog && schema
-    ? createTraceLocationFromUCSchema(catalog, schema).ucSchema
-    : createTraceLocationFromExperimentId(experimentId).mlflowExperiment
-
+  let location: MlflowExperimentLocation | UCSchemaLocation;
+  if (catalog && schema) {
+    location = createTraceLocationFromUCSchema(catalog, schema).ucSchema;
+  } else {
+    if (!experimentId) {
+      throw new Error(
+        'An MLflow experiment ID is required, please provide the experimentId option to init ' +
+          'or set the MLFLOW_EXPERIMENT_ID environment variable'
+      );
+    }
+    location = createTraceLocationFromExperimentId(experimentId).mlflowExperiment;
+  }
 
   const databricksConfigPath =
     config.databricksConfigPath ?? path.join(os.homedir(), '.databrickscfg');
@@ -213,7 +233,6 @@ export function init(config: MLflowTracingInitOptions): void {
     location,
     databricksConfigPath
   };
-
 
   if (isDatabricksUri(effectiveConfig.trackingUri)) {
     const configPathToUse = effectiveConfig.databricksConfigPath;
@@ -273,7 +292,7 @@ export function init(config: MLflowTracingInitOptions): void {
 }
 
 function isDatabricksUri(trackingUri: string): boolean {
-  return trackingUri === 'databricks' || trackingUri?.startsWith('databricks://')
+  return trackingUri === 'databricks' || trackingUri?.startsWith('databricks://');
 }
 
 /**

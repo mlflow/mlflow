@@ -293,13 +293,12 @@ export function aggregateUsageFromSpans(spans: Span[]): TokenUsage | null {
   return hasUsageData ? totalUsage : null;
 }
 
-
 export function parseTraceIdV4(traceId: string | null): [string | null, string | null] {
   if (traceId == null) {
     return [null, null];
   }
   if (traceId.startsWith(TRACE_ID_V4_PREFIX)) {
-    const [location, tid] = traceId.slice(TRACE_ID_V4_PREFIX.length).split("/");
+    const [location, tid] = traceId.slice(TRACE_ID_V4_PREFIX.length).split('/');
     return [location, tid];
   }
   return [null, traceId];
