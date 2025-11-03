@@ -130,8 +130,8 @@ class AgentServer:
                     result = func(request)
 
                 result = self.validator.validate_and_convert_result(result)
-                duration_ms = round((time.time() - start_time) * 1000, 2)
-                span.set_attribute("duration_ms", duration_ms)
+                # duration_ms = round((time.time() - start_time) * 1000, 2)
+                # span.set_attribute("duration_ms", duration_ms)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute("mlflow.message.format", "openai")
                 span.set_outputs(result)
@@ -143,7 +143,7 @@ class AgentServer:
                 "Response sent",
                 extra={
                     "endpoint": "invoke",
-                    "duration_ms": duration_ms,
+                    # "duration_ms": duration_ms,
                     "response_size": len(json.dumps(result)),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -198,8 +198,8 @@ class AgentServer:
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
 
-                duration_ms = round((time.time() - start_time) * 1000, 2)
-                span.set_attribute("duration_ms", duration_ms)
+                # duration_ms = round((time.time() - start_time) * 1000, 2)
+                # span.set_attribute("duration_ms", duration_ms)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute("mlflow.message.format", "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
@@ -221,7 +221,7 @@ class AgentServer:
                 "Streaming response completed",
                 extra={
                     "endpoint": "stream",
-                    "duration_ms": duration_ms,
+                    # "duration_ms": duration_ms,
                     "total_chunks": len(all_chunks),
                     "function_name": func_name,
                     "return_trace": return_trace,
