@@ -3232,6 +3232,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
+  "XIWwOm": {
+    "defaultMessage": "Session ID",
+    "description": "Label for the session id section"
+  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -6014,6 +6018,10 @@
   "zNWzj6": {
     "defaultMessage": "Search traces by request",
     "description": "Placeholder text for the search input in the trace results table"
+  },
+  "zRKlAL": {
+    "defaultMessage": "Metadata",
+    "description": "Label for the metadata section"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
