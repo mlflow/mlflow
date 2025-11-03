@@ -138,10 +138,14 @@ import mlflow
 
 mlflow.gemini.autolog()
 
-chat = client.chats.create(model='gemini-1.5-flash')
-response = chat.send_message("In one sentence, explain how a computer works to a young child.")
+chat = client.chats.create(model="gemini-1.5-flash")
+response = chat.send_message(
+    "In one sentence, explain how a computer works to a young child."
+)
 print(response.text)
-response = chat.send_message("Okay, how about a more detailed explanation to a high schooler?")
+response = chat.send_message(
+    "Okay, how about a more detailed explanation to a high schooler?"
+)
 print(response.text)
 ```
 
