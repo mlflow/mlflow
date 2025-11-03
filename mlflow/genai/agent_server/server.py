@@ -1,7 +1,6 @@
 import inspect
 import json
 import logging
-import time
 from typing import Any, AsyncGenerator, Callable, Literal
 
 import uvicorn
@@ -72,8 +71,6 @@ class AgentServer:
             # https://docs.databricks.com/aws/en/dev-tools/databricks-apps/auth?language=Streamlit#retrieve-user-authorization-credentials
             set_request_headers(dict(request.headers))
 
-            start_time = time.time()
-
             try:
                 data = await request.json()
             except Exception as e:
@@ -102,16 +99,16 @@ class AgentServer:
                 )
 
             if is_streaming:
-                return await self._handle_stream_request(request_data, start_time, return_trace)
+                return await self._handle_stream_request(request_data, return_trace)
             else:
-                return await self._handle_invoke_request(request_data, start_time, return_trace)
+                return await self._handle_invoke_request(request_data, return_trace)
 
         @self.app.get("/health")
         async def health_check() -> dict[str, str]:
             return {"status": "healthy"}
 
     async def _handle_invoke_request(
-        self, request: dict[str, Any], start_time: float, return_trace: bool
+        self, request: dict[str, Any], return_trace: bool
     ) -> dict[str, Any]:
         from mlflow.genai.agent_server import _invoke_function
 
@@ -130,8 +127,6 @@ class AgentServer:
                     result = func(request)
 
                 result = self.validator.validate_and_convert_result(result)
-                # duration_ms = round((time.time() - start_time) * 1000, 2)
-                # span.set_attribute("duration_ms", duration_ms)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute("mlflow.message.format", "openai")
                 span.set_outputs(result)
@@ -143,7 +138,6 @@ class AgentServer:
                 "Response sent",
                 extra={
                     "endpoint": "invoke",
-                    # "duration_ms": duration_ms,
                     "response_size": len(json.dumps(result)),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -153,12 +147,10 @@ class AgentServer:
             return result
 
         except Exception as e:
-            duration_ms = round((time.time() - start_time) * 1000, 2)
             logger.error(
                 "Error response sent",
                 extra={
                     "endpoint": "invoke",
-                    "duration_ms": duration_ms,
                     "error": str(e),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -179,7 +171,6 @@ class AgentServer:
         self,
         func: Callable[..., Any],
         request: dict[str, Any],
-        start_time: float,
         return_trace: bool,
     ) -> AsyncGenerator[str, None]:
         func_name = func.__name__
@@ -198,8 +189,6 @@ class AgentServer:
                         all_chunks.append(chunk)
                         yield f"data: {json.dumps(chunk)}\n\n"
 
-                # duration_ms = round((time.time() - start_time) * 1000, 2)
-                # span.set_attribute("duration_ms", duration_ms)
                 if self.agent_type == "ResponsesAgent":
                     span.set_attribute("mlflow.message.format", "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
@@ -221,7 +210,6 @@ class AgentServer:
                 "Streaming response completed",
                 extra={
                     "endpoint": "stream",
-                    # "duration_ms": duration_ms,
                     "total_chunks": len(all_chunks),
                     "function_name": func_name,
                     "return_trace": return_trace,
@@ -229,12 +217,10 @@ class AgentServer:
             )
 
         except Exception as e:
-            duration_ms = round((time.time() - start_time) * 1000, 2)
             logger.error(
                 "Streaming response error",
                 extra={
                     "endpoint": "stream",
-                    "duration_ms": duration_ms,
                     "error": str(e),
                     "function_name": func_name,
                     "chunks_sent": len(all_chunks),
@@ -246,7 +232,7 @@ class AgentServer:
             yield "data: [DONE]\n\n"
 
     async def _handle_stream_request(
-        self, request: dict[str, Any], start_time: float, return_trace: bool
+        self, request: dict[str, Any], return_trace: bool
     ) -> StreamingResponse:
         from mlflow.genai.agent_server import _stream_function
 
@@ -256,7 +242,7 @@ class AgentServer:
         func = _stream_function
 
         return StreamingResponse(
-            self.generate(func, request, start_time, return_trace), media_type="text/event-stream"
+            self.generate(func, request, return_trace), media_type="text/event-stream"
         )
 
     def run(
