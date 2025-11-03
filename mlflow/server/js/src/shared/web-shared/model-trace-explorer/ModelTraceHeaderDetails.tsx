@@ -17,6 +17,7 @@ import { getModelTraceId } from './ModelTraceExplorer.utils';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
+import { MLFLOW_TRACE_SESSION_KEY, MLFLOW_TRACE_TOKEN_USAGE_KEY } from './ModelTrace.types';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 
 const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
@@ -85,9 +86,8 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
 
   const tokenUsage = useMemo(() => {
     const tokenUsage = parseJSONSafe(
-      (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.['mlflow.trace.tokenUsage'] ?? '{}',
+      (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_TOKEN_USAGE_KEY] ?? '{}',
     );
-
     return tokenUsage;
   }, [modelTrace.info]);
 
@@ -102,7 +102,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
   }, [rootNode]);
 
   const sessionId = useMemo(() => {
-    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.['mlflow.trace.session'];
+    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_SESSION_KEY];
   }, [modelTrace.info]);
 
   const getComponentId = useCallback((key: string) => `${BASE_TAG_COMPONENT_ID}.tag-${key}`, []);

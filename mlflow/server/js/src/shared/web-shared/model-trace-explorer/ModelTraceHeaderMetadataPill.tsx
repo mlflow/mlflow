@@ -1,22 +1,52 @@
 import { HoverCard, ListIcon, Overflow, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
+import { useMemo } from 'react';
+import { MLFLOW_INTERNAL_PREFIX, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 
 export const ModelTraceHeaderMetadataPill = ({
   traceMetadata,
   getTruncatedLabel = (label: string) => truncateToFirstLineWithMaxLength(label, 40),
   getComponentId,
 }: {
-  traceMetadata?: Record<string, string>;
+  traceMetadata?: Record<string, unknown>;
   getTruncatedLabel?: (label: string) => string;
   getComponentId: (key: string) => string;
 }) => {
   const { theme } = useDesignSystemTheme();
 
-  const metadataItems = Object.entries(traceMetadata || {})
-    .filter(([k, v]) => !!v && !k.startsWith('mlflow.'))
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, value]) => ({ key, value }));
+  const MAX_ITEMS = 100;
+
+  const formatTraceMetadataValue = (value: unknown): string => {
+    // If it's already an object/array, try to stringify directly
+    if (value && typeof value === 'object') {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value as any);
+      }
+    }
+    // If it's a string, try to parse JSON and pretty return
+    if (typeof value === 'string') {
+      const parsed = parseJSONSafe(value);
+      if (parsed && typeof parsed === 'object') {
+        try {
+          return JSON.stringify(parsed);
+        } catch {
+          return value;
+        }
+      }
+      return value;
+    }
+    return String(value ?? '');
+  };
+
+  const metadataItems = useMemo(() => {
+    const items = Object.entries(traceMetadata || {})
+      .filter(([k, v]) => v != null && v !== '' && !k.startsWith(MLFLOW_INTERNAL_PREFIX))
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => ({ key, value, displayValue: formatTraceMetadataValue(value) }));
+    return items;
+  }, [traceMetadata]);
 
   if (metadataItems.length === 0) {
     return null;
@@ -60,27 +90,25 @@ export const ModelTraceHeaderMetadataPill = ({
                 overflowY: 'auto',
               }}
             >
-              {metadataItems.map(({ key, value }) => (
+              {metadataItems.slice(0, MAX_ITEMS).map(({ key, displayValue, value }) => (
                 <div
                   key={`${key}:${value}`}
                   css={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.xs }}
                 >
-                  <Typography.Text css={{ flexBasis: '45%', flexShrink: 0 }}>{getTruncatedLabel(key)}</Typography.Text>
-                  <Typography.Text color="secondary" css={{ wordBreak: 'break-word' }}>
-                    {(() => {
-                      const parsed = parseJSONSafe(value);
-                      if (parsed && typeof parsed === 'object') {
-                        try {
-                          return JSON.stringify(parsed);
-                        } catch {
-                          return String(value);
-                        }
-                      }
-                      return String(value);
-                    })()}
+                  <Typography.Text css={{ flexBasis: '45%', flexShrink: 0, fontFamily: theme.typography.mono }}>
+                    {getTruncatedLabel(key)}
+                  </Typography.Text>
+                  <Typography.Text
+                    color="secondary"
+                    css={{ wordBreak: 'break-word', fontFamily: theme.typography.mono }}
+                  >
+                    {displayValue}
                   </Typography.Text>
                 </div>
               ))}
+              {metadataItems.length > MAX_ITEMS && (
+                <Typography.Text color="secondary">+{metadataItems.length - MAX_ITEMS} more</Typography.Text>
+              )}
             </div>
           }
         />
