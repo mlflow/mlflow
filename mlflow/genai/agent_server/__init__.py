@@ -1,33 +1,36 @@
 """
-FastAPI-based server for hosting MLflow agents with multiple protocol support.
-
-This module provides a production-ready agent server that supports multiple agent types:
-- ResponsesAgent (agent/v1/responses): OpenAI-compatible responses format
+FastAPI-based server for hosting agents that either use the Responses API schema or a custom schema.
 
 Key Features:
 - Decorator-based function registration (@invoke, @stream) for easy agent development
-- Protocol-specific request/response validation using AgentValidator
+- Automatic request and response validation for Responses API schema agents
 - Context-aware request header management for Databricks Apps authentication
-- Streaming and non-streaming response support with Server-Sent Events (SSE)
-- MLflow tracing integration with automatic span creation and attribute setting
-- Health check endpoint for monitoring
-
-Architecture:
-- AgentServer: Main FastAPI application with route setup and middleware
-- AgentValidator: Protocol-specific validation for requests and responses
-- Context isolation: Thread-safe request header management using contextvars
-- Function registration: Global decorators for invoke/stream endpoint functions
+- MLflow tracing integration
+- Automatic command-line argument parsing for server configuration (e.g. --port, --workers, --reload)
 
 Usage:
     from mlflow.genai.agent_server import AgentServer, invoke, stream
 
     @invoke()
     def my_agent_invoke(request):
-        return {"response": "Hello"}
+        return {
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hello"}]
+            }]
+        }
 
     @stream()
     async def my_agent_stream(request):
-        yield {"delta": {"content": "Hello"}}
+        yield {
+            "type": "response.output_item.done",
+            "item": {
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "Hello"}]
+            }
+        }
 
     server = AgentServer(agent_type="ResponsesAgent")
     server.run("my_app:server.app")
