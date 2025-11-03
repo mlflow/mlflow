@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from mlflow.genai.agent_server import (
     AgentServer,
     get_invoke_function,
+    get_stream_function,
     invoke,
     stream,
 )
@@ -125,7 +126,10 @@ def test_invoke_decorator_single_registration():
     def my_invoke_function(request):
         return {"result": "success"}
 
-    assert get_invoke_function() == my_invoke_function
+    registered_function = get_invoke_function()
+    assert registered_function is not None
+    result = registered_function({"test": "request"})
+    assert result == {"result": "success"}
 
 
 def test_stream_decorator_single_registration():
@@ -139,7 +143,8 @@ def test_stream_decorator_single_registration():
     async def my_stream_function(request):
         yield {"delta": {"content": "hello"}}
 
-    assert mlflow.genai.agent_server._stream_function == my_stream_function
+    registered_function = get_stream_function()
+    assert registered_function is not None
 
 
 def test_multiple_invoke_registrations_raises_error():
@@ -193,7 +198,41 @@ def test_get_invoke_function_returns_registered():
         return my_function(request)
 
     result = get_invoke_function()
-    assert result == registered_function
+    assert result is not None
+    test_result = result({"input": "test"})
+    assert test_result == {"test": "data"}
+
+
+def test_decorator_preserves_function_metadata():
+    # Reset global state before test
+    import mlflow.genai.agent_server
+
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
+
+    @invoke()
+    def test_function_with_metadata(request):
+        """This is a test function with documentation."""
+        return {"result": "success"}
+
+    # Get the wrapper function
+    wrapper = get_invoke_function()
+
+    # Verify that functools.wraps preserved the metadata
+    assert wrapper.__name__ == "test_function_with_metadata"
+    assert wrapper.__doc__ == "This is a test function with documentation."
+
+    # Test the same for stream decorator
+    mlflow.genai.agent_server._stream_function = None
+
+    @stream()
+    async def test_stream_with_metadata(request):
+        """This is a test stream function."""
+        yield {"delta": {"content": "hello"}}
+
+    stream_wrapper = get_stream_function()
+    assert stream_wrapper.__name__ == "test_stream_with_metadata"
+    assert stream_wrapper.__doc__ == "This is a test stream function."
 
 
 def test_validator_request_dict_responses_agent():
