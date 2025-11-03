@@ -99,6 +99,7 @@ from mlflow.store.tracking.dbmodels.models import (
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    SpanAttributeKey,
     SpansLocation,
     TraceMetadataKey,
     TraceSizeStatsKey,
@@ -10706,3 +10707,207 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert len(traces[0].data.spans) == 1
     assert traces[0].data.spans[0].name == "incomplete_span"
     assert traces[0].data.spans[0].status.status_code == "OK"
+
+
+def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span = create_test_otel_span(
+        trace_id=trace_id,
+        name="llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+
+    otel_span._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps(
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            }
+        ),
+    }
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+    store.log_spans(experiment_id, [span])
+
+    # verify token usage is stored in the trace info
+    trace_info = store.get_trace_info(trace_id)
+    assert trace_info.token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    }
+
+    # verify loaded trace has same token usage
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.token_usage is not None
+    assert trace.info.token_usage["input_tokens"] == 100
+    assert trace.info.token_usage["output_tokens"] == 50
+    assert trace.info.token_usage["total_tokens"] == 150
+
+
+def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_log_spans_update_token_usage")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id,
+        name="first_llm_call",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps(
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.token_usage["input_tokens"] == 100
+    assert trace.info.token_usage["output_tokens"] == 50
+    assert trace.info.token_usage["total_tokens"] == 150
+
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id,
+        name="second_llm_call",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=12345,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps(
+            {
+                "input_tokens": 200,
+                "output_tokens": 75,
+                "total_tokens": 275,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    traces = store.batch_get_traces([trace_id])
+    assert len(traces) == 1
+    trace = traces[0]
+    assert trace.info.token_usage["input_tokens"] == 300
+    assert trace.info.token_usage["output_tokens"] == 125
+    assert trace.info.token_usage["total_tokens"] == 425
+
+
+def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_batch_get_traces_token_usage")
+
+    trace_id_1 = f"tr-{uuid.uuid4().hex}"
+    otel_span1 = create_test_otel_span(
+        trace_id=trace_id_1,
+        name="trace1_span",
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        trace_id_num=12345,
+        span_id_num=111,
+    )
+    otel_span1._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id_1, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps(
+            {
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+            }
+        ),
+    }
+    span1 = create_mlflow_span(otel_span1, trace_id_1, "LLM")
+    store.log_spans(experiment_id, [span1])
+
+    trace_id_2 = f"tr-{uuid.uuid4().hex}"
+    otel_span2 = create_test_otel_span(
+        trace_id=trace_id_2,
+        name="trace2_span",
+        start_time=3_000_000_000,
+        end_time=4_000_000_000,
+        trace_id_num=67890,
+        span_id_num=222,
+    )
+    otel_span2._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id_2, cls=TraceJSONEncoder),
+        SpanAttributeKey.CHAT_USAGE: json.dumps(
+            {
+                "input_tokens": 200,
+                "output_tokens": 100,
+                "total_tokens": 300,
+            }
+        ),
+    }
+    span2 = create_mlflow_span(otel_span2, trace_id_2, "LLM")
+    store.log_spans(experiment_id, [span2])
+
+    trace_id_3 = f"tr-{uuid.uuid4().hex}"
+    otel_span3 = create_test_otel_span(
+        trace_id=trace_id_3,
+        name="trace3_span",
+        start_time=5_000_000_000,
+        end_time=6_000_000_000,
+        trace_id_num=11111,
+        span_id_num=333,
+    )
+    otel_span3._attributes = {
+        "mlflow.traceRequestId": json.dumps(trace_id_3, cls=TraceJSONEncoder),
+    }
+    span3 = create_mlflow_span(otel_span3, trace_id_3, "UNKNOWN")
+    store.log_spans(experiment_id, [span3])
+
+    trace_infos = [
+        store.get_trace_info(trace_id) for trace_id in [trace_id_1, trace_id_2, trace_id_3]
+    ]
+    assert trace_infos[0].token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+    }
+    assert trace_infos[1].token_usage == {
+        "input_tokens": 200,
+        "output_tokens": 100,
+        "total_tokens": 300,
+    }
+    assert trace_infos[2].token_usage is None
+
+    traces = store.batch_get_traces([trace_id_1, trace_id_2, trace_id_3])
+    assert len(traces) == 3
+
+    traces_by_id = {trace.info.trace_id: trace for trace in traces}
+
+    trace1 = traces_by_id[trace_id_1]
+    assert trace1.info.token_usage is not None
+    assert trace1.info.token_usage["input_tokens"] == 100
+    assert trace1.info.token_usage["output_tokens"] == 50
+    assert trace1.info.token_usage["total_tokens"] == 150
+
+    trace2 = traces_by_id[trace_id_2]
+    assert trace2.info.token_usage is not None
+    assert trace2.info.token_usage["input_tokens"] == 200
+    assert trace2.info.token_usage["output_tokens"] == 100
+    assert trace2.info.token_usage["total_tokens"] == 300
+
+    trace3 = traces_by_id[trace_id_3]
+    assert trace3.info.token_usage is None
