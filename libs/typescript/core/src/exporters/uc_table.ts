@@ -148,14 +148,11 @@ export class UCSchemaSpanProcessor implements SpanProcessor {
   }
 }
 
-export class UCSchemaSpanExporter implements SpanExporter {
+export class UCSchemaSpanExporter extends OTLPTraceExporter {
   private _client: MlflowClient;
-  private _otlp_span_exporter: OTLPTraceExporter;
   private _pendingExports: Set<Promise<unknown>> = new Set();
 
   constructor(client: MlflowClient) {
-    this._client = client;
-
     const config = getConfig();
     const location = getUCSchemaLocationFromConfig(config);
     if (!location) {
@@ -164,12 +161,14 @@ export class UCSchemaSpanExporter implements SpanExporter {
     const url = LogSpans.getEndpoint(config.host!);
     const tableName = getFullTableName(location);
     const headers = LogSpans.getHeaders(tableName, config.databricksToken);
-    this._otlp_span_exporter = new OTLPTraceExporter({url, headers});
+    super({url, headers});
+
+    this._client = client;
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
-
-    this._otlp_span_exporter.export(spans, (_) => {});
+  // Export spans to Databricks OTLP endpoint
+    super.export(spans, (_) => {});
 
     for (const span of spans) {
       // Only export TraceInfo when the root span is ended
@@ -177,21 +176,16 @@ export class UCSchemaSpanExporter implements SpanExporter {
         continue;
       }
 
+      // Export trace info to the MLflow backend
       const trace = InMemoryTraceManager.getInstance().popTrace(span.spanContext().traceId);
       if (!trace) {
         console.warn(`No trace found for span ${span.name}. Skipping.`);
         continue;
       }
-
       this.logTraceInfo(trace);
     }
   }
 
-  /**
-   * Export a complete trace to the MLflow backend
-   * Step 1: Create trace metadata via StartTraceV3 endpoint
-   * Step 2: Upload trace data (spans) via artifact repository pattern
-   */
   private async logTraceInfo(trace: Trace): Promise<void> {
     // Export trace to backend and track the promise
     const exportPromise = this._client.createTraceV4(trace.info);
