@@ -60,13 +60,11 @@ class Location:
 
     @classmethod
     def from_node(cls, node: HasLocation) -> Self:
-        end_lineno = getattr(node, "end_lineno", None)
-        end_col_offset = getattr(node, "end_col_offset", None)
         return cls(
             node.lineno - 1,
             node.col_offset,
-            end_lineno - 1 if end_lineno is not None else None,
-            end_col_offset,
+            node.end_lineno - 1 if node.end_lineno is not None else None,
+            node.end_col_offset,
         )
 
     @classmethod
