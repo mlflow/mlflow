@@ -3609,7 +3609,7 @@ requires-dist = [
     { name = "pandas", specifier = "<3" },
     { name = "prometheus-flask-exporter", marker = "extra == 'extras'" },
     { name = "protobuf", specifier = ">=3.12.0,<7" },
-    { name = "pyarrow", specifier = ">=4.0.0,<22" },
+    { name = "pyarrow", specifier = ">=4.0.0,<23" },
     { name = "pyarrow", marker = "extra == 'extras'" },
     { name = "pydantic", specifier = ">=2.0.0,<3" },
     { name = "pysftp", marker = "extra == 'extras'" },
