@@ -41,7 +41,6 @@ from typing import Any, Callable
 from mlflow.genai.agent_server.server import AgentServer
 from mlflow.genai.agent_server.types import AgentType
 from mlflow.genai.agent_server.utils import (
-    get_header,
     get_request_headers,
     get_user_workspace_client,
     set_request_headers,
@@ -53,7 +52,6 @@ from mlflow.utils.annotations import experimental
 __all__ = [
     "set_request_headers",
     "get_request_headers",
-    "get_header",
     "get_user_workspace_client",
     "AgentServer",
     "invoke",

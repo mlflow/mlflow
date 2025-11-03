@@ -578,28 +578,6 @@ def test_request_headers_isolation():
     assert get_request_headers()["test"] == "value1"
 
 
-def test_forwarded_access_token_extraction():
-    from mlflow.genai.agent_server.utils import (
-        get_forwarded_access_token,
-        set_request_headers,
-    )
-
-    test_token = "test-token-123"
-    set_request_headers({"x-forwarded-access-token": test_token})
-
-    assert get_forwarded_access_token() == test_token
-
-
-def test_forwarded_access_token_missing():
-    from mlflow.genai.agent_server.utils import (
-        get_forwarded_access_token,
-        set_request_headers,
-    )
-
-    set_request_headers({"other-header": "value"})
-    assert get_forwarded_access_token() is None
-
-
 def test_user_workspace_client():
     with patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
         from mlflow.genai.agent_server.utils import (
