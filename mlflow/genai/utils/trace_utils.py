@@ -401,35 +401,52 @@ def _extract_retrieval_context_with_llm(
             ChatMessage(
                 role="system",
                 content=(
-                    "Extract retrieval context from this trace. Find spans that performed "
-                    "document retrieval and extract the retrieved chunks. Look for:\n"
-                    "- Spans with type RETRIEVER or similar names indicating document or "
-                    "context retrieval\n"
-                    "- Spans with names like 'search', 'retrieval', 'query', 'rag', or similar "
-                    "related to document or context retrieval\n"
-                    "- Spans with outputs containing document chunks or context\n\n"
-                    "You MUST return a JSON object with this EXACT structure:\n"
-                    "{\n"
-                    '  "retrieval_contexts": [\n'
-                    "    {\n"
-                    '      "span_id": "the span ID where retrieval occurred",\n'
-                    '      "chunks": [\n'
-                    "        {\n"
-                    '          "content": "text content of the chunk (required)",\n'
-                    '          "doc_uri": "source URI (optional, null if not available)"\n'
-                    "        }\n"
-                    "      ]\n"
-                    "    }\n"
-                    "  ]\n"
-                    "}\n\n"
-                    "Include one object per unique span_id in the retrieval_contexts array. "
-                    "Do not return a plain array - you must return an object with a "
-                    "retrieval_contexts field."
+                    "You are a trace analysis assistant. Your job is to examine MLflow traces "
+                    "and identify spans that retrieved information to help answer queries.\n\n"
+                    "You have access to these tools:\n"
+                    "- list_spans: Get a list of all spans in the trace with basic metadata\n"
+                    "- get_span: Get detailed information about a specific span, including its "
+                    "outputs\n"
+                    "- get_root_span: Get the root span of the trace\n"
+                    "- search_trace_regex: Search the trace for text patterns\n\n"
+                    "Your task is to find spans whose outputs contain information that helps "
+                    "answer the user's query, then extract that information as retrieval contexts."
                 ),
             ),
             ChatMessage(
                 role="user",
-                content="Use list_spans and get_span tools to find retrieval contexts.",
+                content=(
+                    "Find spans that retrieved information by calling the available tools. "
+                    "The trace is already loaded - just call list_spans and get_span to "
+                    "analyze it.\n\n"
+                    "Look for spans whose outputs contain substantive data such as:\n"
+                    "- Documents, text chunks, or passages\n"
+                    "- Search results or query responses\n"
+                    "- Database records with meaningful text content\n"
+                    "- API responses containing information\n"
+                    "- Any data that provides context for generating a response\n\n"
+                    "Focus on span OUTPUTS, not their names or types.\n\n"
+                    "For each span with retrieval data:\n"
+                    "1. Extract the substantive text content as string(s)\n"
+                    "2. If the output is structured (JSON/dict), extract text fields that "
+                    "provide information\n"
+                    "3. Common field names: 'content', 'text', 'page_content', 'results', 'data'\n"
+                    "4. Convert structured data to strings when necessary\n\n"
+                    "Return your findings in this format:\n"
+                    "{\n"
+                    '  "retrieval_contexts": [\n'
+                    "    {\n"
+                    '      "span_id": "span ID where data was retrieved",\n'
+                    '      "chunks": [\n'
+                    "        {\n"
+                    '          "content": "text content as string (required)",\n'
+                    '          "doc_uri": "source URI if available, otherwise null"\n'
+                    "        }\n"
+                    "      ]\n"
+                    "    }\n"
+                    "  ]\n"
+                    "}"
+                ),
             ),
         ]
 
