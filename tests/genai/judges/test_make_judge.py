@@ -2794,3 +2794,67 @@ def test_make_judge_validates_feedback_value_type():
             model="openai:/gpt-4",
             feedback_value_type=list[CustomModel],
         )
+
+
+def test_make_judge_with_default_feedback_value_type():
+    # Test that feedback_value_type defaults to str when omitted
+    judge = make_judge(
+        name="default_judge",
+        instructions="Evaluate {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    assert isinstance(judge, InstructionsJudge)
+    assert judge._feedback_value_type == str
+
+    # Verify serialization includes the default str type
+    serialized = judge.model_dump()
+    assert "instructions_judge_pydantic_data" in serialized
+    assert "feedback_value_type" in serialized["instructions_judge_pydantic_data"]
+    assert serialized["instructions_judge_pydantic_data"]["feedback_value_type"] == {
+        "type": "string",
+        "title": "Result",
+    }
+
+
+def test_make_judge_default_feedback_value_type_with_execution(monkeypatch):
+    # Test that the default str type works correctly in execution
+    captured_response_format = None
+
+    def mock_litellm_completion(**kwargs):
+        nonlocal captured_response_format
+        captured_response_format = kwargs.get("response_format")
+
+        mock_response = mock.Mock()
+        mock_response.choices = [mock.Mock()]
+        mock_response.choices[0].message = litellm.Message(
+            role="assistant",
+            content='{"result": "Good quality", "rationale": "The response is clear and accurate"}',
+            tool_calls=None,
+        )
+        mock_response._hidden_params = None
+        return mock_response
+
+    monkeypatch.setattr("litellm.completion", mock_litellm_completion)
+
+    judge = make_judge(
+        name="default_judge",
+        instructions="Evaluate the quality of {{ outputs }}",
+        model="openai:/gpt-4",
+    )
+
+    result = judge(outputs={"text": "Great work!"})
+
+    # Verify response_format was correctly captured with str type
+    assert captured_response_format is not None
+    assert issubclass(captured_response_format, pydantic.BaseModel)
+
+    model_fields = captured_response_format.model_fields
+    assert "result" in model_fields
+    assert "rationale" in model_fields
+
+    assert model_fields["result"].annotation == str
+    assert model_fields["rationale"].annotation == str
+
+    assert result.value == "Good quality"
+    assert result.rationale == "The response is clear and accurate"

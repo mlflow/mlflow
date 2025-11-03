@@ -94,7 +94,7 @@ def _validate_feedback_value_type(feedback_value_type: Any) -> None:
 def make_judge(
     name: str,
     instructions: str,
-    feedback_value_type: Any,
+    feedback_value_type: Any = None,
     model: str | None = None,
     description: str | None = None,
 ) -> Judge:
@@ -119,7 +119,7 @@ def make_judge(
 
                         - int: Integer ratings (e.g., 1-5 scale)
                         - float: Floating point scores (e.g., 0.0-1.0)
-                        - str: Text responses
+                        - str: Text responses (default)
                         - bool: Yes/no evaluations
                         - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
                         - dict[str, int | float | str | bool]: Dictionary with string keys and
@@ -166,6 +166,7 @@ def make_judge(
                     "Rate how well they match on a scale of 1-5."
                 ),
                 model="openai:/gpt-4",
+                feedback_value_type=int,
             )
 
             # Evaluate with expectations (must be dictionaries)
@@ -195,6 +196,10 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
+    # Default feedback_value_type to str if not specified
+    if feedback_value_type is None:
+        feedback_value_type = str
+
     _validate_feedback_value_type(feedback_value_type)
 
     return InstructionsJudge(
