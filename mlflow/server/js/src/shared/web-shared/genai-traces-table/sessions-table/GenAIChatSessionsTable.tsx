@@ -9,6 +9,8 @@ import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explor
 import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
 import type { SessionTableRow } from './utils';
 import { getSessionTableRows } from './utils';
+import MlflowUtils from '../utils/MlflowUtils';
+import { Link } from '../utils/RoutingUtils';
 
 // TODO: add following columns:
 // 1. conversation start time
@@ -39,20 +41,22 @@ const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<Experimen
   React.memo(
     ({ row }) => {
       return (
-        <TableRow key={row.id} className="eval-datasets-table-row">
-          {row.getVisibleCells().map((cell) => (
-            <TableCell
-              key={cell.id}
-              css={{
-                backgroundColor: 'transparent',
-                flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
-                ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
-              }}
-            >
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-            </TableCell>
-          ))}
-        </TableRow>
+        <Link to={MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId)}>
+          <TableRow key={row.id} className="eval-datasets-table-row">
+            {row.getVisibleCells().map((cell) => (
+              <TableCell
+                key={cell.id}
+                css={{
+                  backgroundColor: 'transparent',
+                  flex: `calc(var(--col-${cell.column.id}-size) / 100)`,
+                  ...(cell.column.id === 'actions' && { paddingLeft: 0, paddingRight: 0 }),
+                }}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        </Link>
       );
     },
     () => false,
