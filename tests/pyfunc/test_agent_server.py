@@ -123,10 +123,10 @@ async def arbitrary_stream(request: dict) -> AsyncGenerator[dict, None]:
 
 def test_invoke_decorator_single_registration():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     @invoke()
     def my_invoke_function(request):
@@ -137,24 +137,24 @@ def test_invoke_decorator_single_registration():
 
 def test_stream_decorator_single_registration():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     @stream()
     async def my_stream_function(request):
         yield {"delta": {"content": "hello"}}
 
-    assert mlflow.pyfunc.agent_server._stream_function == my_stream_function
+    assert mlflow.genai.agent_server._stream_function == my_stream_function
 
 
 def test_multiple_invoke_registrations_raises_error():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     @invoke()
     def first_function(request):
@@ -169,10 +169,10 @@ def test_multiple_invoke_registrations_raises_error():
 
 def test_multiple_stream_registrations_raises_error():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     @stream()
     def first_stream(request):
@@ -187,10 +187,10 @@ def test_multiple_stream_registrations_raises_error():
 
 def test_get_invoke_function_returns_registered():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     def my_function(request):
         return {"test": "data"}
@@ -396,36 +396,6 @@ def test_agent_server_with_agent_type():
     assert server.validator.agent_type == "agent/v1/responses"
 
 
-def test_agent_server_static_files_setup_exists():
-    # This test is difficult to mock properly due to Path internals
-    # Instead, we'll test that the server initializes successfully
-    # which covers the static file setup logic
-    server = AgentServer()
-    assert server.app is not None
-
-    # Check that basic routes exist
-    routes = [route.path for route in server.app.routes]
-    assert "/invocations" in routes
-    assert "/health" in routes
-
-
-def test_agent_server_static_files_setup_missing():
-    with patch("pathlib.Path") as mock_path:
-        mock_ui_path = Mock()
-        mock_ui_path.exists.return_value = False
-
-        # Create a proper mock path chain
-        mock_path_instance = Mock()
-        mock_path_instance.parent.parent.parent = mock_ui_path
-        mock_path.return_value = mock_path_instance
-
-        with patch.object(AgentServer, "_setup_static_files") as mock_setup:
-            mock_setup.return_value = None
-            server = AgentServer()
-            # Verify setup was called (implementation would log warning)
-            assert server.app is not None
-
-
 def test_agent_server_routes_registration():
     server = AgentServer()
     routes = [route.path for route in server.app.routes]
@@ -435,10 +405,10 @@ def test_agent_server_routes_registration():
 
 def test_invocations_endpoint_malformed_json():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     server = AgentServer()
     client = TestClient(server.app)
@@ -451,10 +421,10 @@ def test_invocations_endpoint_malformed_json():
 
 def test_invocations_endpoint_missing_invoke_function():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     server = AgentServer()
     client = TestClient(server.app)
@@ -467,10 +437,10 @@ def test_invocations_endpoint_missing_invoke_function():
 
 def test_invocations_endpoint_validation_error():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     server = AgentServer(agent_type="agent/v1/responses")
     client = TestClient(server.app)
@@ -485,10 +455,10 @@ def test_invocations_endpoint_validation_error():
 
 def test_invocations_endpoint_success_invoke():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     with patch("mlflow.start_span") as mock_span:
         # Mock the span context manager
@@ -533,10 +503,10 @@ def test_invocations_endpoint_success_invoke():
 
 def test_invocations_endpoint_success_stream():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     with patch("mlflow.start_span") as mock_span:
         # Mock the span context manager
@@ -589,7 +559,7 @@ def test_health_endpoint_returns_status():
 
 
 def test_request_headers_isolation():
-    from mlflow.pyfunc.agent_server.utils import get_request_headers, set_request_headers
+    from mlflow.genai.agent_server.utils import get_request_headers, set_request_headers
 
     # Test that headers are isolated between contexts
     set_request_headers({"test": "value1"})
@@ -609,7 +579,7 @@ def test_request_headers_isolation():
 
 
 def test_forwarded_access_token_extraction():
-    from mlflow.pyfunc.agent_server.utils import (
+    from mlflow.genai.agent_server.utils import (
         get_forwarded_access_token,
         set_request_headers,
     )
@@ -621,7 +591,7 @@ def test_forwarded_access_token_extraction():
 
 
 def test_forwarded_access_token_missing():
-    from mlflow.pyfunc.agent_server.utils import (
+    from mlflow.genai.agent_server.utils import (
         get_forwarded_access_token,
         set_request_headers,
     )
@@ -630,26 +600,26 @@ def test_forwarded_access_token_missing():
     assert get_forwarded_access_token() is None
 
 
-def test_obo_workspace_client():
+def test_user_workspace_client():
     with patch("databricks.sdk.WorkspaceClient") as mock_workspace_client:
-        from mlflow.pyfunc.agent_server.utils import (
-            get_obo_workspace_client,
+        from mlflow.genai.agent_server.utils import (
+            get_user_workspace_client,
             set_request_headers,
         )
 
         test_token = "test-token-123"
         set_request_headers({"x-forwarded-access-token": test_token})
 
-        get_obo_workspace_client()
+        get_user_workspace_client()
         mock_workspace_client.assert_called_once_with(token=test_token, auth_type="pat")
 
 
 def test_tracing_span_creation():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     with patch("mlflow.start_span") as mock_span:
         mock_span_instance = Mock()
@@ -671,10 +641,10 @@ def test_tracing_span_creation():
 
 def test_tracing_attributes_setting():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
     with patch("mlflow.start_span") as mock_span:
         mock_span_instance = Mock()
@@ -721,36 +691,25 @@ def test_tracing_attributes_setting():
 
 def test_databricks_output_integration():
     # Reset global state before test
-    import mlflow.pyfunc.agent_server
+    import mlflow.genai.agent_server
 
-    mlflow.pyfunc.agent_server._invoke_function = None
-    mlflow.pyfunc.agent_server._stream_function = None
+    mlflow.genai.agent_server._invoke_function = None
+    mlflow.genai.agent_server._stream_function = None
 
-    with (
-        patch("mlflow.start_span") as mock_span,
-        patch("mlflow.pyfunc.agent_server.InMemoryTraceManager") as mock_trace_manager,
-    ):
+    with patch("mlflow.start_span") as mock_span:
         mock_span_instance = Mock()
         mock_span_instance.__enter__ = Mock(return_value=mock_span_instance)
         mock_span_instance.__exit__ = Mock(return_value=None)
         mock_span_instance.trace_id = "test-trace-id"
         mock_span.return_value = mock_span_instance
 
-        # Mock trace manager
-        mock_trace = Mock()
-        mock_trace.to_mlflow_trace.return_value.to_dict.return_value = {"trace": "data"}
-        mock_trace_manager.get_instance.return_value.get_trace.return_value.__enter__ = Mock(
-            return_value=mock_trace
-        )
-        mock_trace_manager.get_instance.return_value.get_trace.return_value.__exit__ = Mock(
-            return_value=None
-        )
-
         @invoke()
         def test_function(request):
             return {"result": "success"}
 
         server = AgentServer()
+        # Mock the _get_databricks_output method to return serializable data
+        server._get_databricks_output = Mock(return_value={"trace": "data"})
         client = TestClient(server.app)
 
         request_data = {"test": "data", "databricks_options": {"return_trace": True}}

@@ -4,7 +4,8 @@ import subprocess
 from contextvars import ContextVar
 
 import mlflow
-from mlflow.tracking.fluent import _set_active_model
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id, _set_active_model
 
 # Context-isolated storage for request headers
 # ensuring thread-safe access across async execution contexts
@@ -25,16 +26,6 @@ def get_request_headers() -> dict[str, str]:
     return _request_headers.get()
 
 
-def get_header(name: str, default: str | None = None) -> str | None:
-    """Get a specific header value from the current context"""
-    return get_request_headers().get(name, default)
-
-
-def get_forwarded_access_token() -> str | None:
-    """Get the x-forwarded-access-token from the current request context."""
-    return get_header("x-forwarded-access-token")
-
-
 def get_user_workspace_client():
     """Get a workspace client with the token from the
     `x-forwarded-access-token` header for user authentication
@@ -43,18 +34,19 @@ def get_user_workspace_client():
         from databricks.sdk import WorkspaceClient
     except ImportError:
         raise ImportError("databricks-sdk is required to use user authentication")
-    return WorkspaceClient(token=get_forwarded_access_token(), auth_type="pat")
+    access_token = get_request_headers().get("x-forwarded-access-token")
+    return WorkspaceClient(token=access_token, auth_type="pat")
 
 
 def setup_mlflow() -> None:
     """Initialize MLflow tracking and set active model."""
-    experiment_id = os.getenv("MLFLOW_EXPERIMENT_ID")
+    experiment_id = _get_experiment_id()
     assert experiment_id is not None, (
         "You must set MLFLOW_EXPERIMENT_ID in your environment to enable MLflow git-based logging "
-        "and real time tracing. Refer to the README for more info."
+        "and real time tracing."
     )
 
-    mlflow.set_tracking_uri(os.getenv("MLFLOW_TRACKING_URI"))
+    mlflow.set_tracking_uri(get_tracking_uri())
     mlflow.set_experiment(experiment_id=experiment_id)
 
     # in a Databricks App, the app name is set in the environment variable DATABRICKS_APP_NAME
