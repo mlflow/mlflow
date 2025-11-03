@@ -1,3 +1,4 @@
+import pytest
 import time
 
 from opentelemetry import trace as otel_trace
@@ -11,6 +12,7 @@ from mlflow.environment_variables import MLFLOW_USE_DEFAULT_TRACER_PROVIDER
 from tests.tracing.helper import get_traces
 
 
+@pytest.mark.repeat(10)
 def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
@@ -38,8 +40,8 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
 
             # In windows, timestamp granularity is 100ns so adding a small delay to ensure
             # the order of spans timestamp is deterministic.
-            time.sleep(0.1)
-        time.sleep(0.1)
+            # time.sleep(0.1)
+        # time.sleep(0.1)
 
         root_span.set_status(otel_trace.Status(otel_trace.StatusCode.OK))
 
@@ -76,6 +78,7 @@ def test_mlflow_and_opentelemetry_unified_tracing_with_otel_root_span(monkeypatc
     assert spans[2].status.status_code == SpanStatusCode.OK
 
 
+@pytest.mark.repeat(10)
 def test_mlflow_and_opentelemetry_unified_tracing_with_mlflow_root_span(monkeypatch):
     monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "false")
 
