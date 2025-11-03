@@ -2,7 +2,6 @@ import asyncio
 import base64
 import inspect
 import random
-import time
 from dataclasses import asdict
 from pathlib import Path
 from typing import Any
@@ -605,18 +604,10 @@ def test_trace_chat_engine(multi_index, is_stream, is_async):
         # https://github.com/run-llama/llama_index/blob/1e02c7a2324838f7bd5a52c811d35c30dc6a6bd2/llama-index-core/llama_index/core/chat_engine/condense_plus_context.py#L40
         assert '{"role": "user", "content": "Hello"}' in response.response
 
-    # Wait for the trace to be logged
-    try_times = 0
-    while try_times < 3:
-        # Since chat engine is a complex agent-based system, it is challenging to strictly
-        # validate the trace structure and attributes. The detailed validation is done in
-        # other tests for individual components.
-        traces = get_traces()
-        if len(traces) != 1:
-            time.sleep(1)
-            try_times += 1
-        else:
-            break
+    # Since chat engine is a complex agent-based system, it is challenging to strictly
+    # validate the trace structure and attributes. The detailed validation is done in
+    # other tests for individual components.
+    traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == TraceStatus.OK
     root_span = traces[0].data.spans[0]

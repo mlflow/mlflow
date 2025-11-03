@@ -174,14 +174,15 @@ def update_token_usage(
         Updated token usage dictionary
     """
     if isinstance(current_token_usage, str):
-        current_token_usage = json.loads(current_token_usage)
+        current_token_usage = json.loads(current_token_usage) or {}
     if isinstance(new_token_usage, str):
-        new_token_usage = json.loads(new_token_usage)
-    for key in [
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-    ]:
-        current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage[key]
+        new_token_usage = json.loads(new_token_usage) or {}
+    if new_token_usage:
+        for key in [
+            TokenUsageKey.INPUT_TOKENS,
+            TokenUsageKey.OUTPUT_TOKENS,
+            TokenUsageKey.TOTAL_TOKENS,
+        ]:
+            current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(key, 0)
 
     return current_token_usage
