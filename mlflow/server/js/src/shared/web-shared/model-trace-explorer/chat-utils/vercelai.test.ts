@@ -100,7 +100,7 @@ const MOCK_VERCEL_AI_RESPONSE_MESSAGES_OUTPUT = {
 describe('normalizeConversation - Vercel AI', () => {
   describe('Input formats', () => {
     it('should handle Vercel AI messages input with content array', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_MESSAGES_INPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_MESSAGES_INPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'user',
@@ -114,7 +114,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI prompt input', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_PROMPT_INPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_PROMPT_INPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'user',
@@ -124,7 +124,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI input with string content', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_STRING_CONTENT_INPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_STRING_CONTENT_INPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'user',
@@ -134,7 +134,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI input with image content', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_IMAGE_INPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_IMAGE_INPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'user',
@@ -146,7 +146,7 @@ describe('normalizeConversation - Vercel AI', () => {
 
   describe('Output formats', () => {
     it('should handle Vercel AI output with text', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_TEXT_OUTPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_TEXT_OUTPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'assistant',
@@ -156,7 +156,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI output with response.text', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_TEXT_OUTPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_TEXT_OUTPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'assistant',
@@ -166,7 +166,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI output with messages', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_MESSAGES_OUTPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_MESSAGES_OUTPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'assistant',
@@ -176,7 +176,7 @@ describe('normalizeConversation - Vercel AI', () => {
     });
 
     it('should handle Vercel AI output with response.messages', () => {
-      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_MESSAGES_OUTPUT, 'vercelai');
+      const result = normalizeConversation(MOCK_VERCEL_AI_RESPONSE_MESSAGES_OUTPUT, 'vercel_ai');
       expect(result).toEqual([
         expect.objectContaining({
           role: 'assistant',
@@ -188,15 +188,15 @@ describe('normalizeConversation - Vercel AI', () => {
 
   describe('Edge cases', () => {
     it('should return null for invalid input', () => {
-      expect(normalizeConversation({ invalid: 'data' }, 'vercelai')).toBeNull();
+      expect(normalizeConversation({ invalid: 'data' }, 'vercel_ai')).toBeNull();
     });
 
     it('should return null for null input', () => {
-      expect(normalizeConversation(null, 'vercelai')).toBeNull();
+      expect(normalizeConversation(null, 'vercel_ai')).toBeNull();
     });
 
     it('should return null for undefined input', () => {
-      expect(normalizeConversation(undefined, 'vercelai')).toBeNull();
+      expect(normalizeConversation(undefined, 'vercel_ai')).toBeNull();
     });
   });
 });
