@@ -1,5 +1,96 @@
 # CHANGELOG
 
+## 3.6.0rc0 (2025-11-03)
+
+MLflow 3.6.0rc0 includes several major features and improvements!
+
+### Major Features
+
+- 🔗 **Full OpenTelemetry Support in OSS Server**: MLflow now offers comprehensive OpenTelemetry integration, allowing you to use OpenTelemetry and MLflow SDK together for constructing unified traces with full OTLP span ingestion. (#18540, #18532, #18357, @B-Step62, @serena-ruan)
+- 💬 **Session-level View in Trace UI**: New chat sessions tab provides a dedicated view for organizing and analyzing related traces at the session level, making it easier to track conversational workflows. (#18594, @daniellok-db)
+- 🧭 **New experiment tab bar**: The experiment tab navigation bar has been moved from the top of the page to the left side. As MLflow continues to grow, this layout provides more room to add new tabs while keeping everything easy to find. (#18594, @daniellok-db)
+- 🚀 **Vercel AI Support in TypeScript Tracing SDK**: Auto-tracing support for Vercel AI SDK in TypeScript, expanding MLflow's observability capabilities across popular JavaScript/TypeScript frameworks. (#18402, @B-Step62)
+- 💰 **Tracking Judge Cost and Traces**: Comprehensive tracking of LLM judge evaluation costs and traces, providing visibility into evaluation expenses and performance with automatic cost calculation and rendering. (#18481, #18484, @B-Step62)
+- ⚙️ **Agent Server**: New agent server infrastructure for managing and deploying scoring agents with enhanced orchestration capabilities. (#18596, @bbqiu)
+
+### Breaking Changes and deprecations
+
+- [Flavors] Deprecate promptflow flavor (#18597, @copilot-swe-agent)
+- [Flavors] Deprecate pmdarima and diviner flavors (#18577, @copilot-swe-agent)
+- [Tracing] Drop span name deduplication (#18531, @serena-ruan)
+
+### Features
+
+- [Tracing] Add RLIKE operator support for trace search (#18591, @serena-ruan)
+- [Tracing] Anthropic TypeScript SDK support (#18189, @joelrobin18)
+- [Tracing] Support searching by span details for traces in OSS MLflow server (#17918, @serena-ruan)
+- [Tracing] Minor clean up for the trace summary view (#18436, @B-Step62)
+- [Tracing] Move fastmcp to optional mcp extra (#18422, @harupy)
+- [Evaluation] Frontend adjustments for handling judge traces (#18485, @B-Step62)
+- [Evaluation] Add `search_traces` tool for agentic judge (#18228, @dbrx-euirim)
+- [Evaluation] Add support for profile usage in Databricks Agents dataset API operations (#18431, @BenWilson2)
+- [Evaluation] Add description property to Scorer interface (#18383, @alkispoly-db)
+- [Evaluation] Add mlflow scorers register-llm-judge CLI command (#18330, @alkispoly-db)
+- [Evaluation] Allow passing empty scorer list for manual result comparison (#18265, @B-Step62)
+- [Evaluation] Add CLI command to list registered scorers by experiment (#18255, @alkispoly-db)
+- [Evaluation] Log assessments to DSPy eval traces (#18136, @B-Step62)
+- [Evaluation] Job backend: Support creating virtual python environment for job execution (#18111, @WeichenXu123)
+- [Evaluation] Add search_traces tool for agentic judge (#18228, @dbrx-euirim)
+- [Evaluation] Add `mlflow traces eval` CLI command for evaluating traces using genai scorers. (#18069, @alkispoly-db)
+- [Evaluation] Add scorer_id to return objects (#18231, @BenWilson2)
+- [Models] Support Langchain 1.x (#18490, @BenWilson2)
+- [Models] Use UBJSON format as default for XGBoost models (#18420, @harupy)
+- [Tracking] Make PyTorch Lightning autologging support logging model signature (#18510, @WeichenXu123)
+- [Tracking] Make `mlflow.pytorch` pyfunc loader support PyTorch forecasting model (#18428, @WeichenXu123)
+- [Tracking] Add support for using the same DB for tracking and auth (#18384, @BenWilson2)
+- [Model Registry] Add deprecation warnings for filesystem backends (#18524, @harupy)
+- [Model Registry] Allow for skipping pip installation while packing environment for model serving (#18448, @juntai-zheng)
+- [AI Gateway] Make OpenAI provider support streamed function calling response (#18367, @WeichenXu123)
+- [AI Gateway] Make Gemini provider support function calling (#18328, @WeichenXu123)
+- [AI Gateway] Make Anthropic provider support function calling (#18294, @WeichenXu123)
+- [AI Gateway] Add traffic route to multiple endpoints (#18064, @WeichenXu123)
+- [UI] Add Sticky Header to CodeBlock in MLflow/DOCS Code Examples (#18508, @PavithraNelluri)
+- [Deployments] Add configuration option for long-running deployments client requests (#18363, @BenWilson2)
+- [Build] Bump pydantic minimum version to 2.0.0 in skinny and tracing requirements (#18138, @copilot-swe-agent)
+
+### Bug Fixes
+
+- [Evaluation] Fix plugin incompatibility with circular import (#18599, @BenWilson2)
+- [Evaluation] Remove the ability to register or load custom scorers (#18493, @BenWilson2)
+- [Evaluation] Add specificity to the system prompt for metrics (#18460, @BenWilson2)
+- [Evaluation] Support evaluating traces and linking to run in OSS (#18415, @B-Step62)
+- [Evaluation] Reuse traces in genai.evaluate when endpoint uses dual-write mode (#18403, @harupy)
+- [Evaluation] Adjust util for remote tracking server declaration (#18411, @BenWilson2)
+- [Evaluation] Fix evaluation runs table link to point to traces tab instead of overview (#18332, @ritoban23)
+- [Evaluation] Fix job store SQL engine race condition (#18233, @WeichenXu123)
+- [Evaluation] Add atomicity to job_start API (#18226, @BenWilson2)
+- [Evaluation] Eager launch huey consumer to prevent Huey race condition (#18220, @WeichenXu123)
+- [Tracing] Paginate `delete_traces` calls to Databricks MLflow server (#18563, @dbrx-euirim)
+- [Tracking] Enhance SqlAlchemyStore to include model outputs in run search results (#18568, @TomeHirata)
+- [Tracking] Add validation checks for search runs (#18487, @BenWilson2)
+- [Tracking] Fix: Update run to use the new run name when resuming an existing run (#18511, @WeichenXu123)
+- [Tracking] Disable autologging for PyTorch forecasting model predict method (#18444, @WeichenXu123)
+- [UI] Fix search filter for metrics/params with spaces in names (#18503, @serena-ruan)
+- [UI] Fix assessment editing UI resetting field values when selecting name (#18474, @serena-ruan)
+- [UI] Remove X-Frame-Options for notebook trace renderer (#18446, @TomeHirata)
+- [Models] Fix streaming (#18337, @BenWilson2)
+- [Artifacts] Fix handling of `pathlib.Path` in `validation.py` (#16660, @benglewis)
+- [Prompts] Fix typo in gepa version (#18423, @TomeHirata)
+
+### Documentation Updates
+
+- [Docs] Add basic doc for OpenTelemetry support (#18623, @B-Step62)
+- [Docs] Clarify datasets package requirement (#18610, @BenWilson2)
+- [Docs] Deprecate v2 eval (#18470, @B-Step62)
+- [Docs] Add Sticky Header to CodeBlock in MLflow/DOCS Code Examples (#18508, @PavithraNelluri)
+- [Docs] Clean up getting started for classical ML/DL (#18379, @B-Step62)
+- [Docs] AI Gateway revamp: Update documentation (#18397, @WeichenXu123)
+- [Docs] Fix documentation: update deprecated pandas fillna usage in classic-ml tutorial (#17927, @Kalindu-C)
+
+### Small Bug Fixes and Documentation Updates
+
+#18631, #18629, #18605, #18426, #18603, #18526, #18587, #18583, #18564, #18536, #18544, #18567, #18565, #18533, #18535, #18501, #18498, #18368, #18471, #18476, #18356, #18214, #17975, @serena-ruan; #18600, #18604, #18602, #18566, #18549, #18538, #18517, #15849, #18492, #18468, #18475, #18469, #18467, #18452, #18449, #18450, #18447, #18442, #18327, #18395, #18418, #18350, #18278, #18242, #18234, #18203, #18175, #18210, @harupy; #18625, #18424, #18028, @daniellok-db; #18616, #18615, #18607, #18598, #18588, #18586, #18584, #18572, #18580, #18571, #18554, #18553, #18552, #18551, #18548, #18546, #18528, #18527, #18525, #18521, #18520, #18515, #18519, #18518, #18506, #18507, #18505, #18502, #18495, #18494, #18472, #18463, #18464, #18462, #18443, #18440, #18399, #18394, #18393, #18392, #18390, #18389, #18380, #18376, #18378, #18377, #18366, #18362, #18361, #18343, #18340, #18318, #18311, #18307, #18269, #18268, #18261, #18260, #18259, #18258, #18257, #18256, #18253, #18254, #18252, #18250, #18243, #18238, #18213, #18206, #18198, #18184, #18179, @copilot-swe-agent; #18578, #18569, @TomeHirata; #18575, @dbrx-euirim; #18429, #18530, #18416, #18401, #18400, #18465, #18453, #18414, #18421, @B-Step62; #18570, #18116, #18360, #18351, @WeichenXu123; #18513, #18461, #18430, #18336, @BenWilson2; #18459, @smoorjani; #18488, @raymondzhou-db; #18334, @NJAHNAVI2907; #17248, @joelrobin18
+
 ## 3.5.1 (2025-10-21)
 
 MLflow 3.5.1 is a patch release that includes several bug fixes and improvements.
