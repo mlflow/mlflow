@@ -678,7 +678,6 @@ class LiveSpan(Span):
         trace_id: str | None = None,
         experiment_id: str | None = None,
         otel_trace_id: str | None = None,
-        end_trace: bool = True,
     ) -> "LiveSpan":
         """
         Create a new LiveSpan object from the given immutable span by
@@ -699,7 +698,6 @@ class LiveSpan(Span):
                 experiment ID will be set to the current experiment ID.
             otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
                 If not specified, the newly generated trace ID will be used.
-            end_trace: Whether to end the trace after cloning the span. Default is True.
 
         Returns:
             The new LiveSpan object with the same state as the original span.
@@ -749,9 +747,6 @@ class LiveSpan(Span):
             # Override trace flag as if it is sampled within current context.
             trace_flags=TraceFlags(TraceFlags.SAMPLED),
         )
-
-        if end_trace:
-            clone_span.end(end_time_ns=span.end_time_ns)
 
         return clone_span
 

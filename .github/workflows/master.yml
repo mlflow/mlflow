@@ -83,6 +83,8 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+          # Pin numpy<2 for pmdarima compatibility (https://github.com/alkaline-ml/pmdarima/issues/577)
+          pip install "numpy<2"
           # Ensure `databricks-connect` and `databricks-agents` are not installed
           pip uninstall -y databricks-connect databricks-agents
           pip install --no-deps --force-reinstall pyspark
@@ -200,17 +202,15 @@ jobs:
       - uses: ./.github/actions/cache-pip
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          source .venv/bin/activate
-          source ./dev/install-common-deps.sh --ml
-          # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras uvicorn
+          uv sync --extra extras
+          uv pip install \
+            -r requirements/test-requirements.txt \
+            -r requirements/extra-ml-requirements.txt
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          source .venv/bin/activate
-          pytest \
+          uv run --no-sync pytest \
             tests/tracking/fluent/test_fluent_autolog.py \
             tests/autologging
 
@@ -265,7 +265,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra jobs --extra genai
+          uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
@@ -335,7 +335,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra gateway --extra jobs
+          uv sync --extra extras --extra gateway
           uv pip install \
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'
@@ -402,4 +402,5 @@ jobs:
             --ignore=tests/sagemaker \
             --ignore=tests/gateway \
             --ignore=tests/server/auth \
+            --ignore=tests/data/test_spark_dataset.py \
             tests

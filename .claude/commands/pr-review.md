@@ -1,5 +1,6 @@
 ---
 allowed-tools: Read, Skill, Bash, Grep, Glob, mcp__review__fetch_diff, mcp__review__add_pr_review_comment
+argument-hint: [extra_context]
 description: Review a GitHub pull request and add review comments for issues found
 ---
 
@@ -10,7 +11,20 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 ## Usage
 
 ```
-/pr-review
+/pr-review [extra_context]
+```
+
+## Arguments
+
+- `extra_context` (optional): Additional instructions or filtering context (e.g., focus on specific issues or areas)
+
+## Examples
+
+```
+/pr-review                                    # Review all changes
+/pr-review Please focus on security issues    # Focus on security
+/pr-review Only review Python files           # Filter specific file types
+/pr-review Check for performance issues       # Focus on specific concern
 ```
 
 ## Instructions
@@ -19,8 +33,10 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 
 - First check for environment variables:
   - If `PR_NUMBER` and `GITHUB_REPOSITORY` are set, parse `GITHUB_REPOSITORY` as `owner/repo` and use `PR_NUMBER`
+  - Then use `gh pr view <PR_NUMBER> --repo <owner/repo> --json 'title,body'` to retrieve the PR title and description
 - Otherwise:
-  - Use `gh pr view --json url -q '.url'` to get PR info for the current branch and parse to extract owner, repo, and PR number
+  - Use `gh pr view --json 'title,body,url,number'` to get PR info for the current branch
+  - Parse the output to extract owner, repo, PR number, title, and description
 - If neither method works, inform the user that no PR was found and exit
 
 ### 2. Fetch PR Diff
@@ -29,6 +45,8 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 - **If reviewing Python files**: Read `dev/guides/python.md` and create a checklist of all style rules with their exceptions before proceeding
 
 ### 3. Review Changed Lines
+
+**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas)
 
 Carefully examine **only the changed lines** (added or modified) in the diff for:
 

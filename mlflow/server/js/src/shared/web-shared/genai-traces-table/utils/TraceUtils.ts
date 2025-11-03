@@ -15,6 +15,10 @@ import type {
   RunEvaluationTracesRetrievalChunk,
   TraceInfoV3,
 } from '../types';
+import {
+  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
+  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
+} from '../../model-trace-explorer/constants';
 
 // This is the key used by the eval harness to record
 // which chunk a given retrieval assessment corresponds to.
@@ -59,6 +63,54 @@ export const getTracesTagKeys = (traces: TraceInfoV3[]): string[] => {
       })
       .flat(),
   );
+};
+
+/**
+ * Filter out the traces that are not created by the given evaluation run.
+ *
+ * NB: This utility is also used for the general trace view in a Run Detail page.
+ *
+ * @param traces - The traces to filter.
+ * @param runUuid - The run UUID to filter by.
+ * @returns The filtered traces.
+ */
+export const filterTracesByAssessmentSourceRunId = (
+  traces: TraceInfoV3[] | undefined,
+  runUuid?: string | null,
+): TraceInfoV3[] | undefined => {
+  if (!traces || !runUuid) {
+    return traces;
+  }
+
+  return traces.reduce<TraceInfoV3[]>((acc, trace) => {
+    const assessments = trace.assessments || [];
+
+    // Filter assessments to those that are created by this evaluation run.
+    const filteredAssessments = assessments.filter((assessment) => {
+      const sourceRunId = assessment.metadata?.[MLFLOW_ASSESSMENT_SOURCE_RUN_ID];
+      return !sourceRunId || sourceRunId === runUuid;
+    });
+
+    // Filter out the scorer traces.
+    const sourceScorerName = trace.tags?.[MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG];
+    if (sourceScorerName) {
+      return acc;
+    }
+
+    // Early return to avoid the overhead of copying the trace and assessments below.
+    if (filteredAssessments.length === assessments.length) {
+      acc.push(trace);
+      return acc;
+    }
+
+    // Render only the assessments that are created by this evaluation run. This is to avoid showing
+    // feedbacks logged from other runs in the evaluation results.
+    acc.push({
+      ...trace,
+      assessments: filteredAssessments,
+    });
+    return acc;
+  }, []);
 };
 
 /**

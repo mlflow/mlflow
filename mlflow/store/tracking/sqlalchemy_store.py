@@ -1553,17 +1553,23 @@ class SqlAlchemyStore(AbstractStore):
             runs = [run.to_mlflow_entity() for run in queried_runs]
             run_ids = [run.info.run_id for run in runs]
 
-            # add inputs to runs
+            # add inputs and outputs to runs
             inputs = self._get_run_inputs(run_uuids=run_ids, session=session)
-            runs_with_inputs = []
+            model_outputs_map = self._get_model_outputs_bulk(run_ids=run_ids, session=session)
+            runs_with_inputs_outputs = []
             for i, run in enumerate(runs):
-                runs_with_inputs.append(
-                    Run(run.info, run.data, RunInputs(dataset_inputs=inputs[i]))
+                runs_with_inputs_outputs.append(
+                    Run(
+                        run.info,
+                        run.data,
+                        RunInputs(dataset_inputs=inputs[i]),
+                        RunOutputs(model_outputs_map[run.info.run_id]),
+                    )
                 )
 
-            next_page_token = compute_next_token(len(runs_with_inputs))
+            next_page_token = compute_next_token(len(runs_with_inputs_outputs))
 
-        return runs_with_inputs, next_page_token
+        return runs_with_inputs_outputs, next_page_token
 
     def log_batch(self, run_id, metrics, params, tags):
         _validate_run_id(run_id)
@@ -1818,6 +1824,34 @@ class SqlAlchemyStore(AbstractStore):
             )
             .all()
         ]
+
+    def _get_model_outputs_bulk(
+        self,
+        run_ids: list[str],
+        session: sqlalchemy.orm.Session,
+    ) -> dict[str, list[LoggedModelOutput]]:
+        """
+        Fetch model outputs for multiple runs in a single query.
+        Returns a dict mapping run_id to list of LoggedModelOutput.
+        """
+        outputs = (
+            session.query(SqlInput)
+            .filter(
+                SqlInput.source_type == "RUN_OUTPUT",
+                SqlInput.source_id.in_(run_ids),
+                SqlInput.destination_type == "MODEL_OUTPUT",
+            )
+            .all()
+        )
+
+        outputs_per_run = defaultdict(list)
+        for output in outputs:
+            outputs_per_run[output.source_id].append(
+                LoggedModelOutput(model_id=output.destination_id, step=output.step)
+            )
+
+        # Ensure all run_ids are present in the result, even if they have no outputs
+        return {run_id: outputs_per_run.get(run_id, []) for run_id in run_ids}
 
     #######################################################################################
     # Logged models
@@ -3484,7 +3518,7 @@ class SqlAlchemyStore(AbstractStore):
                             f"Trace {trace_info.trace_id} is not fully exported yet, "
                             f"expecting {num_spans} spans but got {len(sql_spans)}"
                         )
-                        return []
+                        continue
 
                 spans = [Span.from_dict(json.loads(sql_span.content)) for sql_span in sql_spans]
                 # TODO: extract inputs/outputs if not existing
@@ -4709,7 +4743,13 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
         comparator = sql_statement.get("comparator").upper()
 
         if SearchTraceUtils.is_attribute(key_type, key_name, comparator):
-            attribute = getattr(SqlTraceInfo, key_name)
+            if key_name in ("end_time_ms", "end_time"):
+                # end_time = timestamp_ms + execution_time_ms
+                attribute = SqlTraceInfo.timestamp_ms + func.coalesce(
+                    SqlTraceInfo.execution_time_ms, 0
+                )
+            else:
+                attribute = getattr(SqlTraceInfo, key_name)
             attr_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                 attribute, value
             )
@@ -4732,12 +4772,20 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):
                 # Spans have specialized columns (name, type, status) unlike tags/metadata
                 # which have key-value structure, so we need specialized handling
-                from mlflow.store.tracking.dbmodels.models import SqlSpan
 
-                span_column = getattr(SqlSpan, key_name)
-                val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                    span_column, value
-                )
+                # Handle span.attributes.<attribute> format
+                if key_name.startswith("attributes."):
+                    attr_name = key_name[len("attributes.") :]
+                    # Search within the content JSON for the specific attribute
+                    # Using JSON extraction with LIKE for broad database compatibility
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"{value}%'
+                    )
+                else:
+                    span_column = getattr(SqlSpan, key_name)
+                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                        span_column, value
+                    )
 
                 span_subquery = (
                     session.query(SqlSpan.trace_id.label("request_id"))
@@ -4746,6 +4794,23 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                     .subquery()
                 )
                 span_filters.append(span_subquery)
+                continue
+            elif SearchTraceUtils.is_assessment(key_type, key_name, comparator):
+                # Create subquery to find traces with matching feedback
+                # Filter by feedback name and check the value
+                feedback_subquery = (
+                    session.query(SqlAssessments.trace_id.label("request_id"))
+                    .filter(
+                        SqlAssessments.assessment_type == key_type,
+                        SqlAssessments.name == key_name,
+                        SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlAssessments.value, value
+                        ),
+                    )
+                    .distinct()
+                    .subquery()
+                )
+                span_filters.append(feedback_subquery)
                 continue
             else:
                 raise MlflowException(

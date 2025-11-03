@@ -9,6 +9,7 @@ import shutil
 import time
 from pathlib import Path
 from typing import Iterator
+from unittest import mock
 
 import pytest
 import requests
@@ -21,7 +22,7 @@ from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
 from opentelemetry.proto.trace.v1.trace_pb2 import Span as OTelProtoSpan
 from opentelemetry.sdk.resources import Resource as OTelSDKResource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, SimpleSpanProcessor
 from opentelemetry.util._once import Once
 
 import mlflow
@@ -336,3 +337,291 @@ def test_empty_resource_spans_returns_400(mlflow_server: str):
 
     assert response.status_code == 400
     assert "no spans found" in response.text
+
+
+def test_batch_span_processor_with_multiple_traces(mlflow_server: str):
+    """
+    Test that BatchSpanProcessor can send spans from multiple traces in a single request.
+    This verifies the server-side grouping by trace_id functionality.
+    """
+    mlflow.set_tracking_uri(mlflow_server)
+
+    experiment = mlflow.set_experiment("otel-batch-test-experiment")
+    experiment_id = experiment.experiment_id
+
+    resource = OTelSDKResource.create({"service.name": "test-batch-service"})
+    tracer_provider = TracerProvider(resource=resource)
+
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,
+    )
+
+    # Use BatchSpanProcessor to batch spans from multiple traces
+    span_processor = BatchSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
+
+    tracer = otel_trace.get_tracer(__name__)
+
+    # Create multiple traces with spans
+    trace_ids = []
+    for i in range(3):
+        with tracer.start_as_current_span(f"batch-test-span-{i}") as span:
+            span.set_attribute("test.batch.index", i)
+            otel_trace_id = span.get_span_context().trace_id
+            trace_ids.append(otel_trace_id)
+            assert otel_trace_id != 0
+
+    # Force flush to send all batched spans
+    span_processor.force_flush()
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 3
+
+    # Verify all expected trace IDs are present
+    expected_trace_ids = {f"tr-{encode_trace_id(tid)}" for tid in trace_ids}
+    actual_trace_ids = {trace.info.trace_id for trace in traces}
+
+    assert expected_trace_ids == actual_trace_ids
+
+
+def test_multiple_traces_in_single_request(mlflow_server: str):
+    """
+    Test that a single request containing spans from multiple traces is handled correctly.
+    This simulates what BatchSpanProcessor does internally.
+    """
+
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-multi-trace-test")
+    experiment_id = experiment.experiment_id
+
+    # Create protobuf request with spans from 3 different traces
+    request = ExportTraceServiceRequest()
+
+    for trace_num in range(3):
+        # Create a span with unique trace_id
+        span = OTelProtoSpan()
+        trace_id_hex = f"{trace_num:016x}" + "0" * 16
+        span.trace_id = bytes.fromhex(trace_id_hex)
+        span.span_id = bytes.fromhex(f"{trace_num:08x}" + "0" * 8)
+        span.name = f"multi-trace-span-{trace_num}"
+        span.start_time_unix_nano = 1000000000 + trace_num * 1000
+        span.end_time_unix_nano = 2000000000 + trace_num * 1000
+
+        scope = InstrumentationScope()
+        scope.name = "test-scope"
+
+        scope_spans = ScopeSpans()
+        scope_spans.scope.CopyFrom(scope)
+        scope_spans.spans.append(span)
+
+        resource = Resource()
+        resource_spans = ResourceSpans()
+        resource_spans.resource.CopyFrom(resource)
+        resource_spans.scope_spans.append(scope_spans)
+
+        request.resource_spans.append(resource_spans)
+
+    # Send the request with multiple traces
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 3
+
+
+def test_logging_many_traces_in_single_request(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-many-traces-test")
+    experiment_id = experiment.experiment_id
+
+    # Create a request with 15 different traces (exceeds the 10 thread pool limit)
+    request = ExportTraceServiceRequest()
+    num_traces = 15
+
+    for trace_num in range(num_traces):
+        span = OTelProtoSpan()
+        trace_id_hex = f"{trace_num + 1000:016x}" + "0" * 16
+        span.trace_id = bytes.fromhex(trace_id_hex)
+        span.span_id = bytes.fromhex(f"{trace_num + 1000:08x}" + "0" * 8)
+        span.name = f"many-traces-test-span-{trace_num}"
+        span.start_time_unix_nano = 1000000000 + trace_num * 1000
+        span.end_time_unix_nano = 2000000000 + trace_num * 1000
+
+        scope = InstrumentationScope()
+        scope.name = "many-traces-test-scope"
+
+        scope_spans = ScopeSpans()
+        scope_spans.scope.CopyFrom(scope)
+        scope_spans.spans.append(span)
+
+        resource = Resource()
+        resource_spans = ResourceSpans()
+        resource_spans.resource.CopyFrom(resource)
+        resource_spans.scope_spans.append(scope_spans)
+
+        request.resource_spans.append(resource_spans)
+
+    # Send the request and measure response time
+    requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == num_traces
+
+
+def test_mixed_trace_spans_in_single_request(mlflow_server: str):
+    """
+    Test that multiple spans from the same trace, mixed with spans from other traces,
+    are grouped and logged correctly.
+    """
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-mixed-test")
+    experiment_id = experiment.experiment_id
+
+    request = ExportTraceServiceRequest()
+
+    # Create 2 spans for trace A, 1 span for trace B, 2 spans for trace C
+    trace_configs = [
+        ("A", 0, 2),  # trace A with 2 spans
+        ("B", 1, 1),  # trace B with 1 span
+        ("C", 2, 2),  # trace C with 2 spans
+    ]
+
+    for trace_name, trace_id_num, span_count in trace_configs:
+        trace_id_hex = f"{trace_id_num + 2000:016x}" + "0" * 16
+
+        for span_num in range(span_count):
+            span = OTelProtoSpan(
+                trace_id=bytes.fromhex(trace_id_hex),
+                span_id=bytes.fromhex(f"{trace_id_num * 100 + span_num:08x}" + "0" * 8),
+                name=f"mixed-span-{trace_name}-{span_num}",
+                start_time_unix_nano=1000000000 + span_num * 1000,
+                end_time_unix_nano=2000000000 + span_num * 1000,
+            )
+
+            scope = InstrumentationScope(
+                name="mixed-test-scope",
+            )
+
+            scope_spans = ScopeSpans()
+            scope_spans.scope.CopyFrom(scope)
+            scope_spans.spans.append(span)
+
+            resource = Resource()
+            resource_spans = ResourceSpans()
+            resource_spans.resource.CopyFrom(resource)
+            resource_spans.scope_spans.append(scope_spans)
+
+            request.resource_spans.append(resource_spans)
+
+    response = requests.post(
+        f"{mlflow_server}/v1/traces",
+        data=request.SerializeToString(),
+        headers={
+            "Content-Type": "application/x-protobuf",
+            MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+        },
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=True, return_type="list"
+    )
+
+    assert len(traces) == 3
+    span_counts = [len(trace.data.spans) for trace in traces]
+    assert span_counts == [2, 1, 2]
+
+
+def test_error_logging_spans(mlflow_server: str):
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-error-test")
+    experiment_id = experiment.experiment_id
+
+    resource = OTelSDKResource.create({"service.name": "test-batch-service"})
+    tracer_provider = TracerProvider(resource=resource)
+
+    exporter = OTLPSpanExporter(
+        endpoint=f"{mlflow_server}/v1/traces",
+        headers={MLFLOW_EXPERIMENT_ID_HEADER: experiment_id},
+        timeout=10,
+    )
+
+    # Use BatchSpanProcessor to batch spans from multiple traces
+    span_processor = BatchSpanProcessor(exporter)
+    tracer_provider.add_span_processor(span_processor)
+
+    # Reset the global tracer provider
+    otel_trace._TRACER_PROVIDER_SET_ONCE = Once()
+    otel_trace._TRACER_PROVIDER = None
+    otel_trace.set_tracer_provider(tracer_provider)
+
+    tracer = otel_trace.get_tracer(__name__)
+
+    original_log_spans = SqlAlchemyStore.log_spans
+    call_count = {"count": 0}
+
+    def mock_log_spans(self, *args, **kwargs):
+        if call_count["count"] == 0:
+            call_count["count"] += 1
+            raise Exception("test_error")
+        else:
+            return original_log_spans(self, *args, **kwargs)
+
+    with (
+        mock.patch.object(SqlAlchemyStore, "log_spans", mock_log_spans),
+        mock.patch(
+            "opentelemetry.exporter.otlp.proto.http.trace_exporter._logger.error"
+        ) as mock_error,
+    ):
+        for _ in range(2):
+            with tracer.start_as_current_span("batch-test-span-0"):
+                pass
+
+        span_processor.force_flush()
+
+        assert any(
+            "Failed to log OpenTelemetry spans" in error[0][2]
+            for error in mock_error.call_args_list
+        )
+        assert any("test_error" in error[0][2] for error in mock_error.call_args_list)
+
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], include_spans=False, return_type="list"
+    )
+
+    assert len(traces) == 1
