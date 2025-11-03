@@ -233,7 +233,7 @@ semantic_kernel:
 
   autologging:
     minimum: "1.34.0"
-    maximum: "1.37.0"
+    maximum: "1.37.1"
     requirements:
       ">= 1.34.0": [
           "pydantic>=2.0,<2.12",
@@ -445,13 +445,13 @@ paddle:
     pip_release: "paddlepaddle"
   models:
     minimum: "2.6.2"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     requirements:
     run: |
       pytest tests/paddle/test_paddle_model_export.py
   autologging:
     minimum: "2.6.2"
-    maximum: "3.2.0"
+    maximum: "3.2.1"
     requirements:
     run: |
       pytest tests/paddle/test_paddle_autolog.py
@@ -592,14 +592,14 @@ dspy:
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.5.22"
+    minimum: "2.5.23"
     maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
-    minimum: "2.5.22"
+    minimum: "2.5.23"
     maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["openai"]
@@ -616,7 +616,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.3"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -658,7 +658,7 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.3"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -700,8 +700,8 @@ langgraph:
       pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.2.43"
-    maximum: "0.6.10"
+    minimum: "0.2.45"
+    maximum: "1.0.2"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -717,8 +717,8 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.2.43"
-    maximum: "0.6.10"
+    minimum: "0.2.45"
+    maximum: "1.0.2"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -743,8 +743,8 @@ llama_index:
       pip install git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
-    minimum: "0.11.21"
-    maximum: "0.14.4"
+    minimum: "0.11.22"
+    maximum: "0.14.7"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -761,8 +761,8 @@ llama_index:
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
-    minimum: "0.11.21"
-    maximum: "0.14.4"
+    minimum: "0.11.22"
+    maximum: "0.14.7"
     requirements:
       ">= 0.0.0": [
           # Versions 1.99.2 - 1.99.8 contain regressions:
@@ -842,7 +842,7 @@ anthropic:
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
-    minimum: "0.38.0"
+    minimum: "0.39.0"
     maximum: "0.72.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
@@ -861,7 +861,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
-    maximum: "0.203.1"
+    maximum: "1.3.0"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -877,7 +877,7 @@ agno:
       pip install git+https://github.com/agno-agi/agno.git#subdirectory=libs/agno
   autologging:
     minimum: "1.7.0"
-    maximum: "2.1.4"
+    maximum: "2.2.6"
     requirements:
       ">= 0.0.0": ["anthropic", "yfinance"]
     run: pytest tests/agno
@@ -905,7 +905,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.1.9"
-    maximum: "1.9.0"
+    maximum: "1.9.1"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -1078,7 +1078,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.35.53"
-    maximum: "1.40.62"
+    minimum: "1.35.55"
+    maximum: "1.40.64"
     run: pytest tests/bedrock
     test_tracing_sdk: true
