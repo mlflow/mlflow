@@ -884,7 +884,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "(python_full_version < '3.13' and implementation_name != 'PyPy') or (implementation_name != 'PyPy' and platform_python_implementation != 'PyPy')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -3609,7 +3609,7 @@ requires-dist = [
     { name = "pandas", specifier = "<3" },
     { name = "prometheus-flask-exporter", marker = "extra == 'extras'" },
     { name = "protobuf", specifier = ">=3.12.0,<7" },
-    { name = "pyarrow", specifier = ">=4.0.0,<22" },
+    { name = "pyarrow", specifier = ">=4.0.0,<23" },
     { name = "pyarrow", marker = "extra == 'extras'" },
     { name = "pydantic", specifier = ">=2.0.0,<3" },
     { name = "pysftp", marker = "extra == 'extras'" },
