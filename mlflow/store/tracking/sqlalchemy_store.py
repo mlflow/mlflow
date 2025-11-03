@@ -4783,19 +4783,19 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                         # The JSON structure is: "<attr>": "\"<value>\""
                         # Values are JSON-encoded strings with escaped quotes
                         transformed_value = value
-                        if transformed_value.startswith("^"):
-                            # Remove ^ and match right after the opening quote
+                        if value.startswith("^"):
                             transformed_value = transformed_value[1:]
-                            search_pattern = f'"{attr_name}": "\\\\"{transformed_value}'
+                            search_prefix = '"\\\\"'
                         else:
-                            # Match anywhere in the value
-                            search_pattern = f'"{attr_name}": "\\\\".*{transformed_value}'
-
+                            search_prefix = '"\\\\".*'
                         if value.endswith("$"):
-                            # Remove $ and match before the closing quote
-                            transformed_value = transformed_value.rstrip("$")
-                            search_pattern = f'"{attr_name}": "\\\\".*{transformed_value}\\\\"'
-
+                            transformed_value = transformed_value[:-1]
+                            search_suffix = '\\\\"'
+                        else:
+                            search_suffix = ""
+                        search_pattern = (
+                            f'"{attr_name}": {search_prefix}{transformed_value}{search_suffix}'
+                        )
                         val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
                             SqlSpan.content, search_pattern
                         )

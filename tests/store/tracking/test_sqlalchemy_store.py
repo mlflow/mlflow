@@ -5993,11 +5993,13 @@ def test_search_traces_with_span_name_rlike_filters(store: SqlAlchemyStore):
     trace2_id = "trace2"
     trace3_id = "trace3"
     trace4_id = "trace4"
+    trace5_id = "trace5"
 
     _create_trace(store, trace1_id, exp_id)
     _create_trace(store, trace2_id, exp_id)
     _create_trace(store, trace3_id, exp_id)
     _create_trace(store, trace4_id, exp_id)
+    _create_trace(store, trace5_id, exp_id)
 
     # Create spans with different names
     span1 = create_test_span_with_content(
@@ -6012,11 +6014,15 @@ def test_search_traces_with_span_name_rlike_filters(store: SqlAlchemyStore):
     span4 = create_test_span_with_content(
         trace4_id, name="api_v2_endpoint", span_id=444, span_type="TOOL"
     )
+    span5 = create_test_span_with_content(
+        trace5_id, name="base.query_users", span_id=444, span_type="TOOL"
+    )
 
     store.log_spans(exp_id, [span1])
     store.log_spans(exp_id, [span2])
     store.log_spans(exp_id, [span3])
     store.log_spans(exp_id, [span4])
+    store.log_spans(exp_id, [span5])
 
     # Test: RLIKE with pattern matching llm namespace
     traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "^llm\\."')
@@ -6026,7 +6032,7 @@ def test_search_traces_with_span_name_rlike_filters(store: SqlAlchemyStore):
     # Test: RLIKE with alternation for different operations
     traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "(response|users)"')
     trace_ids = {t.request_id for t in traces}
-    assert trace_ids == {trace1_id, trace3_id}
+    assert trace_ids == {trace1_id, trace3_id, trace5_id}
 
     # Test: RLIKE with version pattern
     traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "v[0-9]+_"')
@@ -6035,6 +6041,16 @@ def test_search_traces_with_span_name_rlike_filters(store: SqlAlchemyStore):
 
     # Test: RLIKE matching embedded substring
     traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "query"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace5_id}
+
+    traces, _ = store.search_traces([exp_id], filter_string='span.name RLIKE "query_users"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace3_id, trace5_id}
+
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='span.name RLIKE "^database\\.query_users$"'
+    )
     assert len(traces) == 1
     assert traces[0].request_id == trace3_id
 
