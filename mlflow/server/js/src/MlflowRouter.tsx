@@ -19,7 +19,6 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
-import { shouldEnableExperimentPageChildRoutes } from './common/utils/FeatureUtils';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
 
 /**
@@ -112,9 +111,6 @@ export const MlflowRouter = ({
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
     () => {
-      if (!shouldEnableExperimentPageChildRoutes()) {
-        return null;
-      }
       return createHashRouter([
         {
           path: '/',
@@ -126,7 +122,7 @@ export const MlflowRouter = ({
     [routes, isDarkTheme, setIsDarkTheme] /* eslint-disable-line react-hooks/exhaustive-deps */,
   );
 
-  if (hashRouter && shouldEnableExperimentPageChildRoutes()) {
+  if (hashRouter) {
     return (
       <React.Suspense fallback={<LegacySkeleton />}>
         <RouterProvider router={hashRouter} />

@@ -12,7 +12,9 @@ import {
   has,
   compact,
   keyBy,
+  isObject,
 } from 'lodash';
+import { useMemo } from 'react';
 
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY } from './ModelTrace.types';
 import type {
@@ -35,6 +37,7 @@ import type {
   Assessment,
   RetrieverDocument,
   ModelTraceEvent,
+  ModelTraceLocation,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import {
@@ -59,6 +62,7 @@ import {
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
 } from './chat-utils';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -1068,4 +1072,106 @@ export const getDefaultActiveTab = (
   }
 
   return 'attributes';
+};
+
+/**
+ * Processes entire model trace and converts any attributes that are in OTEL key-value array format
+ * to a map format.
+ */
+export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
+  const getValue = (value: any) => {
+    if (!isObject(value)) {
+      return value;
+    }
+    if ('string_value' in value) {
+      return value.string_value;
+    }
+    if ('bool_value' in value) {
+      return value.bool_value;
+    }
+    if ('int_value' in value) {
+      return value.int_value;
+    }
+    if ('double_value' in value) {
+      return value.double_value;
+    }
+    return value;
+  };
+
+  const convertAttributes = (attributes: any) => {
+    if (!Array.isArray(attributes)) {
+      return attributes;
+    }
+    return attributes.reduce((acc, attr) => {
+      if (!attr.key || !attr.value) {
+        return acc;
+      }
+      return { ...acc, [attr.key]: getValue(attr.value) };
+    }, {} as Record<string, any>);
+  };
+
+  return {
+    ...modelTraceSpan,
+    ...(modelTraceSpan.attributes && { attributes: convertAttributes(modelTraceSpan.attributes) }),
+    ...(modelTraceSpan.events && {
+      events: modelTraceSpan.events?.map((event) => ({
+        ...event,
+        attributes: convertAttributes(event.attributes),
+      })),
+    }),
+  };
+};
+
+export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
+  const intermediateNodes = useMemo(() => {
+    if (!rootNode) {
+      return [];
+    }
+
+    // Filter to show important nodes as a flat list
+    const nodes = getTimelineTreeNodesList([rootNode]);
+    const intermediateNodes = nodes.filter(isNodeImportant);
+
+    return intermediateNodes;
+  }, [rootNode]);
+
+  return intermediateNodes;
+};
+
+/**
+ * Parses a trace URI of the form `trace:/<location>/<traceId>` into its component parts
+ */
+export const parseTraceUri = (traceUri: string): { location: string; traceId: string } => {
+  const [, location, traceId] = traceUri.split('/');
+  return { location, traceId };
+};
+
+/**
+ * Determines if a trace (by provided info object) supports being queried using V4 API.
+ * For now, only UC_SCHEMA-located traces are supported.
+ */
+export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info']) => {
+  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
+};
+
+export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
+  if (location.type === 'MLFLOW_EXPERIMENT') {
+    return location.mlflow_experiment?.experiment_id;
+  }
+  if (location.type === 'INFERENCE_TABLE') {
+    return location.inference_table?.full_table_name;
+  }
+  if (location.type === 'UC_SCHEMA') {
+    return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
+  }
+  return undefined;
+};
+
+export const createTraceV4LongIdentifier = (modelTraceInfo: ModelTraceInfoV3) => {
+  const serializedLocation = createTraceV4SerializedLocation(modelTraceInfo.trace_location);
+  if (!serializedLocation) {
+    return modelTraceInfo.trace_id;
+  }
+
+  return `trace:/${serializedLocation}/${modelTraceInfo.trace_id}`;
 };
