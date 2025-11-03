@@ -79,10 +79,10 @@ class Location:
     def __add__(self, other: "Location") -> "Location":
         end_lineno = None
         end_col_offset = None
-        if self.end_lineno is not None and other.end_lineno is not None:
-            end_lineno = self.end_lineno + other.end_lineno
-        if self.end_col_offset is not None and other.end_col_offset is not None:
-            end_col_offset = self.end_col_offset + other.end_col_offset
+        if self.end_lineno is not None:
+            end_lineno = self.end_lineno + other.lineno
+        if self.end_col_offset is not None:
+            end_col_offset = self.end_col_offset + other.col_offset
         return Location(
             self.lineno + other.lineno,
             self.col_offset + other.col_offset,

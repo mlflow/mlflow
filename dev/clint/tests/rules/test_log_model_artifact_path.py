@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import lint_file
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 
 
@@ -28,6 +28,6 @@ mlflow.pytorch.log_model(model, artifact_path="pytorch_model")
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, LogModelArtifactPath) for v in violations)
-    assert violations[0].loc == Location(4, 0)
-    assert violations[1].loc == Location(7, 0)
-    assert violations[2].loc == Location(16, 0)
+    assert (violations[0].loc.lineno, violations[0].loc.col_offset) == (4, 0)
+    assert (violations[1].loc.lineno, violations[1].loc.col_offset) == (7, 0)
+    assert (violations[2].loc.lineno, violations[2].loc.col_offset) == (16, 0)
