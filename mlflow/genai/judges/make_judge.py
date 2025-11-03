@@ -116,6 +116,8 @@ def make_judge(
         description: A description of what the judge evaluates
         feedback_value_type: Type specification for the 'value' field in the Feedback
                         object. The judge will use structured outputs to enforce this type.
+                        If unspecified, the feedback value type is determined by the judge.
+                        It is recommended to explicitly specify the type.
 
                         Supported types (matching FeedbackValueType):
 
@@ -181,6 +183,7 @@ def make_judge(
                 name="trace_quality",
                 instructions="Evaluate the overall quality of the {{ trace }} execution.",
                 model="openai:/gpt-4",
+                feedback_value_type=Literal["good", "needs_improvement"],
             )
 
             # Use with search_traces() - evaluate each trace
