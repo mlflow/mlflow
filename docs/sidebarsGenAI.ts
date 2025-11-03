@@ -87,7 +87,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Instrumenting GenAI Apps',
+          label: 'How to Trace Your App/Agents',
           items: [
             {
               type: 'doc',
@@ -100,6 +100,10 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/typescript-sdk',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/app-instrumentation/opentelemetry',
             },
           ],
           link: {
@@ -163,6 +167,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/observe-with-traces/masking',
               label: 'Redacting Sensitive Data',
             },
+            {
+              type: 'doc',
+              id: 'tracing/lightweight-sdk',
+              label: 'Lightweight Tracing SDK Optimized for Production Usage',
+            },
           ],
         },
 
@@ -185,9 +194,23 @@ const sidebarsGenAI: SidebarsConfig = {
           },
         },
         {
-          type: 'doc',
-          id: 'tracing/lightweight-sdk',
-          label: 'Lightweight Tracing SDK',
+          type: 'category',
+          label: 'OpenTelemetry',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/index',
+              label: 'Overview',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/ingest',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/export',
+            },
+          ],
         },
         {
           type: 'doc',
