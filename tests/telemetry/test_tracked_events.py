@@ -771,6 +771,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": "openai"}
     validate_telemetry_record(
@@ -780,6 +781,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     make_judge(
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": None}
     validate_telemetry_record(
