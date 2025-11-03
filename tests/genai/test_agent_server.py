@@ -8,8 +8,10 @@ from fastapi.testclient import TestClient
 from mlflow.genai.agent_server import (
     AgentServer,
     get_invoke_function,
+    get_request_headers,
     get_stream_function,
     invoke,
+    set_request_headers,
     stream,
 )
 from mlflow.genai.agent_server.validator import ResponsesAgentValidator
@@ -442,8 +444,6 @@ def test_health_endpoint_returns_status():
 
 
 def test_request_headers_isolation():
-    from mlflow.genai.agent_server.utils import get_request_headers, set_request_headers
-
     # Test that headers are isolated between contexts
     set_request_headers({"test": "value1"})
     assert get_request_headers()["test"] == "value1"
