@@ -16,6 +16,7 @@ from mlflow.genai.agent_server.validator import (
     ResponsesAgentValidator,
 )
 from mlflow.pyfunc import ResponsesAgent
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.types.llm import (
     ChatCompletionChunk,
@@ -128,7 +129,7 @@ class AgentServer:
 
                 result = self.validator.validate_and_convert_result(result)
                 if self.agent_type == "ResponsesAgent":
-                    span.set_attribute("mlflow.message.format", "openai")
+                    span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                 span.set_outputs(result)
 
                 if return_trace:
@@ -147,7 +148,7 @@ class AgentServer:
             return result
 
         except Exception as e:
-            logger.error(
+            logger.debug(
                 "Error response sent",
                 extra={
                     "endpoint": "invoke",
@@ -193,7 +194,7 @@ class AgentServer:
                         yield f"data: {json.dumps(chunk)}\n\n"
 
                 if self.agent_type == "ResponsesAgent":
-                    span.set_attribute("mlflow.message.format", "openai")
+                    span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "openai")
                     span.set_outputs(ResponsesAgent.responses_agent_output_reducer(all_chunks))
                 elif self.agent_type == "ChatCompletion":
                     content = "".join(map(self._extract_content, all_chunks))
@@ -209,7 +210,7 @@ class AgentServer:
 
                 yield "data: [DONE]\n\n"
 
-            logger.info(
+            logger.debug(
                 "Streaming response completed",
                 extra={
                     "endpoint": "stream",
@@ -220,7 +221,7 @@ class AgentServer:
             )
 
         except Exception as e:
-            logger.error(
+            logger.debug(
                 "Streaming response error",
                 extra={
                     "endpoint": "stream",
