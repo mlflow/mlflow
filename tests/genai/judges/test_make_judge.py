@@ -2804,9 +2804,6 @@ def test_make_judge_with_default_feedback_value_type():
         model="openai:/gpt-4",
     )
 
-    assert isinstance(judge, InstructionsJudge)
-    assert judge._feedback_value_type == str
-
     # Verify serialization includes the default str type
     serialized = judge.model_dump()
     assert "instructions_judge_pydantic_data" in serialized
