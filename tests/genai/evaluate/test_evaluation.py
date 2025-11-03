@@ -1023,3 +1023,39 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
             elif isinstance(a, Expectation):
                 assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata
+
+
+@pytest.mark.parametrize("diff_experiment_id", [True, False])
+def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
+    exp_id = mlflow.set_experiment("traces exp").experiment_id
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is a tool for ML"})
+        span.set_attributes({"key": "value"})
+        with mlflow.start_span() as child_span:
+            child_span.set_inputs("test")
+
+    # set to a different experiment
+    if diff_experiment_id:
+        mlflow.set_experiment("diff exp")
+
+    # search traces from the original experiment
+    trace_df = mlflow.search_traces(locations=[exp_id])
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[has_trace],
+    )
+
+    assert result.metrics["has_trace/mean"] == 1.0
+
+    traces = get_traces()
+    assert len(traces) == 1
+    # copied trace should contain all spans
+    assert len(traces[0].data.spans) == 2
+    span = traces[0].data.spans[0]
+    assert span.get_attribute("key") == "value"
+    assert span.inputs == {"question": "What is MLflow?"}
+    assert span.outputs == {"answer": "MLflow is a tool for ML"}
+    child_span = traces[0].data.spans[1]
+    assert child_span.inputs == "test"

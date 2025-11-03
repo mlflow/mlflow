@@ -908,6 +908,36 @@ def test_delete_traces(delete_traces_kwargs):
         assert res == 1
 
 
+def test_delete_traces_with_batching():
+    """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
+    from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
+
+    creds = MlflowHostCreds("https://hello")
+    store = RestStore(lambda: creds)
+    response = mock.MagicMock()
+    response.status_code = 200
+
+    # Create 250 trace IDs to test batching (should create 3 batches: 100, 100, 50)
+    num_traces = 250
+    trace_ids = [f"tr-{i}" for i in range(num_traces)]
+
+    # Each batch returns some number of deleted traces
+    response.text = json.dumps({"traces_deleted": 100})
+
+    batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
+
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.delete_traces(experiment_id="0", trace_ids=trace_ids)
+
+        # Verify that we made 3 API calls (250 / 100 = 3 batches)
+        expected_num_calls = math.ceil(num_traces / batch_size)
+        assert mock_http.call_count == expected_num_calls
+
+        # Verify that batch sizes are [100, 100, 50]
+        batch_sizes = [len(call[1]["json"]["request_ids"]) for call in mock_http.call_args_list]
+        assert batch_sizes == [100, 100, 50]
+
+
 def test_set_trace_tag():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)

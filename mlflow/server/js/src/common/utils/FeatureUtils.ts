@@ -82,13 +82,6 @@ export const shouldUseGetLoggedModelsBatchAPI = () => {
 };
 
 /**
- * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
- */
-export const shouldEnableExperimentPageChildRoutes = () => {
-  return false;
-};
-
-/**
  * A flag determining if we should display the new models UI.
  */
 export const shouldShowModelsNextUI = () => {
@@ -140,4 +133,12 @@ export const shouldEnableTagGrouping = () => {
  */
 export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
   return false;
+};
+
+export const shouldEnableExperimentPageSideTabs = () => {
+  return true;
+};
+
+export const shouldEnableChatSessionsTab = () => {
+  return true;
 };
