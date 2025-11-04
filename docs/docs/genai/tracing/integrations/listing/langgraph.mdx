@@ -195,11 +195,11 @@ Since MLflow 3.6, MLflow will automatically record the thread (session) ID for t
 graph.invoke(inputs, {"configurable": {"thread_id": "1"}})
 ```
 
-The thread ID will be recorded in the trace metadata and can be accessed in the `Attributes` tab in the MLflow UI.
+The thread ID will be recorded in the trace metadata and displayed in the MLflow Trace UI.
 
 ![LangGraph Thread ID](/images/llms/tracing/langgraph-thread-id.png)
 
-By clicking the session ID, you will be redirected to the session page where you can view all the traces in the session.
+By navigating to the Session tab on the side bar, you can view all the traces in the session.
 
 ![LangGraph Session Page](/images/llms/tracing/langgraph-session-page.png)
 
