@@ -58,6 +58,11 @@ class Location:
     def __str__(self) -> str:
         return f"{self.lineno}:{self.col_offset}"
 
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Location):
+            return False
+        return self.lineno == other.lineno and self.col_offset == other.col_offset
+
     @classmethod
     def from_node(cls, node: HasLocation) -> Self:
         return cls(
