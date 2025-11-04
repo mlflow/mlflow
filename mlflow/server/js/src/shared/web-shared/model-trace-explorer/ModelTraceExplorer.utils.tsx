@@ -61,6 +61,8 @@ import {
   normalizeLlamaIndexChatResponse,
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
+  normalizeVercelAIChatInput,
+  normalizeVercelAIChatOutput,
 } from './chat-utils';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
@@ -931,6 +933,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  16. Autogen outputs
  *  17. Bedrock inputs
  *  18. Bedrock outputs
+ *  19. Vercel AI inputs
+ *  20. Vercel AI outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -982,6 +986,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'bedrock':
         const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
         if (bedrockMessages) return bedrockMessages;
+        break;
+      case 'vercel_ai':
+        const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
+        if (vercelAIMessages) return vercelAIMessages;
         break;
       default:
         // Fallback to OpenAI chat format

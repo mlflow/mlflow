@@ -36,6 +36,12 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/llama_index',
   },
   {
+    id: 'vercelai',
+    name: 'Vercel AI SDK',
+    logoPath: '/images/logos/vercel-logo.svg',
+    link: '/genai/tracing/integrations/listing/vercelai',
+  },
+  {
     id: 'anthropic',
     name: 'Anthropic',
     logoPath: '/images/logos/anthropic-logo.svg',
@@ -52,6 +58,24 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Bedrock',
     logoPath: '/images/logos/bedrock-logo.png',
     link: '/genai/tracing/integrations/listing/bedrock',
+  },
+  {
+    id: 'litellm',
+    name: 'LiteLLM',
+    logoPath: '/images/logos/litellm-logo.jpg',
+    link: '/genai/tracing/integrations/listing/litellm',
+  },
+  {
+    id: 'gemini',
+    name: 'Gemini',
+    logoPath: '/images/logos/google-gemini-logo.svg',
+    link: '/genai/tracing/integrations/listing/gemini',
+  },
+  {
+    id: 'openai-agent',
+    name: 'OpenAI Agent',
+    logoPath: '/images/logos/openai-agent-logo.png',
+    link: '/genai/tracing/integrations/listing/openai-agent',
   },
   {
     id: 'semantic_kernel',
@@ -72,28 +96,10 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/ag2',
   },
   {
-    id: 'gemini',
-    name: 'Gemini',
-    logoPath: '/images/logos/google-gemini-logo.svg',
-    link: '/genai/tracing/integrations/listing/gemini',
-  },
-  {
-    id: 'litellm',
-    name: 'LiteLLM',
-    logoPath: '/images/logos/litellm-logo.jpg',
-    link: '/genai/tracing/integrations/listing/litellm',
-  },
-  {
     id: 'crewai',
     name: 'CrewAI',
     logoPath: '/images/logos/crewai-logo.png',
     link: '/genai/tracing/integrations/listing/crewai',
-  },
-  {
-    id: 'openai-agent',
-    name: 'OpenAI Agent',
-    logoPath: '/images/logos/openai-agent-logo.png',
-    link: '/genai/tracing/integrations/listing/openai-agent',
   },
   {
     id: 'ollama',
