@@ -25,7 +25,7 @@ class Noqa:
 
     @property
     def col_offset(self) -> int:
-        return self.start.char
+        return self.start.col
 
     @property
     def end_lineno(self) -> int:
@@ -33,7 +33,7 @@ class Noqa:
 
     @property
     def end_col_offset(self) -> int:
-        return self.end.char
+        return self.end.col
 
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:

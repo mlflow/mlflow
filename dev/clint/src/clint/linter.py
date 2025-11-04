@@ -50,13 +50,13 @@ HasLocation: TypeAlias = (
 
 @dataclass
 class Position:
-    """Represents a position in source code with line number and character position."""
+    """Represents a position in source code with line and column."""
 
     line: int
-    char: int
+    col: int
 
     def __add__(self, other: "Position") -> "Position":
-        return Position(self.line + other.line, self.char + other.char)
+        return Position(self.line + other.line, self.col + other.col)
 
 
 @dataclass
@@ -65,7 +65,7 @@ class Range:
     end: Position | None = None
 
     def __str__(self) -> str:
-        return f"{self.start.line}:{self.start.char}"
+        return f"{self.start.line}:{self.start.col}"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Range):
@@ -118,9 +118,9 @@ class Violation:
             "module": None,
             "obj": None,
             "line": self.rng.start.line,
-            "column": self.rng.start.char,
+            "column": self.rng.start.col,
             "endLine": self.rng.end.line if self.rng.end is not None else self.rng.start.line,
-            "endColumn": (self.rng.end.char if self.rng.end is not None else self.rng.start.char),
+            "endColumn": (self.rng.end.col if self.rng.end is not None else self.rng.start.col),
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
