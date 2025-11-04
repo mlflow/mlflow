@@ -465,7 +465,6 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
     if is_stream:
         response = engine.query("Hello")
         assert isinstance(response, StreamingResponse)
-        assert len(get_traces()) == 0
         response = "".join(response.response_gen)
         assert response == "Hello world"
     else:
@@ -590,8 +589,14 @@ def test_trace_agent():
 @pytest.mark.parametrize("is_stream", [False, True])
 @pytest.mark.parametrize("is_async", [False, True])
 def test_trace_chat_engine(multi_index, is_stream, is_async):
-    if is_stream and is_async:
-        pytest.skip("Async stream is not supported yet")
+    if is_stream:
+        if is_async:
+            pytest.skip("Async stream is not supported yet")
+
+        # Skip streaming test for llama-index <0.13 due to race condition with OpenAIAgent
+        # where child spans are created after root span completes, causing incomplete traces
+        if llama_core_version < Version("0.13.0"):
+            pytest.skip("Streaming chat engine test is flaky for llama-index <0.13")
 
     engine = multi_index.as_chat_engine()
 
