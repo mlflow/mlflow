@@ -97,6 +97,34 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/haystack',
     category: 'Agent Frameworks',
   },
+  {
+    id: 'llama_index',
+    name: 'LlamaIndex',
+    logoPath: '/images/logos/llamaindex-logo.svg',
+    link: '/genai/tracing/integrations/listing/llama_index',
+    category: 'Agent Frameworks',
+  },
+  {
+    id: 'dspy',
+    name: 'DSPy',
+    logoPath: '/images/logos/dspy-logo.png',
+    link: '/genai/tracing/integrations/listing/dspy',
+    category: 'Agent Frameworks',
+  },
+  {
+    id: 'instructor',
+    name: 'Instructor',
+    logoPath: '/images/logos/instructor-logo.svg',
+    link: '/genai/tracing/integrations/listing/instructor',
+    category: 'Agent Frameworks',
+  },
+  {
+    id: 'txtai',
+    name: 'txtai',
+    logoPath: '/images/logos/txtai-logo.png',
+    link: '/genai/tracing/integrations/listing/txtai',
+    category: 'Agent Frameworks',
+  },
   // Model Providers
   {
     id: 'openai',
@@ -161,42 +189,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     link: '/genai/tracing/integrations/listing/litellm',
     category: 'Model Providers',
   },
+  // Tools
   {
     id: 'claude_code',
     name: 'Claude Code',
     logoPath: '/images/logos/claude-code-logo.svg',
     link: '/genai/tracing/integrations/listing/claude_code',
-    category: 'Model Providers',
-  },
-  // Orchestration & RAG
-  {
-    id: 'llama_index',
-    name: 'LlamaIndex',
-    logoPath: '/images/logos/llamaindex-logo.svg',
-    link: '/genai/tracing/integrations/listing/llama_index',
-    category: 'Orchestration & RAG',
-  },
-  {
-    id: 'dspy',
-    name: 'DSPy',
-    logoPath: '/images/logos/dspy-logo.png',
-    link: '/genai/tracing/integrations/listing/dspy',
-    category: 'Orchestration & RAG',
-  },
-  {
-    id: 'txtai',
-    name: 'txtai',
-    logoPath: '/images/logos/txtai-logo.png',
-    link: '/genai/tracing/integrations/listing/txtai',
-    category: 'Orchestration & RAG',
-  },
-  // Libraries & Tools
-  {
-    id: 'instructor',
-    name: 'Instructor',
-    logoPath: '/images/logos/instructor-logo.svg',
-    link: '/genai/tracing/integrations/listing/instructor',
-    category: 'Libraries & Tools',
+    category: 'Tools',
   },
 ];
 
@@ -227,7 +226,7 @@ export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
     );
 
     // Define category order
-    const categoryOrder = ['Agent Frameworks', 'Model Providers', 'Orchestration & RAG', 'Libraries & Tools'];
+    const categoryOrder = ['Agent Frameworks', 'Model Providers', 'Tools'];
 
     return (
       <>
