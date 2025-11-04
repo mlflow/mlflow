@@ -119,9 +119,9 @@ class Violation:
             "line": self.loc.start.lineno,
             "column": self.loc.start.col_offset,
             "endLine": self.loc.end.lineno if self.loc.end is not None else self.loc.start.lineno,
-            "endColumn": self.loc.end.col_offset
-            if self.loc.end is not None
-            else self.loc.start.col_offset,
+            "endColumn": (
+                self.loc.end.col_offset if self.loc.end is not None else self.loc.start.col_offset
+            ),
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
