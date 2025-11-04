@@ -12,7 +12,8 @@ import ExperimentPageTabs from './ExperimentPageTabs';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { shouldEnableExperimentKindInference } from '../../../common/utils/FeatureUtils';
 import { ExperimentKind } from '../../constants';
-import { createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { createLazyRouteElement, createMLflowRoutePath } from '../../../common/utils/RoutingUtils';
+import { PageId, RoutePaths } from '../../routes';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(60000); // Larger timeout for integration testing
@@ -36,7 +37,11 @@ jest.mock('../experiment-traces/ExperimentTracesPage', () => ({
 
 describe('ExperimentLoggedModelListPage', () => {
   const { history } = setupTestRouter();
-  const createTestExperiment = (id = '12345678', name = 'Test experiment name') => {
+  const createTestExperiment = (
+    id = '12345678',
+    name = 'Test experiment name',
+    tags = [{ key: 'mlflow.experimentKind', value: ExperimentKind.CUSTOM_MODEL_DEVELOPMENT }],
+  ) => {
     return {
       __typename: 'MlflowExperiment',
       artifactLocation: null,
@@ -45,7 +50,7 @@ describe('ExperimentLoggedModelListPage', () => {
       experimentId: id,
       lastUpdateTime: null,
       lifecycleStage: 'active',
-      tags: [],
+      tags,
     };
   };
 
@@ -73,7 +78,25 @@ describe('ExperimentLoggedModelListPage', () => {
               <DesignSystemProvider>
                 <TestRouter
                   routes={[
-                    testRoute(<ExperimentPageTabs />, createMLflowRoutePath('/experiments/:experimentId/:tabName')),
+                    {
+                      path: RoutePaths.experimentPage,
+                      pageId: PageId.experimentPage,
+                      element: createLazyRouteElement(() => import('./ExperimentPageTabs')),
+                      children: [
+                        {
+                          path: RoutePaths.experimentPageTabTraces,
+                          pageId: PageId.experimentPageTabTraces,
+                          element: createLazyRouteElement(() => import('../experiment-traces/ExperimentTracesPage')),
+                        },
+                        {
+                          path: RoutePaths.experimentPageTabModels,
+                          pageId: PageId.experimentPageTabModels,
+                          element: createLazyRouteElement(
+                            () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
+                          ),
+                        },
+                      ],
+                    },
                   ]}
                   history={history}
                   initialEntries={[createMLflowRoutePath('/experiments/12345678/models')]}
@@ -125,8 +148,14 @@ describe('ExperimentLoggedModelListPage', () => {
   test('integration test: should display popover about inferred experiment kind', async () => {
     const confirmTagApiSpy = jest.fn();
 
-    // Enable feature flags
-    jest.mocked(shouldEnableExperimentKindInference).mockReturnValue(true);
+    server.resetHandlers(
+      graphql.query('MlflowBatchGetExperimentsQuery', (req, res, ctx) =>
+        res(ctx.data(createTestExperimentResponse([createTestExperiment('12345678', 'Test experiment name', [])]))),
+      ),
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
+      ),
+    );
 
     // Simulate experiment's traces so "GenAI" experiment kind is inferred
     server.use(
@@ -148,6 +177,8 @@ describe('ExperimentLoggedModelListPage', () => {
     expect(
       await screen.findByText(
         "We've automatically detected the experiment type to be 'GenAI apps & agents'. You can either confirm or change the type.",
+        undefined,
+        { timeout: 20000 },
       ),
     ).toBeInTheDocument();
 
@@ -156,12 +187,10 @@ describe('ExperimentLoggedModelListPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
-    await waitFor(() => {
-      expect(confirmTagApiSpy).toHaveBeenCalledWith({
-        experiment_id: '12345678',
-        key: 'mlflow.experimentKind',
-        value: ExperimentKind.GENAI_DEVELOPMENT,
-      });
+    expect(confirmTagApiSpy).toHaveBeenCalledWith({
+      experiment_id: '12345678',
+      key: 'mlflow.experimentKind',
+      value: ExperimentKind.GENAI_DEVELOPMENT,
     });
   });
 
@@ -171,7 +200,13 @@ describe('ExperimentLoggedModelListPage', () => {
     // Enable feature flags
     jest.mocked(shouldEnableExperimentKindInference).mockReturnValue(true);
 
-    // Simulate experiment's traces so "GenAI" experiment kind is inferred
+    server.resetHandlers(
+      graphql.query('MlflowGetExperimentQuery', (req, res, ctx) =>
+        res(ctx.data(createTestExperimentResponse(createTestExperiment('12345678', 'Test experiment name', [])))),
+      ),
+    );
+
+    // Simulate empty experiment so no experiment kind can be inferred
     server.use(
       rest.get('/ajax-api/2.0/mlflow/traces', (req, res, ctx) => {
         return res(ctx.json({ traces: [] }));
