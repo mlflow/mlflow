@@ -528,7 +528,7 @@ def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
 
     repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
-    assert repo_with_owner._bucket_owner == "123456789012"
+    assert repo_with_owner._bucket_owner_params == {"ExpectedBucketOwner": "123456789012"}
 
     mock_s3 = mock.Mock()
 
@@ -549,7 +549,7 @@ def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_pat
     with open(file_path, "w") as f:
         f.write(file_text)
 
-    assert s3_artifact_repo._bucket_owner is None
+    assert s3_artifact_repo._bucket_owner_params == {}
 
     mock_s3 = mock.Mock()
 
