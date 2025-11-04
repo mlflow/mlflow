@@ -86,4 +86,4 @@ fi
 # Pass env-file option to mlflow command (before 'server' subcommand)
 mlflow $env_file_opt server $backend_store_uri $default_artifact_root $registry_store_uri --dev &
 wait_server_ready localhost:5000/health
-yarn --cwd mlflow/server/js start
+(cd mlflow/server/js && yarn start)
