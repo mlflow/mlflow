@@ -275,6 +275,10 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
   },
+  "128VYg": {
+    "defaultMessage": "User",
+    "description": "Label for the user id section"
+  },
   "13vJft": {
     "defaultMessage": "View Examples",
     "description": "Experiment page > new run modal > prompt examples button"
