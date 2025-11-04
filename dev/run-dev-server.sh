@@ -11,10 +11,9 @@ if pgrep -f "mlflow.*server.*--dev" > /dev/null; then
 fi
 # Kill yarn dev server processes running in mlflow/server/js directory
 # This matches the process started by: (cd mlflow/server/js && yarn start)
-if pgrep -f "mlflow/server/js.*yarn.*start" > /dev/null || pgrep -f "node.*react-scripts.*start" > /dev/null; then
+if pgrep -f "mlflow/server/js.*yarn.*start" > /dev/null; then
   echo "Stopping existing yarn dev server..."
   pkill -f "mlflow/server/js.*yarn.*start" || true
-  pkill -f "node.*react-scripts.*start" || true
   sleep 1
 fi
 
