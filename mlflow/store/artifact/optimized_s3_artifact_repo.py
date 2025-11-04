@@ -69,11 +69,11 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         self._region_name = self._get_region_name()
         self._s3_upload_extra_args = s3_upload_extra_args if s3_upload_extra_args else {}
 
-    def _add_bucket_owner_if_present(self, kwargs):
-        """Add ExpectedBucketOwner to kwargs if bucket owner is configured."""
-        if self._bucket_owner:
-            kwargs["ExpectedBucketOwner"] = self._bucket_owner
-        return kwargs
+    def _get_bucket_owner_params(self) -> dict[str, str]:
+        """
+        Return dict with ExpectedBucketOwner if bucket owner is configured, otherwise empty dict.
+        """
+        return {"ExpectedBucketOwner": self._bucket_owner} if self._bucket_owner else {}
 
     def _refresh_credentials(self):
         if not self._credential_refresh_def:
@@ -96,9 +96,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             s3_endpoint_url=self._s3_endpoint_url,
         )
         try:
-            head_bucket_kwargs = {"Bucket": self.bucket}
-            self._add_bucket_owner_if_present(head_bucket_kwargs)
-            head_bucket_resp = temp_client.head_bucket(**head_bucket_kwargs)
+            head_bucket_resp = temp_client.head_bucket(
+                Bucket=self.bucket, **self._get_bucket_owner_params()
+            )
             # A normal response will have the region in the Bucket_Region field of the response
             if _BUCKET_REGION in head_bucket_resp:
                 return head_bucket_resp[_BUCKET_REGION]
@@ -166,7 +166,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             extra_args["ContentType"] = guessed_type
         if guessed_encoding is not None:
             extra_args["ContentEncoding"] = guessed_encoding
-        self._add_bucket_owner_if_present(extra_args)
+        extra_args.update(self._get_bucket_owner_params())
         environ_extra_args = self.get_s3_file_upload_extra_args()
         if environ_extra_args is not None:
             extra_args.update(environ_extra_args)
@@ -209,9 +209,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _multipart_upload(self, cloud_credential_info, local_file, bucket, key):
         # Create multipart upload
         s3_client = cloud_credential_info
-        create_kwargs = {"Bucket": bucket, "Key": key}
-        self._add_bucket_owner_if_present(create_kwargs)
-        response = s3_client.create_multipart_upload(**create_kwargs)
+        response = s3_client.create_multipart_upload(
+            Bucket=bucket, Key=key, **self._get_bucket_owner_params()
+        )
         upload_id = response["UploadId"]
 
         num_parts = _compute_num_chunks(local_file, MLFLOW_MULTIPART_UPLOAD_CHUNK_SIZE.get())
@@ -223,14 +223,16 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
 
             def try_func(creds):
                 # Create presigned URL for each part
-                presigned_params = {
-                    "Bucket": bucket,
-                    "Key": key,
-                    "UploadId": upload_id,
-                    "PartNumber": part_number,
-                }
-                self._add_bucket_owner_if_present(presigned_params)
-                presigned_url = creds.generate_presigned_url("upload_part", Params=presigned_params)
+                presigned_url = creds.generate_presigned_url(
+                    "upload_part",
+                    Params={
+                        "Bucket": bucket,
+                        "Key": key,
+                        "UploadId": upload_id,
+                        "PartNumber": part_number,
+                        **self._get_bucket_owner_params(),
+                    },
+                )
                 with cloud_storage_http_request("put", presigned_url, data=data) as response:
                     augmented_raise_for_status(response)
                     return response.headers["ETag"]
@@ -265,21 +267,23 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
             ]
 
             # Complete multipart upload
-            complete_kwargs = {
-                "Bucket": bucket,
-                "Key": key,
-                "UploadId": upload_id,
-                "MultipartUpload": {"Parts": parts},
-            }
-            self._add_bucket_owner_if_present(complete_kwargs)
-            s3_client.complete_multipart_upload(**complete_kwargs)
+            s3_client.complete_multipart_upload(
+                Bucket=bucket,
+                Key=key,
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+                **self._get_bucket_owner_params(),
+            )
         except Exception as e:
             _logger.warning(
                 "Encountered an unexpected error during multipart upload: %s, aborting", e
             )
-            abort_kwargs = {"Bucket": bucket, "Key": key, "UploadId": upload_id}
-            self._add_bucket_owner_if_present(abort_kwargs)
-            s3_client.abort_multipart_upload(**abort_kwargs)
+            s3_client.abort_multipart_upload(
+                Bucket=bucket,
+                Key=key,
+                UploadId=upload_id,
+                **self._get_bucket_owner_params(),
+            )
             raise e
 
     def list_artifacts(self, path=None):
@@ -292,9 +296,12 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        paginate_kwargs = {"Bucket": self.bucket, "Prefix": prefix, "Delimiter": "/"}
-        self._add_bucket_owner_if_present(paginate_kwargs)
-        results = paginator.paginate(**paginate_kwargs)
+        results = paginator.paginate(
+            Bucket=self.bucket,
+            Prefix=prefix,
+            Delimiter="/",
+            **self._get_bucket_owner_params(),
+        )
         for result in results:
             # Subdirectories will be listed as "common prefixes" due to the way we made the request
             for obj in result.get("CommonPrefixes", []):
@@ -328,9 +335,14 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
     def _get_presigned_uri(self, remote_file_path):
         s3_client = self._get_s3_client()
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
-        presigned_params = {"Bucket": self.bucket, "Key": s3_full_path}
-        self._add_bucket_owner_if_present(presigned_params)
-        return s3_client.generate_presigned_url("get_object", Params=presigned_params)
+        return s3_client.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": self.bucket,
+                "Key": s3_full_path,
+                **self._get_bucket_owner_params(),
+            },
+        )
 
     def _get_read_credential_infos(self, remote_file_paths):
         return [
@@ -343,7 +355,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
 
         def try_func(creds):
-            download_kwargs = {"ExtraArgs": self._add_bucket_owner_if_present({})}
+            download_kwargs = (
+                {"ExtraArgs": p} if (p := self._get_bucket_owner_params()) else {}
+            )
             creds.download_file(self.bucket, s3_full_path, local_path, **download_kwargs)
 
         _retry_with_new_creds(
@@ -358,9 +372,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         dest_path = dest_path.rstrip("/") if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        paginate_kwargs = {"Bucket": self.bucket, "Prefix": dest_path}
-        self._add_bucket_owner_if_present(paginate_kwargs)
-        results = paginator.paginate(**paginate_kwargs)
+        results = paginator.paginate(
+            Bucket=self.bucket, Prefix=dest_path, **self._get_bucket_owner_params()
+        )
         for result in results:
             keys = []
             for to_delete_obj in result.get("Contents", []):
@@ -370,6 +384,8 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                 )
                 keys.append({"Key": file_path})
             if keys:
-                delete_kwargs = {"Bucket": self.bucket, "Delete": {"Objects": keys}}
-                self._add_bucket_owner_if_present(delete_kwargs)
-                s3_client.delete_objects(**delete_kwargs)
+                s3_client.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": keys},
+                    **self._get_bucket_owner_params(),
+                )
