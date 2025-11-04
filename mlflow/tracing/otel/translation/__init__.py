@@ -151,10 +151,13 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     """
     attributes = span_dict.get("attributes", {})
 
-    if SpanAttributeKey.SPAN_TYPE not in attributes:
-        if mlflow_type := translate_span_type_from_otel(attributes):
-            # Serialize to match how MLflow stores attributes
-            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    try:
+        if SpanAttributeKey.SPAN_TYPE not in attributes:
+            if mlflow_type := translate_span_type_from_otel(attributes):
+                # Serialize to match how MLflow stores attributes
+                attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    except Exception:
+        _logger.debug("Failed to translate span type", exc_info=True)
 
     span_dict["attributes"] = attributes
     return span_dict
@@ -173,15 +176,21 @@ def update_token_usage(
     Returns:
         Updated token usage dictionary
     """
-    if isinstance(current_token_usage, str):
-        current_token_usage = json.loads(current_token_usage)
-    if isinstance(new_token_usage, str):
-        new_token_usage = json.loads(new_token_usage)
-    for key in [
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-    ]:
-        current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage[key]
+    try:
+        if isinstance(current_token_usage, str):
+            current_token_usage = json.loads(current_token_usage) or {}
+        if isinstance(new_token_usage, str):
+            new_token_usage = json.loads(new_token_usage) or {}
+        if new_token_usage:
+            for key in [
+                TokenUsageKey.INPUT_TOKENS,
+                TokenUsageKey.OUTPUT_TOKENS,
+                TokenUsageKey.TOTAL_TOKENS,
+            ]:
+                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
+                    key, 0
+                )
+    except Exception:
+        _logger.debug("Failed to update token usage", exc_info=True)
 
     return current_token_usage
