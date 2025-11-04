@@ -14,8 +14,6 @@ from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 from mlflow.genai.scorers.base import SerializedScorer
 from mlflow.genai.scorers.registry import get_scorer, list_scorers
 
-from tests.tracing.helper import get_traces, purge_traces
-
 
 @pytest.fixture(autouse=True)
 def increase_db_pool_size(monkeypatch):
@@ -332,79 +330,6 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     assert feedbacks[1].name == "small_question"
 
 
-def test_extra_traces_from_customer_scorer_should_be_cleaned_up(is_in_databricks):
-    @scorer
-    def my_scorer_1(inputs, outputs):
-        with mlflow.start_span(name="scorer_trace_1") as span:
-            # Tracing is disabled during evaluation but this should not NPE
-            span.set_inputs(inputs)
-            span.set_outputs(outputs)
-
-        with mlflow.start_span(name="scorer_trace_2"):
-            pass
-        return 1
-
-    @scorer
-    @mlflow.trace
-    def my_scorer_2():
-        return 0.5
-
-    def predict(question: str) -> str:
-        return "output: " + str(question)
-
-    result = mlflow.genai.evaluate(
-        data=[{"inputs": {"question": "Hello"}} for _ in range(100)],
-        scorers=[my_scorer_1, my_scorer_2],
-        predict_fn=predict,
-    )
-    # Scorers should be computed correctly
-    assert result.metrics["my_scorer_1/mean"] == 1
-    assert result.metrics["my_scorer_2/mean"] == 0.5
-
-    # Traces should only be generated for predict_fn
-    traces = get_traces()
-    assert len(traces) == 100
-    trace_names = [trace.data.spans[0].name for trace in traces]
-    assert all("scorer" not in trace_name for trace_name in trace_names), (
-        f"Traces include unexpected names: {[n for n in trace_names if n != 'predict']}"
-    )
-    purge_traces()
-
-    # When invoked directly, the scorer should generate traces
-    score = my_scorer_2()
-    assert score == 0.5
-    assert len(get_traces()) == 1
-
-
-def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up(is_in_databricks):
-    def predict(question: str) -> str:
-        return "output: " + str(question)
-
-    @scorer
-    @mlflow.trace
-    def my_scorer(inputs, outputs):
-        return 0.5
-
-    with mlflow.start_run():
-        # Generate another trace in the run before running the evaluation
-        with mlflow.start_span(name="should_be_kept"):
-            pass
-
-        result = mlflow.genai.evaluate(
-            data=[{"inputs": {"question": "Hello"}}],
-            scorers=[my_scorer],
-            predict_fn=predict,
-        )
-    # Scorers should be computed correctly
-    assert result.metrics["my_scorer/mean"] == 0.5
-
-    # Traces should only be generated for predict_fn
-    traces = get_traces()
-    assert len(traces) == 2  # 1 for predict_fn, 1 for a trace generated before evaluation
-    assert traces[0].data.spans[0].name == "predict"
-    assert traces[1].data.spans[0].name == "should_be_kept"
-
-
 def test_custom_scorer_registration_blocked_for_non_databricks_uri():
     experiment_id = mlflow.create_experiment("test_security_experiment")
 
@@ -507,6 +432,7 @@ def test_make_judge_scorer_works_without_databricks_uri():
     judge_scorer = make_judge(
         instructions="Evaluate if the {{outputs}} is helpful and relevant",
         name="helpfulness_judge",
+        feedback_value_type=str,
     )
 
     registered_scorer = judge_scorer.register(experiment_id=experiment_id, name="helpfulness_judge")

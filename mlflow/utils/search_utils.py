@@ -230,6 +230,12 @@ class SearchUtils:
             return SearchUtils.get_comparison_func(comparator)(column, value)
 
         def mssql_comparison_func(column, value):
+            if comparator == "RLIKE":
+                raise MlflowException(
+                    "RLIKE operator is not supported for MSSQL database dialect. "
+                    "Consider using LIKE or ILIKE operators instead.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
             if not isinstance(column.type, sa.types.String):
                 return comparison_func(column, value)
 
@@ -247,6 +253,10 @@ class SearchUtils:
                 "=": "({column} = :value AND BINARY {column} = :value)",
                 "!=": "({column} != :value OR BINARY {column} != :value)",
                 "LIKE": "({column} LIKE :value AND BINARY {column} LIKE :value)",
+                # we need to cast the column to binary to perform a case sensitive comparison
+                # to avoid error like: `Character set 'utf8mb4_0900_ai_ci' cannot be used in
+                # conjunction with 'binary' in call to regexp_like`
+                "RLIKE": "(CAST({column} AS BINARY) REGEXP BINARY :value)",
             }
             if comparator in templates:
                 column = f"{column.class_.__tablename__}.{column.key}"
@@ -256,9 +266,21 @@ class SearchUtils:
 
             return comparison_func(column, value)
 
+        def sqlite_comparison_func(column, value):
+            if comparator == "RLIKE":
+                # SQLite requires a custom regexp function to be registered
+                # Use the built-in function if available
+                return column.op("REGEXP")(value)
+            return comparison_func(column, value)
+
+        def postgres_comparison_func(column, value):
+            if comparator == "RLIKE":
+                return column.op("~")(value)
+            return comparison_func(column, value)
+
         return {
-            POSTGRES: comparison_func,
-            SQLITE: comparison_func,
+            POSTGRES: postgres_comparison_func,
+            SQLITE: sqlite_comparison_func,
             MSSQL: mssql_comparison_func,
             MYSQL: mysql_comparison_func,
         }[dialect]
@@ -1584,6 +1606,8 @@ class SearchTraceUtils(SearchUtils):
         # The following keys are mapped to tags or metadata
         "name",
         "run_id",
+        # The following key is mapped to span attributes
+        "text",
     }
     VALID_ORDER_BY_ATTRIBUTE_KEYS = {
         "experiment_id",
@@ -1609,9 +1633,9 @@ class SearchTraceUtils(SearchUtils):
         "end_time",
     }
 
-    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE"}
-    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
-    VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE"}
+    VALID_TAG_COMPARATORS = {"!=", "=", "LIKE", "ILIKE", "RLIKE"}
+    VALID_STRING_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
+    VALID_SPAN_ATTRIBUTE_COMPARATORS = {"!=", "=", "IN", "NOT IN", "LIKE", "ILIKE", "RLIKE"}
 
     _REQUEST_METADATA_IDENTIFIER = "request_metadata"
     _TAG_IDENTIFIER = "tag"
@@ -1639,7 +1663,9 @@ class SearchTraceUtils(SearchUtils):
     _VALID_IDENTIFIERS = _IDENTIFIERS | set(_ALTERNATE_IDENTIFIERS.keys())
 
     # Supported span attributes
-    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status", "content"}
+    _SUPPORTED_SPAN_ATTRIBUTES = {"name", "type", "status"}
+    _SPAN_CONTENT_KEY = "content"
+    VALID_SPAN_CONTENT_COMPARATORS = {"LIKE", "ILIKE"}
 
     SUPPORT_IN_COMPARISON_ATTRIBUTE_KEYS = {
         "name",
@@ -1662,6 +1688,10 @@ class SearchTraceUtils(SearchUtils):
         "timestamp": "timestamp_ms",
         "execution_time": "execution_time_ms",
         "end_time": "end_time_ms",
+    }
+    # Map trace search keys to span attributes for full text search
+    SEARCH_KEY_TO_SPAN = {
+        "text": _SPAN_CONTENT_KEY,
     }
 
     @classmethod
@@ -1745,6 +1775,9 @@ class SearchTraceUtils(SearchUtils):
         elif key in cls.SEARCH_KEY_TO_METADATA:
             parsed["type"] = cls._REQUEST_METADATA_IDENTIFIER
             parsed["key"] = cls.SEARCH_KEY_TO_METADATA[key]
+        elif key in cls.SEARCH_KEY_TO_SPAN:
+            parsed["type"] = cls._SPAN_IDENTIFIER
+            parsed["key"] = cls.SEARCH_KEY_TO_SPAN[key]
         elif key in cls.SEARCH_KEY_TO_ATTRIBUTE:
             parsed["key"] = cls.SEARCH_KEY_TO_ATTRIBUTE[key]
         return parsed
@@ -1784,6 +1817,13 @@ class SearchTraceUtils(SearchUtils):
                     raise MlflowException(
                         f"span.{key_name} comparator '{comparator}' not one of "
                         f"'{cls.VALID_SPAN_ATTRIBUTE_COMPARATORS}'",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            elif key_name == cls._SPAN_CONTENT_KEY:
+                if comparator not in cls.VALID_SPAN_CONTENT_COMPARATORS:
+                    raise MlflowException(
+                        f"span.{key_name} comparator '{comparator}' not one of "
+                        f"'{cls.VALID_SPAN_CONTENT_COMPARATORS}'",
                         error_code=INVALID_PARAMETER_VALUE,
                     )
             else:

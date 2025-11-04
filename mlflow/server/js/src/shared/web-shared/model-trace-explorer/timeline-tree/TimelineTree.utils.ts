@@ -3,6 +3,8 @@ import { useState } from 'react';
 
 import type { TimelineTreeNode } from './TimelineTree.types';
 import type { ModelTraceSpanNode } from '../ModelTrace.types';
+import { ModelSpanType } from '../ModelTrace.types';
+import { getSpanExceptionCount } from '../ModelTraceExplorer.utils';
 
 // expand all nodes by default
 export const DEFAULT_EXPAND_DEPTH = Infinity;
@@ -163,4 +165,22 @@ export const getSpanNodeParentIds = (node: ModelTraceSpanNode, nodeMap: { [nodeI
   }
 
   return parents;
+};
+
+export const isNodeImportant = (node: ModelTraceSpanNode) => {
+  // root node is shown at top level, so we don't need to
+  // show it in the intermediate nodes list
+  if (!node.parentId) {
+    return false;
+  }
+
+  return (
+    [
+      ModelSpanType.AGENT,
+      ModelSpanType.RETRIEVER,
+      ModelSpanType.CHAT_MODEL,
+      ModelSpanType.TOOL,
+      ModelSpanType.LLM,
+    ].includes(node.type ?? ModelSpanType.UNKNOWN) || getSpanExceptionCount(node) > 0
+  );
 };

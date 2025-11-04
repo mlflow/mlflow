@@ -21,7 +21,7 @@ import {
   WarningIcon,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import type { ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { GenAITracesTableActions } from './GenAITracesTableActions';
 import { computeEvaluationsComparison } from './GenAiTracesTable.utils';
@@ -42,6 +42,7 @@ import {
 } from './hooks/useAssessmentFilters';
 import { useEvaluationsSearchQuery } from './hooks/useEvaluationsSearchQuery';
 import { GenAITracesTableConfigProvider, type GenAITracesTableConfig } from './hooks/useGenAITracesTableConfig';
+import type { GetTraceFunction } from './hooks/useGetTrace';
 import { useTableColumns } from './hooks/useTableColumns';
 import { TracesTableColumnType } from './types';
 import type {
@@ -90,7 +91,7 @@ function GenAiTracesTableImpl({
   compareToRunLoading?: boolean;
   sampledInfo?: SampleInfo;
   exportToEvalsInstanceEnabled?: boolean;
-  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: GetTraceFunction;
   saveAssessmentsQuery?: SaveAssessmentsQuery;
   enableRunEvaluationWriteFeatures?: boolean;
   defaultSortOption?: EvaluationsOverviewTableSort;
@@ -98,7 +99,7 @@ function GenAiTracesTableImpl({
   // we don't properly display long strings yet. We should eventually fix the hovercard
   // to display long strings and remove this prop.
   disableAssessmentTooltips?: boolean;
-  onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
+  onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   traceActions?: TraceActions;
   initialSelectedColumns?: (allColumns: TracesTableColumn[]) => TracesTableColumn[];
 }) {
@@ -512,6 +513,7 @@ function GenAiTracesTableImpl({
                   display: 'flex',
                   flex: 1,
                   overflowY: 'hidden',
+                  position: 'relative',
                 }}
               >
                 <GenAiTracesTableBody

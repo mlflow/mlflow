@@ -209,11 +209,6 @@ def _patched_compile(original, self, *args, **kwargs):
         log_dspy_dataset(valset, "valset.json")
     return program
 
-    if get_autologging_config(FLAVOR_NAME, "log_traces_from_compile"):
-        return original(self, *args, **kwargs)
-    else:
-        return _trace_disabled_fn(self, *args, **kwargs)
-
 
 def _patched_evaluate(original, self, *args, **kwargs):
     # NB: Since calling mlflow.dspy.autolog() again does not unpatch a function, we need to

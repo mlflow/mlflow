@@ -2,7 +2,6 @@ from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
-from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2

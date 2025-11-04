@@ -6,7 +6,6 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
@@ -2145,7 +2144,7 @@ message BatchGetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the traces to fetch. Must be provided.
-  repeated string trace_ids = 1 [(validate_required) = true];
+  repeated string trace_ids = 1;
 
   message Response {
     // The fetched trace information.

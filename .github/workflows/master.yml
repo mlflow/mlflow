@@ -265,7 +265,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra jobs --extra genai
+          uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
             torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
@@ -335,7 +335,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra extras --extra gateway --extra jobs
+          uv sync --extra extras --extra gateway
           uv pip install \
             -r requirements/test-requirements.txt \
             tensorflow 'pyspark[connect]'

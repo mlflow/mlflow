@@ -173,7 +173,13 @@ class TracingClient:
                 # if the trace is stored in the tracking store, load spans from the tracking store
                 # otherwise, load spans from the artifact repository
                 if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) == SpansLocation.TRACKING_STORE:
-                    trace_data = self.store.batch_get_traces([trace_info.trace_id])[0].data
+                    if traces := self.store.batch_get_traces([trace_info.trace_id]):
+                        return traces[0]
+                    else:
+                        raise MlflowException(
+                            f"Trace with ID {trace_id} is not found.",
+                            error_code=NOT_FOUND,
+                        )
                 else:
                     trace_data = self._download_trace_data(trace_info)
             except MlflowTraceDataNotFound:

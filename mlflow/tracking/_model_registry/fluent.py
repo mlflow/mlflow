@@ -32,6 +32,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.events import LoadPromptEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -44,7 +46,12 @@ from mlflow.utils.databricks_utils import (
     get_workspace_url,
     stage_model_for_databricks_model_serving,
 )
-from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
+from mlflow.utils.env_pack import (
+    EnvPackConfig,
+    EnvPackType,
+    _validate_env_pack,
+    pack_env_for_databricks_model_serving,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
@@ -64,7 +71,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: dict[str, Any] | None = None,
-    env_pack: EnvPackType | None = None,
+    env_pack: EnvPackType | EnvPackConfig | None = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -85,10 +92,12 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
-        env_pack: If specified, the model dependencies will first be installed into the current
-            Python environment, and then the complete environment will be packaged and included
-            in the registered model artifacts. This is useful when deploying the model to a
-            serving environment like Databricks Model Serving.
+        env_pack: Either a string or an EnvPackConfig. If specified,
+            the model dependencies are optionally first installed into the current Python
+            environment, and then the complete environment will be packaged and included
+            in the registered model artifacts. If the string shortcut "databricks_model_serving" is
+            used, then model dependencies will be installed in the current environment. This is
+            useful when deploying the model to a serving environment like Databricks Model Serving.
 
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
@@ -142,7 +151,7 @@ def _register_model(
     *,
     tags: dict[str, Any] | None = None,
     local_model_path=None,
-    env_pack: EnvPackType | None = None,
+    env_pack: EnvPackType | EnvPackConfig | None = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -202,11 +211,20 @@ def _register_model(
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
-    if env_pack == "databricks_model_serving":
-        eprint("Packing environment for Databricks Model Serving...")
+    # Passing in the string value is a shortcut for passing in the EnvPackConfig
+    # Validate early; `_validate_env_pack` will raise on invalid inputs.
+    validated_env_pack = _validate_env_pack(env_pack)
+
+    # If env_pack is supported and indicates Databricks Model Serving, pack env and
+    # log the resulting artifacts.
+    if validated_env_pack:
+        eprint(
+            "Packing environment for Databricks Model Serving with install_dependencies "
+            f"{validated_env_pack.install_dependencies}..."
+        )
         with pack_env_for_databricks_model_serving(
             model_uri,
-            enforce_pip_requirements=True,
+            enforce_pip_requirements=validated_env_pack.install_dependencies,
         ) as artifacts_path_with_env:
             client.log_model_artifacts(model_id, artifacts_path_with_env)
 
@@ -257,7 +275,7 @@ def _register_model(
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
 
-    if env_pack == "databricks_model_serving":
+    if validated_env_pack:
         eprint(
             f"Staging model {create_version_response.name} "
             f"version {create_version_response.version} "
@@ -666,6 +684,7 @@ def search_prompts(
 
 
 @require_prompt_registry
+@record_usage_event(LoadPromptEvent)
 def load_prompt(
     name_or_uri: str,
     version: str | int | None = None,

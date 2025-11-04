@@ -14,13 +14,17 @@ export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   </div>
 );
 
-export const Card = ({ children, link = '' }): JSX.Element => {
+export const Card = ({ children, link = '', style = undefined }): JSX.Element => {
   if (!link) {
-    return <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>;
+    return (
+      <div className={clsx(styles.Card, styles.CardBordered)} style={style}>
+        {children}
+      </div>
+    );
   }
 
   return (
-    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} to={link}>
+    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} style={style} to={link}>
       {children}
     </Link>
   );

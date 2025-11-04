@@ -18,6 +18,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+from mlflow.utils.env_pack import EnvPackConfig
 
 
 def test_register_model_with_runs_uri():
@@ -301,6 +302,63 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
         )
 
         # Verify stage_model was called with correct arguments
+        mock_stage_model.assert_called_once_with(
+            model_name="Model 1",
+            model_version="1",
+        )
+
+
+@pytest.mark.parametrize("install_deps", [True, False])
+def test_register_model_with_env_pack_config(tmp_path, install_deps):
+    # Mock download_artifacts to return a path
+    mock_artifacts_dir = tmp_path / "artifacts"
+    mock_artifacts_dir.mkdir()
+    (mock_artifacts_dir / "requirements.txt").write_text("numpy==1.21.0")
+
+    with (
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
+        ),
+        mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.pack_env_for_databricks_model_serving"
+        ) as mock_pack_env,
+        mock.patch(
+            "mlflow.tracking._model_registry.fluent.stage_model_for_databricks_model_serving"
+        ) as mock_stage_model,
+        mock.patch(
+            "mlflow.MlflowClient._create_model_version",
+            return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
+        ),
+        mock.patch(
+            "mlflow.MlflowClient.get_model_version",
+            return_value=ModelVersion("Model 1", "1", creation_timestamp=123),
+        ),
+        mock.patch("mlflow.MlflowClient.log_model_artifacts") as mock_log_artifacts,
+    ):
+        # Set up the mock pack_env to yield a path
+        mock_pack_env.return_value.__enter__.return_value = str(mock_artifacts_dir)
+
+        # Call register_model with env_pack
+        register_model(
+            "models:/test-model/1",
+            "Model 1",
+            env_pack=EnvPackConfig(
+                name="databricks_model_serving", install_dependencies=install_deps
+            ),
+        )
+
+        mock_pack_env.assert_called_once_with(
+            "models:/test-model/1",
+            enforce_pip_requirements=install_deps,
+        )
+
+        mock_log_artifacts.assert_called_once_with(
+            None,
+            str(mock_artifacts_dir),
+        )
+
         mock_stage_model.assert_called_once_with(
             model_name="Model 1",
             model_version="1",
