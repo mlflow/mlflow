@@ -105,10 +105,7 @@ class OtelSchemaTranslator:
         Returns:
             Input value or None if not found
         """
-        if self.INPUT_VALUE_KEYS:
-            for key in self.INPUT_VALUE_KEYS:
-                if value := attributes.get(key):
-                    return value
+        return self.get_attribute_value(attributes, self.INPUT_VALUE_KEYS)
 
     def get_output_value(self, attributes: dict[str, Any]) -> Any:
         """
@@ -120,7 +117,47 @@ class OtelSchemaTranslator:
         Returns:
             Output value or None if not found
         """
-        if self.OUTPUT_VALUE_KEYS:
-            for key in self.OUTPUT_VALUE_KEYS:
-                if value := attributes.get(key):
+        return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
+
+    def get_attribute_value(
+        self, attributes: dict[str, Any], valid_keys: list[str] | None = None
+    ) -> Any:
+        """
+        Get attribute value from OTEL attributes by checking whether
+        the keys in valid_keys are present in the attributes.
+
+        Args:
+            attributes: Dictionary of span attributes
+            valid_keys: List of attribute keys to check
+
+        Returns:
+            Attribute value or None if not found
+        """
+        if valid_keys:
+            for key in valid_keys:
+                if value := self._get_and_check_attribute_value(attributes, key):
                     return value
+
+    def _get_and_check_attribute_value(self, attributes: dict[str, Any], key: str) -> Any:
+        """
+        Get attribute value from OTEL attributes by checking whether the value is valid or not.
+        This avoids fetching the value if it's empty dictionary or null.
+
+        Args:
+            attributes: Dictionary of span attributes
+            key: Attribute key
+
+        Returns:
+            Attribute value or None if not found
+        """
+        value = attributes.get(key)
+        if isinstance(value, str):
+            try:
+                result = json.loads(value)
+            except (json.JSONDecodeError, TypeError):
+                pass  # Use the string value as-is
+            else:
+                # only return the original value if the deserialized
+                # value is not empty dictionary or None
+                return value if result else None
+        return value

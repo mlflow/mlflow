@@ -15,6 +15,7 @@ from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.utils import dump_span_attribute_value
@@ -25,6 +26,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GenAiTranslator(),
     TraceloopTranslator(),
+    GoogleADKTranslator(),
 ]
 
 
