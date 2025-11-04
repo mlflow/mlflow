@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Location, Offset, lint_file
 from clint.rules import IsinstanceUnionSyntax
 
 
@@ -37,7 +37,7 @@ isinstance(obj)
     results = lint_file(Path("test.py"), code, config, index_path)
     assert all(isinstance(r.rule, IsinstanceUnionSyntax) for r in results)
     assert [r.loc for r in results] == [
-        Location(2, 0),
-        Location(3, 0),
-        Location(6, 0),
+        Location(Offset(2, 0)),
+        Location(Offset(3, 0)),
+        Location(Offset(6, 0)),
     ]

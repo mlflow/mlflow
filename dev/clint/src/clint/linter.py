@@ -49,51 +49,66 @@ HasLocation: TypeAlias = (
 
 
 @dataclass
-class Location:
+class Offset:
+    """Represents a position in source code with line number and column offset."""
+
     lineno: int
     col_offset: int
-    end_lineno: int | None = None
-    end_col_offset: int | None = None
+
+    def __add__(self, other: "Offset") -> "Offset":
+        return Offset(self.lineno + other.lineno, self.col_offset + other.col_offset)
+
+
+@dataclass
+class Location:
+    start: Offset
+    end: Offset | None = None
 
     def __str__(self) -> str:
-        return f"{self.lineno}:{self.col_offset}"
+        return f"{self.start.lineno}:{self.start.col_offset}"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Location):
             return False
-        return self.lineno == other.lineno and self.col_offset == other.col_offset
+        return self.start == other.start
+
+    # Backward compatibility properties
+    @property
+    def lineno(self) -> int:
+        return self.start.lineno
+
+    @property
+    def col_offset(self) -> int:
+        return self.start.col_offset
+
+    @property
+    def end_lineno(self) -> int | None:
+        return self.end.lineno if self.end is not None else None
+
+    @property
+    def end_col_offset(self) -> int | None:
+        return self.end.col_offset if self.end is not None else None
 
     @classmethod
     def from_node(cls, node: HasLocation) -> Self:
-        return cls(
-            node.lineno - 1,
-            node.col_offset,
-            node.end_lineno - 1 if node.end_lineno is not None else None,
-            node.end_col_offset,
-        )
+        start = Offset(node.lineno - 1, node.col_offset)
+        end = None
+        if node.end_lineno is not None and node.end_col_offset is not None:
+            end = Offset(node.end_lineno - 1, node.end_col_offset)
+        return cls(start, end)
 
     @classmethod
     def from_noqa(cls, noqa: Noqa) -> Self:
-        return cls(
-            noqa.lineno - 1,
-            noqa.col_offset,
-            noqa.end_lineno - 1,
-            noqa.end_col_offset,
-        )
+        start = Offset(noqa.lineno - 1, noqa.col_offset)
+        end = Offset(noqa.end_lineno - 1, noqa.end_col_offset)
+        return cls(start, end)
 
     def __add__(self, other: "Location") -> "Location":
-        end_lineno = None
-        end_col_offset = None
-        if self.end_lineno is not None:
-            end_lineno = self.end_lineno + other.lineno
-        if self.end_col_offset is not None:
-            end_col_offset = self.end_col_offset + other.col_offset
-        return Location(
-            self.lineno + other.lineno,
-            self.col_offset + other.col_offset,
-            end_lineno,
-            end_col_offset,
-        )
+        new_start = self.start + other.start
+        new_end = None
+        if self.end is not None:
+            new_end = self.end + other.start
+        return Location(new_start, new_end)
 
 
 @dataclass
@@ -108,7 +123,7 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             # Since `Location` is 0-indexed, lineno and col_offset are incremented by 1
-            f"{self.path}:{cell_loc}{self.loc + Location(1, 1)}: "
+            f"{self.path}:{cell_loc}{self.loc + Location(Offset(1, 1))}: "
             f"{self.rule.id}: {self.rule.message} "
             f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
@@ -197,7 +212,7 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
                 if next_line := next(line_iter, None):
                     idx, line = next_line
 
-            code_block_loc = Location(idx, _get_indent(line))
+            code_block_loc = Location(Offset(idx, _get_indent(line)))
         else:
             header_indent = _get_header_indent(line)
 
@@ -234,7 +249,7 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
 
         elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
             closing_fence = m.group(1)
-            code_block_loc = Location(idx + 1, _get_indent(line))
+            code_block_loc = Location(Offset(idx + 1, _get_indent(line)))
 
     # Code block at EOF
     if code_lines and code_block_loc:
@@ -384,7 +399,7 @@ class Linter(ast.NodeVisitor):
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Location] = {}
-        self.offset = offset or Location(0, 0)
+        self.offset = offset or Location(Offset(0, 0))
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
@@ -494,7 +509,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_Module(self, node: ast.Module) -> None:
         if rule := rules.RedundantTestDocstring.check_module(node, self.path.name):
-            self._check(Location(0, 0), rule)
+            self._check(Location(Offset(0, 0)), rule)
         self.generic_visit(node)
 
     def _is_in_test(self) -> bool:
@@ -554,7 +569,8 @@ class Linter(ast.NodeVisitor):
             return
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             for code_block in _iter_code_blocks(docstring_node.value):
-                code_block.loc.lineno += docstring_node.lineno - 1
+                # Adjust code block location to account for docstring position
+                code_block.loc = code_block.loc + Location(Offset(docstring_node.lineno - 1, 0))
                 self.violations.extend(
                     Linter.visit_example(self.path, self.config, code_block, self.index)
                 )
@@ -832,7 +848,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_file_content(self, src: str) -> None:
         if rules.NoShebang.check(src):
-            self._check(Location(0, 0), rules.NoShebang())
+            self._check(Location(Offset(0, 0)), rules.NoShebang())
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
@@ -867,7 +883,7 @@ def _lint_cell(
                     Violation(
                         rules.ForbiddenTraceUIInNotebook(),
                         path,
-                        Location(0, 0),
+                        Location(Offset(0, 0)),
                         cell=cell_index,
                     )
                 )
@@ -893,7 +909,7 @@ def _lint_cell(
             Violation(
                 rules.EmptyNotebookCell(),
                 path,
-                Location(0, 0),
+                Location(Offset(0, 0)),
                 cell=cell_index,
             )
         )
@@ -931,7 +947,7 @@ def lint_file(path: Path, code: str, config: Config, index_path: Path) -> list[V
                     Violation(
                         rules.MissingNotebookH1Header(),
                         path,
-                        Location(0, 0),
+                        Location(Offset(0, 0)),
                     )
                 )
         return violations
