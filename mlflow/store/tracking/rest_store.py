@@ -38,6 +38,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
 )
@@ -45,6 +46,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    BatchGetTraces,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -402,16 +404,35 @@ class RestStore(AbstractStore):
         max_traces: int | None = None,
         trace_ids: list[str] | None = None,
     ) -> int:
-        req_body = message_to_json(
-            DeleteTraces(
-                experiment_id=experiment_id,
-                max_timestamp_millis=max_timestamp_millis,
-                max_traces=max_traces,
-                request_ids=trace_ids,
+        # If deleting by trace_ids, split into batches to avoid hitting the
+        # Databricks server limit
+        if trace_ids:
+            batch_size = _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE.get()
+            total_deleted = 0
+            for i in range(0, len(trace_ids), batch_size):
+                batch = trace_ids[i : i + batch_size]
+                req_body = message_to_json(
+                    DeleteTraces(
+                        experiment_id=experiment_id,
+                        max_timestamp_millis=max_timestamp_millis,
+                        max_traces=max_traces,
+                        request_ids=batch,
+                    )
+                )
+                res = self._call_endpoint(DeleteTraces, req_body)
+                total_deleted += res.traces_deleted
+            return total_deleted
+        else:
+            req_body = message_to_json(
+                DeleteTraces(
+                    experiment_id=experiment_id,
+                    max_timestamp_millis=max_timestamp_millis,
+                    max_traces=max_traces,
+                    request_ids=trace_ids,
+                )
             )
-        )
-        res = self._call_endpoint(DeleteTraces, req_body)
-        return res.traces_deleted
+            res = self._call_endpoint(DeleteTraces, req_body)
+            return res.traces_deleted
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
@@ -440,6 +461,23 @@ class RestStore(AbstractStore):
         endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
+
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
+        """
+        Get a batch of complete traces with spans for given trace ids.
+
+        Args:
+            trace_ids: List of trace IDs to fetch.
+            location: Location of the trace. Should be None for OSS backend.
+
+        Returns:
+            List of Trace objects.
+        """
+        req_body = message_to_json(BatchGetTraces(trace_ids=trace_ids))
+        response_proto = self._call_endpoint(
+            BatchGetTraces, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/batchGet"
+        )
+        return [Trace.from_proto(proto) for proto in response_proto.traces]
 
     def search_traces(
         self,
@@ -1113,7 +1151,9 @@ class RestStore(AbstractStore):
     # Scorer Management APIs
     ############################################################################################
 
-    def register_scorer(self, experiment_id: str, name: str, serialized_scorer: str) -> int:
+    def register_scorer(
+        self, experiment_id: str, name: str, serialized_scorer: str
+    ) -> ScorerVersion:
         """
         Register a scorer for an experiment.
 
@@ -1123,7 +1163,7 @@ class RestStore(AbstractStore):
             serialized_scorer: String containing the serialized scorer data.
 
         Returns:
-            The new version number for the scorer.
+            ScorerVersion: The newly registered scorer version object.
         """
         req_body = message_to_json(
             RegisterScorer(
@@ -1138,7 +1178,15 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/register",
         )
-        return response_proto.version
+
+        return ScorerVersion(
+            experiment_id=response_proto.experiment_id,
+            scorer_name=response_proto.name,
+            scorer_version=response_proto.version,
+            serialized_scorer=response_proto.serialized_scorer,
+            creation_time=response_proto.creation_time,
+            scorer_id=response_proto.scorer_id,
+        )
 
     def list_scorers(self, experiment_id: str) -> list[ScorerVersion]:
         """

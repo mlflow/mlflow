@@ -27,7 +27,7 @@ import type {
   RunEvaluationResultAssessment,
 } from './types';
 import { timeSinceStr } from './utils/DisplayUtils';
-import type { ModelTraceInfo } from '../model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 const DEFAULT_ASSESSMENT_CELL_WIDTH_PX = 120;
 const DEFAULT_ASSESSMENTS_CELL_WIDTH_COMPARE_PX = 120;
@@ -135,7 +135,7 @@ export const getColumnConfig = (
     intl: IntlShape;
     experimentId: string;
     onChangeEvaluationId: (evaluationId: string | undefined) => void;
-    onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
+    onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
   },
 ): ColumnDef<EvalTraceComparisonEntry> => {
   const baseColConfig: ColumnDef<EvalTraceComparisonEntry> = {

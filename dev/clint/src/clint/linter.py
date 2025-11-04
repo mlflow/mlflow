@@ -576,7 +576,7 @@ class Linter(ast.NodeVisitor):
 
         # Check all decorators, not just the first one
         for deco in node.decorator_list:
-            if rules.MockPatchAsDecorator.check([deco], self.resolver, self.path):
+            if rules.MockPatchAsDecorator.check([deco], self.resolver):
                 self._check(Location.from_node(deco), rules.MockPatchAsDecorator())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -778,6 +778,12 @@ class Linter(ast.NodeVisitor):
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
+
+    def visit_With(self, node: ast.With) -> None:
+        # Only check in test files
+        if self.path.name.startswith("test_") and rules.NestedMockPatch.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.NestedMockPatch())
+        self.generic_visit(node)
 
     def post_visit(self) -> None:
         if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):

@@ -36,7 +36,7 @@ def mock_client(monkeypatch) -> Generator:
     deploy_client.predict.return_value = _MOCK_CHAT_RESPONSE
     # For newer version, ChatDatabricks uses workspace OpenAI client
     openai_client = mock.MagicMock()
-    openai_client.chat.completions.create.return_value = ChatCompletion.validate(
+    openai_client.chat.completions.create.return_value = ChatCompletion.model_validate(
         _MOCK_CHAT_RESPONSE
     )
 

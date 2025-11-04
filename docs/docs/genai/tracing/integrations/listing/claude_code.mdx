@@ -26,12 +26,6 @@ After setting up auto tracing, MLflow will automatically capture traces of your 
 - Tool execution results
 - Session metadata including working directory and user
 
-## Requirements
-
-- MLflow >= 3.4 (`pip install mlflow>=3.4`)
-- For CLI tracing: [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
-- For SDK tracing: [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
-
 ## Setup
 
 Claude Code tracing can be configured using either CLI commands (for interactive use) or Python SDK imports (for programmatic use).
@@ -42,6 +36,11 @@ Claude Code tracing can be configured using either CLI commands (for interactive
 ### CLI Tracing Setup
 
 Use CLI tracing to automatically capture your interactive Claude Code CLI conversations.
+
+#### Requirements
+
+- MLflow >= 3.4 (`pip install mlflow>=3.4`)
+- [Claude Code CLI](https://claude.com/product/claude-code) installed and configured
 
 #### Basic Setup
 
@@ -102,6 +101,11 @@ mlflow ui
 
 Use SDK tracing when building applications that programmatically use the Claude Agent SDK.
 
+#### Requirements
+
+- MLflow >= 3.5 (`pip install mlflow>=3.5`)
+- [Claude Agent SDK](https://docs.claude.com/en/api/agent-sdk/overview) >= 0.1.0 (`pip install claude-agent-sdk >= 0.1.0`)
+
 #### Basic Setup
 
 ```python
@@ -151,6 +155,7 @@ You can also use SDK tracing with MLflow's GenAI evaluation framework:
 import asyncio
 import pandas as pd
 from claude_agent_sdk import ClaudeSDKClient
+from typing import Literal
 
 import mlflow.anthropic
 from mlflow.genai import evaluate, scorer
@@ -182,6 +187,7 @@ relevance = make_judge(
         "Evaluate if the response in {{ outputs }} is relevant to "
         "the question in {{ inputs }}. Return either 'pass' or 'fail'."
     ),
+    feedback_value_type=Literal["pass", "fail"],
     model="openai:/gpt-4o",
 )
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Header, Spacer, useDesignSystemTheme } from '@databricks/design-system';
+import { Header, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ScrollablePageWrapper } from '../common/components/ScrollablePageWrapper';
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -10,12 +10,14 @@ import { useInvalidateExperimentList } from '../experiment-tracking/components/e
 import { GetStarted } from './components/GetStarted';
 import { ExperimentsHomeView } from './components/ExperimentsHomeView';
 import { DiscoverNews } from './components/DiscoverNews';
+import { LogTracesDrawer } from './components/LogTracesDrawer';
+import { HomePageViewStateProvider } from './HomePageViewStateContext';
 
 type ExperimentQueryKey = ['home', 'recent-experiments'];
 
 const RECENT_EXPERIMENTS_QUERY_KEY: ExperimentQueryKey = ['home', 'recent-experiments'];
 
-const HomePage = () => {
+const HomePageContent = () => {
   const { theme } = useDesignSystemTheme();
   const invalidateExperiments = useInvalidateExperimentList();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -38,7 +40,6 @@ const HomePage = () => {
 
   const handleOpenCreateModal = () => setIsCreateModalOpen(true);
   const handleCloseCreateModal = () => setIsCreateModalOpen(false);
-
   const handleExperimentCreated = () => {
     handleCloseCreateModal();
     invalidateExperiments();
@@ -71,8 +72,15 @@ const HomePage = () => {
         onClose={handleCloseCreateModal}
         onExperimentCreated={handleExperimentCreated}
       />
+      <LogTracesDrawer />
     </ScrollablePageWrapper>
   );
 };
+
+const HomePage = () => (
+  <HomePageViewStateProvider>
+    <HomePageContent />
+  </HomePageViewStateProvider>
+);
 
 export default HomePage;

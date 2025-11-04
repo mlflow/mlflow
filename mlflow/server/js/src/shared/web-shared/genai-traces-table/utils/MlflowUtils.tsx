@@ -1,7 +1,7 @@
 /**
  * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
  */
-import type { TraceInfoV3 } from '../types';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class MlflowUtils {
@@ -95,6 +95,10 @@ class MlflowUtils {
 
   static getBitbucketRegex() {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
+
+  static getExperimentChatSessionPageRoute(experimentId: string, sessionId: string) {
+    return `/experiments/${experimentId}/chat-sessions/${sessionId}`;
   }
 
   static getRunPageRoute(experimentId: string, runUuid: string) {
@@ -392,7 +396,7 @@ class MlflowUtils {
     return res;
   }
 
-  static renderSourceFromMetadata(traceInfoV3: TraceInfoV3) {
+  static renderSourceFromMetadata(traceInfoV3: ModelTraceInfoV3) {
     const sourceName = traceInfoV3.trace_metadata?.[MlflowUtils.sourceNameTag];
     const sourceType = traceInfoV3.trace_metadata?.[MlflowUtils.sourceTypeTag];
     let res = sourceName ? MlflowUtils.baseName(sourceName) : '';

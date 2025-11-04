@@ -10,6 +10,7 @@ from mlflow.entities.trace_location import MlflowExperimentLocation, UCSchemaLoc
 from mlflow.environment_variables import (
     MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,
     MLFLOW_TRACE_SAMPLING_RATIO,
+    MLFLOW_USE_DEFAULT_TRACER_PROVIDER,
 )
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
@@ -26,7 +27,7 @@ from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.processor.uc_table import DatabricksUCTableSpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
-    _setup_tracer_provider,
+    _initialize_tracer_provider,
     is_tracing_enabled,
     start_span_in_context,
     trace_disabled,
@@ -38,9 +39,10 @@ from tests.tracing.helper import get_traces, purge_traces, skip_when_testing_tra
 
 @pytest.fixture
 def mock_setup_tracer_provider():
-    # To count the number of times _setup_tracer_provider is called
+    # To count the number of times _initialize_tracer_provider is called
     with mock.patch(
-        "mlflow.tracing.provider._setup_tracer_provider", side_effect=_setup_tracer_provider
+        "mlflow.tracing.provider._initialize_tracer_provider",
+        side_effect=_initialize_tracer_provider,
     ) as setup_mock:
         yield setup_mock
 
@@ -261,7 +263,9 @@ def test_trace_disabled_decorator(enabled_initially):
         assert enable_mock.call_count == (1 if enabled_initially else 0)
 
 
-def test_disable_enable_tracing_not_mutate_otel_provider():
+def test_disable_enable_tracing_not_mutate_otel_provider(monkeypatch):
+    monkeypatch.setenv(MLFLOW_USE_DEFAULT_TRACER_PROVIDER.name, "true")
+
     # This test validates that disable/enable MLflow tracing does not mutate the OpenTelemetry's
     # global tracer provider instance.
     otel_tracer_provider = trace.get_tracer_provider()
@@ -411,40 +415,38 @@ def test_otlp_exclusive_vs_dual_export(monkeypatch):
 
     # Test 1: OTLP exclusive mode (dual export = false, default)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
-        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
-            mock_get_exporter.return_value = mock.MagicMock()
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
 
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+        processors = tracer.span_processor._span_processors
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
-
-            # Should have only OTLP processor as primary
-            assert len(processors) == 1
-            assert isinstance(processors[0], OtelSpanProcessor)
+        # Should have only OTLP processor as primary
+        assert len(processors) == 1
+        assert isinstance(processors[0], OtelSpanProcessor)
 
     # Test 2: Dual export mode (both MLflow and OTLP)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "true")
-    with mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True):
-        with mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter:
-            mock_get_exporter.return_value = mock.MagicMock()
+    with (
+        mock.patch("mlflow.tracing.provider.should_use_otlp_exporter", return_value=True),
+        mock.patch("mlflow.tracing.provider.get_otlp_exporter") as mock_get_exporter,
+    ):
+        mock_get_exporter.return_value = mock.MagicMock()
 
-            mlflow.tracing.reset()
-            tracer = _get_tracer("test")
+        mlflow.tracing.reset()
+        tracer = _get_tracer("test")
 
-            from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+        processors = tracer.span_processor._span_processors
 
-            assert _MLFLOW_TRACER_PROVIDER is not None
-            processors = tracer.span_processor._span_processors
-
-            # Should have both processors
-            assert len(processors) == 2
-            assert isinstance(processors[0], OtelSpanProcessor)
-            assert isinstance(processors[1], MlflowV3SpanProcessor)
+        # Should have both processors
+        assert len(processors) == 2
+        assert isinstance(processors[0], OtelSpanProcessor)
+        assert isinstance(processors[1], MlflowV3SpanProcessor)
 
 
 @skip_when_testing_trace_sdk

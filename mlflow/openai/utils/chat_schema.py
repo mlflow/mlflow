@@ -73,7 +73,7 @@ def _is_responses_output(output: Any) -> bool:
     try:
         from mlflow.types.responses import ResponsesAgentResponse
 
-        if ResponsesAgentResponse.validate_compat(output):
+        if ResponsesAgentResponse.model_validate(output):
             return True
     except Exception:
         pass

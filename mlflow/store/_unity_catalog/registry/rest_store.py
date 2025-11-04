@@ -515,7 +515,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateRegisteredModelRequest(
                 name=full_name,
                 description=description,
-                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id is not None else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
@@ -1734,8 +1734,6 @@ class UcModelRegistryStore(BaseRestStore):
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        super().link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
-
         prompt_version_entries = [
             PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
         ]

@@ -2,10 +2,10 @@ from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
-from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 import assessments_pb2 as _assessments_pb2
 import datasets_pb2 as _datasets_pb2
+from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -784,6 +784,17 @@ class GetTraceInfoV3(_message.Message):
     trace_id: str
     def __init__(self, trace_id: _Optional[str] = ...) -> None: ...
 
+class BatchGetTraces(_message.Message):
+    __slots__ = ("trace_ids",)
+    class Response(_message.Message):
+        __slots__ = ("traces",)
+        TRACES_FIELD_NUMBER: _ClassVar[int]
+        traces: _containers.RepeatedCompositeFieldContainer[Trace]
+        def __init__(self, traces: _Optional[_Iterable[_Union[Trace, _Mapping]]] = ...) -> None: ...
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, trace_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
 class SearchTraces(_message.Message):
     __slots__ = ("experiment_ids", "filter", "max_results", "order_by", "page_token")
     class Response(_message.Message):
@@ -957,10 +968,12 @@ class DeleteTraceTagV3(_message.Message):
     def __init__(self, request_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
-    __slots__ = ("trace_info",)
+    __slots__ = ("trace_info", "spans")
     TRACE_INFO_FIELD_NUMBER: _ClassVar[int]
+    SPANS_FIELD_NUMBER: _ClassVar[int]
     trace_info: TraceInfoV3
-    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ...) -> None: ...
+    spans: _containers.RepeatedCompositeFieldContainer[_trace_pb2.Span]
+    def __init__(self, trace_info: _Optional[_Union[TraceInfoV3, _Mapping]] = ..., spans: _Optional[_Iterable[_Union[_trace_pb2.Span, _Mapping]]] = ...) -> None: ...
 
 class TraceLocation(_message.Message):
     __slots__ = ("type", "mlflow_experiment", "inference_table")
@@ -1497,10 +1510,20 @@ class RemoveDatasetFromExperiments(_message.Message):
 class RegisterScorer(_message.Message):
     __slots__ = ("experiment_id", "name", "serialized_scorer")
     class Response(_message.Message):
-        __slots__ = ("version",)
+        __slots__ = ("version", "scorer_id", "experiment_id", "name", "serialized_scorer", "creation_time")
         VERSION_FIELD_NUMBER: _ClassVar[int]
+        SCORER_ID_FIELD_NUMBER: _ClassVar[int]
+        EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
+        NAME_FIELD_NUMBER: _ClassVar[int]
+        SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
+        CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
         version: int
-        def __init__(self, version: _Optional[int] = ...) -> None: ...
+        scorer_id: str
+        experiment_id: str
+        name: str
+        serialized_scorer: str
+        creation_time: int
+        def __init__(self, version: _Optional[int] = ..., scorer_id: _Optional[str] = ..., experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
@@ -1562,18 +1585,20 @@ class DeleteScorer(_message.Message):
     def __init__(self, experiment_id: _Optional[str] = ..., name: _Optional[str] = ..., version: _Optional[int] = ...) -> None: ...
 
 class Scorer(_message.Message):
-    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time")
+    __slots__ = ("experiment_id", "scorer_name", "scorer_version", "serialized_scorer", "creation_time", "scorer_id")
     EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SCORER_NAME_FIELD_NUMBER: _ClassVar[int]
     SCORER_VERSION_FIELD_NUMBER: _ClassVar[int]
     SERIALIZED_SCORER_FIELD_NUMBER: _ClassVar[int]
     CREATION_TIME_FIELD_NUMBER: _ClassVar[int]
+    SCORER_ID_FIELD_NUMBER: _ClassVar[int]
     experiment_id: int
     scorer_name: str
     scorer_version: int
     serialized_scorer: str
     creation_time: int
-    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ...) -> None: ...
+    scorer_id: str
+    def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
 class MlflowService(_service.service): ...
 

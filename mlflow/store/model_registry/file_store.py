@@ -4,6 +4,7 @@ import shutil
 import sys
 import time
 import urllib
+import warnings
 from os.path import join
 
 from mlflow.entities.model_registry import (
@@ -132,6 +133,13 @@ class FileStore(AbstractStore):
         """
 
         super().__init__()
+        warnings.warn(
+            "Filesystem model registry backend (e.g., './mlruns') is deprecated. "
+            "Please switch to a database backend (e.g., 'sqlite:///mlflow.db'). "
+            "For feedback, see: https://github.com/mlflow/mlflow/issues/18534",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         # Create models directory if needed
         if not exists(self.models_directory):
@@ -613,7 +621,12 @@ class FileStore(AbstractStore):
         self, model_version: FileModelVersion, meta_dir=None, overwrite=True
     ):
         model_version_dict = dict(model_version)
-        del model_version_dict["tags"]
+        # Remove fields that are stored separately or derived from other sources
+        # - tags are stored in a separate folder
+        # - metrics and params are fetched from the logged model, not stored in meta.yaml
+        # - aliases are stored separately at the registered model level
+        for field in ["tags", "metrics", "params", "aliases"]:
+            model_version_dict.pop(field, None)
         meta_dir = meta_dir or self._get_model_version_dir(
             model_version.name, model_version.version
         )

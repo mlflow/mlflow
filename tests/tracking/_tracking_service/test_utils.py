@@ -144,6 +144,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -178,6 +179,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(

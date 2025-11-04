@@ -9,7 +9,6 @@ import "databricks.proto";
 import "scalapb/scalapb.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "opentelemetry/proto/trace/v1/trace.proto";
 
@@ -188,6 +187,38 @@ service DatabricksTrackingService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Assessment",
+    };
+  }
+
+  // =============================================================================
+  // Trace-to-Run Linking RPCs
+  // =============================================================================
+
+  // Link traces to a run by creating internal trace-to-run relationships.
+  // This API allows associating multiple traces with a single run for evaluation and labeling workflows.
+  rpc batchLinkTraceToRun (BatchLinkTraceToRun) returns (BatchLinkTraceToRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/traces/{location_id}/link-to-run/batchCreate"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Link Traces to Run",
+    };
+  }
+
+  // Unlink traces from a run by removing the internal trace-to-run relationships.
+  // This API allows batch edit of relationship across multiple traces with a single run.
+  rpc batchUnlinkTraceFromRun (BatchUnlinkTraceFromRun) returns (BatchUnlinkTraceFromRun.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/traces/{location_id}/unlink-from-run/batchDelete"
+        since {major: 4, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Unlink Traces from Run",
     };
   }
 }
@@ -610,4 +641,46 @@ message DeleteAssessment{
   optional string sql_warehouse_id = 4;
 
   message Response {}
+}
+
+// =============================================================================
+// Trace-to-Run Linking API Messages
+// =============================================================================
+
+// Link traces to a run by creating internal trace-to-run relationships.
+message BatchLinkTraceToRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID (experiment_id or catalog.schema) where the traces are stored.
+  optional string location_id = 1 [(validate_required) = true];
+
+  // IDs of the traces to link to the run.
+  // The maximum number of trace IDs that can be linked in a single request is 100.
+  repeated string trace_ids = 2;
+
+  // ID of the run to link the traces to.
+  optional string run_id = 3 [(validate_required) = true];
+
+  message Response {
+    // Empty response
+  }
+}
+
+// Unlink traces from a run by removing the internal trace-to-run relationships.
+message BatchUnlinkTraceFromRun {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The location ID (experiment_id or catalog.schema) where the traces are stored.
+  optional string location_id = 1 [(validate_required) = true];
+
+  // IDs of the traces to unlink from the run.
+  // The maximum number of trace IDs that can be unlinked in a single request is 100.
+  repeated string trace_ids = 2;
+
+  // ID of the run to unlink the traces from.
+  optional string run_id = 3 [(validate_required) = true];
+
+  message Response {
+    // Empty response
+  }
 }

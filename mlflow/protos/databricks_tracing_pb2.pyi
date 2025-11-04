@@ -3,7 +3,6 @@ import databricks_pb2 as _databricks_pb2
 from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
-from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from opentelemetry.proto.trace.v1 import trace_pb2 as _trace_pb2
 from google.protobuf.internal import containers as _containers
@@ -360,6 +359,32 @@ class DeleteAssessment(_message.Message):
     assessment_id: str
     sql_warehouse_id: str
     def __init__(self, location_id: _Optional[str] = ..., trace_id: _Optional[str] = ..., assessment_id: _Optional[str] = ..., sql_warehouse_id: _Optional[str] = ...) -> None: ...
+
+class BatchLinkTraceToRun(_message.Message):
+    __slots__ = ("location_id", "trace_ids", "run_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    run_id: str
+    def __init__(self, location_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., run_id: _Optional[str] = ...) -> None: ...
+
+class BatchUnlinkTraceFromRun(_message.Message):
+    __slots__ = ("location_id", "trace_ids", "run_id")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    LOCATION_ID_FIELD_NUMBER: _ClassVar[int]
+    TRACE_IDS_FIELD_NUMBER: _ClassVar[int]
+    RUN_ID_FIELD_NUMBER: _ClassVar[int]
+    location_id: str
+    trace_ids: _containers.RepeatedScalarFieldContainer[str]
+    run_id: str
+    def __init__(self, location_id: _Optional[str] = ..., trace_ids: _Optional[_Iterable[str]] = ..., run_id: _Optional[str] = ...) -> None: ...
 
 class DatabricksTrackingService(_service.service): ...
 
