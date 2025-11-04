@@ -1,21 +1,24 @@
 #!/bin/bash
 set -e
 
+# Helper function to kill processes matching a pattern
+# Usage: kill_matching_processes <pattern> <description>
+function kill_matching_processes {
+  local pattern="$1"
+  local description="$2"
+  
+  if pgrep -f "$pattern" > /dev/null; then
+    echo "Stopping existing $description..."
+    pkill -f "$pattern" || true
+    sleep 1
+  fi
+}
+
 # Clean up any existing MLflow and yarn dev servers
 # Using specific patterns to avoid killing unrelated processes
 echo "Checking for existing dev servers..."
-if pgrep -f "mlflow.*server.*--dev" > /dev/null; then
-  echo "Stopping existing MLflow dev server..."
-  pkill -f "mlflow.*server.*--dev" || true
-  sleep 1
-fi
-# Kill yarn dev server processes running in mlflow/server/js directory
-# This matches the process started by: (cd mlflow/server/js && yarn start)
-if pgrep -f "mlflow/server/js.*yarn.*start" > /dev/null; then
-  echo "Stopping existing yarn dev server..."
-  pkill -f "mlflow/server/js.*yarn.*start" || true
-  sleep 1
-fi
+kill_matching_processes "mlflow.*server.*--dev" "MLflow dev server"
+kill_matching_processes "mlflow/server/js.*yarn.*start" "yarn dev server"
 
 # Parse command line arguments
 env_file=""
