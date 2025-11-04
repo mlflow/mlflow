@@ -22,10 +22,8 @@ import { Link } from '../utils/RoutingUtils';
 import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 import { SessionTableColumn } from './types';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
+import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
 
-// TODO: add following columns:
-// 1. token counts
-// 2. number of contained traces
 const columns: SessionTableColumn[] = [
   {
     id: 'sessionId',
@@ -55,6 +53,22 @@ const columns: SessionTableColumn[] = [
     accessorKey: 'sessionDuration',
     defaultVisibility: true,
     enableSorting: true,
+  },
+  {
+    id: 'tokens',
+    header: 'Tokens',
+    accessorKey: 'tokens',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
+  },
+  {
+    id: 'turns',
+    header: 'Turns',
+    accessorKey: 'turns',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
   },
   {
     id: 'source',
