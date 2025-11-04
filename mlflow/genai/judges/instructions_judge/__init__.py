@@ -1,8 +1,9 @@
 import json
 import logging
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Literal, get_origin
 
+import pydantic
 from pydantic import PrivateAttr
 
 import mlflow
@@ -11,6 +12,7 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.base import Judge, JudgeField
+from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.instructions_judge.constants import (
     INSTRUCTIONS_JUDGE_SYSTEM_PROMPT,
     INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE,
@@ -24,7 +26,6 @@ from mlflow.genai.judges.utils import (
 )
 from mlflow.genai.scorers.base import (
     _SERIALIZATION_VERSION,
-    ScorerKind,
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
@@ -63,8 +64,17 @@ class InstructionsJudge(Judge):
     _model: str = PrivateAttr()
     _instructions_prompt: PromptVersion = PrivateAttr()
     _ordered_template_variables: list[str] = PrivateAttr()
+    _feedback_value_type: Any = PrivateAttr()
 
-    def __init__(self, name: str, instructions: str, model: str | None = None, **kwargs):
+    def __init__(
+        self,
+        name: str,
+        instructions: str,
+        model: str | None = None,
+        description: str | None = None,
+        feedback_value_type: Any = str,
+        **kwargs,
+    ):
         """
         Initialize the InstructionsJudge.
 
@@ -72,10 +82,14 @@ class InstructionsJudge(Judge):
             name: The name of the judge
             instructions: Natural language instructions for evaluation
             model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
+            description: A description of what the judge evaluates
+            feedback_value_type: Optional type for the 'value' field in the Feedback response.
+                           Default is str. Supported types (FeedbackValueType): int, float,
+                           str, bool, Literal types, as well as a dict and list of these types.
             kwargs: Additional configuration parameters
         """
         # TODO: Allow aggregations once we support boolean/numeric judge outputs
-        super().__init__(name=name, aggregations=[], **kwargs)
+        super().__init__(name=name, description=description, aggregations=[], **kwargs)
 
         if not name or not isinstance(name, str):
             raise MlflowException(
@@ -89,6 +103,7 @@ class InstructionsJudge(Judge):
 
         self._instructions = instructions
         self._model = model or get_default_model()
+        self._feedback_value_type = feedback_value_type
 
         # NB: We create a dummy PromptVersion here to leverage its existing template variable
         # extraction logic. This allows us to reuse the well-tested regex patterns and variable
@@ -241,8 +256,13 @@ class InstructionsJudge(Judge):
         output_fields = self.get_output_fields()
 
         if is_trace_based:
+            # include the value type in the description too so that models that don't support
+            # structured outputs with tool calls can still understand the type.
             evaluation_rating_fields = "\n".join(
-                [f"- {field.name}: {field.description}" for field in output_fields]
+                [
+                    f"- {field.name} ({self._format_type(field.value_type)}): {field.description}"
+                    for field in output_fields
+                ]
             )
             return INSTRUCTIONS_JUDGE_TRACE_PROMPT_TEMPLATE.format(
                 evaluation_rating_fields=evaluation_rating_fields,
@@ -253,6 +273,29 @@ class InstructionsJudge(Judge):
                 INSTRUCTIONS_JUDGE_SYSTEM_PROMPT, instructions=self._instructions
             )
             return add_output_format_instructions(base_prompt, output_fields=output_fields)
+
+    def get_output_fields(self) -> list[JudgeField]:
+        """Get the output fields for this judge."""
+        return [
+            JudgeField(
+                name="result",
+                description=self.description or _RESULT_FIELD_DESCRIPTION,
+                value_type=self._feedback_value_type,
+            ),
+            JudgeField(
+                name="rationale",
+                description=_RATIONALE_FIELD_DESCRIPTION,
+                value_type=str,
+            ),
+        ]
+
+    def _format_type(self, value_type: Any) -> str:
+        if value_type in (str, int, float, bool):
+            return value_type.__name__
+        elif get_origin(value_type) is Literal:
+            return str(value_type).replace("typing.", "")
+        # dict and list
+        return str(value_type)
 
     def _build_user_message(
         self,
@@ -388,17 +431,22 @@ class InstructionsJudge(Judge):
             ChatMessage(role="user", content=user_content),
         ]
 
+        response_format = pydantic.create_model(
+            "ResponseFormat",
+            result=(
+                self._feedback_value_type or str,
+                pydantic.Field(description=self.description or _RESULT_FIELD_DESCRIPTION),
+            ),
+            rationale=(str, pydantic.Field(description=_RATIONALE_FIELD_DESCRIPTION)),
+        )
+
         return invoke_judge_model(
             model_uri=self._model,
             prompt=messages,
             assessment_name=self.name,
             trace=trace if is_trace_based else None,
+            response_format=response_format,
         )
-
-    @property
-    def kind(self) -> ScorerKind:
-        """Return the kind of scorer this judge represents."""
-        return ScorerKind.CLASS
 
     def _validate_model_format(self) -> None:
         """
@@ -438,17 +486,124 @@ class InstructionsJudge(Judge):
             f"template_variables={sorted(self.template_variables)})"
         )
 
+    @staticmethod
+    def _serialize_feedback_value_type(feedback_value_type: Any) -> dict[str, Any]:
+        """
+        Serialize a feedback_value_type to JSON Schema format.
+
+        Supports all FeedbackValueType types:
+        - PbValueType: float, int, str, bool
+        - Literal types (as enum)
+        - dict[str, PbValueType] (as object with additionalProperties)
+        - list[PbValueType] (as array with items)
+
+        Returns a JSON Schema representation of the type.
+        """
+        model = pydantic.create_model(
+            "FeedbackValueSchema",
+            result=feedback_value_type,
+        )
+        return model.model_json_schema()["properties"]["result"]
+
+    @staticmethod
+    def _deserialize_feedback_value_type(serialized: dict[str, Any]) -> type:
+        """
+        Deserialize a feedback_value_type from JSON Schema format.
+
+        Supports all FeedbackValueType types:
+        - PbValueType: str, int, float, bool
+        - Literal types (from enum)
+        - dict[str, PbValueType] (from object with additionalProperties)
+        - list[PbValueType] (from array with items)
+        """
+        if not isinstance(serialized, dict) or "type" not in serialized:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid feedback_value_type serialization: {serialized}"
+            )
+
+        schema_type = serialized["type"]
+
+        # Map JSON Schema types back to Python types
+        type_map = {
+            "string": str,
+            "integer": int,
+            "number": float,
+            "boolean": bool,
+        }
+
+        # Handle enum (Literal types)
+        if "enum" in serialized:
+            enum_values = serialized["enum"]
+            if not enum_values:
+                raise MlflowException.invalid_parameter_value(
+                    f"Enum must have at least one value: {serialized}"
+                )
+            return Literal[tuple(enum_values)]
+
+        # Handle basic types
+        if schema_type in type_map:
+            return type_map[schema_type]
+
+        # Handle object (dict) type
+        if schema_type == "object":
+            if "additionalProperties" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"Object type missing 'additionalProperties' field: {serialized}"
+                )
+            value_schema = serialized["additionalProperties"]
+            if "type" not in value_schema:
+                raise MlflowException.invalid_parameter_value(
+                    f"additionalProperties missing 'type' field: {serialized}"
+                )
+            value_type = type_map.get(value_schema["type"])
+            if value_type is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported value type in object: {value_schema['type']}"
+                )
+            return dict[str, value_type]
+
+        # Handle array (list) type
+        if schema_type == "array":
+            if "items" not in serialized:
+                raise MlflowException.invalid_parameter_value(
+                    f"Array type missing 'items' field: {serialized}"
+                )
+            items_schema = serialized["items"]
+            if "type" not in items_schema:
+                raise MlflowException.invalid_parameter_value(
+                    f"items missing 'type' field: {serialized}"
+                )
+            element_type = type_map.get(items_schema["type"])
+            if element_type is None:
+                raise MlflowException.invalid_parameter_value(
+                    f"Unsupported element type in array: {items_schema['type']}"
+                )
+            return list[element_type]
+
+        # Unsupported type
+        raise MlflowException.invalid_parameter_value(
+            f"Unsupported JSON Schema type: {schema_type}. "
+            f"Only string, integer, number, boolean, object, and array are supported."
+        )
+
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to serialize as a SerializedScorer."""
+        pydantic_data = {
+            "instructions": self._instructions,
+            "model": self._model,
+        }
+        if self._feedback_value_type is not None:
+            pydantic_data["feedback_value_type"] = self._serialize_feedback_value_type(
+                self._feedback_value_type
+            )
+
         serialized_scorer = SerializedScorer(
             name=self.name,
+            description=self.description,
             aggregations=self.aggregations,
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
-            instructions_judge_pydantic_data={
-                "instructions": self._instructions,
-                "model": self._model,
-            },
+            instructions_judge_pydantic_data=pydantic_data,
             builtin_scorer_class=None,
             builtin_scorer_pydantic_data=None,
             call_source=None,

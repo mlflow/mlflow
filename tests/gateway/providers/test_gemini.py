@@ -393,6 +393,402 @@ async def test_invalid_parameters_chat(override, exclude_keys, expected_msg):
         await provider.chat(chat.RequestPayload(**payload))
 
 
+def chat_function_calling_payload(stream: bool = False):
+    payload = {
+        "messages": [
+            {"role": "user", "content": "What's the weather like in Singapore today?"},
+        ],
+        "temperature": 0.5,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            }
+        ],
+    }
+    if stream:
+        payload["stream"] = True
+    return payload
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    expected_payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]}
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_weather",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
+    }
+
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    expected_response = {
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
+                            "type": "function",
+                            "function": {
+                                "name": "get_weather",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        }
+                    ],
+                    "refusal": None,
+                },
+                "finish_reason": "STOP",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+    assert jsonable_encoder(response) == expected_response
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_multi_function_calling():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = {
+        "messages": [
+            {"role": "user", "content": "What's the temperature and humidity in Singapore today?"},
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_temperature",
+                    "description": "Get current temperature for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_humidity",
+                    "description": "Get current humidity for a given location.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string", "description": "The name of a city"}
+                        },
+                        "required": ["location"],
+                    },
+                },
+            },
+        ],
+    }
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "functionCall": {
+                                "name": "get_temperature",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                        {
+                            "functionCall": {
+                                "name": "get_humidity",
+                                "args": {"location": "Singapore"},
+                            },
+                        },
+                    ],
+                    "role": "model",
+                },
+                "finishReason": "STOP",
+                "index": 0,
+            }
+        ]
+    }
+
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    expected_response = {
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_e03eff58ce9e84e7ee3153e687f71dd3",
+                            "type": "function",
+                            "function": {
+                                "name": "get_temperature",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        },
+                        {
+                            "id": "call_de04a6aa496c33afdd792f8424259d12",
+                            "type": "function",
+                            "function": {
+                                "name": "get_humidity",
+                                "arguments": '{"location": "Singapore"}',
+                            },
+                        },
+                    ],
+                    "refusal": None,
+                },
+                "finish_reason": "STOP",
+            }
+        ],
+        "usage": {"prompt_tokens": None, "completion_tokens": None, "total_tokens": None},
+    }
+
+    assert jsonable_encoder(response) == expected_response
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_second_turn():
+    config = chat_config()
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload()
+
+    payload["messages"].extend(
+        [
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": "call_001",
+                        "function": {
+                            "arguments": '{"location": "Singapore"}',
+                            "name": "get_weather",
+                        },
+                        "type": "function",
+                    }
+                ],
+            },
+            {
+                "role": "tool",
+                "tool_call_id": "call_001",
+                "content": '{"temperature": 31.2, "condition": "sunny"}',
+            },
+        ]
+    )
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+    )
+
+    resp = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "text": (
+                                "The weather in Singapore today is sunny with a "
+                                "temperature of 31.2 degrees."
+                            )
+                        }
+                    ]
+                },
+                "finishReason": "stop",
+            }
+        ]
+    }
+    with (
+        mock.patch("time.time", return_value=1234567890),
+        mock.patch(
+            "aiohttp.ClientSession.post",
+            return_value=MockAsyncResponse(resp),
+        ) as mock_post,
+    ):
+        response = await provider.chat(chat.RequestPayload(**payload))
+
+    assert jsonable_encoder(response) == {
+        "id": "gemini-chat-1234567890",
+        "object": "chat.completion",
+        "created": 1234567890,
+        "model": "gemini-2.0-flash",
+        "choices": [
+            {
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": (
+                        "The weather in Singapore today is sunny with "
+                        "a temperature of 31.2 degrees."
+                    ),
+                    "tool_calls": None,
+                    "refusal": None,
+                },
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {
+            "prompt_tokens": None,
+            "completion_tokens": None,
+            "total_tokens": None,
+        },
+    }
+
+    expected_payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": "What's the weather like in Singapore today?"}]},
+            {
+                "role": "model",
+                "parts": [
+                    {
+                        "functionCall": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "args": {"location": "Singapore"},
+                        }
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "parts": [
+                    {
+                        "functionResponse": {
+                            "id": "call_001",
+                            "name": "get_weather",
+                            "response": {"temperature": 31.2, "condition": "sunny"},
+                        }
+                    }
+                ],
+            },
+        ],
+        "generationConfig": {"temperature": 0.5, "candidateCount": 1},
+        "tools": [
+            {
+                "functionDeclarations": [
+                    {
+                        "name": "get_weather",
+                        "description": "Get current temperature for a given location.",
+                        "parametersJsonSchema": {
+                            "properties": {
+                                "location": {"type": "string", "description": "The name of a city"}
+                            },
+                            "type": "object",
+                            "required": ["location"],
+                        },
+                    }
+                ]
+            }
+        ],
+    }
+
+    mock_post.assert_called_once_with(
+        expected_url,
+        json=expected_payload,
+        timeout=mock.ANY,
+    )
+
+
 def chat_stream_response():
     return [
         b'data: {"candidates":[{"content":{"parts":[{"text":"a"}]},"finishReason":null}],"'
@@ -467,6 +863,75 @@ async def test_gemini_chat_stream(resp):
                 }
             ],
         },
+    ]
+
+    mock_build_client.assert_called_once()
+
+    expected_url = (
+        "https://generativelanguage.googleapis.com/v1beta/models/"
+        "gemini-2.0-flash:streamGenerateContent?alt=sse"
+    )
+
+    mock_client.post.assert_called_once_with(
+        expected_url,
+        json=mock.ANY,
+        timeout=mock.ANY,
+    )
+
+
+def chat_function_calling_stream_response():
+    return [
+        b'data: {"candidates": [{"content": {"parts": [{"functionCall": {"name": "get_weather", '
+        b'"args": {"location": "Singapore"}}}],"role": "model"},"finishReason": "STOP","index": 0'
+        b"}]}\n",
+        b"\n",
+        b"data: [DONE]\n",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_gemini_chat_function_calling_stream():
+    config = chat_config()
+    resp = chat_function_calling_stream_response()
+    mock_client = mock_http_client(MockAsyncStreamingResponse(resp))
+    provider = GeminiProvider(EndpointConfig(**config))
+    payload = chat_function_calling_payload(stream=True)
+
+    with (
+        mock.patch("time.time", return_value=1),
+        mock.patch("aiohttp.ClientSession", return_value=mock_client) as mock_build_client,
+    ):
+        stream = provider.chat_stream(chat.RequestPayload(**payload))
+        chunks = [jsonable_encoder(chunk) async for chunk in stream]
+
+    assert chunks == [
+        {
+            "id": "gemini-chat-stream-1",
+            "object": "chat.completion.chunk",
+            "created": 1,
+            "model": "gemini-2.0-flash",
+            "choices": [
+                {
+                    "index": 0,
+                    "finish_reason": "STOP",
+                    "delta": {
+                        "role": "assistant",
+                        "content": None,
+                        "tool_calls": [
+                            {
+                                "index": 0,
+                                "id": "call_c8800a29b7c6d0e92541b3fa793048ab",
+                                "type": "function",
+                                "function": {
+                                    "name": "get_weather",
+                                    "arguments": '{"location": "Singapore"}',
+                                },
+                            }
+                        ],
+                    },
+                }
+            ],
+        }
     ]
 
     mock_build_client.assert_called_once()

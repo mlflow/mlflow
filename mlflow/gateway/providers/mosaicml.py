@@ -1,4 +1,5 @@
 import time
+import warnings
 from contextlib import contextmanager
 from typing import Any
 
@@ -16,6 +17,11 @@ class MosaicMLProvider(BaseProvider):
 
     def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "MosaicML provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, MosaicMLConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.mosaicml_config: MosaicMLConfig = config.model.config
@@ -76,9 +82,7 @@ class MosaicMLProvider(BaseProvider):
 
         # Remove the last </s><s> tags if they exist to allow for
         # assistant completion prompts.
-        if prompt.endswith("</s><s>"):
-            prompt = prompt[:-7]
-        return prompt
+        return prompt.removesuffix("</s><s>")
 
     async def chat(self, payload: chat.RequestPayload) -> chat.ResponsePayload:
         from fastapi.encoders import jsonable_encoder

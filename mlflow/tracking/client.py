@@ -755,15 +755,9 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-
+        prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
         try:
-            if parsed_name_or_uri.startswith("prompts:/"):
-                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-            else:
-                name = parsed_name_or_uri
-                version_or_alias = parsed_version
-
+            name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
@@ -961,7 +955,6 @@ class MlflowClient:
         # with a Run is expected to be small.
         return [model_version_to_prompt_version(mv) for mv in mvs]
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
@@ -976,7 +969,6 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:

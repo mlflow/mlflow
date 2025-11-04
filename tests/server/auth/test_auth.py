@@ -567,3 +567,66 @@ def test_search_logged_models(client: MlflowClient, monkeypatch: pytest.MonkeyPa
         models = client.search_logged_models(experiment_ids=experiment_ids, page_token=models.token)
         assert len(models) == 2
         assert models.token is None
+
+
+def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 2]
+
+    with User(username1, password1, monkeypatch):
+        experiment_ids: list[str] = []
+        run_counts = [8, 10, 7]
+        all_runs = {}
+
+        for i in range(3):
+            experiment_id = client.create_experiment(f"exp-{i}")
+            experiment_ids.append(experiment_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/experiments/permissions/create",
+                json_payload={
+                    "experiment_id": experiment_id,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+            all_runs[experiment_id] = []
+            for _ in range(run_counts[i]):
+                run = client.create_run(experiment_id)
+                all_runs[experiment_id].append(run.info.run_id)
+
+    expected_readable_runs = set(all_runs[experiment_ids[0]] + all_runs[experiment_ids[2]])
+
+    with User(username1, password1, monkeypatch):
+        runs = client.search_runs(experiment_ids=experiment_ids)
+        assert len(runs) == sum(run_counts)
+
+    with User(username2, password2, monkeypatch):
+        runs = client.search_runs(experiment_ids=experiment_ids)
+        returned_run_ids = {run.info.run_id for run in runs}
+        assert returned_run_ids == expected_readable_runs
+        assert len(runs) == len(expected_readable_runs)
+
+        page_token = None
+        all_paginated_runs = []
+        while True:
+            runs = client.search_runs(
+                experiment_ids=experiment_ids,
+                max_results=3,
+                page_token=page_token,
+            )
+            all_paginated_runs.extend([run.info.run_id for run in runs])
+            page_token = runs.token
+            if not page_token:
+                break
+
+        assert len(all_paginated_runs) == len(set(all_paginated_runs))
+        assert set(all_paginated_runs) == expected_readable_runs
+
+        inaccessible_runs = set(all_runs[experiment_ids[1]])
+        returned_inaccessible = set(all_paginated_runs) & inaccessible_runs
+        assert len(returned_inaccessible) == 0

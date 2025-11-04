@@ -4,6 +4,7 @@ import type { ThemeType } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
 
 import { getAssessmentValueBarBackgroundColor } from './Colors';
+import { DEFAULT_RUN_PLACEHOLDER_NAME } from './TraceUtils';
 import { isAssessmentPassing } from '../components/EvaluationsReviewAssessmentTag';
 import {
   ASSESSMENTS_DOC_LINKS,
@@ -576,7 +577,7 @@ export function getBarChartData(
           value,
           displayInfoCounts.currentCounts,
           // For monitoring, there is no run name so we allow this to pass through.
-          currentRunDisplayName || 'monitor',
+          currentRunDisplayName || DEFAULT_RUN_PLACEHOLDER_NAME,
           toggleAssessmentFilter,
         )
       : undefined;

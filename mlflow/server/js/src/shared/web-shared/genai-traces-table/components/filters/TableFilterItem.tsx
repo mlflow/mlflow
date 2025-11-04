@@ -78,7 +78,7 @@ export const TableFilterItem = ({
       .filter(
         (column) => FILTERABLE_INFO_COLUMNS.includes(column.id) || column.id.startsWith(CUSTOM_METADATA_COLUMN_ID),
       )
-      .map((column) => ({ value: column.id, renderValue: () => column.label }));
+      .map((column) => ({ value: column.id, renderValue: () => column.filterLabel ?? column.label }));
 
     // Add the tag and assessment column groups
     result.push(
@@ -126,7 +126,7 @@ export const TableFilterItem = ({
               }
             }}
             placeholder="Select column"
-            width={160}
+            width={180}
             canSearchCustomValue={false}
           />
         </div>

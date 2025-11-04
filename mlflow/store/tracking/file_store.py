@@ -6,6 +6,7 @@ import shutil
 import sys
 import time
 import uuid
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, NamedTuple, TypedDict
@@ -215,6 +216,13 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
+        warnings.warn(
+            "Filesystem tracking backend (e.g., './mlruns') is deprecated. "
+            "Please switch to a database backend (e.g., 'sqlite:///mlflow.db'). "
+            "For feedback, see: https://github.com/mlflow/mlflow/issues/18534",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)

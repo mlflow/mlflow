@@ -31,7 +31,11 @@ export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
+/**
+ * Determines if the regexp-based auto runs search filter is enabled.
+ * This should be disabled in OSS since backend does not support it yet.
+ */
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
@@ -78,13 +82,6 @@ export const shouldUseGetLoggedModelsBatchAPI = () => {
 };
 
 /**
- * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
- */
-export const shouldEnableExperimentPageChildRoutes = () => {
-  return false;
-};
-
-/**
  * A flag determining if we should display the new models UI.
  */
 export const shouldShowModelsNextUI = () => {
@@ -126,5 +123,22 @@ export const shouldUseUnifiedArtifactBrowserForRunDetailsPage = () => {
 };
 
 export const shouldEnableTagGrouping = () => {
+  return true;
+};
+
+/**
+ * Determines if the assessments pane should be disabled when trace info fetch fails.
+ * In OSS, we keep the pane enabled to avoid confusing users (showing stale data is better than nothing).
+ * In Databricks, we disable it because playground creates fake traces that can't have assessments.
+ */
+export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
+  return false;
+};
+
+export const shouldEnableExperimentPageSideTabs = () => {
+  return true;
+};
+
+export const shouldEnableChatSessionsTab = () => {
   return true;
 };

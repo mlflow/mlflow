@@ -41,6 +41,7 @@ from mlflow.protos.service_pb2 import DeleteTraceTag as DeleteTraceTagV3
 from mlflow.protos.service_pb2 import GetTraceInfoV3, StartTraceV3
 from mlflow.protos.service_pb2 import SetTraceTag as SetTraceTagV3
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.constant import TRACE_ID_V4_PREFIX
 from mlflow.utils.databricks_tracing_utils import assessment_to_proto, trace_to_proto
 from mlflow.utils.proto_json_utils import message_to_json
@@ -49,13 +50,6 @@ from mlflow.utils.rest_utils import (
     _V4_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
 )
-
-try:
-    from google.rpc import status_pb2
-
-    grpc_status_exists = True
-except ImportError:
-    grpc_status_exists = False
 
 
 @pytest.fixture
@@ -266,6 +260,23 @@ def test_get_trace_info_fallback_to_v3():
 
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
+
+
+def test_get_trace_info_missing_warehouse_id():
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+    with mock.patch.object(
+        RestStore,
+        "_call_endpoint",
+        side_effect=RestException(
+            json={
+                "error_code": databricks_pb2.ErrorCode.Name(databricks_pb2.INVALID_PARAMETER_VALUE),
+                "message": "Could not resolve a SQL warehouse ID. Please provide one.",
+            }
+        ),
+    ):
+        with pytest.raises(MlflowException, match="SQL warehouse ID is required for "):
+            store.get_trace_info("trace:/catalog.schema/1234567890")
 
 
 def test_set_trace_tag():
@@ -737,7 +748,8 @@ def test_search_traces_with_invalid_location():
         store.search_traces(locations=["catalog.schema.table_name"])
 
 
-def test_search_unified_traces():
+def test_search_unified_traces(monkeypatch):
+    monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
     creds = MlflowHostCreds("https://hello")
     store = DatabricksTracingRestStore(lambda: creds)
     response = mock.MagicMock()
@@ -951,35 +963,38 @@ def test_log_spans_to_uc_table_empty_spans():
     assert result == []
 
 
-@mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
-@mock.patch("mlflow.store.tracking.databricks_rest_store.http_request")
 @pytest.mark.parametrize("diff_trace_id", [True, False])
-def test_log_spans_to_uc_table_success(mock_http_request, mock_get_config, diff_trace_id):
+def test_log_spans_to_uc_table_success(diff_trace_id):
     # Mock configuration
     mock_config = mock.MagicMock()
     mock_config.authenticate.return_value = {"Authorization": "Bearer token"}
-    mock_get_config.return_value = mock_config
 
     spans = create_mock_spans(diff_trace_id)
 
-    # Mock HTTP response with empty content (successful response)
+    # Mock HTTP response
     mock_response = mock.MagicMock()
-    mock_response.status_code = 200
-    mock_response.text = ""
-    mock_http_request.return_value = mock_response
 
-    # Create store with mock host creds that have use_databricks_sdk set to True
-    mock_host_creds = MlflowHostCreds("http://localhost")
-    mock_host_creds.use_databricks_sdk = True
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
-    store = DatabricksTracingRestStore(lambda: mock_host_creds)
-
-    # Execute
-    result = store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+    with (
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.verify_rest_response"
+        ) as mock_verify,
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.http_request", return_value=mock_response
+        ) as mock_http_request,
+        mock.patch(
+            "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
+            return_value=mock_config,
+        ) as mock_get_config,
+    ):
+        # Execute
+        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
     # Verify calls
     mock_get_config.assert_called_once_with("databricks")
     mock_http_request.assert_called_once()
+    mock_verify.assert_called_once_with(mock_response, "/api/2.0/otel/v1/traces")
 
     # Verify HTTP request details
     call_kwargs = mock_http_request.call_args
@@ -990,24 +1005,19 @@ def test_log_spans_to_uc_table_success(mock_http_request, mock_get_config, diff_
     assert "X-Databricks-UC-Table-Name" in call_kwargs[1]["extra_headers"]
     assert call_kwargs[1]["extra_headers"]["X-Databricks-UC-Table-Name"] == "catalog.schema.spans"
 
-    # Verify that use_databricks_sdk is set to False in the request
-    host_creds_used = call_kwargs[1]["host_creds"]
-    assert host_creds_used.use_databricks_sdk is False
 
-    assert result == spans
-
-
-@mock.patch("mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config")
-def test_log_spans_to_uc_table_config_error(mock_get_config):
-    mock_get_config.side_effect = Exception("Config failed")
-
+def test_log_spans_to_uc_table_config_error():
     mock_span = mock.MagicMock(spec=Span, trace_id="trace123")
     spans = [mock_span]
 
     store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
 
-    with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
-        store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
+    with mock.patch(
+        "mlflow.store.tracking.databricks_rest_store.get_databricks_workspace_client_config",
+        side_effect=Exception("Config failed"),
+    ):
+        with pytest.raises(MlflowException, match="Failed to log spans to UC table"):
+            store.log_spans("catalog.schema.spans", spans, tracking_uri="databricks")
 
 
 def test_create_assessment(sql_warehouse_id):
@@ -1460,31 +1470,3 @@ def test_unlink_traces_from_run_with_empty_list_does_nothing():
     with mock.patch("mlflow.utils.rest_utils.http_request") as mock_http:
         store.unlink_traces_from_run(trace_ids=[], run_id="run_abc")
         mock_http.assert_not_called()
-
-
-def test_verify_trace_response_success_empty_response():
-    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-    response = mock.MagicMock()
-    response.status_code = 200
-    response.text = ""
-
-    result = store._verify_trace_response(response, "/api/2.0/otel/v1/traces")
-
-    assert result.status_code == 200
-    assert result._content == b"{}"
-
-
-@pytest.mark.skipif(grpc_status_exists is False, reason="grpcio-status is not installed")
-def test_verify_trace_response_error_with_protobuf():
-    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("http://localhost"))
-    response = mock.MagicMock()
-    response.status_code = 400
-
-    # Create a protobuf error status
-    error_status = status_pb2.Status()
-    error_status.code = 400
-    error_status.message = "Invalid request: missing required field"
-    response.content = error_status.SerializeToString()
-
-    with pytest.raises(RestException, match="Invalid request"):
-        store._verify_trace_response(response, "/api/2.0/otel/v1/traces")

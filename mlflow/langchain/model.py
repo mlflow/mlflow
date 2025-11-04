@@ -39,7 +39,6 @@ from mlflow.langchain.utils.logging import (
     _validate_and_prepare_lc_model_or_path,
     lc_runnables_types,
     patch_langchain_type_to_cls_dict,
-    register_pydantic_v1_serializer_cm,
 )
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.dependencies_schemas import (
@@ -251,7 +250,10 @@ def save_model(
     """
     with tempfile.TemporaryDirectory() as temp_dir:
         import langchain
-        from langchain.schema import BaseRetriever
+
+        from mlflow.langchain._compat import import_base_retriever
+
+        BaseRetriever = import_base_retriever()
 
         lc_model_or_path = _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir)
 
@@ -353,7 +355,7 @@ def save_model(
     )
 
     needs_databricks_auth = False
-    if Version(langchain.__version__) >= Version("0.0.311") and mlflow_model.resources is None:
+    if mlflow_model.resources is None:
         if databricks_resources := _detect_databricks_dependencies(lc_model):
             logger.info(
                 "Attempting to auto-detect Databricks resource dependencies for the "
@@ -614,11 +616,10 @@ def _save_model(model, path, loader_fn, persist_dir):
             "to ensure the model can be loaded correctly."
         )
 
-    with register_pydantic_v1_serializer_cm():
-        if isinstance(model, lc_runnables_types()):
-            return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
-        else:
-            return _save_base_lcs(model, path, loader_fn, persist_dir)
+    if isinstance(model, lc_runnables_types()):
+        return _save_runnables(model, path, loader_fn=loader_fn, persist_dir=persist_dir)
+    else:
+        return _save_base_lcs(model, path, loader_fn, persist_dir)
 
 
 @patch_langchain_type_to_cls_dict
@@ -627,16 +628,15 @@ def _load_model(local_model_path, flavor_conf):
     # of supported types, we define _MODEL_LOAD_KEY to ensure
     # which load function to use
     model_load_fn = flavor_conf.get(_MODEL_LOAD_KEY)
-    with register_pydantic_v1_serializer_cm():
-        if model_load_fn == _RUNNABLE_LOAD_KEY:
-            model = _load_runnables(local_model_path, flavor_conf)
-        elif model_load_fn == _BASE_LOAD_KEY:
-            model = _load_base_lcs(local_model_path, flavor_conf)
-        else:
-            raise mlflow.MlflowException(
-                "Failed to load LangChain model. Unknown model type: "
-                f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
-            )
+    if model_load_fn == _RUNNABLE_LOAD_KEY:
+        model = _load_runnables(local_model_path, flavor_conf)
+    elif model_load_fn == _BASE_LOAD_KEY:
+        model = _load_base_lcs(local_model_path, flavor_conf)
+    else:
+        raise mlflow.MlflowException(
+            "Failed to load LangChain model. Unknown model type: "
+            f"{flavor_conf.get(_MODEL_TYPE_KEY)}"
+        )
     return model
 
 

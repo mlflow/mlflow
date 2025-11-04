@@ -41,12 +41,13 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'getting-started/databricks-trial/index',
+          id: 'getting-started/connect-environment',
+          label: 'Set Up MLflow',
         },
         {
-          type: 'doc',
-          id: 'getting-started/connect-environment',
-          label: 'Connect to MLflow',
+          type: 'link',
+          href: '/genai/tracing/quickstart/python-openai',
+          label: 'Tracing GenAI Apps',
         },
         {
           type: 'doc',
@@ -54,9 +55,8 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate LLMs and Agents',
         },
         {
-          type: 'link',
-          href: '/genai/tracing/quickstart/python-openai',
-          label: 'Tracing GenAI Apps',
+          type: 'doc',
+          id: 'getting-started/databricks-trial/index',
         },
       ],
       link: {
@@ -87,7 +87,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'Instrumenting GenAI Apps',
+          label: 'How to Trace Your App/Agents',
           items: [
             {
               type: 'doc',
@@ -100,6 +100,10 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/typescript-sdk',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/app-instrumentation/opentelemetry',
             },
           ],
           link: {
@@ -163,6 +167,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/observe-with-traces/masking',
               label: 'Redacting Sensitive Data',
             },
+            {
+              type: 'doc',
+              id: 'tracing/lightweight-sdk',
+              label: 'Lightweight Tracing SDK Optimized for Production Usage',
+            },
           ],
         },
 
@@ -185,9 +194,23 @@ const sidebarsGenAI: SidebarsConfig = {
           },
         },
         {
-          type: 'doc',
-          id: 'tracing/lightweight-sdk',
-          label: 'Lightweight Tracing SDK',
+          type: 'category',
+          label: 'OpenTelemetry',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/index',
+              label: 'Overview',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/ingest',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/opentelemetry/export',
+            },
+          ],
         },
         {
           type: 'doc',
@@ -350,7 +373,7 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'eval-monitor/legacy-llm-evaluation',
-          label: 'LLM Evaluation (Legacy)',
+          label: 'Migrating from MLflow 2 LLM Evaluation',
         },
         {
           type: 'doc',
@@ -365,7 +388,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt Registry',
+      label: 'Prompt Management',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -395,6 +418,10 @@ const sidebarsGenAI: SidebarsConfig = {
         {
           type: 'doc',
           id: 'prompt-registry/optimize-prompts',
+        },
+        {
+          type: 'doc',
+          id: 'prompt-registry/rewrite-prompts',
         },
         {
           type: 'doc',

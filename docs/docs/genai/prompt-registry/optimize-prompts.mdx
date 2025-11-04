@@ -1,448 +1,570 @@
 ---
 sidebar_position: 5
-sidebar_label: Optimize Prompts 🆕
+sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { CardGroup, Card } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
-MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. MLflow provides built-in support for optimization algorithms such as [DSPy's MIPROv2](https://dspy.ai/api/optimizers/MIPROv2/) and [GEPA](https://dspy.ai/api/optimizers/GEPA/) algorithms. You can also implement custom optimization algorithms by extending MLflow's base optimizer class <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>.
+MLflow offers the <APILink fn="mlflow.genai.optimize_prompts" /> API, enabling you to automatically improve your prompts using evaluation metrics and training data. This powerful feature allows you to enhance prompt effectiveness across any agent framework by applying prompt optimization algorithms, reducing manual effort and ensuring consistent quality.
+
+Currently, MLflow supports the [GEPA](https://arxiv.org/abs/2507.19457) optimization algorithm through the <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>. GEPA iteratively refines prompts using LLM-driven reflection and automated feedback, leading to systematic and data-driven improvements.
 
 :::tip Key Benefits
 
-- **Unified Interface**: Access to the state-of-the-art prompt optimization algorithms through a neutral interface.
-- **Extensible**: Create custom optimization algorithms by extending base optimizer classes.
-- **Prompt Management**: Integrate with MLflow Prompt Registry to gain reusability, version control and lineage.
-- **Evaluation**: Evaluate prompt performance comprehensively with MLflow's evaluation features.
+- **Automatic Improvement**: Optimize prompts based on evaluation metrics without manual tuning
+- **Data-Driven Optimization**: Uses your training data and custom scorers to guide optimization
+- **Framework Agnostic**: Works with any agent framework, providing broad compatibility
+- **Joint Optimization**: Enable the simultaneous refinement of multiple prompts for best overall performance
+- **Flexible Evaluation**: Support for custom scorers and aggregation function
+- **Version Control**: Automatically registers optimized prompts in MLflow Prompt Registry
+- **Extensible**: Plug in custom optimization algorithms by extending the base class
 
 :::
 
-## Optimization Overview
+:::note[Version Requirements]
+The `optimize_prompts` API requires **MLflow >= 3.5.0**.
+:::
 
-In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
+## Quick Start
+
+Here's a simple example of optimizing a prompt for better accuracy:
+
+```python
+import mlflow
+import openai
+from mlflow.genai.optimize import GepaPromptOptimizer
+from mlflow.genai.scorers import Correctness
+
+# Register initial prompt
+prompt = mlflow.genai.register_prompt(
+    name="qa",
+    template="Answer this question: {{question}}",
+)
+
+
+# Define your prediction function
+def predict_fn(question: str) -> str:
+    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5-mini",
+        # load prompt template using PromptVersion.format()
+        messages=[{"role": "user", "content": prompt.format(question=question)}],
+    )
+    return completion.choices[0].message.content
+
+
+# Training data with inputs and expected outputs
+dataset = [
+    {
+        # The inputs schema should match with the input arguments of the prediction function.
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"expected_response": "Paris"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Germany?"},
+        "expectations": {"expected_response": "Berlin"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Japan?"},
+        "expectations": {"expected_response": "Tokyo"},
+    },
+    {
+        "inputs": {"question": "What is the capital of Italy?"},
+        "expectations": {"expected_response": "Rome"},
+    },
+]
+
+# Optimize the prompt
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+
+# Use the optimized prompt
+optimized_prompt = result.optimized_prompts[0]
+print(f"Optimized template: {optimized_prompt.template}")
+```
+
+The API will produce an improved prompt that performs better on your evaluation criteria.
+
+### Example: Simple Prompt → Optimized Prompt
+
+<CardGroup cols={2}>
+<Card style={{ justifyContent: 'flex-start' }}>
+
+**Before Optimization:**
+
+```text
+Answer this question: {{question}}
+```
+
+</Card>
+<Card style={{ justifyContent: 'flex-start' }}>
+
+**After Optimization:**
+
+```text
+Answer this question: {{question}}.
+Focus on providing precise,
+factual information without additional commentary or explanations.
+
+1. **Identify the Subject**: Clearly determine the specific subject
+of the question (e.g., geography, history)
+and provide a concise answer.
+
+2. **Clarity and Precision**: Your response should be a single,
+clear statement that directly addresses the question.
+Do not add extra details, context, or alternatives.
+
+3. **Expected Format**: The expected output should be the exact answer
+with minimal words where appropriate.
+For instance, when asked about capitals, the answer should
+simply state the name of the capital city,
+e.g., "Tokyo" for Japan, "Rome" for Italy, and "Paris" for France.
+
+4. **Handling Variations**: If the question contains multiple
+parts or variations, focus on the primary query
+ and answer it directly. Avoid over-complication.
+
+5. **Niche Knowledge**: Ensure that the responses are based on
+commonly accepted geographic and historical facts,
+as this type of information is crucial for accuracy in your answers.
+
+Adhere strictly to these guidelines to maintain consistency
+and quality in your responses.
+```
+
+</Card>
+</CardGroup>
+
+## Components
+
+The <APILink fn="mlflow.genai.optimize_prompts" /> API requires the following components:
 
 <table style={{ width: "100%" }}>
   <thead>
     <tr>
       <th style={{ width: "30%" }}>Component</th>
-      <th style={{ width: "70%" }}>Example</th>
+      <th style={{ width: "70%" }}>Description</th>
     </tr>
   </thead>
   <tbody>
     <tr>
-      <td><strong>Prompt</strong><br/><small>Registered in MLflow</small></td>
-      <td>
-        <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>
-      </td>
+      <td><strong>Target Prompt URIs</strong></td>
+      <td>List of prompt URIs to optimize (e.g., <code>["prompts:/qa/1"]</code>)</td>
     </tr>
     <tr>
-      <td><strong>Scorer</strong><br/><small>Evaluates prompt quality</small></td>
-      <td>
-        <pre><code>@scorer<br/>def exact_match(expectations, outputs):<br/>    return expectations == outputs</code></pre>
-      </td>
+      <td><strong>Predict Function</strong></td>
+      <td>A callable that takes inputs as keyword arguments and returns outputs. Must load templates from MLflow prompt versions (e.g., call <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>).</td>
     </tr>
     <tr>
-      <td><strong>Data</strong><br/><small>Inputs &amp; expectations</small></td>
-      <td>
-        <pre><code>\[<br/>  \{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}},<br/>  \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}<br/>\]</code></pre>
-      </td>
+      <td><strong>Training Data</strong></td>
+      <td>Dataset with <code>inputs</code> (dict) and <code>expectations</code> (expected results). Supports pandas DataFrame, list of dicts, or MLflow EvaluationDataset.</td>
     </tr>
     <tr>
-      <td><strong>Target LLM</strong><br/><small>Model to optimize for</small></td>
-      <td>
-        <pre><code>LLMParams(model_name="openai/gpt-4.1-mini")</code></pre>
-      </td>
-    </tr>
-    <tr>
-      <td><strong>Optimizer Config</strong><br/><small>Optimization settings</small></td>
-      <td>
-        <pre><code>OptimizerConfig(<br/>  algorithm="DSPy/MIPROv2",<br/>  num_instruction_candidates=6,<br/>  max_few_shot_examples=2<br/>)</code></pre>
-      </td>
+      <td><strong>Optimizer</strong></td>
+      <td>Prompt optimizer instance (e.g., <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer" >`GepaPromptOptimizer`</APILink>)</td>
     </tr>
   </tbody>
 </table>
 
-## Getting Started
+### 1. Target Prompt URIs
 
-Here's a simple example of optimizing a question-answering prompt:
-
-As a prerequisite, you need to install DSPy.
-
-```bash
-$ pip install dspy>=2.6.0 mlflow>=3.1.0
-```
-
-Then, run the following code to register the initial prompt and optimize it.
+Specify which prompts to optimize using their URIs from MLflow Prompt Registry:
 
 ```python
-import os
-from typing import Any
-import mlflow
-from mlflow.genai.scorers import scorer
-from mlflow.genai.optimize import OptimizerConfig, LLMParams
+prompt_uris = [
+    "prompts:/qa/1",  # Specific version
+    "prompts:/instruction@latest",  # Latest version
+]
+```
 
-os.environ["OPENAI_API_KEY"] = "<YOUR_OPENAI_API_KEY>"
+You can reference prompts by:
 
+- **Specific version**: `"prompts:/qa/1"` - Optimize a particular version
+- **Latest version**: `"prompts:/qa@latest"` - Optimize the most recent version
+- **Alias**: `"prompts:/qa@champion"` - Optimize a version with a specific alias
 
-# Define a custom scorer function to evaluate prompt performance with the @scorer decorator.
-# The scorer function for optimization can take inputs, outputs, and expectations arguments, but not the trace argument.
-# Note that the DSPy/MIPROv2 optimizer requires metrics to receive outputs as a dict.
-@scorer
-def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
-    return expectations["answer"] == outputs["answer"]
+### 2. Predict Function
 
+Your `predict_fn` must:
 
-# Register the initial prompt
-initial_template = """
-Answer to this math question: {{question}}.
-Return the result in a JSON string in the format of {"answer": "xxx"}.
-"""
+- Accept inputs as keyword arguments matching the inputs field of the dataset
+- Load the template from MLflow prompt versions using one of the following methods:
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.format">`PromptVersion.format()`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.template">`PromptVersion.template`</APILink>
+  - <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink>
+- Return outputs in the same format as your training data (e.g., outputs = `{"answer": "xxx"}` if expectations = `{"expected_response": {"answer": "xxx"}}`)
 
-prompt = mlflow.genai.register_prompt(
-    name="math",
-    template=initial_template,
-)
+```python
+def predict_fn(question: str) -> str:
+    # Load prompt from registry
+    prompt = mlflow.genai.load_prompt("prompts:/qa/1")
 
-# The data can be a list of dictionaries, a pandas DataFrame, or an mlflow.genai.EvaluationDataset
-# It needs to contain inputs and expectations where each row is a dictionary.
-train_data = [
+    # Format the prompt with input variables
+    formatted_prompt = prompt.format(question=question)
+
+    # Call your LLM
+    response = your_llm_call(formatted_prompt)
+
+    return response
+```
+
+### 3. Training Data
+
+Provide a dataset with `inputs` and `expectations`. Both columns should have dictionary values. `inputs` values will be passed to the predict function as keyword arguments. Please refer to [Predefined LLM Scorers](/genai/eval-monitor/scorers/llm-judge/predefined/) for the expected format of each built in scorers.
+
+```python
+# List of dictionaries
+dataset = [
     {
-        "inputs": {"question": "Given that $y=3$, evaluate $(1+y)^y$."},
-        "expectations": {"answer": "64"},
+        "inputs": {"question": "What is AI?"},
+        "expectations": {"expected_response": "Artificial Intelligence"},
     },
     {
-        "inputs": {
-            "question": "The midpoint of the line segment between $(x,y)$ and $(-9,1)$ is $(3,-5)$. Find $(x,y)$."
-        },
-        "expectations": {"answer": "(15,-11)"},
-    },
-    {
-        "inputs": {
-            "question": "What is the value of $b$ if $5^b + 5^b + 5^b + 5^b + 5^b = 625^{(b-1)}$? Express your answer as a common fraction."
-        },
-        "expectations": {"answer": "\\frac{5}{3}"},
-    },
-    {
-        "inputs": {"question": "Evaluate the expression $a^3\\cdot a^2$ if $a= 5$."},
-        "expectations": {"answer": "3125"},
-    },
-    {
-        "inputs": {"question": "Evaluate $\\lceil 8.8 \\rceil+\\lceil -8.8 \\rceil$."},
-        "expectations": {"answer": "17"},
+        "inputs": {"question": "What is ML?"},
+        "expectations": {"expected_response": "Machine Learning"},
     },
 ]
 
-eval_data = [
-    {
-        "inputs": {
-            "question": "The sum of 27 consecutive positive integers is $3^7$. What is their median?"
-        },
-        "expectations": {"answer": "81"},
-    },
-    {
-        "inputs": {"question": "What is the value of $x$ if $x^2 - 10x + 25 = 0$?"},
-        "expectations": {"answer": "5"},
-    },
-    {
-        "inputs": {
-            "question": "If $a\\ast b = 2a+5b-ab$, what is the value of $3\\ast10$?"
-        },
-        "expectations": {"answer": "26"},
-    },
-    {
-        "inputs": {
-            "question": "Given that $-4$ is a solution to $x^2 + bx -36 = 0$, what is the value of $b$?"
-        },
-        "expectations": {"answer": "-5"},
-    },
-]
-
-# Optimize the prompt
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4.1-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    eval_data=eval_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(
-        num_instruction_candidates=8,
-        max_few_shot_examples=2,
-    ),
-)
-
-# The optimized prompt is automatically registered as a new version
-print(result.prompt.uri)
-```
-
-In the example above the average performance score increased from 0 to 0.5.
-After the optimization process is completed, you can visit the MLflow Prompt Registry page and see the optimized prompt.
-
-![Optimized Prompt](/images/llms/optimize-prompt/registered_prompt.png)
-
-Note that the optimized prompt of **DSPy/MIPROv2** optimizer expects the output to be a JSON string.
-Therefore, you need to parse the output using `json.loads` in your application. See [Load and Use the Prompt](/genai/prompt-registry/#4-load-and-use-the-prompt) for how to load the optimized prompt.
-
-```python
-import mlflow
-import json
-import openai
-
-
-def predict(question: str, prompt_uri: str) -> str:
-    prompt = mlflow.genai.load_prompt(prompt_uri)
-    content = prompt.format(question=question)
-    completion = openai.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[{"role": "user", "content": content}],
-        temperature=0.1,
-    )
-
-    return json.loads(completion.choices[0].message.content)["answer"]
-```
-
-## Configuration
-
-You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
-
-- **algorithm**: The optimization algorithm to use. Can be a string (e.g., "DSPy/MIPROv2", "DSPy/GEPA") or a custom optimizer class. Default: "DSPy/MIPROv2"
-- **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
-- **max_few_shot_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
-- **optimizer_llm**: The LLM to use for optimization. For GEPA, this is used as the reflection LM (recommended: a stronger model like GPT-4). Default: None (uses target LLM)
-- **extract_instructions**: Whether to extract instructions from the initial prompt template. Default: True
-- **verbose**: Whether to show optimizer logs during optimization. Default: False
-- **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
-
-See <APILink fn="mlflow.genai.OptimizerConfig" >OptimizerConfig</APILink> for more details.
-
-## Custom Optimizers
-
-MLflow supports creating custom prompt optimization algorithms by extending the base optimizer classes. This allows you to implement domain-specific optimization strategies or integrate with other optimization libraries.
-
-### BasePromptOptimizer
-
-For custom optimization logic, extend the <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> class:
-
-```python
-from mlflow.genai.optimize import BasePromptOptimizer, OptimizerConfig, OptimizerOutput
-from mlflow.genai.optimize.types import LLMParams
-from mlflow.entities.model_registry import PromptVersion
-from mlflow.genai.scorers import Scorer
-from typing import Optional, Callable, Any
+# Or pandas DataFrame
 import pandas as pd
 
-
-class CustomOptimizer(BasePromptOptimizer):
-    # Inherit the BasePromptOptimizer class and implement the `optimize` method.
-    def optimize(
-        self,
-        prompt: PromptVersion,
-        target_llm_params: LLMParams,
-        train_data: pd.DataFrame,
-        scorers: list[Scorer],
-        objective: Optional[Callable[[dict[str, Any]], float]] = None,
-        eval_data: Optional[pd.DataFrame] = None,
-    ) -> OptimizerOutput:
-        # Implement your custom optimization logic here
-
-        optimized_template = f"Please answer accurately: {prompt.template}"
-
-        return OptimizerOutput(
-            optimized_prompt=optimized_template,
-            optimizer_name="CustomOptimizer",
-            final_eval_score=0.85,
-            initial_eval_score=0.75,
-        )
-
-
-# Use the custom optimizer
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(algorithm=CustomOptimizer),
+dataset = pd.DataFrame(
+    {
+        "inputs": [
+            {"question": "What is AI?"},
+            {"question": "What is ML?"},
+        ],
+        "expectations": [
+            {"expected_response": "Artificial Intelligence"},
+            {"expected_response": "Machine Learning"},
+        ],
+    }
 )
 ```
 
-### DSPyPromptOptimizer
+### 4. Optimizer
 
-For DSPy-based optimizations, extend the <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> class, which provides DSPy integration infrastructure:
+Create an optimizer instance for the optimization algorithm. Currently only <APILink fn="mlflow.genai.optimize.GepaPromptOptimizer">`GepaPromptOptimizer`</APILink> is supported natively.
 
 ```python
-import dspy
-from typing import Callable
-from mlflow.genai.optimize import (
-    DSPyPromptOptimizer,
-    OptimizerOutput,
-    format_dspy_prompt,
-)
-from mlflow.entities.model_registry import PromptVersion
+from mlflow.genai.optimize import GepaPromptOptimizer
 
-
-class CustomDSPyOptimizer(DSPyPromptOptimizer):
-    # Inherit the DSPyPromptOptimizer class and implement the `run_optimization` method.
-    def run_optimization(
-        self,
-        prompt: PromptVersion,
-        program: dspy.Module,
-        metric: Callable[[dspy.Example], float],
-        train_data: list,
-        eval_data: list,
-    ) -> OptimizerOutput:
-        # Use DSPy's optimization components with your custom logic
-        # Example using DSPy's BootstrapFewShot optimizer
-        optimizer = dspy.BootstrapFewShot(
-            metric=metric,
-            max_bootstrapped_demos=self.optimizer_config.max_few_shot_examples,
-        )
-
-        # Compile the program
-        compiled_program = optimizer.compile(
-            student=program,
-            trainset=train_data,
-        )
-
-        return OptimizerOutput(
-            optimized_prompt=format_dspy_prompt(compiled_program),
-            optimizer_name="BootstrapFewShot",
-        )
-
-
-# Use the custom DSPy optimizer
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4o-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    scorers=[exact_match],
-    optimizer_config=OptimizerConfig(algorithm=CustomDSPyOptimizer),
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-5",  # Powerful model for optimization
+    max_metric_calls=100,
+    display_progress_bar=False,
 )
 ```
 
-:::note
-When using custom optimizers, ensure they return an `OptimizerOutput` object with the optimized prompt and evaluation scores.
-:::
+## Advanced Usage
 
-## Performance Benchmarks
+### Using Custom Scorers
 
-:::info
-
-We are actively working on the benchmarking.
-These benchmarks results are preliminary and subject to change.
-
-:::
-
-MLflow prompt optimization can improve your application's performance across various tasks. Here are the results from testing MLflow's optimization capabilities on several datasets:
-
-- [**ARC-Challenge**](https://huggingface.co/datasets/allenai/ai2_arc): The ai2_arc dataset contains a set of multiple choice science questions
-- [**GSM8K**](https://huggingface.co/datasets/openai/gsm8k): The gsm8k dataset contains a set of linguistically diverse grade school math word problems
-- [**MATH**](https://huggingface.co/datasets/DigitalLearningGmbH/MATH-lighteval): Competition mathematics problems requiring advanced reasoning and problem-solving skills
-
-| Dataset           | Model           | Baseline | Optimized  |
-| ----------------- | --------------- | -------- | ---------- |
-| **MATH**          | gpt-4.1o-nano   | 17.25%   | **18.48%** |
-| **GSM8K**         | gpt-4.1o-nano   | 21.46%   | **49.89%** |
-| **ARC-Challenge** | gpt-4.1o-nano   | 71.42%   | **89.25%** |
-| **MATH**          | Llama4-maverick | 33.06%   | **33.26%** |
-| **GSM8K**         | Llama4-maverick | 55.80%   | **58.22%** |
-| **ARC-Challenge** | Llama4-maverick | 0.17%    | **93.17%** |
-
-The results above are benchmarks tested against `gpt-4.1o-nano` and `Llama4-maverick` with DSPy's MIPROv2 algorithm and default settings, using specific evaluation metrics for each task.
-The results might change if you use a different model, configuration, dataset, or starting prompt(s).
-These results show that MLflow's prompt optimization can solve many of the challenges, delivering measurable performance gains with minimal effort.
-
-## FAQ
-
-### What are the supported Dataset formats?
-
-The training and evaluation data for the <APILink fn="mlflow.genai.optimize_prompt" /> API can be a list of dictionaries, a pandas DataFrame, a spark DataFrame, or an <APILink fn="mlflow.genai.EvaluationDataset">mlflow.genai.EvaluationDataset</APILink>.
-In any case, the data needs to contain inputs and expectations columns that contains a dictionary of input fields and expected output fields.
-Each inputs or expectations dictionary can contain primitive types, lists, nested dictionaries, and Pydantic models. Data types are inferred from the first row of the dataset.
+Define custom evaluation metrics to guide optimization:
 
 ```python
-# ✅ OK
-[
+from typing import Any
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def accuracy_scorer(outputs: Any, expectations: dict[str, Any]):
+    """Check if output matches expected value."""
+    return 1.0 if outputs.lower() == expectations.lower() else 0.0
+
+
+@scorer
+def brevity_scorer(outputs: Any):
+    """Prefer shorter outputs (max 50 chars)."""
+    return min(1.0, 50 / max(len(outputs), 1))
+
+
+# Combine scorers with a weighted objective
+def weighted_objective(scores: dict[str, Any]):
+    return 0.7 * scores["accuracy_scorer"] + 0.3 * scores["brevity_scorer"]
+
+
+# Use custom scorers
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[accuracy_scorer, brevity_scorer],
+    aggregation=weighted_objective,
+)
+```
+
+### Custom Optimization Algorithm
+
+Implement your own optimizer by extending <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >`BasePromptOptimizer`</APILink>:
+
+```python
+from mlflow.genai.optimize import BasePromptOptimizer, PromptOptimizerOutput
+from mlflow.genai.scorers import Correctness
+
+
+class MyCustomOptimizer(BasePromptOptimizer):
+    def __init__(self, model_name: str):
+        self.model_name = model_name
+
+    def optimize(self, eval_fn, train_data, target_prompts, enable_tracking):
+        # Your custom optimization logic
+        optimized_prompts = {}
+        for prompt_name, prompt_template in target_prompts.items():
+            # Implement your algorithm
+            optimized_prompts[prompt_name] = your_optimization_algorithm(
+                prompt_template, train_data, self.model_name
+            )
+
+        return PromptOptimizerOutput(optimized_prompts=optimized_prompts)
+
+
+# Use custom optimizer
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=MyCustomOptimizer(model_name="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+```
+
+### Multi-Prompt Optimization
+
+Optimize multiple prompts together:
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+
+# Register multiple prompts
+plan_prompt = mlflow.genai.register_prompt(
+    name="plan",
+    template="Make a plan to answer {{question}}.",
+)
+answer_prompt = mlflow.genai.register_prompt(
+    name="answer",
+    template="Answer {{question}} following the plan: {{plan}}",
+)
+
+
+def predict_fn(question: str) -> str:
+    plan_prompt = mlflow.genai.load_prompt("prompts:/plan/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5",  # strong model
+        messages=[{"role": "user", "content": plan_prompt.format(question=question)}],
+    )
+    plan = completion.choices[0].message.content
+
+    answer_prompt = mlflow.genai.load_prompt("prompts:/answer/1")
+    completion = openai.OpenAI().chat.completions.create(
+        model="gpt-5-mini",  # cost efficient model
+        messages=[
+            {
+                "role": "user",
+                "content": answer_prompt.format(question=question, plan=plan),
+            }
+        ],
+    )
+    return completion.choices[0].message.content
+
+
+# Optimize both
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[plan_prompt.uri, answer_prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+
+# Access optimized prompts
+optimized_plan = result.optimized_prompts[0]
+optimized_answer = result.optimized_prompts[1]
+```
+
+### Use Agent Framework
+
+You can optimize your prompt used with agent frameworks. The example below optimizes a prompt for a LangChain workflow. Note that we call <APILink fn="mlflow.entities.model_registry.PromptVersion.to_single_brace_format" >`PromptVersion.to_single_brace_format()`</APILink> instead of <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> inside `predict_fn`.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Correctness
+from mlflow.genai.optimize.optimizers import GepaPromptOptimizer
+from langchain.prompts import PromptTemplate
+from langchain.llms import OpenAI
+from langchain.chains import LLMChain
+
+
+def predict_fn(input_language, output_language, text):
+    template = PromptTemplate(
+        input_variables=["input_language", "output_language", "text"],
+        template=prompt.to_single_brace_format(),  # call to_single_brace_format
+    )
+
+    llm = OpenAI(temperature=0.7)
+
+    chain = LLMChain(llm=llm, prompt=template)
+
+    result = chain.run(
+        input_language=input_language, output_language=output_language, text=text
+    )
+
+    return result
+
+
+dataset = [
     {
-        "inputs": {"question": "What is the capital of France?"},
-        "expectations": {"answer": "Paris"},
-    },
-]
-
-# ✅ OK
-[
-    {
-        "inputs": {"question": "What are the three largest cities of Japan?"},
-        "expectations": {"answer": ["Tokyo", "Osaka", "Nagoya"]},
-    },
-]
-
-# ✅ OK
-from pydantic import BaseModel
-
-
-class Country(BaseModel):
-    name: str
-    capital: str
-    population: int
-
-
-[
-    {
-        "inputs": {"question": "What is the capital of France?"},
-        "expectations": {
-            "answer": Country(name="France", capital="Paris", population=68000000)
+        "inputs": {
+            "input_language": "English",
+            "output_language": "French",
+            "text": "Hello, how are you?",
         },
+        "expectations": {"expected_response": "Bonjour, comment allez-vous?"},
     },
-]
-
-# ❌ NG
-[
     {
-        "inputs": "What is the capital of France?",
-        "expectations": "Paris",
+        "inputs": {
+            "input_language": "English",
+            "output_language": "Spanish",
+            "text": "Good morning",
+        },
+        "expectations": {"expected_response": "Buenos días"},
+    },
+    {
+        "inputs": {
+            "input_language": "English",
+            "output_language": "German",
+            "text": "Thank you very much",
+        },
+        "expectations": {"expected_response": "Vielen Dank"},
     },
 ]
-```
 
-### How to combine multiple scorers?
-
-While the <APILink fn="mlflow.genai.optimize_prompt" /> API accepts multiple scorers, the optimizer needs to combine them into a single score during the optimization process.
-By default, the optimizer computes the total score of all scorers with numeric or boolean values.
-If you want to use a custom aggregation function or use scorers that return non-numeric values, you can pass a custom aggregation function to the `objective` parameter.
-
-```python
-@scorer
-def safeness(outputs: dict[str, Any]) -> bool:
-    return "death" not in outputs["answer"].lower()
-
-
-@scorer
-def relevance(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
-    return expectations["answer"] in outputs["answer"]
-
-
-def objective(scores: dict[str, Any]) -> float:
-    if not scores["safeness"]:
-        return -1
-    return scores["relevance"]
-
-
-result = mlflow.genai.optimize_prompt(
-    target_llm_params=LLMParams(model_name="openai/gpt-4.1-mini"),
-    prompt=prompt,
-    train_data=train_data,
-    eval_data=eval_data,
-    scorers=[safeness, relevance],
-    objective=objective,
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
 )
 ```
 
-### How to create custom optimizers?
+## Result Object
 
-MLflow provides two base classes for creating custom optimizers:
+The API returns a <APILink fn="mlflow.genai.optimize.PromptOptimizationResult" >`PromptOptimizationResult`</APILink> object:
 
-1. **<APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink>**: For custom optimization logic. In order to customize, you must implement your own `optimize` method.
-2. **<APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink>**: For DSPy-based optimizations. Customization of this optimizer involves building a`run_optimization` method. MLflow will handle the required DSPy setup for utilizing your custom interface.
+```python
+result = mlflow.genai.optimize_prompts(...)
 
-Choose <APILink fn="mlflow.genai.optimize.BasePromptOptimizer" >BasePromptOptimizer</APILink> when you want complete control over the optimization process, or <APILink fn="mlflow.genai.optimize.DSPyPromptOptimizer" >DSPyPromptOptimizer</APILink> when you want to leverage DSPy's ecosystem while customizing the optimization strategy.
+# Access optimized prompts
+for prompt in result.optimized_prompts:
+    print(f"Name: {prompt.name}")
+    print(f"Version: {prompt.version}")
+    print(f"Template: {prompt.template}")
+    print(f"URI: {prompt.uri}")
+
+# Check optimizer used
+print(f"Optimizer: {result.optimizer_name}")
+
+# View evaluation scores (if available)
+print(f"Initial score: {result.initial_eval_score}")
+print(f"Final score: {result.final_eval_score}")
+```
+
+## Common Use Cases
+
+### Improving Accuracy
+
+Optimize prompts to produce more accurate outputs:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Correctness(model="openai:/gpt-5")],
+)
+```
+
+### Optimizing for Safeness
+
+Ensure outputs are safe:
+
+```python
+from mlflow.genai.scorers import Safety
+
+
+result = mlflow.genai.optimize_prompts(
+    predict_fn=predict_fn,
+    train_data=dataset,
+    prompt_uris=[prompt.uri],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
+    scorers=[Safety(model="openai:/gpt-5")],
+)
+```
+
+### Model Switching and Migration
+
+When switching between different language models (e.g., migrating from `gpt-5` to `gpt-5-mini` for cost reduction), you may need to rewrite your prompts to maintain output quality with the new model. The <APILink fn="mlflow.genai.optimize_prompts" /> API can help adapt prompts automatically using your existing application outputs as training data.
+
+See the [Auto-rewrite Prompts for New Models](/genai/prompt-registry/rewrite-prompts) guide for a complete model migration workflow.
+
+## Troubleshooting
+
+### Issue: Optimization Takes Too Long
+
+**Solution**: Reduce dataset size or reduce the optimizer budget:
+
+```python
+# Use fewer examples
+small_dataset = dataset[:20]
+
+# Use faster model for optimization
+optimizer = GepaPromptOptimizer(
+    reflection_model="openai:/gpt-5-mini", max_metric_calls=100
+)
+```
+
+### Issue: No Improvement Observed
+
+**Solution**: Check your evaluation metrics and increase dataset diversity:
+
+- Ensure scorers accurately measure what you care about
+- Increase training data size and diversity
+- Try to modify optimizer configurations
+- Verify outputs format matches expectations
+
+### Issue: Prompts Not Being Used
+
+**Solution**: Ensure `predict_fn` calls <APILink fn="mlflow.entities.model_registry.PromptVersion.format" >`PromptVersion.format()`</APILink> during execution:
+
+```python
+# ✅ Correct - loads from registry
+def predict_fn(question: str):
+    prompt = mlflow.genai.load_prompt("prompts:/qa@latest")
+    return llm_call(prompt.format(question=question))
+
+
+# ❌ Incorrect - hardcoded prompt
+def predict_fn(question: str):
+    return llm_call(f"Answer: {question}")
+```
+
+## See Also
+
+- [Auto-rewrite Prompts for New Models](/genai/prompt-registry/rewrite-prompts): Adapt prompts when switching between language models
+- [Create and Edit Prompts](/genai/prompt-registry/create-and-edit-prompts): Basic Prompt Registry usage
+- [Evaluate Prompts](/genai/eval-monitor/running-evaluation/prompts): Evaluate prompt performance

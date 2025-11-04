@@ -86,21 +86,16 @@ class EvalItem:
         )
 
     @classmethod
-    def _parse_inputs(cls, data: str | dict[str, Any]) -> dict[str, Any]:
+    def _parse_inputs(cls, data: str | dict[str, Any]) -> Any:
         # The inputs can be either a dictionary or JSON-serialized version of it.
         if isinstance(data, dict):
             return data
         elif isinstance(data, str):  # JSON-serialized string
             try:
                 return json.loads(data)
-            except Exception as e:
-                raise MlflowException.invalid_parameter_value(
-                    "Failed to parse inputs as JSON."
-                ) from e
-
-        raise MlflowException.invalid_parameter_value(
-            f"inputs must be a dictionary or JSON serializable: {type(data)}"
-        )
+            except Exception:
+                pass
+        return data
 
     def get_expectation_assessments(self) -> list[Expectation]:
         """Get the expectations as a list of Expectation objects."""
@@ -109,7 +104,7 @@ class EvalItem:
             source_id = get_context().get_user_name()
             expectations.append(
                 Expectation(
-                    trace_id=self.trace.info.trace_id,
+                    trace_id=self.trace.info.trace_id if self.trace else None,
                     name=name,
                     source=AssessmentSource(
                         source_type=AssessmentSourceType.HUMAN,
@@ -125,7 +120,7 @@ class EvalItem:
             ResultDataFrameColumn.REQUEST_ID: self.request_id,
             ResultDataFrameColumn.INPUTS: self.inputs,
             ResultDataFrameColumn.OUTPUTS: self.outputs,
-            ResultDataFrameColumn.TRACE: self.trace.to_json(),
+            ResultDataFrameColumn.TRACE: self.trace.to_json() if self.trace else None,
             ResultDataFrameColumn.EXPECTATIONS: self.expectations,
             ResultDataFrameColumn.TAGS: self.tags,
             ResultDataFrameColumn.ERROR_MESSAGE: self.error_message,
