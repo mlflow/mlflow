@@ -262,6 +262,10 @@ class McpRunEvent(Event):
     name: str = "mcp_run"
 
 
+class AiCommandRunEvent(Event):
+    name: str = "ai_command_run"
+
+
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
 
