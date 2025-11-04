@@ -38,10 +38,15 @@ def object_to_dict(o: object):
     if isinstance(o, BaseComponent):
         # we can't serialize callables in the model fields
         callable_fields = set()
-        fields = o.model_fields if hasattr(o, "model_fields") else o.__fields__
+        # Access model_fields from the class to avoid pydantic deprecation warning
+        fields = (
+            o.__class__.model_fields if hasattr(o.__class__, "model_fields") else o.model_fields
+        )
         for k, v in fields.items():
             field_val = getattr(o, k, None)
-            if field_val != v.default and callable(field_val):
+            # Exclude all callable fields, including those with default values
+            # to prevent serialization issues in llama_index
+            if callable(field_val):
                 callable_fields.add(k)
         # exclude default values from serialization to avoid
         # unnecessary clutter in the serialized object
