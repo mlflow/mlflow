@@ -35,6 +35,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks',
   },
   {
+    id: 'google-adk',
+    name: 'Google ADK',
+    logoPath: '/images/logos/google-adk-logo.png',
+    link: '/genai/tracing/integrations/listing/google-adk',
+    category: 'Agent Frameworks',
+  },
+  {
     id: 'crewai',
     name: 'CrewAI',
     logoPath: '/images/logos/crewai-logo.png',
