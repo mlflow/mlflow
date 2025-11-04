@@ -1,6 +1,7 @@
 import importlib
 import importlib.metadata
 import logging
+import mimetypes
 import os
 import shlex
 import sys
@@ -161,6 +162,17 @@ def serve_get_logged_model_artifact(model_id: str):
 # The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
+    # On Windows, the mimetypes module may not have correct MIME types for .js files
+    # registered in the Windows registry, causing Flask to serve them as text/plain.
+    # This prevents the browser from executing JavaScript, resulting in a blank UI.
+    # This is a known Flask/Python issue on Windows.
+    # See: https://github.com/pallets/flask/issues/1045
+    # See: https://github.com/mlflow/mlflow/issues/18620
+    if is_windows() and not getattr(serve_static_file, "_mimetypes_initialized", False):
+        mimetypes.add_type("application/javascript", ".js")
+        mimetypes.add_type("text/css", ".css")
+        serve_static_file._mimetypes_initialized = True
+
     if IS_FLASK_V1:
         return send_from_directory(app.static_folder, path, cache_timeout=2419200)
     else:
