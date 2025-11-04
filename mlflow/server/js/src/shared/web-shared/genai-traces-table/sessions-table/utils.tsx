@@ -8,6 +8,8 @@ export type SessionTableRow = {
   requestPreview?: string;
   firstTrace: ModelTraceInfoV3;
   experimentId: string;
+  sessionStartTime: string;
+  sessionDuration: string | null;
 };
 
 export const groupTracesBySession = (traces: ModelTraceInfoV3[]) => {
