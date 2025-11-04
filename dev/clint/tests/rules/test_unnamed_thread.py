@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Offset, lint_file
+from clint.linter import Location, Position, lint_file
 from clint.rules import UnnamedThread
 
 
@@ -19,4 +19,4 @@ threading.Thread(target=lambda: None)
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert isinstance(results[0].rule, UnnamedThread)
-    assert results[0].loc == Location(Offset(4, 0))
+    assert results[0].loc == Location(Position(4, 0))

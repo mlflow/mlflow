@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Offset, lint_file
+from clint.linter import Location, Position, lint_file
 from clint.rules.docstring_param_order import DocstringParamOrder
 
 
@@ -27,4 +27,4 @@ def f(a: int, b: str) -> None:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, DocstringParamOrder) for v in violations)
-    assert violations[0].loc == Location(Offset(2, 0))
+    assert violations[0].loc == Location(Position(2, 0))

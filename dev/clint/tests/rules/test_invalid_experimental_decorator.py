@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Offset, lint_file
+from clint.linter import Location, Position, lint_file
 from clint.rules.invalid_experimental_decorator import InvalidExperimentalDecorator
 
 
@@ -48,8 +48,8 @@ def good_function2():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 5
     assert all(isinstance(v.rule, InvalidExperimentalDecorator) for v in violations)
-    assert violations[0].loc == Location(Offset(4, 1))  # @experimental without args
-    assert violations[1].loc == Location(Offset(9, 1))  # @experimental() without version
-    assert violations[2].loc == Location(Offset(14, 1))  # invalid version format
-    assert violations[3].loc == Location(Offset(19, 1))  # pre-release version
-    assert violations[4].loc == Location(Offset(24, 1))  # non-string version
+    assert violations[0].loc == Location(Position(4, 1))  # @experimental without args
+    assert violations[1].loc == Location(Position(9, 1))  # @experimental() without version
+    assert violations[2].loc == Location(Position(14, 1))  # invalid version format
+    assert violations[3].loc == Location(Position(19, 1))  # pre-release version
+    assert violations[4].loc == Location(Position(24, 1))  # non-string version
