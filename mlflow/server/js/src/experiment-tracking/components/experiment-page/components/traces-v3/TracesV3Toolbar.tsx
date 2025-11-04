@@ -1,5 +1,14 @@
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  ArrowLeftIcon,
+  Button,
+  ClockIcon,
+  SpeechBubbleIcon,
+  Tag,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { TracesV3DateSelector } from './TracesV3DateSelector';
+import { FormattedMessage } from '@databricks/i18n';
 
 export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; sessionId?: string }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
@@ -23,9 +32,23 @@ export const TracesV3Toolbar = ({ viewState, sessionId }: { viewState: string; s
        */}
       {!(viewState === 'single-chat-session') && <TracesV3DateSelector />}
       {viewState === 'single-chat-session' && (
-        <Typography.Title level={3} withoutMargins>
-          {sessionId}
-        </Typography.Title>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          <Tag
+            color="default"
+            componentId="mlflow.chat-sessions.session-header-label"
+            css={{ padding: theme.spacing.xs + 2, margin: 0 }}
+          >
+            <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+              <SpeechBubbleIcon />
+              <Typography.Text ellipsis bold>
+                <FormattedMessage defaultMessage="Session" description="Label preceding a chat session ID" />
+              </Typography.Text>
+            </span>
+          </Tag>
+          <Typography.Title level={3} withoutMargins>
+            {sessionId}
+          </Typography.Title>
+        </div>
       )}
     </div>
   );
