@@ -3,10 +3,10 @@ import type { LLMResult } from '@langchain/core/outputs';
 
 export function parseLLMResult(result: LLMResult): any {
   const res = {
-    generations: result.generations.map((gen) =>
+    generations: result.generations.map((gen: any[]) =>
       gen
-        .filter((g) => g !== undefined)
-        .map((g) => {
+        .filter((g: any) => g !== undefined)
+        .map((g: any) => {
           return {
             message: parseMessage(g.message),
             text: g.text,

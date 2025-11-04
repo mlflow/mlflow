@@ -18,6 +18,7 @@
     "test:anthropic": "npm run -C integrations/anthropic test",
     "test:vercel": "npm run -C integrations/vercel test",
     "test:gemini": "npm run -C integrations/gemini test",
+    "test:langchain": "npm run -C integrations/langchain test",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",

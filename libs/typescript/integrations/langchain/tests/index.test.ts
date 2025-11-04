@@ -8,7 +8,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
-import { openAIMockHandlers } from '../../openai/tests/mockOpenAIServer';
+import { openAIMockHandlers } from '../../helpers/openaiTestHelper';
 
 const TEST_TRACKING_URI = 'http://localhost:5000';
 
@@ -176,8 +176,6 @@ describe('MlflowCallback integration', () => {
     expect(llmSpan.spanType).toBe(mlflow.SpanType.CHAT_MODEL);
     expect(llmSpan.parentId).toBe(chainSpan.spanId);
   });
-
-  // TODO: add tests for streaming, tool agent, retriever,
 
   it('marks spans as error when runnable fails', async () => {
     // Configure MSW to return rate limit error

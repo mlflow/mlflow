@@ -293,16 +293,23 @@ export class MlflowCallback extends BaseCallbackHandler {
       return;
     }
 
-    span.addEvent(
-      new SpanEvent({
-        name: 'agent_action',
-        attributes: {
-          tool: action.tool,
-          tool_input: this.safeStringify(action.toolInput ?? action.tool_input),
-          log: action.log
-        }
-      })
-    );
+    {
+      const toolInput = this.safeStringify(action.toolInput ?? (action as any).tool_input);
+      const attributes: Record<string, string> = {
+        tool: action.tool,
+        log: action.log
+      };
+      if (toolInput !== undefined) {
+        attributes.tool_input = toolInput;
+      }
+
+      span.addEvent(
+        new SpanEvent({
+          name: 'agent_action',
+          attributes
+        })
+      );
+    }
   }
 
   async handleAgentEnd(
@@ -316,15 +323,24 @@ export class MlflowCallback extends BaseCallbackHandler {
       return;
     }
 
-    span.addEvent(
-      new SpanEvent({
-        name: 'agent_finish',
-        attributes: {
-          return_values: this.safeStringify(action.returnValues ?? action.return_values),
-          log: action.log
-        }
-      })
-    );
+    {
+      const returnValues = this.safeStringify(
+        (action as any).returnValues ?? (action as any).return_values
+      );
+      const attributes: Record<string, string> = {
+        log: action.log
+      };
+      if (returnValues !== undefined) {
+        attributes.return_values = returnValues;
+      }
+
+      span.addEvent(
+        new SpanEvent({
+          name: 'agent_finish',
+          attributes
+        })
+      );
+    }
   }
 
   async flush(): Promise<void> {
