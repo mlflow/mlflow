@@ -96,4 +96,29 @@ describe('useNavigateToExperimentPageTab', () => {
 
     expect(await screen.findByText('experiment page displaying runs tab')).toBeInTheDocument();
   });
+
+  test('should not redirect when experiment kind is not set (NO_INFERRED_TYPE)', async () => {
+    server.use(
+      graphql.query<MlflowGetExperimentQuery>('MlflowGetExperimentQuery', (req, res, ctx) => {
+        return res(
+          ctx.data({
+            mlflowGetExperiment: {
+              __typename: 'MlflowGetExperimentResponse',
+              experiment: {
+                tags: [],
+              },
+            } as any,
+          }),
+        );
+      }),
+    );
+
+    renderTestHook(createMLflowRoutePath('/experiments/123'));
+
+    // Wait a bit to ensure no navigation happens
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    // Should NOT navigate to a tab page - we should still be on /experiments/123
+    expect(screen.queryByText('experiment page displaying')).not.toBeInTheDocument();
+  });
 });

@@ -43,6 +43,12 @@ export const useNavigateToExperimentPageTab = ({
       return;
     }
 
+    // Don't navigate if the experiment kind is not set (NO_INFERRED_TYPE).
+    // In this case, the user will be prompted to select a kind via the modal.
+    if (experimentKind === ExperimentKind.NO_INFERRED_TYPE) {
+      return;
+    }
+
     // By default, we navigate to the Runs tab
     let targetTab = ExperimentPageTabName.Runs;
 
