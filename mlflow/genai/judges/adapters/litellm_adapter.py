@@ -237,7 +237,8 @@ def _invoke_litellm_and_handle_tools(
                     _logger.debug(
                         f"Model {litellm_model_uri} may not support structured outputs or combined "
                         f"tool calling + structured outputs. Error: {e}. "
-                        f"Falling back to unstructured response."
+                        f"Falling back to unstructured response.",
+                        exc_info=True,
                     )
                     _MODEL_RESPONSE_FORMAT_CAPABILITIES[litellm_model_uri] = False
                     include_response_format = False

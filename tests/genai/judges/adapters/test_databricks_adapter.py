@@ -13,7 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_adapter import (
     InvokeDatabricksModelOutput,
-    _invoke_databricks_model,
+    _invoke_databricks_serving_endpoint,
     _parse_databricks_model_response,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
@@ -104,7 +104,7 @@ def test_parse_databricks_model_response_errors(
         _parse_databricks_model_response(res_json, headers)
 
 
-def test_invoke_databricks_model_successful_invocation() -> None:
+def test_invoke_databricks_serving_endpoint_successful_invocation() -> None:
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -127,7 +127,7 @@ def test_invoke_databricks_model_successful_invocation() -> None:
             return_value=mock_response,
         ) as mock_post,
     ):
-        result = _invoke_databricks_model(
+        result = _invoke_databricks_serving_endpoint(
             model_name="test-model", prompt="test prompt", num_retries=3
         )
 
@@ -145,7 +145,7 @@ def test_invoke_databricks_model_successful_invocation() -> None:
 
 
 @pytest.mark.parametrize("status_code", [400, 401, 403, 404])
-def test_invoke_databricks_model_bad_request_error_no_retry(status_code: int) -> None:
+def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(status_code: int) -> None:
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -165,13 +165,15 @@ def test_invoke_databricks_model_bad_request_error_no_retry(status_code: int) ->
         ) as mock_post,
     ):
         with pytest.raises(MlflowException, match=f"failed with status {status_code}"):
-            _invoke_databricks_model(model_name="test-model", prompt="test prompt", num_retries=3)
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt="test prompt", num_retries=3
+            )
 
         mock_post.assert_called_once()
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_model_retry_logic_with_transient_errors() -> None:
+def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors() -> None:
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -197,7 +199,7 @@ def test_invoke_databricks_model_retry_logic_with_transient_errors() -> None:
         ) as mock_post,
         mock.patch("mlflow.genai.judges.adapters.databricks_adapter.time.sleep") as mock_sleep,
     ):
-        result = _invoke_databricks_model(
+        result = _invoke_databricks_serving_endpoint(
             model_name="test-model", prompt="test prompt", num_retries=3
         )
 
@@ -208,7 +210,7 @@ def test_invoke_databricks_model_retry_logic_with_transient_errors() -> None:
     assert result.response == "Success"
 
 
-def test_invoke_databricks_model_json_decode_error() -> None:
+def test_invoke_databricks_serving_endpoint_json_decode_error() -> None:
     mock_creds = mock.Mock()
     mock_creds.host = "https://test.databricks.com"
     mock_creds.token = "test-token"
@@ -228,13 +230,15 @@ def test_invoke_databricks_model_json_decode_error() -> None:
         ) as mock_post,
     ):
         with pytest.raises(MlflowException, match="Failed to parse JSON response"):
-            _invoke_databricks_model(model_name="test-model", prompt="test prompt", num_retries=0)
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt="test prompt", num_retries=0
+            )
 
         mock_post.assert_called_once()
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_model_connection_error_with_retries() -> None:
+def test_invoke_databricks_serving_endpoint_connection_error_with_retries() -> None:
     mock_creds = mock.Mock()
 
     with (
@@ -251,14 +255,16 @@ def test_invoke_databricks_model_connection_error_with_retries() -> None:
         with pytest.raises(
             MlflowException, match="Failed to invoke Databricks model after 3 attempts"
         ):
-            _invoke_databricks_model(model_name="test-model", prompt="test prompt", num_retries=2)
+            _invoke_databricks_serving_endpoint(
+                model_name="test-model", prompt="test prompt", num_retries=2
+            )
 
         assert mock_post.call_count == 3  # Initial + 2 retries
         assert mock_sleep.call_count == 2
         mock_get_creds.assert_called_once()
 
 
-def test_invoke_databricks_model_with_response_schema():
+def test_invoke_databricks_serving_endpoint_with_response_schema():
     class ResponseFormat(BaseModel):
         result: int
         rationale: str
@@ -292,7 +298,7 @@ def test_invoke_databricks_model_with_response_schema():
             "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
         ),
     ):
-        output = _invoke_databricks_model(
+        output = _invoke_databricks_serving_endpoint(
             model_name="my-endpoint",
             prompt="Rate this",
             num_retries=1,

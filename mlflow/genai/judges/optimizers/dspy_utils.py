@@ -3,6 +3,7 @@
 import logging
 from typing import TYPE_CHECKING, Any, Optional
 
+from mlflow import __version__ as VERSION
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
@@ -60,7 +61,11 @@ def _process_chat_completions(
     user_prompt: str, system_prompt: str | None = None
 ) -> AttrDict[str, Any]:
     """Call managed RAG client and return formatted response."""
-    response = call_chat_completions(user_prompt=user_prompt, system_prompt=system_prompt)
+    response = call_chat_completions(
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        session_name=f"mlflow-judge-optimizer-v{VERSION}",
+    )
 
     if response.output is not None:
         result_dict = {

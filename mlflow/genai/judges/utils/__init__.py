@@ -11,47 +11,20 @@ import mlflow
 from mlflow.genai.judges.adapters.databricks_adapter import (
     InvokeDatabricksModelOutput,
     InvokeJudgeModelHelperOutput,
-    _check_databricks_agents_installed,
-    _invoke_databricks_judge,
-    _invoke_databricks_judge_model,
-    _invoke_databricks_model,
-    _parse_databricks_judge_response,
-    _parse_databricks_model_response,
-    _record_judge_model_usage_failure_databricks_telemetry,
-    _record_judge_model_usage_success_databricks_telemetry,
     call_chat_completions,
 )
-from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS, _invoke_via_gateway
-from mlflow.genai.judges.adapters.litellm_adapter import (
-    _extract_response_cost,
-    _get_default_judge_response_schema,
-    _get_litellm_retry_policy,
-    _invoke_litellm,
-    _invoke_litellm_and_handle_tools,
-    _prune_messages_exceeding_context_window_length,
-    _suppress_litellm_nonfatal_errors,
-    _SuppressLiteLLMNonfatalErrors,
-)
+from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS
+from mlflow.genai.judges.adapters.litellm_adapter import _suppress_litellm_nonfatal_errors
 from mlflow.genai.judges.constants import _DATABRICKS_DEFAULT_JUDGE_MODEL
 from mlflow.genai.judges.utils.invocation_utils import (
     FieldExtraction,
     get_chat_completions_with_structured_output,
     invoke_judge_model,
 )
-from mlflow.genai.judges.utils.parsing_utils import (
-    _sanitize_justification,
-    _strip_markdown_code_blocks,
-)
 from mlflow.genai.judges.utils.prompt_utils import (
     DatabricksLLMJudgePrompts,
-    _split_messages_for_databricks,
     add_output_format_instructions,
     format_prompt,
-)
-from mlflow.genai.judges.utils.tool_calling_utils import (
-    _create_litellm_tool_response_message,
-    _create_mlflow_tool_call_from_litellm,
-    _process_tool_calls,
 )
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.utils.uri import is_databricks_uri
@@ -100,6 +73,7 @@ def validate_judge_model(model_uri: str) -> None:
         MlflowException: If the model URI is invalid or required dependencies are missing.
     """
     from mlflow.exceptions import MlflowException
+    from mlflow.genai.judges.adapters.databricks_adapter import _check_databricks_agents_installed
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
@@ -158,43 +132,19 @@ __all__ = [
     "validate_judge_model",
     "CategoricalRating",
     # Databricks adapter
-    "_check_databricks_agents_installed",
     "call_chat_completions",
-    "_parse_databricks_judge_response",
-    "_invoke_databricks_judge",
     "InvokeDatabricksModelOutput",
-    "_parse_databricks_model_response",
-    "_invoke_databricks_model",
-    "_record_judge_model_usage_success_databricks_telemetry",
-    "_record_judge_model_usage_failure_databricks_telemetry",
     "InvokeJudgeModelHelperOutput",
-    "_invoke_databricks_judge_model",
     # Gateway adapter
     "_NATIVE_PROVIDERS",
-    "_invoke_via_gateway",
     # LiteLLM adapter
-    "_SuppressLiteLLMNonfatalErrors",
     "_suppress_litellm_nonfatal_errors",
-    "_invoke_litellm",
-    "_invoke_litellm_and_handle_tools",
-    "_extract_response_cost",
-    "_get_default_judge_response_schema",
-    "_prune_messages_exceeding_context_window_length",
-    "_get_litellm_retry_policy",
     # Invocation utils
     "FieldExtraction",
     "invoke_judge_model",
     "get_chat_completions_with_structured_output",
-    # Parsing utils
-    "_strip_markdown_code_blocks",
-    "_sanitize_justification",
     # Prompt utils
     "DatabricksLLMJudgePrompts",
     "format_prompt",
     "add_output_format_instructions",
-    "_split_messages_for_databricks",
-    # Tool calling utils
-    "_process_tool_calls",
-    "_create_mlflow_tool_call_from_litellm",
-    "_create_litellm_tool_response_message",
 ]

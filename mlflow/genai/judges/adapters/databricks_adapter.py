@@ -43,13 +43,16 @@ def _check_databricks_agents_installed() -> None:
         )
 
 
-def call_chat_completions(user_prompt: str, system_prompt: str) -> Any:
+def call_chat_completions(
+    user_prompt: str, system_prompt: str, session_name: str | None = None
+) -> Any:
     """
     Invokes the Databricks chat completions API using the databricks.agents.evals library.
 
     Args:
         user_prompt (str): The user prompt.
         system_prompt (str): The system prompt.
+        session_name (str | None): The session name for tracking. Defaults to "mlflow-v{VERSION}".
 
     Returns:
         The chat completions result.
@@ -61,7 +64,10 @@ def call_chat_completions(user_prompt: str, system_prompt: str) -> Any:
 
     from databricks.rag_eval import context, env_vars
 
-    env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(f"mlflow-judge-optimizer-v{VERSION}")
+    if session_name is None:
+        session_name = f"mlflow-v{VERSION}"
+
+    env_vars.RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set(session_name)
 
     @context.eval_context
     def _call_chat_completions(user_prompt: str, system_prompt: str):
@@ -153,7 +159,7 @@ def _invoke_databricks_judge(
         return _parse_databricks_judge_response(llm_result.output, assessment_name)
 
     except Exception as e:
-        _logger.debug(f"Failed to invoke Databricks judge: {e}")
+        _logger.debug(f"Failed to invoke Databricks judge: {e}", exc_info=True)
         return Feedback(
             name=assessment_name,
             error=f"Failed to invoke Databricks judge: {e}",
@@ -235,7 +241,7 @@ def _parse_databricks_model_response(
     )
 
 
-def _invoke_databricks_model(
+def _invoke_databricks_serving_endpoint(
     *,
     model_name: str,
     prompt: str,
@@ -274,7 +280,9 @@ def _invoke_databricks_model(
         except (requests.RequestException, requests.ConnectionError) as e:
             last_exception = e
             if attempt < num_retries:
-                _logger.debug(f"Request attempt {attempt + 1} failed with error: {e}")
+                _logger.debug(
+                    f"Request attempt {attempt + 1} failed with error: {e}", exc_info=True
+                )
                 time.sleep(2**attempt)  # Exponential backoff
                 continue
             else:
@@ -298,7 +306,7 @@ def _invoke_databricks_model(
             )
             if attempt < num_retries:
                 # Log and retry for transient errors
-                _logger.debug(f"Attempt {attempt + 1} failed: {error_msg}")
+                _logger.debug(f"Attempt {attempt + 1} failed: {error_msg}", exc_info=True)
                 time.sleep(2**attempt)  # Exponential backoff
                 continue
             else:
@@ -398,7 +406,7 @@ class InvokeJudgeModelHelperOutput:
     num_completion_tokens: int | None
 
 
-def _invoke_databricks_judge_model(
+def _invoke_databricks_serving_endpoint_for_judge(
     *,
     model_name: str,
     prompt: str,
@@ -406,7 +414,7 @@ def _invoke_databricks_judge_model(
     num_retries: int = 10,
     response_format: type[pydantic.BaseModel] | None = None,
 ) -> InvokeJudgeModelHelperOutput:
-    output = _invoke_databricks_model(
+    output = _invoke_databricks_serving_endpoint(
         model_name=model_name,
         prompt=prompt,
         num_retries=num_retries,

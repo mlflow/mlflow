@@ -19,7 +19,7 @@ from mlflow.entities.assessment_source import AssessmentSource, AssessmentSource
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_adapter import (
     _invoke_databricks_judge,
-    _invoke_databricks_judge_model,
+    _invoke_databricks_serving_endpoint_for_judge,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
 )
@@ -108,7 +108,7 @@ def invoke_judge_model(
                 stacklevel=2,
             )
         try:
-            output = _invoke_databricks_judge_model(
+            output = _invoke_databricks_serving_endpoint_for_judge(
                 model_name=model_name,
                 prompt=prompt,
                 assessment_name=assessment_name,
@@ -132,6 +132,7 @@ def invoke_judge_model(
                     _logger.debug(
                         "Failed to record judge model usage success telemetry. Error: %s",
                         telemetry_error,
+                        exc_info=True,
                     )
 
             return feedback
@@ -151,6 +152,7 @@ def invoke_judge_model(
                     _logger.debug(
                         "Failed to record judge model usage failure telemetry. Error: %s",
                         telemetry_error,
+                        exc_info=True,
                     )
             raise
 
