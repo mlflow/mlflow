@@ -447,12 +447,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Start span for a chain run."""
         if metadata:
             kwargs.update({"metadata": metadata})
-            # NB: We need to guard this with active trace existence because sometimes LangGraph
-            # execute the callback within an isolated thread where the active trace is not set.
-            if thread_id := metadata.get("thread_id") and mlflow.get_current_active_trace_id():
-                mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
 
-        # not considering streaming events for now
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chain"),
             parent_run_id=parent_run_id,
@@ -461,6 +456,13 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             inputs=inputs,
             attributes=kwargs,
         )
+
+        # NB: We need to guard this with active trace existence because sometimes LangGraph
+        # execute the callback within an isolated thread where the active trace is not set.
+        if (
+            thread_id := metadata.get("thread_id")
+        ) and mlflow.get_current_active_span() is not None:
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
 
     def on_chain_end(
         self,
