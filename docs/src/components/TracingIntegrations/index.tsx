@@ -209,34 +209,32 @@ interface TracingIntegrationsProps {
   categorized?: boolean;
 }
 
-export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({ 
-  cardGroupProps = {}, 
-  categorized = false 
+export const TracingIntegrations: React.FC<TracingIntegrationsProps> = ({
+  cardGroupProps = {},
+  categorized = false,
 }) => {
   if (categorized) {
     // Group integrations by category
-    const categories = TRACING_INTEGRATIONS.reduce((acc, integration) => {
-      if (!acc[integration.category]) {
-        acc[integration.category] = [];
-      }
-      acc[integration.category].push(integration);
-      return acc;
-    }, {} as Record<string, TracingIntegration[]>);
+    const categories = TRACING_INTEGRATIONS.reduce(
+      (acc, integration) => {
+        if (!acc[integration.category]) {
+          acc[integration.category] = [];
+        }
+        acc[integration.category].push(integration);
+        return acc;
+      },
+      {} as Record<string, TracingIntegration[]>,
+    );
 
     // Define category order
-    const categoryOrder = [
-      'Agent Frameworks',
-      'Model Providers',
-      'Orchestration & RAG',
-      'Libraries & Tools',
-    ];
+    const categoryOrder = ['Agent Frameworks', 'Model Providers', 'Orchestration & RAG', 'Libraries & Tools'];
 
     return (
       <>
         {categoryOrder.map((category) => {
           const integrations = categories[category] || [];
           if (integrations.length === 0) return null;
-          
+
           return (
             <div key={category} style={{ marginBottom: '2rem' }}>
               <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>{category}</h2>
