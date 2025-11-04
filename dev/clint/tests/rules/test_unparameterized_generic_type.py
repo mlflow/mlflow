@@ -27,5 +27,5 @@ def good_dict() -> dict[str, int]:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, UnparameterizedGenericType) for v in violations)
-    assert violations[0].range == Range(Position(4, 18))  # bad_list return type
-    assert violations[1].range == Range(Position(7, 18))  # bad_dict return type
+    assert violations[0].rng == Range(Position(4, 18))  # bad_list return type
+    assert violations[1].rng == Range(Position(7, 18))  # bad_dict return type

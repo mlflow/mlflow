@@ -23,5 +23,5 @@ class Good:
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 2
     assert all(isinstance(r.rule, ImplicitOptional) for r in results)
-    assert results[0].range == Range(Position(4, 5))
-    assert results[1].range == Range(Position(6, 7))
+    assert results[0].rng == Range(Position(4, 5))
+    assert results[1].rng == Range(Position(6, 7))

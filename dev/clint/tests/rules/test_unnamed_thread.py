@@ -19,4 +19,4 @@ threading.Thread(target=lambda: None)
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert isinstance(results[0].rule, UnnamedThread)
-    assert results[0].range == Range(Position(4, 0))
+    assert results[0].rng == Range(Position(4, 0))

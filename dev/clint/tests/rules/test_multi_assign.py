@@ -17,4 +17,4 @@ a, b = func()
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert all(isinstance(r.rule, MultiAssign) for r in results)
-    assert results[0].range == Range(Position(2, 0))
+    assert results[0].rng == Range(Position(2, 0))

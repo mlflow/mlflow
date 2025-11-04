@@ -99,7 +99,7 @@ class Range:
 class Violation:
     rule: rules.Rule
     path: Path
-    range: Range
+    rng: Range
     cell: int | None = None
 
     def __str__(self) -> str:
@@ -107,7 +107,7 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
-            f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
+            f"{self.path}:{cell_loc}{self.rng.shift(Position(1, 1))}: "
             f"{self.rule.id}: {self.rule.message} "
             f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
@@ -117,15 +117,11 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.range.start.lineno,
-            "column": self.range.start.col_offset,
-            "endLine": self.range.end.lineno
-            if self.range.end is not None
-            else self.range.start.lineno,
+            "line": self.rng.start.lineno,
+            "column": self.rng.start.col_offset,
+            "endLine": self.rng.end.lineno if self.rng.end is not None else self.rng.start.lineno,
             "endColumn": (
-                self.range.end.col_offset
-                if self.range.end is not None
-                else self.range.start.col_offset
+                self.rng.end.col_offset if self.rng.end is not None else self.rng.start.col_offset
             ),
             "path": str(self.path),
             "symbol": self.rule.name,
@@ -137,7 +133,7 @@ class Violation:
 @dataclass
 class CodeBlock:
     code: str
-    range: Range
+    rng: Range
 
 
 def _get_indent(s: str) -> int:
@@ -173,7 +169,7 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
             # <non-blank>            # non-blank and indent <= header_indent
             if line.strip() and (header_indent is not None) and indent <= header_indent:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, range=code_block_loc)
+                yield CodeBlock(code=code, rng=code_block_loc)
 
                 code_block_loc = None
                 code_lines.clear()
@@ -207,7 +203,7 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
     # The docstring ends with a code block
     if code_lines and code_block_loc:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, range=code_block_loc)
+        yield CodeBlock(code=code, rng=code_block_loc)
 
 
 _MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
@@ -226,7 +222,7 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
         if code_block_loc:
             if line.strip() == closing_fence:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, range=code_block_loc)
+                yield CodeBlock(code=code, rng=code_block_loc)
 
                 code_block_loc = None
                 code_lines.clear()
@@ -242,7 +238,7 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
     # Code block at EOF
     if code_lines and code_block_loc:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, range=code_block_loc)
+        yield CodeBlock(code=code, rng=code_block_loc)
 
 
 def _parse_docstring_args(docstring: str) -> list[str]:
@@ -516,14 +512,14 @@ class Linter(ast.NodeVisitor):
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
-            return [Violation(rules.ExampleSyntaxError(), path, example.range)]
+            return [Violation(rules.ExampleSyntaxError(), path, example.rng)]
 
         linter = cls(
             path=path,
             config=config,
             ignore=ignore_map(example.code),
             index=index,
-            offset=example.range.start,
+            offset=example.rng.start,
         )
         linter.visit(tree)
         linter.visit_comments(example.code)
@@ -558,7 +554,7 @@ class Linter(ast.NodeVisitor):
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             for code_block in _iter_code_blocks(docstring_node.value):
                 # Adjust code block location to account for docstring position
-                code_block.range = code_block.range.shift(Position(docstring_node.lineno - 1, 0))
+                code_block.rng = code_block.rng.shift(Position(docstring_node.lineno - 1, 0))
                 self.violations.extend(
                     Linter.visit_example(self.path, self.config, code_block, self.index)
                 )
