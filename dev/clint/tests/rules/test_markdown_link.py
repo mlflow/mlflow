@@ -34,6 +34,6 @@ def function_with_rest_link():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, MarkdownLink) for v in violations)
-    assert violations[0].rng == Range(Position(3, 4))
-    assert violations[1].rng == Range(Position(8, 4))
-    assert violations[2].rng == Range(Position(13, 4))
+    assert violations[0].range == Range(Position(3, 4))
+    assert violations[1].range == Range(Position(8, 4))
+    assert violations[2].range == Range(Position(13, 4))

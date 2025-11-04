@@ -21,7 +21,7 @@ def non_test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempDirInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 4))
+    assert violations[0].range == Range(Position(5, 4))
 
 
 def test_temp_dir_in_test_with_from_import(index_path: Path) -> None:
@@ -40,7 +40,7 @@ def non_test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempDirInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 4))
+    assert violations[0].range == Range(Position(5, 4))
 
 
 def test_temp_dir_in_test_no_violation_outside_test(index_path: Path) -> None:
@@ -67,7 +67,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempDirInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 4))
+    assert violations[0].range == Range(Position(5, 4))
 
 
 def test_temp_dir_in_test_nested_functions_not_caught(index_path: Path) -> None:
@@ -119,7 +119,7 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempDirInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 9))
+    assert violations[0].range == Range(Position(5, 9))
 
 
 def test_temp_dir_in_test_assigned_to_variable(index_path: Path) -> None:
@@ -134,4 +134,4 @@ def test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TempDirInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 13))
+    assert violations[0].range == Range(Position(5, 13))

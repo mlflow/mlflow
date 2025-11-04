@@ -21,5 +21,5 @@ import baz
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, ForbiddenTopLevelImport) for v in violations)
-    assert violations[0].rng == Range(Position(2, 0))
-    assert violations[1].rng == Range(Position(3, 0))
+    assert violations[0].range == Range(Position(2, 0))
+    assert violations[1].range == Range(Position(3, 0))

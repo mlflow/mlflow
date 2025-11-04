@@ -27,4 +27,4 @@ def good(x: int) -> str:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, NoRst) for v in violations)
-    assert violations[0].rng == Range(Position(2, 4))
+    assert violations[0].range == Range(Position(2, 4))

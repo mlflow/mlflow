@@ -27,6 +27,6 @@ _set_active_model("model_name")
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, ForbiddenSetActiveModelUsage) for v in violations)
-    assert violations[0].rng == Range(Position(4, 0))  # mlflow.set_active_model call
-    assert violations[1].rng == Range(Position(10, 0))  # from mlflow import set_active_model
-    assert violations[2].rng == Range(Position(11, 0))  # direct set_active_model call
+    assert violations[0].range == Range(Position(4, 0))  # mlflow.set_active_model call
+    assert violations[1].range == Range(Position(10, 0))  # from mlflow import set_active_model
+    assert violations[2].range == Range(Position(11, 0))  # direct set_active_model call

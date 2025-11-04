@@ -53,10 +53,10 @@ class Position:
     """Represents a position in source code with line and column."""
 
     line: int
-    col: int
+    column: int
 
     def __add__(self, other: "Position") -> "Position":
-        return Position(self.line + other.line, self.col + other.col)
+        return Position(self.line + other.line, self.column + other.column)
 
 
 @dataclass
@@ -65,7 +65,7 @@ class Range:
     end: Position | None = None
 
     def __str__(self) -> str:
-        return f"{self.start.line}:{self.start.col}"
+        return f"{self.start.line}:{self.start.column}"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Range):
@@ -82,8 +82,8 @@ class Range:
 
     @classmethod
     def from_noqa(cls, noqa: Noqa) -> Self:
-        start = Position(noqa.start.line - 1, noqa.start.col)
-        end = Position(noqa.end.line - 1, noqa.end.col)
+        start = Position(noqa.start.line - 1, noqa.start.column)
+        end = Position(noqa.end.line - 1, noqa.end.column)
         return cls(start, end)
 
     def shift(self, offset: Position) -> "Range":
@@ -99,7 +99,7 @@ class Range:
 class Violation:
     rule: rules.Rule
     path: Path
-    rng: Range
+    range: Range
     cell: int | None = None
 
     def __str__(self) -> str:
@@ -107,7 +107,7 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
-            f"{self.path}:{cell_loc}{self.rng.shift(Position(1, 1))}: "
+            f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
             f"{self.rule.id}: {self.rule.message} "
             f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
@@ -117,10 +117,12 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.rng.start.line,
-            "column": self.rng.start.col,
-            "endLine": self.rng.end.line if self.rng.end is not None else self.rng.start.line,
-            "endColumn": (self.rng.end.col if self.rng.end is not None else self.rng.start.col),
+            "line": self.range.start.line,
+            "column": self.range.start.column,
+            "endLine": self.range.end.line if self.range.end is not None else self.range.start.line,
+            "endColumn": (
+                self.range.end.column if self.range.end is not None else self.range.start.column
+            ),
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -131,7 +133,7 @@ class Violation:
 @dataclass
 class CodeBlock:
     code: str
-    rng: Range
+    range: Range
 
 
 def _get_indent(s: str) -> int:
@@ -149,13 +151,13 @@ def _get_header_indent(s: str) -> int | None:
 
 
 def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
-    code_block_loc: Range | None = None
+    code_block_range: Range | None = None
     header_indent: int | None = None
     code_lines: list[str] = []
     line_iter = enumerate(s.splitlines())
     while t := next(line_iter, None):
         idx, line = t
-        if code_block_loc:
+        if code_block_range:
             indent = _get_indent(line)
             # If we encounter a non-blank line with an indent less than the code block header
             # we are done parsing the code block. Here's an example:
@@ -167,9 +169,9 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
             # <non-blank>            # non-blank and indent <= header_indent
             if line.strip() and (header_indent is not None) and indent <= header_indent:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, rng=code_block_loc)
+                yield CodeBlock(code=code, range=code_block_range)
 
-                code_block_loc = None
+                code_block_range = None
                 code_lines.clear()
                 # It's possible that another code block follows the current one
                 header_indent = _get_header_indent(line)
@@ -194,14 +196,14 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
                 if next_line := next(line_iter, None):
                     idx, line = next_line
 
-            code_block_loc = Range(Position(idx, _get_indent(line)))
+            code_block_range = Range(Position(idx, _get_indent(line)))
         else:
             header_indent = _get_header_indent(line)
 
     # The docstring ends with a code block
-    if code_lines and code_block_loc:
+    if code_lines and code_block_range:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, rng=code_block_loc)
+        yield CodeBlock(code=code, range=code_block_range)
 
 
 _MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
@@ -211,18 +213,18 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
     """
     Iterates over code blocks in a Markdown string.
     """
-    code_block_loc: Range | None = None
+    code_block_range: Range | None = None
     code_lines: list[str] = []
     closing_fence: str | None = None
     line_iter = enumerate(s.splitlines())
     while t := next(line_iter, None):
         idx, line = t
-        if code_block_loc:
+        if code_block_range:
             if line.strip() == closing_fence:
                 code = textwrap.dedent("\n".join(code_lines))
-                yield CodeBlock(code=code, rng=code_block_loc)
+                yield CodeBlock(code=code, range=code_block_range)
 
-                code_block_loc = None
+                code_block_range = None
                 code_lines.clear()
                 closing_fence = None
                 continue
@@ -231,12 +233,12 @@ def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
 
         elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
             closing_fence = m.group(1)
-            code_block_loc = Range(Position(idx + 1, _get_indent(line)))
+            code_block_range = Range(Position(idx + 1, _get_indent(line)))
 
     # Code block at EOF
-    if code_lines and code_block_loc:
+    if code_lines and code_block_range:
         code = textwrap.dedent("\n".join(code_lines))
-        yield CodeBlock(code=code, rng=code_block_loc)
+        yield CodeBlock(code=code, range=code_block_range)
 
 
 def _parse_docstring_args(docstring: str) -> list[str]:
@@ -386,12 +388,12 @@ class Linter(ast.NodeVisitor):
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
 
-    def _check(self, loc: Range, rule: rules.Rule) -> None:
+    def _check(self, range: Range, rule: rules.Rule) -> None:
         # Skip rules that are not selected in the config
         if rule.name not in self.config.select:
             return
         # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and loc.start.line in lines:
+        if (lines := self.ignore.get(rule.name)) and range.start.line in lines:
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:
@@ -400,7 +402,7 @@ class Linter(ast.NodeVisitor):
             Violation(
                 rule,
                 self.path,
-                loc.shift(self.offset),
+                range.shift(self.offset),
                 self.cell,
             )
         )
@@ -510,14 +512,14 @@ class Linter(ast.NodeVisitor):
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
-            return [Violation(rules.ExampleSyntaxError(), path, example.rng)]
+            return [Violation(rules.ExampleSyntaxError(), path, example.range)]
 
         linter = cls(
             path=path,
             config=config,
             ignore=ignore_map(example.code),
             index=index,
-            offset=example.rng.start,
+            offset=example.range.start,
         )
         linter.visit(tree)
         linter.visit_comments(example.code)
@@ -552,7 +554,7 @@ class Linter(ast.NodeVisitor):
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             for code_block in _iter_code_blocks(docstring_node.value):
                 # Adjust code block location to account for docstring position
-                code_block.rng = code_block.rng.shift(Position(docstring_node.lineno - 1, 0))
+                code_block.range = code_block.range.shift(Position(docstring_node.lineno - 1, 0))
                 self.violations.extend(
                     Linter.visit_example(self.path, self.config, code_block, self.index)
                 )
@@ -755,7 +757,9 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.UnnamedThread())
 
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
-            self._check(Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+            self._check(
+                Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix()
+            )
 
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
@@ -816,8 +820,8 @@ class Linter(ast.NodeVisitor):
     def post_visit(self) -> None:
         if self.is_mlflow_init_py and (diff := self.lazy_modules.keys() - self.imported_modules):
             for mod in diff:
-                if loc := self.lazy_modules.get(mod):
-                    self._check(loc, rules.LazyModule())
+                if range := self.lazy_modules.get(mod):
+                    self._check(range, rules.LazyModule())
 
     def visit_comments(self, src: str) -> None:
         for comment in iter_comments(src):

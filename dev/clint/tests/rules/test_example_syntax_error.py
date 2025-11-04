@@ -28,7 +28,7 @@ def good():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
-    assert violations[0].rng == Range(Position(5, 8))
+    assert violations[0].range == Range(Position(5, 8))
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
@@ -42,4 +42,4 @@ def g():
     violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
-    assert violations[0].rng == Range(Position(2, 0))
+    assert violations[0].range == Range(Position(2, 0))

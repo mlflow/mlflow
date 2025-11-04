@@ -21,4 +21,4 @@ def non_test_func():
     violations = lint_file(Path("test_file.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, OsEnvironSetInTest) for v in violations)
-    assert violations[0].rng == Range(Position(5, 4))
+    assert violations[0].range == Range(Position(5, 4))
