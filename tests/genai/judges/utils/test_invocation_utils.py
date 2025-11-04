@@ -13,11 +13,17 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.optimizers.simba import SIMBAAlignmentOptimizer
-from mlflow.genai.judges.utils import CategoricalRating, get_default_optimizer
+from mlflow.genai.judges.adapters.databricks_adapter import InvokeDatabricksModelOutput
+from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import invoke_judge_model
 from mlflow.tracing.constant import AssessmentMetadataKey
 from mlflow.types.llm import ChatMessage
+
+
+@pytest.fixture(autouse=True)
+def clear_model_capabilities_cache():
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
 
 
 @pytest.fixture
@@ -310,11 +316,6 @@ def test_invoke_judge_model_tool_calling_loop(mock_trace):
     assert feedback.metadata[AssessmentMetadataKey.JUDGE_COST] == pytest.approx(0.20)
 
 
-def test_get_default_optimizer():
-    optimizer = get_default_optimizer()
-    assert isinstance(optimizer, SIMBAAlignmentOptimizer)
-
-
 @pytest.mark.parametrize("env_var_value", ["3", None])
 def test_invoke_judge_model_completion_iteration_limit(mock_trace, monkeypatch, env_var_value):
     if env_var_value is not None:
@@ -402,3 +403,476 @@ def test_invoke_judge_model_with_custom_response_format():
     call_kwargs = mock_completion.call_args.kwargs
     assert "response_format" in call_kwargs
     assert call_kwargs["response_format"] == ResponseFormat
+
+
+# Tests for Databricks adapter integration with invoke_judge_model
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+@pytest.mark.parametrize("with_trace", [False, True])
+def test_invoke_judge_model_databricks_success_not_in_databricks(
+    model_uri: str, expected_model_name: str, with_trace: bool, mock_trace
+) -> None:
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
+            return_value=False,
+        ) as mock_in_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_model",
+            return_value=InvokeDatabricksModelOutput(
+                response='{"result": "yes", "rationale": "Good response"}',
+                request_id="req-123",
+                num_prompt_tokens=10,
+                num_completion_tokens=5,
+            ),
+        ) as mock_invoke_db,
+    ):
+        kwargs = {
+            "model_uri": model_uri,
+            "prompt": "Test prompt",
+            "assessment_name": "test_assessment",
+        }
+        if with_trace:
+            kwargs["trace"] = mock_trace
+
+        feedback = invoke_judge_model(**kwargs)
+
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name,
+            prompt="Test prompt",
+            num_retries=10,
+            response_format=None,
+        )
+        mock_in_db.assert_called_once()
+
+    assert feedback.name == "test_assessment"
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "Good response"
+    assert feedback.trace_id == ("test-trace" if with_trace else None)
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
+    assert feedback.metadata is None
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_success_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
+            return_value=True,
+        ) as mock_in_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_model",
+            return_value=InvokeDatabricksModelOutput(
+                response='{"result": "no", "rationale": "Bad response"}',
+                request_id="req-456",
+                num_prompt_tokens=15,
+                num_completion_tokens=8,
+            ),
+        ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry"
+        ) as mock_success_telemetry,
+    ):
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+        # Verify telemetry was called
+        mock_success_telemetry.assert_called_once_with(
+            request_id="req-456",
+            model_provider="databricks",
+            endpoint_name=expected_model_name,
+            num_prompt_tokens=15,
+            num_completion_tokens=8,
+        )
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name,
+            prompt="Test prompt",
+            num_retries=10,
+            response_format=None,
+        )
+        mock_in_db.assert_called_once()
+
+    assert feedback.value == CategoricalRating.NO
+    assert feedback.rationale == "Bad response"
+    assert feedback.trace_id is None
+    assert feedback.metadata is None
+
+
+@pytest.mark.parametrize(
+    "model_uri", ["databricks:/test-model", "endpoints:/databricks-gpt-oss-120b"]
+)
+def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
+    with mock.patch(
+        "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_model",
+        return_value=InvokeDatabricksModelOutput(
+            response='{"result": "yes", "rationale": "Great response"}',
+            request_id="req-789",
+            num_prompt_tokens=4,
+            num_completion_tokens=2,
+        ),
+    ) as mock_invoke_db:
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+    expected_model_name = (
+        "test-model" if model_uri.startswith("databricks") else "databricks-gpt-oss-120b"
+    )
+    mock_invoke_db.assert_called_once_with(
+        model_name=expected_model_name, prompt="Test prompt", num_retries=10, response_format=None
+    )
+    assert feedback.source.source_id == f"databricks:/{expected_model_name}"
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_failure_in_databricks(
+    model_uri: str, expected_model_name: str
+) -> None:
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
+            return_value=True,
+        ) as mock_in_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_model",
+            side_effect=MlflowException("Model invocation failed"),
+        ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_failure_databricks_telemetry"
+        ) as mock_failure_telemetry,
+    ):
+        with pytest.raises(MlflowException, match="Model invocation failed"):
+            invoke_judge_model(
+                model_uri=model_uri,
+                prompt="Test prompt",
+                assessment_name="test_assessment",
+            )
+
+        # Verify failure telemetry was called
+        mock_failure_telemetry.assert_called_once_with(
+            model_provider="databricks",
+            endpoint_name=expected_model_name,
+            error_code="UNKNOWN",
+            error_message=mock.ANY,
+        )
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name,
+            prompt="Test prompt",
+            num_retries=10,
+            response_format=None,
+        )
+        mock_in_db.assert_called_once()
+
+        # Verify error message contains the traceback
+        call_args = mock_failure_telemetry.call_args[1]
+        assert "Model invocation failed" in call_args["error_message"]
+
+
+@pytest.mark.parametrize(
+    ("model_uri", "expected_model_name"),
+    [
+        ("databricks:/test-model", "test-model"),
+        ("endpoints:/databricks-gpt-oss-120b", "databricks-gpt-oss-120b"),
+    ],
+)
+def test_invoke_judge_model_databricks_telemetry_error_handling(
+    model_uri: str, expected_model_name: str
+) -> None:
+    with (
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._is_in_databricks",
+            return_value=True,
+        ) as mock_in_db,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_model",
+            return_value=InvokeDatabricksModelOutput(
+                response='{"result": "yes", "rationale": "Good"}',
+                request_id="req-789",
+                num_prompt_tokens=5,
+                num_completion_tokens=3,
+            ),
+        ) as mock_invoke_db,
+        mock.patch(
+            "mlflow.genai.judges.utils.invocation_utils._record_judge_model_usage_success_databricks_telemetry",
+            side_effect=Exception("Telemetry failed"),
+        ) as mock_success_telemetry,
+    ):
+        # Should still return feedback despite telemetry failure
+        feedback = invoke_judge_model(
+            model_uri=model_uri,
+            prompt="Test prompt",
+            assessment_name="test_assessment",
+        )
+
+        mock_success_telemetry.assert_called_once_with(
+            request_id="req-789",
+            model_provider="databricks",
+            endpoint_name=expected_model_name,
+            num_prompt_tokens=5,
+            num_completion_tokens=3,
+        )
+        mock_invoke_db.assert_called_once_with(
+            model_name=expected_model_name,
+            prompt="Test prompt",
+            num_retries=10,
+            response_format=None,
+        )
+        mock_in_db.assert_called_once()
+
+    assert feedback.value == CategoricalRating.YES
+    assert feedback.rationale == "Good"
+    assert feedback.trace_id is None
+    assert feedback.metadata is None
+
+
+# Tests for LiteLLM adapter integration with invoke_judge_model
+def test_litellm_nonfatal_error_messages_suppressed():
+    suppression_state_during_call = {}
+
+    def mock_completion(**kwargs):
+        # Capture the state of litellm flags during the call
+        suppression_state_during_call["set_verbose"] = litellm.set_verbose
+        suppression_state_during_call["suppress_debug_info"] = litellm.suppress_debug_info
+
+        return ModelResponse(
+            choices=[{"message": {"content": '{"result": "pass", "rationale": "Test completed"}'}}]
+        )
+
+    with mock.patch("litellm.completion", side_effect=mock_completion):
+        result = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt for suppression",
+            assessment_name="suppression_test",
+        )
+
+        # Verify suppression was active during the litellm.completion call
+        assert suppression_state_during_call["set_verbose"] is False
+        assert suppression_state_during_call["suppress_debug_info"] is True
+
+        # Verify the call succeeded
+        assert result.value == "pass"
+
+
+def test_unsupported_response_format_handling_supports_multiple_threads():
+    model_key = "openai/gpt-4-race-bug"
+    _MODEL_RESPONSE_FORMAT_CAPABILITIES.clear()
+
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model=model_key, llm_provider="openai"
+    )
+
+    call_count = 0
+    capabilities_cache_call_count = 0
+
+    def mock_completion(**kwargs):
+        nonlocal call_count
+        call_count += 1
+        if "response_format" in kwargs:
+            raise bad_request_error
+        else:
+            return ModelResponse(
+                choices=[{"message": {"content": '{"result": "yes", "rationale": "Success"}'}}]
+            )
+
+    class MockCapabilitiesCache(dict):
+        def get(self, key, default=None):
+            nonlocal capabilities_cache_call_count
+            capabilities_cache_call_count += 1
+
+            if capabilities_cache_call_count == 1:
+                return True
+            elif capabilities_cache_call_count == 2:
+                return False
+            else:
+                return False
+
+    with (
+        mock.patch("litellm.completion", side_effect=mock_completion),
+        mock.patch(
+            "mlflow.genai.judges.adapters.litellm_adapter._MODEL_RESPONSE_FORMAT_CAPABILITIES",
+            MockCapabilitiesCache(),
+        ),
+    ):
+        result = invoke_judge_model(
+            model_uri=f"openai:/{model_key}",
+            prompt="Test prompt",
+            assessment_name="race_bug_test",
+        )
+
+        assert call_count == 2, "Should make 2 calls: initial (fails) + retry (succeeds)"
+        assert capabilities_cache_call_count == 1
+        assert result.value == "yes"
+
+
+@pytest.mark.parametrize(
+    ("error_type", "error_class"),
+    [
+        ("BadRequestError", litellm.BadRequestError),
+        ("UnsupportedParamsError", litellm.UnsupportedParamsError),
+    ],
+)
+def test_invoke_judge_model_retries_without_response_format_on_bad_request(error_type, error_class):
+    mock_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Test rationale"}'}}]
+    )
+    error = error_class(
+        message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    with mock.patch("litellm.completion", side_effect=[error, mock_response]) as mock_litellm:
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt",
+            assessment_name="test",
+        )
+
+        # Should have been called twice - once with response_format, once without
+        assert mock_litellm.call_count == 2
+
+        # First call should include response_format
+        first_call_kwargs = mock_litellm.call_args_list[0].kwargs
+        assert "response_format" in first_call_kwargs
+
+        # Second call should not include response_format
+        second_call_kwargs = mock_litellm.call_args_list[1].kwargs
+        assert "response_format" not in second_call_kwargs
+
+        # Should still return valid feedback
+        assert feedback.name == "test"
+        assert feedback.value == "yes"
+        assert feedback.trace_id is None
+
+
+def test_invoke_judge_model_stops_trying_response_format_after_failure():
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    # Mock responses for: initial fail, retry success, tool call 1, tool call 2
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {"id": "call_123", "function": {"name": "test_tool", "arguments": "{}"}}
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+
+    success_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Test rationale"}'}}]
+    )
+
+    with (
+        mock.patch(
+            "litellm.completion",
+            side_effect=[
+                bad_request_error,
+                tool_call_response,
+                success_response,
+            ],
+        ) as mock_litellm,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "test_tool"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = {"result": "tool executed"}
+
+        feedback = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt",
+            assessment_name="test",
+            trace=mock.Mock(),
+        )
+
+        # Should have been called 3 times total
+        assert mock_litellm.call_count == 3
+
+        # First call should include response_format and fail
+        first_call_kwargs = mock_litellm.call_args_list[0].kwargs
+        assert "response_format" in first_call_kwargs
+
+        # Second call should not include response_format and succeed with tool call
+        second_call_kwargs = mock_litellm.call_args_list[1].kwargs
+        assert "response_format" not in second_call_kwargs
+
+        # Third call (after tool execution) should also not include response_format
+        third_call_kwargs = mock_litellm.call_args_list[2].kwargs
+        assert "response_format" not in third_call_kwargs
+
+        assert feedback.name == "test"
+
+
+def test_invoke_judge_model_caches_capabilities_globally():
+    bad_request_error = litellm.BadRequestError(
+        message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
+    )
+
+    success_response = ModelResponse(
+        choices=[{"message": {"content": '{"result": "yes", "rationale": "Test rationale"}'}}]
+    )
+
+    # First call - should try response_format and cache the failure
+    with mock.patch(
+        "litellm.completion", side_effect=[bad_request_error, success_response]
+    ) as mock_litellm:
+        feedback1 = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt 1",
+            assessment_name="test1",
+        )
+
+        # Should have been called twice (initial fail + retry)
+        assert mock_litellm.call_count == 2
+        assert feedback1.name == "test1"
+        assert feedback1.trace_id is None
+
+        # Verify capability was cached
+        assert _MODEL_RESPONSE_FORMAT_CAPABILITIES.get("openai/gpt-4") is False
+
+    # Second call - should directly use cached capability (no response_format)
+    with mock.patch("litellm.completion", return_value=success_response) as mock_litellm_2:
+        feedback2 = invoke_judge_model(
+            model_uri="openai:/gpt-4",
+            prompt="Test prompt 2",
+            assessment_name="test2",
+        )
+
+        # Should only be called once (no retry needed)
+        assert mock_litellm_2.call_count == 1
+
+        # Should not include response_format
+        call_kwargs = mock_litellm_2.call_args.kwargs
+        assert "response_format" not in call_kwargs
+
+        assert feedback2.name == "test2"
+        assert feedback2.trace_id is None
