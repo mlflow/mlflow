@@ -520,10 +520,7 @@ def test_trace_data(s3_artifact_root):
 def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, monkeypatch):
     file_name = "test.txt"
     file_path = tmp_path / file_name
-    file_text = "Hello world!"
-
-    with open(file_path, "w") as f:
-        f.write(file_text)
+    file_path.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
 
@@ -544,10 +541,7 @@ def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_pat
     monkeypatch.delenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", raising=False)
     file_name = "test.txt"
     file_path = tmp_path / file_name
-    file_text = "Hello world!"
-
-    with open(file_path, "w") as f:
-        f.write(file_text)
+    file_path.touch()
 
     assert s3_artifact_repo._bucket_owner_params == {}
 
@@ -606,7 +600,7 @@ def test_list_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatc
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     path_a = subdir / "a.txt"
-    path_a.write_text("A")
+    path_a.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
 
@@ -652,7 +646,7 @@ def test_delete_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypa
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     path_a = subdir / "a.txt"
-    path_a.write_text("A")
+    path_a.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
 
