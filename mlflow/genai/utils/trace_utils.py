@@ -18,6 +18,7 @@ from mlflow.environment_variables import (
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import is_databricks_uri
