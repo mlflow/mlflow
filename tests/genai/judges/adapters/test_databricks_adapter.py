@@ -470,14 +470,40 @@ def test_call_chat_completions_success(user_prompt, system_prompt, mock_databric
         # Verify the client name was set
         mock_databricks_rag_eval[
             "env_vars"
-        ].RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with(
-            "mlflow-judge-optimizer-v1.0.0"
-        )
+        ].RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with("mlflow-v1.0.0")
 
         # Verify the managed RAG client was called with correct parameters
         mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
             user_prompt=user_prompt,
             system_prompt=system_prompt,
+        )
+
+        assert result.output == "test response"
+
+
+def test_call_chat_completions_with_custom_session_name(mock_databricks_rag_eval):
+    """Test that custom session name is used when provided."""
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
+        mock.patch("mlflow.genai.judges.adapters.databricks_adapter.VERSION", "1.0.0"),
+    ):
+        custom_session_name = "custom-session-name"
+        result = call_chat_completions(
+            "test prompt", "system prompt", session_name=custom_session_name
+        )
+
+        # Verify the custom session name was set
+        mock_databricks_rag_eval[
+            "env_vars"
+        ].RAG_EVAL_EVAL_SESSION_CLIENT_NAME.set.assert_called_once_with(custom_session_name)
+
+        # Verify the managed RAG client was called with correct parameters
+        mock_databricks_rag_eval["rag_client"].get_chat_completions_result.assert_called_once_with(
+            user_prompt="test prompt",
+            system_prompt="system prompt",
         )
 
         assert result.output == "test response"
