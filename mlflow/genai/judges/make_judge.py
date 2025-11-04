@@ -1,3 +1,5 @@
+from typing import Any, Literal, get_args, get_origin
+
 from mlflow.genai.judges.base import Judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.telemetry.events import MakeJudgeEvent
@@ -5,11 +7,94 @@ from mlflow.telemetry.track import record_usage_event
 from mlflow.utils.annotations import experimental
 
 
+def _validate_feedback_value_type(feedback_value_type: Any) -> None:
+    """
+    Validate that feedback_value_type is one of the supported types for serialization.
+
+    Supported types match FeedbackValueType:
+    - PbValueType: int, float, str, bool
+    - Literal types with PbValueType values
+    - dict[str, PbValueType]
+    - list[PbValueType]
+    """
+
+    from mlflow.entities.assessment import PbValueType
+
+    # Check for basic PbValueType (float, int, str, bool)
+    pb_value_types = get_args(PbValueType)
+    if feedback_value_type in pb_value_types:
+        return
+
+    # Check for Literal type
+    origin = get_origin(feedback_value_type)
+    if origin is Literal:
+        # Validate that all literal values are of PbValueType
+        literal_values = get_args(feedback_value_type)
+        for value in literal_values:
+            if not isinstance(value, pb_value_types):
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    "The `feedback_value_type` argument does not support a Literal type"
+                    f"with non-primitive types, but got {type(value).__name__}. "
+                    f"Literal values must be str, int, float, or bool."
+                )
+        return
+
+    # Check for dict[str, PbValueType]
+    if origin is dict:
+        args = get_args(feedback_value_type)
+        if len(args) == 2:
+            key_type, value_type = args
+            # Key must be str
+            if key_type != str:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    f"dict key type must be str, got {key_type}"
+                )
+            # Value must be a PbValueType
+            if value_type not in pb_value_types:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    "The `feedback_value_type` argument does not support a dict type"
+                    f"with non-primitive values, but got {value_type.__name__}"
+                )
+            return
+
+    # Check for list[PbValueType]
+    if origin is list:
+        args = get_args(feedback_value_type)
+        if len(args) == 1:
+            element_type = args[0]
+            # Element must be a PbValueType
+            if element_type not in pb_value_types:
+                from mlflow.exceptions import MlflowException
+
+                raise MlflowException.invalid_parameter_value(
+                    "The `feedback_value_type` argument does not support a list type"
+                    f"with non-primitive values, but got {element_type.__name__}"
+                )
+            return
+
+    # If we get here, it's an unsupported type
+    from mlflow.exceptions import MlflowException
+
+    raise MlflowException.invalid_parameter_value(
+        f"Unsupported feedback_value_type: {feedback_value_type}. "
+        f"Supported types (FeedbackValueType): str, int, float, bool, Literal[...], "
+        f"as well as a dict and list of these types. "
+        f"Pydantic BaseModel types are not supported."
+    )
+
+
 @experimental(version="3.4.0")
 @record_usage_event(MakeJudgeEvent)
 def make_judge(
     name: str,
     instructions: str,
+    feedback_value_type: Any,
     model: str | None = None,
     description: str | None = None,
 ) -> Judge:
@@ -27,6 +112,21 @@ def make_judge(
                       template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
                       or {{ trace }} to reference evaluation data. Custom variables are not
                       supported.
+        feedback_value_type: Type specification for the 'value' field in the Feedback
+                        object. The judge will use structured outputs to enforce this type.
+
+                        Supported types (matching FeedbackValueType):
+
+                        - int: Integer ratings (e.g., 1-5 scale)
+                        - float: Floating point scores (e.g., 0.0-1.0)
+                        - str: Text responses
+                        - bool: Yes/no evaluations
+                        - Literal[values]: Enum-like choices (e.g., Literal["good", "bad"])
+                        - dict[str, int | float | str | bool]: Dictionary with string keys and
+                          int, float, str, or bool values.
+                        - list[int | float | str | bool]: List of int, float, str, or bool values
+
+                        Note: Pydantic BaseModel types are not supported.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         description: A description of what the judge evaluates
 
@@ -38,6 +138,7 @@ def make_judge(
 
             import mlflow
             from mlflow.genai.judges import make_judge
+            from typing import Literal
 
             # Create a judge that evaluates response quality using template variables
             quality_judge = make_judge(
@@ -48,6 +149,7 @@ def make_judge(
                     "complete, and professional."
                 ),
                 model="openai:/gpt-4",
+                feedback_value_type=Literal["yes", "no"],
             )
 
             # Evaluate a response
@@ -93,7 +195,12 @@ def make_judge(
             # import logging
             # logging.getLogger("mlflow.genai.judges.optimizers.simba").setLevel(logging.DEBUG)
     """
+    _validate_feedback_value_type(feedback_value_type)
 
     return InstructionsJudge(
-        name=name, instructions=instructions, model=model, description=description
+        name=name,
+        instructions=instructions,
+        model=model,
+        description=description,
+        feedback_value_type=feedback_value_type,
     )

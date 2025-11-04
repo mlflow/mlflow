@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import base64
 import hashlib
 import json
@@ -3588,7 +3590,7 @@ class SqlAlchemyStore(AbstractStore):
                 if trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS):
                     trace_stats = json.loads(trace_stats)
                     num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
-                    if len(sorted_sql_spans) != num_spans:
+                    if len(sorted_sql_spans) < num_spans:
                         _logger.debug(
                             f"Trace {trace_info.trace_id} is not fully exported yet, "
                             f"expecting {num_spans} spans but got {len(sorted_sql_spans)}"
@@ -4854,10 +4856,33 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
                 if key_name.startswith("attributes."):
                     attr_name = key_name[len("attributes.") :]
                     # Search within the content JSON for the specific attribute
-                    # Using JSON extraction with LIKE for broad database compatibility
-                    val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
-                        SqlSpan.content, f'%"mlflow.spanAttribute.{attr_name}"{value}%'
-                    )
+                    # TODO: we should improve this by saving only the attributes into the table.
+                    if comparator == "RLIKE":
+                        # For RLIKE, transform the user pattern to match within JSON structure
+                        # The JSON structure is: "<attr>": "\"<value>\""
+                        # Values are JSON-encoded strings with escaped quotes
+                        transformed_value = value
+                        if value.startswith("^"):
+                            transformed_value = transformed_value[1:]
+                            search_prefix = '"\\\\"'
+                        else:
+                            search_prefix = '"\\\\".*'
+                        if value.endswith("$"):
+                            transformed_value = transformed_value[:-1]
+                            search_suffix = '\\\\"'
+                        else:
+                            search_suffix = ""
+                        search_pattern = (
+                            f'"{attr_name}": {search_prefix}{transformed_value}{search_suffix}'
+                        )
+                        val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlSpan.content, search_pattern
+                        )
+                    else:
+                        # For LIKE/ILIKE, use wildcards for broad matching
+                        val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
+                            SqlSpan.content, f'%"{attr_name}"{value}%'
+                        )
                 else:
                     span_column = getattr(SqlSpan, key_name)
                     val_filter = SearchTraceUtils.get_sql_comparison_func(comparator, dialect)(
