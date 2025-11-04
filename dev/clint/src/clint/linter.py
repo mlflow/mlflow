@@ -757,9 +757,7 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.UnnamedThread())
 
         if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
-            self._check(
-                Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix()
-            )
+            self._check(Range.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
 
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
