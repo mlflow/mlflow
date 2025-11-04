@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Position, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.mlflow_class_name import MlflowClassName
 
 
@@ -35,7 +35,7 @@ class DataHandler:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 4
     assert all(isinstance(v.rule, MlflowClassName) for v in violations)
-    assert violations[0].loc == Location(Position(2, 0))  # MLflowClient
-    assert violations[1].loc == Location(Position(6, 0))  # MLFlowLogger
-    assert violations[2].loc == Location(Position(10, 0))  # CustomMLflowHandler
-    assert violations[3].loc == Location(Position(14, 0))  # BaseMLFlowTracker
+    assert violations[0].loc == Range(Position(2, 0))  # MLflowClient
+    assert violations[1].loc == Range(Position(6, 0))  # MLFlowLogger
+    assert violations[2].loc == Range(Position(10, 0))  # CustomMLflowHandler
+    assert violations[3].loc == Range(Position(14, 0))  # BaseMLFlowTracker

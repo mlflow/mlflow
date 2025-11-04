@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Position, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.invalid_abstract_method import InvalidAbstractMethod
 
 
@@ -35,5 +35,5 @@ class AbstractExample(abc.ABC):
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, InvalidAbstractMethod) for v in violations)
-    assert violations[0].loc == Location(Position(5, 4))
-    assert violations[1].loc == Location(Position(9, 4))
+    assert violations[0].loc == Range(Position(5, 4))
+    assert violations[1].loc == Range(Position(9, 4))

@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, Position, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.test_name_typo import TestNameTypo
 
 
@@ -32,5 +32,5 @@ def tset_something():
     violations = lint_file(Path("test_something.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, TestNameTypo) for v in violations)
-    assert violations[0].loc == Location(Position(3, 0))
-    assert violations[1].loc == Location(Position(7, 0))
+    assert violations[0].loc == Range(Position(3, 0))
+    assert violations[1].loc == Range(Position(7, 0))
