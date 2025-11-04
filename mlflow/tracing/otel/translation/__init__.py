@@ -193,6 +193,10 @@ def update_token_usage(
                     key, 0
                 )
     except Exception:
-        _logger.debug("Failed to update token usage", exc_info=True)
+        _logger.debug(
+            f"Failed to update token usage with current_token_usage: {current_token_usage}, "
+            f"new_token_usage: {new_token_usage}",
+            exc_info=True,
+        )
 
     return current_token_usage

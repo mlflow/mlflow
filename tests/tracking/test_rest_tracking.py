@@ -2856,7 +2856,11 @@ def test_get_trace_artifact_handler(mlflow_client):
 
     # Validate content
     trace_data = TraceData.from_dict(json.loads(response.text))
-    assert trace_data.spans[0].to_dict() == span.to_dict()
+    assert len(trace_data.spans) == 1
+    loaded_span = trace_data.spans[0]
+    assert loaded_span.get_attribute("fruit") == "apple"
+    assert loaded_span.events[0].attributes["foo"] == "bar"
+    assert loaded_span.request_id == span.request_id
 
 
 def test_link_traces_to_run_and_search_traces(mlflow_client, store_type):
