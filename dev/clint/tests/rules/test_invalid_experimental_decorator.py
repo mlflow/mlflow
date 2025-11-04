@@ -48,8 +48,8 @@ def good_function2():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 5
     assert all(isinstance(v.rule, InvalidExperimentalDecorator) for v in violations)
-    assert violations[0].loc == Range(Position(4, 1))  # @experimental without args
-    assert violations[1].loc == Range(Position(9, 1))  # @experimental() without version
-    assert violations[2].loc == Range(Position(14, 1))  # invalid version format
-    assert violations[3].loc == Range(Position(19, 1))  # pre-release version
-    assert violations[4].loc == Range(Position(24, 1))  # non-string version
+    assert violations[0].range == Range(Position(4, 1))  # @experimental without args
+    assert violations[1].range == Range(Position(9, 1))  # @experimental() without version
+    assert violations[2].range == Range(Position(14, 1))  # invalid version format
+    assert violations[3].range == Range(Position(19, 1))  # pre-release version
+    assert violations[4].range == Range(Position(24, 1))  # non-string version

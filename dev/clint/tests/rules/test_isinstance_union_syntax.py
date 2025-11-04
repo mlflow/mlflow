@@ -36,7 +36,7 @@ isinstance(obj)
     config = Config(select={IsinstanceUnionSyntax.name})
     results = lint_file(Path("test.py"), code, config, index_path)
     assert all(isinstance(r.rule, IsinstanceUnionSyntax) for r in results)
-    assert [r.loc for r in results] == [
+    assert [r.range for r in results] == [
         Range(Position(2, 0)),
         Range(Position(3, 0)),
         Range(Position(6, 0)),

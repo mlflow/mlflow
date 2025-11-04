@@ -19,4 +19,4 @@ import os
     results = lint_file(Path("test.py"), code, config, index_path)
     assert len(results) == 1
     assert isinstance(results[0].rule, LazyBuiltinImport)
-    assert results[0].loc == Range(Position(3, 4))
+    assert results[0].range == Range(Position(3, 4))

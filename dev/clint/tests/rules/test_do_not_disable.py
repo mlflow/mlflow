@@ -20,5 +20,5 @@ def test_do_not_disable(index_path: Path) -> None:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 2
     assert all(isinstance(v.rule, DoNotDisable) for v in violations)
-    assert violations[0].loc == Range(Position(2, 0))
-    assert violations[1].loc == Range(Position(5, 0))
+    assert violations[0].range == Range(Position(2, 0))
+    assert violations[1].range == Range(Position(5, 0))

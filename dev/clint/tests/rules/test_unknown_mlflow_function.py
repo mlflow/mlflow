@@ -34,7 +34,7 @@ def good():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowFunction) for v in violations)
-    assert violations[0].loc == Range(Position(7, 8))
+    assert violations[0].range == Range(Position(7, 8))
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
@@ -64,4 +64,4 @@ mlflow.log_param("k", "v")
     violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, UnknownMlflowFunction) for v in violations)
-    assert violations[0].loc == Range(Position(6, 0))
+    assert violations[0].range == Range(Position(6, 0))
