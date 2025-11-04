@@ -82,8 +82,8 @@ class Range:
 
     @classmethod
     def from_noqa(cls, noqa: Noqa) -> Self:
-        start = Position(noqa.lineno - 1, noqa.col_offset)
-        end = Position(noqa.end_lineno - 1, noqa.end_col_offset)
+        start = Position(noqa.start.line - 1, noqa.start.col)
+        end = Position(noqa.end.line - 1, noqa.end.col)
         return cls(start, end)
 
     def shift(self, offset: Position) -> "Range":

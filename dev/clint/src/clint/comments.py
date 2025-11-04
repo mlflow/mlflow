@@ -18,23 +18,6 @@ class Noqa:
     end: "Position"
     rules: set[str]
 
-    # Backward compatibility properties
-    @property
-    def lineno(self) -> int:
-        return self.start.line
-
-    @property
-    def col_offset(self) -> int:
-        return self.start.col
-
-    @property
-    def end_lineno(self) -> int:
-        return self.end.line
-
-    @property
-    def end_col_offset(self) -> int:
-        return self.end.col
-
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
         # Import here to avoid circular dependency
