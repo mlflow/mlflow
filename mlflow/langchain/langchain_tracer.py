@@ -460,8 +460,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # NB: We need to guard this with active trace existence because sometimes LangGraph
         # execute the callback within an isolated thread where the active trace is not set.
         if (
-            thread_id := metadata.get("thread_id")
-        ) and mlflow.get_current_active_span() is not None:
+            metadata is not None
+            and (thread_id := metadata.get("thread_id"))
+            and mlflow.get_current_active_span() is not None
+        ):
             mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
 
     def on_chain_end(
