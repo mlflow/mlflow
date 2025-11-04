@@ -265,11 +265,6 @@ class McpRunEvent(Event):
 class AiCommandRunEvent(Event):
     name: str = "ai_command_run"
 
-    @classmethod
-    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        # Capture which AI command was requested
-        return {"command_key": arguments.get("key"), "context": arguments.get("context")}
-
 
 class GitModelVersioningEvent(Event):
     name: str = "git_model_versioning"
