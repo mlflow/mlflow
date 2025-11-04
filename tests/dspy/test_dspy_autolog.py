@@ -1244,9 +1244,23 @@ def test_callback_unpacks_prediction_objects():
     ]
 
     outputs = pred_list
-    if isinstance(outputs, list) and outputs and isinstance(outputs[0], dspy.Prediction):
+    if isinstance(outputs, list):
         outputs = [p.toDict() if isinstance(p, dspy.Prediction) else p for p in outputs]
 
     assert isinstance(outputs, list)
     assert all(isinstance(o, dict) for o in outputs)
     assert [o["answer"] for o in outputs] == ["41", "42", "43"]
+
+    mixed_list = [
+        dspy.Prediction(answer="pred1"),
+        {"answer": "dict1"},
+        dspy.Prediction(answer="pred2"),
+    ]
+
+    outputs = mixed_list
+    if isinstance(outputs, list):
+        outputs = [p.toDict() if isinstance(p, dspy.Prediction) else p for p in outputs]
+
+    assert isinstance(outputs, list)
+    assert all(isinstance(o, dict) for o in outputs)
+    assert [o["answer"] for o in outputs] == ["pred1", "dict1", "pred2"]

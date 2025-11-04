@@ -184,8 +184,7 @@ class MlflowCallback(BaseCallback):
         # unpack to dict format (similar to how on_module_end handles Prediction outputs).
         if isinstance(outputs, dspy.Prediction):
             outputs = outputs.toDict()
-        elif isinstance(outputs, list) and outputs and isinstance(outputs[0], dspy.Prediction):
-            # Handle lists of Prediction objects (e.g., when n > 1)
+        elif isinstance(outputs, list):
             outputs = [
                 pred.toDict() if isinstance(pred, dspy.Prediction) else pred for pred in outputs
             ]
