@@ -1,6 +1,21 @@
 #!/bin/bash
 set -e
 
+# Clean up any existing MLflow and yarn dev servers
+# Using specific patterns to avoid killing unrelated processes
+echo "Checking for existing dev servers..."
+if pgrep -f "mlflow.*server.*--dev" > /dev/null; then
+  echo "Stopping existing MLflow dev server..."
+  pkill -f "mlflow.*server.*--dev" || true
+  sleep 1
+fi
+if pgrep -f "node.*react-scripts.*start" > /dev/null || pgrep -f "yarn.*start.*mlflow/server/js" > /dev/null; then
+  echo "Stopping existing yarn dev server..."
+  pkill -f "node.*react-scripts.*start" || true
+  pkill -f "yarn.*start.*mlflow/server/js" || true
+  sleep 1
+fi
+
 # Parse command line arguments
 env_file=""
 while [[ $# -gt 0 ]]; do
