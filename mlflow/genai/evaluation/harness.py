@@ -36,6 +36,7 @@ from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     batch_link_traces_to_run,
     clean_up_extra_traces,
+    construct_eval_result_df,
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -101,13 +102,16 @@ def run(
     except Exception as e:
         _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
 
-    # Clean up noisy traces generated during evaluation
-    clean_up_extra_traces(run_id, eval_start_time)
+    # Search for all traces in the run. We need to fetch the traces from backend here to include
+    # all traces in the result.
+    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
 
-    eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
+    # Clean up noisy traces generated during evaluation
+    clean_up_extra_traces(traces, eval_start_time)
+
     return EvaluationResult(
         run_id=run_id,
-        result_df=eval_results_df,
+        result_df=construct_eval_result_df(traces, eval_results),
         metrics=aggregated_metrics,
     )
 

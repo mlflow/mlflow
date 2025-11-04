@@ -130,6 +130,20 @@ def _validate_assessments(traces):
         assert a_max_length.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
 
+def _validate_eval_result_df(result: EvaluationResult):
+    search_traces_df = mlflow.search_traces(run_id=result.run_id)
+    assert result.result_df is not None
+    assert len(result.result_df) == len(search_traces_df)
+    assert list(result.result_df.columns) == list(search_traces_df.columns)
+
+    actual = result.result_df.sort_values(by="trace_id").reset_index(drop=True)
+    expected = search_traces_df.sort_values(by="trace_id").reset_index(drop=True)
+    for i in range(len(actual)):
+        assert actual.iloc[i].trace_id == expected.iloc[i].trace_id
+        assert actual.iloc[i].spans == expected.iloc[i].spans
+        assert actual.iloc[i].assessments == expected.iloc[i].assessments
+
+
 @dataclass
 class ServerConfig:
     host_type: Literal["local", "remote", "databricks"]
@@ -243,6 +257,7 @@ def test_evaluate_with_static_dataset(server_config):
         assert span.outputs == data[i]["outputs"]
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
     # Dataset input should be logged to the run
     run = mlflow.get_run(result.run_id)
@@ -315,6 +330,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
         assert span.outputs == "I don't know"
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
@@ -401,6 +417,7 @@ def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
 
     # Validate assessments are added to the traces
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
@@ -526,6 +543,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
     assert len(traces) == 2
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset_from_searched_traces():
