@@ -6,6 +6,11 @@ export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 export const INFERENCE_TABLE_RESPONSE_COLUMN_KEY = 'response';
 export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
+// Commonly-used trace metadata keys
+export const MLFLOW_TRACE_SESSION_KEY = 'mlflow.trace.session';
+export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+export const MLFLOW_TRACE_TOKEN_USAGE_KEY = 'mlflow.trace.tokenUsage';
+
 export type ModelTraceExplorerRenderMode = 'default' | 'json';
 
 export enum ModelSpanType {
