@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import traceback
+import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable
@@ -34,6 +35,7 @@ from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import (
     _does_store_support_trace_linking,
     batch_link_traces_to_run,
+    clean_up_extra_traces,
     create_minimal_trace,
 )
 from mlflow.pyfunc.context import Context, set_prediction_context
@@ -67,6 +69,7 @@ def run(
     3. Compute the aggregated metrics from the assessments.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
+    eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
@@ -97,6 +100,9 @@ def run(
         emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
     except Exception as e:
         _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
+
+    # Clean up noisy traces generated during evaluation
+    clean_up_extra_traces(run_id, eval_start_time)
 
     eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
     return EvaluationResult(
