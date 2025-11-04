@@ -86,11 +86,12 @@ class Range:
         end = Position(noqa.end_lineno - 1, noqa.end_col_offset)
         return cls(start, end)
 
-    def __add__(self, other: "Range") -> "Range":
-        new_start = self.start + other.start
+    def shift(self, offset: Position) -> "Range":
+        """Shift this range by the given position offset."""
+        new_start = self.start + offset
         new_end = None
         if self.end is not None:
-            new_end = self.end + other.start
+            new_end = self.end + offset
         return Range(new_start, new_end)
 
 
@@ -106,7 +107,7 @@ class Violation:
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
             # Since `Range` is 0-indexed, lineno and col_offset are incremented by 1
-            f"{self.path}:{cell_loc}{self.range + Range(Position(1, 1))}: "
+            f"{self.path}:{cell_loc}{self.range.shift(Position(1, 1))}: "
             f"{self.rule.id}: {self.rule.message} "
             f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
@@ -363,7 +364,7 @@ class Linter(ast.NodeVisitor):
         ignore: dict[str, set[int]],
         index: SymbolIndex,
         cell: int | None = None,
-        offset: Range | None = None,
+        offset: Position | None = None,
     ) -> None:
         """
         Lints a Python file.
@@ -373,7 +374,7 @@ class Linter(ast.NodeVisitor):
             config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
-            offset: Offset to apply to the line and column numbers of the violations.
+            offset: Position offset to apply to the line and column numbers of the violations.
             index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef] = []
@@ -386,7 +387,7 @@ class Linter(ast.NodeVisitor):
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Range] = {}
-        self.offset = offset or Range(Position(0, 0))
+        self.offset = offset or Position(0, 0)
         self.resolver = Resolver()
         self.index = index
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
@@ -405,7 +406,7 @@ class Linter(ast.NodeVisitor):
             Violation(
                 rule,
                 self.path,
-                loc + self.offset,
+                loc.shift(self.offset),
                 self.cell,
             )
         )
@@ -522,7 +523,7 @@ class Linter(ast.NodeVisitor):
             config=config,
             ignore=ignore_map(example.code),
             index=index,
-            offset=example.range,
+            offset=example.range.start,
         )
         linter.visit(tree)
         linter.visit_comments(example.code)
@@ -557,7 +558,7 @@ class Linter(ast.NodeVisitor):
         if (docstring_node := self._docstring(node)) and isinstance(docstring_node.value, str):
             for code_block in _iter_code_blocks(docstring_node.value):
                 # Adjust code block location to account for docstring position
-                code_block.range = code_block.range + Range(Position(docstring_node.lineno - 1, 0))
+                code_block.range = code_block.range.shift(Position(docstring_node.lineno - 1, 0))
                 self.violations.extend(
                     Linter.visit_example(self.path, self.config, code_block, self.index)
                 )
