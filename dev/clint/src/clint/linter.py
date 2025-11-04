@@ -50,13 +50,13 @@ HasLocation: TypeAlias = (
 
 @dataclass
 class Position:
-    """Represents a position in source code with line number and column offset."""
+    """Represents a position in source code with line number and character position."""
 
-    lineno: int
-    col_offset: int
+    line: int
+    char: int
 
     def __add__(self, other: "Position") -> "Position":
-        return Position(self.lineno + other.lineno, self.col_offset + other.col_offset)
+        return Position(self.line + other.line, self.char + other.char)
 
 
 @dataclass
@@ -65,7 +65,7 @@ class Range:
     end: Position | None = None
 
     def __str__(self) -> str:
-        return f"{self.start.lineno}:{self.start.col_offset}"
+        return f"{self.start.line}:{self.start.char}"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Range):
@@ -117,12 +117,10 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.rng.start.lineno,
-            "column": self.rng.start.col_offset,
-            "endLine": self.rng.end.lineno if self.rng.end is not None else self.rng.start.lineno,
-            "endColumn": (
-                self.rng.end.col_offset if self.rng.end is not None else self.rng.start.col_offset
-            ),
+            "line": self.rng.start.line,
+            "column": self.rng.start.char,
+            "endLine": self.rng.end.line if self.rng.end is not None else self.rng.start.line,
+            "endColumn": (self.rng.end.char if self.rng.end is not None else self.rng.start.char),
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -393,7 +391,7 @@ class Linter(ast.NodeVisitor):
         if rule.name not in self.config.select:
             return
         # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and loc.start.lineno in lines:
+        if (lines := self.ignore.get(rule.name)) and loc.start.line in lines:
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:

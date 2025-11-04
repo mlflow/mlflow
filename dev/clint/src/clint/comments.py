@@ -21,19 +21,19 @@ class Noqa:
     # Backward compatibility properties
     @property
     def lineno(self) -> int:
-        return self.start.lineno
+        return self.start.line
 
     @property
     def col_offset(self) -> int:
-        return self.start.col_offset
+        return self.start.char
 
     @property
     def end_lineno(self) -> int:
-        return self.end.lineno
+        return self.end.line
 
     @property
     def end_col_offset(self) -> int:
-        return self.end.col_offset
+        return self.end.char
 
     @classmethod
     def from_token(cls, token: tokenize.TokenInfo) -> Self | None:
