@@ -126,7 +126,7 @@ def _parse_databricks_judge_response(
     )
 
 
-def _invoke_databricks_judge(
+def _invoke_databricks_default_judge(
     prompt: str | list["ChatMessage"],
     assessment_name: str,
 ) -> Feedback:
@@ -406,7 +406,7 @@ class InvokeJudgeModelHelperOutput:
     num_completion_tokens: int | None
 
 
-def _invoke_databricks_serving_endpoint_for_judge(
+def _invoke_databricks_serving_endpoint_judge(
     *,
     model_name: str,
     prompt: str,
