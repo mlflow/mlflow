@@ -95,13 +95,8 @@ export const ModelTraceHeaderMetadataPill = ({
                   key={`${key}:${value}`}
                   css={{ display: 'flex', flexDirection: 'row', alignItems: 'flex-start', gap: theme.spacing.xs }}
                 >
-                  <Typography.Text css={{ flexBasis: '45%', flexShrink: 0 }}>
-                    {getTruncatedLabel(key)}
-                  </Typography.Text>
-                  <Typography.Text
-                    color="secondary"
-                    css={{ wordBreak: 'break-word' }}
-                  >
+                  <Typography.Text css={{ flexBasis: '45%', flexShrink: 0 }}>{getTruncatedLabel(key)}</Typography.Text>
+                  <Typography.Text color="secondary" css={{ wordBreak: 'break-word' }}>
                     {displayValue}
                   </Typography.Text>
                 </div>

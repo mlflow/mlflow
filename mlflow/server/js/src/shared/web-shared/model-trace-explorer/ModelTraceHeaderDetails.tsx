@@ -6,7 +6,8 @@ import {
   useDesignSystemTheme,
   Tooltip,
   ClockIcon,
-  SpeechBubblePlusIcon,
+  SpeechBubbleIcon,
+  UserIcon,
 } from '@databricks/design-system';
 import { Notification } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
@@ -17,7 +18,7 @@ import { getModelTraceId } from './ModelTraceExplorer.utils';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
-import { MLFLOW_TRACE_SESSION_KEY, MLFLOW_TRACE_TOKEN_USAGE_KEY } from './ModelTrace.types';
+import { MLFLOW_TRACE_SESSION_KEY, MLFLOW_TRACE_TOKEN_USAGE_KEY, MLFLOW_TRACE_USER_KEY } from './ModelTrace.types';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 
 const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
@@ -105,6 +106,10 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
     return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_SESSION_KEY];
   }, [modelTrace.info]);
 
+  const userId = useMemo(() => {
+    return (modelTrace.info as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
+  }, [modelTrace.info]);
+
   const getComponentId = useCallback((key: string) => `${BASE_TAG_COMPONENT_ID}.tag-${key}`, []);
 
   const handleTagClick = (text: string) => {
@@ -159,11 +164,23 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
         {sessionId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />}
-            icon={<SpeechBubblePlusIcon css={{ fontSize: 12, display: 'flex' }} />}
+            icon={<SpeechBubbleIcon css={{ fontSize: 12, display: 'flex' }} />}
             value={sessionId}
             tagKey="session"
             color="default"
             getTruncatedLabel={getTruncatedSessionLabel}
+            getComponentId={getComponentId}
+            onCopy={handleCopy}
+          />
+        )}
+        {userId && (
+          <ModelTraceHeaderMetricSection
+            label={<FormattedMessage defaultMessage="User" description="Label for the user id section" />}
+            icon={<UserIcon css={{ fontSize: 12, display: 'flex' }} />}
+            value={userId}
+            tagKey="user"
+            color="default"
+            getTruncatedLabel={getTruncatedLabel}
             getComponentId={getComponentId}
             onCopy={handleCopy}
           />
