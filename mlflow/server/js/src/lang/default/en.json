@@ -1562,6 +1562,10 @@
     "defaultMessage": "Show span tree",
     "description": "Tooltip for a button that show the span tree view of the trace UI."
   },
+  "EAf6xM": {
+    "defaultMessage": "Session",
+    "description": "Label preceding a chat session ID"
+  },
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
