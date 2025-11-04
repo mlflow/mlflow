@@ -37,5 +37,5 @@ class TraceloopTranslator(OtelSchemaTranslator):
 
     # Input/Output attribute keys
     # Reference: https://github.com/traceloop/openllmetry/blob/e66894fd7f8324bd7b2972d7f727da39e7d93181/packages/opentelemetry-semantic-conventions-ai/opentelemetry/semconv_ai/__init__.py
-    INPUT_VALUE_KEY = "traceloop.entity.input"
-    OUTPUT_VALUE_KEY = "traceloop.entity.output"
+    INPUT_VALUE_KEYS = ["traceloop.entity.input"]
+    OUTPUT_VALUE_KEYS = ["traceloop.entity.output"]

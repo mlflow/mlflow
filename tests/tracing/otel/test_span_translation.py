@@ -33,6 +33,13 @@ from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
         (TraceloopTranslator, "task", SpanType.TASK),
         (TraceloopTranslator, "agent", SpanType.AGENT),
         (TraceloopTranslator, "tool", SpanType.TOOL),
+        (GenAiTranslator, "chat", SpanType.CHAT_MODEL),
+        (GenAiTranslator, "create_agent", SpanType.AGENT),
+        (GenAiTranslator, "embeddings", SpanType.EMBEDDING),
+        (GenAiTranslator, "execute_tool", SpanType.TOOL),
+        (GenAiTranslator, "generate_content", SpanType.LLM),
+        (GenAiTranslator, "invoke_agent", SpanType.AGENT),
+        (GenAiTranslator, "text_completion", SpanType.LLM),
     ],
 )
 def test_translate_span_type_from_otel(
@@ -195,12 +202,13 @@ def test_translate_inputs_for_spans(
 ):
     span = mock.Mock(spec=Span)
     span.parent_id = parent_id
-    span_dict = {"attributes": {translator.INPUT_VALUE_KEY: json.dumps(input_value)}}
-    span.to_dict.return_value = span_dict
+    for input_key in translator.INPUT_VALUE_KEYS:
+        span_dict = {"attributes": {input_key: json.dumps(input_value)}}
+        span.to_dict.return_value = span_dict
 
-    result = translate_span_when_storing(span)
+        result = translate_span_when_storing(span)
 
-    assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
+        assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
 
 
 @pytest.mark.parametrize(
@@ -211,12 +219,13 @@ def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSche
     output_value = "test output"
     span = mock.Mock(spec=Span)
     span.parent_id = parent_id
-    span_dict = {"attributes": {translator.OUTPUT_VALUE_KEY: json.dumps(output_value)}}
-    span.to_dict.return_value = span_dict
+    for output_key in translator.OUTPUT_VALUE_KEYS:
+        span_dict = {"attributes": {output_key: json.dumps(output_value)}}
+        span.to_dict.return_value = span_dict
 
-    result = translate_span_when_storing(span)
+        result = translate_span_when_storing(span)
 
-    assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
+        assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
 
 
 @pytest.mark.parametrize(
@@ -230,8 +239,8 @@ def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSche
         (
             "parent_123",
             {
-                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("test input"),
-                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("test output"),
+                OpenInferenceTranslator.INPUT_VALUE_KEYS[0]: json.dumps("test input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEYS[0]: json.dumps("test output"),
             },
             "test input",
             "test output",
@@ -241,8 +250,8 @@ def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSche
             {
                 SpanAttributeKey.INPUTS: json.dumps("existing input"),
                 SpanAttributeKey.OUTPUTS: json.dumps("existing output"),
-                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("new input"),
-                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("new output"),
+                OpenInferenceTranslator.INPUT_VALUE_KEYS[0]: json.dumps("new input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEYS[0]: json.dumps("new output"),
             },
             "existing input",
             "existing output",

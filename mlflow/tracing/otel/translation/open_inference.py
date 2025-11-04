@@ -42,5 +42,5 @@ class OpenInferenceTranslator(OtelSchemaTranslator):
 
     # Input/Output attribute keys
     # Reference: https://github.com/Arize-ai/openinference/blob/c80c81b8d6fa564598bd359cdd7313f4472ceca8/python/openinference-semantic-conventions/src/openinference/semconv/trace/__init__.py
-    INPUT_VALUE_KEY = "input.value"
-    OUTPUT_VALUE_KEY = "output.value"
+    INPUT_VALUE_KEYS = ["input.value"]
+    OUTPUT_VALUE_KEYS = ["output.value"]

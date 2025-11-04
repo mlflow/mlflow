@@ -25,8 +25,8 @@ class OtelSchemaTranslator:
     INPUT_TOKEN_KEY: str | None = None
     OUTPUT_TOKEN_KEY: str | None = None
     TOTAL_TOKEN_KEY: str | None = None
-    INPUT_VALUE_KEY: str | None = None
-    OUTPUT_VALUE_KEY: str | None = None
+    INPUT_VALUE_KEYS: list[str] | None = None
+    OUTPUT_VALUE_KEYS: list[str] | None = None
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -105,8 +105,10 @@ class OtelSchemaTranslator:
         Returns:
             Input value or None if not found
         """
-        if self.INPUT_VALUE_KEY:
-            return attributes.get(self.INPUT_VALUE_KEY)
+        if self.INPUT_VALUE_KEYS:
+            for key in self.INPUT_VALUE_KEYS:
+                if value := attributes.get(key):
+                    return value
 
     def get_output_value(self, attributes: dict[str, Any]) -> Any:
         """
@@ -118,5 +120,7 @@ class OtelSchemaTranslator:
         Returns:
             Output value or None if not found
         """
-        if self.OUTPUT_VALUE_KEY:
-            return attributes.get(self.OUTPUT_VALUE_KEY)
+        if self.OUTPUT_VALUE_KEYS:
+            for key in self.OUTPUT_VALUE_KEYS:
+                if value := attributes.get(key):
+                    return value
