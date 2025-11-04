@@ -1,7 +1,15 @@
 import { isNil, partition } from 'lodash';
 import { useMemo } from 'react';
 
-import { Button, CloseIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  Button,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  CloseIcon,
+  Tooltip,
+  Typography,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
 import { AssessmentCreateButton } from './AssessmentCreateButton';
@@ -54,7 +62,7 @@ export const AssessmentsPane = ({
   activeSpanId?: string;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { setAssessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
+  const { setAssessmentsPaneExpanded, assessmentsPaneExpanded, isInComparisonView } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
     () => partition(assessments, (assessment) => 'feedback' in assessment),
     [assessments],
@@ -73,17 +81,27 @@ export const AssessmentsPane = ({
         padding: theme.spacing.sm,
         paddingTop: theme.spacing.xs,
         height: '100%',
-        borderLeft: `1px solid ${theme.colors.border}`,
+        ...(isInComparisonView ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
         overflowY: 'scroll',
         minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
         boxSizing: 'border-box',
       }}
     >
-      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between' }}>
-        <Typography.Text css={{ marginBottom: theme.spacing.sm }} bold>
-          <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
-        </Typography.Text>
+      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
+          {isInComparisonView && (
+            <Button
+              size="small"
+              componentId="shared.model-trace-explorer.toggle-assessments-pane"
+              icon={assessmentsPaneExpanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
+              onClick={() => setAssessmentsPaneExpanded(!assessmentsPaneExpanded)}
+            />
+          )}
+          <Typography.Text bold>
+            <FormattedMessage defaultMessage="Assessments" description="Label for the assessments pane" />
+          </Typography.Text>
+        </div>
         {!isInComparisonView && setAssessmentsPaneExpanded && (
           <Tooltip
             componentId="shared.model-trace-explorer.close-assessments-pane-tooltip"
@@ -104,10 +122,11 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      {groupedFeedbacks.map(([name, valuesMap]) => (
-        <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
-      ))}
-      {sortedExpectations.length > 0 && (
+      {assessmentsPaneExpanded &&
+        groupedFeedbacks.map(([name, valuesMap]) => (
+          <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
+        ))}
+      {assessmentsPaneExpanded && sortedExpectations.length > 0 && (
         <>
           <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
@@ -124,16 +143,18 @@ export const AssessmentsPane = ({
           </div>
         </>
       )}
-      <AssessmentCreateButton
-        title={
-          <FormattedMessage
-            defaultMessage="Add new assessment"
-            description="Label for the button to add a new assessment"
-          />
-        }
-        spanId={activeSpanId}
-        traceId={traceId}
-      />
+      {assessmentsPaneExpanded && (
+        <AssessmentCreateButton
+          title={
+            <FormattedMessage
+              defaultMessage="Add new assessment"
+              description="Label for the button to add a new assessment"
+            />
+          }
+          spanId={activeSpanId}
+          traceId={traceId}
+        />
+      )}
     </div>
   );
 };

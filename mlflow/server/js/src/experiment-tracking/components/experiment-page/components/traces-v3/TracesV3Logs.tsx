@@ -181,7 +181,6 @@ const TracesV3LogsImpl = React.memo(
           showExportTracesToDatasetsModal,
           setShowExportTracesToDatasetsModal,
           renderExportTracesToDatasetsModal,
-          getTrace,
         },
         editTags: {
           showEditTagsModalForTrace,

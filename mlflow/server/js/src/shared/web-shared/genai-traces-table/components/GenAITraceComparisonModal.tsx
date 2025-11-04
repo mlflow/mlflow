@@ -1,47 +1,19 @@
 import { ModelTraceExplorer } from '../../model-trace-explorer';
-import type { ModelTrace } from '../../model-trace-explorer';
-import type { RunEvaluationTracesDataEntry } from './../types';
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 
 import { Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { useIntl } from '@databricks/i18n';
+import { useFetchTraces } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useFetchTraces';
+import { compact } from 'lodash';
 
-export const TraceComparisonModal = ({
-  traces,
-  onClose,
-  getTrace,
-}: {
-  traces: RunEvaluationTracesDataEntry[];
-  onClose: () => void;
-  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
-}) => {
+export const GenAITraceComparisonModal = ({ traceIds, onClose }: { traceIds: string[]; onClose: () => void }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const [modelTraces, setModelTraces] = useState<ModelTrace[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchTraces = async () => {
-      if (!getTrace) {
-        setModelTraces([]);
-        return;
-      }
-      const results = await Promise.all(
-        traces.map((trace) => {
-          const traceId = trace.traceInfo?.trace_id ?? trace.requestId ?? trace.evaluationId;
-          return getTrace(traceId);
-        }),
-      );
-      if (!cancelled) {
-        setModelTraces(results.filter((t): t is ModelTrace => Boolean(t)));
-      }
-    };
-    fetchTraces();
-    return () => {
-      cancelled = true;
-    };
-  }, [traces, getTrace]);
+  const { data: fetchedTraces, isLoading } = useFetchTraces({ traceIds });
+
+  const modelTraces = useMemo(() => compact(fetchedTraces), [fetchedTraces]);
 
   return (
     <Modal
@@ -63,14 +35,14 @@ export const TraceComparisonModal = ({
             flexWrap: 'nowrap',
           }}
         >
-          {modelTraces.length === 0 ? (
+          {isLoading || !modelTraces || modelTraces.length === 0 ? (
             <Typography.Text>
               {intl.formatMessage({ defaultMessage: 'Loading traces…', description: 'Loading traces message' })}
             </Typography.Text>
           ) : (
             modelTraces.map((modelTrace, index) => (
               <div
-                key={traces[index].evaluationId}
+                key={traceIds[index]}
                 css={{
                   flex: '1 1 0',
                   minHeight: '100%',

@@ -143,7 +143,6 @@ export interface TraceActions {
     }: {
       selectedTraceInfos: ModelTraceInfoV3[];
     }) => React.ReactNode;
-    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
   };
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
