@@ -393,12 +393,11 @@ class Span:
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
-            # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
+                SpanAttributeKey.REQUEST_ID: mlflow_trace_id,
                 **{
-                    attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
+                    attr.key: _decode_otel_proto_anyvalue(attr.value)
                     for attr in otel_proto_span.attributes
                 },
             },
