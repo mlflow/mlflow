@@ -72,23 +72,6 @@ class Location:
             return False
         return self.start == other.start
 
-    # Backward compatibility properties
-    @property
-    def lineno(self) -> int:
-        return self.start.lineno
-
-    @property
-    def col_offset(self) -> int:
-        return self.start.col_offset
-
-    @property
-    def end_lineno(self) -> int | None:
-        return self.end.lineno if self.end is not None else None
-
-    @property
-    def end_col_offset(self) -> int | None:
-        return self.end.col_offset if self.end is not None else None
-
     @classmethod
     def from_node(cls, node: HasLocation) -> Self:
         start = Offset(node.lineno - 1, node.col_offset)
@@ -133,12 +116,12 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.loc.lineno,
-            "column": self.loc.col_offset,
-            "endLine": self.loc.end_lineno if self.loc.end_lineno is not None else self.loc.lineno,
-            "endColumn": self.loc.end_col_offset
-            if self.loc.end_col_offset is not None
-            else self.loc.col_offset,
+            "line": self.loc.start.lineno,
+            "column": self.loc.start.col_offset,
+            "endLine": self.loc.end.lineno if self.loc.end is not None else self.loc.start.lineno,
+            "endColumn": self.loc.end.col_offset
+            if self.loc.end is not None
+            else self.loc.start.col_offset,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -409,7 +392,7 @@ class Linter(ast.NodeVisitor):
         if rule.name not in self.config.select:
             return
         # Check line-level ignores
-        if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
+        if (lines := self.ignore.get(rule.name)) and loc.start.lineno in lines:
             return
         # Check per-file ignores
         if rule.name in self.ignored_rules:
