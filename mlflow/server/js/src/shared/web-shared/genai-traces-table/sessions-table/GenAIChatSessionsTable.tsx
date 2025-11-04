@@ -14,10 +14,8 @@ import { Link } from '../utils/RoutingUtils';
 import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 
 // TODO: add following columns:
-// 1. conversation start time
-// 2. conversation duration
-// 3. token counts
-// 4. number of contained traces
+// 1. token counts
+// 2. number of contained traces
 const columns = [
   {
     header: 'Session ID',
@@ -31,6 +29,14 @@ const columns = [
   {
     header: 'Source',
     cell: SessionSourceCellRenderer,
+  },
+  {
+    header: 'Session Start Time',
+    accessorKey: 'sessionStartTime',
+  },
+  {
+    header: 'Session Duration',
+    accessorKey: 'sessionDuration',
   },
 ];
 
