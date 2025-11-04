@@ -66,16 +66,12 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
 );
 
 export const SmallLogoCard = ({ children, link }) => {
-  const Wrapper = link ? Link : 'div';
   return (
-    <Wrapper
-      className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}
-      {...(link && { to: link })}
-    >
+    <Link className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)} to={link}>
       <div className={styles.SmallLogoCardContent}>
         <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
       </div>
-    </Wrapper>
+    </Link>
   );
 };
 

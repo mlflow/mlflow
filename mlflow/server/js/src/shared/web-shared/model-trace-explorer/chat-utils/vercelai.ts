@@ -86,7 +86,7 @@ const isVercelAIContentPart = (obj: unknown): obj is VercelAIContentPart => {
   }
 
   if (typedObj.type === 'image' && has(obj, 'image')) {
-    return isString(typedObj.image) || typedObj.image instanceof URL;
+    return isString(typedObj.image);
   }
 
   return false;
@@ -121,8 +121,7 @@ const normalizeVercelAIContentPart = (item: VercelAIContentPart): ModelTraceCont
       return { type: 'text', text: item.text };
     }
     case 'image': {
-      const imageUrl = item.image instanceof URL ? item.image.toString() : item.image;
-      return { type: 'image_url', image_url: { url: imageUrl } };
+      return { type: 'image_url', image_url: { url: item.image as string } };
     }
   }
 };
