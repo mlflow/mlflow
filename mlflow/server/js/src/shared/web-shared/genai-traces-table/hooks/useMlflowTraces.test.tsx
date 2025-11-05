@@ -26,7 +26,7 @@ import {
   type FeedbackAssessment,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import { FilterOperator, HiddenFilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { shouldEnableUnifiedEvalTab, shouldUseTracesV4API } from '../utils/FeatureUtils';
 import { fetchFn } from '../utils/FetchUtils';
@@ -315,7 +315,7 @@ describe('useSearchMlflowTraces', () => {
             },
             {
               column: 'custom_metadata:mlflow.trace.session',
-              operator: HiddenFilterOperator.ILIKE,
+              operator: 'ILIKE' as any,
               value: '%',
             },
           ],

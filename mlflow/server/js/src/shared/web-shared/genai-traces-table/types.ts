@@ -168,7 +168,7 @@ export type TableFilter = {
   column: TracesTableColumnGroup | string;
   // Should be defined if a column group is used.
   key?: string;
-  operator: FilterOperator | HiddenFilterOperator;
+  operator: FilterOperator | string;
   value: TableFilterValue;
 };
 
@@ -192,13 +192,6 @@ export enum FilterOperator {
   LESS_THAN_OR_EQUALS = '<=',
   CONTAINS = 'CONTAINS',
 }
-
-// operators that are not displayed in the filter popover, but are
-// still supported in the backend. eventually we should implement
-// functionality for all these operators, but some of them take a
-// little more thought from the UX side (e.g. we need to remove the
-// value input for IS NOT NULL filters)
-export enum HiddenFilterOperator {}
 
 export interface AssessmentDropdownSuggestionItem {
   label: string;

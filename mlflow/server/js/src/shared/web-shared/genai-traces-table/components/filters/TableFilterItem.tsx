@@ -47,27 +47,21 @@ const FILTERABLE_INFO_COLUMNS = [
   SOURCE_COLUMN_ID,
 ];
 
-// Helper function to determine if a column supports all operators
 const supportsAllOperators = (column: string, key?: string): boolean => {
-  // Execution duration supports numeric comparisons
   if (column === EXECUTION_DURATION_COLUMN_ID) {
     return true;
   }
-  // Span name and type filters support =, !=, CONTAINS
   if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
     return true;
   }
-  // Span content only supports CONTAINS
   if (column === SPAN_CONTENT_COLUMN_ID) {
     return true;
   }
   return false;
 };
 
-// Helper function to get available operators for a column
 const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
   if (column === EXECUTION_DURATION_COLUMN_ID) {
-    // Numeric comparisons
     return [
       FilterOperator.EQUALS,
       FilterOperator.NOT_EQUALS,
@@ -79,16 +73,13 @@ const getAvailableOperators = (column: string, key?: string): FilterOperator[] =
   }
 
   if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
-    // name and type support =, !=, CONTAINS
     return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
   }
 
   if (column === SPAN_CONTENT_COLUMN_ID) {
-    // content only supports CONTAINS
     return [FilterOperator.CONTAINS];
   }
 
-  // Default: only equals
   return [FilterOperator.EQUALS];
 };
 

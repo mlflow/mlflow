@@ -33,7 +33,7 @@ import {
 } from '../../model-trace-explorer';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
 import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { HiddenFilterOperator, TracesTableColumnGroup } from '../types';
+import { TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
@@ -646,7 +646,6 @@ const createMlflowSearchFilter = (
           filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
           break;
         case SPAN_NAME_COLUMN_ID:
-          // For span name, translate = to ILIKE for case-insensitive matching, and CONTAINS to ILIKE with wildcards
           if (networkFilter.operator === '=') {
             filter.push(`span.name ILIKE '${networkFilter.value}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
@@ -656,7 +655,6 @@ const createMlflowSearchFilter = (
           }
           break;
         case SPAN_TYPE_COLUMN_ID:
-          // For span type, translate = to ILIKE for case-insensitive matching, and CONTAINS to ILIKE with wildcards
           if (networkFilter.operator === '=') {
             filter.push(`span.type ILIKE '${networkFilter.value}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
@@ -678,7 +676,6 @@ const createMlflowSearchFilter = (
           }
           break;
         case SPAN_CONTENT_COLUMN_ID:
-          // Search in span content
           if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
           }
