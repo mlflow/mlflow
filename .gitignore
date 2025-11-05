@@ -134,3 +134,4 @@ gunicorn.conf.py
 # except commands and skills
 !.claude/commands/
 !.claude/skills/
+test_disable.py

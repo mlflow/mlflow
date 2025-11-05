@@ -199,3 +199,16 @@ def test_third():
     assert len(violations) == 2
     assert violations[0].loc == Location(2, 4)
     assert violations[1].loc == Location(5, 4)
+
+
+def test_multiple_imports_in_single_statement(index_path: Path) -> None:
+    """Test that all imports in a single statement are checked."""
+    code = """
+def test_func():
+    import pandas, numpy, sys  # pandas and numpy are bad, sys is OK
+"""
+    config = Config(select={PackageImportInTest.name})
+    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    assert len(violations) == 1
+    # Only one violation for the whole import statement
+    assert violations[0].loc == Location(2, 4)

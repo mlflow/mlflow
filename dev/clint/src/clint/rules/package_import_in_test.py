@@ -28,12 +28,14 @@ class PackageImportInTest(Rule):
 
         # Get the module being imported
         if isinstance(node, ast.Import):
-            # For "import foo" or "import foo.bar"
-            # Check the first module in the list
-            if node.names:
-                module = node.names[0].name.split(".", 1)[0]
-            else:
-                return False
+            # For "import foo" or "import foo.bar" or "import foo, bar"
+            # Check all modules in the import statement
+            for alias in node.names:
+                module = alias.name.split(".", 1)[0]
+                # If any non-builtin module is found, flag it
+                if module not in BUILTIN_MODULES:
+                    return True
+            return False
         elif isinstance(node, ast.ImportFrom):
             # Check for relative imports first
             # (from . import, from .. import, from ...package import)
