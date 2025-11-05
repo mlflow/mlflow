@@ -163,8 +163,9 @@ class IdleTraceMonitor:
                     traces_to_remove = []
                     for trace_id, trace in list(manager._traces.items()):
                         # Check if trace has a root span that's ended
+                        # A span is ended if it has an end_time_ns (not None)
                         root_span = trace.get_root_span()
-                        if root_span and hasattr(root_span, "_ended") and root_span._ended:
+                        if root_span and root_span.end_time_ns is not None:
                             traces_to_remove.append(trace_id)
 
                     # Remove completed traces

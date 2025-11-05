@@ -50,7 +50,7 @@ def test_idle_monitor_flushes_completed_traces(monkeypatch):
 
     # Create mock spans
     mock_root_span = mock.Mock()
-    mock_root_span._ended = True  # Mark as ended
+    mock_root_span.end_time_ns = 1234567890  # Mark as ended (has end time)
     mock_root_span.span_id = "span_1"
     mock_root_span.parent_id = None
 
@@ -88,7 +88,7 @@ def test_idle_monitor_does_not_flush_in_progress_traces(monkeypatch):
 
     # Create mock span that's NOT ended
     mock_root_span = mock.Mock()
-    mock_root_span._ended = False  # Still in progress
+    mock_root_span.end_time_ns = None  # Still in progress (no end time)
     mock_root_span.span_id = "span_1"
     mock_root_span.parent_id = None
 
