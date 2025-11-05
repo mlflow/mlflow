@@ -38,8 +38,9 @@ def ignore_map(code: str) -> dict[str, set[int]]:
     for tok in tokenize.generate_tokens(readline):
         if tok.type != tokenize.COMMENT:
             continue
-        if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
+        # Use findall to support multiple disable comments on the same line
+        for rule_name in DISABLE_COMMENT_REGEX.findall(tok.string):
+            mapping.setdefault(rule_name, set()).add(tok.start[0] - 1)
     return mapping
 
 

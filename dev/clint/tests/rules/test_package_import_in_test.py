@@ -209,3 +209,15 @@ def test_func():
     assert len(violations) == 1
     # Only one violation for the whole import statement
     assert violations[0].loc == Location(2, 4)
+
+
+def test_multiple_disable_comments_on_same_line(index_path: Path) -> None:
+    """Test that multiple disable comments on the same line work correctly."""
+    code = """
+def test_func():
+    import math  # clint: disable=lazy-builtin-import  # clint: disable=package-import-in-test
+"""
+    # When testing package-import-in-test alone, it should be disabled
+    config = Config(select={PackageImportInTest.name})
+    violations = lint_file(Path("test_file.py"), code, config, index_path)
+    assert len(violations) == 0
