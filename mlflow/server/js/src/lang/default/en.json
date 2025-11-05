@@ -2853,10 +2853,6 @@
     "defaultMessage": "Request",
     "description": "Experiment page > traces table > input column header"
   },
-  "TS1dn7": {
-    "defaultMessage": "Assessments",
-    "description": "Header label for the assessments section in the comparison view"
-  },
   "TSXmaB": {
     "defaultMessage": "Create",
     "description": "A label for the confirm button in the create prompt modal in the prompt management UI"

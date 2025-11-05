@@ -7,7 +7,7 @@ import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { EvaluationRunCompareSelector } from './EvaluationRunCompareSelector';
 import { getEvalTabTotalTracesLimit } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
-import type { TracesTableColumn, TraceActions } from '@databricks/web-shared/genai-traces-table';
+import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,

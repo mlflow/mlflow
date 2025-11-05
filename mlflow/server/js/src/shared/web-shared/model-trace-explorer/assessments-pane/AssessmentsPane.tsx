@@ -78,11 +78,11 @@ export const AssessmentsPane = ({
       css={{
         display: 'flex',
         flexDirection: 'column',
-        padding: theme.spacing.sm,
-        paddingTop: theme.spacing.xs,
-        height: '100%',
+        ...(isInComparisonView
+          ? { padding: `${theme.spacing.sm} 0`, maxHeight: theme.spacing.lg * 10 }
+          : { padding: theme.spacing.sm, paddingTop: theme.spacing.xs, height: '100%' }),
         ...(isInComparisonView ? {} : { borderLeft: `1px solid ${theme.colors.border}` }),
-        overflowY: 'scroll',
+        overflowY: 'auto',
         minWidth: ASSESSMENT_PANE_MIN_WIDTH,
         width: '100%',
         boxSizing: 'border-box',

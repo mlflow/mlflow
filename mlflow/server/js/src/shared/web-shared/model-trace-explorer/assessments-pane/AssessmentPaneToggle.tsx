@@ -31,7 +31,7 @@ export const AssessmentPaneToggle = () => {
           },
         }}
       >
-        {assessmentsPaneExpanded && (
+        {!assessmentsPaneExpanded && (
           <FormattedMessage
             defaultMessage="Assessments"
             description="Label for the assessments pane of the model trace explorer."
