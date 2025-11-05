@@ -160,7 +160,7 @@ export const TableFilterItem = ({
         >
           <FormUI.Label htmlFor={`filter-column-${index}`}>
             <FormattedMessage
-              defaultMessage="Column"
+              defaultMessage="Field"
               description="Label for the column field in the GenAI Traces Table Filter form"
             />
           </FormUI.Label>
