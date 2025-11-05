@@ -111,7 +111,7 @@ def run(
 
     return EvaluationResult(
         run_id=run_id,
-        result_df=construct_eval_result_df(traces, eval_results),
+        result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
     )
 

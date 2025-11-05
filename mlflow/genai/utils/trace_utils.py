@@ -3,7 +3,6 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any, Callable
 
-import pandas as pd
 from cachetools.func import cached
 from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
@@ -18,7 +17,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
-from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
 from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.tracing.utils.search import traces_to_df
@@ -26,6 +25,8 @@ from mlflow.tracking.client import MlflowClient
 from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
+    import pandas as pd
+
     from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 
 _logger = logging.getLogger(__name__)
@@ -489,6 +490,7 @@ def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
 
 
 def construct_eval_result_df(
+    run_id,
     traces_wo_spans: list[Trace],
     eval_results: list["EvalResult"],
 ) -> "pd.DataFrame":
@@ -496,6 +498,7 @@ def construct_eval_result_df(
     Construct a pandas DataFrame from the traces (without spans) and eval results.
 
     Args:
+        run_id: The MLflow run ID of the evaluation run.
         traces_wo_spans: List of traces (without spans). This is the result of
             `mlflow.search_traces(include_spans=False)` to fetch the assessments from the backend.
         eval_results: List of eval results containing the full spans.
@@ -503,6 +506,8 @@ def construct_eval_result_df(
     Returns:
         A pandas DataFrame with the eval results.
     """
+    import pandas as pd
+
     try:
         trace_id_to_info = {t.info.trace_id: t.info for t in traces_wo_spans}
         traces = [
@@ -512,10 +517,28 @@ def construct_eval_result_df(
             )
             for eval_result in eval_results
         ]
-        return traces_to_df(traces)
+        df = traces_to_df(traces)
+        # unpack assessment columns
+        assessments = (
+            df["assessments"].apply(lambda x: _get_assessment_values(x, run_id)).apply(pd.Series)
+        )
+        return pd.concat([df, assessments], axis=1)
     except Exception as e:
         _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
         return pd.DataFrame()
+
+
+def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
+    result = {}
+    for a in assessments:
+        if (
+            # Exclude feedbacks from other evaluation runs
+            (source_run_id := a.get("metadata", {}).get(AssessmentMetadataKey.SOURCE_RUN_ID))
+            and source_run_id != run_id
+        ):
+            continue
+        result[f"{a['assessment_name']}/value"] = a["feedback"]["value"]
+    return result
 
 
 def create_minimal_trace(eval_item: "EvalItem") -> Trace:
