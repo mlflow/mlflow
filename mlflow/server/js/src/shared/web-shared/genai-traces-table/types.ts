@@ -168,7 +168,7 @@ export type TableFilter = {
   column: TracesTableColumnGroup | string;
   // Should be defined if a column group is used.
   key?: string;
-  operator: FilterOperator | string;
+  operator: FilterOperator;
   value: TableFilterValue;
 };
 

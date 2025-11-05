@@ -24,7 +24,6 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
-  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
@@ -45,19 +44,6 @@ const FILTERABLE_INFO_COLUMNS = [
   LOGGED_MODEL_COLUMN_ID,
   SOURCE_COLUMN_ID,
 ];
-
-const supportsAllOperators = (column: string, key?: string): boolean => {
-  if (column === EXECUTION_DURATION_COLUMN_ID) {
-    return true;
-  }
-  if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
-    return true;
-  }
-  if (column === SPAN_CONTENT_COLUMN_ID) {
-    return true;
-  }
-  return false;
-};
 
 const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
   if (column === EXECUTION_DURATION_COLUMN_ID) {
@@ -243,28 +229,33 @@ export const TableFilterItem = ({
               description="Label for the operator field in the GenAI Traces Table Filter form"
             />
           </FormUI.Label>
-          <SimpleSelect
-            aria-label="Operator"
-            componentId="mlflow.evaluations_review.table_ui.filter_operator"
-            id={'filter-operator-' + index}
-            placeholder="Select"
-            width={120}
-            contentProps={{
-              // Set the z-index to be higher than the Popover
-              style: { zIndex: theme.options.zIndexBase + 100 },
-            }}
-            value={column === '' || supportsAllOperators(column, key) ? operator : getAvailableOperators(column, key)[0]}
-            disabled={column !== '' && getAvailableOperators(column, key).length === 1}
-            onChange={(e) => {
-              onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
-            }}
-          >
-            {getAvailableOperators(column, key).map((op) => (
-              <SimpleSelectOption key={op} value={op}>
-                {op}
-              </SimpleSelectOption>
-            ))}
-          </SimpleSelect>
+          {(() => {
+            const isOperatorSelectorDisabled = column !== '' && getAvailableOperators(column, key).length === 1;
+            return (
+              <SimpleSelect
+                aria-label="Operator"
+                componentId="mlflow.evaluations_review.table_ui.filter_operator"
+                id={'filter-operator-' + index}
+                placeholder="Select"
+                width={120}
+                contentProps={{
+                  // Set the z-index to be higher than the Popover
+                  style: { zIndex: theme.options.zIndexBase + 100 },
+                }}
+                value={!isOperatorSelectorDisabled ? operator : getAvailableOperators(column, key)[0]}
+                disabled={isOperatorSelectorDisabled}
+                onChange={(e) => {
+                  onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
+                }}
+              >
+                {getAvailableOperators(column, key).map((op) => (
+                  <SimpleSelectOption key={op} value={op}>
+                    {op}
+                  </SimpleSelectOption>
+                ))}
+              </SimpleSelect>
+            );
+          })()}
         </div>
         <div
           css={{

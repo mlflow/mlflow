@@ -21,7 +21,6 @@ import {
   CUSTOM_METADATA_COLUMN_ID,
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
-  SPAN_STATUS_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
 import {
@@ -662,9 +661,6 @@ const createMlflowSearchFilter = (
             filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
-        case SPAN_STATUS_COLUMN_ID:
-          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
-          break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
@@ -673,7 +669,11 @@ const createMlflowSearchFilter = (
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
-            filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
+            if (networkFilter.operator === FilterOperator.CONTAINS) {
+              filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
+            } else {
+              filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
+            }
           }
           break;
       }

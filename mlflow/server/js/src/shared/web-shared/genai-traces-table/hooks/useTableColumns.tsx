@@ -32,7 +32,6 @@ export const TOKENS_COLUMN_ID = 'tokens';
 export const CUSTOM_METADATA_COLUMN_ID = 'custom_metadata';
 export const SPAN_NAME_COLUMN_ID = 'span.name';
 export const SPAN_TYPE_COLUMN_ID = 'span.type';
-export const SPAN_STATUS_COLUMN_ID = 'span.status';
 export const SPAN_CONTENT_COLUMN_ID = 'span.content';
 
 export const SORTABLE_INFO_COLUMNS = [EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID];

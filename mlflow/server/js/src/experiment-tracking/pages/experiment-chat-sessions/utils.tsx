@@ -10,8 +10,8 @@ export const getChatSessionsFilter = ({
   return [
     {
       column: `${CUSTOM_METADATA_COLUMN_ID}:${SESSION_ID_METADATA_KEY}`,
-      operator: sessionId ? FilterOperator.EQUALS : ('ILIKE' as any),
-      value: sessionId ?? '%',
+      operator: sessionId ? FilterOperator.EQUALS : FilterOperator.CONTAINS,
+      value: sessionId ?? '',
     },
   ];
 };
