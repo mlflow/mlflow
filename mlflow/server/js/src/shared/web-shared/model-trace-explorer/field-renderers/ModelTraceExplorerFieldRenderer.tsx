@@ -19,11 +19,13 @@ export const ModelTraceExplorerFieldRenderer = ({
   data,
   renderMode,
   chatMessageFormat,
+  maxVisibleMessages = MAX_VISIBLE_MESSAGES,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
+  maxVisibleMessages?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
@@ -51,9 +53,9 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
-    const shouldTruncateMessages = chatMessages.length > MAX_VISIBLE_MESSAGES;
+    const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
     const visibleMessages =
-      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-MAX_VISIBLE_MESSAGES);
+      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-maxVisibleMessages);
     const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - visibleMessages.length : 0;
 
     return (
