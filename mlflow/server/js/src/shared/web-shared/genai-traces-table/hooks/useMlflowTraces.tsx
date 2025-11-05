@@ -19,6 +19,9 @@ import {
   SOURCE_COLUMN_ID,
   useTableColumns,
   CUSTOM_METADATA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_TYPE_COLUMN_ID,
+  SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
 import {
   TracesServiceV4,
@@ -28,7 +31,7 @@ import {
 } from '../../model-trace-explorer';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
 import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { HiddenFilterOperator, TracesTableColumnGroup } from '../types';
+import { FilterOperator, TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
@@ -640,10 +643,39 @@ const createMlflowSearchFilter = (
         case TracesTableColumnGroup.EXPECTATION:
           filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
           break;
+        case SPAN_NAME_COLUMN_ID:
+          if (networkFilter.operator === '=') {
+            // Use ILIKE instead of = for case-insensitive matching (better UX for span name filtering)
+            filter.push(`span.name ILIKE '${networkFilter.value}'`);
+          } else if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.name ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`span.name ${networkFilter.operator} '${networkFilter.value}'`);
+          }
+          break;
+        case SPAN_TYPE_COLUMN_ID:
+          if (networkFilter.operator === '=') {
+            // Use ILIKE instead of = for case-insensitive matching (better UX for span type filtering)
+            filter.push(`span.type ILIKE '${networkFilter.value}'`);
+          } else if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.type ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
+          }
+          break;
+        case SPAN_CONTENT_COLUMN_ID:
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
+          }
+          break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
             const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
-            filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
+            if (networkFilter.operator === FilterOperator.CONTAINS) {
+              filter.push(`${columnKey} ILIKE '%${networkFilter.value}%'`);
+            } else {
+              filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
+            }
           }
           break;
       }
