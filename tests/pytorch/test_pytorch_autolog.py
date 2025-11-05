@@ -440,7 +440,9 @@ def test_get_optimizer_name():
     reason="`LightningOptimizer` doesn't exist in pytorch-lightning < 1.1.0",
 )
 def test_get_optimizer_name_with_lightning_optimizer():
-    from pytorch_lightning.core.optimizer import LightningOptimizer
+    from pytorch_lightning.core.optimizer import (  # clint: disable=package-import-in-test
+        LightningOptimizer,  # clint: disable=package-import-in-test
+    )
 
     adam = torch.optim.Adam(torch.nn.Linear(1, 1).parameters())
     assert _get_optimizer_name(LightningOptimizer(adam)) == "Adam"
@@ -811,7 +813,9 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
 
 
 def test_autologging_disabled_for_forecasting_model_predict():
-    from tests.pytorch.test_forecasting_model import _gen_forecasting_model_and_data
+    from tests.pytorch.test_forecasting_model import (  # clint: disable=package-import-in-test
+        _gen_forecasting_model_and_data,  # clint: disable=package-import-in-test
+    )
 
     mlflow.pytorch.autolog()
 

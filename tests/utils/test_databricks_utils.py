@@ -376,7 +376,9 @@ def test_get_repl_id():
 def test_use_repl_context_if_available(tmp_path, monkeypatch):
     # Simulate a case where `dbruntime.databricks_repl_context.get_context` is unavailable.
     with pytest.raises(ModuleNotFoundError, match="No module named 'dbruntime'"):
-        from dbruntime.databricks_repl_context import get_context  # noqa: F401
+        from dbruntime.databricks_repl_context import (  # clint: disable=package-import-in-test
+            get_context,  # noqa: F401  # clint: disable=package-import-in-test
+        )
 
     command_context_mock = mock.MagicMock()
     command_context_mock.jobId().get.return_value = "job_id"

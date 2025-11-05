@@ -224,7 +224,7 @@ def test_from_pandas_no_source_specified():
 
 
 def test_to_evaluation_dataset():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     source_uri = "test:/my/test/uri"
     source = SampleDatasetSource._resolve(source_uri)

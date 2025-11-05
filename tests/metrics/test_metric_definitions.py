@@ -176,7 +176,9 @@ def test_rougeLsum():
 
 
 def test_fails_to_load_metric():
-    from mlflow.metrics.metric_definitions import _cached_evaluate_load
+    from mlflow.metrics.metric_definitions import (  # clint: disable=package-import-in-test
+        _cached_evaluate_load,  # clint: disable=package-import-in-test
+    )
 
     _cached_evaluate_load.cache_clear()
 

@@ -1891,7 +1891,7 @@ pandas==2.0.3
     def my_model(model_input):
         return model_input
 
-    from mlflow.pyfunc.model import _FunctionPythonModel
+    from mlflow.pyfunc.model import _FunctionPythonModel  # clint: disable=package-import-in-test
 
     python_model = _FunctionPythonModel(my_model, signature=infer_signature(["input"]))
 
@@ -2245,7 +2245,7 @@ def assert_equal(a, b):
 def test_input_example_validation_during_logging(
     tmp_path, example, signature, expected_input, expected_output
 ):
-    from mlflow.models import validate_serving_input
+    from mlflow.models import validate_serving_input  # clint: disable=package-import-in-test
 
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):

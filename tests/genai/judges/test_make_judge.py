@@ -1598,7 +1598,9 @@ def test_instructions_judge_with_chat_messages():
     ]
 
     with mock.patch("mlflow.genai.judges.utils.invoke_judge_model", side_effect=capture_invoke):
-        from mlflow.genai.judges.utils import invoke_judge_model
+        from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+            invoke_judge_model,  # clint: disable=package-import-in-test
+        )
 
         result = invoke_judge_model(
             model_uri="openai:/gpt-4",

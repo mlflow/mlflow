@@ -196,7 +196,7 @@ async def test_function_aexecute_tracing():
 
 
 def test_function_execute_failure_tracing():
-    from agno.exceptions import AgentRunException
+    from agno.exceptions import AgentRunException  # clint: disable=package-import-in-test
 
     def boom(x):
         raise AgentRunException("bad")

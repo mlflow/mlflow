@@ -286,7 +286,9 @@ def test_universal_autolog_makes_expected_event_logging_calls():
 
 
 def test_autolog_obeys_disabled():
-    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils import (  # clint: disable=package-import-in-test
+        AUTOLOGGING_INTEGRATIONS,  # clint: disable=package-import-in-test
+    )
 
     mlflow.autolog(disable=True)
     mlflow.utils.import_hooks.notify_module_loaded(sklearn)
@@ -375,7 +377,7 @@ def test_autolog_obeys_silent_mode(
 
 @pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
 def test_last_active_run_retrieves_autologged_run():
-    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.ensemble import RandomForestRegressor  # clint: disable=package-import-in-test
 
     mlflow.autolog()
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)
@@ -389,10 +391,10 @@ def test_last_active_run_retrieves_autologged_run():
 
 @pytest.mark.do_not_disable_new_import_hook_firing_if_module_already_exists
 def test_extra_tags_mlflow_autolog():
-    from sklearn.ensemble import RandomForestRegressor
+    from sklearn.ensemble import RandomForestRegressor  # clint: disable=package-import-in-test
 
-    from mlflow.exceptions import MlflowException
-    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
+    from mlflow.exceptions import MlflowException  # clint: disable=package-import-in-test
+    from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING  # clint: disable=package-import-in-test
 
     mlflow.autolog(extra_tags={"test_tag": "autolog", MLFLOW_AUTOLOGGING: "123"})
     rf = RandomForestRegressor(n_estimators=1, max_depth=1, max_features=1)

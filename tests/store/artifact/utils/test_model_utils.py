@@ -132,7 +132,9 @@ def test_parse_models_uri_invalid_input(uri):
 
 
 def test_improper_model_uri_msg_prompts():
-    from mlflow.store.artifact.utils.models import _improper_model_uri_msg
+    from mlflow.store.artifact.utils.models import (  # clint: disable=package-import-in-test
+        _improper_model_uri_msg,  # clint: disable=package-import-in-test
+    )
 
     uri = "prompts:/baduri"
     msg = _improper_model_uri_msg(uri, scheme="prompts")
@@ -249,7 +251,9 @@ def test_parse_prompts_uri_invalid_input(uri):
 
 
 def test_improper_model_uri_msg_invalid_scheme():
-    from mlflow.store.artifact.utils.models import _improper_model_uri_msg
+    from mlflow.store.artifact.utils.models import (  # clint: disable=package-import-in-test
+        _improper_model_uri_msg,  # clint: disable=package-import-in-test
+    )
 
     with pytest.raises(ValueError, match="Unsupported scheme"):
         _improper_model_uri_msg("foo:/bar", scheme="foo")

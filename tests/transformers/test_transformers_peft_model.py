@@ -30,7 +30,11 @@ def test_get_peft_base_model(peft_pipeline):
 
 
 def test_get_peft_base_model_prompt_learning(small_qa_pipeline):
-    from peft import PeftModel, PromptTuningConfig, TaskType
+    from peft import (  # clint: disable=package-import-in-test
+        PeftModel,
+        PromptTuningConfig,
+        TaskType,
+    )
 
     peft_config = PromptTuningConfig(
         task_type=TaskType.QUESTION_ANS,
@@ -45,9 +49,11 @@ def test_get_peft_base_model_prompt_learning(small_qa_pipeline):
 
 
 def test_save_and_load_peft_pipeline(peft_pipeline, tmp_path):
-    import peft
+    import peft  # clint: disable=package-import-in-test
 
-    from tests.transformers.test_transformers_model_export import HF_COMMIT_HASH_PATTERN
+    from tests.transformers.test_transformers_model_export import (  # clint: disable=package-import-in-test  # noqa: E501
+        HF_COMMIT_HASH_PATTERN,  # clint: disable=package-import-in-test
+    )
 
     mlflow.transformers.save_model(
         transformers_model=peft_pipeline,
@@ -75,7 +81,7 @@ def test_save_and_load_peft_pipeline(peft_pipeline, tmp_path):
 
 
 def test_save_and_load_peft_components(peft_pipeline, tmp_path, capsys):
-    from peft import PeftModel
+    from peft import PeftModel  # clint: disable=package-import-in-test
 
     mlflow.transformers.save_model(
         transformers_model={
@@ -97,7 +103,7 @@ def test_save_and_load_peft_components(peft_pipeline, tmp_path, capsys):
 
 
 def test_log_peft_pipeline(peft_pipeline):
-    from peft import PeftModel
+    from peft import PeftModel  # clint: disable=package-import-in-test
 
     with mlflow.start_run():
         model_info = mlflow.transformers.log_model(peft_pipeline, name="model", input_example="hi")

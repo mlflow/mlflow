@@ -773,9 +773,13 @@ def test_get_cmd(args: dict[str, Any], expected: str, timeout: str):
 
 
 def test_scoring_server_client(sklearn_model, model_path):
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
-    from mlflow.utils import find_free_port
+    from mlflow.models.flavor_backend_registry import (  # clint: disable=package-import-in-test
+        get_flavor_backend,  # clint: disable=package-import-in-test
+    )
+    from mlflow.pyfunc.scoring_server.client import (  # clint: disable=package-import-in-test
+        ScoringServerClient,  # clint: disable=package-import-in-test
+    )
+    from mlflow.utils import find_free_port  # clint: disable=package-import-in-test
 
     mlflow.sklearn.save_model(
         sk_model=sklearn_model.model, path=model_path, metadata={"metadata_key": "value"}

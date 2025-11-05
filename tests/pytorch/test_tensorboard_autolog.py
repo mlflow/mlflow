@@ -8,7 +8,7 @@ START_STEP = 3
 
 
 def test_pytorch_autolog_logs_expected_data(tmp_path):
-    from torch.utils.tensorboard import SummaryWriter
+    from torch.utils.tensorboard import SummaryWriter  # clint: disable=package-import-in-test
 
     mlflow.pytorch.autolog(log_every_n_step=1)
     writer = SummaryWriter(str(tmp_path))

@@ -714,7 +714,7 @@ def test_dataset_name_is_logged_correctly(is_in_databricks):
 
 
 def test_evaluate_with_dataset_preserves_name(is_in_databricks):
-    from mlflow.entities import Dataset as DatasetEntity
+    from mlflow.entities import Dataset as DatasetEntity  # clint: disable=package-import-in-test
 
     data = pd.DataFrame(
         {

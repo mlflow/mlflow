@@ -201,7 +201,7 @@ return f"{prefix}: {len(data)} items" + (suffix or "")"""
 
 def test_empty_signature_string():
     """Test that empty signature string raises MlflowException."""
-    from mlflow.exceptions import MlflowException
+    from mlflow.exceptions import MlflowException  # clint: disable=package-import-in-test
 
     source = "return 1"
     signature = ""
@@ -400,8 +400,12 @@ def test_function_with_mlflow_trace_type_hint():
     assert recreated.__name__ == func_name
 
     # Test that it can be called with a Trace object
-    from mlflow.entities import TraceData, TraceInfo, TraceState
-    from mlflow.entities.trace_location import (
+    from mlflow.entities import (  # clint: disable=package-import-in-test
+        TraceData,
+        TraceInfo,
+        TraceState,
+    )
+    from mlflow.entities.trace_location import (  # clint: disable=package-import-in-test
         MlflowExperimentLocation,
         TraceLocation,
         TraceLocationType,

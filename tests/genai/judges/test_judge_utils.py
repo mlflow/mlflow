@@ -467,7 +467,9 @@ def test_invoke_judge_model_stops_trying_response_format_after_failure():
 
 def test_invoke_judge_model_caches_capabilities_globally():
     """Test that model capabilities are cached globally across function calls."""
-    from mlflow.genai.judges.utils import _MODEL_RESPONSE_FORMAT_CAPABILITIES
+    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+        _MODEL_RESPONSE_FORMAT_CAPABILITIES,  # clint: disable=package-import-in-test
+    )
 
     bad_request_error = litellm.BadRequestError(
         message="response_format not supported", model="openai/gpt-4", llm_provider="openai"
@@ -916,7 +918,11 @@ def test_invoke_databricks_model_with_response_schema():
 
 
 def test_record_success_telemetry_with_databricks_agents() -> None:
-    from mlflow.genai.judges.utils import _record_judge_model_usage_success_databricks_telemetry
+    # fmt: off
+    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+        _record_judge_model_usage_success_databricks_telemetry,
+    )
+    # fmt: on
 
     # Mock the telemetry function separately
     mock_telemetry_module = mock.MagicMock()
@@ -971,7 +977,11 @@ def test_record_success_telemetry_with_databricks_agents() -> None:
 
 
 def test_record_success_telemetry_without_databricks_agents() -> None:
-    from mlflow.genai.judges.utils import _record_judge_model_usage_success_databricks_telemetry
+    # fmt: off
+    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+        _record_judge_model_usage_success_databricks_telemetry,
+    )
+    # fmt: on
 
     with mock.patch.dict("sys.modules", {"databricks.agents.telemetry": None}):
         # Should not raise exception
@@ -985,7 +995,11 @@ def test_record_success_telemetry_without_databricks_agents() -> None:
 
 
 def test_record_failure_telemetry_with_databricks_agents() -> None:
-    from mlflow.genai.judges.utils import _record_judge_model_usage_failure_databricks_telemetry
+    # fmt: off
+    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+        _record_judge_model_usage_failure_databricks_telemetry,
+    )
+    # fmt: on
 
     # Mock the telemetry function separately
     mock_telemetry_module = mock.MagicMock()
@@ -1673,7 +1687,9 @@ def test_invoke_litellm_and_handle_tools_with_context_window_exceeded(mock_trace
     ):
         mock_prune.return_value = [litellm.Message(role="user", content="Pruned")]
 
-        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
+        from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+            _invoke_litellm_and_handle_tools,  # clint: disable=package-import-in-test
+        )
 
         result, cost = _invoke_litellm_and_handle_tools(
             provider="openai",
@@ -1722,7 +1738,9 @@ def test_invoke_litellm_and_handle_tools_integration(mock_trace):
         mock_list_tools.return_value = [mock_tool]
         mock_invoke.return_value = {"trace_data": "some data"}
 
-        from mlflow.genai.judges.utils import _invoke_litellm_and_handle_tools
+        from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+            _invoke_litellm_and_handle_tools,  # clint: disable=package-import-in-test
+        )
 
         result, cost = _invoke_litellm_and_handle_tools(
             provider="openai",

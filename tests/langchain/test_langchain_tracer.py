@@ -511,9 +511,11 @@ def test_tracer_thread_safe():
 
 
 def test_tracer_does_not_add_spans_to_trace_after_root_run_has_finished():
-    from langchain.callbacks.manager import CallbackManagerForLLMRun
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.schema.messages import BaseMessage
+    from langchain.callbacks.manager import (  # clint: disable=package-import-in-test
+        CallbackManagerForLLMRun,  # clint: disable=package-import-in-test
+    )
+    from langchain.chat_models.base import SimpleChatModel  # clint: disable=package-import-in-test
+    from langchain.schema.messages import BaseMessage  # clint: disable=package-import-in-test
 
     class FakeChatModel(SimpleChatModel):
         """Fake Chat Model wrapper for testing purposes."""

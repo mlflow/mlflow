@@ -256,7 +256,7 @@ def test_dataset_source_conversion_to_json():
 
 
 def test_to_evaluation_dataset():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     ds = datasets.load_dataset("rotten_tomatoes", split="train")
     dataset = mlflow.data.from_huggingface(ds, path="rotten_tomatoes", targets="label")

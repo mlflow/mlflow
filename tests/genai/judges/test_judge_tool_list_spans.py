@@ -143,7 +143,7 @@ def test_list_spans_tool_invoke_with_pagination(mock_trace_with_spans):
 
 def test_list_spans_tool_invoke_invalid_page_token(mock_trace_with_spans):
     """Test that invalid page tokens raise MlflowException."""
-    from mlflow.exceptions import MlflowException
+    from mlflow.exceptions import MlflowException  # clint: disable=package-import-in-test
 
     tool = ListSpansTool()
 

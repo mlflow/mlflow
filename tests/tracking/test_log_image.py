@@ -11,8 +11,8 @@ from mlflow.utils.time import get_current_time_millis
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_numpy(subdir):
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     filename = "image.png"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
@@ -34,7 +34,7 @@ def test_log_image_numpy(subdir):
 
 @pytest.mark.parametrize("subdir", [None, ".", "dir", "dir1/dir2", "dir/.."])
 def test_log_image_pillow(subdir):
-    from PIL import Image, ImageChops
+    from PIL import Image, ImageChops  # clint: disable=package-import-in-test
 
     filename = "image.png"
     artifact_file = filename if subdir is None else posixpath.join(subdir, filename)
@@ -71,7 +71,7 @@ def test_log_image_raises_for_unsupported_objects():
     ],
 )
 def test_log_image_numpy_shape(size):
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     filename = "image.png"
     image = np.random.randint(0, 256, size=size, dtype=np.uint8)
@@ -102,7 +102,7 @@ def test_log_image_numpy_shape(size):
     ],
 )
 def test_log_image_numpy_dtype(dtype):
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     filename = "image.png"
     image = np.random.randint(0, 2, size=(100, 100, 3)).astype(np.dtype(dtype))
@@ -120,7 +120,7 @@ def test_log_image_numpy_dtype(dtype):
     [[[-1]], [[256]], [[-0.1]], [[1.1]]],
 )
 def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     image = np.array(array).astype(type(array[0][0]))
     if isinstance(array[0][0], int):
@@ -138,21 +138,21 @@ def test_log_image_numpy_emits_warning_for_out_of_range_values(array):
 
 
 def test_log_image_numpy_raises_exception_for_invalid_array_data_type():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     with mlflow.start_run(), pytest.raises(TypeError, match="Invalid array data type"):
         mlflow.log_image(np.tile("a", (1, 1, 3)), "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_array_shape():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     with mlflow.start_run(), pytest.raises(ValueError, match="`image` must be a 2D or 3D array"):
         mlflow.log_image(np.zeros((1,), dtype=np.uint8), "image.png")
 
 
 def test_log_image_numpy_raises_exception_for_invalid_channel_length():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     with mlflow.start_run(), pytest.raises(ValueError, match="Invalid channel length"):
         mlflow.log_image(np.zeros((1, 1, 5), dtype=np.uint8), "image.png")
@@ -164,8 +164,8 @@ def test_log_image_raises_exception_for_unsupported_image_object_type():
 
 
 def test_log_image_with_steps():
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
@@ -195,8 +195,8 @@ def test_log_image_with_steps():
 
 
 def test_log_image_with_timestamp():
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 
@@ -230,7 +230,7 @@ def test_duplicated_log_image_with_step():
     MLflow will save both files if there are multiple calls to log_image
     with the same key and step.
     """
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -251,7 +251,7 @@ def test_duplicated_log_image_with_timestamp():
     MLflow will save both files if there are multiple calls to log_image
     with the same key, step, and timestamp.
     """
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
     image2 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
@@ -280,7 +280,7 @@ def test_duplicated_log_image_with_timestamp():
 )
 def test_log_image_raises_exception_for_unexpected_arguments_used(args):
     # It will overwrite if the user wants the exact same timestamp for the logged images
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     exception = "The `artifact_file` parameter cannot be used in conjunction"
     if isinstance(args, dict):
@@ -292,7 +292,7 @@ def test_log_image_raises_exception_for_unexpected_arguments_used(args):
 
 
 def test_log_image_raises_exception_for_missing_arguments():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     exception = "Invalid arguments: Please specify exactly one of `artifact_file` or `key`"
     with mlflow.start_run(), pytest.raises(TypeError, match=exception):
@@ -300,7 +300,7 @@ def test_log_image_raises_exception_for_missing_arguments():
 
 
 def test_async_log_image_flush():
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     image1 = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
     with mlflow.start_run():

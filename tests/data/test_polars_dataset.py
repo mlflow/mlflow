@@ -247,7 +247,7 @@ def test_from_polars_no_source_specified() -> None:
 
 
 def test_to_evaluation_dataset(source: SampleDatasetSource) -> None:
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     df = pl.DataFrame({"a": [1, 1], "b": [2, 2], "c": [3, 3]})
     dataset = PolarsDataset(df=df, source=source, targets="c", name="testname")

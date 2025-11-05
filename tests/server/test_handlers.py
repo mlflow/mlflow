@@ -395,7 +395,9 @@ def test_catch_mlflow_exception():
 
 def test_mlflow_server_with_installed_plugin(tmp_path, monkeypatch):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
-    from mlflow_test_plugin.file_store import PluginFileStore
+    from mlflow_test_plugin.file_store import (  # clint: disable=package-import-in-test
+        PluginFileStore,  # clint: disable=package-import-in-test
+    )
 
     monkeypatch.setenv(BACKEND_STORE_URI_ENV_VAR, f"file-plugin:{tmp_path}")
     monkeypatch.setattr(mlflow.server.handlers, "_tracking_store", None)
@@ -1090,7 +1092,9 @@ def test_delete_evaluation_dataset(mock_tracking_store):
 
 
 def test_search_datasets(mock_tracking_store):
-    from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
+    from mlflow.protos.datasets_pb2 import (  # clint: disable=package-import-in-test
+        Dataset as ProtoDataset,  # clint: disable=package-import-in-test
+    )
 
     datasets = []
     for i in range(2):

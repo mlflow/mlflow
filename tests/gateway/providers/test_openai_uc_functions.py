@@ -64,8 +64,10 @@ def test_uc_type_to_json_schema_type():
 
 @pytest.mark.asyncio
 async def test_uc_functions(monkeypatch):
-    from databricks.sdk.service.catalog import ColumnTypeName
-    from databricks.sdk.service.sql import StatementState
+    from databricks.sdk.service.catalog import (  # clint: disable=package-import-in-test
+        ColumnTypeName,  # clint: disable=package-import-in-test
+    )
+    from databricks.sdk.service.sql import StatementState  # clint: disable=package-import-in-test
 
     monkeypatch.setenv("MLFLOW_ENABLE_UC_FUNCTIONS", "true")
     monkeypatch.setenv("DATABRICKS_WAREHOUSE_ID", "1234")
@@ -224,8 +226,10 @@ async def test_uc_functions(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_uc_functions_user_defined_functions(monkeypatch):
-    from databricks.sdk.service.catalog import ColumnTypeName
-    from databricks.sdk.service.sql import StatementState
+    from databricks.sdk.service.catalog import (  # clint: disable=package-import-in-test
+        ColumnTypeName,  # clint: disable=package-import-in-test
+    )
+    from databricks.sdk.service.sql import StatementState  # clint: disable=package-import-in-test
 
     monkeypatch.setenv("MLFLOW_ENABLE_UC_FUNCTIONS", "true")
     monkeypatch.setenv("DATABRICKS_WAREHOUSE_ID", "1234")

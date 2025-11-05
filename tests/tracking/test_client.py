@@ -2855,7 +2855,7 @@ def test_link_chat_prompt_version_to_run():
 
 
 def test_create_prompt_with_pydantic_response_format_client():
-    from pydantic import BaseModel
+    from pydantic import BaseModel  # clint: disable=package-import-in-test
 
     class ResponseSchema(BaseModel):
         answer: str

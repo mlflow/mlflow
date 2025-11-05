@@ -126,7 +126,7 @@ def test_log_batch_with_empty_data(tracking_client_log_batch):
 
 
 def test_log_batch_with_numpy_array(tracking_client_log_batch):
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     client, run_id = tracking_client_log_batch
 

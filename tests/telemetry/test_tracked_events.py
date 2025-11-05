@@ -167,7 +167,7 @@ def test_create_run(mock_requests, mlflow_client, mock_telemetry_client: Telemet
 
 def test_create_run_with_imports(mock_requests, mock_telemetry_client: TelemetryClient):
     event_name = CreateRunEvent.name
-    import pyspark.ml  # noqa: F401
+    import pyspark.ml  # noqa: F401  # clint: disable=package-import-in-test
 
     with mlflow.start_run():
         data = validate_telemetry_record(
@@ -256,7 +256,7 @@ def test_start_trace(mock_requests, mlflow_client, mock_telemetry_client: Teleme
     mlflow_client.end_trace(trace_id=trace_id)
     validate_telemetry_record(mock_telemetry_client, mock_requests, event_name, check_params=False)
 
-    import openai  # noqa: F401
+    import openai  # noqa: F401  # clint: disable=package-import-in-test
 
     test_func()
     data = validate_telemetry_record(
@@ -374,9 +374,13 @@ def test_genai_evaluate(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_prompt_optimization(mock_requests, mock_telemetry_client: TelemetryClient):
-    from mlflow.genai.optimize import optimize_prompts
-    from mlflow.genai.optimize.optimizers import BasePromptOptimizer
-    from mlflow.genai.optimize.types import PromptOptimizerOutput
+    from mlflow.genai.optimize import optimize_prompts  # clint: disable=package-import-in-test
+    from mlflow.genai.optimize.optimizers import (  # clint: disable=package-import-in-test
+        BasePromptOptimizer,  # clint: disable=package-import-in-test
+    )
+    from mlflow.genai.optimize.types import (  # clint: disable=package-import-in-test
+        PromptOptimizerOutput,  # clint: disable=package-import-in-test
+    )
 
     class MockAdapter(BasePromptOptimizer):
         def __init__(self):
@@ -657,7 +661,7 @@ set_model(TestModel())
 
 
 def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
-    from mlflow.mcp.cli import run
+    from mlflow.mcp.cli import run  # clint: disable=package-import-in-test
 
     runner = CliRunner(catch_exceptions=False)
     with mock.patch("mlflow.mcp.cli.run_server") as mock_run_server:
@@ -669,7 +673,7 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
-    from mlflow.ai_commands import commands
+    from mlflow.ai_commands import commands  # clint: disable=package-import-in-test
 
     runner = CliRunner(catch_exceptions=False)
     # Test CLI context
@@ -687,7 +691,7 @@ def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_git_model_versioning(mock_requests, mock_telemetry_client):
-    from mlflow.genai import enable_git_model_versioning
+    from mlflow.genai import enable_git_model_versioning  # clint: disable=package-import-in-test
 
     with enable_git_model_versioning():
         pass
@@ -713,8 +717,10 @@ def test_invoke_custom_judge_model(
     litellm_available,
     use_native_provider,
 ):
-    from mlflow.genai.judges.utils import invoke_judge_model
-    from mlflow.utils.rest_utils import MlflowHostCreds
+    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+        invoke_judge_model,  # clint: disable=package-import-in-test
+    )
+    from mlflow.utils.rest_utils import MlflowHostCreds  # clint: disable=package-import-in-test
 
     mock_response = json.dumps({"result": 0.8, "rationale": "Test rationale"})
 
@@ -761,7 +767,9 @@ def test_invoke_custom_judge_model(
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+                    from mlflow.genai.judges.utils import (  # clint: disable=package-import-in-test
+                        InvokeDatabricksModelOutput,  # clint: disable=package-import-in-test
+                    )
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
                         response=mock_response,

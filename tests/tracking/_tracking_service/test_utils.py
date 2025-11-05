@@ -280,7 +280,9 @@ def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
         "file-plugin" in mlflow.tracking._tracking_service.utils._tracking_store_registry._registry
     )
 
-    from mlflow_test_plugin.file_store import PluginFileStore
+    from mlflow_test_plugin.file_store import (  # clint: disable=package-import-in-test
+        PluginFileStore,  # clint: disable=package-import-in-test
+    )
 
     monkeypatch.setenv(MLFLOW_TRACKING_URI.name, "file-plugin:test-path")
     plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()

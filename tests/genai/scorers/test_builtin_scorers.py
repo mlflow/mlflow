@@ -176,7 +176,9 @@ def test_retrieval_relevance(sample_rag_trace):
 
 @databricks_only
 def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
-    from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksRating
+    from databricks.rag_eval.evaluation.entities import (  # clint: disable=package-import-in-test
+        CategoricalRating as DatabricksRating,  # clint: disable=package-import-in-test
+    )
 
     mock_responses = [
         # Error feedback
@@ -1267,7 +1269,7 @@ def test_construct_field_extraction_config_structure():
 
 
 def test_validate_required_fields_single_missing():
-    from mlflow.exceptions import MlflowException
+    from mlflow.exceptions import MlflowException  # clint: disable=package-import-in-test
 
     judge = mock.Mock()
     judge.get_input_fields.return_value = [JudgeField(name="inputs", description="Test inputs")]
@@ -1279,7 +1281,7 @@ def test_validate_required_fields_single_missing():
 
 
 def test_validate_required_fields_multiple_missing():
-    from mlflow.exceptions import MlflowException
+    from mlflow.exceptions import MlflowException  # clint: disable=package-import-in-test
 
     judge = mock.Mock()
     judge.get_input_fields.return_value = [

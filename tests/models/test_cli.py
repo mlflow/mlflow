@@ -120,7 +120,7 @@ def test_mlflow_is_not_installed_unless_specified():
 
 
 def test_model_with_no_deployable_flavors_fails_pollitely():
-    from mlflow.models import Model
+    from mlflow.models import Model  # clint: disable=package-import-in-test
 
     with TempDir(chdr=True) as tmp:
         m = Model(
@@ -945,7 +945,7 @@ def assert_base_model_reqs():
 
 
 def test_update_requirements_cli_adds_reqs_successfully():
-    import cloudpickle
+    import cloudpickle  # clint: disable=package-import-in-test
 
     model_uri = assert_base_model_reqs()
 
@@ -971,7 +971,7 @@ def test_update_requirements_cli_adds_reqs_successfully():
 
 
 def test_update_requirements_cli_removes_reqs_successfully():
-    import cloudpickle
+    import cloudpickle  # clint: disable=package-import-in-test
 
     model_uri = assert_base_model_reqs()
 
@@ -1006,7 +1006,7 @@ def test_update_requirements_cli_throws_on_incompatible_input():
 
 
 def test_update_model_requirements_add():
-    import cloudpickle
+    import cloudpickle  # clint: disable=package-import-in-test
 
     model_uri = assert_base_model_reqs()
     update_model_requirements(
@@ -1029,7 +1029,7 @@ def test_update_model_requirements_add():
 
 
 def test_update_model_requirements_remove():
-    import cloudpickle
+    import cloudpickle  # clint: disable=package-import-in-test
 
     model_uri = assert_base_model_reqs()
 

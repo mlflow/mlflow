@@ -434,7 +434,7 @@ def test_pmdarima_pyfunc_serve_and_score_groups(grouped_prophet, diviner_groups)
         {"groups": [diviner_groups], "horizon": 10, "frequency": "W"}, index=[0]
     )
 
-    from mlflow.deployments import PredictionsResponse
+    from mlflow.deployments import PredictionsResponse  # clint: disable=package-import-in-test
 
     resp = pyfunc_serve_and_score_model(
         model_info.model_uri,

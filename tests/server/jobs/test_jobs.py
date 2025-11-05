@@ -433,7 +433,7 @@ def sleep_fun(sleep_secs, tmp_dir):
 
 
 def test_job_timeout(monkeypatch, tmp_path):
-    from mlflow.server.jobs.utils import is_process_alive
+    from mlflow.server.jobs.utils import is_process_alive  # clint: disable=package-import-in-test
 
     with _setup_job_runner(
         monkeypatch,
@@ -470,7 +470,7 @@ def test_job_timeout(monkeypatch, tmp_path):
 
 
 def test_list_job_pagination(monkeypatch, tmp_path):
-    import mlflow.store.jobs.sqlalchemy_store
+    import mlflow.store.jobs.sqlalchemy_store  # clint: disable=package-import-in-test
 
     monkeypatch.setattr(mlflow.store.jobs.sqlalchemy_store, "_LIST_JOB_PAGE_SIZE", 3)
     with _setup_job_runner(

@@ -855,14 +855,16 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
 )
 @skip_when_testing_trace_sdk
 def test_reconstruct_response_from_stream():
-    from openai.types.responses import (
+    from openai.types.responses import (  # clint: disable=package-import-in-test
         ResponseOutputItemDoneEvent,
         ResponseOutputMessage,
         ResponseOutputText,
     )
 
-    from mlflow.openai.autolog import _reconstruct_response_from_stream
-    from mlflow.types.responses_helpers import OutputItem
+    from mlflow.openai.autolog import (  # clint: disable=package-import-in-test
+        _reconstruct_response_from_stream,  # clint: disable=package-import-in-test
+    )
+    from mlflow.types.responses_helpers import OutputItem  # clint: disable=package-import-in-test
 
     content1 = ResponseOutputText(annotations=[], text="Hello", type="output_text")
     content2 = ResponseOutputText(annotations=[], text=" world", type="output_text")

@@ -150,7 +150,10 @@ def test_maybe_get_request_id():
     assert maybe_get_request_id(is_evaluate=True) is None
 
     try:
-        from mlflow.pyfunc.context import Context, set_prediction_context
+        from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+            Context,
+            set_prediction_context,
+        )
     except ImportError:
         pytest.skip("Skipping the rest of tests as mlflow.pyfunc module is not available.")
 
@@ -193,7 +196,9 @@ def test_set_chat_tools_validation():
 )
 def test_openai_parse_tools_enum_validation(enum_values, param_type):
     """Test that OpenAI _parse_tools accepts various enum value types."""
-    from mlflow.openai.utils.chat_schema import _parse_tools
+    from mlflow.openai.utils.chat_schema import (  # clint: disable=package-import-in-test
+        _parse_tools,  # clint: disable=package-import-in-test
+    )
 
     # Simulate the exact OpenAI autologging input that was failing
     openai_inputs = {

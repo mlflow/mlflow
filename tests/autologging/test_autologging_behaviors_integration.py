@@ -179,7 +179,7 @@ def test_autolog_respects_disable_flag(setup_sklearn_model):
 
 def test_autolog_reverts_patched_code_when_disabled():
     # use `KMeans` because it implements `fit`, `fit_transform`, and `fit_predict`.
-    from sklearn.cluster import KMeans
+    from sklearn.cluster import KMeans  # clint: disable=package-import-in-test
 
     # Before any patching.
     model = KMeans()
@@ -259,7 +259,7 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
     sys.stderr = stream
     logger = logging.getLogger(mlflow.__name__)
 
-    from sklearn import datasets
+    from sklearn import datasets  # clint: disable=package-import-in-test
 
     iris = datasets.load_iris()
 
@@ -320,12 +320,14 @@ def test_autolog_respects_silent_mode(tmp_path, monkeypatch):
 
 
 def test_autolog_globally_configured_flag_set_correctly():
-    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils import (  # clint: disable=package-import-in-test
+        AUTOLOGGING_INTEGRATIONS,  # clint: disable=package-import-in-test
+    )
 
     AUTOLOGGING_INTEGRATIONS.clear()
-    import pyspark
-    import pyspark.ml  # noqa: F401
-    import sklearn  # noqa: F401
+    import pyspark  # clint: disable=package-import-in-test
+    import pyspark.ml  # noqa: F401  # clint: disable=package-import-in-test
+    import sklearn  # noqa: F401  # clint: disable=package-import-in-test
 
     integrations_to_test = ["sklearn", "spark", "pyspark.ml"]
     mlflow.autolog()

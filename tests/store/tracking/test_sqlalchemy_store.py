@@ -6163,7 +6163,10 @@ def test_search_traces_with_feedback_rlike_filters(store: SqlAlchemyStore):
     _create_trace(store, trace3_id, exp_id)
 
     # Create feedback with string values that can be pattern matched
-    from mlflow.entities.assessment import AssessmentSource, Feedback
+    from mlflow.entities.assessment import (  # clint: disable=package-import-in-test
+        AssessmentSource,
+        Feedback,
+    )
 
     feedback1 = Feedback(
         trace_id=trace1_id,
@@ -9727,7 +9730,9 @@ def test_sql_dataset_record_merge():
 
 
 def test_sql_dataset_record_wrapping_unwrapping():
-    from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
+    from mlflow.entities.dataset_record import (  # clint: disable=package-import-in-test
+        DATASET_RECORD_WRAPPED_OUTPUT_KEY,  # clint: disable=package-import-in-test
+    )
 
     entity = DatasetRecord(
         dataset_record_id="rec1",
@@ -11207,7 +11212,7 @@ def test_evaluation_dataset_not_in_entities_all():
     wildcard imports, allowing plugins to safely inherit from store classes without encountering
     circular import issues during initialization.
     """
-    import mlflow.entities
+    import mlflow.entities  # clint: disable=package-import-in-test
 
     assert "EvaluationDataset" not in mlflow.entities.__all__
 

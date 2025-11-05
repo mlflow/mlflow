@@ -951,7 +951,7 @@ def read_data(artifact_path):
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table(file_type):
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
@@ -1025,7 +1025,7 @@ def test_log_table(file_type):
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_subdirectory(file_type):
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     table_dict = {
         "inputs": ["What is MLflow?", "What is Databricks?"],
@@ -1132,7 +1132,7 @@ def test_load_table(file_type):
 
     # test 4: load table with no extra columns and run_ids specified but different artifact file
     output_df = mlflow.load_table(artifact_file=artifact_file_2)
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     pd.testing.assert_frame_equal(output_df, pd.DataFrame(table_dict), check_dtype=False)
 
@@ -1159,7 +1159,7 @@ def test_load_table(file_type):
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_datetime_columns(file_type):
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     start_time = str(datetime.now(timezone.utc))
     table_dict = {
@@ -1197,8 +1197,8 @@ def test_log_table_with_datetime_columns(file_type):
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_image_columns(file_type):
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     image = mlflow.Image([[1, 2, 3]])
     table_dict = {
@@ -1235,8 +1235,8 @@ def test_log_table_with_image_columns(file_type):
 )
 @pytest.mark.parametrize("file_type", ["json", "parquet"])
 def test_log_table_with_pil_image_columns(file_type):
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     image = Image.fromarray(np.array([[1.0, 2.0, 3.0]]))
     image = image.convert("RGB")

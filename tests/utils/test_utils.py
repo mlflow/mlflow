@@ -87,7 +87,7 @@ def test_get_fully_qualified_class_name():
 
 
 def test_inspect_original_var_name():
-    from mlflow.utils import _inspect_original_var_name
+    from mlflow.utils import _inspect_original_var_name  # clint: disable=package-import-in-test
 
     def f1(a1, expected_name):
         assert _inspect_original_var_name(a1, "unknown") == expected_name
@@ -115,7 +115,7 @@ def test_inspect_original_var_name():
 
 
 def test_random_name_generation():
-    from mlflow.utils import name_utils
+    from mlflow.utils import name_utils  # clint: disable=package-import-in-test
 
     # Validate exhausted loop truncation
     name = name_utils._generate_random_name(max_length=8)

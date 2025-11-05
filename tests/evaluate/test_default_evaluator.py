@@ -618,7 +618,9 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
 
 def test_pipeline_model_kernel_explainer_on_categorical_features(pipeline_model_uri):
-    from mlflow.models.evaluation._shap_patch import _PatchedKernelExplainer
+    from mlflow.models.evaluation._shap_patch import (  # clint: disable=package-import-in-test
+        _PatchedKernelExplainer,  # clint: disable=package-import-in-test
+    )
 
     data, target_col = get_pipeline_model_dataset()
     with mlflow.start_run() as run:
@@ -1232,7 +1234,9 @@ def test_evaluate_custom_metric_incorrect_return_formats():
     eval_fn_args = [eval_df, builtin_metrics]
 
     # Import the module directly to avoid mock.patch import issues
-    from mlflow.models.evaluation.utils import metric as metric_module
+    from mlflow.models.evaluation.utils import (  # clint: disable=package-import-in-test
+        metric as metric_module,  # clint: disable=package-import-in-test
+    )
 
     def dummy_fn(*_):
         pass
@@ -2339,7 +2343,9 @@ def test_evaluate_text_summarization_without_targets():
 
 
 def test_evaluate_text_summarization_fails_to_load_evaluate_metrics():
-    from mlflow.metrics.metric_definitions import _cached_evaluate_load
+    from mlflow.metrics.metric_definitions import (  # clint: disable=package-import-in-test
+        _cached_evaluate_load,  # clint: disable=package-import-in-test
+    )
 
     _cached_evaluate_load.cache_clear()
 
@@ -2743,8 +2749,10 @@ def test_evaluate_no_model_type_with_custom_metric():
             name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
-        from mlflow.metrics import make_metric
-        from mlflow.metrics.base import standard_aggregations
+        from mlflow.metrics import make_metric  # clint: disable=package-import-in-test
+        from mlflow.metrics.base import (  # clint: disable=package-import-in-test
+            standard_aggregations,  # clint: disable=package-import-in-test
+        )
 
         def word_count_eval(predictions, targets=None, metrics=None):
             scores = []
@@ -3934,7 +3942,7 @@ def test_evaluate_custom_metric_with_string_type():
             name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
-        from mlflow.metrics import make_metric
+        from mlflow.metrics import make_metric  # clint: disable=package-import-in-test
 
         def word_count_eval(predictions):
             scores = []
@@ -4127,9 +4135,9 @@ def test_all_genai_custom_metrics_are_from_user_prompt():
 
 
 def test_xgboost_model_evaluate_work_with_shap_explainer():
-    import shap
-    import xgboost
-    from sklearn.model_selection import train_test_split
+    import shap  # clint: disable=package-import-in-test
+    import xgboost  # clint: disable=package-import-in-test
+    from sklearn.model_selection import train_test_split  # clint: disable=package-import-in-test
 
     mlflow.xgboost.autolog(log_input_examples=True)
     X, y = shap.datasets.adult()

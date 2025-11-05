@@ -39,7 +39,7 @@ class IsEmpty(Scorer):
 
 
 def test_emit_custom_metric_event():
-    from databricks.agents.evals import metric
+    from databricks.agents.evals import metric  # clint: disable=package-import-in-test
 
     # Legacy custom metrics
     @metric

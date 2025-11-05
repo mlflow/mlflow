@@ -10,7 +10,11 @@ def test_output_to_responses_items_stream_langchain():
     - Filtering out HumanMessage from the stream
     - Message
     """
-    from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+    from langchain_core.messages import (  # clint: disable=package-import-in-test
+        AIMessage,
+        HumanMessage,
+        ToolMessage,
+    )
 
     messages = [
         AIMessage(

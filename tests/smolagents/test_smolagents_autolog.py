@@ -25,7 +25,11 @@ def clear_autolog_state():
 
 
 def test_run_autolog():
-    from smolagents import ChatMessage, CodeAgent, InferenceClientModel
+    from smolagents import (  # clint: disable=package-import-in-test
+        ChatMessage,
+        CodeAgent,
+        InferenceClientModel,
+    )
 
     _DUMMY_OUTPUT = ChatMessage(
         role="user",
@@ -131,7 +135,7 @@ def test_run_autolog():
 
 
 def test_run_failure():
-    from smolagents import CodeAgent, InferenceClientModel
+    from smolagents import CodeAgent, InferenceClientModel  # clint: disable=package-import-in-test
 
     clear_autolog_state()
     mlflow.smolagents.autolog()
@@ -172,7 +176,12 @@ def test_run_failure():
 
 
 def test_tool_autolog():
-    from smolagents import ChatMessage, CodeAgent, DuckDuckGoSearchTool, InferenceClientModel
+    from smolagents import (  # clint: disable=package-import-in-test
+        ChatMessage,
+        CodeAgent,
+        DuckDuckGoSearchTool,
+        InferenceClientModel,
+    )
 
     _DUMMY_OUTPUT = ChatMessage(
         role="user",

@@ -418,11 +418,11 @@ def test_should_log_model_with_wildcards_in_allowlist(dataset_binomial, dataset_
 
 
 def test_log_stage_type_params(spark_session):
-    from pyspark.ml.base import Estimator, Transformer
-    from pyspark.ml.base import Model as SparkModel
-    from pyspark.ml.evaluation import Evaluator
-    from pyspark.ml.feature import Binarizer, OneHotEncoder
-    from pyspark.ml.param import Param, Params
+    from pyspark.ml.base import Estimator, Transformer  # clint: disable=package-import-in-test
+    from pyspark.ml.base import Model as SparkModel  # clint: disable=package-import-in-test
+    from pyspark.ml.evaluation import Evaluator  # clint: disable=package-import-in-test
+    from pyspark.ml.feature import Binarizer, OneHotEncoder  # clint: disable=package-import-in-test
+    from pyspark.ml.param import Param, Params  # clint: disable=package-import-in-test
 
     class TestingEstimator(Estimator):
         transformer = Param(Params._dummy(), "transformer", "a transformer param")
@@ -1218,7 +1218,7 @@ def test_signature_with_non_feature_input_columns(
 
 
 def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
-    from pyspark.sql.types import ArrayType, DoubleType
+    from pyspark.sql.types import ArrayType, DoubleType  # clint: disable=package-import-in-test
 
     output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
     features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
@@ -1254,10 +1254,12 @@ def test_get_feature_cols_with_indexer_and_assembler(spark_session):
 
 
 def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
-    from pyspark.ml.linalg import VectorUDT
-    from pyspark.sql.utils import IllegalArgumentException
+    from pyspark.ml.linalg import VectorUDT  # clint: disable=package-import-in-test
+    from pyspark.sql.utils import IllegalArgumentException  # clint: disable=package-import-in-test
 
-    from mlflow.spark import _find_and_set_features_col_as_vector_if_needed
+    from mlflow.spark import (  # clint: disable=package-import-in-test
+        _find_and_set_features_col_as_vector_if_needed,  # clint: disable=package-import-in-test
+    )
 
     pipeline_model = lr.fit(dataset_binomial)
     df_with_array_features = cast_spark_df_with_vector_to_array(dataset_binomial)
@@ -1278,7 +1280,7 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
 
 
 def test_model_with_vector_input(spark_session):
-    from mlflow.types.schema import SparkMLVector
+    from mlflow.types.schema import SparkMLVector  # clint: disable=package-import-in-test
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(
@@ -1305,7 +1307,7 @@ def test_model_with_vector_input(spark_session):
 
 
 def test_model_with_vector_input_vector_output(spark_session):
-    from mlflow.types.schema import SparkMLVector
+    from mlflow.types.schema import SparkMLVector  # clint: disable=package-import-in-test
 
     mlflow.pyspark.ml.autolog()
     train_df = spark_session.createDataFrame(

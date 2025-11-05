@@ -193,7 +193,7 @@ def test_create_metric_from_scorers_with_multiple_categorical_ratings():
     ],
 )
 def test_validate_train_data_errors(train_data, scorers, expected_error):
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     with pytest.raises(MlflowException, match=expected_error):
         validate_train_data(pd.DataFrame(train_data), scorers, lambda **kwargs: None)
@@ -216,6 +216,6 @@ def test_validate_train_data_errors(train_data, scorers, expected_error):
     ],
 )
 def test_validate_train_data_success(train_data):
-    import pandas as pd
+    import pandas as pd  # clint: disable=package-import-in-test
 
     validate_train_data(pd.DataFrame(train_data), [], lambda **kwargs: None)

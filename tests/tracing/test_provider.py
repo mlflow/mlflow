@@ -160,7 +160,9 @@ def test_set_destination_in_model_serving(mock_databricks_serving_with_tracing_e
 
 
 def test_set_destination_deprecated_classes():
-    from mlflow.tracing.provider import _MLFLOW_TRACE_USER_DESTINATION
+    from mlflow.tracing.provider import (  # clint: disable=package-import-in-test
+        _MLFLOW_TRACE_USER_DESTINATION,  # clint: disable=package-import-in-test
+    )
 
     with pytest.warns(FutureWarning, match="`mlflow.tracing.destination.MlflowExperiment``"):
         mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
@@ -409,9 +411,13 @@ def test_sampling_ratio(monkeypatch):
 
 def test_otlp_exclusive_vs_dual_export(monkeypatch):
     """Test OTLP exclusive mode vs dual export mode."""
-    from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
-    from mlflow.tracing.processor.otel import OtelSpanProcessor
-    from mlflow.tracing.provider import _get_tracer
+    from mlflow.environment_variables import (  # clint: disable=package-import-in-test
+        MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT,  # clint: disable=package-import-in-test
+    )
+    from mlflow.tracing.processor.otel import (  # clint: disable=package-import-in-test
+        OtelSpanProcessor,  # clint: disable=package-import-in-test
+    )
+    from mlflow.tracing.provider import _get_tracer  # clint: disable=package-import-in-test
 
     # Test 1: OTLP exclusive mode (dual export = false, default)
     monkeypatch.setenv(MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT.name, "false")

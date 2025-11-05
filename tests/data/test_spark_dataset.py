@@ -401,7 +401,7 @@ def test_load_delta_table_name_with_version(spark_session, df):
 
 
 def test_to_evaluation_dataset(spark_session, tmp_path, df):
-    import numpy as np
+    import numpy as np  # clint: disable=package-import-in-test
 
     df_spark = spark_session.createDataFrame(df)
     path = str(tmp_path / "temp.parquet")

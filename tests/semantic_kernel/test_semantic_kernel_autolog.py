@@ -138,11 +138,19 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
 
 @pytest.mark.asyncio
 async def test_sk_invoke_simple_with_sk_initialization_of_tracer(mock_openai):
-    from opentelemetry.sdk.resources import Resource
-    from opentelemetry.sdk.trace import TracerProvider
-    from opentelemetry.sdk.trace.export import ConsoleSpanExporter, SimpleSpanProcessor
-    from opentelemetry.semconv.resource import ResourceAttributes
-    from opentelemetry.trace import get_tracer_provider, set_tracer_provider
+    from opentelemetry.sdk.resources import Resource  # clint: disable=package-import-in-test
+    from opentelemetry.sdk.trace import TracerProvider  # clint: disable=package-import-in-test
+    from opentelemetry.sdk.trace.export import (  # clint: disable=package-import-in-test
+        ConsoleSpanExporter,
+        SimpleSpanProcessor,
+    )
+    from opentelemetry.semconv.resource import (  # clint: disable=package-import-in-test
+        ResourceAttributes,  # clint: disable=package-import-in-test
+    )
+    from opentelemetry.trace import (  # clint: disable=package-import-in-test
+        get_tracer_provider,
+        set_tracer_provider,
+    )
 
     resource = Resource.create({ResourceAttributes.SERVICE_NAME: "telemetry-console-quickstart"})
     tracer_provider = TracerProvider(resource=resource)

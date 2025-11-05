@@ -71,15 +71,15 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
         # Load the model from a new directory that is not a parent of the source code path to
         # verify that source code paths and their subdirectories are resolved correctly
         with pytest.raises(ModuleNotFoundError, match="No module named 'dummy_module'"):
-            import dummy_module
+            import dummy_module  # clint: disable=package-import-in-test
 
         mlflow_model_utils._add_code_from_conf_to_system_path(model_path, sklearn_flavor_config)
-        import dummy_module  # noqa: F401
+        import dummy_module  # noqa: F401  # clint: disable=package-import-in-test
 
     # If this raises an exception it's because dummy_package.test imported
     # dummy_package.operator and not the built-in operator module. This only
     # happens if MLflow is misconfiguring the system path.
-    from dummy_package import base  # noqa: F401
+    from dummy_package import base  # noqa: F401  # clint: disable=package-import-in-test
 
     # Ensure that the custom tests/utils/test_resources/dummy_package/pandas.py is not
     # overwriting the 3rd party `pandas` package

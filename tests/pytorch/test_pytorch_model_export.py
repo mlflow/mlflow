@@ -285,9 +285,9 @@ def test_raise_exception(sequential_model):
         with pytest.raises(MlflowException, match=f"Path '{os.path.abspath(path)}' already exists"):
             mlflow.pytorch.save_model(sequential_model, path)
 
-        import sklearn.neighbors as knn
+        import sklearn.neighbors as knn  # clint: disable=package-import-in-test
 
-        from mlflow import sklearn
+        from mlflow import sklearn  # clint: disable=package-import-in-test
 
         path = tmp.path("knn.pkl")
         knn = knn.KNeighborsClassifier()
@@ -858,7 +858,7 @@ def test_pyfunc_serve_and_score(data):
         pyfunc_scoring_server.CONTENT_TYPE_JSON,
         extra_args=EXTRA_PYFUNC_SERVING_TEST_ARGS,
     )
-    from mlflow.deployments import PredictionsResponse
+    from mlflow.deployments import PredictionsResponse  # clint: disable=package-import-in-test
 
     scores = PredictionsResponse.from_json(resp.content).get_predictions()
     np.testing.assert_array_almost_equal(scores.values[:, 0], _predict(model=model, data=data))
@@ -866,9 +866,9 @@ def test_pyfunc_serve_and_score(data):
 
 @pytest.mark.skipif(not _is_importable("transformers"), reason="This test requires transformers")
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, BertModel
+    from transformers import BertConfig, BertModel  # clint: disable=package-import-in-test
 
-    from mlflow.deployments import PredictionsResponse
+    from mlflow.deployments import PredictionsResponse  # clint: disable=package-import-in-test
 
     class MyBertModel(BertModel):
         def forward(self, *args, **kwargs):

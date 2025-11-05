@@ -38,7 +38,9 @@ def test_span_event_to_otel_proto_conversion(event_attrs):
     assert otel_proto_event.time_unix_nano == 1234567890
 
     # Verify attributes
-    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue
+    from mlflow.tracing.utils.otlp import (  # clint: disable=package-import-in-test
+        _decode_otel_proto_anyvalue,  # clint: disable=package-import-in-test
+    )
 
     decoded_attrs = {}
     for attr in otel_proto_event.attributes:

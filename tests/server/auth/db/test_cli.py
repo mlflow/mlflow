@@ -26,7 +26,10 @@ def test_upgrade(tmp_path: Path) -> None:
 
 
 def test_auth_and_tracking_store_coexist(tmp_path: Path) -> None:
-    from mlflow.store.db.utils import _safe_initialize_tables, create_sqlalchemy_engine_with_retry
+    from mlflow.store.db.utils import (  # clint: disable=package-import-in-test
+        _safe_initialize_tables,
+        create_sqlalchemy_engine_with_retry,
+    )
 
     runner = CliRunner()
     db = tmp_path / "test.db"

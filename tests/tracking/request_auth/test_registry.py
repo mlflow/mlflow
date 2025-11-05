@@ -81,7 +81,9 @@ def test_run_context_provider_registry_with_installed_plugin():
 
     reload(mlflow.tracking.request_auth.registry)
 
-    from mlflow_test_plugin.request_auth_provider import PluginRequestAuthProvider
+    from mlflow_test_plugin.request_auth_provider import (  # clint: disable=package-import-in-test
+        PluginRequestAuthProvider,  # clint: disable=package-import-in-test
+    )
 
     assert PluginRequestAuthProvider in _currently_registered_request_auth_provider_classes()
 

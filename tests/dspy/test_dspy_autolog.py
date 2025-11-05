@@ -166,7 +166,7 @@ def test_autolog_cot():
 
 
 def test_mlflow_callback_exception():
-    from litellm import ContextWindowExceededError
+    from litellm import ContextWindowExceededError  # clint: disable=package-import-in-test
 
     mlflow.dspy.autolog()
 
@@ -500,7 +500,10 @@ def test_disable_autolog():
 
 @skip_when_testing_trace_sdk
 def test_autolog_set_retriever_schema():
-    from mlflow.models.dependencies_schemas import DependenciesSchemasType, _clear_retriever_schema
+    from mlflow.models.dependencies_schemas import (  # clint: disable=package-import-in-test
+        DependenciesSchemasType,
+        _clear_retriever_schema,
+    )
 
     mlflow.dspy.autolog()
     dspy.settings.configure(
@@ -533,7 +536,9 @@ def test_autolog_set_retriever_schema():
 @skip_when_testing_trace_sdk
 @pytest.mark.parametrize("with_dependencies_schema", [True, False])
 def test_dspy_auto_tracing_in_databricks_model_serving(with_dependencies_schema):
-    from mlflow.models.dependencies_schemas import DependenciesSchemasType
+    from mlflow.models.dependencies_schemas import (  # clint: disable=package-import-in-test
+        DependenciesSchemasType,  # clint: disable=package-import-in-test
+    )
 
     mlflow.dspy.autolog()
 
@@ -930,7 +935,7 @@ def test_autolog_log_traces_from_evals(call_args):
         result = evaluator(program, answer_exact_match, devset=examples)
 
     if _DSPY_VERSION >= Version("3.0.0"):
-        from dspy.evaluate.evaluate import EvaluationResult
+        from dspy.evaluate.evaluate import EvaluationResult  # clint: disable=package-import-in-test
 
         assert isinstance(result, EvaluationResult)
     else:

@@ -58,9 +58,9 @@ def test_cors_for_state_changing_requests(mlflow_app_client, origin, endpoint, e
 def test_cors_with_configured_origins(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", "https://trusted-app.com")
 
-    from flask import Flask
+    from flask import Flask  # clint: disable=package-import-in-test
 
-    from mlflow.server import handlers, security
+    from mlflow.server import handlers, security  # clint: disable=package-import-in-test
 
     app = Flask(__name__)
     for http_path, handler, methods in handlers.get_endpoints():

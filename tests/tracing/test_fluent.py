@@ -350,9 +350,12 @@ def test_trace_in_databricks_model_serving(
     mock_databricks_serving_with_tracing_env, async_logging_enabled
 ):
     # Dummy flask app for prediction
-    import flask
+    import flask  # clint: disable=package-import-in-test
 
-    from mlflow.pyfunc.context import Context, set_prediction_context
+    from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+        Context,
+        set_prediction_context,
+    )
 
     app = flask.Flask(__name__)
 
@@ -461,7 +464,10 @@ def test_trace_in_databricks_model_serving(
 
 @skip_when_testing_trace_sdk
 def test_trace_in_model_evaluation(monkeypatch, async_logging_enabled):
-    from mlflow.pyfunc.context import Context, set_prediction_context
+    from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+        Context,
+        set_prediction_context,
+    )
 
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
@@ -819,8 +825,8 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
 
 def test_mlflow_trace_isolated_from_other_otel_processors():
     # Set up non-MLFlow tracer
-    import opentelemetry.sdk.trace as trace_sdk
-    from opentelemetry import trace
+    import opentelemetry.sdk.trace as trace_sdk  # clint: disable=package-import-in-test
+    from opentelemetry import trace  # clint: disable=package-import-in-test
 
     class MockOtelExporter(trace_sdk.export.SpanExporter):
         def __init__(self):
@@ -919,7 +925,7 @@ def test_search_traces(return_type, mock_client):
     )
 
     if return_type == "pandas":
-        import pandas as pd
+        import pandas as pd  # clint: disable=package-import-in-test
 
         assert isinstance(traces, pd.DataFrame)
     else:
@@ -1486,7 +1492,9 @@ def test_update_current_trace():
 
 def test_update_current_trace_with_client_request_id():
     """Test that update_current_trace correctly handles client_request_id parameter."""
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.trace_manager import (  # clint: disable=package-import-in-test
+        InMemoryTraceManager,  # clint: disable=package-import-in-test
+    )
 
     # Test updating during span execution
     with mlflow.start_span("test_span") as span:
@@ -1521,7 +1529,9 @@ def test_update_current_trace_with_client_request_id():
 
 def test_update_current_trace_client_request_id_overwrites():
     """Test that client_request_id can be overwritten by subsequent calls."""
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.trace_manager import (  # clint: disable=package-import-in-test
+        InMemoryTraceManager,  # clint: disable=package-import-in-test
+    )
 
     with mlflow.start_span("overwrite_test") as span:
         # First set
@@ -1539,7 +1549,9 @@ def test_update_current_trace_client_request_id_overwrites():
 
 def test_update_current_trace_client_request_id_stringification():
     """Test that client_request_id is stringified when it's not a string."""
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.trace_manager import (  # clint: disable=package-import-in-test
+        InMemoryTraceManager,  # clint: disable=package-import-in-test
+    )
 
     test_cases = [
         (123, "123"),
@@ -1656,7 +1668,9 @@ def test_update_current_trace_should_not_raise_during_model_logging():
 
 def test_update_current_trace_with_state():
     """Test the state parameter in update_current_trace."""
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.trace_manager import (  # clint: disable=package-import-in-test
+        InMemoryTraceManager,  # clint: disable=package-import-in-test
+    )
 
     # Test with TraceState enum
     with mlflow.start_span("test_span") as span:
@@ -1689,7 +1703,9 @@ def test_update_current_trace_with_state():
 
 def test_update_current_trace_state_none():
     """Test that state=None doesn't change trace state."""
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
+    from mlflow.tracing.trace_manager import (  # clint: disable=package-import-in-test
+        InMemoryTraceManager,  # clint: disable=package-import-in-test
+    )
 
     with mlflow.start_span("test_span") as span:
         # First set state to OK
@@ -1831,7 +1847,7 @@ def test_combined_state_and_record_exception():
 def test_span_record_exception_no_op_span():
     """Test that record_exception works gracefully with NoOpSpan."""
     # This should not raise an exception
-    from mlflow.entities.span import NoOpSpan
+    from mlflow.entities.span import NoOpSpan  # clint: disable=package-import-in-test
 
     no_op_span = NoOpSpan()
     no_op_span.record_exception("This should be ignored")
@@ -2072,7 +2088,10 @@ def test_add_trace_raise_for_invalid_trace():
 
 @skip_when_testing_trace_sdk
 def test_add_trace_in_databricks_model_serving(mock_databricks_serving_with_tracing_env):
-    from mlflow.pyfunc.context import Context, set_prediction_context
+    from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+        Context,
+        set_prediction_context,
+    )
 
     # Mimic a remote service call that returns a trace as a part of the response
     def dummy_remote_call():

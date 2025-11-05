@@ -97,7 +97,9 @@ def test_llama_index_save_invalid_object_raise(single_index):
 
 
 def test_llama_index_load_with_model_config(single_index):
-    from llama_index.core.response_synthesizers import Refine
+    from llama_index.core.response_synthesizers import (  # clint: disable=package-import-in-test
+        Refine,  # clint: disable=package-import-in-test
+    )
 
     with mlflow.start_run():
         logged_model = mlflow.llama_index.log_model(
@@ -534,7 +536,7 @@ def test_save_engine_with_engine_type_issues_warning(model_path):
 )
 @pytest.mark.asyncio
 async def test_save_load_workflow_as_code():
-    from llama_index.core.workflow import Workflow
+    from llama_index.core.workflow import Workflow  # clint: disable=package-import-in-test
 
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     with mlflow.start_run():

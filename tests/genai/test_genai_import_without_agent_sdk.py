@@ -13,13 +13,13 @@ from mlflow.genai.scorers.base import Scorer
 
 # Test `mlflow.genai` namespace
 def test_mlflow_genai_star_import_succeeds():
-    import mlflow.genai  # noqa: F401
+    import mlflow.genai  # noqa: F401  # clint: disable=package-import-in-test
 
 
 def test_namespaced_import_raises_when_agents_not_installed():
     # Ensure that databricks-agents methods renamespaced under mlflow.genai raise an
     # ImportError when the databricks-agents package is not installed.
-    import mlflow.genai
+    import mlflow.genai  # clint: disable=package-import-in-test
 
     # Mock to simulate Databricks environment without databricks-agents installed
     with patch("mlflow.genai.datasets.is_databricks_uri", return_value=True):
@@ -35,7 +35,7 @@ def test_namespaced_import_raises_when_agents_not_installed():
 
 # Test `mlflow.genai.datasets` namespace
 def test_mlflow_genai_datasets_star_import_succeeds():
-    import mlflow.genai.datasets  # noqa: F401
+    import mlflow.genai.datasets  # noqa: F401  # clint: disable=package-import-in-test
 
 
 def test_create_dataset_raises_when_agents_not_installed():

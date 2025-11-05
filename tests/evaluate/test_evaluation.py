@@ -1097,10 +1097,20 @@ def test_start_run_or_reuse_active_run():
 
 
 def test_resolve_evaluators_and_configs():
-    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
-    from mlflow.models.evaluation.evaluators.default import DefaultEvaluator
-    from mlflow.models.evaluation.evaluators.regressor import RegressorEvaluator
-    from mlflow.models.evaluation.evaluators.shap import ShapEvaluator
+    # fmt: off
+    from mlflow.models.evaluation.evaluators.classifier import (  # clint: disable=package-import-in-test  # noqa: E501
+        ClassifierEvaluator,
+    )
+    from mlflow.models.evaluation.evaluators.default import (  # clint: disable=package-import-in-test  # noqa: E501
+        DefaultEvaluator,
+    )
+    from mlflow.models.evaluation.evaluators.regressor import (  # clint: disable=package-import-in-test  # noqa: E501
+        RegressorEvaluator,
+    )
+    from mlflow.models.evaluation.evaluators.shap import (  # clint: disable=package-import-in-test
+        ShapEvaluator,
+    )
+    # fmt: on
 
     def assert_equal(actual, expected):
         assert len(actual) == len(expected)
@@ -1378,7 +1388,7 @@ def test_targets_is_required_for_regressor_and_classifier_models(model_type):
 
 
 def test_evaluate_xgboost_classifier():
-    import xgboost as xgb
+    import xgboost as xgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_iris(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -1403,7 +1413,7 @@ def test_evaluate_xgboost_classifier():
 
 
 def test_evaluate_lightgbm_regressor():
-    import lightgbm as lgb
+    import lightgbm as lgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -1427,7 +1437,7 @@ def test_evaluate_lightgbm_regressor():
 
 
 def test_evaluate_with_targets_error_handling():
-    import lightgbm as lgb
+    import lightgbm as lgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -1500,7 +1510,7 @@ def test_evaluate_with_targets_error_handling():
 
 
 def test_evaluate_with_predictions_error_handling():
-    import lightgbm as lgb
+    import lightgbm as lgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -1526,7 +1536,7 @@ def test_evaluate_with_predictions_error_handling():
 
 
 def test_evaluate_with_function_input_single_output():
-    import lightgbm as lgb
+    import lightgbm as lgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -1551,7 +1561,7 @@ def test_evaluate_with_function_input_single_output():
 
 
 def test_evaluate_with_loaded_pyfunc_model():
-    import lightgbm as lgb
+    import lightgbm as lgb  # clint: disable=package-import-in-test
 
     X, y = sklearn.datasets.load_diabetes(return_X_y=True, as_frame=True)
     X = X[::5]
@@ -2116,8 +2126,10 @@ def test_model_from_deployment_endpoint(model_input):
 
 def test_import_evaluation_dataset():
     # This test is to validate both imports work at the same time
-    from mlflow.models.evaluation import EvaluationDataset
-    from mlflow.models.evaluation.base import EvaluationDataset  # noqa: F401
+    from mlflow.models.evaluation import EvaluationDataset  # clint: disable=package-import-in-test
+    from mlflow.models.evaluation.base import (  # clint: disable=package-import-in-test
+        EvaluationDataset,  # noqa: F401  # clint: disable=package-import-in-test
+    )
 
 
 def test_evaluate_shows_server_stdout_and_stderr_on_error(

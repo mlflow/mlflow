@@ -646,7 +646,7 @@ def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
 
 
 def test_add_pyfunc_flavor_only_when_model_defines_predict(model_path):
-    from sklearn.cluster import AgglomerativeClustering
+    from sklearn.cluster import AgglomerativeClustering  # clint: disable=package-import-in-test
 
     sk_model = AgglomerativeClustering()
     assert not hasattr(sk_model, "predict")

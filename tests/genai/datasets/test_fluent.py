@@ -1359,7 +1359,9 @@ def test_dataset_pagination_transparency_large_records(tracking_uri, experiments
 
 
 def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
-    from mlflow.tracking._tracking_service.utils import _get_store
+    from mlflow.tracking._tracking_service.utils import (  # clint: disable=package-import-in-test
+        _get_store,  # clint: disable=package-import-in-test
+    )
 
     dataset = create_dataset(
         name="test_internal_pagination",
@@ -1398,7 +1400,7 @@ def test_dataset_internal_pagination_with_mock(tracking_uri, experiments):
 
 
 def test_dataset_experiment_associations(tracking_uri, experiments):
-    from mlflow.genai.datasets import (
+    from mlflow.genai.datasets import (  # clint: disable=package-import-in-test
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
     )
@@ -1445,7 +1447,7 @@ def test_dataset_experiment_associations(tracking_uri, experiments):
 
 
 def test_dataset_associations_filestore_blocking(tmp_path):
-    from mlflow.genai.datasets import (
+    from mlflow.genai.datasets import (  # clint: disable=package-import-in-test
         add_dataset_to_experiments,
         remove_dataset_from_experiments,
     )
@@ -1733,13 +1735,13 @@ def test_create_dataset_uses_active_experiment_when_not_specified(tracking_uri):
 
     assert dataset.experiment_ids == [exp_id]
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
 
 def test_create_dataset_with_no_active_experiment(tracking_uri):
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
@@ -1758,7 +1760,7 @@ def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
 
     assert dataset.experiment_ids == [explicit_exp]
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
@@ -1771,7 +1773,7 @@ def test_create_dataset_none_uses_active_experiment(tracking_uri):
 
     assert dataset.experiment_ids == [exp_id]
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
@@ -1934,7 +1936,7 @@ def test_create_dataset_explicit_overrides_active_experiment(tracking_uri):
 
     assert dataset.experiment_ids == [explicit_exp]
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
@@ -1947,7 +1949,7 @@ def test_create_dataset_none_uses_active_experiment(tracking_uri):
 
     assert dataset.experiment_ids == [exp_id]
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 
@@ -1960,7 +1962,7 @@ def test_create_dataset_empty_list_stays_empty(tracking_uri):
 
     assert dataset.experiment_ids == []
 
-    from mlflow.tracking import fluent
+    from mlflow.tracking import fluent  # clint: disable=package-import-in-test
 
     fluent._active_experiment_id = None
 

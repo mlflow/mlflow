@@ -102,6 +102,6 @@ def test_create_promptlab_run(store):
     assert "model/input_example.json" in model_files
 
     # try to load the model
-    import mlflow.pyfunc
+    import mlflow.pyfunc  # clint: disable=package-import-in-test
 
     mlflow.pyfunc.load_model(f"{artifact_location}/model")

@@ -487,7 +487,7 @@ def test_fit_takes_Xy_as_keyword_arguments(Xy_passed_as):
 def test_call_fit_with_arguments_score_does_not_accept():
     mlflow.sklearn.autolog()
 
-    from sklearn.linear_model import SGDRegressor
+    from sklearn.linear_model import SGDRegressor  # clint: disable=package-import-in-test
 
     assert "intercept_init" in _get_arg_names(SGDRegressor.fit)
     assert "intercept_init" not in _get_arg_names(SGDRegressor.score)
@@ -526,7 +526,7 @@ def test_call_fit_with_arguments_score_does_not_accept():
 def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
     mlflow.sklearn.autolog()
 
-    from sklearn.linear_model import SGDRegressor
+    from sklearn.linear_model import SGDRegressor  # clint: disable=package-import-in-test
 
     # ensure that we use an appropriate model for this test
     assert "sample_weight" in _get_arg_names(SGDRegressor.fit)
@@ -569,7 +569,7 @@ def test_both_fit_and_score_contain_sample_weight(sample_weight_passed_as):
 def test_only_fit_contains_sample_weight():
     mlflow.sklearn.autolog()
 
-    from sklearn.linear_model import RANSACRegressor
+    from sklearn.linear_model import RANSACRegressor  # clint: disable=package-import-in-test
 
     assert "sample_weight" in _get_arg_names(RANSACRegressor.fit)
     assert "sample_weight" not in _get_arg_names(RANSACRegressor.score)
@@ -604,7 +604,9 @@ def test_only_fit_contains_sample_weight():
 def test_only_score_contains_sample_weight():
     mlflow.sklearn.autolog()
 
-    from sklearn.gaussian_process import GaussianProcessRegressor
+    from sklearn.gaussian_process import (  # clint: disable=package-import-in-test
+        GaussianProcessRegressor,  # clint: disable=package-import-in-test
+    )
 
     assert "sample_weight" not in _get_arg_names(GaussianProcessRegressor.fit)
     assert "sample_weight" in _get_arg_names(GaussianProcessRegressor.score)
@@ -721,7 +723,7 @@ def test_autolog_emits_warning_message_when_model_prediction_fails():
     refitted, while during the metric logging what ".predict()" expects is a fitted model.
     Thus, a warning will be logged.
     """
-    from sklearn.exceptions import NotFittedError
+    from sklearn.exceptions import NotFittedError  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog()
 
@@ -961,7 +963,10 @@ def test_autolog_logs_signature_and_input_example(data_type):
 
 
 def test_autolog_metrics_input_example_and_signature_do_not_reflect_training_mutations():
-    from sklearn.base import BaseEstimator, TransformerMixin
+    from sklearn.base import (  # clint: disable=package-import-in-test
+        BaseEstimator,
+        TransformerMixin,
+    )
 
     X_train = pd.DataFrame(
         {
@@ -1037,7 +1042,7 @@ def test_autolog_does_not_throw_when_failing_to_sample_X():
 
 
 def test_autolog_logs_signature_only_when_estimator_defines_predict():
-    from sklearn.cluster import AgglomerativeClustering
+    from sklearn.cluster import AgglomerativeClustering  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog(log_model_signatures=True)
 
@@ -1252,11 +1257,17 @@ def test_autolog_does_not_capture_runs_for_preprocessing_or_feature_manipulation
     client = MlflowClient()
     run_id = client.create_run(experiment_id=0).info.run_id
 
-    from sklearn.compose import ColumnTransformer
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.feature_selection import VarianceThreshold
-    from sklearn.impute import SimpleImputer
-    from sklearn.preprocessing import LabelEncoder, MinMaxScaler, Normalizer
+    from sklearn.compose import ColumnTransformer  # clint: disable=package-import-in-test
+    from sklearn.feature_extraction.text import (  # clint: disable=package-import-in-test
+        TfidfVectorizer,  # clint: disable=package-import-in-test
+    )
+    from sklearn.feature_selection import VarianceThreshold  # clint: disable=package-import-in-test
+    from sklearn.impute import SimpleImputer  # clint: disable=package-import-in-test
+    from sklearn.preprocessing import (  # clint: disable=package-import-in-test
+        LabelEncoder,
+        MinMaxScaler,
+        Normalizer,
+    )
 
     with mlflow.start_run(run_id=run_id):
         Normalizer().fit_transform(np.random.random((5, 5)))
@@ -1349,7 +1360,7 @@ def test_metric_computation_handles_absent_labels():
 @pytest.mark.parametrize("cross_val_func_name", mlflow.sklearn._apis_autologging_disabled)
 def test_autolog_disabled_on_sklearn_cross_val_api(cross_val_func_name):
     mlflow.sklearn.autolog()
-    from sklearn import linear_model
+    from sklearn import linear_model  # clint: disable=package-import-in-test
 
     def assert_autolog_disabled_during_exec_cross_val_fun(run_):
         params, metrics, tags, artifacts = get_run_data(run_.info.run_id)
@@ -1388,7 +1399,7 @@ def load_json_artifact(artifact_path):
 
 
 def test_basic_post_training_metric_autologging():
-    from sklearn import metrics as sklmetrics
+    from sklearn import metrics as sklmetrics  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog()
 
@@ -1473,7 +1484,7 @@ def test_basic_post_training_metric_autologging():
 
 @pytest.mark.parametrize("metric_name", mlflow.sklearn._get_metric_name_list())
 def test_run_metric_api_doc_example(metric_name):
-    from sklearn import metrics
+    from sklearn import metrics  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog()
     metric_api = getattr(metrics, metric_name)
@@ -1481,10 +1492,10 @@ def test_run_metric_api_doc_example(metric_name):
 
 
 def test_post_training_metric_autologging_for_predict_prob():
-    import sklearn.linear_model
+    import sklearn.linear_model  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog()
-    from sklearn.metrics import roc_auc_score
+    from sklearn.metrics import roc_auc_score  # clint: disable=package-import-in-test
 
     X, y = get_iris()
     lor_model = sklearn.linear_model.LogisticRegression(solver="saga", max_iter=100, random_state=0)
@@ -1536,7 +1547,7 @@ def test_nested_metric_call_is_disabled():
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call():
     mlflow.sklearn.autolog()
-    from sklearn.metrics import mean_squared_error
+    from sklearn.metrics import mean_squared_error  # clint: disable=package-import-in-test
 
     X, y = get_iris()
     eval1_X = X[0::3]
@@ -1575,8 +1586,8 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     "scoring", [None, sklearn.metrics.make_scorer(sklearn.metrics.accuracy_score)]
 )
 def test_meta_estimator_disable_nested_post_training_autologging(scoring):
-    import sklearn.metrics
-    import sklearn.svm
+    import sklearn.metrics  # clint: disable=package-import-in-test
+    import sklearn.svm  # clint: disable=package-import-in-test
 
     mlflow.sklearn.autolog()
 
@@ -1668,7 +1679,9 @@ def test_gen_metric_call_commands():
 
 
 def test_patch_for_delegated_method():
-    from tests.autologging.test_autologging_utils import get_func_attrs
+    from tests.autologging.test_autologging_utils import (  # clint: disable=package-import-in-test
+        get_func_attrs,  # clint: disable=package-import-in-test
+    )
 
     original_predict = sklearn.pipeline.Pipeline.predict
     mlflow.sklearn.autolog()
@@ -1704,7 +1717,9 @@ def test_patch_for_delegated_method():
 
 @pytest.mark.skipif("Version(sklearn.__version__) <= Version('0.24.2')")
 def test_patch_for_available_if_decorated_method():
-    from tests.autologging.test_autologging_utils import get_func_attrs
+    from tests.autologging.test_autologging_utils import (  # clint: disable=package-import-in-test
+        get_func_attrs,  # clint: disable=package-import-in-test
+    )
 
     original_transform = sklearn.pipeline.Pipeline.transform
     mlflow.sklearn.autolog()
@@ -1742,7 +1757,7 @@ def test_is_metrics_value_loggable():
 
 @pytest.mark.parametrize("log_models", [True, False])
 def test_log_post_training_metrics_configuration(log_models):
-    from sklearn.linear_model import LogisticRegression
+    from sklearn.linear_model import LogisticRegression  # clint: disable=package-import-in-test
 
     X, y = get_iris()
     model = LogisticRegression()
@@ -1812,7 +1827,7 @@ def test_autolog_registering_model():
 def test_autolog_pos_label_used_for_training_metric():
     mlflow.sklearn.autolog(pos_label=1)
 
-    import sklearn.ensemble
+    import sklearn.ensemble  # clint: disable=package-import-in-test
 
     model = sklearn.ensemble.RandomForestClassifier(max_depth=2, random_state=0, n_estimators=10)
     X, y = sklearn.datasets.load_breast_cancer(return_X_y=True)

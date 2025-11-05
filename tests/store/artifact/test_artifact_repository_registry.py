@@ -41,7 +41,9 @@ def test_plugin_registration_via_installed_package():
 
     assert "file-plugin" in artifact_repository_registry._artifact_repository_registry._registry
 
-    from mlflow_test_plugin.local_artifact import PluginLocalArtifactRepository
+    from mlflow_test_plugin.local_artifact import (  # clint: disable=package-import-in-test
+        PluginLocalArtifactRepository,  # clint: disable=package-import-in-test
+    )
 
     test_uri = "file-plugin:test-path"
 

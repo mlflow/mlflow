@@ -98,7 +98,9 @@ def test_run_context_provider_registry_with_installed_plugin(tmp_path, monkeypat
 
     reload(mlflow.tracking.context.registry)
 
-    from mlflow_test_plugin.run_context_provider import PluginRunContextProvider
+    from mlflow_test_plugin.run_context_provider import (  # clint: disable=package-import-in-test
+        PluginRunContextProvider,  # clint: disable=package-import-in-test
+    )
 
     assert PluginRunContextProvider in _currently_registered_run_context_provider_classes()
 

@@ -317,7 +317,9 @@ def test_silent_mode_and_warning_rerouting_respect_disabled_flag(
 
 
 def test_autolog_function_thread_safety(patch_destination):
-    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+    from mlflow.utils.autologging_utils import (  # clint: disable=package-import-in-test
+        AUTOLOGGING_INTEGRATIONS,  # clint: disable=package-import-in-test
+    )
 
     AUTOLOGGING_INTEGRATIONS.pop("test_integration", None)
 

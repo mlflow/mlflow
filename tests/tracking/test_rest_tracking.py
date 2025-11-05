@@ -1123,7 +1123,9 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
 
 
 def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
-    from mlflow.server.handlers import get_metric_history_bulk_handler
+    from mlflow.server.handlers import (  # clint: disable=package-import-in-test
+        get_metric_history_bulk_handler,  # clint: disable=package-import-in-test
+    )
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
     uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
@@ -1896,7 +1898,7 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
 
 @pytest.mark.xfail(reason="Tracking server does not support logged-model endpoints yet")
 def test_logging_model_with_local_artifact_uri(mlflow_client):
-    from sklearn.linear_model import LogisticRegression
+    from sklearn.linear_model import LogisticRegression  # clint: disable=package-import-in-test
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     with mlflow.start_run() as run:

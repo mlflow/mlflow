@@ -575,8 +575,8 @@ def test_autologging_is_disabled_returns_expected_values():
 
 
 def test_autologging_disable_restores_behavior():
-    from sklearn.datasets import load_diabetes
-    from sklearn.linear_model import LinearRegression
+    from sklearn.datasets import load_diabetes  # clint: disable=package-import-in-test
+    from sklearn.linear_model import LinearRegression  # clint: disable=package-import-in-test
 
     X, y = load_diabetes(return_X_y=True, as_frame=True)
     X = X.iloc[:50, :4]

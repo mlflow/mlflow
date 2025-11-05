@@ -144,7 +144,7 @@ def test_http_request_with_basic_auth():
 def test_http_request_with_aws_sigv4(monkeypatch):
     """This test requires the "requests_auth_aws_sigv4" package to be installed"""
 
-    from requests_auth_aws_sigv4 import AWSSigV4
+    from requests_auth_aws_sigv4 import AWSSigV4  # clint: disable=package-import-in-test
 
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "access-key")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "secret-key")
@@ -287,7 +287,9 @@ def test_http_request_with_content_type_header():
 def test_http_request_request_headers():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+    from mlflow_test_plugin.request_header_provider import (  # clint: disable=package-import-in-test  # noqa: E501
+        PluginRequestHeaderProvider,  # clint: disable=package-import-in-test
+    )
 
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
@@ -313,7 +315,9 @@ def test_http_request_request_headers():
 def test_http_request_request_headers_default():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+    from mlflow_test_plugin.request_header_provider import (  # clint: disable=package-import-in-test  # noqa: E501
+        PluginRequestHeaderProvider,  # clint: disable=package-import-in-test
+    )
 
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
@@ -350,7 +354,9 @@ def test_http_request_request_headers_default():
 def test_http_request_request_headers_default_and_extra_header():
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+    from mlflow_test_plugin.request_header_provider import (  # clint: disable=package-import-in-test  # noqa: E501
+        PluginRequestHeaderProvider,  # clint: disable=package-import-in-test
+    )
 
     # The test plugin's request header provider always returns False from in_context to avoid
     # polluting request headers in developers' environments. The following mock overrides this to
@@ -781,10 +787,14 @@ def test_databricks_sdk_retry_non_retryable_error():
 
 def test_databricks_sdk_retry_backoff_calculation():
     """Test that Databricks SDK uses correct exponential backoff timing."""
-    from databricks.sdk.errors import DatabricksError
+    from databricks.sdk.errors import DatabricksError  # clint: disable=package-import-in-test
 
-    from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
-    from mlflow.utils.rest_utils import _retry_databricks_sdk_call_with_exponential_backoff
+    from mlflow.utils.request_utils import (  # clint: disable=package-import-in-test
+        _TRANSIENT_FAILURE_RESPONSE_CODES,  # clint: disable=package-import-in-test
+    )
+    from mlflow.utils.rest_utils import (  # clint: disable=package-import-in-test
+        _retry_databricks_sdk_call_with_exponential_backoff,  # clint: disable=package-import-in-test  # noqa: E501
+    )
 
     call_count = 0
 
@@ -941,7 +951,9 @@ def test_http_request_with_databricks_traffic_id(monkeypatch: pytest.MonkeyPatch
     ],
 )
 def test_validate_deployment_timeout_config(timeout, retry_timeout_seconds, should_warn):
-    from mlflow.utils.rest_utils import validate_deployment_timeout_config
+    from mlflow.utils.rest_utils import (  # clint: disable=package-import-in-test
+        validate_deployment_timeout_config,  # clint: disable=package-import-in-test
+    )
 
     if should_warn:
         with warnings.catch_warnings(record=True) as w:

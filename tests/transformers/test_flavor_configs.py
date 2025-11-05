@@ -55,7 +55,7 @@ def test_flavor_config_pt_save_pretrained_false(small_qa_pipeline):
 
 
 def test_flavor_config_torch_dtype_overridden_when_specified(small_qa_pipeline):
-    import torch
+    import torch  # clint: disable=package-import-in-test
 
     conf = build_flavor_config(small_qa_pipeline, torch_dtype=torch.float16, save_pretrained=False)
     assert conf["torch_dtype"] == "torch.float16"

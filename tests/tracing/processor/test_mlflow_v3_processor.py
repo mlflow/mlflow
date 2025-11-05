@@ -47,7 +47,10 @@ def test_on_start(monkeypatch):
 
 @skip_when_testing_trace_sdk
 def test_on_start_during_model_evaluation():
-    from mlflow.pyfunc.context import Context, set_prediction_context
+    from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+        Context,
+        set_prediction_context,
+    )
 
     trace_id = 12345
     request_id = "tr-" + encode_trace_id(trace_id)

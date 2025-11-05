@@ -589,8 +589,8 @@ def test_all_numpy_dtypes():
 
 
 def test_spark_schema_inference(pandas_df_with_all_types):
-    import pyspark
-    from pyspark.sql.types import StructField, StructType
+    import pyspark  # clint: disable=package-import-in-test
+    from pyspark.sql.types import StructField, StructType  # clint: disable=package-import-in-test
 
     pandas_df_with_all_types = pandas_df_with_all_types.drop(
         columns=["boolean_ext", "integer_ext", "string_ext"]
@@ -677,8 +677,8 @@ def test_spark_schema_inference_complex(spark):
 
 
 def test_spark_type_mapping(pandas_df_with_all_types):
-    import pyspark
-    from pyspark.sql.types import (
+    import pyspark  # clint: disable=package-import-in-test
+    from pyspark.sql.types import (  # clint: disable=package-import-in-test
         BinaryType,
         BooleanType,
         DoubleType,

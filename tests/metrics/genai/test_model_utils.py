@@ -342,7 +342,9 @@ def test_score_model_togetherai(monkeypatch):
 
 
 def test_score_model_gateway_completions():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
+    from mlflow.deployments.mlflow import (  # clint: disable=package-import-in-test
+        MlflowDeploymentClient,  # clint: disable=package-import-in-test
+    )
 
     expected_output = {
         "choices": [
@@ -380,7 +382,9 @@ def test_score_model_gateway_completions():
 
 
 def test_score_model_gateway_chat():
-    from mlflow.deployments.mlflow import MlflowDeploymentClient
+    from mlflow.deployments.mlflow import (  # clint: disable=package-import-in-test
+        MlflowDeploymentClient,  # clint: disable=package-import-in-test
+    )
 
     expected_output = {
         "choices": [

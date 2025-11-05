@@ -316,7 +316,7 @@ def test_mlflow_to_litellm_uri_round_trip_conversion(mlflow_uri):
 )
 def test_construct_dspy_lm_utility_method(model, expected_type):
     """Test the construct_dspy_lm utility method with different model types."""
-    import dspy
+    import dspy  # clint: disable=package-import-in-test
 
     result = construct_dspy_lm(model)
 

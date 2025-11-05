@@ -236,7 +236,7 @@ def test_registry_store_uri_different_from_tracking_store(command):
     handlers._tracking_store = None
     handlers._model_registry_store = None
 
-    from mlflow.server.handlers import (
+    from mlflow.server.handlers import (  # clint: disable=package-import-in-test
         ModelRegistryStoreRegistryWrapper,
         TrackingStoreRegistryWrapper,
     )

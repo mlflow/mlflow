@@ -375,8 +375,8 @@ def test_rest_get_artifact_api_log_image(artifacts_server):
     url = artifacts_server.url
     mlflow.set_tracking_uri(url)
 
-    import numpy as np
-    from PIL import Image
+    import numpy as np  # clint: disable=package-import-in-test
+    from PIL import Image  # clint: disable=package-import-in-test
 
     image = np.random.randint(0, 256, size=(100, 100, 3), dtype=np.uint8)
 

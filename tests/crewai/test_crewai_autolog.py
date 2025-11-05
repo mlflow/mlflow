@@ -763,7 +763,9 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
 )
 def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     monkeypatch.setenv("OPENAI_API_KEY", "000")
-    from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
+    from crewai.knowledge.source.string_knowledge_source import (  # clint: disable=package-import-in-test  # noqa: E501
+        StringKnowledgeSource,
+    )
 
     content = "Users name is John"
     string_source = StringKnowledgeSource(content=content, metadata={"preference": "personal"})

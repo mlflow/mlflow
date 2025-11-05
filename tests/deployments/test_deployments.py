@@ -109,7 +109,7 @@ def test_target_uri_parsing():
 
 
 def test_explain_with_no_target_implementation():
-    from mlflow_test_plugin import fake_deployment_plugin
+    from mlflow_test_plugin import fake_deployment_plugin  # clint: disable=package-import-in-test
 
     mock_error = MlflowException("MOCK ERROR")
     target_client = deployments.get_deploy_client(f_target)

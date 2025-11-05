@@ -97,7 +97,9 @@ def test_default_experiment_provider_registry_with_installed_plugin(tmp_path, mo
 
     reload(mlflow.tracking.default_experiment.registry)
 
-    from mlflow_test_plugin.default_experiment_provider import PluginDefaultExperimentProvider
+    from mlflow_test_plugin.default_experiment_provider import (  # clint: disable=package-import-in-test  # noqa: E501
+        PluginDefaultExperimentProvider,  # clint: disable=package-import-in-test
+    )
 
     assert (
         PluginDefaultExperimentProvider

@@ -626,7 +626,7 @@ def test_load_without_save_format(tf_keras_model, model_path, data):
     "https://github.com/huggingface/transformers/issues/22421",
 )
 def test_pyfunc_serve_and_score_transformers():
-    from transformers import BertConfig, TFBertModel
+    from transformers import BertConfig, TFBertModel  # clint: disable=package-import-in-test
 
     bert_model = TFBertModel(
         BertConfig(

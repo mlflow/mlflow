@@ -586,7 +586,7 @@ def test_pyfunc_set_model():
 
 
 def test_langchain_set_model():
-    from langchain.chains import LLMChain
+    from langchain.chains import LLMChain  # clint: disable=package-import-in-test
 
     def create_openai_llmchain():
         from langchain.llms import OpenAI
@@ -678,7 +678,9 @@ def test_save_model_with_prompts():
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.prompt.constants import (  # clint: disable=package-import-in-test
+        LINKED_PROMPTS_TAG_KEY,  # clint: disable=package-import-in-test
+    )
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
     linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)

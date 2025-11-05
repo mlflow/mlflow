@@ -54,7 +54,7 @@ from mlflow.utils._unity_catalog_utils import (
     ],
 )
 def test_model_version_from_uc_proto(run_state):
-    from mlflow.protos.databricks_uc_registry_messages_pb2 import (
+    from mlflow.protos.databricks_uc_registry_messages_pb2 import (  # clint: disable=package-import-in-test  # noqa: E501
         ModelVersionDeploymentJobState as ProtoModelVersionDeploymentJobState,
     )
 

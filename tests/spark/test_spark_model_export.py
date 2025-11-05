@@ -202,7 +202,7 @@ def model_path(tmp_path):
 @pytest.mark.usefixtures("spark")
 def test_hadoop_filesystem(tmp_path):
     # copy local dir to and back from HadoopFS and make sure the results match
-    from mlflow.spark import _HadoopFileSystem as FS
+    from mlflow.spark import _HadoopFileSystem as FS  # clint: disable=package-import-in-test
 
     test_dir_0 = os.path.join(tmp_path, "expected")
     test_file_0 = os.path.join(test_dir_0, "root", "file_0")
@@ -356,7 +356,7 @@ def test_model_deployment(spark_model_iris, model_path, spark_custom_env, monkey
         content_type=pyfunc_scoring_server.CONTENT_TYPE_JSON,
         flavor=mlflow.pyfunc.FLAVOR_NAME,
     )
-    from mlflow.deployments import PredictionsResponse
+    from mlflow.deployments import PredictionsResponse  # clint: disable=package-import-in-test
 
     np.testing.assert_array_almost_equal(
         spark_model_iris.predictions,
@@ -821,7 +821,9 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
     mock_read_spark_session = mock.Mock()
     mock_read_spark_session.load = mock_spark_session_load
 
-    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+    from mlflow.utils.databricks_utils import (  # clint: disable=package-import-in-test
+        _get_dbutils as og_getdbutils,  # clint: disable=package-import-in-test
+    )
 
     def mock_get_dbutils():
         # _get_dbutils is called during run creation and model logging; to avoid breaking run
@@ -880,7 +882,9 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     mock_spark_session = mock.Mock()
     mock_spark_session.read = mock_read_spark_session
 
-    from mlflow.utils.databricks_utils import _get_dbutils as og_getdbutils
+    from mlflow.utils.databricks_utils import (  # clint: disable=package-import-in-test
+        _get_dbutils as og_getdbutils,  # clint: disable=package-import-in-test
+    )
 
     def mock_get_dbutils():
         # _get_dbutils is called during run creation and model logging; to avoid breaking run
@@ -997,9 +1001,9 @@ def test_model_log_with_signature_inference(spark_model_iris, input_example):
 
 
 def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator):
-    from pyspark.ml.functions import vector_to_array
+    from pyspark.ml.functions import vector_to_array  # clint: disable=package-import-in-test
 
-    from mlflow.types.schema import SparkMLVector
+    from mlflow.types.schema import SparkMLVector  # clint: disable=package-import-in-test
 
     model = spark_model_estimator.model
     with mlflow.start_run():

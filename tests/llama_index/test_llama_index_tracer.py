@@ -285,7 +285,7 @@ def _multi_modal_test_cases():
 @pytest.mark.skipif(llama_core_version < Version("0.12.0"), reason="Multi-modal not supported")
 @pytest.mark.parametrize(("image_block", "expected_image_url"), _multi_modal_test_cases())
 def test_trace_llm_chat_multi_modal(image_block, expected_image_url):
-    from llama_index.core.base.llms.types import TextBlock
+    from llama_index.core.base.llms.types import TextBlock  # clint: disable=package-import-in-test
 
     llm = OpenAI()
     message = ChatMessage(
@@ -491,7 +491,7 @@ def test_trace_query_engine(multi_index, is_stream, is_async):
 
 @pytest.mark.skipif(llama_core_version >= Version("0.13.0"), reason="OpenAIAgent is removed")
 def test_trace_agent():
-    from llama_index.agent.openai import OpenAIAgent
+    from llama_index.agent.openai import OpenAIAgent  # clint: disable=package-import-in-test
 
     # Mock LLM to return deterministic responses and let the agent use a tool
     class MockLLMForAgent(OpenAI, extra="allow"):
@@ -660,7 +660,12 @@ async def context_get(ctx: Context, key: str) -> Any:
 )
 @pytest.mark.asyncio
 async def test_tracer_simple_workflow():
-    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+    from llama_index.core.workflow import (  # clint: disable=package-import-in-test
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
 
     class MyWorkflow(Workflow):
         @step
@@ -682,7 +687,7 @@ async def test_tracer_simple_workflow():
 )
 @pytest.mark.asyncio
 async def test_tracer_parallel_workflow():
-    from llama_index.core.workflow import (
+    from llama_index.core.workflow import (  # clint: disable=package-import-in-test
         Context,
         Event,
         StartEvent,
@@ -742,7 +747,7 @@ async def test_tracer_parallel_workflow():
 )
 @pytest.mark.asyncio
 async def test_tracer_parallel_workflow_with_custom_spans():
-    from llama_index.core.workflow import (
+    from llama_index.core.workflow import (  # clint: disable=package-import-in-test
         Context,
         Event,
         StartEvent,

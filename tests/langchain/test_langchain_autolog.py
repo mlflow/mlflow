@@ -279,10 +279,10 @@ def test_chat_model_autolog():
 
 
 def test_chat_model_bind_tool_autolog():
-    from langchain.tools import tool
+    from langchain.tools import tool  # clint: disable=package-import-in-test
 
     # Community version of ChatOpenAI does not support bind_tools
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI  # clint: disable=package-import-in-test
 
     mlflow.langchain.autolog()
 
@@ -328,7 +328,9 @@ def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog()
 
     # Load the agent definition (with OpenAI mock) from the sample script
-    from tests.langchain.sample_code.openai_agent import create_openai_agent
+    from tests.langchain.sample_code.openai_agent import (  # clint: disable=package-import-in-test
+        create_openai_agent,  # clint: disable=package-import-in-test
+    )
 
     model = create_openai_agent()
     input = {"input": "The result of 2 * 3 is 6."}
@@ -851,7 +853,10 @@ async def test_langchain_autolog_token_usage():
 
 @pytest.mark.parametrize("log_traces", [True, False, None])
 def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
-    from langchain.schema.runnable import RouterRunnable, RunnableLambda
+    from langchain.schema.runnable import (  # clint: disable=package-import-in-test
+        RouterRunnable,
+        RunnableLambda,
+    )
 
     should_log_traces = log_traces is not False
 
@@ -880,7 +885,10 @@ def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_lo
 @skip_when_testing_trace_sdk
 @pytest.mark.skip(reason="This test is not thread safe, please run locally")
 def test_set_retriever_schema_work_for_langchain_model():
-    from mlflow.models.dependencies_schemas import DependenciesSchemasType, set_retriever_schema
+    from mlflow.models.dependencies_schemas import (  # clint: disable=package-import-in-test
+        DependenciesSchemasType,
+        set_retriever_schema,
+    )
 
     set_retriever_schema(
         primary_key="primary-key",

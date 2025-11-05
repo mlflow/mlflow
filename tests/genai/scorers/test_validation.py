@@ -51,7 +51,7 @@ def test_validate_scorers_empty_list():
 
 @databricks_only
 def test_validate_scorers_legacy_metric():
-    from databricks.agents.evals import metric
+    from databricks.agents.evals import metric  # clint: disable=package-import-in-test
 
     @metric
     def legacy_metric_1(request, response):

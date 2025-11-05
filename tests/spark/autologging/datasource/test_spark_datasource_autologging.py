@@ -171,7 +171,7 @@ def test_autologging_does_not_start_run(spark_session, format_to_file_path):
 
 
 def test_autologging_slow_api_requests(spark_session, format_to_file_path):
-    import mlflow.utils.rest_utils
+    import mlflow.utils.rest_utils  # clint: disable=package-import-in-test
 
     orig = mlflow.utils.rest_utils.http_request
 

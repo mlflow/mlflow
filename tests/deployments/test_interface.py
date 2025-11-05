@@ -17,7 +17,7 @@ def test_get_deploy_client_none():
 
 
 def test_get_deploy_client_from_set_deployments_target():
-    from mlflow.deployments import set_deployments_target
+    from mlflow.deployments import set_deployments_target  # clint: disable=package-import-in-test
 
     set_deployments_target("databricks")
     assert get_deploy_client(None) is not None

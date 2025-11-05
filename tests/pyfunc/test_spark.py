@@ -240,7 +240,7 @@ def test_spark_udf_env_manager_can_restore_env(
         ],
     )
     # tests/helper_functions.py
-    from tests.helper_functions import _get_mlflow_home
+    from tests.helper_functions import _get_mlflow_home  # clint: disable=package-import-in-test
 
     monkeypatch.setenv("MLFLOW_HOME", _get_mlflow_home())
     python_udf = mlflow.pyfunc.spark_udf(
@@ -831,8 +831,12 @@ def test_model_cache(spark, model_path):
 def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     spark, sklearn_model, model_path, env_manager
 ):
-    from mlflow.models.flavor_backend_registry import get_flavor_backend
-    from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+    from mlflow.models.flavor_backend_registry import (  # clint: disable=package-import-in-test
+        get_flavor_backend,  # clint: disable=package-import-in-test
+    )
+    from mlflow.pyfunc.scoring_server.client import (  # clint: disable=package-import-in-test
+        ScoringServerClient,  # clint: disable=package-import-in-test
+    )
 
     mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
@@ -1600,9 +1604,11 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
 
 
 def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch):
-    import sklearn
+    import sklearn  # clint: disable=package-import-in-test
 
-    from mlflow.pyfunc.dbconnect_artifact_cache import extract_archive_to_dir
+    from mlflow.pyfunc.dbconnect_artifact_cache import (  # clint: disable=package-import-in-test
+        extract_archive_to_dir,  # clint: disable=package-import-in-test
+    )
 
     monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "15.4.1")
     spark.udf.register(

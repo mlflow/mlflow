@@ -148,7 +148,7 @@ def test_load_json_invalid_json(run_with_text_artifact):
 
 
 def test_load_image(run_with_image_artifact):
-    from PIL import Image
+    from PIL import Image  # clint: disable=package-import-in-test
 
     artifact = run_with_image_artifact
     assert isinstance(mlflow.artifacts.load_image(artifact.uri), Image.Image)

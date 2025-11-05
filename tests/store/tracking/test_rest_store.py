@@ -841,7 +841,9 @@ def test_search_traces_errors():
 
 def test_get_artifact_uri_for_trace_compatibility():
     """Test that get_artifact_uri_for_trace works with both TraceInfo and TraceInfoV3 objects."""
-    from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
+    from mlflow.tracing.utils.artifact_utils import (  # clint: disable=package-import-in-test
+        get_artifact_uri_for_trace,  # clint: disable=package-import-in-test
+    )
 
     # Create a TraceInfo (v2) object
     trace_info_v2 = TraceInfoV2(
@@ -910,7 +912,9 @@ def test_delete_traces(delete_traces_kwargs):
 
 def test_delete_traces_with_batching():
     """Test that delete_traces batches requests when trace_ids exceed the batch size limit."""
-    from mlflow.environment_variables import _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE
+    from mlflow.environment_variables import (  # clint: disable=package-import-in-test
+        _MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE,  # clint: disable=package-import-in-test
+    )
 
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
@@ -2005,7 +2009,9 @@ def test_evaluation_dataset_lazy_loading_records():
         mock_get_store.return_value = store
 
         with mock.patch.object(store, "_load_dataset_records") as mock_load:
-            from mlflow.entities.dataset_record import DatasetRecord
+            from mlflow.entities.dataset_record import (  # clint: disable=package-import-in-test
+                DatasetRecord,  # clint: disable=package-import-in-test
+            )
 
             mock_records = [
                 DatasetRecord(

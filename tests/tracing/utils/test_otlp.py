@@ -109,7 +109,9 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     elif dual_export is False:
         monkeypatch.setenv("MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", "false")
 
-    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import (  # clint: disable=package-import-in-test  # noqa: E501
+        OTLPSpanExporter,  # clint: disable=package-import-in-test
+    )
 
     _, _, port = otel_collector
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", f"http://127.0.0.1:{port}/v1/traces")

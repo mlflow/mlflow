@@ -110,7 +110,7 @@ def test_get_s3_client_verify_param_set_correctly(
 def test_get_s3_client_region_name_set_correctly(s3_artifact_root, client_throws):
     region_name = "us_random_region_42"
     with mock.patch("boto3.client") as mock_get_s3_client:
-        from botocore.exceptions import ClientError
+        from botocore.exceptions import ClientError  # clint: disable=package-import-in-test
 
         s3_client_mock = mock.Mock()
         mock_get_s3_client.return_value = s3_client_mock

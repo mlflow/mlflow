@@ -200,7 +200,7 @@ def test_log_evaluations_starts_run_if_not_started(end_run_at_test_end):
 
 
 def test_evaluation_module_exposes_relevant_apis_for_logging():
-    import mlflow.evaluation
+    import mlflow.evaluation  # clint: disable=package-import-in-test
 
     assert hasattr(mlflow.evaluation, "log_evaluations")
     assert hasattr(mlflow.evaluation, "Evaluation")

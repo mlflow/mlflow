@@ -256,7 +256,7 @@ async def test_autolog_tool_agent():
 
 @pytest.mark.asyncio
 async def test_autolog_multi_modal():
-    import PIL
+    import PIL  # clint: disable=package-import-in-test
 
     pil_image = PIL.Image.new("RGB", (8, 8))
     img = Image(pil_image)

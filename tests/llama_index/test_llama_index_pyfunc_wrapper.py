@@ -268,7 +268,12 @@ def test_spark_udf_chat(model_path, spark, single_index):
 )
 @pytest.mark.asyncio
 async def test_wrap_workflow():
-    from llama_index.core.workflow import StartEvent, StopEvent, Workflow, step
+    from llama_index.core.workflow import (  # clint: disable=package-import-in-test
+        StartEvent,
+        StopEvent,
+        Workflow,
+        step,
+    )
 
     class MyWorkflow(Workflow):
         @step
@@ -303,7 +308,7 @@ async def test_wrap_workflow():
 )
 @pytest.mark.asyncio
 async def test_wrap_workflow_raise_exception():
-    from llama_index.core.workflow import (
+    from llama_index.core.workflow import (  # clint: disable=package-import-in-test
         StartEvent,
         StopEvent,
         Workflow,

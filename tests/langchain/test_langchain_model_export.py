@@ -481,8 +481,12 @@ def test_save_and_load_azure_chat_openai(model_path, monkeypatch):
 
 
 def test_save_model_with_partner_package(tmp_path):
-    from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
-    from langchain_openai import ChatOpenAI as ChatOpenAIPartner
+    from langchain_community.chat_models import (  # clint: disable=package-import-in-test
+        ChatOpenAI as ChatOpenAICommunity,  # clint: disable=package-import-in-test
+    )
+    from langchain_openai import (  # clint: disable=package-import-in-test
+        ChatOpenAI as ChatOpenAIPartner,  # clint: disable=package-import-in-test
+    )
 
     # 1. Saving a model with LLM from a community package
     #    -> no warning should be raised
@@ -530,7 +534,7 @@ mlflow.models.set_model(chain)
 
 
 def test_langchain_log_huggingface_hub_model_metadata(model_path):
-    import transformers
+    import transformers  # clint: disable=package-import-in-test
 
     prompt = PromptTemplate(
         input_variables=["product"],
@@ -999,7 +1003,7 @@ def load_db(persist_dir):
     IS_LANGCHAIN_03, reason="Saving SQLDatabaseChain does not work with LangChain 0.3.0"
 )
 def test_log_and_load_sql_database_chain(tmp_path):
-    from langchain_experimental.sql import SQLDatabaseChain
+    from langchain_experimental.sql import SQLDatabaseChain  # clint: disable=package-import-in-test
 
     # Create the SQLDatabaseChain
     db_file_path = tmp_path / "my_database.db"
@@ -1956,9 +1960,11 @@ def test_databricks_dependency_extraction_from_retrieval_qa_chain(tmp_path):
 
 
 def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
-    from langchain_community.chat_models import ChatDatabricks
-    from langchain_core.runnables import RunnableLambda
-    from langgraph.prebuilt import create_react_agent
+    from langchain_community.chat_models import (  # clint: disable=package-import-in-test
+        ChatDatabricks,  # clint: disable=package-import-in-test
+    )
+    from langchain_core.runnables import RunnableLambda  # clint: disable=package-import-in-test
+    from langgraph.prebuilt import create_react_agent  # clint: disable=package-import-in-test
 
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
@@ -2007,7 +2013,9 @@ def test_databricks_dependency_extraction_from_langgraph_agent(monkeypatch):
 
 
 def test_databricks_dependency_extraction_from_agent_chain(monkeypatch):
-    from langchain_community.chat_models import ChatDatabricks
+    from langchain_community.chat_models import (  # clint: disable=package-import-in-test
+        ChatDatabricks,  # clint: disable=package-import-in-test
+    )
 
     # Mocking Cloudpickle because serialization in this setup is failing
     monkeypatch.setattr("cloudpickle.dump", mock.MagicMock())
@@ -2066,7 +2074,9 @@ def _error_func(*args, **kwargs):
 
 
 def test_databricks_dependency_extraction_log_errors_as_warnings():
-    from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
+    from mlflow.langchain.databricks_dependencies import (  # clint: disable=package-import-in-test
+        _detect_databricks_dependencies,  # clint: disable=package-import-in-test
+    )
 
     model = create_openai_llmchain()
 
@@ -2376,7 +2386,9 @@ def test_pyfunc_builtin_chat_response_conversion_fails_gracefully():
 
 
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
-    from langchain_community.llms.databricks import Databricks
+    from langchain_community.llms.databricks import (  # clint: disable=package-import-in-test
+        Databricks,  # clint: disable=package-import-in-test
+    )
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -3076,7 +3088,9 @@ def test_langchain_model_not_inject_callback_when_disabled(monkeypatch, model_pa
     loaded_model.predict({"product": "shoe"})
 
     # Trace should be logged to the inference table
-    from mlflow.tracing.export.inference_table import _TRACE_BUFFER
+    from mlflow.tracing.export.inference_table import (  # clint: disable=package-import-in-test
+        _TRACE_BUFFER,  # clint: disable=package-import-in-test
+    )
 
     assert _TRACE_BUFFER == {}
 
@@ -3175,10 +3189,10 @@ def test_save_load_langchain_binding(fake_chat_model):
 
 
 def test_save_load_langchain_binding_llm_with_tool():
-    from langchain_core.tools import tool
+    from langchain_core.tools import tool  # clint: disable=package-import-in-test
 
     # We need to use ChatOpenAI from langchain_openai as community one does not support bind_tools
-    from langchain_openai import ChatOpenAI
+    from langchain_openai import ChatOpenAI  # clint: disable=package-import-in-test
 
     @tool
     def add(a: int, b: int) -> int:
@@ -3638,7 +3652,9 @@ def test_log_langchain_model_with_prompt():
         )
 
     # Check that prompts were linked to the run via the linkedPrompts tag
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+    from mlflow.prompt.constants import (  # clint: disable=package-import-in-test
+        LINKED_PROMPTS_TAG_KEY,  # clint: disable=package-import-in-test
+    )
 
     run = mlflow.MlflowClient().get_run(model_info.run_id)
     linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)

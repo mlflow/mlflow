@@ -606,8 +606,8 @@ def test_tf_keras_autolog_implicit_batch_size_for_generator_dataset_without_side
     generator,
     batch_size,
 ):
-    from tensorflow.keras.layers import Dense
-    from tensorflow.keras.models import Sequential
+    from tensorflow.keras.layers import Dense  # clint: disable=package-import-in-test
+    from tensorflow.keras.models import Sequential  # clint: disable=package-import-in-test
 
     data = np.array([[1, 2, 3], [3, 2, 1], [2, 2, 2], [10, 20, 30], [30, 20, 10], [20, 20, 20]])
     target = np.array([[1], [3], [2], [11], [13], [12]])
@@ -963,7 +963,7 @@ def test_tf_keras_autolog_does_not_delete_logging_directory_for_tensorboard_call
 def test_tf_keras_autolog_logs_to_and_deletes_temporary_directory_when_tensorboard_callback_absent(
     tmp_path, random_train_data, random_one_hot_labels
 ):
-    from mlflow.tensorflow import _TensorBoardLogDir
+    from mlflow.tensorflow import _TensorBoardLogDir  # clint: disable=package-import-in-test
 
     mlflow.tensorflow.autolog()
 
@@ -1102,7 +1102,7 @@ def test_tf_keras_autolog_distributed_training(random_train_data, random_one_hot
 def test_import_tensorflow_with_fluent_autolog_enables_tensorflow_autologging():
     mlflow.autolog()
 
-    import tensorflow  # noqa: F401
+    import tensorflow  # noqa: F401  # clint: disable=package-import-in-test
 
     assert not autologging_is_disabled(mlflow.tensorflow.FLAVOR_NAME)
 
@@ -1274,7 +1274,9 @@ def test_keras_autolog_logs_model_signature_by_default(keras_data_gen_sequence):
 
 
 def test_extract_tf_keras_input_example_unsupported_type_returns_None():
-    from mlflow.tensorflow.autologging import extract_tf_keras_input_example
+    from mlflow.tensorflow.autologging import (  # clint: disable=package-import-in-test
+        extract_tf_keras_input_example,  # clint: disable=package-import-in-test
+    )
 
     extracted_data = extract_tf_keras_input_example([1, 2, 4, 5])
     assert extracted_data is None, (
@@ -1284,7 +1286,9 @@ def test_extract_tf_keras_input_example_unsupported_type_returns_None():
 
 
 def test_extract_input_example_from_tf_input_fn_unsupported_type_returns_None():
-    from mlflow.tensorflow.autologging import extract_tf_keras_input_example
+    from mlflow.tensorflow.autologging import (  # clint: disable=package-import-in-test
+        extract_tf_keras_input_example,  # clint: disable=package-import-in-test
+    )
 
     extracted_data = extract_tf_keras_input_example(lambda: [1, 2, 4, 5])
     assert extracted_data is None, (

@@ -160,7 +160,9 @@ def test_x_frame_options_configuration(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_notebook_trace_renderer_skips_x_frame_options(monkeypatch: pytest.MonkeyPatch):
-    from mlflow.tracing.constant import TRACE_RENDERER_ASSET_PATH
+    from mlflow.tracing.constant import (  # clint: disable=package-import-in-test
+        TRACE_RENDERER_ASSET_PATH,  # clint: disable=package-import-in-test
+    )
 
     app = Flask(__name__)
 

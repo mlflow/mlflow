@@ -55,7 +55,7 @@ def model_path(tmp_path):
 
 
 def test_save_and_load_chat_databricks(model_path):
-    from databricks_langchain import ChatDatabricks
+    from databricks_langchain import ChatDatabricks  # clint: disable=package-import-in-test
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")
@@ -73,7 +73,7 @@ def test_save_and_load_chat_databricks(model_path):
 
 def test_save_and_load_chat_databricks_legacy(model_path):
     # Test saving and loading the community version of ChatDatabricks
-    from langchain.chat_models import ChatDatabricks
+    from langchain.chat_models import ChatDatabricks  # clint: disable=package-import-in-test
 
     llm = ChatDatabricks(endpoint="databricks-meta-llama-3-70b-instruct")
     prompt = PromptTemplate.from_template("What is {product}?")

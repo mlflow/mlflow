@@ -12,7 +12,9 @@ from tests.resources.data.dataset_source import SampleDatasetSource
 def test_register_entrypoints_and_resolve(tmp_path):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
+    from mlflow_test_plugin.dummy_dataset_source import (  # clint: disable=package-import-in-test
+        DummyDatasetSource,  # clint: disable=package-import-in-test
+    )
 
     registry = DatasetSourceRegistry()
     registry.register_entrypoints()
@@ -97,7 +99,9 @@ def test_load_from_json_throws_for_unrecognized_source_type(tmp_path):
 def test_resolve_dataset_source_maintains_consistent_order_and_uses_last_registered_match(tmp_path):
     """This test requires the package in tests/resources/mlflow-test-plugin to be installed"""
 
-    from mlflow_test_plugin.dummy_dataset_source import DummyDatasetSource
+    from mlflow_test_plugin.dummy_dataset_source import (  # clint: disable=package-import-in-test
+        DummyDatasetSource,  # clint: disable=package-import-in-test
+    )
 
     class SampleDatasetSourceCopy1(SampleDatasetSource):
         pass
@@ -169,13 +173,15 @@ def test_resolve_dataset_source_warns_when_multiple_matching_sources_found(tmp_p
 
 
 def test_dataset_sources_are_importable_from_sources_module(tmp_path):
-    from mlflow.data.sources import LocalArtifactDatasetSource
+    from mlflow.data.sources import (  # clint: disable=package-import-in-test
+        LocalArtifactDatasetSource,  # clint: disable=package-import-in-test
+    )
 
     src = LocalArtifactDatasetSource(tmp_path)
     assert src._get_source_type() == "local"
     assert src.uri == tmp_path
 
-    from mlflow.data.sources import DeltaDatasetSource
+    from mlflow.data.sources import DeltaDatasetSource  # clint: disable=package-import-in-test
 
     src = DeltaDatasetSource(path=tmp_path)
     assert src._get_source_type() == "delta_table"

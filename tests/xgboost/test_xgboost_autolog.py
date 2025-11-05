@@ -198,7 +198,7 @@ def test_xgb_autolog_sklearn():
 
 
 def test_xgb_autolog_sklearn_nested_in_pipeline():
-    from sklearn.pipeline import make_pipeline
+    from sklearn.pipeline import make_pipeline  # clint: disable=package-import-in-test
 
     mlflow.xgboost.autolog()
     mlflow.sklearn.autolog()
@@ -680,7 +680,7 @@ def test_callback_func_is_pickable():
     reason="`xgboost.callback.TrainingCallback` is not supported",
 )
 def test_callback_class_is_pickable():
-    from mlflow.xgboost._autolog import AutologCallback
+    from mlflow.xgboost._autolog import AutologCallback  # clint: disable=package-import-in-test
 
     cb = AutologCallback(BatchMetricsLogger(run_id="1234"), eval_results={})
     pickle.dumps(cb)

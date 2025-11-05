@@ -43,8 +43,8 @@ def test_list_run_experiment_id_required():
     reason="Skinny Client does not support predict due to the pandas dependency",
 )
 def test_csv_generation(tmp_path):
-    import numpy as np
-    import pandas as pd
+    import numpy as np  # clint: disable=package-import-in-test
+    import pandas as pd  # clint: disable=package-import-in-test
 
     with mock.patch(
         "mlflow.experiments.fluent.search_runs",

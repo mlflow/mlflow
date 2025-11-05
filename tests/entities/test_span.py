@@ -372,9 +372,14 @@ def sample_otel_span_for_conversion():
 )
 def test_otel_attribute_conversion(attributes):
     """Test attribute conversion with various data types."""
-    from opentelemetry.proto.common.v1.common_pb2 import KeyValue
+    from opentelemetry.proto.common.v1.common_pb2 import (  # clint: disable=package-import-in-test
+        KeyValue,  # clint: disable=package-import-in-test
+    )
 
-    from mlflow.tracing.utils.otlp import _decode_otel_proto_anyvalue, _set_otel_proto_anyvalue
+    from mlflow.tracing.utils.otlp import (  # clint: disable=package-import-in-test
+        _decode_otel_proto_anyvalue,
+        _set_otel_proto_anyvalue,
+    )
 
     # Convert attributes to proto format
     proto_attrs = []
@@ -443,7 +448,9 @@ def test_span_from_otel_proto_conversion():
     otel_proto.status.message = "Error occurred"
 
     # Add attributes
-    from mlflow.tracing.utils.otlp import _set_otel_proto_anyvalue
+    from mlflow.tracing.utils.otlp import (  # clint: disable=package-import-in-test
+        _set_otel_proto_anyvalue,  # clint: disable=package-import-in-test
+    )
 
     attr2 = otel_proto.attributes.add()
     attr2.key = "mlflow.spanType"

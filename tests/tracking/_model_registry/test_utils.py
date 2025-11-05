@@ -136,7 +136,9 @@ def test_explicit_registry_uri_overrides_databricks_default():
 
 def test_registry_uri_from_environment_overrides_databricks_default():
     """Test that registry URI from environment variable overrides databricks default"""
-    from mlflow.environment_variables import MLFLOW_REGISTRY_URI
+    from mlflow.environment_variables import (  # clint: disable=package-import-in-test
+        MLFLOW_REGISTRY_URI,  # clint: disable=package-import-in-test
+    )
 
     tracking_uri = "databricks://workspace"
     env_registry_uri = "http://env-registry-server:5000"
@@ -222,7 +224,9 @@ def test_resolve_registry_uri_consistency_with_get_registry_uri(
 
 
 def test_resolve_registry_uri_with_environment_variable():
-    from mlflow.environment_variables import MLFLOW_REGISTRY_URI
+    from mlflow.environment_variables import (  # clint: disable=package-import-in-test
+        MLFLOW_REGISTRY_URI,  # clint: disable=package-import-in-test
+    )
 
     env_registry_uri = "http://env-registry:5000"
     tracking_uri = "databricks://workspace"

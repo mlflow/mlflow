@@ -1034,7 +1034,7 @@ def test_search_runs_all_experiments(search_runs_output_format):
     """
     When no experiment ID is specified but flag is passed, it should search all experiments.
     """
-    from mlflow.entities import Experiment
+    from mlflow.entities import Experiment  # clint: disable=package-import-in-test
 
     mock_experiment_id = mock.Mock()
     mock_experiment = mock.Mock(Experiment)
@@ -1937,7 +1937,7 @@ def test_last_logged_model_log_model():
 
 def test_last_logged_model_autolog():
     try:
-        from sklearn.linear_model import LinearRegression
+        from sklearn.linear_model import LinearRegression  # clint: disable=package-import-in-test
 
         mlflow.sklearn.autolog(log_models=True)
 

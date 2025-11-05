@@ -98,7 +98,9 @@ def test_run_context_provider_registry_with_installed_plugin():
 
     reload(mlflow.tracking.request_header.registry)
 
-    from mlflow_test_plugin.request_header_provider import PluginRequestHeaderProvider
+    from mlflow_test_plugin.request_header_provider import (  # clint: disable=package-import-in-test  # noqa: E501
+        PluginRequestHeaderProvider,  # clint: disable=package-import-in-test
+    )
 
     assert PluginRequestHeaderProvider in _currently_registered_request_header_provider_classes()
 

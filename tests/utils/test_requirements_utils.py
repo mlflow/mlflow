@@ -205,10 +205,14 @@ def test_prune_packages():
 
 
 def test_capture_imported_modules():
-    from mlflow.utils._capture_modules import _CaptureImportedModules
+    from mlflow.utils._capture_modules import (  # clint: disable=package-import-in-test
+        _CaptureImportedModules,  # clint: disable=package-import-in-test
+    )
 
     with _CaptureImportedModules() as cap:
-        import math  # clint: disable=lazy-builtin-import  # noqa: F401
+        # fmt: off
+        import math  # clint: disable=lazy-builtin-import  # clint: disable=package-import-in-test  # noqa: F401,E501
+        # fmt: on
 
         __import__("pandas")
         importlib.import_module("numpy")
@@ -243,7 +247,7 @@ def test_get_installed_version(tmp_path, monkeypatch):
 
 def test_package_with_mismatched_pypi_and_import_name():
     try:
-        import dspy  # noqa: F401
+        import dspy  # noqa: F401  # clint: disable=package-import-in-test
 
         assert _get_installed_version("dspy") == version("dspy-ai")
     except ImportError:
@@ -289,7 +293,9 @@ def test_infer_requirements_excludes_mlflow():
 
 
 def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_path):
-    from mlflow.utils._capture_modules import _CaptureImportedModules
+    from mlflow.utils._capture_modules import (  # clint: disable=package-import-in-test
+        _CaptureImportedModules,  # clint: disable=package-import-in-test
+    )
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.syspath_prepend(str(tmp_path))
@@ -311,11 +317,11 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
         # Delete `databricks` from the cache to ensure we load from the dummy module created above.
         if "databricks" in sys.modules:
             del sys.modules["databricks"]
-        import databricks
-        import databricks.automl
-        import databricks.automl_foo
-        import databricks.automl_runtime
-        import databricks.model_monitoring
+        import databricks  # clint: disable=package-import-in-test
+        import databricks.automl  # clint: disable=package-import-in-test
+        import databricks.automl_foo  # clint: disable=package-import-in-test
+        import databricks.automl_runtime  # clint: disable=package-import-in-test
+        import databricks.model_monitoring  # clint: disable=package-import-in-test
 
     assert "databricks.automl" in cap.imported_modules
     assert "databricks.model_monitoring" in cap.imported_modules
@@ -323,11 +329,11 @@ def test_capture_imported_modules_scopes_databricks_imports(monkeypatch, tmp_pat
     assert "databricks.automl_foo" not in cap.imported_modules
 
     with _CaptureImportedModules() as cap:
-        import databricks.automl
-        import databricks.automl_foo
-        import databricks.automl_runtime
-        import databricks.model_monitoring
-        import databricks.other  # noqa: F401
+        import databricks.automl  # clint: disable=package-import-in-test
+        import databricks.automl_foo  # clint: disable=package-import-in-test
+        import databricks.automl_runtime  # clint: disable=package-import-in-test
+        import databricks.model_monitoring  # clint: disable=package-import-in-test
+        import databricks.other  # noqa: F401  # clint: disable=package-import-in-test
 
     assert "databricks.automl" in cap.imported_modules
     assert "databricks.model_monitoring" in cap.imported_modules
@@ -448,7 +454,7 @@ def test_gateway_extra_not_captured_when_importing_deployment_client_only():
 
 
 def test_warn_dependency_requirement_mismatches():
-    import sklearn
+    import sklearn  # clint: disable=package-import-in-test
 
     with mock.patch("mlflow.utils.requirements_utils._logger.warning") as mock_warning:
         # Test case: all packages satisfy requirements.
@@ -693,7 +699,9 @@ def test_capture_imported_modules_extra_env_vars(monkeypatch):
 )
 def test_infer_pip_requirements_on_databricks_agents(tmp_path):
     # import here to avoid breaking this test suite on mlflow-skinny
-    from mlflow.pyfunc import _get_pip_requirements_from_model_path
+    from mlflow.pyfunc import (  # clint: disable=package-import-in-test
+        _get_pip_requirements_from_model_path,  # clint: disable=package-import-in-test
+    )
 
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input, params=None):

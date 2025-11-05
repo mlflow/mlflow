@@ -201,7 +201,7 @@ def test_lgb_autolog_sklearn():
 
 
 def test_lgb_autolog_sklearn_nested_in_pipeline():
-    from sklearn.pipeline import make_pipeline
+    from sklearn.pipeline import make_pipeline  # clint: disable=package-import-in-test
 
     mlflow.lightgbm.autolog()
     mlflow.sklearn.autolog()

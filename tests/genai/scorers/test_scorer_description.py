@@ -118,7 +118,7 @@ def test_scorer_serialization(description: str | None):
 
 
 def test_scorer_deserialization_with_description():
-    from mlflow.genai.scorers.base import Scorer
+    from mlflow.genai.scorers.base import Scorer  # clint: disable=package-import-in-test
 
     description = "Test description for deserialization"
 

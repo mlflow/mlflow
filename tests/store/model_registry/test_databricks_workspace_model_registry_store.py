@@ -257,7 +257,9 @@ def test_copy_model_version_unity_catalog_registered_model_already_exists(
         mock_uc_store_class.return_value = mock_uc_store
 
         # Mock create_registered_model to raise RESOURCE_ALREADY_EXISTS error
-        from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+        from mlflow.protos.databricks_pb2 import (  # clint: disable=package-import-in-test
+            RESOURCE_ALREADY_EXISTS,  # clint: disable=package-import-in-test
+        )
 
         # Create a mock exception with the correct error_code
         mock_exception = MlflowException("Model already exists", error_code=RESOURCE_ALREADY_EXISTS)

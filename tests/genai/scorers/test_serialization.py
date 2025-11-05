@@ -49,7 +49,9 @@ def test_decorator_scorer_serialization_format():
 
 def test_builtin_scorer_serialization_format():
     """Test that builtin scorers serialize with correct format."""
-    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+    from mlflow.genai.scorers.builtin_scorers import (  # clint: disable=package-import-in-test
+        RelevanceToQuery,  # clint: disable=package-import-in-test
+    )
 
     serialized = RelevanceToQuery().model_dump()
 
@@ -343,7 +345,9 @@ test_results = {
 def test_builtin_scorer_round_trip():
     """Test builtin scorer serialization and execution with mocking."""
     # from mlflow.genai.scorers import relevance_to_query
-    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+    from mlflow.genai.scorers.builtin_scorers import (  # clint: disable=package-import-in-test
+        RelevanceToQuery,  # clint: disable=package-import-in-test
+    )
 
     # Round-trip serialization
     serialized = RelevanceToQuery().model_dump()
@@ -387,7 +391,9 @@ def test_builtin_scorer_round_trip():
 
 def test_builtin_scorer_with_parameters_round_trip():
     """Test builtin scorer with custom parameters (like Guidelines with guidelines)."""
-    from mlflow.genai.scorers.builtin_scorers import Guidelines
+    from mlflow.genai.scorers.builtin_scorers import (  # clint: disable=package-import-in-test
+        Guidelines,  # clint: disable=package-import-in-test
+    )
 
     # Create scorer with custom parameters
     tone = (
@@ -493,7 +499,9 @@ def test_direct_subclass_scorer_rejected():
 
 def test_builtin_scorer_with_aggregations_round_trip():
     """Test builtin scorer with aggregations serialization and execution."""
-    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+    from mlflow.genai.scorers.builtin_scorers import (  # clint: disable=package-import-in-test
+        RelevanceToQuery,  # clint: disable=package-import-in-test
+    )
 
     scorer_with_aggs = RelevanceToQuery(name="relevance_with_aggs", aggregations=["mean", "max"])
 
@@ -568,7 +576,9 @@ def test_builtin_scorer_with_custom_name_compatibility():
     deserialized = Scorer.model_validate(fixed_serialized_data)
 
     # Verify correct type and properties
-    from mlflow.genai.scorers.builtin_scorers import Guidelines
+    from mlflow.genai.scorers.builtin_scorers import (  # clint: disable=package-import-in-test
+        Guidelines,  # clint: disable=package-import-in-test
+    )
 
     assert isinstance(deserialized, Guidelines)
     assert deserialized.name == "custom_guidelines"

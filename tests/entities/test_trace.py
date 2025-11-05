@@ -160,7 +160,7 @@ def test_json_deserialization(monkeypatch):
     importlib.util.find_spec("pydantic") is None, reason="Pydantic is not installed"
 )
 def test_trace_serialize_pydantic_model():
-    from pydantic import BaseModel
+    from pydantic import BaseModel  # clint: disable=package-import-in-test
 
     class MyModel(BaseModel):
         x: int
@@ -176,7 +176,7 @@ def test_trace_serialize_pydantic_model():
     importlib.util.find_spec("langchain") is None, reason="langchain is not installed"
 )
 def test_trace_serialize_langchain_base_message():
-    from langchain_core.messages import BaseMessage
+    from langchain_core.messages import BaseMessage  # clint: disable=package-import-in-test
 
     message = BaseMessage(
         content=[

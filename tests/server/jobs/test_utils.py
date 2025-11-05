@@ -58,7 +58,7 @@ def test_validate_function_parameters_with_positional_args():
 
 
 def test_job_status_conversion():
-    from mlflow.entities._job_status import JobStatus
+    from mlflow.entities._job_status import JobStatus  # clint: disable=package-import-in-test
 
     assert JobStatus.from_int(1) == JobStatus.RUNNING
     assert JobStatus.from_str("RUNNING") == JobStatus.RUNNING

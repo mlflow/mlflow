@@ -317,7 +317,7 @@ def test_uc_models_artifact_repo_list_artifacts_uses_temporary_creds(monkeypatch
 
 
 def test_get_feature_dependencies_doesnt_throw():
-    import mlflow
+    import mlflow  # clint: disable=package-import-in-test
 
     class MyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):

@@ -107,7 +107,10 @@ def test_trace_halted_after_timeout(monkeypatch):
 def test_trace_halted_after_timeout_in_model_serving(
     monkeypatch, mock_databricks_serving_with_tracing_env
 ):
-    from mlflow.pyfunc.context import Context, set_prediction_context
+    from mlflow.pyfunc.context import (  # clint: disable=package-import-in-test
+        Context,
+        set_prediction_context,
+    )
 
     monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "3")
 

@@ -62,7 +62,9 @@ def test_langgraph_save_as_code():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 async def test_langgraph_tracing_prebuilt(is_async):
-    from tests.langgraph.sample_code.langgraph_prebuilt import graph
+    from tests.langgraph.sample_code.langgraph_prebuilt import (  # clint: disable=package-import-in-test  # noqa: E501
+        graph,  # clint: disable=package-import-in-test
+    )
 
     mlflow.langchain.autolog()
 
@@ -193,7 +195,9 @@ def test_langgraph_tracing_with_custom_span():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 async def test_langgraph_tracing_with_parent_span(is_async):
-    from tests.langgraph.sample_code.langgraph_prebuilt import graph
+    from tests.langgraph.sample_code.langgraph_prebuilt import (  # clint: disable=package-import-in-test  # noqa: E501
+        graph,  # clint: disable=package-import-in-test
+    )
 
     mlflow.langchain.autolog()
 

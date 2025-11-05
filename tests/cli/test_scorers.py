@@ -268,7 +268,7 @@ def test_list_scorers_long_names(
 
 
 def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
-    from mlflow.genai.judges import make_judge
+    from mlflow.genai.judges import make_judge  # clint: disable=package-import-in-test
 
     judge1 = make_judge(
         name="quality_judge",

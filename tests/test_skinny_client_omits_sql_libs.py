@@ -7,7 +7,7 @@ import pytest
     "MLFLOW_SKINNY" not in os.environ, reason="This test is only valid for the skinny client"
 )
 def test_fails_import_sqlalchemy():
-    import mlflow  # noqa: F401
+    import mlflow  # noqa: F401  # clint: disable=package-import-in-test
 
     with pytest.raises(ImportError, match="sqlalchemy"):
-        import sqlalchemy  # noqa: F401
+        import sqlalchemy  # noqa: F401  # clint: disable=package-import-in-test

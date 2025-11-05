@@ -2367,15 +2367,17 @@ def test_search_prompts_uc(mock_http, store, monkeypatch):
 
 def test_search_prompts_with_results_uc(store, monkeypatch):
     # Create mock protobuf objects
-    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    # fmt: off
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (  # clint: disable=package-import-in-test  # noqa: E501
         Prompt as ProtoPrompt,
     )
-    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (  # clint: disable=package-import-in-test  # noqa: E501
         PromptTag as ProtoPromptTag,
     )
-    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (  # clint: disable=package-import-in-test  # noqa: E501
         SearchPromptsResponse,
     )
+    # fmt: on
 
     # Create mock prompt data
     mock_prompt_1 = ProtoPrompt(
