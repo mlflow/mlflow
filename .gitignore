@@ -134,6 +134,3 @@ gunicorn.conf.py
 # except commands and skills
 !.claude/commands/
 !.claude/skills/
-test_disable.py
-test_multi_import.py
-test_check.py
