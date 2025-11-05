@@ -6,12 +6,24 @@ import { ModelTraceInfoV3 } from '@mlflow/mlflow/src/shared/web-shared/model-tra
 export const useExportTracesToDatasetModal = ({ experimentId }: { experimentId: string }) => {
   const [visible, setVisible] = useState(false);
   const renderExportTracesToDatasetsModal = useCallback(
-    ({ selectedTraceInfos }: { selectedTraceInfos: ModelTraceInfoV3[] }) => (
+    ({
+      selectedTraceInfos,
+      onSuccess,
+    }: {
+      selectedTraceInfos: ModelTraceInfoV3[];
+      onSuccess?: (args: {
+        experimentId: string;
+        datasetId: string;
+        datasetName: string;
+        count: number;
+      }) => void;
+    }) => (
       <ExportTracesToDatasetModal
         experimentId={experimentId}
         visible={visible}
         setVisible={setVisible}
         selectedTraceInfos={selectedTraceInfos}
+        onSuccess={onSuccess}
       />
     ),
     [experimentId, visible, setVisible],

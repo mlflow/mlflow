@@ -2,7 +2,7 @@ import type { RowSelectionState } from '@tanstack/react-table';
 import { compact, isNil } from 'lodash';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
-import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
+import { Button, Tooltip, DropdownMenu, ChevronDownIcon, Notification } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
@@ -11,6 +11,9 @@ import type { RunEvaluationTracesDataEntry, TraceActions } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
 import { applyTraceInfoV3ToEvalEntry, getRowIdFromTrace } from './utils/TraceUtils';
 import type { ModelTraceInfoV3 } from '../model-trace-explorer';
+import Routes from '../../../experiment-tracking/routes';
+import { ExperimentPageTabName } from '../../../experiment-tracking/constants';
+import { Link } from '../../../common/utils/RoutingUtils';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -100,6 +103,9 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
 
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationContent, setNotificationContent] = useState<React.ReactNode>(null);
+
   const handleExportToDatasets = useCallback(() => {
     traceActions?.exportToEvals?.setShowExportTracesToDatasetsModal(true);
   }, [traceActions?.exportToEvals]);
@@ -134,6 +140,14 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   return (
     <>
+      {showNotification && (
+        <Notification.Provider>
+          <Notification.Root severity="success" componentId="mlflow.genai-traces-table.export.notification">
+            <Notification.Title>{notificationContent}</Notification.Title>
+          </Notification.Root>
+          <Notification.Viewport />
+        </Notification.Provider>
+      )}
       <DropdownMenu.Root>
         {noTracesSelected ? (
           <Tooltip
@@ -218,6 +232,21 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
       {showDatasetModal &&
         traceActions?.exportToEvals?.renderExportTracesToDatasetsModal({
           selectedTraceInfos: compact(selectedTraces.map((trace) => trace.traceInfo)),
+          onSuccess: ({ experimentId, datasetId, datasetName, count }) => {
+            setShowNotification(true);
+            const targetUrl = `${Routes.getExperimentPageTabRoute(
+              experimentId,
+              ExperimentPageTabName.Datasets,
+            )}?selectedDatasetId=${datasetId}`;
+            setNotificationContent(
+              <span>
+                Exported {count} traces to dataset <strong>{datasetName}</strong>.
+                <br />
+                <Link to={targetUrl}>Open dataset.</Link>
+              </span>,
+            );
+            setTimeout(() => setShowNotification(false), 5000);
+          },
         })}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (

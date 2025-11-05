@@ -37,11 +37,18 @@ export const ExportTracesToDatasetModal = ({
   visible,
   setVisible,
   selectedTraceInfos,
+  onSuccess,
 }: {
   experimentId: string;
   visible: boolean;
   setVisible: (visible: boolean) => void;
   selectedTraceInfos: ModelTrace['info'][];
+  onSuccess?: (args: {
+    experimentId: string;
+    datasetId: string;
+    datasetName: string;
+    count: number;
+  }) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [searchFilter, setSearchFilter] = useState('');
@@ -82,8 +89,16 @@ export const ExportTracesToDatasetModal = ({
   const selectedDatasets = table.getSelectedRowModel().rows.map((row) => row.original);
 
   const { upsertDatasetRecordsMutation, isLoading: isUpsertingDatasetRecords } = useUpsertDatasetRecordsMutation({
-    onSuccess: () => {
+    onSuccess: ({ variables }) => {
       setVisible(false);
+      const affected = selectedDatasets.find((d) => d.dataset_id === variables.datasetId);
+      if (!affected) return;
+      onSuccess?.({
+        experimentId,
+        datasetId: affected.dataset_id,
+        datasetName: affected.name,
+        count: datasetRowsToExport.length,
+      });
     },
   });
 

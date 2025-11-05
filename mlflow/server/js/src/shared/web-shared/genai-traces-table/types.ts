@@ -134,16 +134,23 @@ export interface EvaluationsOverviewTableSort {
   asc: boolean;
 }
 
-export interface TraceActions {
-  exportToEvals?: {
-    showExportTracesToDatasetsModal: boolean;
-    setShowExportTracesToDatasetsModal: (visible: boolean) => void;
-    renderExportTracesToDatasetsModal: ({
-      selectedTraceInfos,
-    }: {
-      selectedTraceInfos: ModelTraceInfoV3[];
-    }) => React.ReactNode;
-  };
+  export interface TraceActions {
+    exportToEvals?: {
+      showExportTracesToDatasetsModal: boolean;
+      setShowExportTracesToDatasetsModal: (visible: boolean) => void;
+      renderExportTracesToDatasetsModal: ({
+        selectedTraceInfos,
+        onSuccess,
+      }: {
+        selectedTraceInfos: ModelTraceInfoV3[];
+        onSuccess?: (args: {
+          experimentId: string;
+          datasetId: string;
+          datasetName: string;
+          count: number;
+        }) => void;
+      }) => React.ReactNode;
+    };
   deleteTracesAction?: {
     deleteTraces?: (experimentId: string, traceIds: string[]) => Promise<any>;
     isDisabled?: boolean;
