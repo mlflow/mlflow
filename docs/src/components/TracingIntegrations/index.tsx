@@ -28,6 +28,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks',
   },
   {
+    id: 'vercelai',
+    name: 'Vercel AI SDK',
+    logoPath: '/images/logos/vercel-logo.svg',
+    link: '/genai/tracing/integrations/listing/vercelai',
+    category: 'Agent Frameworks',
+  },
+  {
     id: 'crewai',
     name: 'CrewAI',
     logoPath: '/images/logos/crewai-logo.png',

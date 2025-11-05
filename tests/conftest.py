@@ -592,6 +592,10 @@ def reset_tracing():
     InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
 
+    # Reset opentelemetry tracer provider as well
+    trace_api._TRACER_PROVIDER_SET_ONCE._done = False
+    trace_api._TRACER_PROVIDER = None
+
 
 def _is_span_active():
     span = trace_api.get_current_span()

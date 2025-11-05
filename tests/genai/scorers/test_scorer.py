@@ -432,6 +432,7 @@ def test_make_judge_scorer_works_without_databricks_uri():
     judge_scorer = make_judge(
         instructions="Evaluate if the {{outputs}} is helpful and relevant",
         name="helpfulness_judge",
+        feedback_value_type=str,
     )
 
     registered_scorer = judge_scorer.register(experiment_id=experiment_id, name="helpfulness_judge")

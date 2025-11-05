@@ -955,7 +955,6 @@ class MlflowClient:
         # with a Run is expected to be small.
         return [model_version_to_prompt_version(mv) for mv in mvs]
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
@@ -970,7 +969,6 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:

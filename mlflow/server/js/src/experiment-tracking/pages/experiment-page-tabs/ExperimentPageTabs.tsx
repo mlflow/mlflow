@@ -8,35 +8,17 @@ import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxSto
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentKind, ExperimentPageTabName } from '../../constants';
-import {
-  shouldEnableExperimentKindInference,
-  shouldEnableExperimentPageChildRoutes,
-} from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useUpdateExperimentKind } from '../../components/experiment-page/hooks/useUpdateExperimentKind';
 import { ExperimentViewHeaderKindSelector } from '../../components/experiment-page/components/header/ExperimentViewHeaderKindSelector';
 import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
-import { EvaluationSubTabSelector } from './EvaluationSubTabSelector';
-import { LabelingSubTabSelector } from './LabelingSubTabSelector';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
-
-const ExperimentRunsPage = React.lazy(() => import('../experiment-runs/ExperimentRunsPage'));
-const ExperimentTracesPage = React.lazy(() => import('../experiment-traces/ExperimentTracesPage'));
-
-const ExperimentLoggedModelListPage = React.lazy(
-  () => import('../experiment-logged-models/ExperimentLoggedModelListPage'),
-);
-
-const ExperimentEvaluationRunsPage = React.lazy(
-  () => import('../experiment-evaluation-runs/ExperimentEvaluationRunsPage'),
-);
-
-const ExperimentEvaluationDatasetsPage = React.lazy(
-  () => import('../experiment-evaluation-datasets/ExperimentEvaluationDatasetsPage'),
-);
+import { ExperimentPageSubTabSelector } from './ExperimentPageSubTabSelector';
+import { ExperimentPageSideNav, ExperimentPageSideNavSkeleton } from './side-nav/ExperimentPageSideNav';
 
 const ExperimentPageTabsImpl = () => {
   const { experimentId, tabName } = useParams();
@@ -47,11 +29,6 @@ const ExperimentPageTabsImpl = () => {
   const activeTab = activeTabByRoute ?? coerceToEnum(ExperimentPageTabName, tabName, ExperimentPageTabName.Models);
 
   invariant(experimentId, 'Experiment ID must be defined');
-  if (!shouldEnableExperimentPageChildRoutes()) {
-    // When child routes mode are not enabled, we expect the `tabName` to be defined.
-    // Otherwise, this component is just an outlet for the experiment page child routes.
-    invariant(tabName, 'Tab name must be defined');
-  }
 
   const {
     data: experiment,
@@ -81,6 +58,8 @@ const ExperimentPageTabsImpl = () => {
   const canUpdateExperimentKind = true;
 
   const experimentKind = getExperimentKindFromTags(experimentTags);
+  // We won't try to infer the experiment kind if it's already set, but we also wait for experiment to load
+  const isExperimentKindInferenceEnabled = Boolean(experiment && !experimentKind);
 
   const {
     inferredExperimentKind,
@@ -90,7 +69,7 @@ const ExperimentPageTabsImpl = () => {
   } = useInferExperimentKind({
     experimentId,
     isLoadingExperiment: loadingExperiment,
-    enabled: shouldEnableExperimentKindInference() && !experimentKind,
+    enabled: isExperimentKindInferenceEnabled,
     experimentTags,
     updateExperimentKind,
   });
@@ -100,7 +79,7 @@ const ExperimentPageTabsImpl = () => {
   const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
   // ...if true, we want to navigate to the appropriate tab based on the experiment kind
   useNavigateToExperimentPageTab({
-    enabled: shouldEnableExperimentPageChildRoutes() && matchedExperimentPageWithoutTab,
+    enabled: matchedExperimentPageWithoutTab,
     experimentId,
   });
 
@@ -116,11 +95,7 @@ const ExperimentPageTabsImpl = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId, inferredExperimentPageTab]);
 
-  if (
-    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
-    canUpdateExperimentKind &&
-    shouldEnableExperimentKindInference()
-  ) {
+  if (inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE && canUpdateExperimentKind) {
     return (
       <ExperimentViewInferredKindModal
         onConfirm={(kind) => {
@@ -129,7 +104,7 @@ const ExperimentPageTabsImpl = () => {
             {
               onSettled: () => {
                 dismiss();
-                if (shouldEnableExperimentPageChildRoutes() && kind === ExperimentKind.GENAI_DEVELOPMENT) {
+                if (kind === ExperimentKind.GENAI_DEVELOPMENT) {
                   // If the experiment kind is GENAI_DEVELOPMENT, we want to navigate to the Traces tab
                   navigate(Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Traces), {
                     replace: true,
@@ -143,6 +118,20 @@ const ExperimentPageTabsImpl = () => {
       />
     );
   }
+
+  const outletComponent = (
+    <React.Suspense
+      fallback={
+        <>
+          {[...Array(8).keys()].map((i) => (
+            <ParagraphSkeleton label="Loading..." key={i} seed={`s-${i}`} />
+          ))}
+        </>
+      }
+    >
+      <Outlet />
+    </React.Suspense>
+  );
 
   return (
     <>
@@ -164,39 +153,38 @@ const ExperimentPageTabsImpl = () => {
           />
         }
       />
-      {activeTab === ExperimentPageTabName.EvaluationRuns || activeTab === ExperimentPageTabName.Datasets ? (
-        <EvaluationSubTabSelector experimentId={experimentId} activeTab={activeTab} />
-      ) : activeTab === ExperimentPageTabName.LabelingSessions ||
-        activeTab === ExperimentPageTabName.LabelingSchemas ? (
-        <LabelingSubTabSelector experimentId={experimentId} activeTab={activeTab} />
-      ) : (
+      {!shouldEnableExperimentPageSideTabs() && (
         <>
+          <ExperimentPageSubTabSelector experimentId={experimentId} activeTab={activeTab} />
           <Spacer size="sm" shrinks={false} />
-          <div css={{ width: '100%', borderTop: `1px solid ${theme.colors.border}` }} />
         </>
       )}
-      <Spacer size="sm" shrinks={false} />
-      <React.Suspense
-        fallback={
-          <>
-            {[...Array(8).keys()].map((i) => (
-              <ParagraphSkeleton label="Loading..." key={i} seed={`s-${i}`} />
-            ))}
-          </>
-        }
-      >
-        {shouldEnableExperimentPageChildRoutes() ? (
-          <Outlet />
-        ) : (
-          <>
-            {activeTab === ExperimentPageTabName.Traces && <ExperimentTracesPage />}
-            {activeTab === ExperimentPageTabName.Runs && <ExperimentRunsPage />}
-            {activeTab === ExperimentPageTabName.Models && <ExperimentLoggedModelListPage />}
-            {activeTab === ExperimentPageTabName.EvaluationRuns && <ExperimentEvaluationRunsPage />}
-            {activeTab === ExperimentPageTabName.Datasets && <ExperimentEvaluationDatasetsPage />}
-          </>
-        )}
-      </React.Suspense>
+      {shouldEnableExperimentPageSideTabs() ? (
+        <div css={{ display: 'flex', flex: 1, minWidth: 0, minHeight: 0 }}>
+          {loadingExperiment || inferringExperimentType ? (
+            <ExperimentPageSideNavSkeleton />
+          ) : (
+            <ExperimentPageSideNav
+              experimentKind={experimentKind ?? inferredExperimentKind ?? ExperimentKind.CUSTOM_MODEL_DEVELOPMENT}
+              activeTab={activeTab}
+            />
+          )}
+          <div
+            css={{
+              display: 'flex',
+              flexDirection: 'column',
+              padding: theme.spacing.sm,
+              flex: 1,
+              minWidth: 0,
+              minHeight: 0,
+            }}
+          >
+            {outletComponent}
+          </div>
+        </div>
+      ) : (
+        outletComponent
+      )}
     </>
   );
 };

@@ -17,7 +17,6 @@ import { GenAiTracesTableSearchInput } from './GenAiTracesTableSearchInput';
 import { EvaluationsOverviewColumnSelectorGrouped } from './components/EvaluationsOverviewColumnSelectorGrouped';
 import { EvaluationsOverviewSortDropdown } from './components/EvaluationsOverviewSortDropdown';
 import type {
-  TraceInfoV3,
   EvaluationsOverviewTableSort,
   TraceActions,
   AssessmentInfo,
@@ -26,6 +25,7 @@ import type {
   TableFilterOptions,
 } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 interface CountInfo {
   currentCount?: number;
@@ -43,7 +43,7 @@ interface GenAITracesTableToolbarProps {
   assessmentInfos: AssessmentInfo[];
 
   // Table data
-  traceInfos: TraceInfoV3[] | undefined;
+  traceInfos: ModelTraceInfoV3[] | undefined;
 
   // Filters
   searchQuery: string;
@@ -109,13 +109,14 @@ export const GenAITracesTableToolbar: React.FC<React.PropsWithChildren<GenAITrac
           display: 'flex',
           width: '100%',
           alignItems: 'flex-end',
-          justifyContent: 'space-between',
+          gap: theme.spacing.sm,
           paddingBottom: `${theme.spacing.xs}px`,
         }}
       >
         <TableFilterLayout
           css={{
             marginBottom: 0,
+            flex: 1,
           }}
         >
           <GenAiTracesTableSearchInput searchQuery={searchQuery} setSearchQuery={setSearchQuery} />

@@ -114,7 +114,9 @@ __all__ = [
     "AssessmentSourceType",
     "Expectation",
     "Feedback",
-    "EvaluationDataset",
+    # Note: EvaluationDataset is intentionally excluded from __all__ to prevent
+    # circular import issues during plugin registration. It can still be imported
+    # explicitly via: from mlflow.entities import EvaluationDataset
     "DatasetRecord",
     "DatasetRecordSource",
     "DatasetRecordSourceType",
