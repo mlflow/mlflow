@@ -7,9 +7,11 @@ import { getUser } from '@databricks/web-shared/global-settings';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { GenAITracesTableToolbar } from './GenAITracesTableToolbar';
+import type { GetTraceFunction } from './index';
 import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } from './index';
-import type { TraceInfoV3, TableFilter, EvaluationsOverviewTableSort, TraceActions } from './types';
+import type { TableFilter, EvaluationsOverviewTableSort, TraceActions } from './types';
 import { TracesTableColumnType, TracesTableColumnGroup, FilterOperator } from './types';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000);
@@ -42,7 +44,7 @@ describe('GenAITracesTableToolbar - integration test', () => {
   });
 
   const renderTestComponent = (
-    traceInfos: TraceInfoV3[] = [],
+    traceInfos: ModelTraceInfoV3[] = [],
     additionalProps: Partial<ComponentProps<typeof GenAITracesTableToolbar>> = {},
   ) => {
     const defaultAssessmentInfos = [

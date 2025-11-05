@@ -3,11 +3,11 @@ import { useIntl } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
-import type { TraceInfoV3 } from '../types';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 export const TokensCell = (props: {
-  currentTraceInfo?: TraceInfoV3;
-  otherTraceInfo?: TraceInfoV3;
+  currentTraceInfo?: ModelTraceInfoV3;
+  otherTraceInfo?: ModelTraceInfoV3;
   isComparing: boolean;
 }) => {
   const { currentTraceInfo, otherTraceInfo, isComparing } = props;
@@ -20,7 +20,7 @@ export const TokensCell = (props: {
   );
 };
 
-const TokenComponent = (props: { traceInfo?: TraceInfoV3; isComparing: boolean }) => {
+const TokenComponent = (props: { traceInfo?: ModelTraceInfoV3; isComparing: boolean }) => {
   const { traceInfo, isComparing } = props;
 
   const tokenUsage = traceInfo?.trace_metadata?.['mlflow.trace.tokenUsage'];

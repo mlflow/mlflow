@@ -20,25 +20,30 @@ import {
   useTableColumns,
   CUSTOM_METADATA_COLUMN_ID,
 } from './useTableColumns';
+import {
+  TracesServiceV4,
+  type ModelTraceInfoV3,
+  type ModelTraceLocationMlflowExperiment,
+  type ModelTraceLocationUcSchema,
+} from '../../model-trace-explorer';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
 import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { TracesTableColumnGroup } from '../types';
+import { HiddenFilterOperator, TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
   AssessmentFilter,
   RunEvaluationTracesDataEntry,
   TableFilter,
-  TraceInfoV3,
   TableFilterOptions,
 } from '../types';
 import { getAssessmentInfos } from '../utils/AggregationUtils';
 import { filterEvaluationResults } from '../utils/EvaluationsFilterUtils';
 import {
   shouldEnableUnifiedEvalTab,
-  shouldUseRunIdFilterInSearchTraces,
   getMlflowTracesSearchPageSize,
   getEvalTabTotalTracesLimit,
+  shouldUseTracesV4API,
 } from '../utils/FeatureUtils';
 import { fetchFn, getAjaxUrl } from '../utils/FetchUtils';
 import MlflowUtils from '../utils/MlflowUtils';
@@ -49,20 +54,13 @@ import {
 } from '../utils/TraceUtils';
 
 interface SearchMlflowTracesRequest {
-  locations?: SearchMlflowLocations[];
+  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   filter?: string;
   max_results: number;
   page_token?: string;
   order_by?: string[];
   model_id?: string;
   sql_warehouse_id?: string;
-}
-
-interface SearchMlflowLocations {
-  type: 'MLFLOW_EXPERIMENT';
-  mlflow_experiment: {
-    experiment_id: string;
-  };
 }
 
 export const SEARCH_MLFLOW_TRACES_QUERY_KEY = 'searchMlflowTraces';
@@ -72,7 +70,7 @@ export const invalidateMlflowSearchTracesCache = ({ queryClient }: { queryClient
 };
 
 export const useMlflowTracesTableMetadata = ({
-  experimentId,
+  locations,
   runUuid,
   timeRange,
   otherRunUuid,
@@ -82,7 +80,7 @@ export const useMlflowTracesTableMetadata = ({
   disabled,
   networkFilters,
 }: {
-  experimentId: string;
+  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string;
   timeRange?: { startTime?: string; endTime?: string };
   otherRunUuid?: string;
@@ -109,7 +107,7 @@ export const useMlflowTracesTableMetadata = ({
     isLoading: isInnerLoading,
     error,
   } = useSearchMlflowTracesInner({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' }],
+    locations,
     filter,
     loggedModelId,
     sqlWarehouseId,
@@ -124,7 +122,7 @@ export const useMlflowTracesTableMetadata = ({
     isLoading: isOtherInnerLoading,
     error: otherError,
   } = useSearchMlflowTracesInner({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' }],
+    locations,
     filter: otherFilter,
     enabled: !disabled && Boolean(otherRunUuid),
     loggedModelId,
@@ -182,9 +180,9 @@ export const useMlflowTracesTableMetadata = ({
     return {
       assessmentInfos,
       allColumns,
+      totalCount: evaluatedTraces.length,
       evaluatedTraces,
       otherEvaluatedTraces,
-      totalCount: evaluatedTraces.length,
       isLoading: isInnerLoading && !disabled,
       error,
       isEmpty: evaluatedTraces.length === 0,
@@ -196,14 +194,15 @@ export const useMlflowTracesTableMetadata = ({
     isInnerLoading,
     error,
     evaluatedTraces,
-    otherEvaluatedTraces,
     tableFilterOptions,
     disabled,
+    otherEvaluatedTraces,
   ]);
 };
 
 const getNetworkAndClientFilters = (
   filters: TableFilter[],
+  assessmentsFilteredOnClientSide = true,
 ): {
   networkFilters: TableFilter[];
   clientFilters: TableFilter[];
@@ -213,8 +212,8 @@ const getNetworkAndClientFilters = (
     clientFilters: TableFilter[];
   }>(
     (acc, filter) => {
-      // MLflow search api does not support assessment filters, so we need to pass them as client filters
-      if (filter.column === TracesTableColumnGroup.ASSESSMENT) {
+      // mlflow search api does not support assessment filters, so we need to pass them as client filters
+      if (filter.column === TracesTableColumnGroup.ASSESSMENT && assessmentsFilteredOnClientSide) {
         acc.clientFilters.push(filter);
       } else {
         acc.networkFilters.push(filter);
@@ -226,7 +225,7 @@ const getNetworkAndClientFilters = (
 };
 
 export const useSearchMlflowTraces = ({
-  experimentId,
+  locations,
   currentRunDisplayName,
   runUuid,
   timeRange,
@@ -240,7 +239,7 @@ export const useSearchMlflowTraces = ({
   loggedModelId,
   sqlWarehouseId,
 }: {
-  experimentId: string;
+  locations: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   runUuid?: string | null;
   timeRange?: { startTime?: string; endTime?: string };
   searchQuery?: string;
@@ -265,15 +264,26 @@ export const useSearchMlflowTraces = ({
   sqlWarehouseId?: string;
   tableSort?: EvaluationsOverviewTableSort;
 }): {
-  data: TraceInfoV3[] | undefined;
+  data: ModelTraceInfoV3[] | undefined;
   isLoading: boolean;
   isFetching: boolean;
   error?: NetworkRequestError;
-  refetchMlflowTraces?: UseQueryResult<TraceInfoV3[], NetworkRequestError>['refetch'];
+  refetchMlflowTraces?: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>['refetch'];
 } => {
-  const { networkFilters, clientFilters } = getNetworkAndClientFilters(filters || []);
+  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
 
-  const filter = createMlflowSearchFilter(runUuid, timeRange, networkFilters, filterByLoggedModelId);
+  // For APIS <=v3, filter traces by assessments or search query on the client side
+  const useClientSideFiltering = !usingV4APIs;
+
+  const { networkFilters, clientFilters } = getNetworkAndClientFilters(filters || [], useClientSideFiltering);
+
+  const filter = createMlflowSearchFilter(
+    runUuid,
+    timeRange,
+    networkFilters,
+    filterByLoggedModelId,
+    useClientSideFiltering ? undefined : searchQuery,
+  );
   const orderBy = createMlflowSearchOrderBy(tableSort);
 
   const {
@@ -283,7 +293,7 @@ export const useSearchMlflowTraces = ({
     error,
     refetch: refetchMlflowTraces,
   } = useSearchMlflowTracesInner({
-    locations: [{ mlflow_experiment: { experiment_id: experimentId ?? '' }, type: 'MLFLOW_EXPERIMENT' }],
+    locations,
     filter,
     enabled: !disabled,
     pageSize,
@@ -307,12 +317,12 @@ export const useSearchMlflowTraces = ({
     });
   }, [traces]);
 
-  // TODO: Remove this once mlflow apis support filtering
-  const filteredTraces: TraceInfoV3[] | undefined = useMemo(() => {
+  const filteredTraces: ModelTraceInfoV3[] | undefined = useMemo(() => {
     if (!evalTraceComparisonEntries) return undefined;
 
-    if (searchQuery === '' && clientFilters?.length === 0) {
-      return evalTraceComparisonEntries.reduce<TraceInfoV3[]>((acc, entry) => {
+    // If client filters are disabled or empty, return all traces.
+    if (!useClientSideFiltering || (searchQuery === '' && clientFilters?.length === 0)) {
+      return evalTraceComparisonEntries.reduce<ModelTraceInfoV3[]>((acc, entry) => {
         if (entry.currentRunValue?.traceInfo) {
           acc.push(entry.currentRunValue.traceInfo);
         }
@@ -334,7 +344,7 @@ export const useSearchMlflowTraces = ({
       searchQuery,
       currentRunDisplayName,
       undefined,
-    ).reduce<TraceInfoV3[]>((acc, entry) => {
+    ).reduce<ModelTraceInfoV3[]>((acc, entry) => {
       if (entry.currentRunValue?.traceInfo) {
         acc.push(entry.currentRunValue.traceInfo);
       }
@@ -342,7 +352,7 @@ export const useSearchMlflowTraces = ({
     }, []);
 
     return res;
-  }, [evalTraceComparisonEntries, clientFilters, searchQuery, currentRunDisplayName]);
+  }, [evalTraceComparisonEntries, useClientSideFiltering, clientFilters, searchQuery, currentRunDisplayName]);
 
   const tracesFilteredBySourceRun = useMemo(
     () => filterTracesByAssessmentSourceRunId(filteredTraces, runUuid),
@@ -367,6 +377,81 @@ export const useSearchMlflowTraces = ({
 };
 
 /**
+ * Query function for searching MLflow traces.
+ * Fetches all traces for given locations/filters, paginating through results.
+ */
+export const searchMlflowTracesQueryFn = async ({
+  signal,
+  locations,
+  filter,
+  pageSize: pageSizeProp,
+  limit: limitProp,
+  orderBy,
+  loggedModelId,
+  sqlWarehouseId,
+}: {
+  signal?: AbortSignal;
+  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
+  filter?: string;
+  pageSize?: number;
+  limit?: number;
+  orderBy?: string[];
+  loggedModelId?: string;
+  sqlWarehouseId?: string;
+}): Promise<ModelTraceInfoV3[]> => {
+  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+
+  if (usingV4APIs) {
+    return TracesServiceV4.searchTracesV4({
+      signal,
+      orderBy,
+      locations,
+      filter,
+    });
+  }
+  let allTraces: ModelTraceInfoV3[] = [];
+  let pageToken: string | undefined = undefined;
+
+  const pageSize = pageSizeProp || getMlflowTracesSearchPageSize();
+  const tracesLimit = limitProp || getEvalTabTotalTracesLimit();
+
+  while (allTraces.length < tracesLimit) {
+    const payload: SearchMlflowTracesRequest = {
+      locations,
+      filter,
+      max_results: pageSize,
+      order_by: orderBy,
+    };
+    if (loggedModelId && sqlWarehouseId) {
+      payload.model_id = loggedModelId;
+      payload.sql_warehouse_id = sqlWarehouseId;
+    }
+    if (pageToken) {
+      payload.page_token = pageToken;
+    }
+    const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal,
+    });
+    if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
+    const json = (await queryResponse.json()) as { traces: ModelTraceInfoV3[]; next_page_token?: string };
+    const traces = json.traces;
+    if (!isNil(traces)) {
+      allTraces = allTraces.concat(traces);
+    }
+
+    // If there's no next page, break out of the loop.
+    pageToken = json.next_page_token;
+    if (!pageToken) break;
+  }
+  return allTraces;
+};
+
+/**
  * Fetches all mlflow traces for a given location/filter in a synchronous loop.
  * The results of all the traces are cached under a single key.
  * TODO: De-dup with useSearchMlflowTraces defined in webapp/web/js/genai
@@ -382,70 +467,57 @@ const useSearchMlflowTracesInner = ({
   enabled,
   ...rest
 }: {
-  locations?: SearchMlflowLocations[];
+  locations?: (ModelTraceLocationMlflowExperiment | ModelTraceLocationUcSchema)[];
   filter?: string;
   pageSize?: number;
   limit?: number;
   orderBy?: string[];
   loggedModelId?: string;
   sqlWarehouseId?: string;
-} & Omit<UseQueryOptions<TraceInfoV3[], NetworkRequestError>, 'queryFn'>) => {
-  return useQuery<TraceInfoV3[], NetworkRequestError>({
-    staleTime: Infinity,
-    cacheTime: Infinity,
+} & Omit<UseQueryOptions<ModelTraceInfoV3[], NetworkRequestError>, 'queryFn'>) => {
+  const usingV4APIs = locations?.some((location) => location.type === 'UC_SCHEMA') && shouldUseTracesV4API();
+
+  // In V4 API, we use server-side for all filters so we can keep previous data to smooth out UX and use default cache values.
+  // In previous APIs, we relied on client-side filtering so we want to cache indefinitely.
+  const queryCacheConfig = useMemo(
+    () =>
+      usingV4APIs
+        ? {
+            keepPreviousData: true,
+            refetchOnWindowFocus: false,
+          }
+        : {
+            staleTime: Infinity,
+            cacheTime: Infinity,
+          },
+    [usingV4APIs],
+  );
+
+  return useQuery<ModelTraceInfoV3[], NetworkRequestError>({
+    ...queryCacheConfig,
     enabled,
     queryKey: [
       SEARCH_MLFLOW_TRACES_QUERY_KEY,
       {
-        experimentIds: (locations || []).map((x) => x.mlflow_experiment?.experiment_id),
+        locations,
         filter,
         orderBy,
         loggedModelId,
         sqlWarehouseId,
+        pageSize: pageSizeProp,
       },
     ],
-    queryFn: async ({ signal }) => {
-      let allTraces: TraceInfoV3[] = [];
-      let pageToken: string | undefined = undefined;
-
-      const pageSize = pageSizeProp || getMlflowTracesSearchPageSize();
-      const tracesLimit = limitProp || getEvalTabTotalTracesLimit();
-
-      while (allTraces.length < tracesLimit) {
-        const payload: SearchMlflowTracesRequest = {
-          locations,
-          filter,
-          max_results: pageSize,
-          order_by: orderBy,
-        };
-        if (loggedModelId && sqlWarehouseId) {
-          payload.model_id = loggedModelId;
-          payload.sql_warehouse_id = sqlWarehouseId;
-        }
-        if (pageToken) {
-          payload.page_token = pageToken;
-        }
-        const queryResponse = await fetchFn(getAjaxUrl('ajax-api/3.0/mlflow/traces/search'), {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-          signal,
-        });
-        if (!queryResponse.ok) throw matchPredefinedErrorFromResponse(queryResponse);
-        const json = (await queryResponse.json()) as { traces: TraceInfoV3[]; next_page_token?: string };
-        const traces = json.traces;
-        if (!isNil(traces)) {
-          allTraces = allTraces.concat(traces);
-        }
-
-        // If there's no next page, break out of the loop.
-        pageToken = json.next_page_token;
-        if (!pageToken) break;
-      }
-      return allTraces;
-    },
+    queryFn: ({ signal }) =>
+      searchMlflowTracesQueryFn({
+        signal,
+        locations,
+        filter,
+        pageSize: pageSizeProp,
+        limit: limitProp,
+        orderBy,
+        loggedModelId,
+        sqlWarehouseId,
+      }),
     ...rest,
   });
 };
@@ -461,8 +533,8 @@ const useSearchMlflowTracesInner = ({
  */
 const buildTracesFromSearchAndArtifacts = (
   artifactData: RunEvaluationTracesDataEntry[],
-  searchRes: UseQueryResult<TraceInfoV3[], NetworkRequestError>,
-  runUuid?: string | null,
+  searchRes: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>,
+  runUuid?: string,
 ): {
   data: RunEvaluationTracesDataEntry[];
   shouldUseTraceV3: boolean;
@@ -480,7 +552,7 @@ const buildTracesFromSearchAndArtifacts = (
   // except for traceInfo.
   return {
     data: filteredSearchData
-      .filter((trace): trace is TraceInfoV3 => trace !== null && trace !== undefined)
+      .filter((trace): trace is ModelTraceInfoV3 => trace !== null && trace !== undefined)
       .map((trace) => {
         return {
           evaluationId: '',
@@ -504,15 +576,14 @@ const createMlflowSearchFilter = (
   timeRange?: { startTime?: string; endTime?: string } | null,
   networkFilters?: TableFilter[],
   loggedModelId?: string,
+  searchQuery?: string,
 ) => {
   const filter: string[] = [];
-  const useRunIdInSearchTraces = shouldUseRunIdFilterInSearchTraces();
   if (runUuid) {
-    if (useRunIdInSearchTraces) {
-      filter.push(`attributes.run_id = '${runUuid}'`);
-    } else {
-      filter.push(`request_metadata."mlflow.sourceRun" = '${runUuid}'`);
-    }
+    filter.push(`attributes.run_id = '${runUuid}'`);
+  }
+  if (searchQuery) {
+    filter.push(`span.attributes.\`mlflow.spanInputs\` ILIKE '%${searchQuery}%'`);
   }
   if (timeRange) {
     const timestampField = 'attributes.timestamp_ms';
@@ -552,11 +623,7 @@ const createMlflowSearchFilter = (
           filter.push(`request_metadata."mlflow.trace.user" = '${networkFilter.value}'`);
           break;
         case RUN_NAME_COLUMN_ID:
-          if (useRunIdInSearchTraces) {
-            filter.push(`attributes.run_id = '${networkFilter.value}'`);
-          } else {
-            filter.push(`request_metadata."mlflow.sourceRun" = '${networkFilter.value}'`);
-          }
+          filter.push(`attributes.run_id = '${networkFilter.value}'`);
           break;
         case LOGGED_MODEL_COLUMN_ID:
           filter.push(`request_metadata."mlflow.modelId" = '${networkFilter.value}'`);
@@ -567,13 +634,16 @@ const createMlflowSearchFilter = (
         case SOURCE_COLUMN_ID:
           filter.push(`request_metadata."mlflow.source.name" ${networkFilter.operator} '${networkFilter.value}'`);
           break;
+        case TracesTableColumnGroup.ASSESSMENT:
+          filter.push(`feedback.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case TracesTableColumnGroup.EXPECTATION:
+          filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {
-            filter.push(
-              `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)} ${networkFilter.operator} '${
-                networkFilter.value
-              }'`,
-            );
+            const columnKey = `request_metadata.${getCustomMetadataKeyFromColumnId(networkFilter.column)}`;
+            filter.push(`${columnKey} ${networkFilter.operator} '${networkFilter.value}'`);
           }
           break;
       }
@@ -668,7 +738,7 @@ export const useMlflowTraces = (
   }
 
   return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
+    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid ?? undefined),
     isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
     refetchMlflowTraces: searchRes.refetch,
   };

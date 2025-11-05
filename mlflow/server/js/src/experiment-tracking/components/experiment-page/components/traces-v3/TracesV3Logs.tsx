@@ -21,18 +21,35 @@ import {
   TOKENS_COLUMN_ID,
   invalidateMlflowSearchTracesCache,
   TRACE_ID_COLUMN_ID,
+  createTraceLocationForExperiment,
 } from '@databricks/web-shared/genai-traces-table';
 import { useMarkdownConverter } from '@mlflow/mlflow/src/common/utils/MarkdownUtils';
 import { shouldEnableTraceInsights } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useDeleteTracesMutation } from '../../../evaluations/hooks/useDeleteTraces';
 import { useEditExperimentTraceTags } from '../../../traces/hooks/useEditExperimentTraceTags';
 import { useIntl } from '@databricks/i18n';
-import { getTrace } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
+import { getTrace as getTraceV3 } from '@mlflow/mlflow/src/experiment-tracking/utils/TraceUtils';
 import { TracesV3EmptyState } from './TracesV3EmptyState';
 import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
+
+const ContextProviders = ({
+  children,
+  makeHtmlFromMarkdown,
+  experimentId,
+}: {
+  makeHtmlFromMarkdown: (markdown?: string) => string;
+  experimentId?: string;
+  children: React.ReactNode;
+}) => {
+  return (
+    <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+      {children}
+    </GenAiTracesMarkdownConverterProvider>
+  );
+};
 
 const TracesV3LogsImpl = React.memo(
   ({
@@ -50,6 +67,20 @@ const TracesV3LogsImpl = React.memo(
     const intl = useIntl();
     const enableTraceInsights = shouldEnableTraceInsights();
 
+    const traceSearchLocations = useMemo(
+      () => {
+        return [createTraceLocationForExperiment(experimentId)];
+      },
+      // prettier-ignore
+      [
+        experimentId,
+      ],
+    );
+
+    const isQueryDisabled = false;
+
+    const getTrace = getTraceV3;
+
     // Get metadata
     const {
       assessmentInfos,
@@ -61,7 +92,7 @@ const TracesV3LogsImpl = React.memo(
       isEmpty,
       tableFilterOptions,
     } = useMlflowTracesTableMetadata({
-      experimentId,
+      locations: traceSearchLocations,
       timeRange,
       filterByLoggedModelId: loggedModelId,
     });
@@ -106,7 +137,7 @@ const TracesV3LogsImpl = React.memo(
 
     // Set the initial time filter when there are no traces
     const { isInitialTimeFilterLoading } = useSetInitialTimeFilter({
-      experimentId,
+      locations: traceSearchLocations,
       isTracesEmpty: isEmpty,
       isTraceMetadataLoading: isMetadataLoading,
     });
@@ -117,7 +148,7 @@ const TracesV3LogsImpl = React.memo(
       isLoading: traceInfosLoading,
       error: traceInfosError,
     } = useSearchMlflowTraces({
-      experimentId,
+      locations: traceSearchLocations,
       currentRunDisplayName: endpointName,
       searchQuery,
       filters,
@@ -133,7 +164,6 @@ const TracesV3LogsImpl = React.memo(
     const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
       onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
       existingTagKeys: getTracesTagKeys(traceInfos || []),
-      useV3Apis: true,
     });
 
     const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
@@ -176,6 +206,8 @@ const TracesV3LogsImpl = React.memo(
     }, [traceInfos, totalCount, traceInfosLoading]);
 
     const isTableLoading = traceInfosLoading || isInitialTimeFilterLoading || isMetadataLoading;
+    const displayLoadingOverlay = false;
+
     const tableError = traceInfosError || metadataError;
     const isTableEmpty = isEmpty && !isTableLoading && !tableError;
 
@@ -183,7 +215,14 @@ const TracesV3LogsImpl = React.memo(
     const renderMainContent = () => {
       // If isEmpty and not enableTraceInsights, show empty state without navigation
       if (!enableTraceInsights && isTableEmpty) {
-        return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
+        return (
+          <TracesV3EmptyState
+            experimentIds={[experimentId]}
+            loggedModelId={loggedModelId}
+            traceSearchLocations={traceSearchLocations}
+            isCallDisabled={isQueryDisabled}
+          />
+        );
       }
       // Default traces view with optional navigation
       return (
@@ -235,7 +274,7 @@ const TracesV3LogsImpl = React.memo(
                 />
               </div>
             ) : (
-              <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
+              <ContextProviders makeHtmlFromMarkdown={makeHtmlFromMarkdown} experimentId={experimentId}>
                 <GenAITracesTableBodyContainer
                   experimentId={experimentId}
                   allColumns={allColumns}
@@ -247,18 +286,15 @@ const TracesV3LogsImpl = React.memo(
                   filters={filters}
                   selectedColumns={selectedColumns}
                   tableSort={tableSort}
+                  onTraceTagsEdit={showEditTagsModalForTrace}
+                  displayLoadingOverlay={displayLoadingOverlay}
                 />
-              </GenAiTracesMarkdownConverterProvider>
+              </ContextProviders>
             )}
           </div>
         </div>
       );
     };
-
-    // Early return for empty state without insights
-    if (!enableTraceInsights && isTableEmpty) {
-      return <TracesV3EmptyState experimentIds={[experimentId]} loggedModelId={loggedModelId} />;
-    }
 
     // Single unified layout with toolbar and content
     return (

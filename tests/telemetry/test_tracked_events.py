@@ -19,6 +19,7 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
     CreateDatasetEvent,
@@ -435,7 +436,7 @@ def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
         mock_store_instance = mock.MagicMock()
         mock_store.return_value = mock_store_instance
         mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
@@ -667,6 +668,24 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
 
 
+def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.ai_commands import commands
+
+    runner = CliRunner(catch_exceptions=False)
+    # Test CLI context
+    with mock.patch("mlflow.ai_commands.get_command", return_value="---\ntest\n---\nTest command"):
+        result = runner.invoke(commands, ["run", "test_command"])
+        assert result.exit_code == 0
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        AiCommandRunEvent.name,
+        {"command_key": "test_command", "context": "cli"},
+    )
+
+
 def test_git_model_versioning(mock_requests, mock_telemetry_client):
     from mlflow.genai import enable_git_model_versioning
 
@@ -771,6 +790,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": "openai"}
     validate_telemetry_record(
@@ -780,6 +800,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     make_judge(
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": None}
     validate_telemetry_record(
@@ -792,6 +813,7 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
 
     traces = [

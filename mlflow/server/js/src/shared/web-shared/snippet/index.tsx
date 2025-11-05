@@ -94,6 +94,7 @@ export function CodeSnippet({
   lineNumberStyle,
   wrapLongLines,
   wrapLines,
+  lineProps,
   PreTag,
 }: CodeSnippetProps) {
   const customStyle = {
@@ -113,6 +114,7 @@ export function CodeSnippet({
       codeTagProps={{
         style: pick(style, 'backgroundColor'),
       }}
+      lineProps={lineProps}
       wrapLongLines={wrapLongLines}
       wrapLines={wrapLines}
       PreTag={PreTag}
