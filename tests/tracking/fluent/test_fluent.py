@@ -23,6 +23,7 @@ import mlflow.tracking.context.registry
 import mlflow.tracking.fluent
 from mlflow import MlflowClient, clear_active_model, set_active_model
 from mlflow.data.http_dataset_source import HTTPDatasetSource
+from mlflow.data.meta_dataset import MetaDataset
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities import (
     LifecycleStage,
@@ -2391,9 +2392,6 @@ def test_log_metric_with_dataset_entity():
 
     Regression test for issue #18573.
     """
-    from mlflow.data.http_dataset_source import HTTPDatasetSource
-    from mlflow.data.meta_dataset import MetaDataset
-
     # Test with mlflow.entities.Dataset (retrieved from run.inputs)
     with mlflow.start_run() as run:
         dataset_source = HTTPDatasetSource(url="some_uri")
