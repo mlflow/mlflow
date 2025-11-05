@@ -524,7 +524,7 @@ def construct_eval_result_df(
             df["assessments"].apply(lambda x: _get_assessment_values(x, run_id)).apply(pd.Series)
         )
         trace_id_column = df.pop("trace_id")
-        return pd.concat([trace_id_column, df, assessments], axis=1)
+        return pd.concat([trace_id_column, assessments, df], axis=1)
     except Exception as e:
         _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
         return pd.DataFrame()
