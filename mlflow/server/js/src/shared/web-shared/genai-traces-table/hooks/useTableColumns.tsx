@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 
 import type { IntlShape } from '@databricks/i18n';
 
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { KnownEvaluationResultAssessmentName } from '../enum';
-import type { AssessmentInfo, RunEvaluationTracesDataEntry, TraceInfoV3, TracesTableColumn } from '../types';
+import type { AssessmentInfo, RunEvaluationTracesDataEntry, TracesTableColumn } from '../types';
 import { TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
@@ -70,16 +71,16 @@ export const useTableColumns = (
     let inputCols = [];
     if (!isTraceInfoV3) {
       let inputKeys = new Set<string>();
-      let traceInfoColumns = new Set<keyof TraceInfoV3>();
+      let traceInfoColumns = new Set<keyof ModelTraceInfoV3>();
 
       currentEvaluationResults.forEach((result) => {
         const { inputs } = result;
         inputKeys = new Set<string>([...inputKeys, ...Object.keys(inputs || {})]);
 
-        traceInfoColumns = new Set<keyof TraceInfoV3>([
+        traceInfoColumns = new Set<keyof ModelTraceInfoV3>([
           ...traceInfoColumns,
           ...Object.keys(result.traceInfo || {}),
-        ] as (keyof TraceInfoV3)[]);
+        ] as (keyof ModelTraceInfoV3)[]);
       });
 
       inputCols = [...inputKeys].map((key) => ({
@@ -170,6 +171,10 @@ export const useTableColumns = (
           label: intl.formatMessage({
             defaultMessage: 'Execution time',
             description: 'Column label for execution time',
+          }),
+          filterLabel: intl.formatMessage({
+            defaultMessage: 'Execution time (ms)',
+            description: 'Column label for execution time with the unit suffix',
           }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,

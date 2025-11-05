@@ -1,5 +1,6 @@
 ---
 allowed-tools: Read, Skill, Bash, Grep, Glob, mcp__review__fetch_diff, mcp__review__add_pr_review_comment
+argument-hint: [extra_context]
 description: Review a GitHub pull request and add review comments for issues found
 ---
 
@@ -10,7 +11,20 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 ## Usage
 
 ```
-/pr-review
+/pr-review [extra_context]
+```
+
+## Arguments
+
+- `extra_context` (optional): Additional instructions or filtering context (e.g., focus on specific issues or areas)
+
+## Examples
+
+```
+/pr-review                                    # Review all changes
+/pr-review Please focus on security issues    # Focus on security
+/pr-review Only review Python files           # Filter specific file types
+/pr-review Check for performance issues       # Focus on specific concern
 ```
 
 ## Instructions
@@ -31,6 +45,8 @@ Automatically review a GitHub pull request and provide feedback on code quality,
 - **If reviewing Python files**: Read `dev/guides/python.md` and create a checklist of all style rules with their exceptions before proceeding
 
 ### 3. Review Changed Lines
+
+**Apply additional filtering** from user instructions if provided (e.g., focus on specific issues or areas)
 
 Carefully examine **only the changed lines** (added or modified) in the diff for:
 

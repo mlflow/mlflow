@@ -19,10 +19,8 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 ### Start the Full Development Environment (Recommended)
 
 ```bash
-# Kill any existing servers
-pkill -f "mlflow server" || true; pkill -f "yarn start" || true
-
 # Start both MLflow backend and React frontend dev servers
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -48,6 +46,7 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -129,7 +128,7 @@ uv run --all-extras bash dev/build-docs.sh --build-api-docs
 uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
 
 # Serve documentation locally (after building)
-cd docs && yarn serve --port 8080
+cd docs && npm run serve --port 8080
 ```
 
 ## Important Files

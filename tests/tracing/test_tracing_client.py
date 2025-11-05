@@ -9,10 +9,11 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities.span import create_mlflow_span
 from mlflow.environment_variables import MLFLOW_TRACING_SQL_WAREHOUSE_ID
+from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
 from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import SpansLocation, TraceTagKey
+from mlflow.tracing.constant import SpansLocation, TraceMetadataKey, TraceSizeStatsKey, TraceTagKey
 from mlflow.tracing.utils import TraceJSONEncoder
 
 from tests.tracing.helper import skip_when_testing_trace_sdk
@@ -216,3 +217,45 @@ def test_tracing_client_get_trace_with_database_stored_spans():
     assert loaded_span.end_time_ns == 2_000_000_000
     assert loaded_span.attributes.get("llm.model_name") == "test-model"
     assert loaded_span.attributes.get("custom.attribute") == "test-value"
+
+
+@skip_when_testing_trace_sdk
+def test_tracing_client_get_trace_error_handling():
+    client = TracingClient()
+
+    experiment_id = mlflow.create_experiment("test")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    store = client.store
+
+    otel_span = OTelReadableSpan(
+        name="test_span",
+        context=trace_api.SpanContext(
+            trace_id=12345,
+            span_id=111,
+            is_remote=False,
+            trace_flags=trace_api.TraceFlags(1),
+        ),
+        parent=None,
+        attributes={
+            "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
+            "llm.model_name": "test-model",
+            "custom.attribute": "test-value",
+        },
+        start_time=1_000_000_000,
+        end_time=2_000_000_000,
+        resource=None,
+    )
+
+    span = create_mlflow_span(otel_span, trace_id, "LLM")
+
+    store.log_spans(experiment_id, [span])
+    trace = client.get_trace(trace_id)
+    trace_info = trace.info
+    trace_info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(
+        {TraceSizeStatsKey.NUM_SPANS: 2}
+    )
+    store.start_trace(trace_info)
+
+    with pytest.raises(MlflowException, match=rf"Trace with ID {trace_id} is not found"):
+        client.get_trace(trace_id)

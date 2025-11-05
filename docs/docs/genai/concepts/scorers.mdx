@@ -94,6 +94,8 @@ from mlflow.genai.judges import make_judge
 import mlflow
 
 # Create an Agent-as-a-Judge that analyzes execution patterns
+from typing import Literal
+
 efficiency_judge = make_judge(
     name="efficiency_analyzer",
     instructions=(
@@ -104,6 +106,7 @@ efficiency_judge = make_judge(
         "- Unnecessary data processing\n\n"
         "Rate as: 'efficient', 'acceptable', or 'inefficient'"
     ),
+    feedback_value_type=Literal["efficient", "acceptable", "inefficient"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 
@@ -168,6 +171,7 @@ correctness_judge = make_judge(
         "Evaluate if the response in {{ outputs }} "
         "correctly answers the question in {{ inputs }}."
     ),
+    feedback_value_type=bool,
     model="anthropic:/claude-opus-4-1-20250805",
 )
 
@@ -279,6 +283,7 @@ import mlflow
 quality_judge = make_judge(
     name="quality",
     instructions="Evaluate if {{ outputs }} meets quality standards for {{ inputs }}.",
+    feedback_value_type=bool,
     model="anthropic:/claude-opus-4-1-20250805",
 )
 

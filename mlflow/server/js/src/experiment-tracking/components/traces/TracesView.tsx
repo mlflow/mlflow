@@ -119,11 +119,6 @@ export const TracesView = ({
     [traces],
   );
 
-  const { showEditTagsModalForTrace, EditTagsModal } = useEditExperimentTraceTags({
-    onSuccess: () => refreshCurrentPage(true),
-    existingTagKeys,
-  });
-
   const usingFilters = filter !== '';
 
   const anyTraceContainsTokenCount = traces.some((trace) => !isNil(getTraceInfoTotalTokens(trace)));
@@ -173,7 +168,6 @@ export const TracesView = ({
         loading={loading}
         error={error}
         onTraceClicked={onTraceClicked}
-        onTraceTagsEdit={showEditTagsModalForTrace}
         hasNextPage={hasNextPage}
         hasPreviousPage={hasPreviousPage}
         onPreviousPage={onPreviousPage}
@@ -214,7 +208,6 @@ export const TracesView = ({
           onSelectSpan={setSelectedSpanId}
         />
       )}
-      {EditTagsModal}
     </div>
   );
 };

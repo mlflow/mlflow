@@ -4,6 +4,7 @@ sidebar_label: Optimize Prompts
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { CardGroup, Card } from "@site/src/components/Card";
 
 # Optimize Prompts (Experimental)
 
@@ -170,9 +171,8 @@ The API will automatically improve the prompt to better classify medical paper s
 
 ### Example: Simple Prompt → Optimized Prompt
 
-<table>
-<tr>
-<td width="50%" valign="top">
+<CardGroup cols={2}>
+<Card style={{ justifyContent: 'flex-start' }}>
 
 **Before Optimization:**
 
@@ -184,8 +184,8 @@ METHODS, OBJECTIVE, BACKGROUND.
 Sentence: {{sentence}}
 ```
 
-</td>
-<td width="50%" valign="top">
+</Card>
+<Card style={{ justifyContent: 'flex-start' }}>
 
 **After Optimization:**
 
@@ -249,9 +249,8 @@ Output constraint:
 - Return exactly one uppercase label: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, or BACKGROUND. No extra text or punctuation.
 ```
 
-</td>
-</tr>
-</table>
+</Card>
+</CardGroup>
 
 ## Components
 

@@ -64,17 +64,28 @@ logger = logging.getLogger(__name__)
 
 @lru_cache
 def base_lc_types():
-    # add this import to avoid missing module error
-    import langchain.agents
-    import langchain.agents.agent
-    import langchain.chains.base
-    import langchain.schema
+    """
+    Get base LangChain types (Chain, AgentExecutor, BaseRetriever).
 
-    return (
-        langchain.chains.base.Chain,
-        langchain.agents.agent.AgentExecutor,
-        langchain.schema.BaseRetriever,
+    Note: AgentExecutor was removed in langchain 1.0.0. Use LangGraph instead.
+    """
+    from mlflow.langchain._compat import (
+        import_base_retriever,
+        try_import_agent_executor,
+        try_import_chain,
     )
+
+    types = []
+
+    if chain_cls := try_import_chain():
+        types.append(chain_cls)
+
+    if agent_executor_cls := try_import_agent_executor():
+        types.append(agent_executor_cls)
+
+    types.append(import_base_retriever())
+
+    return tuple(types)
 
 
 @lru_cache
@@ -82,41 +93,48 @@ def picklable_runnable_types():
     """
     Runnable types that can be pickled and unpickled by cloudpickle.
     """
-    from langchain.chat_models.base import SimpleChatModel
-    from langchain.prompts import ChatPromptTemplate
-    from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
-
-    return (
-        SimpleChatModel,
-        ChatPromptTemplate,
-        RunnablePassthrough,
-        RunnableLambda,
+    from mlflow.langchain._compat import (
+        import_chat_prompt_template,
+        import_runnable_lambda,
+        import_runnable_passthrough,
+        try_import_simple_chat_model,
     )
+
+    types = [
+        import_chat_prompt_template(),
+        import_runnable_passthrough(),
+        import_runnable_lambda(),
+    ]
+
+    if simple_chat_model := try_import_simple_chat_model():
+        types.insert(0, simple_chat_model)
+
+    return tuple(types)
 
 
 @lru_cache
 def lc_runnable_with_steps_types():
-    from langchain.schema.runnable import RunnableParallel, RunnableSequence
+    from mlflow.langchain._compat import import_runnable_parallel, import_runnable_sequence
 
-    return (RunnableParallel, RunnableSequence)
+    return (import_runnable_parallel(), import_runnable_sequence())
 
 
 def lc_runnable_assign_types():
-    from langchain.schema.runnable.passthrough import RunnableAssign
+    from mlflow.langchain._compat import import_runnable_assign
 
-    return (RunnableAssign,)
+    return (import_runnable_assign(),)
 
 
 def lc_runnable_branch_types():
-    from langchain.schema.runnable import RunnableBranch
+    from mlflow.langchain._compat import import_runnable_branch
 
-    return (RunnableBranch,)
+    return (import_runnable_branch(),)
 
 
 def lc_runnable_binding_types():
-    from langchain.schema.runnable import RunnableBinding
+    from mlflow.langchain._compat import import_runnable_binding
 
-    return (RunnableBinding,)
+    return (import_runnable_binding(),)
 
 
 def lc_runnables_types():
@@ -142,7 +160,7 @@ def supported_lc_types():
     return base_lc_types() + lc_runnables_types() + langgraph_types()
 
 
-# Wrapping as a function to avoid callign supported_lc_types() at import time
+# Wrapping as a function to avoid calling supported_lc_types() at import time
 def get_unsupported_model_message(model_type):
     return (
         "MLflow langchain flavor only supports subclasses of "
@@ -155,11 +173,11 @@ def custom_type_to_loader_dict():
     # helper function to load output_parsers from config
     def _load_output_parser(config: dict[str, Any]) -> Any:
         """Load output parser."""
-        from langchain.schema.output_parser import StrOutputParser
+        from mlflow.langchain._compat import import_str_output_parser
 
         output_parser_type = config.pop("_type", None)
         if output_parser_type == "default":
-            return StrOutputParser(**config)
+            return import_str_output_parser()(**config)
         else:
             raise ValueError(f"Unsupported output parser {output_parser_type}")
 
@@ -181,8 +199,6 @@ def _get_special_chain_info_or_none(chain):
 
 @lru_cache
 def _get_map_of_special_chain_class_to_loader_arg():
-    from mlflow.langchain.retriever_chain import _RetrieverChain
-
     class_name_to_loader_arg = {
         "langchain.chains.RetrievalQA": "retriever",
         "langchain.chains.APIChain": "requests_wrapper",
@@ -193,9 +209,14 @@ def _get_map_of_special_chain_class_to_loader_arg():
         # Add this entry only if langchain_experimental is installed
         class_name_to_loader_arg["langchain_experimental.sql.SQLDatabaseChain"] = "database"
 
-    class_to_loader_arg = {
-        _RetrieverChain: "retriever",
-    }
+    class_to_loader_arg = {}
+    try:
+        from mlflow.langchain.retriever_chain import _RetrieverChain
+
+        class_to_loader_arg[_RetrieverChain] = "retriever"
+    except ImportError:
+        pass
+
     for class_name, loader_arg in class_name_to_loader_arg.items():
         try:
             cls = _get_class_from_string(class_name)
@@ -250,10 +271,14 @@ def _get_supported_llms():
 
 
 def _agent_executor_contains_unsupported_llm(lc_model, _SUPPORTED_LLMS):
-    import langchain.agents.agent
+    from mlflow.langchain._compat import try_import_agent_executor
+
+    agent_executor_cls = try_import_agent_executor()
+    if agent_executor_cls is None:
+        return False
 
     return (
-        isinstance(lc_model, langchain.agents.agent.AgentExecutor)
+        isinstance(lc_model, agent_executor_cls)
         # 'RunnableMultiActionAgent' object has no attribute 'llm_chain'
         and hasattr(lc_model.agent, "llm_chain")
         and not any(
@@ -265,14 +290,6 @@ def _agent_executor_contains_unsupported_llm(lc_model, _SUPPORTED_LLMS):
 
 # temp_dir is only required when lc_model could be a file path
 def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
-    import langchain.agents.agent
-    import langchain.chains.base
-    import langchain.chains.llm
-    import langchain.llms.huggingface_hub
-    import langchain.llms.openai
-    import langchain.schema
-
-    # lc_model is a file path
     if isinstance(lc_model, str):
         return _validate_and_get_model_code_path(lc_model, temp_dir)
 
@@ -282,8 +299,14 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
         )
 
     _SUPPORTED_LLMS = _get_supported_llms()
-    if isinstance(lc_model, langchain.chains.llm.LLMChain) and not any(
-        isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS
+
+    from mlflow.langchain._compat import try_import_llm_chain
+
+    llm_chain_cls = try_import_llm_chain()
+    if (
+        llm_chain_cls
+        and isinstance(lc_model, llm_chain_cls)
+        and not any(isinstance(lc_model.llm, supported_llm) for supported_llm in _SUPPORTED_LLMS)
     ):
         logger.warning(
             _UNSUPPORTED_LLM_WARNING_MESSAGE,
@@ -309,8 +332,17 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
             )
 
     # If lc_model is a retriever, wrap it in a _RetrieverChain
-    if isinstance(lc_model, langchain.schema.BaseRetriever):
-        from mlflow.langchain.retriever_chain import _RetrieverChain
+    from mlflow.langchain._compat import import_base_retriever
+
+    BaseRetriever = import_base_retriever()
+    if isinstance(lc_model, BaseRetriever):
+        try:
+            from mlflow.langchain.retriever_chain import _RetrieverChain
+        except ImportError:
+            raise mlflow.MlflowException.invalid_parameter_value(
+                "_RetrieverChain is not available. It requires langchain<1.0.0. "
+                "For langchain>=1.0.0, please use LangGraph instead."
+            )
 
         if loader_fn is None:
             raise mlflow.MlflowException.invalid_parameter_value(
@@ -326,10 +358,17 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
 
 
 def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
-    from langchain.agents.agent import AgentExecutor
-    from langchain.chains.base import Chain
-    from langchain.chains.llm import LLMChain
-    from langchain.chat_models.base import BaseChatModel
+    from mlflow.langchain._compat import (
+        try_import_agent_executor,
+        try_import_base_chat_model,
+        try_import_chain,
+        try_import_llm_chain,
+    )
+
+    AgentExecutor = try_import_agent_executor()
+    Chain = try_import_chain()
+    LLMChain = try_import_llm_chain()
+    BaseChatModel = try_import_base_chat_model()
 
     model_data_path = os.path.join(path, _MODEL_DATA_YAML_FILE_NAME)
     model_data_kwargs = {
@@ -337,9 +376,12 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
         _MODEL_LOAD_KEY: _BASE_LOAD_KEY,
     }
 
-    if isinstance(model, (LLMChain, BaseChatModel)):
+    is_llm_chain = LLMChain and isinstance(model, LLMChain)
+    is_base_chat_model = BaseChatModel and isinstance(model, BaseChatModel)
+
+    if is_llm_chain or is_base_chat_model:
         model.save(model_data_path)
-    elif isinstance(model, AgentExecutor):
+    elif AgentExecutor and isinstance(model, AgentExecutor):
         if model.agent and getattr(model.agent, "llm_chain", None):
             model.agent.llm_chain.save(model_data_path)
 
@@ -394,7 +436,7 @@ def _save_base_lcs(model, path, loader_fn=None, persist_dir=None):
 
         # Save model
         model.save(model_data_path)
-    elif isinstance(model, Chain):
+    elif Chain and isinstance(model, Chain):
         logger.warning(get_unsupported_model_message(type(model).__name__))
         model.save(model_data_path)
     else:
@@ -467,9 +509,17 @@ def _load_base_lcs(
     model_type = conf.get(_MODEL_TYPE_KEY)
     loader_arg = conf.get(_LOADER_ARG_KEY)
 
-    from langchain.chains.loading import load_chain
+    load_chain = None
+    try:
+        from langchain.chains.loading import load_chain
+    except ImportError:
+        pass
 
-    from mlflow.langchain.retriever_chain import _RetrieverChain
+    _RetrieverChain = None
+    try:
+        from mlflow.langchain.retriever_chain import _RetrieverChain
+    except ImportError:
+        pass
 
     if loader_arg is not None:
         if loader_fn_path is None:
@@ -478,14 +528,39 @@ def _load_base_lcs(
             )
         loader_fn = _load_from_pickle(loader_fn_path)
         kwargs = {loader_arg: loader_fn(persist_dir)}
-        if model_type == _RetrieverChain.__name__:
+        if _RetrieverChain and model_type == _RetrieverChain.__name__:
             model = _RetrieverChain.load(lc_model_path, **kwargs).retriever
         else:
+            if load_chain is None:
+                raise mlflow.MlflowException(
+                    "Cannot load model: langchain.chains.loading.load_chain is not available. "
+                    "This may be because you're using langchain>=1.0.0. "
+                    "Please use a model saved with langchain>=1.0.0."
+                )
             model = _patch_loader(load_chain)(lc_model_path, **kwargs)
     elif agent_path is None and tools_path is None:
+        if load_chain is None:
+            raise mlflow.MlflowException(
+                "Cannot load model: langchain.chains.loading.load_chain is not available. "
+                "This may be because you're using langchain>=1.0.0. "
+                "Please use a model saved with langchain>=1.0.0."
+            )
         model = _patch_loader(load_chain)(lc_model_path)
     else:
-        from langchain.agents import initialize_agent
+        try:
+            from langchain.agents import initialize_agent
+        except ImportError:
+            raise mlflow.MlflowException(
+                "Cannot load AgentExecutor: langchain.agents.initialize_agent is not available. "
+                "AgentExecutor was removed in langchain 1.0.0. Please use LangGraph instead."
+            )
+
+        if load_chain is None:
+            raise mlflow.MlflowException(
+                "Cannot load model: langchain.chains.loading.load_chain is not available. "
+                "This may be because you're using langchain>=1.0.0. "
+                "Please use a model saved with langchain>=1.0.0."
+            )
 
         llm = _patch_loader(load_chain)(lc_model_path)
         tools = []

@@ -32,6 +32,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.telemetry.events import LoadPromptEvent
+from mlflow.telemetry.track import record_usage_event
 from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -682,6 +684,7 @@ def search_prompts(
 
 
 @require_prompt_registry
+@record_usage_event(LoadPromptEvent)
 def load_prompt(
     name_or_uri: str,
     version: str | int | None = None,

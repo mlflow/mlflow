@@ -14,8 +14,8 @@ import { Code, Activity, Target, Database, BarChart3, Rocket, CheckCircle, FileT
 
 This guide demonstrates the complete workflow for building and evaluating GenAI applications using MLflow's evaluation-driven development approach.
 
-:::warning
-**Databricks Users**: This workflow uses MLflow OSS evaluation dataset APIs. For Databricks environments, use the `databricks-agents` package instead, which provides optimized dataset management integrated with Unity Catalog.
+:::note
+**Databricks Users**: To use Evaluation Datasets with Databricks Unity Catalog, MLflow requires the additional installation of the `databricks-agents` package. This package uses Unity Catalog to store datasets. Install it with: `pip install databricks-agents`
 :::
 
 ## Workflow Overview
