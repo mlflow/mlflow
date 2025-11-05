@@ -1,19 +1,11 @@
 import { compact, sortBy } from 'lodash';
 
-import {
-  type ModelTraceInfoV3,
-  SESSION_ID_METADATA_KEY,
-  SOURCE_NAME_METADATA_KEY,
-  SOURCE_TYPE_METADATA_KEY,
-} from '@databricks/web-shared/model-trace-explorer';
+import { type ModelTraceInfoV3, SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 
 export type SessionTableRow = {
   sessionId: string;
   requestPreview?: string;
-  source?: {
-    name: string;
-    type: string;
-  };
+  firstTrace: ModelTraceInfoV3;
   experimentId: string;
 };
 
@@ -44,23 +36,15 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
 
       // sort traces within a session by time (earliest first)
       const sortedTraces = sortBy(traces, (trace) => new Date(trace.request_time));
+      const firstTrace = sortedTraces[0];
 
       // take request preview from the first trace
-      const requestPreview = sortedTraces[0].request_preview;
-      const sourceName = sortedTraces[0].trace_metadata?.[SOURCE_NAME_METADATA_KEY];
-      const sourceType = sortedTraces[0].trace_metadata?.[SOURCE_TYPE_METADATA_KEY];
-      const source =
-        sourceName && sourceType
-          ? {
-              name: sourceName,
-              type: sourceType,
-            }
-          : undefined;
+      const requestPreview = firstTrace.request_preview;
 
       return {
         sessionId,
         requestPreview,
-        source,
+        firstTrace,
         experimentId,
       };
     }),
