@@ -165,7 +165,7 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
 
 def update_token_usage(
     current_token_usage: str | dict[str, Any], new_token_usage: str | dict[str, Any]
-) -> dict[str, Any]:
+) -> str | dict[str, Any]:
     """
     Update current token usage in-place by adding the new token usage.
 
@@ -174,7 +174,7 @@ def update_token_usage(
         new_token_usage: New token usage, dictionary or JSON string
 
     Returns:
-        Updated token usage dictionary
+        Updated token usage dictionary or JSON string
     """
     try:
         if isinstance(current_token_usage, str):
