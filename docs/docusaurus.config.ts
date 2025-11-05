@@ -219,6 +219,7 @@ const config: Config = {
 
   plugins: [
     tailwindPlugin,
+    ['@signalwire/docusaurus-plugin-llms-txt', {}],
     // Classic ML docs plugin
     [
       '@docusaurus/plugin-content-docs',
