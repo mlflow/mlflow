@@ -158,7 +158,9 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5", max_metric_calls=300),
+    optimizer=GepaPromptOptimizer(
+        reflection_model="openai:/gpt-5", max_metric_calls=300
+    ),
     scorers=[Correctness(model="openai:/gpt-5-mini")],
 )
 
