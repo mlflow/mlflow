@@ -31,7 +31,7 @@ import {
 } from '../../model-trace-explorer';
 import { SourceCellRenderer } from '../cellRenderers/Source/SourceRenderer';
 import type { GenAiTraceEvaluationArtifactFile } from '../enum';
-import { TracesTableColumnGroup } from '../types';
+import { FilterOperator, TracesTableColumnGroup } from '../types';
 import type {
   TableFilterOption,
   EvaluationsOverviewTableSort,
