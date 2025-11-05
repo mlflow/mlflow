@@ -595,7 +595,7 @@ in a new file prefixed with `test_` so that `pytest` includes that file
 for testing.
 
 If your tests require usage of a tracking URI, the [pytest
-fixture](https://docs.pytest.org/en/3.2.1/fixture.html)
+fixture](https://docs.pytest.org/en/stable/explanation/fixtures.html)
 [tracking_uri_mock](https://github.com/mlflow/mlflow/blob/master/tests/conftest.py#L74)
 is automatically set up for every tests. It sets up a mock tracking URI
 that will set itself up before your test runs and tear itself down
