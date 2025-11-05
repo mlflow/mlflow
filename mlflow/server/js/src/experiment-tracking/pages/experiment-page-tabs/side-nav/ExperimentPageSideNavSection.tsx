@@ -7,7 +7,7 @@ import {
   type ExperimentPageSideNavSectionKey,
 } from './constants';
 import { ExperimentPageTabName } from '../../../constants';
-import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Link, useLocation, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import invariant from 'invariant';
 
@@ -22,6 +22,7 @@ export const ExperimentPageSideNavSection = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { experimentId } = useParams();
+  const { search } = useLocation();
 
   invariant(experimentId, 'Experiment ID must be defined');
 
@@ -63,7 +64,13 @@ export const ExperimentPageSideNavSection = ({
             : activeTab === item.tabName;
 
         return (
-          <Link key={`${sectionKey}-${item.tabName}`} to={Routes.getExperimentPageTabRoute(experimentId, item.tabName)}>
+          <Link
+            key={`${sectionKey}-${item.tabName}`}
+            to={{
+              pathname: Routes.getExperimentPageTabRoute(experimentId, item.tabName),
+              search,
+            }}
+          >
             <div
               css={{
                 display: 'flex',
