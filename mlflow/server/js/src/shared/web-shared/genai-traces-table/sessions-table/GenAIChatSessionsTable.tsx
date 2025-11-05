@@ -10,7 +10,7 @@ import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
 import type { SessionTableRow } from './utils';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+import { Link, useLocation } from '../utils/RoutingUtils';
 
 // TODO: add following columns:
 // 1. conversation start time
@@ -40,8 +40,15 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
     ({ row }) => {
+      const { search } = useLocation();
+
       return (
-        <Link to={MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId)}>
+        <Link
+          to={{
+            pathname: MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId),
+            search,
+          }}
+        >
           <TableRow key={row.id} className="eval-datasets-table-row">
             {row.getVisibleCells().map((cell) => (
               <TableCell
