@@ -59,10 +59,12 @@ class Position:
         return Position(self.line + other.line, self.column + other.column)
 
 
-@dataclass
 class Range:
-    start: Position
-    end: Position | None = None
+    """Represents a range in source code with start and end positions."""
+
+    def __init__(self, start: Position, end: Position | None = None):
+        self.start = start
+        self.end = end if end is not None else start
 
     def __str__(self) -> str:
         return f"{self.start.line}:{self.start.column}"
@@ -89,9 +91,7 @@ class Range:
     def shift(self, offset: Position) -> "Range":
         """Shift this range by the given position offset."""
         new_start = self.start + offset
-        new_end = None
-        if self.end is not None:
-            new_end = self.end + offset
+        new_end = self.end + offset
         return Range(new_start, new_end)
 
 
@@ -119,10 +119,8 @@ class Violation:
             "obj": None,
             "line": self.range.start.line,
             "column": self.range.start.column,
-            "endLine": self.range.end.line if self.range.end is not None else self.range.start.line,
-            "endColumn": (
-                self.range.end.column if self.range.end is not None else self.range.start.column
-            ),
+            "endLine": self.range.end.line,
+            "endColumn": self.range.end.column,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
