@@ -10,7 +10,7 @@ import ImageBox from "@site/src/components/ImageBox";
 
 # Intro to FireworksAI
 
-FireworksAI is an inference and customization engine for open source AI. It provides day zero access to the latest SOTA OSS models and allows developers to build lightning fast magical AI applications. For more details on FireworksAI see [their docs](https://fireworks.ai/docs/getting-started/introduction).
+FireworksAI is an inference and customization engine for open source AI. It provides day zero access to the latest SOTA OSS models and allows developers to build lightning AI applications. For more details on FireworksAI see [their docs](https://fireworks.ai/docs/getting-started/introduction).
 For a list of available models see [the model library](https://fireworks.ai/models).
 
 # Tracing FireworksAI
@@ -69,6 +69,10 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 ```python
 import openai
 import mlflow
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Enable auto-tracing
 mlflow.openai.autolog()
@@ -81,7 +85,7 @@ mlflow.set_experiment("FireworksAI")
 # Configure OpenAI client for FireworksAI
 openai_client = openai.OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key="your-fireworks-api-key"
+    api_key=os.getenv("FIREWORKS_API_KEY")
 )
 
 messages = [
@@ -106,13 +110,17 @@ MLflow Tracing supports streaming API of FireworksAI through the OpenAI SDK. Wit
 ```python
 import openai
 import mlflow
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Enable trace logging
 mlflow.openai.autolog()
 
 client = openai.OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key="your-fireworks-api-key"
+    api_key=os.getenv("FIREWORKS_API_KEY")
 )
 
 stream = client.chat.completions.create(
@@ -133,13 +141,17 @@ MLflow Tracing supports asynchronous API of FireworksAI through the OpenAI SDK. 
 ```python
 import openai
 import mlflow
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Enable trace logging
 mlflow.openai.autolog()
 
 client = openai.AsyncOpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key="your-fireworks-api-key"
+    api_key=os.getenv("FIREWORKS_API_KEY")
 )
 
 response = await client.chat.completions.create(
@@ -163,10 +175,14 @@ import json
 from openai import OpenAI
 import mlflow
 from mlflow.entities import SpanType
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 client = OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key="your-fireworks-api-key"
+    api_key=os.getenv("FIREWORKS_API_KEY")
 )
 
 
