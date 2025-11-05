@@ -134,7 +134,7 @@ def _validate_eval_result_df(result: EvaluationResult):
     search_traces_df = mlflow.search_traces(run_id=result.run_id)
     assert result.result_df is not None
     assert len(result.result_df) == len(search_traces_df)
-    assert list(result.result_df.columns) == list(search_traces_df.columns)
+    assert set(result.result_df.columns) >= set(search_traces_df.columns)
 
     actual = result.result_df.sort_values(by="trace_id").reset_index(drop=True)
     expected = search_traces_df.sort_values(by="trace_id").reset_index(drop=True)
@@ -142,6 +142,12 @@ def _validate_eval_result_df(result: EvaluationResult):
         assert actual.iloc[i].trace_id == expected.iloc[i].trace_id
         assert actual.iloc[i].spans == expected.iloc[i].spans
         assert actual.iloc[i].assessments == expected.iloc[i].assessments
+        assert getattr(actual.iloc[i], "exact_match/value") is not None
+        assert getattr(actual.iloc[i], "is_concise/value") is not None
+        assert getattr(actual.iloc[i], "relevance/value") is not None
+        assert getattr(actual.iloc[i], "has_trace/value") is not None
+        assert getattr(actual.iloc[i], "expected_response/value") is not None
+        assert getattr(actual.iloc[i], "max_length/value") is not None
 
 
 @dataclass

@@ -524,6 +524,7 @@ def construct_eval_result_df(
         )
         return pd.concat([df, assessments], axis=1)
     except Exception as e:
+        raise
         _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
         return pd.DataFrame()
 
@@ -537,7 +538,11 @@ def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> di
             and source_run_id != run_id
         ):
             continue
-        result[f"{a['assessment_name']}/value"] = a["feedback"]["value"]
+        if feedback := a.get("feedback"):
+            result[f"{a['assessment_name']}/value"] = feedback.get("value")
+        elif expectation := a.get("expectation"):
+            result[f"{a['assessment_name']}/value"] = expectation.get("value")
+
     return result
 
 
