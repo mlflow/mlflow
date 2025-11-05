@@ -31,6 +31,7 @@ from clint.rules.no_shebang import NoShebang
 from clint.rules.os_chdir_in_test import OsChdirInTest
 from clint.rules.os_environ_delete_in_test import OsEnvironDeleteInTest
 from clint.rules.os_environ_set_in_test import OsEnvironSetInTest
+from clint.rules.package_import_in_test import PackageImportInTest
 from clint.rules.pytest_mark_repeat import PytestMarkRepeat
 from clint.rules.redundant_test_docstring import RedundantTestDocstring
 from clint.rules.temp_dir_in_test import TempDirInTest
@@ -82,6 +83,7 @@ __all__ = [
     "OsChdirInTest",
     "OsEnvironDeleteInTest",
     "OsEnvironSetInTest",
+    "PackageImportInTest",
     "PytestMarkRepeat",
     "RedundantTestDocstring",
     "TempDirInTest",

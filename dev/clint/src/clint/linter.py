@@ -641,6 +641,11 @@ class Linter(ast.NodeVisitor):
             if self._is_at_top_level() and not self.in_TYPE_CHECKING:
                 self._check_forbidden_top_level_import(node, root_module)
 
+        if self.path.name.startswith("test_") and rules.PackageImportInTest.check(
+            node, self._is_in_test()
+        ):
+            self._check(Location.from_node(node), rules.PackageImportInTest())
+
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
@@ -673,6 +678,11 @@ class Linter(ast.NodeVisitor):
             for alias in node.names:
                 if alias.name.split(".")[-1] == "set_active_model":
                     self._check_forbidden_set_active_model_usage(node)
+
+        if self.path.name.startswith("test_") and rules.PackageImportInTest.check(
+            node, self._is_in_test()
+        ):
+            self._check(Location.from_node(node), rules.PackageImportInTest())
 
         self.generic_visit(node)
 
