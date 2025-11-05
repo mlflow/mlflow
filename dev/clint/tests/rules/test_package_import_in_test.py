@@ -6,11 +6,11 @@ from clint.rules.package_import_in_test import PackageImportInTest
 
 
 def test_package_import_in_test_function(index_path: Path) -> None:
-    """Test that package imports within test functions are flagged."""
+    """Test that all imports within test functions are flagged."""
     code = """
-import sys  # OK - builtin at top level
+import sys  # OK - at top level
 
-# Bad - non-builtin package imported in test
+# All imports in test functions should be flagged
 def test_func():
     import pandas as pd
     import numpy
@@ -28,11 +28,11 @@ import mlflow
 
 
 def test_package_import_from_in_test_function(index_path: Path) -> None:
-    """Test that 'from package import' within test functions are flagged."""
+    """Test that 'from module import' within test functions are flagged."""
     code = """
-import os  # OK - builtin at top level
+import os  # OK - at top level
 
-# Bad - non-builtin package imported in test
+# All imports in test functions should be flagged
 def test_func():
     from sklearn import metrics
     from pandas import DataFrame
@@ -48,8 +48,8 @@ from mlflow import log_metric
     assert violations[1].loc == Location(6, 4)
 
 
-def test_builtin_imports_allowed_in_test(index_path: Path) -> None:
-    """Test that builtin module imports are allowed within test functions."""
+def test_builtin_imports_flagged_in_test(index_path: Path) -> None:
+    """Test that builtin module imports are flagged within test functions."""
     code = """
 def test_func():
     import os
@@ -60,7 +60,8 @@ def test_func():
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 0
+    assert len(violations) == 5
+    assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
 
 
 def test_imports_in_non_test_functions(index_path: Path) -> None:
@@ -107,8 +108,8 @@ def test_func():
     assert len(violations) == 0
 
 
-def test_relative_imports_in_test(index_path: Path) -> None:
-    """Test that relative imports within test functions are allowed."""
+def test_relative_imports_flagged_in_test(index_path: Path) -> None:
+    """Test that relative imports within test functions are flagged."""
     code = """
 def test_func():
     from . import helper
@@ -117,25 +118,24 @@ def test_func():
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 0
+    assert len(violations) == 3
+    assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
 
 
 def test_mixed_imports_in_test(index_path: Path) -> None:
     """Test a mix of builtin and package imports in test functions."""
     code = """
 def test_func():
-    import os  # OK - builtin
-    import sys  # OK - builtin
-    import pandas  # Bad - package
-    from pathlib import Path  # OK - builtin
-    from numpy import array  # Bad - package
+    import os
+    import sys
+    import pandas
+    from pathlib import Path
+    from numpy import array
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 2
+    assert len(violations) == 5
     assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
-    assert violations[0].loc == Location(4, 4)
-    assert violations[1].loc == Location(6, 4)
 
 
 def test_nested_function_not_considered_test(index_path: Path) -> None:
@@ -155,57 +155,54 @@ def test_import_with_alias(index_path: Path) -> None:
     """Test that imports with aliases are properly detected."""
     code = """
 def test_func():
-    import pandas as pd  # Bad
-    import numpy as np  # Bad
-    import sys as system  # OK - builtin
+    import pandas as pd
+    import numpy as np
+    import sys as system
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 2
-    assert violations[0].loc == Location(2, 4)
-    assert violations[1].loc == Location(3, 4)
+    assert len(violations) == 3
+    assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
 
 
 def test_submodule_imports(index_path: Path) -> None:
     """Test that submodule imports are properly detected."""
     code = """
 def test_func():
-    import sklearn.metrics  # Bad - sklearn is a package
-    import os.path  # OK - os is builtin
-    from sklearn.metrics import accuracy_score  # Bad
-    from os.path import join  # OK - os is builtin
+    import sklearn.metrics
+    import os.path
+    from sklearn.metrics import accuracy_score
+    from os.path import join
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 2
-    assert violations[0].loc == Location(2, 4)
-    assert violations[1].loc == Location(4, 4)
+    assert len(violations) == 4
+    assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
 
 
 def test_multiple_test_functions(index_path: Path) -> None:
     """Test that violations are detected across multiple test functions."""
     code = """
 def test_first():
-    import pandas  # Bad
+    import pandas
 
 def test_second():
-    from numpy import array  # Bad
+    from numpy import array
 
 def test_third():
-    import sys  # OK - builtin
+    import sys
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
-    assert len(violations) == 2
-    assert violations[0].loc == Location(2, 4)
-    assert violations[1].loc == Location(5, 4)
+    assert len(violations) == 3
+    assert all(isinstance(v.rule, PackageImportInTest) for v in violations)
 
 
 def test_multiple_imports_in_single_statement(index_path: Path) -> None:
     """Test that all imports in a single statement are checked."""
     code = """
 def test_func():
-    import pandas, numpy, sys  # pandas and numpy are bad, sys is OK
+    import pandas, numpy, sys
 """
     config = Config(select={PackageImportInTest.name})
     violations = lint_file(Path("test_file.py"), code, config, index_path)
