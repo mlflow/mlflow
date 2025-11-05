@@ -53,7 +53,7 @@ prompt = mlflow.genai.register_prompt(
 def predict_fn(sentence: str) -> str:
     prompt = mlflow.genai.load_prompt("prompts:/medical_section_classifier/1")
     completion = openai.OpenAI().chat.completions.create(
-        model="gpt-5-mini",
+        model="gpt-5-nano",
         # load prompt template using PromptVersion.format()
         messages=[{"role": "user", "content": prompt.format(sentence=sentence)}],
     )
@@ -158,8 +158,8 @@ result = mlflow.genai.optimize_prompts(
     predict_fn=predict_fn,
     train_data=dataset,
     prompt_uris=[prompt.uri],
-    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5"),
-    scorers=[Correctness(model="openai:/gpt-5")],
+    optimizer=GepaPromptOptimizer(reflection_model="openai:/gpt-5", max_metric_calls=300),
+    scorers=[Correctness(model="openai:/gpt-5-mini")],
 )
 
 # Use the optimized prompt
@@ -176,6 +176,8 @@ The API will automatically improve the prompt to better classify medical paper s
 
 **Before Optimization:**
 
+<div style={{ overflow: 'auto', maxWidth: '100%' }}>
+
 ```text
 Classify this medical research paper sentence
 into one of these sections: CONCLUSIONS, RESULTS,
@@ -184,10 +186,14 @@ METHODS, OBJECTIVE, BACKGROUND.
 Sentence: {{sentence}}
 ```
 
+</div>
+
 </Card>
-<Card style={{ justifyContent: 'flex-start' }}>
+<Card>
 
 **After Optimization:**
+
+<div style={{ overflow: 'auto', maxWidth: '100%' }}>
 
 ```text
 You are a single-sentence classifier for medical research abstracts. For each input sentence, decide which abstract section it belongs to and output exactly one label in UPPERCASE with no extra words, punctuation, or explanation.
@@ -248,6 +254,8 @@ Important tie-break rules:
 Output constraint:
 - Return exactly one uppercase label: CONCLUSIONS, RESULTS, METHODS, OBJECTIVE, or BACKGROUND. No extra text or punctuation.
 ```
+
+</div>
 
 </Card>
 </CardGroup>
