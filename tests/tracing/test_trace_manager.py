@@ -273,6 +273,46 @@ def test_register_prompt_thread_safety():
     assert len(json.loads(trace.info.tags[LINKED_PROMPTS_TAG_KEY])) == len(prompt_versions)
 
 
+def test_pop_trace_forces_gc_in_serverless():
+    from unittest.mock import Mock, patch
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    request_id = "tr-1"
+    trace_id = 12345
+
+    trace_manager.register_trace(trace_id, create_test_trace_info(request_id, "test"))
+    span = _create_test_span(request_id, trace_id, span_id=1)
+    trace_manager.register_span(span)
+
+    with patch("mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=True), \
+         patch("gc.collect") as mock_gc_collect:
+        result = trace_manager.pop_trace(trace_id)
+
+        assert result is not None
+        assert isinstance(result, ManagerTrace)
+        mock_gc_collect.assert_called_once()
+
+
+def test_pop_trace_does_not_force_gc_outside_serverless():
+    from unittest.mock import patch
+
+    trace_manager = InMemoryTraceManager.get_instance()
+    request_id = "tr-1"
+    trace_id = 12345
+
+    trace_manager.register_trace(trace_id, create_test_trace_info(request_id, "test"))
+    span = _create_test_span(request_id, trace_id, span_id=1)
+    trace_manager.register_span(span)
+
+    with patch("mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=False), \
+         patch("gc.collect") as mock_gc_collect:
+        result = trace_manager.pop_trace(trace_id)
+
+        assert result is not None
+        assert isinstance(result, ManagerTrace)
+        mock_gc_collect.assert_not_called()
+
+
 def _create_test_span(
     request_id="tr-12345",
     trace_id: int = 12345,
