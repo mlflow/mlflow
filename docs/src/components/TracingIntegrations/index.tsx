@@ -116,7 +116,7 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Instructor',
     logoPath: '/images/logos/instructor-logo.svg',
     link: '/genai/tracing/integrations/listing/instructor',
-    category: 'Agent Frameworks',
+    category: 'Tools',
   },
   {
     id: 'txtai',
