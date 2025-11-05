@@ -79,6 +79,7 @@ def relevance(inputs, outputs):
 
 
 @scorer
+@mlflow.trace(span_type=SpanType.EVALUATOR)
 def has_trace(trace):
     return trace is not None
 
@@ -972,8 +973,9 @@ def test_evaluate_with_only_trace_in_eval_dataset():
     assert result.metrics["has_trace/mean"] == 1.0
 
 
-def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
-    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
+@pytest.mark.parametrize("is_enabled", [True, False])
+def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", str(is_enabled).lower())
 
     data = [
         {
@@ -1005,7 +1007,10 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
     assert metrics["has_trace/mean"] == 1.0
 
     traces = get_traces()
-    assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+    if is_enabled:
+        assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+    else:
+        assert len(traces) == len(data)
 
     # Traces should be associated with the eval run
     traces = mlflow.search_traces(
@@ -1018,10 +1023,10 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
     # Each assessment should have a source trace ID
     for trace in traces:
         for a in trace.info.assessments:
-            if isinstance(a, Feedback):
+            if isinstance(a, Feedback) and is_enabled:
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
-            elif isinstance(a, Expectation):
+            else:
                 assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata
 
 
