@@ -1,6 +1,9 @@
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
-import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import {
+  ModelTraceExplorerFieldRenderer,
+  DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
+} from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { useState } from 'react';
 
 const DEFAULT_MAX_VISIBLE_ITEMS = 3;
@@ -11,6 +14,7 @@ export const ModelTraceExplorerSummarySection = ({
   renderMode,
   sectionKey,
   maxVisibleItems = DEFAULT_MAX_VISIBLE_ITEMS,
+  maxVisibleChatMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
   className,
   chatMessageFormat,
 }: {
@@ -19,6 +23,7 @@ export const ModelTraceExplorerSummarySection = ({
   renderMode: 'default' | 'json' | 'text';
   sectionKey: string;
   maxVisibleItems?: number;
+  maxVisibleChatMessages?: number;
   className?: string;
   chatMessageFormat?: string;
 }) => {
@@ -48,6 +53,7 @@ export const ModelTraceExplorerSummarySection = ({
             data={value}
             renderMode={renderMode}
             chatMessageFormat={chatMessageFormat}
+            maxVisibleMessages={maxVisibleChatMessages}
           />
         ))}
       </div>

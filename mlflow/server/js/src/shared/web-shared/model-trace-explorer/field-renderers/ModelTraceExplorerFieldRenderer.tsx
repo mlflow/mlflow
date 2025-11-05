@@ -12,14 +12,14 @@ import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet'
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 
-const MAX_VISIBLE_MESSAGES = 3;
+export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
   renderMode,
   chatMessageFormat,
-  maxVisibleMessages = MAX_VISIBLE_MESSAGES,
+  maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
 }: {
   title: string;
   data: string;

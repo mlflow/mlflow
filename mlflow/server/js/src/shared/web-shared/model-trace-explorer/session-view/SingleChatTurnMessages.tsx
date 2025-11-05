@@ -69,6 +69,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           renderMode="default"
           sectionKey="summary-inputs"
           maxVisibleItems={1}
+          maxVisibleChatMessages={1}
         />
       </div>
       <div
@@ -92,6 +93,7 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           renderMode="default"
           sectionKey="summary-outputs"
           maxVisibleItems={1}
+          maxVisibleChatMessages={1}
         />
       </div>
     </div>
