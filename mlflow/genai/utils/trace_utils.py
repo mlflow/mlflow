@@ -465,7 +465,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
         else:
             _logger.debug("No extra traces found during evaluation run.")
     except Exception as e:
-        _logger.warning(
+        _logger.debug(
             f"Failed to clean up extra traces generated during evaluation. The "
             f"result page might not show the correct list of traces. Error: {e}"
         )
