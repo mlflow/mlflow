@@ -402,7 +402,7 @@ def is_valid_dbfs_uri(uri):
     return not parsed.netloc or db_profile_uri is not None
 
 
-def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
+def dbfs_hdfs_uri_to_fuse_path(dbfs_uri: str) -> str:
     """Converts the provided DBFS URI into a DBFS FUSE path
 
     Args:
@@ -411,9 +411,12 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri):
             is "dbfs:/" (e.g. Databricks)
 
     Returns:
-        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory". For UC Volumes paths
+        (e.g., "/Volumes/..."), returns the path unchanged.
 
     """
+    if _is_uc_volumes_path(dbfs_uri):
+        return dbfs_uri  # UC Volumes paths do not need conversion
     if not is_valid_dbfs_uri(dbfs_uri) and dbfs_uri == posixpath.abspath(dbfs_uri):
         # Convert posixpaths (e.g. "/tmp/mlflow") to DBFS URIs by adding "dbfs:/" as a prefix
         dbfs_uri = "dbfs:" + dbfs_uri
