@@ -61,88 +61,30 @@ def predict_fn(sentence: str) -> str:
 
 
 # Training data with medical paper sentences and ground truth labels
+# fmt: off
 raw_data = [
-    (
-        "The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility for the self-management of their condition , including making physical , emotional and social adjustments .",
-        "BACKGROUND",
-    ),
-    (
-        "This paper describes the design and evaluation of Positive Outlook , an online program aiming to enhance the self-management skills of gay men living with HIV .",
-        "BACKGROUND",
-    ),
-    (
-        "This study is designed as a randomised controlled trial in which men living with HIV in Australia will be assigned to either an intervention group or usual care control group .",
-        "METHODS",
-    ),
-    (
-        "The intervention group will participate in the online group program ` Positive Outlook ' .",
-        "METHODS",
-    ),
-    (
-        "The program is based on self-efficacy theory and uses a self-management approach to enhance skills , confidence and abilities to manage the psychosocial issues associated with HIV in daily life .",
-        "METHODS",
-    ),
-    (
-        "Participants will access the program for a minimum of 90 minutes per week over seven weeks .",
-        "METHODS",
-    ),
-    (
-        "Primary outcomes are domain specific self-efficacy , HIV related quality of life , and outcomes of health education .",
-        "METHODS",
-    ),
-    (
-        "Secondary outcomes include : depression , anxiety and stress ; general health and quality of life ; adjustment to HIV ; and social support .",
-        "METHODS",
-    ),
-    (
-        "Data collection will take place at baseline , completion of the intervention ( or eight weeks post randomisation ) and at 12 week follow-up .",
-        "METHODS",
-    ),
-    (
-        "Results of the Positive Outlook study will provide information regarding the effectiveness of online group programs improving health related outcomes for men living with HIV .",
-        "CONCLUSIONS",
-    ),
-    (
-        "The aim of this study was to evaluate the efficacy , safety and complications of orbital steroid injection versus oral steroid therapy in the management of thyroid-related ophthalmopathy .",
-        "OBJECTIVE",
-    ),
-    (
-        "A total of 29 patients suffering from thyroid ophthalmopathy were included in this study .",
-        "METHODS",
-    ),
-    (
-        "Patients were randomized into two groups : group I included 15 patients treated with oral prednisolone and group II included 14 patients treated with peribulbar triamcinolone orbital injection .",
-        "METHODS",
-    ),
-    (
-        "Both groups showed improvement in symptoms and in clinical evidence of inflammation with improvement of eye movement and proptosis in most cases .",
-        "RESULTS",
-    ),
-    (
-        "Mean exophthalmometry value before treatment was 22.6 1.98 mm that decreased to 18.6 0.996 mm in group I , compared with 23 1.86 mm that decreased to 19.08 1.16 mm in group II .",
-        "RESULTS",
-    ),
-    (
-        "There was no change in the best-corrected visual acuity in both groups .",
-        "RESULTS",
-    ),
-    (
-        "There was an increase in body weight , blood sugar , blood pressure and gastritis in group I in 66.7 % , 33.3 % , 50 % and 75 % , respectively , compared with 0 % , 0 % , 8.3 % and 8.3 % in group II .",
-        "RESULTS",
-    ),
-    (
-        "Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe .",
-        "CONCLUSIONS",
-    ),
-    (
-        "It eliminates the adverse reactions associated with oral corticosteroid use .",
-        "CONCLUSIONS",
-    ),
-    (
-        "The aim of this prospective randomized study was to examine whether active counseling and more liberal oral fluid intake decrease postoperative pain , nausea and vomiting in pediatric ambulatory tonsillectomy .",
-        "OBJECTIVE",
-    ),
+    ("The emergence of HIV as a chronic condition means that people living with HIV are required to take more responsibility for the self-management of their condition , including making physical , emotional and social adjustments .", "BACKGROUND"),
+    ("This paper describes the design and evaluation of Positive Outlook , an online program aiming to enhance the self-management skills of gay men living with HIV .", "BACKGROUND"),
+    ("This study is designed as a randomised controlled trial in which men living with HIV in Australia will be assigned to either an intervention group or usual care control group .", "METHODS"),
+    ("The intervention group will participate in the online group program ` Positive Outlook ' .", "METHODS"),
+    ("The program is based on self-efficacy theory and uses a self-management approach to enhance skills , confidence and abilities to manage the psychosocial issues associated with HIV in daily life .", "METHODS"),
+    ("Participants will access the program for a minimum of 90 minutes per week over seven weeks .", "METHODS"),
+    ("Primary outcomes are domain specific self-efficacy , HIV related quality of life , and outcomes of health education .", "METHODS"),
+    ("Secondary outcomes include : depression , anxiety and stress ; general health and quality of life ; adjustment to HIV ; and social support .", "METHODS"),
+    ("Data collection will take place at baseline , completion of the intervention ( or eight weeks post randomisation ) and at 12 week follow-up .", "METHODS"),
+    ("Results of the Positive Outlook study will provide information regarding the effectiveness of online group programs improving health related outcomes for men living with HIV .", "CONCLUSIONS"),
+    ("The aim of this study was to evaluate the efficacy , safety and complications of orbital steroid injection versus oral steroid therapy in the management of thyroid-related ophthalmopathy .", "OBJECTIVE"),
+    ("A total of 29 patients suffering from thyroid ophthalmopathy were included in this study .", "METHODS"),
+    ("Patients were randomized into two groups : group I included 15 patients treated with oral prednisolone and group II included 14 patients treated with peribulbar triamcinolone orbital injection .", "METHODS"),
+    ("Both groups showed improvement in symptoms and in clinical evidence of inflammation with improvement of eye movement and proptosis in most cases .", "RESULTS"),
+    ("Mean exophthalmometry value before treatment was 22.6 1.98 mm that decreased to 18.6 0.996 mm in group I , compared with 23 1.86 mm that decreased to 19.08 1.16 mm in group II .", "RESULTS"),
+    ("There was no change in the best-corrected visual acuity in both groups .", "RESULTS"),
+    ("There was an increase in body weight , blood sugar , blood pressure and gastritis in group I in 66.7 % , 33.3 % , 50 % and 75 % , respectively , compared with 0 % , 0 % , 8.3 % and 8.3 % in group II .", "RESULTS"),
+    ("Orbital steroid injection for thyroid-related ophthalmopathy is effective and safe .", "CONCLUSIONS"),
+    ("It eliminates the adverse reactions associated with oral corticosteroid use .", "CONCLUSIONS"),
+    ("The aim of this prospective randomized study was to examine whether active counseling and more liberal oral fluid intake decrease postoperative pain , nausea and vomiting in pediatric ambulatory tonsillectomy .", "OBJECTIVE"),
 ]
+# fmt: on
 
 # Format dataset for optimization
 dataset = [
