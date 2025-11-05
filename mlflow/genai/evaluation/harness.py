@@ -13,7 +13,7 @@ import pandas as pd
 
 import mlflow
 from mlflow.entities import SpanType
-from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
@@ -126,8 +126,6 @@ def _run_single(
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
-    # TODO: Support another pattern that are currently supported in the DBX agent harness,
-    # which is when traces are given as dataset
     if predict_fn:
         # NB: Setting prediction context let us retrieve the trace by a custom ID. Setting
         # is_evaluate=True disables async trace logging to make sure the trace is available.
@@ -158,7 +156,7 @@ def _run_single(
 
     # Execute the scorers
     assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)
-    assessments.extend(eval_item.get_expectation_assessments())
+    assessments.extend(_get_new_expectations(eval_item))
     eval_result = EvalResult(eval_item=eval_item, assessments=assessments)
 
     tags = eval_item.tags if not is_none_or_nan(eval_item.tags) else {}
@@ -257,6 +255,17 @@ def _compute_eval_scores(
 
     # Flatten list[list[Assessment]] into a single list[Assessment]
     return [assessment for sublist in results for assessment in sublist]
+
+
+def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
+    existing_expectations = {
+        a.name for a in eval_item.trace.info.assessments if a.expectation is not None
+    }
+    new_expectations = []
+    for exp in eval_item.get_expectation_assessments():
+        if exp.name not in existing_expectations:
+            new_expectations.append(exp)
+    return new_expectations
 
 
 def _log_assessments(

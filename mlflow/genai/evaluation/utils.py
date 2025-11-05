@@ -13,6 +13,7 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.utils.search import traces_to_df
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -32,12 +33,17 @@ if TYPE_CHECKING:
             pd.DataFrame
             | pyspark.sql.dataframe.DataFrame
             | list[dict]
+            | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
         )
     except ImportError:
         EvaluationDatasetTypes = (
-            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+            pd.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
 
 
@@ -112,6 +118,15 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
         expectations, which is same as the schema that mlflow.genai.evaluate() expects.
         Therefore, we can simply pass through expectations column.
     """
+    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
+    from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+
+    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
+        return data.to_df()
+
+    if isinstance(data, list) and all(isinstance(item, Trace) for item in data):
+        data = traces_to_df(data)
+
     column_mapping = {
         "inputs": "request",
         "outputs": "response",

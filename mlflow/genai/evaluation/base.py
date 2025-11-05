@@ -175,6 +175,7 @@ def evaluate(
             * Pandas DataFrame
             * Spark DataFrame
             * List of dictionaries
+            * List of `Trace` objects
 
             The dataset must include either of the following columns:
 
@@ -241,8 +242,8 @@ def evaluate(
     is_managed_dataset = isinstance(data, (EvaluationDataset, EntityEvaluationDataset))
 
     scorers = validate_scorers(scorers)
-    # convert into a pandas dataframe with expected evaluation set schema
-    df = data.to_df() if is_managed_dataset else _convert_to_eval_set(data)
+
+    df = _convert_to_eval_set(data)
 
     builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
