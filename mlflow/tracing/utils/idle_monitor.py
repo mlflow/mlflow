@@ -91,12 +91,14 @@ class IdleTraceMonitor:
                 _logger.debug("Idle monitor already active")
                 return
 
+            _logger.debug("Clearing stop event and creating monitor thread")
             self._stop_event.clear()
             self._monitor_thread = threading.Thread(
                 target=self._monitor_loop,
                 name="MLflowIdleTraceMonitor",
                 daemon=True,
             )
+            _logger.debug(f"Starting monitor thread (daemon={self._monitor_thread.daemon})")
             self._monitor_thread.start()
             self._is_active = True
 
@@ -107,6 +109,7 @@ class IdleTraceMonitor:
                 f"Started idle trace monitor (threshold: {self._idle_threshold}s, "
                 f"check interval: {self._check_interval}s)"
             )
+            _logger.debug(f"Monitor thread alive: {self._monitor_thread.is_alive()}")
 
     def stop(self) -> None:
         """Stop the idle monitoring thread."""
@@ -127,18 +130,24 @@ class IdleTraceMonitor:
 
     def _monitor_loop(self) -> None:
         """Main monitoring loop that checks for idle time and flushes traces."""
-        while not self._stop_event.is_set():
-            try:
-                time.sleep(self._check_interval)
+        _logger.debug("Monitor loop started")
+        try:
+            while not self._stop_event.is_set():
+                try:
+                    time.sleep(self._check_interval)
 
-                idle_time = get_idle_time()
-                _logger.debug(f"Monitor check: idle_time={idle_time:.1f}s (threshold={self._idle_threshold}s)")
+                    idle_time = get_idle_time()
+                    _logger.debug(f"Monitor check: idle_time={idle_time:.1f}s (threshold={self._idle_threshold}s)")
 
-                if idle_time >= self._idle_threshold:
-                    self._flush_traces_on_idle(idle_time)
+                    if idle_time >= self._idle_threshold:
+                        self._flush_traces_on_idle(idle_time)
 
-            except Exception as e:
-                _logger.debug(f"Error in idle monitor loop: {e}", exc_info=True)
+                except Exception as e:
+                    _logger.debug(f"Error in idle monitor loop iteration: {e}", exc_info=True)
+        except Exception as e:
+            _logger.error(f"Monitor loop crashed: {e}", exc_info=True)
+        finally:
+            _logger.debug("Monitor loop exiting")
 
     def _flush_traces_on_idle(self, idle_time: float) -> None:
         """
