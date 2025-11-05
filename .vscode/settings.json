@@ -108,7 +108,6 @@
     "**/.mypy_cache": true,
     "**/.ruff_cache": true,
     "**/node_modules": true,
-    "**/build": true,
     "**/dist": true
   },
 
