@@ -98,10 +98,10 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Agent Frameworks',
   },
   {
-    id: 'ag2',
-    name: 'AG2',
-    logoPath: '/images/logos/ag2-logo.png',
-    link: '/genai/tracing/integrations/listing/ag2',
+    id: 'mastra',
+    name: 'Mastra',
+    logoPath: '/images/logos/mastra-logo.png',
+    link: '/genai/tracing/integrations/listing/mastra',
     category: 'Agent Frameworks',
   },
   {
@@ -124,6 +124,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     name: 'Semantic Kernel',
     logoPath: '/images/logos/semantic-kernel-logo.png',
     link: '/genai/tracing/integrations/listing/semantic_kernel',
+    category: 'Agent Frameworks',
+  },
+  {
+    id: 'ag2',
+    name: 'AG2',
+    logoPath: '/images/logos/ag2-logo.png',
+    link: '/genai/tracing/integrations/listing/ag2',
     category: 'Agent Frameworks',
   },
   {
