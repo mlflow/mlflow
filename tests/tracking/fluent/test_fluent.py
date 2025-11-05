@@ -2390,7 +2390,7 @@ def test_log_metrics_with_active_model_log_model_once():
 def test_log_metric_with_dataset_entity():
     """Test that log_metric works with both mlflow.entities.Dataset and mlflow.data.dataset.Dataset.
 
-    Regression test for issue #18573.
+    Regression test for issue https://github.com/mlflow/mlflow/issues/18573.
     """
     # Test with mlflow.entities.Dataset (retrieved from run.inputs)
     with mlflow.start_run() as run:
