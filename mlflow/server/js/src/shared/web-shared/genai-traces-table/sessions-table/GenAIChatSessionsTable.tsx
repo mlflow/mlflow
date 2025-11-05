@@ -31,11 +31,11 @@ const columns = [
     cell: SessionSourceCellRenderer,
   },
   {
-    header: 'Session Start Time',
+    header: 'Session start time',
     accessorKey: 'sessionStartTime',
   },
   {
-    header: 'Session Duration',
+    header: 'Session duration',
     accessorKey: 'sessionDuration',
   },
 ];
