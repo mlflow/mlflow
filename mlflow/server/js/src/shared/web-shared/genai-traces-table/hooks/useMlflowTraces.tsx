@@ -645,6 +645,7 @@ const createMlflowSearchFilter = (
           break;
         case SPAN_NAME_COLUMN_ID:
           if (networkFilter.operator === '=') {
+            // Use ILIKE instead of = for case-insensitive matching (better UX for span name filtering)
             filter.push(`span.name ILIKE '${networkFilter.value}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.name ILIKE '%${networkFilter.value}%'`);
@@ -654,6 +655,7 @@ const createMlflowSearchFilter = (
           break;
         case SPAN_TYPE_COLUMN_ID:
           if (networkFilter.operator === '=') {
+            // Use ILIKE instead of = for case-insensitive matching (better UX for span type filtering)
             filter.push(`span.type ILIKE '${networkFilter.value}'`);
           } else if (networkFilter.operator === 'CONTAINS') {
             filter.push(`span.type ILIKE '%${networkFilter.value}%'`);
