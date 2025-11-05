@@ -411,7 +411,8 @@ def dbfs_hdfs_uri_to_fuse_path(dbfs_uri: str) -> str:
             is "dbfs:/" (e.g. Databricks)
 
     Returns:
-        A DBFS FUSE-style path, e.g. "/dbfs/my-directory"
+        A DBFS FUSE-style path, e.g. "/dbfs/my-directory". For UC Volumes paths
+        (e.g., "/Volumes/..."), returns the path unchanged.
 
     """
     if _is_uc_volumes_path(dbfs_uri):
