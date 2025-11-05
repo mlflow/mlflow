@@ -47,8 +47,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT = f"{MLFLOW_TRACKING_URI}/v1/traces"
 OTEL_EXPORTER_OTLP_HEADERS = {"x-mlflow-experiment-id": MLFLOW_EXPERIMENT_ID}
 
 exporter = OTLPSpanExporter(
-    endpoint=OTEL_EXPORTER_OTLP_ENDPOINT,
-    headers=OTEL_EXPORTER_OTLP_HEADERS
+    endpoint=OTEL_EXPORTER_OTLP_ENDPOINT, headers=OTEL_EXPORTER_OTLP_HEADERS
 )
 # enable_sensitive_data=True is required for recording LLM inputs and outputs.
 setup_observability(enable_sensitive_data=True, exporters=[exporter])
@@ -76,9 +75,7 @@ def get_weather(
 
 
 async def main():
-    async with OpenAIAssistantsClient(
-        model_id="gpt-4o-mini"
-    ).create_agent(
+    async with OpenAIAssistantsClient(model_id="gpt-4o-mini").create_agent(
         instructions="You are a helpful weather agent.",
         tools=get_weather,
     ) as agent:
