@@ -107,8 +107,7 @@
     "**/*.pyc": true,
     "**/.mypy_cache": true,
     "**/.ruff_cache": true,
-    "**/node_modules": true,
-    "**/dist": true
+    "**/node_modules": true
   },
 
   // Search exclusions
