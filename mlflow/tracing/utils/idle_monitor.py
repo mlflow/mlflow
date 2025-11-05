@@ -182,9 +182,7 @@ class IdleTraceMonitor:
                         # A span is ended if it has an end_time_ns (not None)
                         root_span = trace.get_root_span()
                         has_end_time = root_span.end_time_ns is not None if root_span else False
-                        end_time = (
-                            getattr(root_span, "end_time_ns", "N/A") if root_span else "N/A"
-                        )
+                        end_time = getattr(root_span, "end_time_ns", "N/A") if root_span else "N/A"
                         _logger.debug(
                             f"  Trace {trace_id[:8]}...: root_span={root_span is not None}, "
                             f"end_time_ns={end_time}"
