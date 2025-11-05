@@ -135,3 +135,4 @@ gunicorn.conf.py
 !.claude/commands/
 !.claude/skills/
 test_disable.py
+test_multi_import.py
