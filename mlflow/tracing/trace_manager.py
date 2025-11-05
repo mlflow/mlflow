@@ -1,4 +1,5 @@
 import contextlib
+import gc
 import logging
 import threading
 from dataclasses import dataclass, field
@@ -190,10 +191,11 @@ class InMemoryTraceManager:
             # In serverless, force GC after exporting traces to release Py4J references
             try:
                 from mlflow.utils.databricks_utils import is_in_databricks_serverless_runtime
+
                 if is_in_databricks_serverless_runtime():
-                    import gc
                     _logger.debug(
-                        f"Forcing garbage collection in serverless after exporting trace {mlflow_trace_id}"
+                        f"Forcing garbage collection in serverless after exporting "
+                        f"trace {mlflow_trace_id}"
                     )
                     gc.collect()
             except Exception:

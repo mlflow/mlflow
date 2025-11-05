@@ -1,6 +1,7 @@
 import json
 import time
 from threading import Thread
+from unittest.mock import patch
 
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.model_registry.prompt_version import PromptVersion
@@ -274,8 +275,6 @@ def test_register_prompt_thread_safety():
 
 
 def test_pop_trace_forces_gc_in_serverless():
-    from unittest.mock import Mock, patch
-
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = "tr-1"
     trace_id = 12345
@@ -284,8 +283,12 @@ def test_pop_trace_forces_gc_in_serverless():
     span = _create_test_span(request_id, trace_id, span_id=1)
     trace_manager.register_span(span)
 
-    with patch("mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=True), \
-         patch("gc.collect") as mock_gc_collect:
+    with (
+        patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=True
+        ),
+        patch("gc.collect") as mock_gc_collect,
+    ):
         result = trace_manager.pop_trace(trace_id)
 
         assert result is not None
@@ -294,8 +297,6 @@ def test_pop_trace_forces_gc_in_serverless():
 
 
 def test_pop_trace_does_not_force_gc_outside_serverless():
-    from unittest.mock import patch
-
     trace_manager = InMemoryTraceManager.get_instance()
     request_id = "tr-1"
     trace_id = 12345
@@ -304,8 +305,12 @@ def test_pop_trace_does_not_force_gc_outside_serverless():
     span = _create_test_span(request_id, trace_id, span_id=1)
     trace_manager.register_span(span)
 
-    with patch("mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=False), \
-         patch("gc.collect") as mock_gc_collect:
+    with (
+        patch(
+            "mlflow.utils.databricks_utils.is_in_databricks_serverless_runtime", return_value=False
+        ),
+        patch("gc.collect") as mock_gc_collect,
+    ):
         result = trace_manager.pop_trace(trace_id)
 
         assert result is not None

@@ -137,7 +137,10 @@ class IdleTraceMonitor:
                     time.sleep(self._check_interval)
 
                     idle_time = get_idle_time()
-                    _logger.debug(f"Monitor check: idle_time={idle_time:.1f}s (threshold={self._idle_threshold}s)")
+                    _logger.debug(
+                        f"Monitor check: idle_time={idle_time:.1f}s "
+                        f"(threshold={self._idle_threshold}s)"
+                    )
 
                     if idle_time >= self._idle_threshold:
                         self._flush_traces_on_idle(idle_time)
@@ -165,9 +168,7 @@ class IdleTraceMonitor:
             with manager._lock:
                 trace_count = len(manager._traces)
 
-            _logger.debug(
-                f"Idle check: {idle_time:.1f}s idle, {trace_count} traces in cache"
-            )
+            _logger.debug(f"Idle check: {idle_time:.1f}s idle, {trace_count} traces in cache")
 
             if trace_count > 0:
                 # Clear completed traces from the cache
@@ -181,9 +182,12 @@ class IdleTraceMonitor:
                         # A span is ended if it has an end_time_ns (not None)
                         root_span = trace.get_root_span()
                         has_end_time = root_span.end_time_ns is not None if root_span else False
+                        end_time = (
+                            getattr(root_span, "end_time_ns", "N/A") if root_span else "N/A"
+                        )
                         _logger.debug(
                             f"  Trace {trace_id[:8]}...: root_span={root_span is not None}, "
-                            f"end_time_ns={getattr(root_span, 'end_time_ns', 'N/A') if root_span else 'N/A'}"
+                            f"end_time_ns={end_time}"
                         )
                         if root_span and has_end_time:
                             traces_to_remove.append(trace_id)
