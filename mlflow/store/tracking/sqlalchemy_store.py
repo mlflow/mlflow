@@ -3486,7 +3486,7 @@ class SqlAlchemyStore(AbstractStore):
                 trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
             ):
                 update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
-                    trace_inputs if isinstance(trace_inputs, str) else json.dumps(trace_inputs),
+                    trace_inputs,
                     role="user",
                 )
 
@@ -3494,7 +3494,7 @@ class SqlAlchemyStore(AbstractStore):
                 trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
             ):
                 update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
-                    trace_outputs if isinstance(trace_outputs, str) else json.dumps(trace_outputs),
+                    trace_outputs,
                     role="assistant",
                 )
         except Exception:

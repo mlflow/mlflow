@@ -31,6 +31,7 @@ class GenAiTranslator(OtelSchemaTranslator):
         "generate_content": SpanType.LLM,
         "invoke_agent": SpanType.AGENT,
         "text_completion": SpanType.LLM,
+        "response": SpanType.LLM,
     }
 
     # Token usage attribute keys from OTEL GenAI semantic conventions

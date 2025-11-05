@@ -120,21 +120,21 @@ class OtelSchemaTranslator:
         return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
 
     def get_attribute_value(
-        self, attributes: dict[str, Any], valid_keys: list[str] | None = None
+        self, attributes: dict[str, Any], keys_to_check: list[str] | None = None
     ) -> Any:
         """
         Get attribute value from OTEL attributes by checking whether
-        the keys in valid_keys are present in the attributes.
+        the keys in keys_to_check are present in the attributes.
 
         Args:
             attributes: Dictionary of span attributes
-            valid_keys: List of attribute keys to check
+            keys_to_check: List of attribute keys to check
 
         Returns:
             Attribute value or None if not found
         """
-        if valid_keys:
-            for key in valid_keys:
+        if keys_to_check:
+            for key in keys_to_check:
                 if value := self._get_and_check_attribute_value(attributes, key):
                     return value
 
@@ -154,7 +154,7 @@ class OtelSchemaTranslator:
         if isinstance(value, str):
             try:
                 result = json.loads(value)
-            except (json.JSONDecodeError, TypeError):
+            except json.JSONDecodeError:
                 pass  # Use the string value as-is
             else:
                 # only return the original value if the deserialized
