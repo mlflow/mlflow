@@ -1,5 +1,6 @@
 import functools
 import json
+import logging
 import re
 from textwrap import dedent
 from typing import Any
@@ -18,6 +19,8 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+
+_logger = logging.getLogger(__name__)
 
 
 def model_version_to_prompt_version(
@@ -222,11 +225,9 @@ def handle_resource_already_exist_error(
     )
 
 
-def parse_prompt_name_or_uri(
-    name_or_uri: str, version: str | int | None = None
-) -> tuple[str, str | int | None]:
+def parse_prompt_name_or_uri(name_or_uri: str, version: str | int | None = None) -> str:
     """
-    Parse prompt name or URI into (name, version) tuple.
+    Parse prompt name or URI into a fully qualified prompt URI.
 
     Handles two cases:
     1. URI format: "prompts:/name/version" or "prompts:/name@alias"
@@ -234,14 +235,14 @@ def parse_prompt_name_or_uri(
        - Raises error if version parameter is also provided
     2. Name format: "my_prompt"
        - Returns (name, version)
-       - Raises error if version parameter is not provided
+       - Return the latest version if version is not provided
 
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt (required when using name, not allowed when using URI).
 
     Returns:
-        Tuple of (name, version) where version can be a string, int, or None
+        Fully qualified prompt URI
 
     Raises:
         MlflowException: If validation fails
@@ -252,16 +253,12 @@ def parse_prompt_name_or_uri(
                 "The `version` argument should not be specified when loading a prompt by URI.",
                 INVALID_PARAMETER_VALUE,
             )
-        # Parse URI to extract name and version
-        # This assumes the parse_prompt_uri method exists, but we'll handle that separately
-        # For now, we'll do basic parsing and let the caller handle the URI parsing
-        return name_or_uri, None
+        return name_or_uri
     else:
         if version is None:
-            raise MlflowException(
-                "Version must be specified when loading a prompt by name. "
-                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
-                "parameter.",
-                INVALID_PARAMETER_VALUE,
+            _logger.debug(
+                "No version provided, returning the latest version of the prompt. "
+                "Prompt caching will not be enabled for this mode."
             )
-        return name_or_uri, version
+            return f"prompts:/{name_or_uri}@latest"
+        return f"prompts:/{name_or_uri}/{version}"

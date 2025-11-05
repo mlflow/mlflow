@@ -363,9 +363,16 @@ class DatabricksTracingRestStore(RestStore):
         order_by: list[str] | None = None,
         page_token: str | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
+        sql_warehouse_id = MLFLOW_TRACING_SQL_WAREHOUSE_ID.get()
+        if sql_warehouse_id is None:
+            raise MlflowException.invalid_parameter_value(
+                "SQL warehouse ID is required for searching traces by model ID in UC tables, "
+                f"set it with the `{MLFLOW_TRACING_SQL_WAREHOUSE_ID.name}` environment variable."
+            )
+
         request = SearchUnifiedTraces(
             model_id=model_id,
-            sql_warehouse_id=MLFLOW_TRACING_SQL_WAREHOUSE_ID.get(),
+            sql_warehouse_id=sql_warehouse_id,
             experiment_ids=locations,
             filter=filter_string,
             max_results=max_results,

@@ -320,7 +320,7 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
         input_fields = judge.get_input_fields()
         for field in input_fields:
             signature_fields[field.name] = (
-                str,
+                field.value_type,
                 dspy.InputField(desc=field.description),
             )
 
@@ -328,7 +328,7 @@ def create_dspy_signature(judge: "Judge") -> "dspy.Signature":
         output_fields = judge.get_output_fields()
         for field in output_fields:
             signature_fields[field.name] = (
-                str,
+                field.value_type,
                 dspy.OutputField(desc=field.description),
             )
 

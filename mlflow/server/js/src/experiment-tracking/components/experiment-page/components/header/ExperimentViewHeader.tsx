@@ -22,6 +22,7 @@ import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 import type { ExperimentKind } from '../../../../constants';
 /**
@@ -109,13 +110,25 @@ export const ExperimentViewHeader = React.memo(
     const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
 
     return (
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.xs,
+          marginBottom: theme.spacing.sm,
+        }}
+      >
         <Breadcrumb includeTrailingCaret>
           {breadcrumbs.map((breadcrumb, index) => (
             <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
           ))}
         </Breadcrumb>
-        <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+        <div
+          css={{
+            display: 'grid',
+            gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
+          }}
+        >
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
           >
@@ -145,7 +158,7 @@ export const ExperimentViewHeader = React.memo(
             {experimentKindSelector}
             {getInfoTooltip()}
           </div>
-          <TabSelectorBar experimentKind={experimentKind} />
+          {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >

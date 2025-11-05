@@ -8,7 +8,9 @@ import json
 import logging
 from typing import Any
 
-from mlflow.entities.trace import Trace
+import mlflow
+from mlflow.entities import SpanType, Trace
+from mlflow.environment_variables import MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.tools.base import JudgeTool
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
@@ -51,7 +53,8 @@ class JudgeToolRegistry:
 
         if function_name not in self._tools:
             raise MlflowException(
-                f"Tool '{function_name}' not found in registry", error_code=RESOURCE_DOES_NOT_EXIST
+                f"Tool '{function_name}' not found in registry",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
         tool = self._tools[function_name]
 
@@ -65,7 +68,11 @@ class JudgeToolRegistry:
 
         _logger.debug(f"Invoking tool '{function_name}' with args: {arguments}")
         try:
-            result = tool.invoke(trace, **arguments)
+            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+                tool_func = mlflow.trace(name=tool.name, span_type=SpanType.TOOL)(tool.invoke)
+            else:
+                tool_func = tool.invoke
+            result = tool_func(trace, **arguments)
             _logger.debug(f"Tool '{function_name}' returned: {result}")
             return result
         except TypeError as e:

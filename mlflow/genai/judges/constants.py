@@ -93,3 +93,6 @@ _NEGATIVE_VALUES = frozenset(
         "neg",
     ]
 )
+
+_RESULT_FIELD_DESCRIPTION = "The evaluation rating/result"
+_RATIONALE_FIELD_DESCRIPTION = "Detailed explanation for the evaluation"

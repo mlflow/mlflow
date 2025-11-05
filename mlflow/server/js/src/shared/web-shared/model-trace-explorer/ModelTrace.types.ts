@@ -6,6 +6,11 @@ export const MLFLOW_TRACE_SCHEMA_VERSION_KEY = 'mlflow.trace_schema.version';
 export const INFERENCE_TABLE_RESPONSE_COLUMN_KEY = 'response';
 export const INFERENCE_TABLE_TRACE_COLUMN_KEY = 'trace';
 
+// Commonly-used trace metadata keys
+export const MLFLOW_TRACE_SESSION_KEY = 'mlflow.trace.session';
+export const MLFLOW_TRACE_USER_KEY = 'mlflow.trace.user';
+export const MLFLOW_TRACE_TOKEN_USAGE_KEY = 'mlflow.trace.tokenUsage';
+
 export type ModelTraceExplorerRenderMode = 'default' | 'json';
 
 export enum ModelSpanType {
@@ -170,23 +175,39 @@ export type ModelTraceLocationInferenceTable = {
   };
 };
 
-export type ModelTraceLocation = ModelTraceLocationMlflowExperiment | ModelTraceLocationInferenceTable;
+export type ModelTraceLocationUcSchema = {
+  type: 'UC_SCHEMA';
+  uc_schema: { catalog_name: string; schema_name: string };
+};
+
+export type ModelTraceLocation =
+  | ModelTraceLocationMlflowExperiment
+  | ModelTraceLocationInferenceTable
+  | ModelTraceLocationUcSchema;
 
 export type ModelTraceInfoV3 = {
   trace_id: string;
   client_request_id?: string;
   trace_location: ModelTraceLocation;
+  /**
+   * @deprecated Use `request_preview` instead
+   */
+  request?: string;
   request_preview?: string;
+  /**
+   * @deprecated Use `response_preview` instead
+   */
+  response?: string;
   response_preview?: string;
   // timestamp in a format like "2025-02-19T09:52:23.140Z"
   request_time: string;
   // formatted duration string like "32.4s"
-  execution_duration: string;
+  execution_duration?: string;
   state: ModelTraceState;
   trace_metadata?: {
     [key: string]: string;
   };
-  assessments: Assessment[];
+  assessments?: Assessment[];
   tags: {
     [key: string]: string;
   };
@@ -437,6 +458,8 @@ export interface AssessmentBase {
 
   // UI only field to store the overridden assessment object for easier display
   overriddenAssessment?: Assessment;
+
+  error?: AssessmentError;
 }
 
 export interface FeedbackAssessment extends AssessmentBase {

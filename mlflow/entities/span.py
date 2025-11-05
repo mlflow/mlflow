@@ -21,9 +21,9 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
 from mlflow.tracing.utils import (
-    TraceJSONEncoder,
     build_otel_context,
     decode_id,
+    dump_span_attribute_value,
     encode_span_id,
     encode_trace_id,
     generate_mlflow_trace_id_from_otel_trace_id,
@@ -57,6 +57,10 @@ class SpanType:
     RERANKER = "RERANKER"
     MEMORY = "MEMORY"
     UNKNOWN = "UNKNOWN"
+    WORKFLOW = "WORKFLOW"
+    TASK = "TASK"
+    GUARDRAIL = "GUARDRAIL"
+    EVALUATOR = "EVALUATOR"
 
 
 def create_mlflow_span(
@@ -389,11 +393,12 @@ class Span:
             parent=build_otel_context(trace_id, parent_id) if parent_id else None,
             start_time=otel_proto_span.start_time_unix_nano,
             end_time=otel_proto_span.end_time_unix_nano,
+            # we need to dump the attribute value to be consistent with span.set_attribute behavior
             attributes={
                 # Include the MLflow trace request ID only if it's not already present in attributes
-                SpanAttributeKey.REQUEST_ID: mlflow_trace_id,
+                SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(mlflow_trace_id),
                 **{
-                    attr.key: _decode_otel_proto_anyvalue(attr.value)
+                    attr.key: dump_span_attribute_value(_decode_otel_proto_anyvalue(attr.value))
                     for attr in otel_proto_span.attributes
                 },
             },
@@ -677,7 +682,6 @@ class LiveSpan(Span):
         trace_id: str | None = None,
         experiment_id: str | None = None,
         otel_trace_id: str | None = None,
-        end_trace: bool = True,
     ) -> "LiveSpan":
         """
         Create a new LiveSpan object from the given immutable span by
@@ -698,7 +702,6 @@ class LiveSpan(Span):
                 experiment ID will be set to the current experiment ID.
             otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
                 If not specified, the newly generated trace ID will be used.
-            end_trace: Whether to end the trace after cloning the span. Default is True.
 
         Returns:
             The new LiveSpan object with the same state as the original span.
@@ -717,9 +720,13 @@ class LiveSpan(Span):
             start_time_ns=span.start_time_ns,
             experiment_id=experiment_id,
         )
+
         # The latter one from attributes is the newly generated trace ID by the span processor.
         trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
-        clone_span = LiveSpan(otel_span, trace_id, span.span_type)
+        # Span processor registers a new span in the in-memory trace manager, but we want to pop it
+        clone_span = trace_manager._traces[trace_id].span_dict.pop(
+            encode_span_id(otel_span.context.span_id)
+        )
 
         # Copy all the attributes, inputs, outputs, and events from the original span
         clone_span.set_status(span.status)
@@ -744,9 +751,6 @@ class LiveSpan(Span):
             # Override trace flag as if it is sampled within current context.
             trace_flags=TraceFlags(TraceFlags.SAMPLED),
         )
-
-        if end_trace:
-            clone_span.end(end_time_ns=span.end_time_ns)
 
         return clone_span
 
@@ -882,7 +886,7 @@ class _SpanAttributesRegistry:
         # NB: OpenTelemetry attribute can store not only string but also a few primitives like
         #   int, float, bool, and list of them. However, we serialize all into JSON string here
         #   for the simplicity in deserialization process.
-        self._span.set_attribute(key, json.dumps(value, cls=TraceJSONEncoder, ensure_ascii=False))
+        self._span.set_attribute(key, dump_span_attribute_value(value))
 
 
 class _CachedSpanAttributesRegistry(_SpanAttributesRegistry):

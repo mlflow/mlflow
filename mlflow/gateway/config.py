@@ -358,26 +358,28 @@ class EndpointConfig(AliasedConfigModel):
         return model
 
     @model_validator(mode="after")
-    def validate_route_type_and_model_name(cls, values):
-        route_type = values.endpoint_type
-        model = values.model
+    def validate_route_type_and_model_name(self):
         if (
-            model
-            and model.provider == "mosaicml"
-            and route_type == EndpointType.LLM_V1_CHAT
-            and not is_valid_mosiacml_chat_model(model.name)
+            self.model
+            and self.model.provider == "mosaicml"
+            and self.endpoint_type == EndpointType.LLM_V1_CHAT
+            and not is_valid_mosiacml_chat_model(self.model.name)
         ):
             raise MlflowException.invalid_parameter_value(
-                f"An invalid model has been specified for the chat route. '{model.name}'. "
+                f"An invalid model has been specified for the chat route. '{self.model.name}'. "
                 f"Ensure the model selected starts with one of: "
                 f"{MLFLOW_AI_GATEWAY_MOSAICML_CHAT_SUPPORTED_MODEL_PREFIXES}"
             )
-        if model and model.provider == "ai21labs" and not is_valid_ai21labs_model(model.name):
+        if (
+            self.model
+            and self.model.provider == "ai21labs"
+            and not is_valid_ai21labs_model(self.model.name)
+        ):
             raise MlflowException.invalid_parameter_value(
-                f"An Unsupported AI21Labs model has been specified: '{model.name}'. "
+                f"An Unsupported AI21Labs model has been specified: '{self.model.name}'. "
                 f"Please see documentation for supported models."
             )
-        return values
+        return self
 
     @field_validator("endpoint_type", mode="before")
     def validate_route_type(cls, value):

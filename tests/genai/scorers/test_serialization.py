@@ -8,6 +8,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
+
+
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
 # ============================================================================

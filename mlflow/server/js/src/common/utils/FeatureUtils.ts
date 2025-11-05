@@ -31,7 +31,11 @@ export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
-export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
+/**
+ * Determines if the regexp-based auto runs search filter is enabled.
+ * This should be disabled in OSS since backend does not support it yet.
+ */
+export const shouldUseRegexpBasedAutoRunsSearchFilter = () => false;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
 export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
@@ -74,13 +78,6 @@ export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
  * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
  */
 export const shouldUseGetLoggedModelsBatchAPI = () => {
-  return false;
-};
-
-/**
- * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
- */
-export const shouldEnableExperimentPageChildRoutes = () => {
   return false;
 };
 
@@ -136,4 +133,12 @@ export const shouldEnableTagGrouping = () => {
  */
 export const shouldDisableAssessmentsPaneOnFetchFailure = () => {
   return false;
+};
+
+export const shouldEnableExperimentPageSideTabs = () => {
+  return true;
+};
+
+export const shouldEnableChatSessionsTab = () => {
+  return true;
 };

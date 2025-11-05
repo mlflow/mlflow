@@ -4,6 +4,7 @@ from typing import Sequence
 from opentelemetry.sdk.trace import ReadableSpan
 
 from mlflow.entities.span import Span
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.tracing.export.async_export_queue import Task
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
@@ -19,8 +20,6 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
 
     def __init__(self, tracking_uri: str | None = None) -> None:
         super().__init__(tracking_uri)
-        # Override this to False since spans are logged to UC table instead of artifacts.
-        self._should_log_spans_to_artifacts = False
 
         # Track if we've raised an error for span export to avoid raising it multiple times.
         self._has_raised_span_export_error = False
@@ -64,3 +63,7 @@ class DatabricksUCTableSpanExporter(MlflowV3SpanExporter):
 
     def _should_enable_async_logging(self) -> bool:
         return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+
+    # Override this to False since spans are logged to UC table instead of artifacts.
+    def _should_log_spans_to_artifacts(self, trace_info: TraceInfo) -> bool:
+        return False
