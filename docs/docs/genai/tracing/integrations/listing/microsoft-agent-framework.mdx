@@ -6,7 +6,7 @@ sidebar_label: Microsoft Agent Framework
 import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 
-# Tracing Microsoft Agent Framework with MLflow
+# Tracing Microsoft Agent Framework
 
 <ImageBox src="/images/llms/tracing/microsoft-agent-framework-tracing.png" alt="Microsoft Agent Framework Tracing" />
 
@@ -28,13 +28,12 @@ mlflow server --backend-store-uri sqlite:///mlflow.db --port 5000
 
 This example uses SQLite as the backend store. To use other types of SQL databases such as PostgreSQL, MySQL, and MSSQL, change the store URI as described in the [backend store documentation](/self-hosting/architecture/backend-store). OpenTelemetry ingestion is not supported with file-based backend stores.
 
-
 ## Step 3: Configure OpenTelemetry
 
 Configure the OpenTelemetry tracer to export traces to the MLflow Tracking Server endpoint.
 
-* Set the endpoint to the MLflow Tracking Server's `/v1/traces` endpoint (OTLP).
-* Set the `x-mlflow-experiment-id` header to the MLflow experiment ID. If you don't have an experiment ID, create it from Python SDK or the MLflow UI.
+- Set the endpoint to the MLflow Tracking Server's `/v1/traces` endpoint (OTLP).
+- Set the `x-mlflow-experiment-id` header to the MLflow experiment ID. If you don't have an experiment ID, create it from Python SDK or the MLflow UI.
 
 ```python
 from agent_framework.observability import setup_observability
@@ -52,7 +51,6 @@ exporter = OTLPSpanExporter(
 # enable_sensitive_data=True is required for recording LLM inputs and outputs.
 setup_observability(enable_sensitive_data=True, exporters=[exporter])
 ```
-
 
 ## Step 4: Run the Agent
 
@@ -100,6 +98,6 @@ Open the MLflow UI at `http://localhost:5000` and navigate to the experiment to 
 
 ## Next Steps
 
-* [Evaluate the Agent](/genai/eval-monitor/running-evaluation/agents): Learn how to evaluate the agent's performance.
-* [Manage Prompts](/genai/prompt-registry): Learn how to manage prompts for the agent.
-* [Automatic Agent Optimization](/genai/prompt-registry/optimize-prompts): Learn how to automatically optimize the agent end-to-end with state-of-the-art optimization algorithms.
+- [Evaluate the Agent](/genai/eval-monitor/running-evaluation/agents): Learn how to evaluate the agent's performance.
+- [Manage Prompts](/genai/prompt-registry): Learn how to manage prompts for the agent.
+- [Automatic Agent Optimization](/genai/prompt-registry/optimize-prompts): Learn how to automatically optimize the agent end-to-end with state-of-the-art optimization algorithms.
