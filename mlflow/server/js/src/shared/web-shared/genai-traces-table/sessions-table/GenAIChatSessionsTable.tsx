@@ -23,6 +23,7 @@ import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRen
 import { SessionTableColumn } from './types';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
+import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
 
 const columns: SessionTableColumn[] = [
   {
@@ -164,16 +165,7 @@ export const GenAIChatSessionsTable = ({
       <Table
         style={{ ...columnSizeVars }}
         css={{ height: '100%' }}
-        empty={
-          !isLoading && sessionTableRows.length === 0 ? (
-            <Empty
-              description={intl.formatMessage({
-                defaultMessage: 'No chat sessions found',
-                description: 'Empty state for the chat sessions page',
-              })}
-            />
-          ) : undefined
-        }
+        empty={!isLoading && sessionTableRows.length === 0 ? <GenAIChatSessionsEmptyState /> : undefined}
         scrollable
       >
         <TableRow isHeader>
