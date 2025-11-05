@@ -127,6 +127,14 @@ def start_span_in_context(name: str, experiment_id: str | None = None) -> trace.
     Returns:
         The newly created OpenTelemetry span.
     """
+    # Update activity for idle monitoring
+    try:
+        from mlflow.tracing.utils.idle_monitor import update_activity
+
+        update_activity()
+    except Exception:
+        pass  # Don't let activity tracking fail span creation
+
     attributes = {}
     if experiment_id:
         attributes[SpanAttributeKey.EXPERIMENT_ID] = json.dumps(experiment_id)
@@ -394,6 +402,12 @@ def _initialize_tracer_provider(disabled=False):
         tracer_provider.add_span_processor(processor)
 
     provider.set(tracer_provider)
+
+    # Start idle monitor in serverless to prevent Py4J connection issues
+    if not disabled:
+        from mlflow.tracing.utils.idle_monitor import start_idle_monitor_if_needed
+
+        start_idle_monitor_if_needed()
 
 
 def _get_trace_sampler() -> TraceIdRatioBased | None:

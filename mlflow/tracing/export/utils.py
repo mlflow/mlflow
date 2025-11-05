@@ -42,6 +42,7 @@ def try_link_prompts_to_trace(
             target=_link_prompts_sync,
             args=(client, trace_id, prompts),
             name=f"link_prompts_from_exporter-{uuid.uuid4().hex[:8]}",
+            daemon=True,  # Set as daemon to prevent keeping references alive
         ).start()
 
 

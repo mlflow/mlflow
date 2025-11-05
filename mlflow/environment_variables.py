@@ -632,6 +632,21 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: Enable idle-based trace cleanup in Databricks serverless to prevent Py4J connection issues.
+#: When enabled, completed traces are flushed after the notebook is idle for the threshold duration.
+#: This prevents trace references from interfering with Py4J connection cleanup after 60s timeout.
+#: (default: ``True`` in Databricks serverless, ``False`` otherwise)
+MLFLOW_ENABLE_SERVERLESS_IDLE_TRACE_CLEANUP = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_SERVERLESS_IDLE_TRACE_CLEANUP", True
+)
+
+#: Idle time threshold (in seconds) before flushing traces in Databricks serverless.
+#: Set to less than 60 seconds to flush before Py4J connection timeout.
+#: (default: ``50``)
+MLFLOW_SERVERLESS_IDLE_CLEANUP_THRESHOLD = _EnvironmentVariable(
+    "MLFLOW_SERVERLESS_IDLE_CLEANUP_THRESHOLD", int, 50
+)
+
 #: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
 #: This cache improves performance by avoiding repeated network calls for the same prompt version.
 #: (default: ``128``)
