@@ -74,6 +74,7 @@ def calculator(a: float, b: float) -> str:
     """
     return str(a + b)
 
+
 calculator_tool = FunctionTool(func=calculator)
 
 root_agent = LlmAgent(
