@@ -25,7 +25,6 @@ import {
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
-  SPAN_ATTRIBUTES_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';

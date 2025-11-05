@@ -22,7 +22,6 @@ import {
   SPAN_NAME_COLUMN_ID,
   SPAN_TYPE_COLUMN_ID,
   SPAN_STATUS_COLUMN_ID,
-  SPAN_ATTRIBUTES_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
 import {
@@ -665,15 +664,6 @@ const createMlflowSearchFilter = (
           break;
         case SPAN_STATUS_COLUMN_ID:
           filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
-          break;
-        case SPAN_ATTRIBUTES_COLUMN_ID:
-          if (networkFilter.key) {
-            const fieldName =
-              networkFilter.key.includes('.') || networkFilter.key.includes(' ')
-                ? `span.attributes.\`${networkFilter.key}\``
-                : `span.attributes.${networkFilter.key}`;
-            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
-          }
           break;
         case SPAN_CONTENT_COLUMN_ID:
           if (networkFilter.operator === 'CONTAINS') {
