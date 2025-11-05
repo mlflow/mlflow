@@ -32,53 +32,7 @@ export const ModelTraceExplorerContent = ({
   onSelectSpan?: (selectedSpanId?: string) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { activeView, setActiveView, isInComparisonView } = useModelTraceExplorerViewState();
-
-  const tabsContent = (
-    <>
-      <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
-        <Tabs.Trigger value="summary">
-          <FormattedMessage
-            defaultMessage="Summary"
-            description="Label for the summary view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
-        <Tabs.Trigger value="detail">
-          <FormattedMessage
-            defaultMessage="Details & Timeline"
-            description="Label for the details & timeline view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
-      </Tabs.List>
-      <Tabs.Content
-        value="summary"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
-      </Tabs.Content>
-      <Tabs.Content
-        value="detail"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerDetailView
-          modelTrace={modelTrace}
-          className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
-        />
-      </Tabs.Content>
-    </>
-  );
+  const { activeView, setActiveView } = useModelTraceExplorerViewState();
 
   return (
     <Tabs.Root
@@ -96,18 +50,49 @@ export const ModelTraceExplorerContent = ({
         overflow: 'hidden',
       }}
     >
-      {isInComparisonView ? (
-        <ModelTraceExplorerComparisonLayout header={<ModelTraceHeaderDetails modelTrace={modelTrace} />}>
-          {tabsContent}
-        </ModelTraceExplorerComparisonLayout>
-      ) : (
-        <>
-          <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
-            <ModelTraceHeaderDetails modelTrace={modelTrace} />
-          </div>
-          {tabsContent}
-        </>
-      )}
+      <ModelTraceExplorerComparisonLayout header={<ModelTraceHeaderDetails modelTrace={modelTrace} />}>
+        <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
+          <Tabs.Trigger value="summary">
+            <FormattedMessage
+              defaultMessage="Summary"
+              description="Label for the summary view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="detail">
+            <FormattedMessage
+              defaultMessage="Details & Timeline"
+              description="Label for the details & timeline view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+        </Tabs.List>
+        <Tabs.Content
+          value="summary"
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
+        </Tabs.Content>
+        <Tabs.Content
+          value="detail"
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <ModelTraceExplorerDetailView
+            modelTrace={modelTrace}
+            className={className}
+            selectedSpanId={selectedSpanId}
+            onSelectSpan={onSelectSpan}
+          />
+        </Tabs.Content>
+      </ModelTraceExplorerComparisonLayout>
     </Tabs.Root>
   );
 };

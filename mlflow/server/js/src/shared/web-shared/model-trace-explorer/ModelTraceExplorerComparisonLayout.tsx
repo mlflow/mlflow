@@ -13,7 +13,16 @@ export const ModelTraceExplorerComparisonLayout = ({
   children: ReactNode;
 }) => {
   const { theme } = useDesignSystemTheme();
-  const { assessmentsPaneEnabled, assessmentsPaneExpanded, rootNode, selectedNode } = useModelTraceExplorerViewState();
+  const { assessmentsPaneEnabled, rootNode, selectedNode, isInComparisonView } = useModelTraceExplorerViewState();
+
+  if (!isInComparisonView) {
+    return (
+      <>
+        <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>{header}</div>
+        {children}
+      </>
+    );
+  }
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
