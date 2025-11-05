@@ -1,3 +1,5 @@
+import json
+
 import mlflow.utils.databricks_utils
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
@@ -64,24 +66,27 @@ def uc_volume_artifact_repo_factory(
     artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
     print(
-        {
-            "is_uc_volume_fuse_available": (
-                mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
-            ),
-            "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO": (
-                MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
-            ),
-            "is_databricks_model_registry_artifacts_uri": (
-                is_databricks_model_registry_artifacts_uri(artifact_uri)
-            ),
-            "db_profile_uri": db_profile_uri,
-            "Use LocalArtifactRepository?": (
-                mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
-                and MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
-                and not is_databricks_model_registry_artifacts_uri(artifact_uri)
-                and (db_profile_uri is None or db_profile_uri == "databricks")
-            ),
-        }
+        json(
+            {
+                "is_uc_volume_fuse_available": (
+                    mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
+                ),
+                "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO": (
+                    MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
+                ),
+                "is_databricks_model_registry_artifacts_uri": (
+                    is_databricks_model_registry_artifacts_uri(artifact_uri)
+                ),
+                "db_profile_uri": db_profile_uri,
+                "Use LocalArtifactRepository?": (
+                    mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
+                    and MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
+                    and not is_databricks_model_registry_artifacts_uri(artifact_uri)
+                    and (db_profile_uri is None or db_profile_uri == "databricks")
+                ),
+            },
+            indent=2,
+        )
     )
     if (
         mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
