@@ -19,6 +19,11 @@ import {
   SOURCE_COLUMN_ID,
   useTableColumns,
   CUSTOM_METADATA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
+  SPAN_ATTRIBUTES_COLUMN_ID,
+  SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
 import {
   TracesServiceV4,
@@ -639,6 +644,44 @@ const createMlflowSearchFilter = (
           break;
         case TracesTableColumnGroup.EXPECTATION:
           filter.push(`expectation.\`${networkFilter.key}\` ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case SPAN_NAME_COLUMN_ID:
+          // For span name, translate = to ILIKE for case-insensitive matching, and CONTAINS to ILIKE with wildcards
+          if (networkFilter.operator === '=') {
+            filter.push(`span.name ILIKE '${networkFilter.value}'`);
+          } else if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.name ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`span.name ${networkFilter.operator} '${networkFilter.value}'`);
+          }
+          break;
+        case SPAN_TYPE_COLUMN_ID:
+          // For span type, translate = to ILIKE for case-insensitive matching, and CONTAINS to ILIKE with wildcards
+          if (networkFilter.operator === '=') {
+            filter.push(`span.type ILIKE '${networkFilter.value}'`);
+          } else if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.type ILIKE '%${networkFilter.value}%'`);
+          } else {
+            filter.push(`span.type ${networkFilter.operator} '${networkFilter.value}'`);
+          }
+          break;
+        case SPAN_STATUS_COLUMN_ID:
+          filter.push(`span.status ${networkFilter.operator} '${networkFilter.value}'`);
+          break;
+        case SPAN_ATTRIBUTES_COLUMN_ID:
+          if (networkFilter.key) {
+            const fieldName =
+              networkFilter.key.includes('.') || networkFilter.key.includes(' ')
+                ? `span.attributes.\`${networkFilter.key}\``
+                : `span.attributes.${networkFilter.key}`;
+            filter.push(`${fieldName} ${networkFilter.operator} '${networkFilter.value}'`);
+          }
+          break;
+        case SPAN_CONTENT_COLUMN_ID:
+          // Search in span content
+          if (networkFilter.operator === 'CONTAINS') {
+            filter.push(`span.content ILIKE '%${networkFilter.value}%'`);
+          }
           break;
         default:
           if (networkFilter.column.startsWith(CUSTOM_METADATA_COLUMN_ID)) {

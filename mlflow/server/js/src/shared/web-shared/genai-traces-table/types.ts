@@ -185,10 +185,12 @@ export interface TableFilterOptions {
 
 export enum FilterOperator {
   EQUALS = '=',
+  NOT_EQUALS = '!=',
   GREATER_THAN = '>',
   LESS_THAN = '<',
   GREATER_THAN_OR_EQUALS = '>=',
   LESS_THAN_OR_EQUALS = '<=',
+  CONTAINS = 'CONTAINS',
 }
 
 // operators that are not displayed in the filter popover, but are
@@ -196,9 +198,7 @@ export enum FilterOperator {
 // functionality for all these operators, but some of them take a
 // little more thought from the UX side (e.g. we need to remove the
 // value input for IS NOT NULL filters)
-export enum HiddenFilterOperator {
-  ILIKE = 'ILIKE',
-}
+export enum HiddenFilterOperator {}
 
 export interface AssessmentDropdownSuggestionItem {
   label: string;

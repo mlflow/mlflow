@@ -22,6 +22,11 @@ import {
   LOGGED_MODEL_COLUMN_ID,
   SOURCE_COLUMN_ID,
   CUSTOM_METADATA_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_TYPE_COLUMN_ID,
+  SPAN_STATUS_COLUMN_ID,
+  SPAN_ATTRIBUTES_COLUMN_ID,
+  SPAN_CONTENT_COLUMN_ID,
 } from '../../hooks/useTableColumns';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnGroupToLabelMap } from '../../types';
 import type {
@@ -41,6 +46,51 @@ const FILTERABLE_INFO_COLUMNS = [
   LOGGED_MODEL_COLUMN_ID,
   SOURCE_COLUMN_ID,
 ];
+
+// Helper function to determine if a column supports all operators
+const supportsAllOperators = (column: string, key?: string): boolean => {
+  // Execution duration supports numeric comparisons
+  if (column === EXECUTION_DURATION_COLUMN_ID) {
+    return true;
+  }
+  // Span name and type filters support =, !=, CONTAINS
+  if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
+    return true;
+  }
+  // Span content only supports CONTAINS
+  if (column === SPAN_CONTENT_COLUMN_ID) {
+    return true;
+  }
+  return false;
+};
+
+// Helper function to get available operators for a column
+const getAvailableOperators = (column: string, key?: string): FilterOperator[] => {
+  if (column === EXECUTION_DURATION_COLUMN_ID) {
+    // Numeric comparisons
+    return [
+      FilterOperator.EQUALS,
+      FilterOperator.NOT_EQUALS,
+      FilterOperator.GREATER_THAN,
+      FilterOperator.LESS_THAN,
+      FilterOperator.GREATER_THAN_OR_EQUALS,
+      FilterOperator.LESS_THAN_OR_EQUALS,
+    ];
+  }
+
+  if (column === SPAN_NAME_COLUMN_ID || column === SPAN_TYPE_COLUMN_ID) {
+    // name and type support =, !=, CONTAINS
+    return [FilterOperator.EQUALS, FilterOperator.NOT_EQUALS, FilterOperator.CONTAINS];
+  }
+
+  if (column === SPAN_CONTENT_COLUMN_ID) {
+    // content only supports CONTAINS
+    return [FilterOperator.CONTAINS];
+  }
+
+  // Default: only equals
+  return [FilterOperator.EQUALS];
+};
 
 export const TableFilterItem = ({
   tableFilter,
@@ -91,6 +141,14 @@ export const TableFilterItem = ({
         renderValue: () => TracesTableColumnGroupToLabelMap[TracesTableColumnGroup.ASSESSMENT],
       },
     );
+
+    // Add individual span filter options
+    result.push(
+      { value: SPAN_CONTENT_COLUMN_ID, renderValue: () => 'Span content' },
+      { value: SPAN_NAME_COLUMN_ID, renderValue: () => 'Span name' },
+      { value: SPAN_TYPE_COLUMN_ID, renderValue: () => 'Span type' },
+    );
+
     return result;
   }, [allColumns]);
 
@@ -200,19 +258,18 @@ export const TableFilterItem = ({
             componentId="mlflow.evaluations_review.table_ui.filter_operator"
             id={'filter-operator-' + index}
             placeholder="Select"
-            width={100}
+            width={120}
             contentProps={{
               // Set the z-index to be higher than the Popover
               style: { zIndex: theme.options.zIndexBase + 100 },
             }}
-            // Currently only executionTime supports other operators
-            value={column === '' || column === EXECUTION_DURATION_COLUMN_ID ? operator : '='}
-            disabled={column !== '' && column !== EXECUTION_DURATION_COLUMN_ID}
+            value={column === '' || supportsAllOperators(column, key) ? operator : getAvailableOperators(column, key)[0]}
+            disabled={column !== '' && getAvailableOperators(column, key).length === 1}
             onChange={(e) => {
               onChange({ ...tableFilter, operator: e.target.value as FilterOperator }, index);
             }}
           >
-            {(Object.values(FilterOperator) as string[]).map((op) => (
+            {getAvailableOperators(column, key).map((op) => (
               <SimpleSelectOption key={op} value={op}>
                 {op}
               </SimpleSelectOption>
