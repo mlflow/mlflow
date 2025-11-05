@@ -25,9 +25,7 @@ def upgrade() -> None:
         sa.Column("user_id", sa.Integer(), nullable=False),
         sa.Column("permission", sa.String(length=255), nullable=True),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], name="fk_scorer_perm_user_id"),
-        sa.UniqueConstraint(
-            "experiment_id", "scorer_name", "user_id", name="unique_scorer_user"
-        ),
+        sa.UniqueConstraint("experiment_id", "scorer_name", "user_id", name="unique_scorer_user"),
     )
 
 

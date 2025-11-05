@@ -529,8 +529,8 @@ def test_get_scorer_permission(store):
 
     with pytest.raises(
         MlflowException,
-        match=rf"Scorer permission with experiment_id={experiment_id1}, scorer_name={scorer_name1}, "
-        rf"and username=bad_username not found",
+        match=rf"Scorer permission with experiment_id={experiment_id1}, "
+        rf"scorer_name={scorer_name1}, and username=bad_username not found",
     ) as exception_context:
         store.get_scorer_permission(experiment_id1, scorer_name1, "bad_username")
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -539,7 +539,7 @@ def test_get_scorer_permission(store):
 def test_list_scorer_permission(store):
     username1 = random_str()
     password1 = random_str()
-    user1 = _user_maker(store, username1, password1)
+    _user_maker(store, username1, password1)
 
     experiment_id1 = random_str()
     scorer_name1 = random_str()
@@ -590,8 +590,8 @@ def test_delete_scorer_permission(store):
 
     with pytest.raises(
         MlflowException,
-        match=rf"Scorer permission with experiment_id={experiment_id1}, scorer_name={scorer_name1}, "
-        rf"and username={username1} not found",
+        match=rf"Scorer permission with experiment_id={experiment_id1}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
     ) as exception_context:
         store.get_scorer_permission(experiment_id1, scorer_name1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
