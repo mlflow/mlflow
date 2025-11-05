@@ -22,6 +22,10 @@ For a list of available models see [the model library](https://fireworks.ai/mode
 ```python
 import openai
 import mlflow
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 # Enable auto-tracing
 mlflow.openai.autolog()
@@ -29,7 +33,7 @@ mlflow.openai.autolog()
 # Create an OpenAI client configured for FireworksAI
 openai_client = openai.OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key="your-fireworks-api-key"
+    api_key=os.getenv("FIREWORKS_API_KEY")
 )
 
 # Use the client as usual - traces will be automatically captured
@@ -47,7 +51,7 @@ MLflow automatically captures the following information about FireworksAI calls:
 - Latencies
 - Model name
 - Additional metadata such as `temperature`, `max_completion_tokens`, if specified
-- Function calling if returned in the response
+- Tool Use if returned in the response
 - Any exception if raised
 
 :::tip
@@ -60,7 +64,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
 #### Chat Completion API
 
-| Normal | Function Calling | Structured Outputs |   Streaming   |    Async     |
+| Normal | Tool Use | Structured Outputs |   Streaming   |    Async     |
 | :----: | :--------------: | :----------------: | :-----------: | :----------: |
 |   ✅   |        ✅        |         ✅         |      ✅       |      ✅      |
 
@@ -105,7 +109,7 @@ response = openai_client.chat.completions.create(
 
 ## Streaming
 
-MLflow Tracing supports streaming API of FireworksAI through the OpenAI SDK. With the same setup of auto tracing, MLflow automatically traces the streaming response and renders the concatenated output in the span UI. The actual chunks in the response stream can be found in the `Event` tab as well.
+MLflow Tracing supports streaming API outputs of FireworksAI endpoints through the OpenAI SDK. With the same setup of auto tracing, MLflow automatically traces the streaming response and renders the concatenated output in the span UI. The actual chunks in the response stream can be found in the `Event` tab as well.
 
 ```python
 import openai
@@ -136,7 +140,7 @@ for chunk in stream:
 
 ## Async
 
-MLflow Tracing supports asynchronous API of FireworksAI through the OpenAI SDK. The usage is the same as the synchronous API.
+MLflow Tracing supports asynchronous API returns of FireworksAI through the OpenAI SDK. The usage is the same as the synchronous API.
 
 ```python
 import openai
@@ -164,11 +168,11 @@ response = await client.chat.completions.create(
 )
 ```
 
-## Function Calling
+## Tool Use
 
-MLflow Tracing automatically captures function calling responses from FireworksAI models. The function instruction in the response will be highlighted in the trace UI. Moreover, you can annotate the tool function with the `@mlflow.trace` decorator to create a span for the tool execution.
+MLflow Tracing automatically captures tool use responses from FireworksAI models. The function instruction in the response will be highlighted in the trace UI. Moreover, you can annotate the tool function with the `@mlflow.trace` decorator to create a span for the tool execution.
 
-The following example implements a simple function calling agent using FireworksAI and MLflow Tracing:
+The following example implements a simple tool use agent using FireworksAI and MLflow Tracing:
 
 ```python
 import json
