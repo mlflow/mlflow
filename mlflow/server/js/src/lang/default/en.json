@@ -878,10 +878,6 @@
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
   },
-  "7HLhyL": {
-    "defaultMessage": "Column",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
-  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -2501,6 +2497,10 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
+  },
+  "OlytgO": {
+    "defaultMessage": "Field",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "On3g1B": {
     "defaultMessage": "Running",
