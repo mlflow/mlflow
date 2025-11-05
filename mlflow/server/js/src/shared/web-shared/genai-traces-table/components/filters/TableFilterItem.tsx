@@ -170,8 +170,8 @@ export const TableFilterItem = ({
             options={columnOptions}
             onChange={(value: string) => {
               if (value !== column) {
-                // Clear other fields as well on column change
-                onChange({ column: value, operator: FilterOperator.EQUALS, value: '' }, index);
+                const defaultOperator = getAvailableOperators(value)[0];
+                onChange({ column: value, operator: defaultOperator, value: '' }, index);
               }
             }}
             placeholder="Select column"
