@@ -1,17 +1,20 @@
 import { getModelTraceId, SingleChatTurnMessages, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { Button, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
+import { MutableRefObject } from 'react';
 
 export const ExperimentSingleChatConversation = ({
   traces,
   selectedTurnIndex,
   setSelectedTurnIndex,
   setSelectedTrace,
+  chatRefs,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
   setSelectedTurnIndex: (turnIndex: number | null) => void;
   setSelectedTrace: (trace: ModelTrace) => void;
+  chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
 }) => {
   const { theme } = useDesignSystemTheme();
 
@@ -39,6 +42,11 @@ export const ExperimentSingleChatConversation = ({
 
         return (
           <div
+            ref={(el) => {
+              if (el) {
+                chatRefs.current[traceId] = el;
+              }
+            }}
             key={traceId}
             css={{
               display: 'flex',
