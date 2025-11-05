@@ -66,7 +66,7 @@ def uc_volume_artifact_repo_factory(
     artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
     print(
-        json(
+        json.dumps(
             {
                 "is_uc_volume_fuse_available": (
                     mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
