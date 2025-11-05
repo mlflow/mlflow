@@ -432,7 +432,14 @@ class MlflowUtils {
       }
 
       res = (
-        <a target="_blank" rel="noopener noreferrer" href={url}>
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          href={url}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {res}
         </a>
       );

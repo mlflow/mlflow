@@ -11,6 +11,7 @@ import type { SessionTableRow } from './utils';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
+import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 
 // TODO: add following columns:
 // 1. conversation start time
@@ -29,7 +30,7 @@ const columns = [
   },
   {
     header: 'Source',
-    accessorKey: 'source.name',
+    cell: SessionSourceCellRenderer,
   },
 ];
 
