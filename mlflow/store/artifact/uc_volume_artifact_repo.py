@@ -52,7 +52,7 @@ def uc_volume_artifact_repo_factory(
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
-    print("✅uc_volume_artifact_repo_factory called")
+    print("✅ uc_volume_artifact_repo_factory called")
 
     if not is_valid_uc_volumes_uri(artifact_uri):
         raise MlflowException(
