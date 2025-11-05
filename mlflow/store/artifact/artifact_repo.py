@@ -389,7 +389,7 @@ class ArtifactRepository:
         Args:
             trace_data: The json-serialized trace data to upload.
         """
-        print("✅ Uploading trace data...")
+        _logger.warning("✅ Uploading trace data...")
         with write_local_temp_trace_data_file(trace_data) as temp_file:
             self.log_artifact(temp_file)
 

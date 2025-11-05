@@ -1,4 +1,5 @@
 import json
+import logging
 
 import mlflow.utils.databricks_utils
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
@@ -13,6 +14,8 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
     strip_scheme,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
@@ -52,7 +55,7 @@ def uc_volume_artifact_repo_factory(
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
-    print("✅ uc_volume_artifact_repo_factory called")
+    _logger.warning("✅ uc_volume_artifact_repo_factory called")
 
     if not is_valid_uc_volumes_uri(artifact_uri):
         raise MlflowException(
@@ -65,7 +68,7 @@ def uc_volume_artifact_repo_factory(
 
     artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
-    print(
+    _logger.warning(
         json.dumps(
             {
                 "is_uc_volume_fuse_available": (
