@@ -37,6 +37,7 @@ def _get_truncated_preview(request_or_response: str | dict[str, Any] | None, rol
     obj = None
     if isinstance(request_or_response, dict):
         obj = request_or_response
+        request_or_response = json.dumps(request_or_response)
     elif isinstance(request_or_response, str):
         try:
             obj = json.loads(request_or_response)
