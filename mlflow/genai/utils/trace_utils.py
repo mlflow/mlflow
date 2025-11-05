@@ -518,13 +518,14 @@ def construct_eval_result_df(
             for eval_result in eval_results
         ]
         df = traces_to_df(traces)
-        # unpack assessment columns
+        # Add unpacked assessment columns. The result df should look like:
+        # [trace_id, score_1/value, score_2/value, trace, state, ...]
         assessments = (
             df["assessments"].apply(lambda x: _get_assessment_values(x, run_id)).apply(pd.Series)
         )
-        return pd.concat([df, assessments], axis=1)
+        trace_id_column = df.pop("trace_id")
+        return pd.concat([trace_id_column, df, assessments], axis=1)
     except Exception as e:
-        raise
         _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
         return pd.DataFrame()
 
