@@ -11,6 +11,8 @@ from typing import NamedTuple
 from mlflow.environment_variables import (
     _MLFLOW_MPD_NUM_RETRIES,
     _MLFLOW_MPD_RETRY_INTERVAL_SECONDS,
+    MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS,
+    MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS,
     MLFLOW_ENABLE_MULTIPART_DOWNLOAD,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_MULTIPART_DOWNLOAD_MINIMUM_FILE_SIZE,
@@ -34,13 +36,7 @@ _logger = logging.getLogger(__name__)
 _ARTIFACT_UPLOAD_BATCH_SIZE = 50
 _AWS_MIN_CHUNK_SIZE = 5 * 1024**2  # 5 MB
 _AWS_MAX_CHUNK_SIZE = 5 * 1024**3  # 5 GB
-
-# Databricks storage proxy delays to avoid race conditions
-# When uploading multiple files through the Databricks storage proxy, the proxy maintains
-# internal state for credential exchanges and block upload operations. Adding delays between
-# file uploads allows the proxy to complete its internal cleanup and prevents 500 errors.
-_DATABRICKS_UPLOAD_DELAY_SECONDS = 3.0  # Delay between file uploads
-_DATABRICKS_LARGE_FILE_DELAY_SECONDS = 5.0  # Delay after large files (>100MB)
+_LARGE_FILE_SIZE_THRESHOLD = 100 * 1024**2  # 100 MB - threshold for extended proxy cleanup delays
 
 
 def _readable_size(size: int) -> str:
@@ -48,6 +44,7 @@ def _readable_size(size: int) -> str:
 
 
 def _validate_chunk_size_aws(chunk_size: int) -> None:
+    """Validate chunk size meets AWS S3 multipart upload requirements (5MB-5GB)."""
     if chunk_size < _AWS_MIN_CHUNK_SIZE or chunk_size > _AWS_MAX_CHUNK_SIZE:
         raise MlflowException(
             message=(
@@ -58,10 +55,20 @@ def _validate_chunk_size_aws(chunk_size: int) -> None:
 
 
 def _compute_num_chunks(local_file: os.PathLike, chunk_size: int) -> int:
+    """Compute the number of chunks needed for multipart upload of a file."""
     return math.ceil(os.path.getsize(local_file) / chunk_size)
 
 
 def _complete_futures(futures_dict, file):
+    """Wait for completion of all futures and collect results and errors.
+
+    Args:
+        futures_dict: Dictionary mapping futures to their chunk keys
+        file: Local file path for progress bar display
+
+    Returns:
+        Tuple of (results_dict, errors_dict) with completed chunk data and any errors
+    """
     results = {}
     errors = {}
     with ArtifactProgressBar.chunks(
@@ -124,32 +131,18 @@ class CloudArtifactRepository(ArtifactRepository):
         return False
 
     def log_artifacts(self, local_dir, artifact_path=None):
-        """Upload all files from local_dir to the cloud artifact store.
+        """Upload all files from local_dir to cloud storage.
 
-        This method handles three cloud providers with different upload strategies:
-        - AWS: Small files use simple PUT with presigned URLs, large files use multipart upload
-        - Azure: All files use block uploads with put_block_list to commit blocks
-        - GCP: All files use simple PUT requests
+        Upload Strategy by Cloud Provider:
+        - AWS: Small files use simple PUT, large files use multipart upload
+        - Azure: Block uploads with put_block_list
+        - GCP: Simple PUT requests
 
-        Upload Parallelization:
-        By default, all uploads are parallelized for maximum performance. This is safe for:
-        - Direct cloud access (S3, Azure Blob, GCS)
-        - Non-Databricks deployments
+        Databricks Proxy Compatibility:
+        When _requires_proxy_safe_uploads=True, Azure uploads are serialized with delays
+        to prevent put_block_list conflicts. GCP and AWS remain parallelized.
 
-        Databricks Storage Proxy Compatibility:
-        When uploading through Databricks storage proxies (_requires_proxy_safe_uploads=True),
-        special handling is applied:
-
-        1. Azure: Serialized uploads with adaptive delays (3s base, 5s for >100MB files)
-           - Azure block uploads through the proxy require serialization because overlapping
-             put_block_list operations cause internal proxy state conflicts and 500 errors
-           - Credentials are still batched upfront to avoid N separate API calls
-
-        2. GCP: Parallel uploads (no special handling needed)
-           - GCP uses simple PUT requests without block upload complexity
-           - Safe to parallelize even through the Databricks storage proxy
-
-        3. AWS: Small files parallel, then large files (to avoid mixing PUT and multipart)
+        See MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS environment variable to adjust delays.
         """
         artifact_path = artifact_path or ""
 
@@ -219,10 +212,11 @@ class CloudArtifactRepository(ArtifactRepository):
     def _detect_cloud_type(
         self, upload_plans: list[FileUploadPlan]
     ) -> ArtifactCredentialType | None:
-        """Detect cloud provider by fetching credentials for a single sample file.
+        """Detect cloud provider by fetching credentials for a sample file.
 
-        We prefer to sample a small file to avoid wasting credentials on AWS large files
-        (which will get their own credentials via multipart upload).
+        Note: Fetches an actual credential rather than adding a separate API endpoint.
+        The credential is cached for reuse in the sample file's upload. Prefers small
+        files to avoid wasting AWS large file multipart credentials.
         """
         if not upload_plans:
             return None
@@ -251,16 +245,10 @@ class CloudArtifactRepository(ArtifactRepository):
     def _upload_batch_aws(
         self, batch: list[FileUploadPlan], multipart_threshold: int
     ) -> dict[str, str]:
-        """Upload a batch of files to AWS S3.
+        """Upload files to AWS S3 with small files (PUT) before large files (multipart).
 
-        AWS Strategy:
-        - Small files (<threshold): Fetch presigned URLs and upload via simple PUT
-        - Large files (>=threshold): Use multipart upload (fetches its own credentials)
-
-        Databricks Storage Proxy Serialization:
-        When we have both small and large files, we upload small files first (in parallel),
-        wait for them to complete, then upload large files. This avoids concurrent multipart
-        and simple PUT operations which can cause storage proxy 500 errors.
+        To avoid proxy conflicts, small and large files are separated: small files upload
+        in parallel first, then large files upload after a delay.
         """
         small_files = [p for p in batch if p.file_size < multipart_threshold]
         large_files = [p for p in batch if p.file_size >= multipart_threshold]
@@ -273,42 +261,34 @@ class CloudArtifactRepository(ArtifactRepository):
         # If we have both types, serialize: small files first, then large files
         if small_files and large_files:
             # Upload small files in parallel
-            failures.update(self._upload_files_parallel(small_files, wait=True))
+            failures.update(self._upload_files_parallel(small_files))
 
             # Wait for storage proxy cleanup before starting large file multipart uploads
             # Each large file will request its own multipart credentials, so we need to
             # ensure the proxy has finished cleanup from small file uploads
+            delay = MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS.get()
             _logger.debug(
                 f"Completed {len(small_files)} small file(s). Waiting "
-                f"{_DATABRICKS_UPLOAD_DELAY_SECONDS}s before starting {len(large_files)} "
+                f"{delay}s before starting {len(large_files)} "
                 "large file multipart upload(s)."
             )
-            time.sleep(_DATABRICKS_UPLOAD_DELAY_SECONDS)
+            time.sleep(delay)
 
             # Then upload large files (each uses multipart internally)
-            failures.update(self._upload_files_parallel(large_files, wait=False))
+            failures.update(self._upload_files_parallel(large_files))
         else:
             # Only one type - upload in parallel
-            failures.update(self._upload_files_parallel(batch, wait=False))
+            failures.update(self._upload_files_parallel(batch))
 
         return failures
 
     def _upload_batch_azure_gcp(
         self, batch: list[FileUploadPlan], cloud_type: ArtifactCredentialType
     ) -> dict[str, str]:
-        """Upload a batch of files to Azure or GCP.
+        """Upload files to Azure or GCP.
 
-        Azure/GCP Strategy:
-        - All files use SAS tokens for upload (no distinction between small/large)
-        - Azure uses block uploads with put_block_list to commit blocks
-        - GCP uses simple PUT requests (no block upload complexity)
-
-        Databricks Storage Proxy Serialization (Azure only):
-        When uploading through the Databricks storage proxy, Azure block uploads require
-        serialization because overlapping put_block_list operations cause proxy state conflicts.
-        GCP uploads use simple PUT and can be parallelized safely even through the proxy.
-
-        For direct cloud access (non-proxy), all uploads are parallelized for maximum performance.
+        Azure uploads are serialized when using Databricks proxy to prevent put_block_list
+        conflicts. GCP uses simple PUT and remains parallelized.
         """
         failures = {}
 
@@ -325,38 +305,11 @@ class CloudArtifactRepository(ArtifactRepository):
 
         if needs_serialization:
             # Azure through Databricks storage proxy: serialize with adaptive delays
-            # Block uploads require time for put_block_list cleanup between files
             _logger.debug(
                 f"Using proxy-safe serialized upload for {len(batch)} Azure file(s) "
                 "to avoid storage proxy block upload conflicts."
             )
-            with ArtifactProgressBar.files(desc="Uploading artifacts", total=len(batch)) as pbar:
-                for idx, plan in enumerate(batch):
-                    try:
-                        # Credential already fetched and cached in plan.credential_info
-                        future = self.thread_pool.submit(
-                            self._upload_to_cloud,
-                            cloud_credential_info=plan.credential_info,
-                            src_file_path=plan.src_path,
-                            artifact_file_path=plan.dest_path,
-                        )
-                        future.result()  # Wait for completion (includes put_block_list)
-                        pbar.update()
-
-                        # Adaptive delay before next upload to avoid storage proxy race condition
-                        # Larger files need more cleanup time for put_block_list operations
-                        if idx < len(batch) - 1:
-                            delay = _DATABRICKS_UPLOAD_DELAY_SECONDS
-                            if plan.file_size > 100 * 1024 * 1024:  # >100MB
-                                delay = _DATABRICKS_LARGE_FILE_DELAY_SECONDS
-                                _logger.debug(
-                                    f"Large file ({plan.file_size / 1024**2:.1f}MB) uploaded. "
-                                    f"Waiting {delay}s before next upload to ensure proxy cleanup."
-                                )
-                            time.sleep(delay)
-
-                    except Exception as e:
-                        failures[plan.src_path] = repr(e)
+            failures.update(self._upload_files_serially_with_delays(batch))
         else:
             # GCP (always) or Azure (direct access): parallel upload for best performance
             if is_gcp and self._requires_proxy_safe_uploads and len(batch) > 1:
@@ -364,14 +317,71 @@ class CloudArtifactRepository(ArtifactRepository):
                     f"Using parallel upload for {len(batch)} GCP file(s). "
                     "GCP simple PUT uploads are safe even through storage proxy."
                 )
-            failures.update(self._upload_files_parallel(batch, wait=True))
+            failures.update(self._upload_files_parallel(batch))
 
         return failures
 
     def _upload_batch_generic(self, batch: list[FileUploadPlan]) -> dict[str, str]:
         """Upload files when cloud type is unknown or credentials aren't needed."""
         self._fetch_credentials_for_plans(batch)
-        return self._upload_files_parallel(batch, wait=False)
+        return self._upload_files_parallel(batch)
+
+    def _compute_upload_delay(self, file_size: int) -> float:
+        """Compute adaptive delay based on file size for Databricks proxy cleanup.
+
+        Args:
+            file_size: Size of the file in bytes
+
+        Returns:
+            Delay in seconds before next upload can begin
+        """
+        if file_size > _LARGE_FILE_SIZE_THRESHOLD:
+            return MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS.get()
+        return MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS.get()
+
+    def _upload_files_serially_with_delays(self, plans: list[FileUploadPlan]) -> dict[str, str]:
+        """Upload files one at a time with adaptive delays for Azure block uploads.
+
+        This method is used when uploading through Databricks storage proxy to Azure.
+        The delays prevent overlapping put_block_list operations which cause 500 errors.
+
+        Args:
+            plans: Files to upload (credentials must already be fetched)
+
+        Returns:
+            Dictionary mapping failed file paths to error messages
+        """
+        failures = {}
+
+        with ArtifactProgressBar.files(
+            desc="Uploading artifacts (serialized for proxy compatibility)",
+            total=len(plans),
+        ) as pbar:
+            for idx, plan in enumerate(plans):
+                try:
+                    future = self.thread_pool.submit(
+                        self._upload_to_cloud,
+                        cloud_credential_info=plan.credential_info,
+                        src_file_path=plan.src_path,
+                        artifact_file_path=plan.dest_path,
+                    )
+                    future.result()  # Wait for completion (includes put_block_list)
+                    pbar.update()
+
+                    # Add delay before next upload to allow proxy cleanup
+                    if idx < len(plans) - 1:
+                        delay = self._compute_upload_delay(plan.file_size)
+                        if plan.file_size > _LARGE_FILE_SIZE_THRESHOLD:
+                            _logger.debug(
+                                f"Large file ({plan.file_size / 1024**2:.1f}MB) uploaded. "
+                                f"Waiting {delay}s before next upload to ensure proxy cleanup."
+                            )
+                        time.sleep(delay)
+
+                except Exception as e:
+                    failures[plan.src_path] = repr(e)
+
+        return failures
 
     def _fetch_credentials_for_plans(self, plans: list[FileUploadPlan]) -> None:
         """Fetch and cache credentials for plans that don't already have them.
@@ -390,12 +400,11 @@ class CloudArtifactRepository(ArtifactRepository):
         except Exception as e:
             _logger.warning(f"Failed to fetch credentials: {e}")
 
-    def _upload_files_parallel(self, plans: list[FileUploadPlan], wait: bool) -> dict[str, str]:
-        """Upload multiple files in parallel and optionally wait for completion.
+    def _upload_files_parallel(self, plans: list[FileUploadPlan]) -> dict[str, str]:
+        """Upload multiple files in parallel and wait for all to complete.
 
         Args:
-            plans: Files to upload
-            wait: If True, block until all uploads complete before returning
+            plans: Files to upload (credentials should already be cached)
 
         Returns:
             Dictionary mapping failed file paths to error messages
@@ -412,13 +421,12 @@ class CloudArtifactRepository(ArtifactRepository):
             )
             futures[future] = plan
 
-        if wait:
-            # Wait for all uploads to complete
-            for future, plan in futures.items():
-                try:
-                    future.result()
-                except Exception as e:
-                    failures[plan.src_path] = repr(e)
+        # Wait for all uploads to complete and collect failures
+        for future, plan in futures.items():
+            try:
+                future.result()
+            except Exception as e:
+                failures[plan.src_path] = repr(e)
 
         return failures
 
@@ -442,8 +450,6 @@ class CloudArtifactRepository(ArtifactRepository):
             src_file_path: Local source file path
             artifact_file_path: Remote destination path
         """
-
-    # Read APIs (unchanged from original)
 
     def _extract_headers_from_credentials(self, headers):
         return {header.name: header.value for header in headers}

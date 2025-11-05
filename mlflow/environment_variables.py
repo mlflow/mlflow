@@ -549,6 +549,20 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
     "MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE", int, 100 * 1024**2
 )
 
+#: Specifies the delay in seconds between file uploads when uploading through
+#: Databricks storage proxy. Prevents race conditions in Azure block uploads.
+#: (default: ``3.0``)
+MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_UPLOAD_DELAY_SECONDS", float, 3.0
+)
+
+#: Specifies the delay in seconds between large file (>100MB) uploads when uploading
+#: through Databricks storage proxy. Larger files need more cleanup time.
+#: (default: ``5.0``)
+MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS = _EnvironmentVariable(
+    "MLFLOW_DATABRICKS_LARGE_FILE_UPLOAD_DELAY_SECONDS", float, 5.0
+)
+
 #: Specifies whether or not to allow the MLflow server to follow redirects when
 #: making HTTP requests. If set to False, the server will throw an exception if it
 #: encounters a redirect response.
