@@ -19,13 +19,11 @@ For a list of available models see [the model library](https://fireworks.ai/mode
 
 ## Quick Start
 
-FireworksAI is fully compatible with the OpenAI SDK, which means you can use MLflow's OpenAI integration with just a few configuration changes:
-
 ```python
 import openai
 import mlflow
 
-# Enable auto-tracing for OpenAI (works with FireworksAI too!)
+# Enable auto-tracing
 mlflow.openai.autolog()
 
 # Create an OpenAI client configured for FireworksAI
@@ -53,7 +51,7 @@ MLflow automatically captures the following information about FireworksAI calls:
 - Any exception if raised
 
 :::tip
-For more information on FireworksAI's OpenAI compatibility, visit the [FireworksAI documentation](https://fireworks.ai/docs/tools-sdks/openai-compatibility).
+For more information on FireworksAI's capabilities, visit the [FireworksAI documentation](https://fireworks.ai/docs).
 :::
 
 ## Supported APIs
@@ -72,11 +70,12 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 import openai
 import mlflow
 
-# Enable auto-tracing for OpenAI
+# Enable auto-tracing
 mlflow.openai.autolog()
 
 # Optional: Set a tracking URI and an experiment
-mlflow.set_tracking_uri("http://localhost:5000")
+# If running locally you can start a server with:  `mlflow server --host 127.0.0.1 --port 5000`
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 mlflow.set_experiment("FireworksAI")
 
 # Configure OpenAI client for FireworksAI
@@ -245,7 +244,7 @@ answer = run_tool_agent(question)
 
 ## Token Usage
 
-MLflow supports token usage tracking for FireworksAI through the OpenAI integration. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
+MLflow supports token usage tracking for FireworksAI. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be available in the `token_usage` field of the trace info object.
 
 ```python
 import json
@@ -280,19 +279,15 @@ for span in trace.data.spans:
 
 ```bash
 == Total token usage: ==
-  Input tokens: 84
-  Output tokens: 22
-  Total tokens: 106
+  Input tokens: 20
+  Output tokens: 283
+  Total tokens: 303
 
 == Detailed usage for each LLM call: ==
 Completions:
-  Input tokens: 45
-  Output tokens: 14
-  Total tokens: 59
-Completions_2:
-  Input tokens: 39
-  Output tokens: 8
-  Total tokens: 47
+  Input tokens: 20
+  Output tokens: 283
+  Total tokens: 303
 ```
 
 ### Supported APIs:
