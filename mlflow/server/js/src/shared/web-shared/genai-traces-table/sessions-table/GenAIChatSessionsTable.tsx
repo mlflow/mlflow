@@ -23,6 +23,7 @@ import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRen
 import { SessionTableColumn } from './types';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
+import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
 
 const columns: SessionTableColumn[] = [
   {
@@ -121,11 +122,9 @@ export const GenAIChatSessionsTable = ({
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
-    return columns.reduce((acc, column) => {
-      acc[column.id] = column.defaultVisibility;
-      return acc;
-    }, {} as Record<string, boolean>);
+  const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
+    experimentId,
+    columns,
   });
 
   const table = useReactTable<SessionTableRow>({
