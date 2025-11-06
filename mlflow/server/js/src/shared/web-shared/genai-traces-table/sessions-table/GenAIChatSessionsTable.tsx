@@ -156,7 +156,16 @@ export const GenAIChatSessionsTable = ({
   }, [columnSizeInfo, table, columnVisibility]);
 
   return (
-    <div css={{ flex: 1, minHeight: 0, position: 'relative', marginTop: theme.spacing.sm }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        position: 'relative',
+        marginTop: theme.spacing.sm,
+      }}
+    >
       <GenAIChatSessionsToolbar
         columns={columns}
         columnVisibility={columnVisibility}
@@ -164,7 +173,6 @@ export const GenAIChatSessionsTable = ({
       />
       <Table
         style={{ ...columnSizeVars }}
-        css={{ height: '100%' }}
         empty={!isLoading && sessionTableRows.length === 0 ? <GenAIChatSessionsEmptyState /> : undefined}
         scrollable
       >
