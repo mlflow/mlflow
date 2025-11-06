@@ -50,7 +50,11 @@ def mock_databricks_rag_eval(monkeypatch):
 
     class MockLLMResult:
         def __init__(self, output_data=None):
-            self.output = json.dumps(output_data or {"result": True, "rationale": "Test passed"})
+            data = output_data or {"result": True, "rationale": "Test passed"}
+            self.output = json.dumps(data)
+            self.output_json = json.dumps(
+                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
+            )
             self.error_message = None
 
     class MockManagedRAGClient:
@@ -58,7 +62,7 @@ def mock_databricks_rag_eval(monkeypatch):
             self.expected_content = expected_content
             self.response_data = response_data
 
-        def get_chat_completions_result(self, user_prompt, system_prompt):
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
             # Check that expected content is in either user or system prompt
             if self.expected_content:
                 combined = (system_prompt or "") + " " + user_prompt
@@ -322,10 +326,14 @@ def test_databricks_model_works_with_chat_completions(mock_databricks_rag_eval):
 def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     class MockLLMResultInvalid:
         def __init__(self):
-            self.output = "This is not valid JSON - maybe the model returned plain text"
+            invalid_text = "This is not valid JSON - maybe the model returned plain text"
+            self.output = invalid_text
+            self.output_json = json.dumps(
+                {"choices": [{"message": {"role": "assistant", "content": invalid_text}}]}
+            )
 
     class MockClientInvalid:
-        def get_chat_completions_result(self, user_prompt, system_prompt):
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
             return MockLLMResultInvalid()
 
     class MockContextInvalid:
@@ -341,14 +349,20 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Invalid JSON response" in result.error  # NB: Non-JSON response error
+    # For JSON decode errors, parser handles it directly
+    assert isinstance(result.error, str)
+    assert "Invalid JSON response" in result.error
 
     class MockLLMResultMissingField:
         def __init__(self):
-            self.output = json.dumps({"rationale": "Some rationale but no result field"})
+            data = {"rationale": "Some rationale but no result field"}
+            self.output = json.dumps(data)
+            self.output_json = json.dumps(
+                {"choices": [{"message": {"role": "assistant", "content": json.dumps(data)}}]}
+            )
 
     class MockClientMissingField:
-        def get_chat_completions_result(self, user_prompt, system_prompt):
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
             return MockLLMResultMissingField()
 
     class MockContextMissingField:
@@ -360,13 +374,17 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Response missing 'result' field" in result.error  # NB: Missing result field error
+    # For missing field errors, error is a plain string
+    assert isinstance(result.error, str)
+    assert "Response missing 'result' field" in result.error
 
     class MockLLMResultNone:
-        output = None
+        def __init__(self):
+            self.output = None
+            self.output_json = None
 
     class MockClientNone:
-        def get_chat_completions_result(self, user_prompt, system_prompt):
+        def get_chat_completions_result(self, user_prompt, system_prompt, **kwargs):
             return MockLLMResultNone()
 
     class MockContextNone:
@@ -378,7 +396,9 @@ def test_databricks_model_handles_errors_gracefully(mock_databricks_rag_eval):
     result = judge(outputs={"text": "test output"})
     assert isinstance(result, Feedback)
     assert result.error is not None
-    assert "Empty response from Databricks judge" in result.error  # NB: None/empty response error
+    # For empty response errors, error is a plain string
+    assert isinstance(result.error, str)
+    assert "Empty response from Databricks judge" in result.error
 
 
 def test_databricks_model_works_with_trace(mock_databricks_rag_eval):
