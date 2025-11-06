@@ -175,6 +175,10 @@
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
+  "/m44jJ": {
+    "defaultMessage": "View docs",
+    "description": "Text for docs link button on experiment view page header"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
