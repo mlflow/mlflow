@@ -86,6 +86,9 @@ describe('tracedAnthropic', () => {
     expect(typeof spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe('number');
     expect(typeof spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe('number');
     expect(typeof spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe('number');
+
+    const messageFormat = span.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+    expect(messageFormat).toBe('anthropic');
   });
 
   it('should handle Anthropic errors properly', async () => {
@@ -165,5 +168,8 @@ describe('tracedAnthropic', () => {
       messages: [{ role: 'user', content: 'Hello from parent span.' }]
     });
     expect(childSpan.outputs).toBeDefined();
+
+    const messageFormat = childSpan.attributes[mlflow.SpanAttributeKey.MESSAGE_FORMAT];
+    expect(messageFormat).toBe('anthropic');
   });
 });

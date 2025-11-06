@@ -29,6 +29,7 @@ import {
   getAssessmentMap,
   decodeSpanId,
   getDefaultActiveTab,
+  getTotalTokens,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -684,5 +685,21 @@ describe('decodeSpanId', () => {
     expect(decodeSpanId(undefined, true)).toBe('');
     expect(decodeSpanId(null, false)).toBe('');
     expect(decodeSpanId(undefined, false)).toBe('');
+  });
+});
+
+describe('getTotalTokens', () => {
+  it('should return the total tokens from the trace metadata', () => {
+    expect(getTotalTokens(MOCK_TRACE_INFO_V3)).toBe(300);
+  });
+
+  it('should return null if the trace metadata is not present', () => {
+    expect(getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined })).toBeNull();
+  });
+
+  it('should return null if the trace metadata is not a valid JSON object', () => {
+    expect(
+      getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
+    ).toBeNull();
   });
 });
