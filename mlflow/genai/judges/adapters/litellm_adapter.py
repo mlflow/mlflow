@@ -315,15 +315,17 @@ def _prune_messages_exceeding_context_window_length(
     # Remove tool call pairs until we're under limit
     while litellm.token_counter(model=model, messages=pruned_messages) > max_tokens:
         # Find first assistant message with tool calls
-        assistant_msg = None
-        assistant_idx = None
-        for i, msg in enumerate(pruned_messages):
-            if msg.role == "assistant" and msg.tool_calls:
-                assistant_msg = msg
-                assistant_idx = i
-                break
-        if assistant_msg is None:
+        result = next(
+            (
+                (i, msg)
+                for i, msg in enumerate(pruned_messages)
+                if msg.role == "assistant" and msg.tool_calls
+            ),
+            None,
+        )
+        if result is None:
             break  # No more tool calls to remove
+        assistant_idx, assistant_msg = result
         pruned_messages.pop(assistant_idx)
         # Remove corresponding tool response messages
         tool_call_ids = {

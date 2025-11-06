@@ -40,7 +40,6 @@ _logger = logging.getLogger(__name__)
 
 
 def _is_litellm_available() -> bool:
-    """Check if LiteLLM is available for import."""
     try:
         import litellm  # noqa: F401
 

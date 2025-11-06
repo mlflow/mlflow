@@ -218,12 +218,14 @@ def _parse_databricks_model_response(
 
     # Handle reasoning response (list of content items)
     if isinstance(content, list):
-        text_content = None
-        for item in content:
-            if isinstance(item, dict) and item.get("type") == "text":
-                text_content = item.get("text")
-                break
-
+        text_content = next(
+            (
+                item.get("text")
+                for item in content
+                if isinstance(item, dict) and item.get("type") == "text"
+            ),
+            None,
+        )
         if text_content is None:
             raise MlflowException(
                 "Invalid reasoning response: no text content found in response list",
