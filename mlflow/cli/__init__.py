@@ -616,7 +616,8 @@ def server(
 @click.option(
     "--older-than",
     default=None,
-    help="Optional. Remove run(s) older than the specified time limit. "
+    help="Optional. Remove run(s) that were moved to the `deleted` lifecycle stage "
+    "longer than the specified time limit ago. "
     "Specify a string in #d#h#m#s format. Float values are also supported. "
     "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
 )
@@ -674,6 +675,21 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         you **must** set the ``MLFLOW_TRACKING_URI`` environment variable before running
         this command. Otherwise, the ``gc`` command will not be able to resolve
         artifact URIs and will not be able to delete the associated artifacts.
+
+    .. note::
+
+        This command operates solely based on the lifecycle stage and the specified criteria
+        (e.g., ``--older-than``, ``--run-ids``, ``--experiment-ids``). It does **not** take
+        into account:
+
+        - **Pinned runs**: Pinning is a UI-only feature and does not prevent deletion.
+        - **Registered models**: The presence of a registered model associated with a run
+          does not prevent the run from being deleted.
+        - **Tags or other metadata**: Run tags, descriptions, and other metadata are not
+          considered when determining which runs to delete.
+
+        Runs must first be moved to the `deleted` lifecycle stage (via ``mlflow.delete_run()``
+        or the UI) before they can be permanently deleted by this command.
 
     """
     from mlflow.utils.time import get_current_time_millis
