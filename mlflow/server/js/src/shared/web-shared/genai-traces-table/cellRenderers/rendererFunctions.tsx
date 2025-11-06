@@ -52,6 +52,8 @@ import {
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
+import MlflowUtils from '../utils/MlflowUtils';
+import { Link } from '../utils/RoutingUtils';
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -653,22 +655,24 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={value}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, value)}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={value}
               >
-                {value}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {value}
+                </span>
+              </Tag>
+            </Link>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -676,22 +680,24 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={otherValue}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, otherValue)}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={otherValue}
               >
-                {otherValue}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {otherValue}
+                </span>
+              </Tag>
+            </Link>
           ) : (
             <NullCell isComparing={isComparing} />
           ))
