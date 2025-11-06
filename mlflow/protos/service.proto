@@ -2144,7 +2144,7 @@ message BatchGetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the traces to fetch. Must be provided.
-  repeated string trace_ids = 1 [(validate_required) = true];
+  repeated string trace_ids = 1;
 
   message Response {
     // The fetched trace information.

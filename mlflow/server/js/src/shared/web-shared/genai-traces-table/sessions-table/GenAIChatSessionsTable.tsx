@@ -11,12 +11,11 @@ import type { SessionTableRow } from './utils';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
+import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 
 // TODO: add following columns:
-// 1. conversation start time
-// 2. conversation duration
-// 3. token counts
-// 4. number of contained traces
+// 1. token counts
+// 2. number of contained traces
 const columns = [
   {
     header: 'Session ID',
@@ -29,7 +28,15 @@ const columns = [
   },
   {
     header: 'Source',
-    accessorKey: 'source.name',
+    cell: SessionSourceCellRenderer,
+  },
+  {
+    header: 'Session start time',
+    accessorKey: 'sessionStartTime',
+  },
+  {
+    header: 'Session duration',
+    accessorKey: 'sessionDuration',
   },
 ];
 

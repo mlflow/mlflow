@@ -451,7 +451,7 @@ const sidebarsClassicML: SidebarsConfig = {
             {
               type: 'link',
               label: 'Tracking Server',
-              href: 'https://mlflow.org/docs/latest/self-hosting/architecture',
+              href: '/self-hosting/architecture/tracking-server/',
             },
             {
               type: 'category',
@@ -615,7 +615,7 @@ const sidebarsClassicML: SidebarsConfig = {
       items: [
         {
           type: 'link',
-          href: 'https://mlflow.org/docs/latest/self-hosting',
+          href: '/self-hosting',
           label: 'Self-Hosting',
         },
         {
@@ -625,7 +625,7 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: 'https://mlflow.org/docs/latest/self-hosting/security/basic-http-auth',
+          href: '/self-hosting/security/basic-http-auth',
           label: 'Access Control',
         },
         {

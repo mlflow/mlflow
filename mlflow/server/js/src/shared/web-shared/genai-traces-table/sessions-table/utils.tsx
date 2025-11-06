@@ -1,20 +1,15 @@
-import { compact, sortBy } from 'lodash';
+import { compact, isNil, sortBy } from 'lodash';
 
-import {
-  type ModelTraceInfoV3,
-  SESSION_ID_METADATA_KEY,
-  SOURCE_NAME_METADATA_KEY,
-  SOURCE_TYPE_METADATA_KEY,
-} from '@databricks/web-shared/model-trace-explorer';
+import { type ModelTraceInfoV3, SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
+import MlflowUtils from '../utils/MlflowUtils';
 
 export type SessionTableRow = {
   sessionId: string;
   requestPreview?: string;
-  source?: {
-    name: string;
-    type: string;
-  };
+  firstTrace: ModelTraceInfoV3;
   experimentId: string;
+  sessionStartTime: string;
+  sessionDuration: string | null;
 };
 
 export const groupTracesBySession = (traces: ModelTraceInfoV3[]) => {
@@ -44,25 +39,35 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
 
       // sort traces within a session by time (earliest first)
       const sortedTraces = sortBy(traces, (trace) => new Date(trace.request_time));
+      const firstTrace = sortedTraces[0];
 
       // take request preview from the first trace
-      const requestPreview = sortedTraces[0].request_preview;
-      const sourceName = sortedTraces[0].trace_metadata?.[SOURCE_NAME_METADATA_KEY];
-      const sourceType = sortedTraces[0].trace_metadata?.[SOURCE_TYPE_METADATA_KEY];
-      const source =
-        sourceName && sourceType
-          ? {
-              name: sourceName,
-              type: sourceType,
-            }
-          : undefined;
+      const requestPreview = firstTrace.request_preview;
 
       return {
         sessionId,
         requestPreview,
-        source,
+        firstTrace,
         experimentId,
+        sessionStartTime: MlflowUtils.formatTimestamp(new Date(firstTrace.request_time)),
+        sessionDuration: calculateSessionDuration(traces),
       };
     }),
   );
+};
+
+const calculateSessionDuration = (traces: ModelTraceInfoV3[]) => {
+  const durations = traces.map((trace) => trace.execution_duration);
+
+  if (durations.some((duration) => isNil(duration))) {
+    return null;
+  }
+
+  const parsedSeconds = durations.map((duration) => parseFloat(duration ?? '0'));
+  if (parsedSeconds.some((duration) => isNaN(duration))) {
+    return null;
+  }
+
+  const totalMs = parsedSeconds.reduce((a, b) => a + b, 0) * 1000;
+  return MlflowUtils.formatDuration(totalMs);
 };
