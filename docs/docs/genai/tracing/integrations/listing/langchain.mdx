@@ -17,7 +17,7 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangChain. You can enable tracing
-for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can pass the MLflow LangChain tracer to the `callbacks` option.
+for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
 
 <TabsWrapper>
 <Tabs>
@@ -33,31 +33,12 @@ mlflow.langchain.autolog()
   <TabItem value="typescript" label="JS / TS">
 
 ```typescript
-import * as mlflow from "mlflow-tracing";
-import { MlflowLangChainTracer } from "mlflow-langchain";
-import { ChatOpenAI } from "@langchain/openai";
-import { StringOutputParser } from "@langchain/core/output_parsers";
-import { PromptTemplate } from "@langchain/core/prompts";
+import { MlflowCallback } from "mlflow-langchain";
 
-// Initialize MLflow client (optional if using env vars)
-mlflow.init({
-  trackingUri: process.env.MLFLOW_TRACKING_URI,
-  experimentId: process.env.MLFLOW_EXPERIMENT_ID,
-});
+const tracer = new MlflowCallback();
 
-// Create an MLflow tracer and pass it via LangChain callbacks
-const tracer = new MlflowLangChainTracer();
-
-const llm = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.7, maxTokens: 1000 });
-const prompt = PromptTemplate.fromTemplate(
-  "Answer the question as if you are {person}. The question is: {question}"
-);
-
-const chain = prompt.pipe(llm).pipe(new StringOutputParser());
-
-// Supply the tracer via the callbacks option
-const result = await chain.invoke(
-  { person: "Linus Torvalds", question: "Should everyone get sudo?" },
+await agent.invoke(
+  { messages: [{ role: "user", content: "What is MLflow?" }] },
   { callbacks: [tracer] }
 );
 ```
@@ -117,23 +98,26 @@ chain.invoke(
 
 ```typescript
 import * as mlflow from "mlflow-tracing";
-import { MlflowLangChainTracer } from "mlflow-langchain";
+import { MlflowCallback } from "mlflow-langchain";
 import { ChatOpenAI } from "@langchain/openai";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from '@langchain/core/runnables';
 
 mlflow.init({
   trackingUri: process.env.MLFLOW_TRACKING_URI,
   experimentId: process.env.MLFLOW_EXPERIMENT_ID,
 });
 
-const tracer = new MlflowLangChainTracer();
 
+// Define a chain as usual
 const llm = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.7, maxTokens: 1000 });
 const prompt = PromptTemplate.fromTemplate(
   "Answer the question as if you are {person}. The question is: {question}"
 );
-const chain = prompt.pipe(llm).pipe(new StringOutputParser());
+const chain = RunnableSequence.from([prompt, llm, new StringOutputParser()]);
+
+const tracer = new MlflowCallback();
 
 await chain.invoke(
   {

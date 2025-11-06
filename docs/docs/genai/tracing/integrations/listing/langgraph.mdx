@@ -17,12 +17,35 @@ import TabItem from "@theme/TabItem";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangGraph, as a extension of its LangChain integration. By enabling auto-tracing for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, MLflow will
 automatically capture the graph execution into a trace and log it to the active MLflow Experiment.
+In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
 
 mlflow.langchain.autolog()
 ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import { MlflowCallback } from "mlflow-langchain";
+
+const tracer = new MlflowCallback();
+
+await agent.invoke(
+  { messages: [{ role: "user", content: "What is MLflow?" }] },
+  { callbacks: [tracer] }
+);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::tip
 
