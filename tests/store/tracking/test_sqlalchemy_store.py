@@ -11962,3 +11962,62 @@ def test_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
             resource_id="global-1",
             field_name="KEY2",
         )
+
+
+def test_get_secrets_for_resource_uses_cache(store: SqlAlchemyStore, kek_passphrase):
+    assert store._secret_cache.size() == 0
+
+    store._create_and_bind_secret(
+        secret_name="api_key",
+        secret_value="sk-test-12345",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_123",
+        field_name="OPENAI_API_KEY",
+        is_shared=False,
+        created_by="test@example.com",
+    )
+
+    assert store._secret_cache.size() == 0
+
+    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_123")
+    assert secrets == {"OPENAI_API_KEY": "sk-test-12345"}
+    assert store._secret_cache.size() == 1
+
+    secrets_again = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_123")
+    assert secrets_again == {"OPENAI_API_KEY": "sk-test-12345"}
+    assert store._secret_cache.size() == 1
+
+
+def test_cache_separate_entries_per_resource(store: SqlAlchemyStore, kek_passphrase):
+    assert store._secret_cache.size() == 0
+
+    store._create_and_bind_secret(
+        secret_name="secret_1",
+        secret_value="value_1",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="KEY_1",
+        is_shared=False,
+        created_by="test@example.com",
+    )
+    store._create_and_bind_secret(
+        secret_name="secret_2",
+        secret_value="value_2",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+        field_name="KEY_2",
+        is_shared=False,
+        created_by="test@example.com",
+    )
+
+    secrets_1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
+    assert secrets_1 == {"KEY_1": "value_1"}
+    assert store._secret_cache.size() == 1
+
+    secrets_2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
+    assert secrets_2 == {"KEY_2": "value_2"}
+    assert store._secret_cache.size() == 2
+
+    secrets_1_again = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
+    assert secrets_1_again == {"KEY_1": "value_1"}
+    assert store._secret_cache.size() == 2

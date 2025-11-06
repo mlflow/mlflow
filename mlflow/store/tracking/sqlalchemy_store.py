@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 import math
+import os
 import random
 import threading
 import time
@@ -79,6 +80,11 @@ from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
+from mlflow.store.tracking._secret_cache import (
+    DEFAULT_CACHE_MAX_SIZE,
+    DEFAULT_CACHE_TTL,
+    SecretCache,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
@@ -263,6 +269,26 @@ class SqlAlchemyStore(AbstractStore):
             SessionMaker, self.db_type
         )
         mlflow.store.db.utils._verify_schema(self.engine)
+
+        # Initialize encrypted secrets cache (SERVER-SIDE ONLY)
+        # This cache runs only on the MLflow tracking server. Configuration is controlled
+        # via server CLI arguments (--secrets-cache-ttl, --secrets-cache-max-size).
+        # Client users cannot control server-side cache behavior for security.
+        # Key rotation automatically matches TTL for optimal security.
+        # Note: These env vars are set by mlflow.server when starting the server.
+        # We define them here as strings to avoid importing mlflow.server (which requires Flask).
+        _SECRETS_CACHE_TTL_ENV_VAR = "_MLFLOW_SERVER_SECRETS_CACHE_TTL"
+        _SECRETS_CACHE_MAX_SIZE_ENV_VAR = "_MLFLOW_SERVER_SECRETS_CACHE_MAX_SIZE"
+
+        cache_ttl = int(os.environ.get(_SECRETS_CACHE_TTL_ENV_VAR, DEFAULT_CACHE_TTL))
+        cache_max_size = int(
+            os.environ.get(_SECRETS_CACHE_MAX_SIZE_ENV_VAR, DEFAULT_CACHE_MAX_SIZE)
+        )
+
+        self._secret_cache = SecretCache(
+            ttl_seconds=cache_ttl,
+            max_size=cache_max_size,
+        )
 
         if is_local_uri(default_artifact_root):
             mkdir(local_file_uri_to_path(default_artifact_root))
@@ -2581,7 +2607,13 @@ class SqlAlchemyStore(AbstractStore):
             session.commit()
             session.refresh(sql_secret)
 
-            return sql_secret.to_mlflow_entity()
+            # Convert to entity before session closes to avoid DetachedInstanceError
+            secret_entity = sql_secret.to_mlflow_entity()
+
+        # Clear cache after secret update to ensure consistency
+        self._secret_cache.clear()
+
+        return secret_entity
 
     def _delete_secret(self, secret_id: str) -> None:
         """
@@ -2601,6 +2633,9 @@ class SqlAlchemyStore(AbstractStore):
 
             session.delete(sql_secret)
             session.commit()
+
+        # Clear cache after secret deletion to ensure consistency
+        self._secret_cache.clear()
 
     def _bind_secret(
         self,
@@ -2691,7 +2726,13 @@ class SqlAlchemyStore(AbstractStore):
             session.add(sql_binding)
             session.commit()
 
-            return sql_binding.to_mlflow_entity()
+            # Convert to entity before session closes to avoid DetachedInstanceError
+            binding_entity = sql_binding.to_mlflow_entity()
+
+        # Clear cache after secret binding to ensure consistency
+        self._secret_cache.clear()
+
+        return binding_entity
 
     def _unbind_secret(
         self,
@@ -2761,6 +2802,9 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_binding)
             session.commit()
 
+        # Clear cache after secret unbinding to ensure consistency
+        self._secret_cache.clear()
+
     def _list_secret_bindings(
         self,
         secret_id: str | None = None,
@@ -2827,6 +2871,14 @@ class SqlAlchemyStore(AbstractStore):
             Dictionary mapping field names to decrypted secret values.
             String and dict values are returned as-is without wrapping.
         """
+        # Check encrypted cache first
+        cache_key = f"{resource_type}:{resource_id}"
+        cached = self._secret_cache.get(cache_key)
+        if cached is not None:
+            # Cache hit: deserialize and return
+            return json.loads(cached)
+
+        # Cache miss: query database and decrypt
         with self.ManagedSessionMaker() as session:
             results = (
                 session.query(SqlSecretBinding, SqlSecret)
@@ -2857,6 +2909,9 @@ class SqlAlchemyStore(AbstractStore):
                         f"(ID: {sql_secret.secret_id}): {e}",
                         error_code=INTERNAL_ERROR,
                     )
+
+            # Cache the decrypted secrets (encrypted in memory)
+            self._secret_cache.set(cache_key, json.dumps(decrypted_secrets))
 
             return decrypted_secrets
 
