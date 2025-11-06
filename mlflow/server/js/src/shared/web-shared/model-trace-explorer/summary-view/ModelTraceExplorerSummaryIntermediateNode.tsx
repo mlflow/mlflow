@@ -127,7 +127,7 @@ export const ModelTraceExplorerSummaryIntermediateNode = ({
                     flexDirection: 'column',
                     gap: theme.spacing.sm,
                     paddingLeft: theme.spacing.lg,
-                    marginBottom: containsOutputs ? 0 : theme.spacing.sm,
+                    marginBottom: theme.spacing.sm,
                   }}
                 >
                   {inputList.map(({ key, value }, index) => (
