@@ -878,10 +878,6 @@
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
   },
-  "7HLhyL": {
-    "defaultMessage": "Column",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
-  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -2506,6 +2502,10 @@
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
   },
+  "OlytgO": {
+    "defaultMessage": "Field",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
+  },
   "On3g1B": {
     "defaultMessage": "Running",
     "description": "Run page > Overview > Run status cell > Value for running state"
@@ -2696,6 +2696,10 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
+  },
+  "RWVGkL": {
+    "defaultMessage": "Columns",
+    "description": "Columns label for the chat sessions table column selector"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
