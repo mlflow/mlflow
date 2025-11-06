@@ -522,3 +522,87 @@ def test_call_chat_completions_client_error(mock_databricks_rag_eval):
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
+
+
+def test_call_chat_completions_with_tools(mock_databricks_rag_eval, mock_trace):
+    """Test call_chat_completions with tool definitions."""
+    from mlflow.types.llm import FunctionToolDefinition, ToolDefinition
+
+    tool = ToolDefinition(
+        function=FunctionToolDefinition(
+            name="test_tool",
+            description="A test tool",
+            parameters={"type": "object", "properties": {"param": {"type": "string"}}},
+        )
+    )
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
+    ):
+        result = call_chat_completions("test prompt", "system prompt", tools=[tool])
+
+        # Verify tools were passed to the client
+        call_args = mock_databricks_rag_eval["rag_client"].get_chat_completions_result.call_args
+        assert "tools" in call_args.kwargs
+        assert call_args.kwargs["tools"] == [tool]
+
+        assert result.output == "test response"
+
+
+def test_invoke_databricks_default_judge_empty_response(mock_trace):
+    """Test handling of empty response from Databricks judge."""
+    from mlflow.genai.judges.adapters.databricks_adapter import _invoke_databricks_default_judge
+
+    mock_rag_client = mock.MagicMock()
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict({"output_json": None})
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
+    mock_context.eval_context = lambda func: func
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock.MagicMock()
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
+    ):
+        result = _invoke_databricks_default_judge(
+            prompt="test prompt", assessment_name="test_assessment", trace=None
+        )
+
+    assert result.error == "Empty response from Databricks judge"
+    assert result.value is None
+
+
+def test_invoke_databricks_default_judge_missing_choices_field(mock_trace):
+    from mlflow.genai.judges.adapters.databricks_adapter import _invoke_databricks_default_judge
+
+    mock_rag_client = mock.MagicMock()
+    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
+        {"output_json": json.dumps({"invalid": "response"})}
+    )
+    mock_context = mock.MagicMock()
+    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
+    mock_context.eval_context = lambda func: func
+    mock_module = mock.MagicMock()
+    mock_module.context = mock_context
+    mock_module.env_vars = mock.MagicMock()
+
+    with (
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+        ),
+        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
+    ):
+        result = _invoke_databricks_default_judge(
+            prompt="test prompt", assessment_name="test_assessment", trace=None
+        )
+
+    assert "Invalid response format" in result.error
+    assert "missing 'choices' field" in result.error
+    assert result.value is None
