@@ -17,8 +17,10 @@ if TYPE_CHECKING:
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_adapter import (
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
     _invoke_databricks_default_judge,
+)
+from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     _invoke_databricks_serving_endpoint_judge,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,

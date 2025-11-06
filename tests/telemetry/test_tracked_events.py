@@ -756,12 +756,12 @@ def test_invoke_custom_judge_model(
                     return_value=(mock_response, 10),
                 ),
                 mock.patch(
-                    "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint"
+                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
                 ) as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.adapters.databricks_adapter import (
+                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
                         InvokeDatabricksModelOutput,
                     )
 

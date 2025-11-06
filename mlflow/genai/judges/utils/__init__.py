@@ -8,10 +8,12 @@ if TYPE_CHECKING:
     from mlflow.genai.judges.base import AlignmentOptimizer
 
 import mlflow
-from mlflow.genai.judges.adapters.databricks_adapter import (
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    call_chat_completions,
+)
+from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     InvokeDatabricksModelOutput,
     InvokeJudgeModelHelperOutput,
-    call_chat_completions,
 )
 from mlflow.genai.judges.adapters.gateway_adapter import _NATIVE_PROVIDERS
 from mlflow.genai.judges.adapters.litellm_adapter import _suppress_litellm_nonfatal_errors
@@ -73,7 +75,9 @@ def validate_judge_model(model_uri: str) -> None:
         MlflowException: If the model URI is invalid or required dependencies are missing.
     """
     from mlflow.exceptions import MlflowException
-    from mlflow.genai.judges.adapters.databricks_adapter import _check_databricks_agents_installed
+    from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+        _check_databricks_agents_installed,
+    )
     from mlflow.metrics.genai.model_utils import _parse_model_uri
     from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 

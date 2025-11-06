@@ -13,7 +13,9 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_adapter import InvokeDatabricksModelOutput
+from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
+    InvokeDatabricksModelOutput,
+)
 from mlflow.genai.judges.adapters.litellm_adapter import _MODEL_RESPONSE_FORMAT_CAPABILITIES
 from mlflow.genai.judges.utils import CategoricalRating
 from mlflow.genai.judges.utils.invocation_utils import invoke_judge_model
