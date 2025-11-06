@@ -422,7 +422,9 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         (bucket, s3_root_path) = self.parse_s3_compliant_uri(self.artifact_uri)
         s3_full_path = posixpath.join(s3_root_path, remote_file_path)
         s3_client = self._get_s3_client()
-        download_kwargs = {"ExtraArgs": p} if (p := self._bucket_owner_params) else {}
+        download_kwargs = (
+            {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
+        )
         s3_client.download_file(bucket, s3_full_path, local_path, **download_kwargs)
 
     def delete_artifacts(self, artifact_path=None):

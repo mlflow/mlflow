@@ -353,7 +353,9 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         s3_full_path = posixpath.join(self.bucket_path, remote_file_path)
 
         def try_func(creds):
-            download_kwargs = {"ExtraArgs": p} if (p := self._bucket_owner_params) else {}
+            download_kwargs = (
+                {"ExtraArgs": self._bucket_owner_params} if self._bucket_owner_params else {}
+            )
             creds.download_file(self.bucket, s3_full_path, local_path, **download_kwargs)
 
         _retry_with_new_creds(
