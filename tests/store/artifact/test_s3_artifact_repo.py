@@ -523,7 +523,6 @@ def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, 
     file_path.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-
     repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
     assert repo_with_owner._bucket_owner_params == {"ExpectedBucketOwner": "123456789012"}
 
@@ -538,12 +537,13 @@ def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, 
     assert call_kwargs["ExtraArgs"]["ExpectedBucketOwner"] == "123456789012"
 
 
-def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_path, monkeypatch):
-    monkeypatch.delenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", raising=False)
+def test_bucket_ownership_verification_without_env_var(s3_artifact_root, tmp_path, monkeypatch):
     file_name = "test.txt"
     file_path = tmp_path / file_name
     file_path.touch()
 
+    monkeypatch.delenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", raising=False)
+    s3_artifact_repo = S3ArtifactRepository(s3_artifact_root)
     assert s3_artifact_repo._bucket_owner_params == {}
 
     mock_s3 = mock.Mock()
@@ -576,7 +576,6 @@ def test_bucket_takeover_scenario(s3_artifact_root, tmp_path, monkeypatch):
         f.write(file_text)
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-
     repo_with_owner = S3ArtifactRepository(s3_artifact_root)
 
     mock_s3 = mock.Mock()
@@ -598,15 +597,14 @@ def test_bucket_takeover_scenario(s3_artifact_root, tmp_path, monkeypatch):
             repo_with_owner.log_artifact(file_path)
 
 
-def test_list_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatch):
+def test_list_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     path_a = subdir / "a.txt"
     path_a.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-
-    repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
+    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
     repo_with_owner.log_artifacts(str(subdir))
 
     mock_s3 = mock.Mock()
@@ -625,7 +623,6 @@ def test_list_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatc
 
 def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-
     repo_with_owner = S3ArtifactRepository(s3_artifact_root)
 
     mock_s3 = mock.Mock()
@@ -646,15 +643,14 @@ def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
         assert params["ExpectedBucketOwner"] == "123456789012"
 
 
-def test_delete_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatch):
+def test_delete_artifacts_with_bucket_owner(s3_artifact_root, tmp_path, monkeypatch):
     subdir = tmp_path / "subdir"
     subdir.mkdir()
     path_a = subdir / "a.txt"
     path_a.touch()
 
     monkeypatch.setenv("MLFLOW_S3_EXPECTED_BUCKET_OWNER", "123456789012")
-
-    repo_with_owner = S3ArtifactRepository(s3_artifact_repo.artifact_uri)
+    repo_with_owner = S3ArtifactRepository(s3_artifact_root)
     repo_with_owner.log_artifacts(str(subdir))
 
     mock_s3 = mock.Mock()
