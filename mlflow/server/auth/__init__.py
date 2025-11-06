@@ -295,6 +295,15 @@ def _get_permission_from_scorer_id() -> Permission:
     )
 
 
+def _get_permission_from_scorer_permission_request() -> Permission:
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -393,6 +402,10 @@ def validate_can_delete_scorer():
 
 def validate_can_manage_scorer():
     return _get_permission_from_scorer_id().can_manage
+
+
+def validate_can_manage_scorer_permission():
+    return _get_permission_from_scorer_permission_request().can_manage
 
 
 def sender_is_admin():
@@ -544,10 +557,10 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer,
-        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer,
-        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer,
-        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer,
+        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
+        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
+        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
+        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
     }
 )
 

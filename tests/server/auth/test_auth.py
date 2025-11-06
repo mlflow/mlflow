@@ -643,7 +643,7 @@ def test_register_and_delete_scorer(client, monkeypatch):
     with User(username1, password1, monkeypatch):
         response = _send_rest_tracking_post_request(
             client.tracking_uri,
-            "/api/2.0/mlflow/scorers/register",
+            "/api/3.0/mlflow/scorers/register",
             json_payload={
                 "experiment_id": experiment_id,
                 "name": "test_scorer",
@@ -672,10 +672,9 @@ def test_register_and_delete_scorer(client, monkeypatch):
     assert permission["permission"] == "MANAGE"
 
     with User(username1, password1, monkeypatch):
-        _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/2.0/mlflow/scorers/delete",
-            json_payload={
+        requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
                 "experiment_id": experiment_id,
                 "name": scorer_name,
             },
@@ -709,7 +708,7 @@ def test_scorer_permission_denial(client, monkeypatch):
     with User(username1, password1, monkeypatch):
         response = _send_rest_tracking_post_request(
             client.tracking_uri,
-            "/api/2.0/mlflow/scorers/register",
+            "/api/3.0/mlflow/scorers/register",
             json_payload={
                 "experiment_id": experiment_id,
                 "name": "test_scorer",
@@ -721,27 +720,29 @@ def test_scorer_permission_denial(client, monkeypatch):
     scorer_name = response.json()["name"]
 
     with User(username2, password2, monkeypatch):
-        with pytest.raises(MlflowException, match="Permission denied"):
-            _send_rest_tracking_post_request(
-                client.tracking_uri,
-                "/api/2.0/mlflow/scorers/get",
-                json_payload={
-                    "experiment_id": experiment_id,
-                    "name": scorer_name,
-                },
-                auth=(username2, password2),
-            )
+        # user2 has default READ permission, so they CAN read the scorer
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        response.raise_for_status()
+        assert response.json()["scorer"]["scorer_name"] == scorer_name
 
-        with pytest.raises(MlflowException, match="Permission denied"):
-            _send_rest_tracking_post_request(
-                client.tracking_uri,
-                "/api/2.0/mlflow/scorers/delete",
-                json_payload={
-                    "experiment_id": experiment_id,
-                    "name": scorer_name,
-                },
-                auth=(username2, password2),
-            )
+        # But they CANNOT delete it (READ permission doesn't allow delete)
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        with pytest.raises(requests.HTTPError, match="403"):
+            response.raise_for_status()
 
 
 def test_scorer_read_permission(client, monkeypatch):
@@ -756,7 +757,7 @@ def test_scorer_read_permission(client, monkeypatch):
     with User(username1, password1, monkeypatch):
         response = _send_rest_tracking_post_request(
             client.tracking_uri,
-            "/api/2.0/mlflow/scorers/register",
+            "/api/3.0/mlflow/scorers/register",
             json_payload={
                 "experiment_id": experiment_id,
                 "name": "test_scorer",
@@ -780,25 +781,25 @@ def test_scorer_read_permission(client, monkeypatch):
     )
 
     with User(username2, password2, monkeypatch):
-        response = _send_rest_tracking_post_request(
-            client.tracking_uri,
-            "/api/2.0/mlflow/scorers/get",
-            json_payload={
+        response = requests.get(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/get",
+            params={
                 "experiment_id": experiment_id,
                 "name": scorer_name,
             },
             auth=(username2, password2),
         )
-        assert response.json()["name"] == scorer_name
+        response.raise_for_status()
+        assert response.json()["scorer"]["scorer_name"] == scorer_name
 
     with User(username2, password2, monkeypatch):
-        with pytest.raises(MlflowException, match="Permission denied"):
-            _send_rest_tracking_post_request(
-                client.tracking_uri,
-                "/api/2.0/mlflow/scorers/delete",
-                json_payload={
-                    "experiment_id": experiment_id,
-                    "name": scorer_name,
-                },
-                auth=(username2, password2),
-            )
+        response = requests.delete(
+            url=client.tracking_uri + "/api/3.0/mlflow/scorers/delete",
+            json={
+                "experiment_id": experiment_id,
+                "name": scorer_name,
+            },
+            auth=(username2, password2),
+        )
+        with pytest.raises(requests.HTTPError, match="403"):
+            response.raise_for_status()

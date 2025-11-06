@@ -527,12 +527,13 @@ def test_get_scorer_permission(store):
     assert sp1.user_id == user_id1
     assert sp1.permission == permission1
 
+    experiment_id2 = random_str()
     with pytest.raises(
         MlflowException,
-        match=rf"Scorer permission with experiment_id={experiment_id1}, "
-        rf"scorer_name={scorer_name1}, and username=bad_username not found",
+        match=rf"Scorer permission with experiment_id={experiment_id2}, "
+        rf"scorer_name={scorer_name1}, and username={username1} not found",
     ) as exception_context:
-        store.get_scorer_permission(experiment_id1, scorer_name1, "bad_username")
+        store.get_scorer_permission(experiment_id2, scorer_name1, username1)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
