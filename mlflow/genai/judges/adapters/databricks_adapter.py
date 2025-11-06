@@ -177,6 +177,8 @@ def _create_litellm_message_from_databricks_response(
     """
     Convert Databricks OpenAI-style response to litellm Message.
 
+    Handles both string content and reasoning model outputs.
+
     Args:
         response_data: Parsed JSON response from Databricks.
 
@@ -210,9 +212,17 @@ def _create_litellm_message_from_databricks_response(
             for tc in tool_calls_data
         ]
 
+    content = message_data.get("content")
+    if isinstance(content, list):
+        content_parts = []
+        for block in content:
+            if isinstance(block, dict) and "text" in block:
+                content_parts.append(block["text"])
+        content = "\n".join(content_parts) if content_parts else None
+
     return litellm.Message(
         role=message_data.get("role", "assistant"),
-        content=message_data.get("content"),
+        content=content,
         tool_calls=tool_calls,
     )
 

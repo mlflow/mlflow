@@ -13,6 +13,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
 from mlflow.genai.judges.adapters.databricks_adapter import (
     InvokeDatabricksModelOutput,
+    _create_litellm_message_from_databricks_response,
     _invoke_databricks_serving_endpoint,
     _parse_databricks_model_response,
     _record_judge_model_usage_failure_databricks_telemetry,
@@ -606,3 +607,33 @@ def test_invoke_databricks_default_judge_missing_choices_field(mock_trace):
     assert "Invalid response format" in result.error
     assert "missing 'choices' field" in result.error
     assert result.value is None
+
+
+def test_create_litellm_message_from_databricks_response_with_string_content():
+    response_data = {
+        "choices": [{"message": {"role": "assistant", "content": "Simple string response"}}]
+    }
+    message = _create_litellm_message_from_databricks_response(response_data)
+    assert message.role == "assistant"
+    assert message.content == "Simple string response"
+    assert message.tool_calls is None
+
+
+def test_create_litellm_message_from_databricks_response_with_content_blocks():
+    response_data = {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": [
+                        {"type": "reasoning", "reasoning": "Let me think about this..."},
+                        {"type": "text", "text": "The answer is correct."},
+                    ],
+                }
+            }
+        ]
+    }
+    message = _create_litellm_message_from_databricks_response(response_data)
+    assert message.role == "assistant"
+    assert message.content == "The answer is correct."
+    assert message.tool_calls is None
