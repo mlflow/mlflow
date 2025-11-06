@@ -10,6 +10,7 @@ import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplo
 import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
 import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
+import { ModelTraceExplorerSummarySection } from './ModelTraceExplorerSummarySection';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
 
@@ -72,8 +73,7 @@ export const ModelTraceExplorerSummarySpans = ({
         </div>
       </div>
       {hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}
-      <ModelTraceExplorerCollapsibleSection
-        withBorder
+      <ModelTraceExplorerSummarySection
         title={
           <FormattedMessage
             defaultMessage="Inputs"
@@ -82,25 +82,15 @@ export const ModelTraceExplorerSummarySpans = ({
         }
         css={{ marginBottom: hasIntermediateNodes ? 0 : theme.spacing.md }}
         sectionKey="summary-inputs"
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          {inputList.map(({ key, value }, index) => (
-            <ModelTraceExplorerFieldRenderer
-              key={key || index}
-              title={key}
-              data={value}
-              renderMode={renderMode}
-              chatMessageFormat={chatMessageFormat}
-            />
-          ))}
-        </div>
-      </ModelTraceExplorerCollapsibleSection>
+        data={inputList}
+        renderMode={renderMode}
+        chatMessageFormat={chatMessageFormat}
+      />
       {hasIntermediateNodes &&
         intermediateNodes.map((node) => (
           <ModelTraceExplorerSummaryIntermediateNode key={node.key} node={node} renderMode={renderMode} />
         ))}
-      <ModelTraceExplorerCollapsibleSection
-        withBorder
+      <ModelTraceExplorerSummarySection
         title={
           <FormattedMessage
             defaultMessage="Outputs"
@@ -108,19 +98,10 @@ export const ModelTraceExplorerSummarySpans = ({
           />
         }
         sectionKey="summary-outputs"
-      >
-        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-          {outputList.map(({ key, value }, index) => (
-            <ModelTraceExplorerFieldRenderer
-              key={key || index}
-              title={key}
-              data={value}
-              renderMode={renderMode}
-              chatMessageFormat={chatMessageFormat}
-            />
-          ))}
-        </div>
-      </ModelTraceExplorerCollapsibleSection>
+        data={outputList}
+        renderMode={renderMode}
+        chatMessageFormat={chatMessageFormat}
+      />
     </div>
   );
 };
