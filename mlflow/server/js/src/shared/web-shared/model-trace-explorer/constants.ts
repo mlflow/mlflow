@@ -11,3 +11,4 @@ export const MLFLOW_ASSESSMENT_JUDGE_COST = 'mlflow.assessment.judgeCost';
 export const SESSION_ID_METADATA_KEY = 'mlflow.trace.session';
 export const SOURCE_NAME_METADATA_KEY = 'mlflow.source.name';
 export const SOURCE_TYPE_METADATA_KEY = 'mlflow.source.type';
+export const TOKEN_USAGE_METADATA_KEY = 'mlflow.trace.tokenUsage';
