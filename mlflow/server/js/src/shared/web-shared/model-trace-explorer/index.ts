@@ -15,8 +15,14 @@ export {
   getModelTraceId,
   tryDeserializeAttribute,
   parseTraceUri,
+  getTotalTokens,
 } from './ModelTraceExplorer.utils';
-export { SESSION_ID_METADATA_KEY, SOURCE_NAME_METADATA_KEY, SOURCE_TYPE_METADATA_KEY } from './constants';
+export {
+  SESSION_ID_METADATA_KEY,
+  SOURCE_NAME_METADATA_KEY,
+  SOURCE_TYPE_METADATA_KEY,
+  TOKEN_USAGE_METADATA_KEY,
+} from './constants';
 export { shouldEnableTracesTabLabelingSchemas } from './FeatureUtils';
 export { AssessmentSchemaContextProvider, type AssessmentSchema } from './contexts/AssessmentSchemaContext';
 export * from './ModelTrace.types';
