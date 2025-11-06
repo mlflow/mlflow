@@ -21,6 +21,19 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
+from mlflow.server.constants import (
+    ARTIFACT_ROOT_ENV_VAR,
+    ARTIFACTS_DESTINATION_ENV_VAR,
+    ARTIFACTS_ONLY_ENV_VAR,
+    BACKEND_STORE_URI_ENV_VAR,
+    FLASK_SERVER_SECRET_KEY_ENV_VAR,
+    HUEY_STORAGE_PATH_ENV_VAR,
+    PROMETHEUS_EXPORTER_ENV_VAR,
+    REGISTRY_STORE_URI_ENV_VAR,
+    SECRETS_CACHE_MAX_SIZE_ENV_VAR,
+    SECRETS_CACHE_TTL_ENV_VAR,
+    SERVE_ARTIFACTS_ENV_VAR,
+)
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
@@ -39,18 +52,6 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
 from mlflow.version import VERSION
-
-# NB: These are internal environment variables used for communication between
-# the cli and the forked gunicorn processes.
-BACKEND_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_FILE_STORE"
-REGISTRY_STORE_URI_ENV_VAR = "_MLFLOW_SERVER_REGISTRY_STORE"
-ARTIFACT_ROOT_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_ROOT"
-ARTIFACTS_DESTINATION_ENV_VAR = "_MLFLOW_SERVER_ARTIFACT_DESTINATION"
-PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
-SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
-ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
-HUEY_STORAGE_PATH_ENV_VAR = "_MLFLOW_HUEY_STORAGE_PATH"
-MLFLOW_HUEY_INSTANCE_KEY = "_MLFLOW_HUEY_INSTANCE_KEY"
 
 REL_STATIC_DIR = "js/build"
 
@@ -308,6 +309,8 @@ def _run_server(
     app_name=None,
     uvicorn_opts=None,
     env_file=None,
+    secrets_cache_ttl=None,
+    secrets_cache_max_size=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn, uvicorn, or waitress on windows
@@ -339,9 +342,14 @@ def _run_server(
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
 
+    if secrets_cache_ttl is not None:
+        env_map[SECRETS_CACHE_TTL_ENV_VAR] = str(secrets_cache_ttl)
+    if secrets_cache_max_size is not None:
+        env_map[SECRETS_CACHE_MAX_SIZE_ENV_VAR] = str(secrets_cache_max_size)
+
     secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
     if secret_key:
-        env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
+        env_map[FLASK_SERVER_SECRET_KEY_ENV_VAR] = secret_key
 
     # Determine which server we're using (only one should be true)
     using_gunicorn = gunicorn_opts is not None
