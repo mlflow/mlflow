@@ -531,10 +531,11 @@ def test_bucket_ownership_verification_with_env_var(s3_artifact_repo, tmp_path, 
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
         repo_with_owner.log_artifact(file_path)
-        mock_s3.upload_file.assert_called_once()
-        call_kwargs = mock_s3.upload_file.call_args[1]
-        assert "ExtraArgs" in call_kwargs
-        assert call_kwargs["ExtraArgs"]["ExpectedBucketOwner"] == "123456789012"
+
+    mock_s3.upload_file.assert_called_once()
+    call_kwargs = mock_s3.upload_file.call_args[1]
+    assert "ExtraArgs" in call_kwargs
+    assert call_kwargs["ExtraArgs"]["ExpectedBucketOwner"] == "123456789012"
 
 
 def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_path, monkeypatch):
@@ -549,9 +550,10 @@ def test_bucket_ownership_verification_without_env_var(s3_artifact_repo, tmp_pat
 
     with mock.patch.object(s3_artifact_repo, "_get_s3_client", return_value=mock_s3):
         s3_artifact_repo.log_artifact(file_path)
-        mock_s3.upload_file.assert_called_once()
-        call_kwargs = mock_s3.upload_file.call_args[1]
-        assert "ExpectedBucketOwner" not in call_kwargs.get("ExtraArgs", {})
+
+    mock_s3.upload_file.assert_called_once()
+    call_kwargs = mock_s3.upload_file.call_args[1]
+    assert "ExpectedBucketOwner" not in call_kwargs.get("ExtraArgs", {})
 
 
 def test_bucket_takeover_scenario(s3_artifact_root, tmp_path, monkeypatch):
@@ -614,10 +616,11 @@ def test_list_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatc
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
         repo_with_owner.list_artifacts()
-        mock_paginator.paginate.assert_called_once()
-        call_kwargs = mock_paginator.paginate.call_args[1]
-        assert "ExpectedBucketOwner" in call_kwargs
-        assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    mock_paginator.paginate.assert_called_once()
+    call_kwargs = mock_paginator.paginate.call_args[1]
+    assert "ExpectedBucketOwner" in call_kwargs
+    assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
 
 
 def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
@@ -631,15 +634,16 @@ def test_multipart_upload_with_bucket_owner(s3_artifact_root, monkeypatch):
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
         repo_with_owner.create_multipart_upload("local_file", num_parts=2)
-        mock_s3.create_multipart_upload.assert_called_once()
-        call_kwargs = mock_s3.create_multipart_upload.call_args[1]
-        assert "ExpectedBucketOwner" in call_kwargs
-        assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
-        presigned_calls = mock_s3.generate_presigned_url.call_args_list
-        for call in presigned_calls:
-            params = call[1]["Params"]
-            assert "ExpectedBucketOwner" in params
-            assert params["ExpectedBucketOwner"] == "123456789012"
+
+    mock_s3.create_multipart_upload.assert_called_once()
+    call_kwargs = mock_s3.create_multipart_upload.call_args[1]
+    assert "ExpectedBucketOwner" in call_kwargs
+    assert call_kwargs["ExpectedBucketOwner"] == "123456789012"
+    presigned_calls = mock_s3.generate_presigned_url.call_args_list
+    for call in presigned_calls:
+        params = call[1]["Params"]
+        assert "ExpectedBucketOwner" in params
+        assert params["ExpectedBucketOwner"] == "123456789012"
 
 
 def test_delete_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypatch):
@@ -662,11 +666,12 @@ def test_delete_artifacts_with_bucket_owner(s3_artifact_repo, tmp_path, monkeypa
 
     with mock.patch.object(repo_with_owner, "_get_s3_client", return_value=mock_s3):
         repo_with_owner.delete_artifacts()
-        mock_paginator.paginate.assert_called_once()
-        paginate_call_kwargs = mock_paginator.paginate.call_args[1]
-        assert "ExpectedBucketOwner" in paginate_call_kwargs
-        assert paginate_call_kwargs["ExpectedBucketOwner"] == "123456789012"
-        mock_s3.delete_objects.assert_called_once()
-        delete_call_kwargs = mock_s3.delete_objects.call_args[1]
-        assert "ExpectedBucketOwner" in delete_call_kwargs
-        assert delete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+
+    mock_paginator.paginate.assert_called_once()
+    paginate_call_kwargs = mock_paginator.paginate.call_args[1]
+    assert "ExpectedBucketOwner" in paginate_call_kwargs
+    assert paginate_call_kwargs["ExpectedBucketOwner"] == "123456789012"
+    mock_s3.delete_objects.assert_called_once()
+    delete_call_kwargs = mock_s3.delete_objects.call_args[1]
+    assert "ExpectedBucketOwner" in delete_call_kwargs
+    assert delete_call_kwargs["ExpectedBucketOwner"] == "123456789012"
