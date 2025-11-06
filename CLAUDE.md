@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Code Style Principles
+
+- Use top-level imports (only use lazy imports when necessary)
+- Only add docstrings in tests when they provide additional context
+- Only add comments that explain non-obvious logic or provide additional context
+
 ## Repository Overview
 
 MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It provides tools for:
@@ -19,10 +25,8 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 ### Start the Full Development Environment (Recommended)
 
 ```bash
-# Kill any existing servers
-pkill -f "mlflow server" || true; pkill -f "yarn start" || true
-
 # Start both MLflow backend and React frontend dev servers
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -48,6 +52,7 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs

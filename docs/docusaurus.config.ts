@@ -54,7 +54,7 @@ const config: Config = {
     },
   ],
 
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
   },
@@ -219,6 +219,19 @@ const config: Config = {
 
   plugins: [
     tailwindPlugin,
+    [
+      '@signalwire/docusaurus-plugin-llms-txt',
+      {
+        ui: {
+          copyPageContent: {
+            buttonLabel: 'Copy Page',
+            display: {
+              docs: true,
+            },
+          },
+        },
+      },
+    ],
     // Classic ML docs plugin
     [
       '@docusaurus/plugin-content-docs',

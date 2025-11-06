@@ -275,6 +275,10 @@
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
   },
+  "128VYg": {
+    "defaultMessage": "User",
+    "description": "Label for the user id section"
+  },
   "13vJft": {
     "defaultMessage": "View Examples",
     "description": "Experiment page > new run modal > prompt examples button"
@@ -873,10 +877,6 @@
   "7FvLl2": {
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
-  },
-  "7HLhyL": {
-    "defaultMessage": "Column",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -1561,6 +1561,10 @@
   "E9fsRD": {
     "defaultMessage": "Show span tree",
     "description": "Tooltip for a button that show the span tree view of the trace UI."
+  },
+  "EAf6xM": {
+    "defaultMessage": "Session",
+    "description": "Label preceding a chat session ID"
   },
   "EBwDIg": {
     "defaultMessage": "Delete",
@@ -2474,6 +2478,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OUPWd8": {
+    "defaultMessage": "View chat session",
+    "description": "Tooltip for the session id tag"
+  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -2493,6 +2501,10 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
+  },
+  "OlytgO": {
+    "defaultMessage": "Field",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -2684,6 +2696,10 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
+  },
+  "RWVGkL": {
+    "defaultMessage": "Columns",
+    "description": "Columns label for the chat sessions table column selector"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
@@ -3232,6 +3248,10 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
+  "XIWwOm": {
+    "defaultMessage": "Session ID",
+    "description": "Label for the session id section"
+  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -3574,6 +3594,10 @@
   "aaVp/T": {
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
+  },
+  "adVHxN": {
+    "defaultMessage": "Outputs",
+    "description": "Section title for the outputs of a single chat turn"
   },
   "akmaST": {
     "defaultMessage": "Irrelevant",
@@ -4891,6 +4915,10 @@
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
   },
+  "nJxDSh": {
+    "defaultMessage": "Inputs",
+    "description": "Section title for the inputs of a single chat turn"
+  },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
     "description": "Error message displayed when logged model details page couldn't fetch related runs data"
@@ -6014,6 +6042,10 @@
   "zNWzj6": {
     "defaultMessage": "Search traces by request",
     "description": "Placeholder text for the search input in the trace results table"
+  },
+  "zRKlAL": {
+    "defaultMessage": "Metadata",
+    "description": "Label for the metadata section"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",

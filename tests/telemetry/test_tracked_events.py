@@ -19,6 +19,7 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
     CreateDatasetEvent,
@@ -667,6 +668,24 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
 
 
+def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.ai_commands import commands
+
+    runner = CliRunner(catch_exceptions=False)
+    # Test CLI context
+    with mock.patch("mlflow.ai_commands.get_command", return_value="---\ntest\n---\nTest command"):
+        result = runner.invoke(commands, ["run", "test_command"])
+        assert result.exit_code == 0
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        AiCommandRunEvent.name,
+        {"command_key": "test_command", "context": "cli"},
+    )
+
+
 def test_git_model_versioning(mock_requests, mock_telemetry_client):
     from mlflow.genai import enable_git_model_versioning
 
@@ -737,12 +756,12 @@ def test_invoke_custom_judge_model(
                     return_value=(mock_response, 10),
                 ),
                 mock.patch(
-                    "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint"
+                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
                 ) as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.adapters.databricks_adapter import (
+                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
                         InvokeDatabricksModelOutput,
                     )
 

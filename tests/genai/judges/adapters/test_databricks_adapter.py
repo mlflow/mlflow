@@ -11,14 +11,15 @@ from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.exceptions import MlflowException
-from mlflow.genai.judges.adapters.databricks_adapter import (
+from mlflow.genai.judges.adapters.databricks_managed_judge_adapter import (
+    call_chat_completions,
+)
+from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
     InvokeDatabricksModelOutput,
-    _create_litellm_message_from_databricks_response,
     _invoke_databricks_serving_endpoint,
     _parse_databricks_model_response,
     _record_judge_model_usage_failure_databricks_telemetry,
     _record_judge_model_usage_success_databricks_telemetry,
-    call_chat_completions,
 )
 from mlflow.utils import AttrDict
 
@@ -124,7 +125,7 @@ def test_invoke_databricks_serving_endpoint_successful_invocation() -> None:
             return_value=mock_creds,
         ) as mock_get_creds,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             return_value=mock_response,
         ) as mock_post,
     ):
@@ -161,7 +162,7 @@ def test_invoke_databricks_serving_endpoint_bad_request_error_no_retry(status_co
             return_value=mock_creds,
         ) as mock_get_creds,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             return_value=mock_response,
         ) as mock_post,
     ):
@@ -195,10 +196,12 @@ def test_invoke_databricks_serving_endpoint_retry_logic_with_transient_errors() 
             return_value=mock_creds,
         ) as mock_get_creds,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             side_effect=[error_response, success_response],
         ) as mock_post,
-        mock.patch("mlflow.genai.judges.adapters.databricks_adapter.time.sleep") as mock_sleep,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.time.sleep"
+        ) as mock_sleep,
     ):
         result = _invoke_databricks_serving_endpoint(
             model_name="test-model", prompt="test prompt", num_retries=3
@@ -226,7 +229,7 @@ def test_invoke_databricks_serving_endpoint_json_decode_error() -> None:
             return_value=mock_creds,
         ) as mock_get_creds,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             return_value=mock_response,
         ) as mock_post,
     ):
@@ -248,10 +251,12 @@ def test_invoke_databricks_serving_endpoint_connection_error_with_retries() -> N
             return_value=mock_creds,
         ) as mock_get_creds,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
             side_effect=requests.ConnectionError("Connection failed"),
         ) as mock_post,
-        mock.patch("mlflow.genai.judges.adapters.databricks_adapter.time.sleep") as mock_sleep,
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.time.sleep"
+        ) as mock_sleep,
     ):
         with pytest.raises(
             MlflowException, match="Failed to invoke Databricks model after 3 attempts"
@@ -293,7 +298,8 @@ def test_invoke_databricks_serving_endpoint_with_response_schema():
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter.requests.post", side_effect=mock_post
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter.requests.post",
+            side_effect=mock_post,
         ),
         mock.patch(
             "mlflow.utils.databricks_utils.get_databricks_host_creds", return_value=mock_creds
@@ -461,10 +467,12 @@ def mock_databricks_rag_eval():
 def test_call_chat_completions_success(user_prompt, system_prompt, mock_databricks_rag_eval):
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
         ),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
-        mock.patch("mlflow.genai.judges.adapters.databricks_adapter.VERSION", "1.0.0"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.VERSION", "1.0.0"
+        ),
     ):
         result = call_chat_completions(user_prompt, system_prompt)
 
@@ -486,10 +494,12 @@ def test_call_chat_completions_with_custom_session_name(mock_databricks_rag_eval
     """Test that custom session name is used when provided."""
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
         ),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
-        mock.patch("mlflow.genai.judges.adapters.databricks_adapter.VERSION", "1.0.0"),
+        mock.patch(
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter.VERSION", "1.0.0"
+        ),
     ):
         custom_session_name = "custom-session-name"
         result = call_chat_completions(
@@ -517,123 +527,9 @@ def test_call_chat_completions_client_error(mock_databricks_rag_eval):
 
     with (
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
+            "mlflow.genai.judges.adapters.databricks_managed_judge_adapter._check_databricks_agents_installed"
         ),
         mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
     ):
         with pytest.raises(RuntimeError, match="RAG client failed"):
             call_chat_completions("test prompt", "system prompt")
-
-
-def test_call_chat_completions_with_tools(mock_databricks_rag_eval, mock_trace):
-    """Test call_chat_completions with tool definitions."""
-    from mlflow.types.llm import FunctionToolDefinition, ToolDefinition
-
-    tool = ToolDefinition(
-        function=FunctionToolDefinition(
-            name="test_tool",
-            description="A test tool",
-            parameters={"type": "object", "properties": {"param": {"type": "string"}}},
-        )
-    )
-
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
-        ),
-        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_databricks_rag_eval["module"]}),
-    ):
-        result = call_chat_completions("test prompt", "system prompt", tools=[tool])
-
-        # Verify tools were passed to the client
-        call_args = mock_databricks_rag_eval["rag_client"].get_chat_completions_result.call_args
-        assert "tools" in call_args.kwargs
-        assert call_args.kwargs["tools"] == [tool]
-
-        assert result.output == "test response"
-
-
-def test_invoke_databricks_default_judge_empty_response(mock_trace):
-    """Test handling of empty response from Databricks judge."""
-    from mlflow.genai.judges.adapters.databricks_adapter import _invoke_databricks_default_judge
-
-    mock_rag_client = mock.MagicMock()
-    mock_rag_client.get_chat_completions_result.return_value = AttrDict({"output_json": None})
-    mock_context = mock.MagicMock()
-    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
-    mock_context.eval_context = lambda func: func
-    mock_module = mock.MagicMock()
-    mock_module.context = mock_context
-    mock_module.env_vars = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
-        ),
-        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
-    ):
-        result = _invoke_databricks_default_judge(
-            prompt="test prompt", assessment_name="test_assessment", trace=None
-        )
-
-    assert result.error == "Empty response from Databricks judge"
-    assert result.value is None
-
-
-def test_invoke_databricks_default_judge_missing_choices_field(mock_trace):
-    from mlflow.genai.judges.adapters.databricks_adapter import _invoke_databricks_default_judge
-
-    mock_rag_client = mock.MagicMock()
-    mock_rag_client.get_chat_completions_result.return_value = AttrDict(
-        {"output_json": json.dumps({"invalid": "response"})}
-    )
-    mock_context = mock.MagicMock()
-    mock_context.get_context.return_value.build_managed_rag_client.return_value = mock_rag_client
-    mock_context.eval_context = lambda func: func
-    mock_module = mock.MagicMock()
-    mock_module.context = mock_context
-    mock_module.env_vars = mock.MagicMock()
-
-    with (
-        mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._check_databricks_agents_installed"
-        ),
-        mock.patch.dict("sys.modules", {"databricks.rag_eval": mock_module}),
-    ):
-        result = _invoke_databricks_default_judge(
-            prompt="test prompt", assessment_name="test_assessment", trace=None
-        )
-
-    assert "Invalid response format" in result.error
-    assert "missing 'choices' field" in result.error
-    assert result.value is None
-
-
-def test_create_litellm_message_from_databricks_response_with_string_content():
-    response_data = {
-        "choices": [{"message": {"role": "assistant", "content": "Simple string response"}}]
-    }
-    message = _create_litellm_message_from_databricks_response(response_data)
-    assert message.role == "assistant"
-    assert message.content == "Simple string response"
-    assert message.tool_calls is None
-
-
-def test_create_litellm_message_from_databricks_response_with_content_blocks():
-    response_data = {
-        "choices": [
-            {
-                "message": {
-                    "role": "assistant",
-                    "content": [
-                        {"type": "reasoning", "reasoning": "Let me think about this..."},
-                        {"type": "text", "text": "The answer is correct."},
-                    ],
-                }
-            }
-        ]
-    }
-    message = _create_litellm_message_from_databricks_response(response_data)
-    assert message.role == "assistant"
-    assert message.content == "The answer is correct."
-    assert message.tool_calls is None
