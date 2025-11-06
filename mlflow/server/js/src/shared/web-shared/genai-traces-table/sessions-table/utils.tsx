@@ -1,6 +1,10 @@
 import { compact, isNil, sortBy } from 'lodash';
 
-import { type ModelTraceInfoV3, SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
+import {
+  getTotalTokens,
+  type ModelTraceInfoV3,
+  SESSION_ID_METADATA_KEY,
+} from '@databricks/web-shared/model-trace-explorer';
 import MlflowUtils from '../utils/MlflowUtils';
 import { SessionTableRow } from './types';
 
@@ -36,6 +40,8 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
       // take request preview from the first trace
       const requestPreview = firstTrace.request_preview;
 
+      const totalTokens = sortedTraces.reduce((acc, trace) => acc + (getTotalTokens(trace) ?? 0), 0);
+
       return {
         sessionId,
         requestPreview,
@@ -43,6 +49,8 @@ export const getSessionTableRows = (experimentId: string, traces: ModelTraceInfo
         experimentId,
         sessionStartTime: MlflowUtils.formatTimestamp(new Date(firstTrace.request_time)),
         sessionDuration: calculateSessionDuration(traces),
+        tokens: totalTokens,
+        turns: sortedTraces.length,
       };
     }),
   );
