@@ -6,7 +6,6 @@ This helps avoid unnecessary commit history noise from blank line-only changes.
 
 import argparse
 import os
-import sys
 import urllib.request
 
 
@@ -18,8 +17,7 @@ def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
     }
 
     # Add authorization if token is available
-    github_token = os.environ.get("GITHUB_TOKEN")
-    if github_token:
+    if github_token := os.environ.get("GITHUB_TOKEN"):
         headers["Authorization"] = f"Bearer {github_token}"
 
     request = urllib.request.Request(url, headers=headers)
@@ -87,12 +85,10 @@ def parse_args() -> tuple[str, str, int]:
     return owner, repo, args.pr
 
 
-def main() -> int:
+def main() -> None:
     owner, repo, pull_number = parse_args()
     diff_text = get_diff_from_github_api(owner, repo, pull_number)
-    files = parse_diff(diff_text)
-
-    if files:
+    if files := parse_diff(diff_text):
         message = (
             "This file only has blank line changes. "
             "If unintentional, please revert them to avoid unnecessary commit history noise."
@@ -101,10 +97,6 @@ def main() -> int:
             # https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-commands#setting-a-warning-message
             print(f"::warning file={file_path},line=1,col=1::{message}")
 
-        return 1
-
-    return 0
-
 
 if __name__ == "__main__":
-    sys.exit(main())
+    main()
