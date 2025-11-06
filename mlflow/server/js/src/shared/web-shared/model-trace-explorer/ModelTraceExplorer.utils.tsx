@@ -65,6 +65,7 @@ import {
   normalizeVercelAIChatOutput,
 } from './chat-utils';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { TOKEN_USAGE_METADATA_KEY } from './constants';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -1182,4 +1183,18 @@ export const createTraceV4LongIdentifier = (modelTraceInfo: ModelTraceInfoV3) =>
   }
 
   return `trace:/${serializedLocation}/${modelTraceInfo.trace_id}`;
+};
+
+export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
+  const tokenUsage = traceInfo.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+  if (!tokenUsage) {
+    return null;
+  }
+
+  try {
+    const parsedTokenUsage = JSON.parse(tokenUsage);
+    return parsedTokenUsage?.total_tokens ?? null;
+  } catch {
+    return null;
+  }
 };
