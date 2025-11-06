@@ -125,6 +125,7 @@ class OtelSchemaTranslator:
         """
         Get attribute value from OTEL attributes by checking whether
         the keys in keys_to_check are present in the attributes.
+        Always use this function to get the existing attribute value in the OTel Span.
 
         Args:
             attributes: Dictionary of span attributes
@@ -154,10 +155,17 @@ class OtelSchemaTranslator:
         if isinstance(value, str):
             try:
                 result = json.loads(value)
+                if isinstance(result, str):
+                    # the span attributes may be dumped several times in different places
+                    # (e.g. Span.from_otel_proto, span.to_dict)
+                    # so we try to load it twice here to get the dumped-once value
+                    try:
+                        if json.loads(result):
+                            return result
+                        return None
+                    except json.JSONDecodeError:
+                        pass
+                return value if result else None
             except json.JSONDecodeError:
                 pass  # Use the string value as-is
-            else:
-                # only return the original value if the deserialized
-                # value is not empty dictionary or None
-                return value if result else None
         return value

@@ -479,18 +479,7 @@ def test_trace_to_and_from_proto():
     assert proto_trace.spans[1].name == "invoke"
 
     trace_from_proto = Trace.from_proto(proto_trace)
-    assert trace_from_proto.info.request_preview == trace.info.request_preview
-    assert trace_from_proto.info.response_preview == trace.info.response_preview
-    assert trace_from_proto.data.spans[0].name == trace.data.spans[0].name
-    assert trace_from_proto.data.spans[0].inputs == trace.data.spans[0].inputs
-    assert trace_from_proto.data.spans[0].outputs == trace.data.spans[0].outputs
-    assert trace_from_proto.data.spans[0].start_time_ns == trace.data.spans[0].start_time_ns
-    assert trace_from_proto.data.spans[0].end_time_ns == trace.data.spans[0].end_time_ns
-    assert trace_from_proto.data.spans[1].name == trace.data.spans[1].name
-    assert trace_from_proto.data.spans[1].inputs == trace.data.spans[1].inputs
-    assert trace_from_proto.data.spans[1].outputs == trace.data.spans[1].outputs
-    assert trace_from_proto.data.spans[1].start_time_ns == trace.data.spans[1].start_time_ns
-    assert trace_from_proto.data.spans[1].end_time_ns == trace.data.spans[1].end_time_ns
+    assert trace_from_proto.to_dict() == trace.to_dict()
 
 
 def test_trace_from_dict_load_old_trace():
