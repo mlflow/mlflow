@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
@@ -11,8 +11,7 @@ import {
   Route,
   Routes,
   createLazyRouteElement,
-  useLocation,
-  matchPath,
+  useParams,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 
@@ -50,42 +49,13 @@ const MlflowRootRoute = ({
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
-  const location = useLocation();
+  const { experimentId } = useParams();
 
-  // Determine current experiment context
-  const experimentMatch =
-    matchPath('/experiments/:experimentId/*', location.pathname) ||
-    matchPath('/experiments/:experimentId', location.pathname);
-  const currentExperimentId = (experimentMatch && (experimentMatch as any).params?.experimentId) as
-    | string
-    | undefined;
-  const isSingleExperimentContext = Boolean(currentExperimentId);
-
-  // Keep previous context to default-hide only on transitions into a single experiment
-  const prevCtxRef = useRef<{ isSingle: boolean; experimentId?: string } | null>(null);
+  // Hide sidebar if we are in a single experiment page
+  const isSingleExperimentPage = Boolean(experimentId);
   useEffect(() => {
-    const prev = prevCtxRef.current;
-    if (!prev) {
-      // Initial mount: default-hide if we start on an experiment page
-      setShowSidebar(!isSingleExperimentContext);
-      prevCtxRef.current = { isSingle: isSingleExperimentContext, experimentId: currentExperimentId };
-      return;
-    }
-
-    // Entering a single-experiment context (from non-experiment or switching experiments)
-    if (
-      isSingleExperimentContext &&
-      (!prev.isSingle || prev.experimentId !== currentExperimentId)
-    ) {
-      setShowSidebar(false);
-    }
-    // Leaving experiment context back to top-level pages
-    else if (!isSingleExperimentContext && prev.isSingle) {
-      setShowSidebar(true);
-    }
-
-    prevCtxRef.current = { isSingle: isSingleExperimentContext, experimentId: currentExperimentId };
-  }, [isSingleExperimentContext, currentExperimentId, location.pathname]);
+    setShowSidebar(!isSingleExperimentPage);
+  }, [isSingleExperimentPage]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
