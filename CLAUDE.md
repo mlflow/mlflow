@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Code Style Principles
 
 - Use top-level imports (only use lazy imports when necessary)
-- Only add test docstrings when they provide additional context
+- Only add docstrings in tests when they provide additional context
 - Only add comments that explain non-obvious logic or provide additional context
 
 ## Repository Overview
