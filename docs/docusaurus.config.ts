@@ -392,7 +392,7 @@ const config: Config = {
             from: ['/tracing/api'],
           },
           {
-            to: '/genai/tracing/observe-with-traces/ui',
+            to: '/genai/tracing/search-traces',
             from: ['/tracing/ui'],
           },
           {
