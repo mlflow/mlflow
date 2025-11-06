@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Code Style Principles
+
+- Use top-level imports (only use lazy imports when necessary)
+- Only add docstrings in tests when they provide additional context
+- Only add comments that explain non-obvious logic or provide additional context
+
 ## Repository Overview
 
 MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It provides tools for:
