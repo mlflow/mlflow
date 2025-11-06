@@ -18,12 +18,13 @@ import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
 import type { SessionTableRow } from './types';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+import { Link, useLocation } from '../utils/RoutingUtils';
 import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 import { SessionTableColumn } from './types';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
 import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
+import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
 
 const columns: SessionTableColumn[] = [
   {
@@ -86,8 +87,15 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
     ({ row }) => {
+      const { search } = useLocation();
+
       return (
-        <Link to={MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId)}>
+        <Link
+          to={{
+            pathname: MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId),
+            search,
+          }}
+        >
           <TableRow key={row.id} className="eval-datasets-table-row">
             {row.getVisibleCells().map((cell) => (
               <TableCell
@@ -122,11 +130,9 @@ export const GenAIChatSessionsTable = ({
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
-    return columns.reduce((acc, column) => {
-      acc[column.id] = column.defaultVisibility;
-      return acc;
-    }, {} as Record<string, boolean>);
+  const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
+    experimentId,
+    columns,
   });
 
   const table = useReactTable<SessionTableRow>({
