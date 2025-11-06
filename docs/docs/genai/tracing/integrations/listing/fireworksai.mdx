@@ -33,12 +33,12 @@ mlflow.openai.autolog()
 # Create an OpenAI client configured for FireworksAI
 openai_client = openai.OpenAI(
     base_url="https://api.fireworks.ai/inference/v1",
-    api_key=os.getenv("FIREWORKS_API_KEY")
+    api_key=os.getenv("FIREWORKS_API_KEY"),
 )
 
 # Use the client as usual - traces will be automatically captured
 response = openai_client.chat.completions.create(
-    model="accounts/fireworks/models/deepseek-v3-0324", # For other models see: https://fireworks.ai/models
+    model="accounts/fireworks/models/deepseek-v3-0324",  # For other models see: https://fireworks.ai/models
     messages=[
         {"role": "user", "content": "Why is open source better than closed source?"}
     ],
@@ -91,7 +91,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
     # Configure OpenAI client for FireworksAI
     openai_client = openai.OpenAI(
         base_url="https://api.fireworks.ai/inference/v1",
-        api_key=os.getenv("FIREWORKS_API_KEY")
+        api_key=os.getenv("FIREWORKS_API_KEY"),
     )
 
     messages = [
@@ -126,7 +126,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
     client = openai.OpenAI(
         base_url="https://api.fireworks.ai/inference/v1",
-        api_key=os.getenv("FIREWORKS_API_KEY")
+        api_key=os.getenv("FIREWORKS_API_KEY"),
     )
 
     stream = client.chat.completions.create(
@@ -157,14 +157,12 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
     client = openai.AsyncOpenAI(
         base_url="https://api.fireworks.ai/inference/v1",
-        api_key=os.getenv("FIREWORKS_API_KEY")
+        api_key=os.getenv("FIREWORKS_API_KEY"),
     )
 
     response = await client.chat.completions.create(
         model="accounts/fireworks/models/deepseek-v3-0324",
-        messages=[
-            {"role": "user", "content": "What is the best open source LLM?"}
-        ],
+        messages=[{"role": "user", "content": "What is the best open source LLM?"}],
         # Async streaming is also supported
         # stream=True
     )
@@ -188,7 +186,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
     client = OpenAI(
         base_url="https://api.fireworks.ai/inference/v1",
-        api_key=os.getenv("FIREWORKS_API_KEY")
+        api_key=os.getenv("FIREWORKS_API_KEY"),
     )
 
 
@@ -252,8 +250,7 @@ Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenA
 
             # Send the tool results to the model and get a new response
             response = client.chat.completions.create(
-                model="accounts/fireworks/models/llama-v3p1-8b-instruct",
-                messages=messages
+                model="accounts/fireworks/models/llama-v3p1-8b-instruct", messages=messages
             )
 
         return response.choices[0].message.content
