@@ -425,7 +425,7 @@ def test_invoke_judge_model_databricks_success_not_in_databricks(
             return_value=False,
         ) as mock_in_db,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good response"}',
                 request_id="req-123",
@@ -476,7 +476,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
             return_value=True,
         ) as mock_in_db,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "no", "rationale": "Bad response"}',
                 request_id="req-456",
@@ -521,7 +521,7 @@ def test_invoke_judge_model_databricks_success_in_databricks(
 )
 def test_invoke_judge_model_databricks_source_id(model_uri: str) -> None:
     with mock.patch(
-        "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint",
+        "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
         return_value=InvokeDatabricksModelOutput(
             response='{"result": "yes", "rationale": "Great response"}',
             request_id="req-789",
@@ -560,7 +560,7 @@ def test_invoke_judge_model_databricks_failure_in_databricks(
             return_value=True,
         ) as mock_in_db,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             side_effect=MlflowException("Model invocation failed"),
         ) as mock_invoke_db,
         mock.patch(
@@ -610,7 +610,7 @@ def test_invoke_judge_model_databricks_telemetry_error_handling(
             return_value=True,
         ) as mock_in_db,
         mock.patch(
-            "mlflow.genai.judges.adapters.databricks_adapter._invoke_databricks_serving_endpoint",
+            "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint",
             return_value=InvokeDatabricksModelOutput(
                 response='{"result": "yes", "rationale": "Good"}',
                 request_id="req-789",
