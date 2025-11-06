@@ -1120,14 +1120,11 @@ def test_resolve_scorer_fields_with_expectations(mock_judge_with_inputs_outputs)
 def test_resolve_scorer_fields_llm_fallback(
     trace_without_inputs_outputs, mock_judge_with_inputs_outputs
 ):
-    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
-
-    with patch(patch_path) as mock_extract:
-        mock_result = mock.Mock()
-        mock_result.inputs = "extracted input"
-        mock_result.outputs = "extracted output"
-        mock_extract.return_value = mock_result
-
+    with patch("mlflow.genai.judges.utils._invoke_litellm_and_handle_tools") as mock_litellm:
+        mock_litellm.return_value = (
+            '{"inputs": "extracted input", "outputs": "extracted output"}',
+            0.123,  # cost
+        )
         fields = resolve_scorer_fields(
             trace=trace_without_inputs_outputs,
             judge=mock_judge_with_inputs_outputs,
@@ -1138,19 +1135,20 @@ def test_resolve_scorer_fields_llm_fallback(
         assert fields.outputs == "extracted output"
         assert fields.expectations is None
 
-        mock_extract.assert_called_once()
-        call_args = mock_extract.call_args
-        assert call_args[1]["model_uri"] == "openai:/gpt-4"
+        mock_litellm.assert_called_once()
+        call_args = mock_litellm.call_args
+        assert call_args[1]["provider"] == "openai"
+        assert call_args[1]["model_name"] == "gpt-4"
         assert call_args[1]["trace"] == trace_without_inputs_outputs
 
 
 def test_resolve_scorer_fields_llm_fallback_with_invalid_json(
     trace_without_inputs_outputs, mock_judge_with_inputs_outputs
 ):
-    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+    patch_path = "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools"
 
-    with patch(patch_path) as mock_extract:
-        mock_extract.side_effect = Exception("Failed to extract")
+    with patch(patch_path) as mock_litellm:
+        mock_litellm.side_effect = Exception("Failed to extract")
 
         fields = resolve_scorer_fields(
             trace=trace_without_inputs_outputs, judge=mock_judge_with_inputs_outputs
@@ -1166,20 +1164,17 @@ def test_resolve_scorer_fields_partial_extraction(mock_judge_with_inputs_outputs
         span.set_inputs({"question": "test"})
     trace_with_partial = mlflow.get_trace(span.trace_id)
 
-    patch_path = "mlflow.genai.scorers.builtin_scorers.get_chat_completions_with_structured_output"
+    patch_path = "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools"
 
-    with patch(patch_path) as mock_extract:
-        mock_result = mock.Mock()
-        mock_result.inputs = '{"question": "test"}'
-        mock_result.outputs = "llm extracted output"
-        mock_extract.return_value = mock_result
+    with patch(patch_path) as mock_litellm:
+        mock_litellm.return_value = ('{"inputs": "extracted input"}', 0.123)
 
         fields = resolve_scorer_fields(
             trace=trace_with_partial, judge=mock_judge_with_inputs_outputs
         )
 
         assert fields.inputs == {"question": "test"}
-        assert fields.outputs == "llm extracted output"
+        assert fields.outputs is None
         assert fields.expectations is None
 
 

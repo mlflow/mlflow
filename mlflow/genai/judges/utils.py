@@ -643,7 +643,9 @@ def get_chat_completions_with_structured_output(
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    response = _invoke_litellm_and_handle_tools(
+    # TODO: Now we discard the cost info returned from the parsing LLM call. We should wire
+    # this to the total cost of the scorer, but it requires non-trivial complexity.
+    response, _ = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
