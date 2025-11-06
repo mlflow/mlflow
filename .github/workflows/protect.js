@@ -84,7 +84,10 @@ module.exports = async ({ github, context }) => {
         repo,
         head_sha: ref,
       })
-    ).filter(({ path }) => path !== ".github/workflows/protect.yml");
+    ).filter(
+      ({ path, conclusion }) =>
+        path !== ".github/workflows/protect.yml" && conclusion !== "cancelled"
+    );
 
     // Deduplicate workflow runs by path and event, keeping the latest attempt
     const latestRuns = {};
