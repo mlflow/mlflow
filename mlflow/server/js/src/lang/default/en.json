@@ -1982,6 +1982,10 @@
     "defaultMessage": "Error loading shared view state: share key is invalid",
     "description": "Experiment page > share viewstate > error > share key is invalid"
   },
+  "IvnVPO": {
+    "defaultMessage": "MLflow allows you to attach metadata to your traces to associate them with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the chat sessions table"
+  },
   "J2XCE/": {
     "defaultMessage": "Specify sequences that signal the model to stop generating text.",
     "description": "Experiment page > prompt lab > stop parameter help text"
@@ -2664,6 +2668,10 @@
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
+  },
+  "Qsifda": {
+    "defaultMessage": "Group traces from the same chat session together",
+    "description": "Empty state title for the chat sessions table"
   },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
@@ -4259,10 +4267,6 @@
     "defaultMessage": "Model, input data or prompt have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
   },
-  "gdCdji": {
-    "defaultMessage": "No chat sessions found",
-    "description": "Empty state for the chat sessions page"
-  },
   "gdK07H": {
     "defaultMessage": "Bar chart",
     "description": "Experiment tracking > runs charts > add chart menu > bar chart"
@@ -4298,6 +4302,10 @@
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
+  },
+  "h2Ejm7": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for user and session tracking"
   },
   "h2SXjO": {
     "defaultMessage": "Key",
