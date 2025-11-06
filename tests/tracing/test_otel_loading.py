@@ -504,8 +504,8 @@ def test_span_inputs_outputs_translation(
     retrieved_trace = mlflow.get_trace(traces[0].info.trace_id)
     assert retrieved_trace.data.spans[0].inputs == "Hello, world!"
     assert retrieved_trace.data.spans[0].outputs == "Bye!"
-    assert retrieved_trace.info.request_preview == "Hello, world!"
-    assert retrieved_trace.info.response_preview == "Bye!"
+    assert retrieved_trace.info.request_preview == '"Hello, world!"'
+    assert retrieved_trace.info.response_preview == '"Bye!"'
 
 
 @pytest.mark.parametrize(
