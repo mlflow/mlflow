@@ -29,6 +29,7 @@ from mlflow.genai.judges.utils import (
     add_output_format_instructions,
     call_chat_completions,
     format_prompt,
+    get_chat_completions_with_structured_output,
     get_default_optimizer,
     invoke_judge_model,
 )
@@ -1778,3 +1779,106 @@ def test_invoke_judge_model_with_custom_response_format():
     call_kwargs = mock_completion.call_args.kwargs
     assert "response_format" in call_kwargs
     assert call_kwargs["response_format"] == ResponseFormat
+
+
+def test_get_chat_completions_with_structured_output():
+    class FieldExtraction(BaseModel):
+        inputs: str = Field(description="The user's original request")
+        outputs: str = Field(description="The system's final response")
+
+    mock_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": '{"inputs": "What is MLflow?", "outputs": "MLflow is a platform"}',
+                    "tool_calls": None,
+                }
+            }
+        ]
+    )
+    mock_response._hidden_params = {"response_cost": 0.05}
+
+    with mock.patch("litellm.completion", return_value=mock_response) as mock_completion:
+        result = get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[
+                ChatMessage(role="system", content="Extract fields"),
+                ChatMessage(role="user", content="Find inputs and outputs"),
+            ],
+            output_schema=FieldExtraction,
+        )
+
+    assert isinstance(result, FieldExtraction)
+    assert result.inputs == "What is MLflow?"
+    assert result.outputs == "MLflow is a platform"
+
+    call_kwargs = mock_completion.call_args.kwargs
+    assert "response_format" in call_kwargs
+    assert call_kwargs["response_format"] == FieldExtraction
+
+
+def test_get_chat_completions_with_structured_output_with_trace(mock_trace):
+    class FieldExtraction(BaseModel):
+        inputs: str = Field(description="The user's original request")
+        outputs: str = Field(description="The system's final response")
+
+    tool_call_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "id": "call_123",
+                            "function": {
+                                "name": "get_trace_info",
+                                "arguments": "{}",
+                            },
+                        }
+                    ],
+                    "content": None,
+                }
+            }
+        ]
+    )
+    tool_call_response._hidden_params = {"response_cost": 0.05}
+
+    final_response = ModelResponse(
+        choices=[
+            {
+                "message": {
+                    "content": '{"inputs": "question from trace", "outputs": "answer from trace"}',
+                    "tool_calls": None,
+                }
+            }
+        ]
+    )
+    final_response._hidden_params = {"response_cost": 0.10}
+
+    with (
+        mock.patch(
+            "litellm.completion", side_effect=[tool_call_response, final_response]
+        ) as mock_completion,
+        mock.patch("mlflow.genai.judges.tools.list_judge_tools") as mock_list_tools,
+        mock.patch("mlflow.genai.judges.tools.registry._judge_tool_registry.invoke") as mock_invoke,
+    ):
+        mock_tool = mock.Mock()
+        mock_tool.get_definition.return_value.to_dict.return_value = {"name": "get_trace_info"}
+        mock_list_tools.return_value = [mock_tool]
+        mock_invoke.return_value = {"trace_id": "test-trace", "state": "OK"}
+
+        result = get_chat_completions_with_structured_output(
+            model_uri="openai:/gpt-4",
+            messages=[
+                ChatMessage(role="system", content="Extract fields"),
+                ChatMessage(role="user", content="Find inputs and outputs"),
+            ],
+            output_schema=FieldExtraction,
+            trace=mock_trace,
+        )
+
+    assert isinstance(result, FieldExtraction)
+    assert result.inputs == "question from trace"
+    assert result.outputs == "answer from trace"
+
+    assert mock_completion.call_count == 2
+    mock_invoke.assert_called_once()

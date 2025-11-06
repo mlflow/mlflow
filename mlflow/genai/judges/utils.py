@@ -643,7 +643,7 @@ def get_chat_completions_with_structured_output(
 
     model_provider, model_name = _parse_model_uri(model_uri)
 
-    response = _invoke_litellm_and_handle_tools(
+    response, _ = _invoke_litellm_and_handle_tools(
         provider=model_provider,
         model_name=model_name,
         messages=messages,
