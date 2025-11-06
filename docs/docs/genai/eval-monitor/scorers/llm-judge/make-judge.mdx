@@ -166,11 +166,11 @@ Navigate to the link displayed in the console to view the evaluation results.
 
 Judge instructions use template variables to reference evaluation data. These variables are automatically filled with your data at runtime. Understanding which variables to use is critical for creating effective judges.
 
-| Variable       | Description                                                                                               |
-| -------------- | --------------------------------------------------------------------------------------------------------- |
-| `inputs`       | The input data provided to your AI system. Contains questions, prompts, or any data your model processes. |
-| `outputs`      | The generated response from your AI system. The actual output that needs evaluation.                      |
-| `expectations` | Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment.              |
+| Variable       | Description                                                                                                                                                                  |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `inputs`       | The input data provided to your AI system. Contains questions, prompts, or any data your model processes.                                                                    |
+| `outputs`      | The generated response from your AI system. The actual output that needs evaluation.                                                                                         |
+| `expectations` | Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment.                                                                                 |
 | `trace`        | Trace is a special template variable which uses [agent-as-a-judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview/). The judge has access to all parts of the trace. |
 
 :::warning[Only Reserved Variables Allowed]
