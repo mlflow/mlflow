@@ -2,7 +2,7 @@ import type { Row } from '@tanstack/react-table';
 
 import { Tag, Typography } from '@databricks/design-system';
 
-import type { SessionTableRow } from '../utils';
+import type { SessionTableRow } from '../types';
 
 export const SessionIdCellRenderer = ({ row }: { row: Row<SessionTableRow> }) => {
   const sessionId = row.original.sessionId;

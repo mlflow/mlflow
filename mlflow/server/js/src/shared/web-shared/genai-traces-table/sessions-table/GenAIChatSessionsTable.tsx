@@ -1,42 +1,66 @@
-import type { Row } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
-import React, { useMemo } from 'react';
+import type { Row, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import React, { useMemo, useState } from 'react';
 
-import { Empty, Table, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
+import {
+  Empty,
+  Table,
+  TableCell,
+  TableHeader,
+  TableRow,
+  TableSkeletonRows,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
-import type { SessionTableRow } from './utils';
+import type { SessionTableRow } from './types';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link } from '../utils/RoutingUtils';
 import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
+import { SessionTableColumn } from './types';
+import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 
 // TODO: add following columns:
 // 1. token counts
 // 2. number of contained traces
-const columns = [
+const columns: SessionTableColumn[] = [
   {
+    id: 'sessionId',
     header: 'Session ID',
     accessorKey: 'sessionId',
     cell: SessionIdCellRenderer,
+    defaultVisibility: true,
+    enableSorting: true,
+    sortingFn: (a, b) => a.original.sessionId.localeCompare(b.original.sessionId),
   },
   {
+    id: 'requestPreview',
     header: 'Input',
     accessorKey: 'requestPreview',
+    defaultVisibility: true,
   },
   {
-    header: 'Source',
-    cell: SessionSourceCellRenderer,
-  },
-  {
+    id: 'sessionStartTime',
     header: 'Session start time',
     accessorKey: 'sessionStartTime',
+    defaultVisibility: true,
+    enableSorting: true,
   },
   {
+    id: 'sessionDuration',
     header: 'Session duration',
     accessorKey: 'sessionDuration',
+    defaultVisibility: true,
+    enableSorting: true,
+  },
+  {
+    id: 'source',
+    header: 'Source',
+    cell: SessionSourceCellRenderer,
+    defaultVisibility: false,
   },
 ];
 
@@ -79,14 +103,29 @@ export const GenAIChatSessionsTable = ({
   isLoading: boolean;
 }) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
+
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
+  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
+    return columns.reduce((acc, column) => {
+      acc[column.id] = column.defaultVisibility;
+      return acc;
+    }, {} as Record<string, boolean>);
+  });
 
   const table = useReactTable<SessionTableRow>({
     data: sessionTableRows,
     columns,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    onSortingChange: setSorting,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    state: {
+      sorting,
+      columnVisibility,
+    },
   });
 
   const columnSizeInfo = table.getState().columnSizingInfo;
@@ -99,10 +138,15 @@ export const GenAIChatSessionsTable = ({
     return colSizes;
     // we need to recompute this whenever columns get resized or changed
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnSizeInfo, table]);
+  }, [columnSizeInfo, table, columnVisibility]);
 
   return (
-    <div css={{ flex: 1, minHeight: 0, position: 'relative' }}>
+    <div css={{ flex: 1, minHeight: 0, position: 'relative', marginTop: theme.spacing.sm }}>
+      <GenAIChatSessionsToolbar
+        columns={columns}
+        columnVisibility={columnVisibility}
+        setColumnVisibility={setColumnVisibility}
+      />
       <Table
         style={{ ...columnSizeVars }}
         css={{ height: '100%' }}
@@ -125,10 +169,13 @@ export const GenAIChatSessionsTable = ({
               componentId={`mlflow.chat-sessions.${header.column.id}-header`}
               header={header}
               column={header.column}
+              sortable={header.column.getCanSort()}
               css={{
                 cursor: header.column.getCanSort() ? 'pointer' : 'default',
                 flex: `calc(var(--col-${header.id}-size) / 100)`,
               }}
+              sortDirection={header.column.getIsSorted() || 'none'}
+              onToggleSort={header.column.getToggleSortingHandler()}
             >
               {flexRender(header.column.columnDef.header, header.getContext())}
             </TableHeader>

@@ -2,15 +2,7 @@ import { compact, isNil, sortBy } from 'lodash';
 
 import { type ModelTraceInfoV3, SESSION_ID_METADATA_KEY } from '@databricks/web-shared/model-trace-explorer';
 import MlflowUtils from '../utils/MlflowUtils';
-
-export type SessionTableRow = {
-  sessionId: string;
-  requestPreview?: string;
-  firstTrace: ModelTraceInfoV3;
-  experimentId: string;
-  sessionStartTime: string;
-  sessionDuration: string | null;
-};
+import { SessionTableRow } from './types';
 
 export const groupTracesBySession = (traces: ModelTraceInfoV3[]) => {
   const sessionIdMap: Record<string, ModelTraceInfoV3[]> = {};
