@@ -1396,34 +1396,18 @@ def test_instructions_judge_works_with_evaluate(mock_invoke_judge_model):
 def test_instructions_judge_works_with_evaluate_on_trace(
     mock_invoke_judge_model, trace_inputs, trace_outputs, span_inputs, span_outputs
 ):
-    trace_info = TraceInfo(
-        trace_id="test-trace",
-        trace_location=TraceLocation.from_experiment_id("0"),
-        request_time=1234567890,
-        execution_duration=1000,
-        state=TraceState.OK,
-        trace_metadata={
-            "mlflow.trace_schema.version": "2",
-            "mlflow.traceInputs": json.dumps(trace_inputs),
-            "mlflow.traceOutputs": json.dumps(trace_outputs),
-        },
-        tags={
-            "mlflow.traceName": "test_trace",
-            "mlflow.source.name": "test",
-            "mlflow.source.type": "LOCAL",
-        },
-    )
-    spans = [
-        create_test_span(
-            span_id=1,
-            parent_id=None,
-            name="test_span",
-            inputs=span_inputs,
-            outputs=span_outputs,
-            span_type=SpanType.CHAIN,
-        ),
-    ]
-    trace = Trace(info=trace_info, data=TraceData(spans=spans))
+    with mlflow.start_span(name="test", span_type=SpanType.CHAIN) as span:
+        span.set_inputs(trace_inputs)
+        span.set_outputs(trace_outputs)
+
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.traceInputs": json.dumps(trace_inputs),
+                "mlflow.traceOutputs": json.dumps(trace_outputs),
+            }
+        )
+
+    trace = mlflow.get_trace(span.trace_id)
     judge = make_judge(
         name="trace_evaluator",
         instructions="Analyze this {{trace}} for quality and correctness",
