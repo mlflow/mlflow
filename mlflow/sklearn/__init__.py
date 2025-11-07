@@ -81,10 +81,15 @@ from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "sklearn"
 
+SERIALIZATION_FORMAT_SKOPS = "skops"
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
 
-SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
+SUPPORTED_SERIALIZATION_FORMATS = [
+    SERIALIZATION_FORMAT_SKOPS,
+    SERIALIZATION_FORMAT_PICKLE,
+    SERIALIZATION_FORMAT_CLOUDPICKLE,
+]
 
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
@@ -161,13 +166,14 @@ def save_model(
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_SKOPS,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
     extra_pip_requirements=None,
     pyfunc_predict_fn="predict",
     metadata=None,
+    skops_trusted_types=None,
 ):
     """
     Save a scikit-learn model to a path on the local file system. Produces a MLflow Model
@@ -291,6 +297,7 @@ def save_model(
         sklearn_version=sklearn.__version__,
         serialization_format=serialization_format,
         code=code_path_subdir,
+        skops_trusted_types=skops_trusted_types,
     )
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
@@ -337,7 +344,7 @@ def log_model(
     artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
-    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
+    serialization_format=SERIALIZATION_FORMAT_SKOPS,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -447,7 +454,7 @@ def log_model(
     )
 
 
-def _load_model_from_local_file(path, serialization_format):
+def _load_model_from_local_file(path, serialization_format, skops_trusted_types=None):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system.
 
     Args:
@@ -465,15 +472,19 @@ def _load_model_from_local_file(path, serialization_format):
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
-    with open(path, "rb") as f:
-        # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
-        # That's why we check the serialization format of the model before deserializing
-        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            return pickle.load(f)
-        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        import skops.io
+        skops.io.load(path, trusted=skops_trusted_types)
+    else:
+        with open(path, "rb") as f:
+            # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
+            # That's why we check the serialization format of the model before deserializing
+            if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+                return pickle.load(f)
+            elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+                import cloudpickle
 
-            return cloudpickle.load(f)
+                return cloudpickle.load(f)
 
 
 def _load_pyfunc(path):
@@ -490,6 +501,7 @@ def _load_pyfunc(path):
         # object. In this case, we assume that the serialization format is ``pickle``, since
         # the model loading procedure in older versions of MLflow used ``pickle.load()``.
         serialization_format = SERIALIZATION_FORMAT_PICKLE
+        skops_trusted_types = None
     else:
         # In contrast, scikit-learn models saved in versions of MLflow > 1.9.1 do not
         # specify the ``data`` field within the pyfunc flavor configuration. For these newer
@@ -504,12 +516,14 @@ def _load_pyfunc(path):
             serialization_format = sklearn_flavor_conf.get(
                 "serialization_format", SERIALIZATION_FORMAT_PICKLE
             )
+            skops_trusted_types = sklearn_flavor_conf.get("skops_trusted_types", None)
         except MlflowException:
             _logger.warning(
                 "Could not find scikit-learn flavor configuration during model loading process."
                 " Assuming 'pickle' serialization format."
             )
             serialization_format = SERIALIZATION_FORMAT_PICKLE
+            skops_trusted_types = None
 
         pyfunc_flavor_conf = _get_flavor_configuration(
             model_path=path, flavor_name=pyfunc.FLAVOR_NAME
@@ -517,7 +531,11 @@ def _load_pyfunc(path):
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
     return _SklearnModelWrapper(
-        _load_model_from_local_file(path=path, serialization_format=serialization_format)
+        _load_model_from_local_file(
+            path=path,
+            serialization_format=serialization_format,
+            skops_trusted_types=skops_trusted_types,
+        )
     )
 
 
@@ -601,7 +619,10 @@ def _save_model(sk_model, output_path, serialization_format):
             ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
     """
     with open(output_path, "wb") as out:
-        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+        if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+            import skops.io
+            skops.io.dump(sk_model, out)
+        elif serialization_format == SERIALIZATION_FORMAT_PICKLE:
             _dump_model(pickle, sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
@@ -654,8 +675,11 @@ def load_model(model_uri, dst_path=None):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
+    skops_trusted_types = flavor_conf.get("skops_trusted_types", None)
     return _load_model_from_local_file(
-        path=sklearn_model_artifacts_path, serialization_format=serialization_format
+        path=sklearn_model_artifacts_path,
+        serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
     )
 
 
