@@ -142,12 +142,12 @@ def _validate_eval_result_df(result: EvaluationResult):
         assert actual.iloc[i].trace_id == expected.iloc[i].trace_id
         assert actual.iloc[i].spans == expected.iloc[i].spans
         assert actual.iloc[i].assessments == expected.iloc[i].assessments
-        assert getattr(actual.iloc[i], "exact_match/value") is not None
-        assert getattr(actual.iloc[i], "is_concise/value") is not None
-        assert getattr(actual.iloc[i], "relevance/value") is not None
-        assert getattr(actual.iloc[i], "has_trace/value") is not None
-        assert getattr(actual.iloc[i], "expected_response/value") is not None
-        assert getattr(actual.iloc[i], "max_length/value") is not None
+        assert actual.iloc[i]["exact_match/value"] is not None
+        assert actual.iloc[i]["is_concise/value"] is not None
+        assert actual.iloc[i]["relevance/value"] is not None
+        assert actual.iloc[i]["has_trace/value"] is not None
+        assert actual.iloc[i]["expected_response/value"] is not None
+        assert actual.iloc[i]["max_length/value"] is not None
 
 
 @dataclass

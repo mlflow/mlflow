@@ -490,10 +490,10 @@ def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
 
 
 def construct_eval_result_df(
-    run_id,
+    run_id: str,
     traces_wo_spans: list[Trace],
     eval_results: list["EvalResult"],
-) -> "pd.DataFrame":
+) -> "pd.DataFrame | None":
     """
     Construct a pandas DataFrame from the traces (without spans) and eval results.
 
@@ -527,7 +527,6 @@ def construct_eval_result_df(
         return pd.concat([trace_id_column, assessments, df], axis=1)
     except Exception as e:
         _logger.debug(f"Failed to construct eval result DataFrame: {e}", exc_info=True)
-        return pd.DataFrame()
 
 
 def _get_assessment_values(assessments: list[dict[str, Any]], run_id: str) -> dict[str, Any]:
