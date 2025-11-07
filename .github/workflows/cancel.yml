@@ -8,7 +8,7 @@ on:
 
 jobs:
   cancel:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     permissions:
       actions: write # to cancel workflow runs
