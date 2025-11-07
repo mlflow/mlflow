@@ -237,6 +237,11 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
+                  id: 'tracing/integrations/listing/fireworksai',
+                  label: 'FireworksAI',
+                },
+                {
+                  type: 'doc',
                   id: 'tracing/integrations/listing/gemini',
                   label: 'Gemini',
                 },
