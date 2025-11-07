@@ -305,18 +305,13 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track App Versions and Environments',
-            },
-            {
-              type: 'doc',
               id: 'tracing/collect-user-feedback/index',
               label: 'User Feedback Collection',
             },
             {
               type: 'doc',
               id: 'tracing/attach-tags/index',
-              label: 'Trace Tagging',
+              label: 'Tagging Traces',
             },
             {
               type: 'doc',
