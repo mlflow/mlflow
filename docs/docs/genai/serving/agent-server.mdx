@@ -38,33 +38,39 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
 
 
    @invoke()
-    async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-        msgs = [i.model_dump() for i in request.input]
-        result = await Runner.run(agent, msgs)
-        return ResponsesAgentResponse(output=[item.to_input_item() for item in result.new_items])
+   async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+       msgs = [i.model_dump() for i in request.input]
+       result = await Runner.run(agent, msgs)
+       return ResponsesAgentResponse(
+           output=[item.to_input_item() for item in result.new_items]
+       )
 
-    # You can also optionally register a @stream function to support streaming responses
+
+   # You can also optionally register a @stream function to support streaming responses
    ```
 
 2. Define a `start_server.py` file to start the `AgentServer`:
 
    ```python
-    # Need to import the agent to register the functions with the server
-    import agent  # noqa: F401
-    from mlflow.genai.agent_server import AgentServer, setup_mlflow_git_based_version_tracking
+   # Need to import the agent to register the functions with the server
+   import agent  # noqa: F401
+   from mlflow.genai.agent_server import (
+       AgentServer,
+       setup_mlflow_git_based_version_tracking,
+   )
 
-    agent_server = AgentServer("ResponsesAgent")
-    app = agent_server.app
-    setup_mlflow_git_based_version_tracking()
-
-
-    def main():
-        # To support multiple workers, pass the app as an import string
-        agent_server.run(app_import_string="start_server:app")
+   agent_server = AgentServer("ResponsesAgent")
+   app = agent_server.app
+   setup_mlflow_git_based_version_tracking()
 
 
-    if __name__ == "__main__":
-        main()
+   def main():
+       # To support multiple workers, pass the app as an import string
+       agent_server.run(app_import_string="start_server:app")
+
+
+   if __name__ == "__main__":
+       main()
    ```
 
 ## Deploying and Testing Your Agent
@@ -118,7 +124,11 @@ You can use <APILink fn="mlflow.genai.evaluate_agent" /> to evaluate your agent.
    eval_dataset = [
        {
            "inputs": {
-               "request": {"input": [{"role": "user", "content": "What's the 15th Fibonacci number"}]}
+               "request": {
+                   "input": [
+                       {"role": "user", "content": "What's the 15th Fibonacci number"}
+                   ]
+               }
            },
            "expected_response": "The 15th Fibonacci number is 610.",
        }
