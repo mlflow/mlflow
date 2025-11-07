@@ -491,16 +491,17 @@ def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
 
 def construct_eval_result_df(
     run_id: str,
-    traces_wo_spans: list[Trace],
+    traces: list[Trace],
     eval_results: list["EvalResult"],
 ) -> "pd.DataFrame | None":
     """
-    Construct a pandas DataFrame from the traces (without spans) and eval results.
+    Construct a pandas DataFrame from the traces and eval results.
 
     Args:
         run_id: The MLflow run ID of the evaluation run.
-        traces_wo_spans: List of traces (without spans). This is the result of
-            `mlflow.search_traces(include_spans=False)` to fetch the assessments from the backend.
+        traces: List of traces. Only TraceInfo is used here, and **spans are ignored&**.
+            The expected input to this function is the result of
+            `mlflow.search_traces(include_spans=False, return_type="list")`.
         eval_results: List of eval results containing the full spans.
 
     Returns:
@@ -508,8 +509,11 @@ def construct_eval_result_df(
     """
     import pandas as pd
 
+    if not traces:
+        return None
+
     try:
-        trace_id_to_info = {t.info.trace_id: t.info for t in traces_wo_spans}
+        trace_id_to_info = {t.info.trace_id: t.info for t in traces}
         traces = [
             Trace(
                 info=trace_id_to_info[eval_result.eval_item.trace.info.trace_id],
