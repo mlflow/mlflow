@@ -616,8 +616,7 @@ def server(
 @click.option(
     "--older-than",
     default=None,
-    help="Optional. Remove run(s) that were moved to the `deleted` lifecycle stage "
-    "longer than the specified time limit ago. "
+    help="Optional. Remove run(s) older than the specified time limit. "
     "Specify a string in #d#h#m#s format. Float values are also supported. "
     "For example: --older-than 1d2h3m4s, --older-than 1.2d3h4m5s",
 )
