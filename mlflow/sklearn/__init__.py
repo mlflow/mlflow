@@ -136,7 +136,7 @@ def _gen_estimators_to_patch():
     ]
 
 
-def get_default_pip_requirements(include_cloudpickle=False):
+def get_default_pip_requirements(serialization_format=SERIALIZATION_FORMAT_SKOPS):
     """
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
@@ -144,19 +144,21 @@ def get_default_pip_requirements(include_cloudpickle=False):
         that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("scikit-learn", module="sklearn")]
-    if include_cloudpickle:
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        pip_deps += [_get_pinned_requirement("skops")]
+    elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
         pip_deps += [_get_pinned_requirement("cloudpickle")]
 
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env(serialization_format=SERIALIZATION_FORMAT_SKOPS):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
+    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(serialization_format))
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -310,8 +312,7 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
-            default_reqs = get_default_pip_requirements(include_cloudpickle)
+            default_reqs = get_default_pip_requirements(serialization_format)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
@@ -488,7 +489,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         import skops.io
         from skops.io.exceptions import UntrustedTypesFoundException
         try:
-            skops.io.load(path, trusted=skops_trusted_types)
+            return skops.io.load(path, trusted=skops_trusted_types)
         except UntrustedTypesFoundException as e:
             raise MlflowException(
                 "The saved sklearn model contains untrusted type, "
