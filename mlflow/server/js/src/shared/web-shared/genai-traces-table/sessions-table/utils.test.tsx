@@ -87,6 +87,8 @@ describe('getSessionTableRows', () => {
     expect(rows[0].experimentId).toBe('0');
     expect(rows[0].sessionStartTime).toBe('2025-10-31 04:34:04');
     expect(rows[0].sessionDuration).toBe('2.0s');
+    expect(rows[0].tokens).toBe(400);
+    expect(rows[0].turns).toBe(2);
 
     expect(rows[1].sessionId).toBe('session-1');
     expect(rows[1].requestPreview).toBe('Session 1 turn 1 request');
@@ -94,5 +96,7 @@ describe('getSessionTableRows', () => {
     expect(rows[1].experimentId).toBe('0');
     expect(rows[1].sessionStartTime).toBe('2025-10-31 04:33:41');
     expect(rows[1].sessionDuration).toBe('1.0s');
+    expect(rows[1].tokens).toBe(200);
+    expect(rows[1].turns).toBe(1);
   });
 });

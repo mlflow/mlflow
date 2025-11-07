@@ -25,11 +25,17 @@ jobs:
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+       ))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
+       ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/review'))
     steps:

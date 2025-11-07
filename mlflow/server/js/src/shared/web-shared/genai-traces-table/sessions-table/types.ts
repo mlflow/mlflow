@@ -8,12 +8,13 @@ export type SessionTableRow = {
   experimentId: string;
   sessionStartTime: string;
   sessionDuration: string | null;
+  tokens: number;
+  turns: number;
 };
 
 export type SessionTableColumn = {
   id: string;
   header: string;
   accessorKey?: string;
-  cell?: React.ComponentType<{ row: Row<SessionTableRow> }>;
   defaultVisibility: boolean;
 } & ColumnDef<SessionTableRow>;

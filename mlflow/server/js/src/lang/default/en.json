@@ -2478,6 +2478,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OUPWd8": {
+    "defaultMessage": "View chat session",
+    "description": "Tooltip for the session id tag"
+  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -2660,6 +2664,10 @@
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
+  },
+  "Qsifda": {
+    "defaultMessage": "Group traces from the same chat session together",
+    "description": "Empty state title for the chat sessions table"
   },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
@@ -3591,6 +3599,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "adVHxN": {
+    "defaultMessage": "Outputs",
+    "description": "Section title for the outputs of a single chat turn"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -4255,10 +4267,6 @@
     "defaultMessage": "Model, input data or prompt have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
   },
-  "gdCdji": {
-    "defaultMessage": "No chat sessions found",
-    "description": "Empty state for the chat sessions page"
-  },
   "gdK07H": {
     "defaultMessage": "Bar chart",
     "description": "Experiment tracking > runs charts > add chart menu > bar chart"
@@ -4294,6 +4302,10 @@
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
+  },
+  "h2Ejm7": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for user and session tracking"
   },
   "h2SXjO": {
     "defaultMessage": "Key",
@@ -4342,6 +4354,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "hkXDZn": {
+    "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the chat sessions table"
   },
   "hlpNRa": {
     "defaultMessage": "No prompts found",
@@ -4906,6 +4922,10 @@
   "nIk08y": {
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
+  },
+  "nJxDSh": {
+    "defaultMessage": "Inputs",
+    "description": "Section title for the inputs of a single chat turn"
   },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
