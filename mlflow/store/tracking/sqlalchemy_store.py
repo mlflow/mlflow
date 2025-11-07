@@ -2400,53 +2400,39 @@ class SqlAlchemyStore(AbstractStore):
             SecretWithBinding containing the created secret and its initial binding.
 
         Raises:
-            MlflowException: If resource_type is not valid or is GLOBAL.
+            MlflowException: If resource_type is not valid.
         """
         try:
+            # Validate and convert resource_type to enum
             resource_type_enum = SecretResourceType.from_string(resource_type)
         except ValueError as e:
             raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
 
-        if resource_type_enum == SecretResourceType.GLOBAL:
-            raise MlflowException(
-                "GLOBAL secrets cannot be created through the API. "
-                "They must be managed by administrators through CLI or configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         with self.ManagedSessionMaker() as session:
-            if is_shared:
-                existing = (
-                    session.query(SqlSecret)
+            existing = session.query(SqlSecret).filter_by(secret_name=secret_name).first()
+            if existing:
+                raise MlflowException(
+                    f"Secret with name '{secret_name}' already exists. "
+                    f"Choose a different name or delete the existing secret first.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            if resource_type_enum != SecretResourceType.GLOBAL:
+                existing_binding = (
+                    session.query(SqlSecretBinding)
                     .filter_by(
-                        secret_name=secret_name,
-                        is_shared=True,
+                        resource_type=resource_type,
+                        resource_id=resource_id,
+                        field_name=field_name,
                     )
                     .first()
                 )
-                if existing:
+                if existing_binding:
                     raise MlflowException(
-                        f"Shared secret with name '{secret_name}' already exists. "
-                        f"Choose a different name or delete the existing secret first. "
-                        f"(ID: {existing.secret_id}).",
+                        f"Binding already exists for resource_type='{resource_type}', "
+                        f"resource_id='{resource_id}', field_name='{field_name}'.",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
-
-            existing_binding = (
-                session.query(SqlSecretBinding)
-                .filter_by(
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    field_name=field_name,
-                )
-                .first()
-            )
-            if existing_binding:
-                raise MlflowException(
-                    f"Binding already exists for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                )
 
             secret_id = uuid.uuid4().hex
             binding_id = uuid.uuid4().hex
@@ -2662,19 +2648,13 @@ class SqlAlchemyStore(AbstractStore):
             SecretBinding entity representing the new binding.
 
         Raises:
-            MlflowException: If resource_type is not valid or is GLOBAL.
+            MlflowException: If resource_type is not valid.
         """
         try:
-            resource_type_enum = SecretResourceType.from_string(resource_type)
+            # Validate resource_type (raises ValueError if invalid)
+            SecretResourceType.from_string(resource_type)
         except ValueError as e:
             raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
-
-        if resource_type_enum == SecretResourceType.GLOBAL:
-            raise MlflowException(
-                "GLOBAL secrets cannot be created through the API. "
-                "They must be managed by administrators through CLI or configuration.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
 
         with self.ManagedSessionMaker() as session:
             sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()

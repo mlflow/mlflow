@@ -77,9 +77,6 @@ def upgrade():
             ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
-        sa.UniqueConstraint(
-            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
-        ),
     )
     with op.batch_alter_table("secrets_bindings", schema=None) as batch_op:
         batch_op.create_index("index_secrets_bindings_secret_id", ["secret_id"], unique=False)

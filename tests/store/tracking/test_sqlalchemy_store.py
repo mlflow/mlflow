@@ -11928,21 +11928,22 @@ def test_list_secret_bindings_invalid_resource_type(store: SqlAlchemyStore):
         store._list_secret_bindings(resource_type="WrongType")
 
 
-def test_create_and_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
-    with pytest.raises(
-        MlflowException,
-        match="GLOBAL secrets cannot be created through the API",
-    ):
-        store._create_and_bind_secret(
-            secret_name="test-secret",
-            secret_value="secret-value",
-            resource_type="GLOBAL",
-            resource_id="global-1",
-            field_name="API_KEY",
-        )
+def test_create_and_bind_secret_global_allowed(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="test-secret",
+        secret_value="secret-value",
+        resource_type="GLOBAL",
+        resource_id="global",
+        field_name="API_KEY",
+    )
+
+    assert result.secret.secret_name == "test-secret"
+    assert result.binding.resource_type == SecretResourceType.GLOBAL
+    assert result.binding.resource_id == "global"
+    assert result.binding.field_name == "API_KEY"
 
 
-def test_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
+def test_bind_secret_global_allowed(store: SqlAlchemyStore, kek_passphrase):
     result = store._create_and_bind_secret(
         secret_name="shared-secret",
         secret_value="secret-value",
@@ -11952,16 +11953,56 @@ def test_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
         is_shared=True,
     )
 
-    with pytest.raises(
-        MlflowException,
-        match="GLOBAL secrets cannot be created through the API",
-    ):
-        store._bind_secret(
-            secret_id=result.secret.secret_id,
-            resource_type="GLOBAL",
-            resource_id="global-1",
-            field_name="KEY2",
-        )
+    binding = store._bind_secret(
+        secret_id=result.secret.secret_id,
+        resource_type="GLOBAL",
+        resource_id="global",
+        field_name="KEY2",
+    )
+
+    assert binding.resource_type == SecretResourceType.GLOBAL
+    assert binding.resource_id == "global"
+    assert binding.field_name == "KEY2"
+
+
+def test_create_multiple_global_secrets_same_field_name(store: SqlAlchemyStore, kek_passphrase):
+    result1 = store._create_and_bind_secret(
+        secret_name="anthropic-dev",
+        secret_value="sk-dev-123",
+        resource_type="GLOBAL",
+        resource_id="global",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    result2 = store._create_and_bind_secret(
+        secret_name="anthropic-prod",
+        secret_value="sk-prod-456",
+        resource_type="GLOBAL",
+        resource_id="global",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    result3 = store._create_and_bind_secret(
+        secret_name="anthropic-staging",
+        secret_value="sk-staging-789",
+        resource_type="GLOBAL",
+        resource_id="global",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    assert result1.secret.secret_name == "anthropic-dev"
+    assert result1.binding.field_name == "ANTHROPIC_API_KEY"
+    assert result2.secret.secret_name == "anthropic-prod"
+    assert result2.binding.field_name == "ANTHROPIC_API_KEY"
+    assert result3.secret.secret_name == "anthropic-staging"
+    assert result3.binding.field_name == "ANTHROPIC_API_KEY"
+
+    bindings = store._list_secret_bindings(
+        resource_type="GLOBAL",
+        resource_id="global",
+    )
+    anthropic_bindings = [b for b in bindings if b.field_name == "ANTHROPIC_API_KEY"]
+    assert len(anthropic_bindings) == 3
 
 
 def test_get_secrets_for_resource_uses_cache(store: SqlAlchemyStore, kek_passphrase):
