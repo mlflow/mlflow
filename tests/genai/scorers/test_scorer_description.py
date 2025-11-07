@@ -70,6 +70,7 @@ def test_make_judge_with_description(name: str, description: str | None):
         instructions="Evaluate if {{ outputs }} is good quality",
         model="openai:/gpt-4",
         description=description,
+        feedback_value_type=str,
     )
 
     assert judge.name == name

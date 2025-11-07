@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
@@ -11,6 +11,7 @@ import {
   Route,
   Routes,
   createLazyRouteElement,
+  useParams,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
 
@@ -48,6 +49,13 @@ const MlflowRootRoute = ({
 
   const [showSidebar, setShowSidebar] = useState(true);
   const { theme } = useDesignSystemTheme();
+  const { experimentId } = useParams();
+
+  // Hide sidebar if we are in a single experiment page
+  const isSingleExperimentPage = Boolean(experimentId);
+  useEffect(() => {
+    setShowSidebar(!isSingleExperimentPage);
+  }, [isSingleExperimentPage]);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', height: '100%' }}>

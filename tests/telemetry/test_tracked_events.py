@@ -733,16 +733,18 @@ def test_invoke_custom_judge_model(
         else:
             with (
                 mock.patch(
-                    "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
+                    "mlflow.genai.judges.utils.invocation_utils._invoke_litellm_and_handle_tools",
                     return_value=(mock_response, 10),
                 ),
                 mock.patch(
-                    "mlflow.genai.judges.utils._invoke_databricks_serving_endpoint"
+                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
                 ) as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
+                        InvokeDatabricksModelOutput,
+                    )
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
                         response=mock_response,
@@ -771,6 +773,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": "openai"}
     validate_telemetry_record(
@@ -780,6 +783,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     make_judge(
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": None}
     validate_telemetry_record(
@@ -792,6 +796,7 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
 
     traces = [
