@@ -82,6 +82,8 @@ jobs:
 
       - name: Check blank line changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           uv run --no-project dev/check_blank_lines.py \
             --repo ${{ github.repository }} \
