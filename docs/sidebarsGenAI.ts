@@ -324,11 +324,6 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/search-traces',
-              label: 'Searching for Traces',
-            },
-            {
-              type: 'doc',
               id: 'tracing/observe-with-traces/masking',
               label: 'Redacting Sensitive Data',
             },
@@ -342,7 +337,7 @@ const sidebarsGenAI: SidebarsConfig = {
 
         {
           type: 'category',
-          label: 'Observe & Analyze Traces',
+          label: 'Viewing & Searching Traces',
           items: [
             {
               type: 'doc',
@@ -350,13 +345,10 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/observe-with-traces/query-via-sdk',
+              id: 'tracing/search-traces',
+              label: 'Searching for Traces',
             },
           ],
-          link: {
-            type: 'doc',
-            id: 'tracing/observe-with-traces/index',
-          },
         },
         {
           type: 'category',
