@@ -63,6 +63,8 @@ import {
   normalizeDspyChatOutput,
   normalizeVercelAIChatInput,
   normalizeVercelAIChatOutput,
+  isOtelGenAIChatMessage,
+  normalizeOtelGenAIChatMessage,
 } from './chat-utils';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -879,6 +881,12 @@ export const isRawModelTraceChatMessage = (message: any): message is RawModelTra
     }
   }
 
+  if (message.parts && isNil(message.content)) {
+    // This is OpenTelemetry GenAI semantic conventions. We parse it separately.
+    // https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-input-messages.json
+    return false;
+  }
+
   if (message.type === 'reasoning') {
     return true;
   }
@@ -998,6 +1006,11 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (chatMessages) return chatMessages;
         break;
     }
+
+    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
+      return compact(input.map(normalizeOtelGenAIChatMessage));
+    }
+
     return null;
   } catch (e) {
     return null;
