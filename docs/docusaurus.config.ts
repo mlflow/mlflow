@@ -396,6 +396,14 @@ const config: Config = {
             from: ['/tracing/ui'],
           },
           {
+            to: '/genai/tracing/search-traces',
+            from: [
+              '/genai/tracing/observe-with-traces',
+              '/genai/tracing/observe-with-traces/index',
+              '/genai/tracing/observe-with-traces/query-via-sdk',
+            ],
+          },
+          {
             to: '/genai/tracing/integrations',
             from: ['/tracing/integrations'],
           },
