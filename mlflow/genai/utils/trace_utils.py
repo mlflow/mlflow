@@ -509,6 +509,9 @@ def construct_eval_result_df(
     """
     import pandas as pd
 
+    if not traces:
+        return None
+
     try:
         trace_id_to_info = {t.info.trace_id: t.info for t in traces}
         traces = [
