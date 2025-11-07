@@ -208,6 +208,16 @@ def task_2(simple_agent_2):
     )
 
 
+@pytest.fixture
+def task_named(simple_agent_1):
+    return Task(
+        name="Custom Task Name",
+        agent=simple_agent_1,
+        description="noop",
+        expected_output="noop",
+    )
+
+
 def global_autolog():
     if IS_TRACING_SDK_ONLY:
         pytest.skip("Global autolog is not supported in tracing SDK")
@@ -268,7 +278,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
-    assert span_2.name == "Agent.execute_task"
+    assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
     assert span_2.inputs == {
@@ -278,7 +288,7 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     assert span_2.outputs == _LLM_ANSWER
     # LLM
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "LLM.call"
+    assert span_3.name == "gpt-4o-mini"
     assert span_3.span_type == SpanType.LLM
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
@@ -396,7 +406,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
-    assert span_2.name == "Agent.execute_task"
+    assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
     assert len(span_2.inputs["tools"]) == 1
@@ -404,14 +414,14 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_2.outputs == _LLM_ANSWER
     # LLM - tool calling
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "LLM.call"
+    assert span_3.name == "gpt-4o-mini"
     assert span_3.span_type == SpanType.LLM
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
     assert "Action: TestTool" in span_3.outputs
     # LLM - return answer
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "LLM.call"
+    assert span_4.name == "gpt-4o-mini"
     assert span_4.span_type == SpanType.LLM
     assert span_4.parent_id is span_2.span_id
     assert span_4.inputs["messages"] is not None
@@ -473,7 +483,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
-    assert span_2.name == "Agent.execute_task"
+    assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
     assert span_2.inputs == {
@@ -483,7 +493,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_2.outputs == _LLM_ANSWER
     # LLM
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "LLM.call"
+    assert span_3.name == "gpt-4o-mini"
     assert span_3.span_type == SpanType.LLM
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs["messages"] is not None
@@ -515,7 +525,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_5.outputs is not None
     # Agent
     span_6 = traces[0].data.spans[6]
-    assert span_6.name == "Agent.execute_task"
+    assert span_6.name == "Local Expert at this city"
     assert span_6.span_type == SpanType.AGENT
     assert span_6.parent_id is span_5.span_id
     assert span_6.inputs == {
@@ -525,7 +535,7 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     assert span_6.outputs == _LLM_ANSWER
     # LLM
     span_7 = traces[0].data.spans[7]
-    assert span_7.name == "LLM.call"
+    assert span_7.name == "gpt-4o-mini"
     assert span_7.span_type == SpanType.LLM
     assert span_7.parent_id is span_6.span_id
     assert span_7.inputs["messages"] is not None
@@ -594,7 +604,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     assert span_1.outputs is not None
     # Agent
     span_2 = traces[0].data.spans[2]
-    assert span_2.name == "Agent.execute_task"
+    assert span_2.name == "City Selection Expert"
     assert span_2.span_type == SpanType.AGENT
     assert span_2.parent_id is span_1.span_id
     assert span_2.inputs == {
@@ -634,7 +644,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
 
     # LLM
     span_6 = traces[0].data.spans[6]
-    assert span_6.name == "LLM.call"
+    assert span_6.name == "gpt-4o-mini"
     assert span_6.span_type == SpanType.LLM
     assert span_6.parent_id is span_2.span_id
     assert span_6.inputs["messages"] is not None
@@ -807,7 +817,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     assert span_2.outputs is not None
     # Agent
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "Agent.execute_task"
+    assert span_3.name == "City Selection Expert"
     assert span_3.span_type == SpanType.AGENT
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs == {
@@ -817,7 +827,7 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     assert span_3.outputs == _LLM_ANSWER
     # LLM
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "LLM.call"
+    assert span_4.name == "gpt-4o-mini"
     assert span_4.span_type == SpanType.LLM
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
@@ -886,7 +896,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_2.outputs is not None
     # Agent
     span_3 = traces[0].data.spans[3]
-    assert span_3.name == "Agent.execute_task"
+    assert span_3.name == "City Selection Expert"
     assert span_3.span_type == SpanType.AGENT
     assert span_3.parent_id is span_2.span_id
     assert span_3.inputs == {
@@ -896,7 +906,7 @@ def test_flow(simple_agent_1, task_1, autolog):
     assert span_3.outputs == _LLM_ANSWER
     # LLM
     span_4 = traces[0].data.spans[4]
-    assert span_4.name == "LLM.call"
+    assert span_4.name == "gpt-4o-mini"
     assert span_4.span_type == SpanType.LLM
     assert span_4.parent_id is span_3.span_id
     assert span_4.inputs["messages"] is not None
@@ -914,3 +924,32 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
+
+
+def test_crew_task_named(simple_agent_1, task_named, autolog):
+    crew = Crew(
+        name="Custom Crew Name",
+        agents=[
+            simple_agent_1,
+        ],
+        tasks=[task_named],
+    )
+    with patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION):
+        autolog()
+        crew.kickoff()
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) >= 1
+    # Crew
+    span_0 = traces[0].data.spans[0]
+    assert span_0.name == "Custom Crew Name"
+    assert span_0.span_type == SpanType.CHAIN
+    assert span_0.parent_id is None
+    # Task
+    span_1 = traces[0].data.spans[1]
+    assert span_1.name == "Custom Task Name"
+    assert span_1.span_type == SpanType.CHAIN
+    assert span_1.parent_id is span_0.span_id
