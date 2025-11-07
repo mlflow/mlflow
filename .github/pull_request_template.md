@@ -1,3 +1,5 @@
+<!-- Remove unused checkboxes except for the patch release section at the bottom -->
+
 ### Related Issues/PRs
 
 <!-- Uncomment 'Resolve' if this PR can close the linked items. -->
