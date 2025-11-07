@@ -319,13 +319,18 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/track-environments-context/index',
+              label: 'Track Application Versions',
+            },
+            {
+              type: 'doc',
               id: 'tracing/observe-with-traces/masking',
               label: 'Redacting Sensitive Data',
             },
             {
               type: 'doc',
               id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK Optimized for Production Usage',
+              label: 'Lightweight Tracing SDK',
             },
           ],
         },
