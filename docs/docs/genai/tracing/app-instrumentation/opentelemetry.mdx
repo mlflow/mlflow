@@ -27,10 +27,10 @@ response = client.responses.create(model="gpt-4o-mini", input="Hello, world!")
 
 You may want to trace LLMs or frameworks that are not [supported](/genai/tracing/integrations) by the MLflow Tracing SDK, or instrument applications written in languages other than Python and TypeScript/JavaScript.
 
-MLflow Server exposes an OTLP endpoint at `/v1/trace` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)) that accepts traces from any OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc. To export traces to MLflow, set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to the MLflow server endpoint and set the `x-mlflow-experiment-id` header to the MLflow experiment ID.
+MLflow Server exposes an OTLP endpoint at `/v1/traces` ([OTLP](https://opentelemetry.io/docs/specs/otlp/)) that accepts traces from any OpenTelemetry instrumentation, allowing you to trace applications written in other languages such as Java, Go, Rust, etc. To export traces to MLflow, set `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` to the MLflow server endpoint and set the `x-mlflow-experiment-id` header to the MLflow experiment ID.
 
 ```bash
-export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/trace
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=http://localhost:5000/v1/traces
 export OTEL_EXPORTER_OTLP_TRACES_HEADERS=x-mlflow-experiment-id=123
 ```
 
