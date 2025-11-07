@@ -689,19 +689,10 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
 
     .. note::
 
-        This command operates solely based on the lifecycle stage and the specified criteria
-        (e.g., ``--older-than``, ``--run-ids``, ``--experiment-ids``). It does **not** take
-        into account:
-
-        - **Pinned runs**: Pinning is a UI-only feature and does not prevent deletion.
-        - **Registered models**: Model registry entries are **not** deleted by this command.
-          If a run has an associated registered model, the model version will remain in the
-          registry but will reference a deleted run.
-        - **Tags or other metadata**: Run tags, descriptions, and other metadata are not
-          considered when determining which runs to delete.
-
-        Runs must first be moved to the `deleted` lifecycle stage (via ``mlflow.delete_run()``
-        or the UI) before they can be permanently deleted by this command.
+        This command only considers lifecycle stage and the specified deletion criteria.
+        It does **not** check for pinned runs, registered models, or tags. Pinning is a
+        UI-only feature that has no effect on garbage collection. Runs must be in the
+        `deleted` lifecycle stage before they can be permanently deleted.
 
     **Examples:**
 
