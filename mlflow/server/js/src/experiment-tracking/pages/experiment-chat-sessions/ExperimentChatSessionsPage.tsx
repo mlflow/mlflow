@@ -67,7 +67,7 @@ const ExperimentChatSessionsPageImpl = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <TracesV3Toolbar
         // prettier-ignore
         viewState="sessions"
