@@ -205,6 +205,13 @@ const TRACING_INTEGRATIONS: TracingIntegration[] = [
     category: 'Model Providers',
   },
   {
+    id: 'fireworksai',
+    name: 'FireworksAI',
+    logoPath: '/images/logos/fireworks-ai-logo.svg',
+    link: '/genai/tracing/integrations/listing/fireworksai',
+    category: 'Model Providers',
+  },
+  {
     id: 'deepseek',
     name: 'DeepSeek',
     logoPath: '/images/logos/deepseek-logo.png',
