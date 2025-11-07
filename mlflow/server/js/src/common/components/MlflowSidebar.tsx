@@ -3,6 +3,7 @@ import {
   Button,
   DropdownMenu,
   HomeIcon,
+  KeyIcon,
   ModelsIcon,
   PlusIcon,
   TextBoxIcon,
@@ -12,6 +13,7 @@ import type { Location } from '../utils/RoutingUtils';
 import { Link, matchPath, useLocation, useNavigate } from '../utils/RoutingUtils';
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { ModelRegistryRoutes } from '../../model-registry/routes';
+import { SECRETS_BASE_ROUTE } from '../../secrets/routes';
 import { CreateExperimentModal } from '../../experiment-tracking/components/modals/CreateExperimentModal';
 import { useState } from 'react';
 import { useInvalidateExperimentList } from '../../experiment-tracking/components/experiment-page/hooks/useExperimentListQuery';
@@ -29,6 +31,7 @@ const isExperimentsActive = (location: Location) =>
   matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
+const isSecretsActive = (location: Location) => matchPath('/secrets/*', location.pathname);
 
 export function MlflowSidebar() {
   const location = useLocation();
@@ -108,6 +111,15 @@ export function MlflowSidebar() {
             description="Sidebar button inside the 'new' popover to create new prompt"
           />
         ),
+      },
+    },
+    {
+      key: 'secrets',
+      icon: <KeyIcon />,
+      linkProps: {
+        to: SECRETS_BASE_ROUTE,
+        isActive: isSecretsActive,
+        children: <FormattedMessage defaultMessage="Secrets" description="Sidebar link for secrets tab" />,
       },
     },
   ];
