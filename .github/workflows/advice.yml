@@ -9,7 +9,7 @@ on:
 jobs:
   notify:
     if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     permissions:
       pull-requests: write # advice.js comments on PRs

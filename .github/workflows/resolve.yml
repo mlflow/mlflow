@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   precheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       pull-requests: write
     timeout-minutes: 5
@@ -184,7 +184,7 @@ jobs:
       always() &&
       !contains(needs.*.result, 'cancelled') &&
       !contains(needs.*.result, 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
       pull-requests: write
     timeout-minutes: 5
