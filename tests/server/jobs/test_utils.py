@@ -24,8 +24,6 @@ def test_validate_function_parameters():
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['b'\]"):
         _validate_function_parameters(test_func, {"a": 1})
 
-    assert True  # If we get here, the exception was properly raised
-
     # Test with multiple missing required parameters
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a', 'b'\]"):
         _validate_function_parameters(test_func, {})
@@ -57,3 +55,28 @@ def test_validate_function_parameters_with_positional_args():
     # Should still raise error for missing required parameters
     with pytest.raises(MlflowException, match=r"Missing required parameters.*\['a'\]"):
         _validate_function_parameters(test_func_with_args, {})
+
+
+def test_job_status_conversion():
+    from mlflow.entities._job_status import JobStatus
+
+    assert JobStatus.from_int(1) == JobStatus.RUNNING
+    assert JobStatus.from_str("RUNNING") == JobStatus.RUNNING
+
+    assert JobStatus.RUNNING.to_int() == 1
+    assert str(JobStatus.RUNNING) == "RUNNING"
+
+    with pytest.raises(
+        MlflowException, match="The value -1 can't be converted to JobStatus enum value."
+    ):
+        JobStatus.from_int(-1)
+
+    with pytest.raises(
+        MlflowException, match="The value 5 can't be converted to JobStatus enum value."
+    ):
+        JobStatus.from_int(5)
+
+    with pytest.raises(
+        MlflowException, match="The string 'ABC' can't be converted to JobStatus enum value."
+    ):
+        JobStatus.from_str("ABC")

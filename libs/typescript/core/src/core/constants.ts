@@ -30,7 +30,10 @@ export const SpanAttributeKey = {
   SPAN_TYPE: 'mlflow.spanType',
   // This attribute is used to store token usage information from LLM responses.
   // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
-  TOKEN_USAGE: 'mlflow.chat.tokenUsage'
+  TOKEN_USAGE: 'mlflow.chat.tokenUsage',
+  // This attribute indicates which flavor/format generated the LLM span. This is
+  // used by downstream (e.g., UI) to determine the message format for parsing.
+  MESSAGE_FORMAT: 'mlflow.message.format'
 };
 
 /**
@@ -40,7 +43,7 @@ export const TraceMetadataKey = {
   SOURCE_RUN: 'mlflow.sourceRun',
   MODEL_ID: 'mlflow.modelId',
   SIZE_BYTES: 'mlflow.trace.sizeBytes',
-  SCHEMA_VERSION: 'mlflow.traceSchemaVersion',
+  SCHEMA_VERSION: 'mlflow.trace_schema.version',
   TOKEN_USAGE: 'mlflow.trace.tokenUsage',
   // Deprecated, do not use. These fields are used for storing trace request and response
   // in MLflow 2.x. In MLflow 3.x, these are replaced in favor of the request_preview and

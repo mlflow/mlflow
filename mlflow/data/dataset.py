@@ -62,6 +62,11 @@ class Dataset:
 
         return json.dumps(self.to_dict())
 
+    def _get_source_type(self) -> str:
+        """Returns the type of the dataset's underlying source."""
+
+        return self.source._get_source_type()
+
     @property
     def name(self) -> str:
         """

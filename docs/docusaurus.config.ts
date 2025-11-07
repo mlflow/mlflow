@@ -54,7 +54,7 @@ const config: Config = {
     },
   ],
 
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
   },
@@ -121,6 +121,13 @@ const config: Config = {
           to: `${apiReferencePrefix()}api_reference/index.html`,
           position: 'left',
           label: 'API Reference',
+        },
+        {
+          type: 'docSidebar',
+          position: 'left',
+          sidebarId: 'selfHostingSidebar',
+          label: 'Self-Hosting',
+          docsPluginId: 'self-hosting',
         },
         {
           type: 'docSidebar',
@@ -212,6 +219,19 @@ const config: Config = {
 
   plugins: [
     tailwindPlugin,
+    [
+      '@signalwire/docusaurus-plugin-llms-txt',
+      {
+        ui: {
+          copyPageContent: {
+            buttonLabel: 'Copy Page',
+            display: {
+              docs: true,
+            },
+          },
+        },
+      },
+    ],
     // Classic ML docs plugin
     [
       '@docusaurus/plugin-content-docs',
@@ -250,6 +270,16 @@ const config: Config = {
         sidebarPath: './communitySidebar.ts',
       },
     ],
+    // Self Hosting docs plugin
+    [
+      '@docusaurus/plugin-content-docs',
+      {
+        id: 'self-hosting',
+        path: 'docs/self-hosting',
+        routeBasePath: 'self-hosting',
+        sidebarPath: './sidebarsSelfHosting.ts',
+      },
+    ],
     [
       '@docusaurus/plugin-client-redirects',
       {
@@ -257,6 +287,23 @@ const config: Config = {
           {
             to: '/',
             from: ['/new-features'],
+          },
+          // Redirect to the new self-hosting guide
+          {
+            to: '/self-hosting/architecture/tracking-server',
+            from: ['/ml/tracking/server', '/tracking/server'],
+          },
+          {
+            to: '/self-hosting/architecture/artifact-store',
+            from: ['/ml/tracking/artifact-stores', '/tracking/artifact-stores'],
+          },
+          {
+            to: '/self-hosting/architecture/backend-store',
+            from: ['/ml/tracking/backend-stores', '/tracking/backend-stores'],
+          },
+          {
+            to: '/self-hosting/security/basic-http-auth',
+            from: ['/ml/auth'],
           },
           // Redirect mlflow 3 pages
           {
@@ -671,7 +718,7 @@ const config: Config = {
             from: ['/introduction'],
           },
           {
-            to: '/ml/auth',
+            to: '/self-hosting/security/basic-http-auth',
             from: ['/auth'],
           },
           {
@@ -837,64 +884,27 @@ const config: Config = {
             from: ['/getting-started/quickstart-2'],
           },
           {
-            to: '/ml/getting-started/logging-first-model',
-            from: ['/getting-started/logging-first-model'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/notebooks',
-            from: ['/getting-started/logging-first-model/notebooks'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/notebooks/logging-first-model',
-            from: ['/getting-started/logging-first-model/notebooks/logging-first-model'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step1-tracking-server',
-            from: ['/getting-started/logging-first-model/step1-tracking-server'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step2-mlflow-client',
-            from: ['/getting-started/logging-first-model/step2-mlflow-client'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step3-create-experiment',
-            from: ['/getting-started/logging-first-model/step3-create-experiment'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step4-experiment-search',
-            from: ['/getting-started/logging-first-model/step4-experiment-search'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step5-synthetic-data',
-            from: ['/getting-started/logging-first-model/step5-synthetic-data'],
-          },
-          {
-            to: '/ml/getting-started/logging-first-model/step6-logging-a-run',
-            from: ['/getting-started/logging-first-model/step6-logging-a-run'],
-          },
-          {
-            to: '/ml/getting-started/registering-first-model',
-            from: ['/getting-started/registering-first-model'],
-          },
-          {
-            to: '/ml/getting-started/registering-first-model/step1-register-model',
-            from: ['/getting-started/registering-first-model/step1-register-model'],
-          },
-          {
-            to: '/ml/getting-started/registering-first-model/step2-explore-registered-model',
-            from: ['/getting-started/registering-first-model/step2-explore-registered-model'],
-          },
-          {
-            to: '/ml/getting-started/registering-first-model/step3-load-model',
-            from: ['/getting-started/registering-first-model/step3-load-model'],
-          },
-          {
-            to: '/ml/getting-started/running-notebooks',
-            from: ['/getting-started/running-notebooks'],
-          },
-          {
-            to: '/ml/getting-started/tracking-server-overview',
-            from: ['/getting-started/tracking-server-overview'],
+            to: '/ml/getting-started',
+            from: [
+              '/getting-started/logging-first-model',
+              '/getting-started/logging-first-model/notebooks',
+              '/getting-started/logging-first-model/notebooks/logging-first-model',
+              '/getting-started/logging-first-model/step1-tracking-server',
+              '/getting-started/logging-first-model/step2-mlflow-client',
+              '/getting-started/logging-first-model/step3-create-experiment',
+              '/getting-started/logging-first-model/step4-experiment-search',
+              '/getting-started/logging-first-model/step5-synthetic-data',
+              '/getting-started/logging-first-model/step6-logging-a-run',
+              '/getting-started/registering-first-model',
+              '/getting-started/registering-first-model/step1-register-model',
+              '/getting-started/registering-first-model/step2-explore-registered-model',
+              '/getting-started/registering-first-model/step3-load-model',
+              '/getting-started/running-notebooks',
+              '/getting-started/tracking-server-overview',
+              '/getting-started/tracking-server-overview/notebooks',
+              '/getting-started/tracking-server-overview/notebooks/tracking-server-overview',
+              '/getting-started/tracking-server-overview/step1-tracking-server',
+            ],
           },
           {
             to: '/ml/model-registry',
@@ -945,16 +955,8 @@ const config: Config = {
             from: ['/tracking'],
           },
           {
-            to: '/ml/tracking/artifact-stores',
-            from: ['/tracking/artifacts-stores'],
-          },
-          {
             to: '/ml/tracking/autolog',
             from: ['/tracking/autolog'],
-          },
-          {
-            to: '/ml/tracking/backend-stores',
-            from: ['/tracking/backend-stores'],
           },
           {
             to: '/ml/tracking/quickstart',
@@ -962,15 +964,8 @@ const config: Config = {
               '/getting-started/intro-quickstart',
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
+              '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
             ],
-          },
-          {
-            to: '/ml/tracking/quickstart/notebooks/tracking_quickstart',
-            from: ['/getting-started/intro-quickstart/notebooks/tracking_quickstart'],
-          },
-          {
-            to: '/ml/tracking/server',
-            from: ['/tracking/server'],
           },
           {
             to: '/ml/tracking/system-metrics',

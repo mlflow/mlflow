@@ -9,6 +9,7 @@ import type { UseQueryResult } from '@databricks/web-shared/query-client';
 import { EvaluationTraceDataDrawer } from './EvaluationTraceDataDrawer';
 import { VerticalBar } from './VerticalBar';
 import { GenAITracesTableActions } from '../GenAITracesTableActions';
+import type { GetTraceFunction } from '../hooks/useGetTrace';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { prettySizeWithUnit } from '../utils/DisplayUtils';
 
@@ -28,7 +29,7 @@ const EvaluationsReviewSingleRunHeaderSection = ({
   evaluationResult: RunEvaluationTracesDataEntry;
   exportToEvalsInstanceEnabled?: boolean;
   traceQueryResult: UseQueryResult<ModelTrace | undefined, unknown>;
-  getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+  getTrace?: GetTraceFunction;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -68,11 +69,6 @@ const EvaluationsReviewSingleRunHeaderSection = ({
               <GenAITracesTableActions
                 experimentId={experimentId}
                 selectedTraces={[evaluationResult]}
-                traceActions={{
-                  exportToEvals: {
-                    getTrace,
-                  },
-                }}
                 traceInfos={undefined}
               />
             )}

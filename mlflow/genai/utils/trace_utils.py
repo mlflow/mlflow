@@ -3,6 +3,7 @@ import logging
 import math
 from typing import TYPE_CHECKING, Any, Callable
 
+from cachetools.func import cached
 from opentelemetry.trace import NoOpTracer
 from pydantic import BaseModel
 
@@ -10,15 +11,20 @@ import mlflow
 from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION
+from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION,
+)
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.tracing.constant import TraceTagKey
-from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
+from mlflow.tracing.display import IPythonTraceDisplayHandler
 from mlflow.tracing.utils import TraceJSONEncoder
+from mlflow.tracking.client import MlflowClient
+from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
-    from mlflow.genai.evaluation.entities import EvalItem
+    from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 
 _logger = logging.getLogger(__name__)
 
@@ -90,6 +96,83 @@ def extract_outputs_from_trace(trace: Trace) -> Any:
     if root_span and root_span.outputs is not None:
         return root_span.outputs
     return None
+
+
+def resolve_inputs_from_trace(
+    inputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
+    """
+    Extract inputs from trace if not provided.
+
+    Args:
+        inputs: Input data to evaluate. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when inputs is None. If False, only
+                        return the provided inputs value. Defaults to True.
+
+    Returns:
+        The provided inputs if not None, otherwise extracted inputs from trace,
+        or None if extraction fails.
+    """
+    if inputs is None and trace is not None and extract_if_none:
+        try:
+            return extract_inputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract inputs from trace: {e}")
+    return inputs
+
+
+def resolve_outputs_from_trace(
+    outputs: Any | None, trace: Trace, *, extract_if_none: bool = True
+) -> Any | None:
+    """
+    Extract outputs from trace if not provided.
+
+    Args:
+        outputs: Output data to evaluate. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        extract_if_none: If True, extract from trace when outputs is None. If False, only
+                        return the provided outputs value. Defaults to True.
+
+    Returns:
+        The provided outputs if not None, otherwise extracted outputs from trace,
+        or None if extraction fails.
+    """
+    if outputs is None and trace is not None and extract_if_none:
+        try:
+            return extract_outputs_from_trace(trace)
+        except Exception as e:
+            _logger.debug(f"Could not extract outputs from trace: {e}")
+    return outputs
+
+
+def resolve_expectations_from_trace(
+    expectations: dict[str, Any] | None,
+    trace: Trace,
+    source: AssessmentSourceType = AssessmentSourceType.HUMAN,
+    *,
+    extract_if_none: bool = True,
+) -> dict[str, Any] | None:
+    """
+    Extract expectations from trace if not provided.
+
+    Args:
+        expectations: Dictionary of expected outcomes. If None, will be extracted from trace.
+        trace: MLflow trace object containing the execution to evaluate.
+        source: Assessment source type to filter expectations by. Defaults to HUMAN.
+        extract_if_none: If True, extract from trace when expectations is None. If False, only
+                        return the provided expectations value. Defaults to True.
+
+    Returns:
+        The provided expectations if not None, otherwise extracted expectations from trace,
+        or None if extraction fails.
+    """
+    if expectations is None and trace is not None and extract_if_none:
+        try:
+            return extract_expectations_from_trace(trace, source=source)
+        except Exception as e:
+            _logger.debug(f"Could not extract expectations from trace: {e}")
+    return expectations
 
 
 def extract_expectations_from_trace(
@@ -199,13 +282,10 @@ def parse_inputs_to_str(value: Any) -> str:
 
     value = _to_dict(value)
 
-    # Special handling for "messages" key.
     if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
         contents = [m.get(_CONTENT_KEY) for m in messages]
-        # If the message contains multiple messages, dump the whole messages object.
         if len(contents) > 1 and all(isinstance(c, str) for c in contents):
             return json.dumps(messages)
-        # If the message contains a single message, return the content.
         elif isinstance(contents[-1], str):
             return contents[-1]
     return str(value)
@@ -223,8 +303,6 @@ def parse_outputs_to_str(value: Any) -> str:
         return parse_outputs_to_str(value[0])
 
     value = _to_dict(value)
-
-    # Special handling for chat response
     if _is_chat_choices(value.get(_CHOICES_KEY)):
         content = value[_CHOICES_KEY][0][_MESSAGE_KEY][_CONTENT_KEY]
     elif _is_chat_messages(value.get(_MESSAGES_KEY)):
@@ -270,19 +348,18 @@ def _to_dict(obj: Any) -> dict[str, Any]:
 def extract_retrieval_context_from_trace(trace: Trace | None) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
-    Only consider the last retrieval span in the trace if there are multiple retrieval spans.
-    If the trace does not have a retrieval span, return None.
-    ⚠️ Warning: Please make sure to not throw exception. If fails, return None.
+    Extracts all top-level retrieval spans from the trace if there are multiple retrieval spans.
+    If the trace does not have a retrieval span, return an empty dictionary.
+    ⚠️ Warning: Please make sure to not throw exception. If fails, return an empty dictionary.
     """
     if trace is None or trace.data is None:
         return {}
 
-    # Only consider the top-level retrieval spans
     top_level_retrieval_spans = _get_top_level_retrieval_spans(trace)
     if len(top_level_retrieval_spans) == 0:
         return {}
 
-    retrieved = {}  # span_id -> list of documents
+    retrieved = {}
 
     for retrieval_span in top_level_retrieval_spans:
         try:
@@ -332,7 +409,6 @@ def _get_top_level_retrieval_spans(trace: Trace) -> list[Span]:
 
             parent_id = parent_span.parent_id
         else:
-            # If the loop completes without breaking, this is a top-level span
             top_level_retrieval_spans.append(span)
 
     return top_level_retrieval_spans
@@ -348,7 +424,7 @@ def _parse_chunk(chunk: Any) -> dict[str, Any] | None:
     return doc
 
 
-def clean_up_extra_traces(run_id: str, start_time_ms: int):
+def clean_up_extra_traces(run_id: str, start_time_ms: int) -> None:
     """
     Clean up noisy traces generated outside predict function.
 
@@ -356,9 +432,6 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
     function. If not, the result will not show the correct list of traces.
     Sometimes, there are extra traces generated during the evaluation, for example, custom scorer
     code might generate traces. This function cleans up those noisy traces.
-
-    TODO: This is not a fundamental solution. Ideally, evaluation result should be able to render
-        correct result even if there are extra traces in the run.
 
     Args:
         run_id: The ID of the run to clean up.
@@ -370,19 +443,12 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
         # Search for all traces generated during evaluation
         traces = mlflow.search_traces(
             run_id=run_id,
-            # Not download spans for efficiency
             include_spans=False,
-            # Limit to traces generated after evaluation time to ensure we will not
-            # delete traces generated before evaluation.
             filter_string=f"trace.timestamp >= {start_time_ms}",
             return_type="list",
         )
-        extra_trace_ids = [
-            # Traces from predict function should always have the EVAL_REQUEST_ID tag
-            trace.info.trace_id
-            for trace in traces
-            if TraceTagKey.EVAL_REQUEST_ID not in trace.info.tags
-        ]
+
+        extra_trace_ids = [trace.info.trace_id for trace in traces if not _should_keep_trace(trace)]
         if extra_trace_ids:
             _logger.debug(
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
@@ -394,16 +460,27 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
-            # Avoid displaying the deleted trace in notebook cell output
             for trace_id in extra_trace_ids:
                 IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:
             _logger.debug("No extra traces found during evaluation run.")
     except Exception as e:
-        _logger.warning(
+        _logger.debug(
             f"Failed to clean up extra traces generated during evaluation. The "
             f"result page might not show the correct list of traces. Error: {e}"
         )
+
+
+def _should_keep_trace(trace: Trace) -> bool:
+    # If the scorer tracing is enabled, keep traces generated by scorers.
+    if (
+        MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get()
+        and TraceTagKey.SOURCE_SCORER_NAME in trace.info.tags
+    ):
+        return True
+
+    # Otherwise, only keep traces from the prediction function.
+    return TraceTagKey.EVAL_REQUEST_ID in trace.info.tags
 
 
 def create_minimal_trace(eval_item: "EvalItem") -> Trace:
@@ -412,10 +489,48 @@ def create_minimal_trace(eval_item: "EvalItem") -> Trace:
     """
     from mlflow.pyfunc.context import Context, set_prediction_context
 
-    # Set the context so that the trace is logged synchronously
     context = Context(request_id=eval_item.request_id, is_evaluate=True)
     with set_prediction_context(context):
         with mlflow.start_span(name="root_span", span_type=SpanType.CHAIN) as root_span:
             root_span.set_inputs(eval_item.inputs)
             root_span.set_outputs(eval_item.outputs)
         return mlflow.get_trace(root_span.trace_id)
+
+
+# MB: Caching on tracking URI level to avoid unnecessary checks for each trace.
+@cached(cache={}, key=lambda **kwargs: kwargs["tracking_uri"])
+def _does_store_support_trace_linking(*, tracking_uri: str, trace: Trace, run_id: str) -> bool:
+    # Databricks backend is guaranteed to support trace linking
+    if is_databricks_uri(tracking_uri):
+        return True
+
+    try:
+        MlflowClient(tracking_uri).link_traces_to_run([trace.info.trace_id], run_id=run_id)
+        return True
+    except Exception:
+        return False
+
+
+def batch_link_traces_to_run(
+    run_id: str | None, eval_results: list["EvalResult"], max_batch_size: int = 100
+) -> None:
+    """
+    Batch link traces to a run to avoid rate limits.
+
+    Args:
+        run_id: The MLflow run ID to link traces to
+        eval_results: List of evaluation results containing traces
+        max_batch_size: Maximum number of traces to link per batch call
+    """
+    trace_ids = [eval_result.eval_item.trace.info.trace_id for eval_result in eval_results]
+    # Batch the trace IDs to avoid overwhelming the MLflow backend
+    for i in range(0, len(trace_ids), max_batch_size):
+        batch = trace_ids[i : i + max_batch_size]
+        try:
+            MlflowClient().link_traces_to_run(run_id=run_id, trace_ids=batch)
+        except Exception as e:
+            # FileStore doesn't support trace linking, so we skip it
+            if "Linking traces to runs is not supported in FileStore." in str(e):
+                return
+
+            _logger.warning(f"Failed to link batch of traces to run: {e}")

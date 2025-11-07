@@ -19,6 +19,10 @@ flask:
   pip_release: Flask
   max_major_version: 3
 
+flask-cors:
+  pip_release: Flask-CORS
+  max_major_version: 6
+
 numpy:
   pip_release: numpy
   max_major_version: 2
@@ -39,7 +43,7 @@ sqlalchemy:
 cryptography:
   pip_release: cryptography
   minimum: "43.0.0"
-  max_major_version: 45
+  max_major_version: 46
 
 gunicorn:
   pip_release: gunicorn
@@ -58,7 +62,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 21
+  max_major_version: 22
 
 matplotlib:
   pip_release: matplotlib
@@ -68,7 +72,7 @@ graphene:
   pip_release: graphene
   max_major_version: 3
 
-fastmcp:
-  pip_release: fastmcp
-  minimum: "2.0.0"
+huey:
+  pip_release: huey
+  minimum: "2.5.0"
   max_major_version: 2

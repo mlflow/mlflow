@@ -11,6 +11,9 @@ from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRe
 from mlflow.protos.datasets_pb2 import DatasetRecord as ProtoDatasetRecord
 from mlflow.protos.datasets_pb2 import DatasetRecordSource as ProtoDatasetRecordSource
 
+# Reserved key for wrapping non-dict outputs when storing in SQL database
+DATASET_RECORD_WRAPPED_OUTPUT_KEY = "mlflow_wrapped"
+
 
 @dataclass
 class DatasetRecord(_MlflowObject):

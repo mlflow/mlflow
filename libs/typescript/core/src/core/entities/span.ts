@@ -16,7 +16,6 @@ import {
   decodeIdFromBase64
 } from '../utils';
 import { safeJsonStringify } from '../utils/json';
-import { InMemoryTraceManager } from '../trace_manager';
 /**
  * MLflow Span interface
  */
@@ -72,6 +71,12 @@ export interface ISpan {
 export class Span implements ISpan {
   readonly _span: OTelSpan;
   readonly _attributesRegistry: SpanAttributesRegistry;
+
+  // Internal only flag to allow mutating the ended span. This is used to set the custom attributes
+  // from span processor's onEnd hook. The hook is invoked after the span is ended and OpenTelemetry
+  // blocks setting attributes on them by default. Set this flag to true to allow mutating the ended
+  // span.
+  allowMutatingEndedSpan: boolean = false;
 
   /**
    * Create a new MLflowSpan
@@ -256,6 +261,9 @@ function convertStatusCodeToOTel(statusCode?: string): OTelSpanStatusCode {
 }
 
 export class LiveSpan extends Span {
+  // Internal only flag to allow mutating the ended span
+  allowMutatingEndedSpan: boolean = false;
+
   constructor(span: OTelSpan, traceId: string, span_type: SpanType) {
     super(span, true);
     this.setAttribute(SpanAttributeKey.TRACE_ID, traceId);
@@ -263,11 +271,19 @@ export class LiveSpan extends Span {
   }
 
   /**
+   * Set the type of the span
+   * @param spanType The type of the span
+   */
+  setSpanType(spanType: SpanType): void {
+    this.setAttribute(SpanAttributeKey.SPAN_TYPE, spanType);
+  }
+
+  /**
    * Set inputs for the span
    * @param inputs Input data for the span
    */
   setInputs(inputs: any): void {
-    this._attributesRegistry.set(SpanAttributeKey.INPUTS, inputs);
+    this.setAttribute(SpanAttributeKey.INPUTS, inputs);
   }
 
   /**
@@ -275,7 +291,7 @@ export class LiveSpan extends Span {
    * @param outputs Output data for the span
    */
   setOutputs(outputs: any): void {
-    this._attributesRegistry.set(SpanAttributeKey.OUTPUTS, outputs);
+    this.setAttribute(SpanAttributeKey.OUTPUTS, outputs);
   }
 
   /**
@@ -284,7 +300,7 @@ export class LiveSpan extends Span {
    * @param value Attribute value
    */
   setAttribute(key: string, value: any): void {
-    this._attributesRegistry.set(key, value);
+    this._attributesRegistry.set(key, value, this.allowMutatingEndedSpan);
   }
 
   /**
@@ -361,7 +377,7 @@ export class LiveSpan extends Span {
       }
 
       // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-      // by the user. However, there is not way to set the status when using
+      // by the user. However, there is no way to set the status when using
       // `trace` function wrapper. Therefore, we just automatically set the status
       // to OK if it is not ERROR.
       if (this.status.statusCode !== SpanStatusCode.ERROR) {
@@ -373,10 +389,6 @@ export class LiveSpan extends Span {
         ? convertNanoSecondsToHrTime(options.endTimeNs)
         : undefined;
       this._span.end(endTime);
-
-      // Set the last active trace ID
-      const traceManager = InMemoryTraceManager.getInstance();
-      traceManager.lastActiveTraceId = this.traceId;
     } catch (error) {
       console.error(`Failed to end span ${this.spanId}: ${String(error)}.`);
     }
@@ -389,6 +401,8 @@ export class LiveSpan extends Span {
 export class NoOpSpan implements ISpan {
   readonly _span: any; // Use any for NoOp span to avoid type conflicts
   readonly _attributesRegistry: SpanAttributesRegistry;
+
+  allowMutatingEndedSpan: boolean = false;
 
   constructor(span?: any) {
     // Create a minimal no-op span object
@@ -442,6 +456,7 @@ export class NoOpSpan implements ISpan {
   }
 
   // Implement all methods to do nothing
+  setSpanType(_spanType: SpanType): void {}
   setInputs(_inputs: any): void {}
   setOutputs(_outputs: any): void {}
   setAttribute(_key: string, _value: any): void {}
@@ -544,9 +559,15 @@ class SpanAttributesRegistry {
   /**
    * Set a single attribute value
    */
-  set(key: string, value: any): void {
+  set(key: string, value: any, allowMutatingEndedSpan: boolean = false): void {
     if (typeof key !== 'string') {
       console.warn(`Attribute key must be a string, but got ${typeof key}. Skipping.`);
+      return;
+    }
+
+    if (allowMutatingEndedSpan && this._span.ended) {
+      // Directly set the attribute value to bypass the isSpanEnded check.
+      this._span.attributes[key] = safeJsonStringify(value);
       return;
     }
 
@@ -596,7 +617,7 @@ class CachedSpanAttributesRegistry extends SpanAttributesRegistry {
   /**
    * Set operation is not allowed for cached registry (immutable spans)
    */
-  set(_key: string, _value: any): void {
+  set(_key: string, _value: any, _allowMutatingEndedSpan: boolean = false): void {
     throw new Error('The attributes of the immutable span must not be updated.');
   }
 }

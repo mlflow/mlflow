@@ -147,7 +147,7 @@ def log_expectation(
         value: The value of the expectation. It can be any JSON-serializable value.
         source: The source of the expectation assessment. Must be an instance of
                 :py:class:`~mlflow.entities.AssessmentSource`. If not provided,
-                default to CODE source type.
+                default to HUMAN source type.
         metadata: Additional metadata for the expectation.
         span_id: The ID of the span associated with the expectation, if it needs be
                 associated with a specific span in the trace.
@@ -302,7 +302,9 @@ def log_feedback(
                 trace_id="tr-1234567890abcdef",
                 name="relevance",
                 value=0.9,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"
+                ),
                 rationale="Response directly addresses the user's question",
             )
 
@@ -370,7 +372,9 @@ def override_feedback(
                 trace_id="tr-1234567890abcdef",
                 name="relevance",
                 value=0.6,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"
+                ),
                 rationale="Response partially addresses the question",
             )
 

@@ -1,15 +1,32 @@
 import { isNil } from 'lodash';
+import { useCallback, useMemo } from 'react';
 
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import { isV3ModelTraceInfo, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { useQuery } from '@databricks/web-shared/query-client';
 
-export function useGetTrace(
-  getTrace: ((traceId: string) => Promise<ModelTrace | undefined>) | undefined,
-  traceId?: string,
-) {
+export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
+
+export function useGetTrace(getTrace?: GetTraceFunction, traceInfo?: ModelTrace['info']) {
+  const traceId = useMemo(() => {
+    if (!traceInfo) {
+      return undefined;
+    }
+    return isV3ModelTraceInfo(traceInfo) ? traceInfo.trace_id : traceInfo.request_id ?? '';
+  }, [traceInfo]);
+
+  const getTraceFn = useCallback(
+    (traceInfo?: ModelTrace['info']) => {
+      if (!getTrace || isNil(traceId)) {
+        return Promise.resolve(undefined);
+      }
+      return getTrace(traceId, traceInfo);
+    },
+    [getTrace, traceId],
+  );
+
   return useQuery({
     queryKey: ['getTrace', traceId],
-    queryFn: () => (getTrace && traceId ? getTrace(traceId) : Promise.resolve(undefined)),
+    queryFn: () => getTraceFn(traceInfo),
     enabled: !isNil(getTrace) && !isNil(traceId),
     staleTime: Infinity, // Keep data fresh as long as the component is mounted
     refetchOnWindowFocus: false, // Disable refetching on window focus

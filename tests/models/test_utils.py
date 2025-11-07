@@ -48,7 +48,7 @@ def sklearn_knn_model():
 
 
 def random_int(lo=1, hi=1000000000):
-    return random.randint(lo, hi)
+    return random.randint(int(lo), int(hi))
 
 
 def test_adding_libraries_to_model_default(sklearn_knn_model):

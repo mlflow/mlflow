@@ -32,6 +32,8 @@
     "@docusaurus/preset-classic": "^3.6.3",
     "@docusaurus/theme-mermaid": "^3.7.0",
     "@mdx-js/react": "^3.0.0",
+    "@signalwire/docusaurus-plugin-llms-txt": "^2.0.0-alpha.6",
+    "@signalwire/docusaurus-theme-llms-txt": "^1.0.0-alpha.8",
     "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^22.8.6",
     "class-variance-authority": "^0.7.1",

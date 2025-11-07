@@ -1,7 +1,9 @@
 /**
  * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
  */
-import type { TraceInfoV3 } from '../types';
+import { IntlShape } from 'react-intl';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import moment from 'moment';
 
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class -- TODO(FEINF-4274)
 class MlflowUtils {
@@ -95,6 +97,10 @@ class MlflowUtils {
 
   static getBitbucketRegex() {
     return /[@/]bitbucket.org[:/]([^/.]+)\/([^/#]+)#?(.*)/;
+  }
+
+  static getExperimentChatSessionPageRoute(experimentId: string, sessionId: string) {
+    return `/experiments/${experimentId}/chat-sessions/${sessionId}`;
   }
 
   static getRunPageRoute(experimentId: string, runUuid: string) {
@@ -392,7 +398,7 @@ class MlflowUtils {
     return res;
   }
 
-  static renderSourceFromMetadata(traceInfoV3: TraceInfoV3) {
+  static renderSourceFromMetadata(traceInfoV3: ModelTraceInfoV3) {
     const sourceName = traceInfoV3.trace_metadata?.[MlflowUtils.sourceNameTag];
     const sourceType = traceInfoV3.trace_metadata?.[MlflowUtils.sourceTypeTag];
     let res = sourceName ? MlflowUtils.baseName(sourceName) : '';
@@ -428,7 +434,14 @@ class MlflowUtils {
       }
 
       res = (
-        <a target="_blank" rel="noopener noreferrer" href={url}>
+        <a
+          target="_blank"
+          rel="noopener noreferrer"
+          href={url}
+          onClick={(e) => {
+            e.stopPropagation();
+          }}
+        >
           {res}
         </a>
       );
@@ -472,6 +485,37 @@ class MlflowUtils {
     }
 
     return res;
+  }
+
+  static formatDuration(duration: any) {
+    if (duration < 500) {
+      return duration + 'ms';
+    } else if (duration < 1000 * 60) {
+      return (duration / 1000).toFixed(1) + 's';
+    } else if (duration < 1000 * 60 * 60) {
+      return (duration / 1000 / 60).toFixed(1) + 'min';
+    } else if (duration < 1000 * 60 * 60 * 24) {
+      return (duration / 1000 / 60 / 60).toFixed(1) + 'h';
+    } else {
+      return (duration / 1000 / 60 / 60 / 24).toFixed(1) + 'd';
+    }
+  }
+
+  static formatTimestamp(timestamp: any, intl?: IntlShape) {
+    const d = new Date(0);
+    d.setUTCMilliseconds(timestamp);
+
+    if (intl) {
+      return intl.formatDate(d, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+    }
+    return moment(d).format('YYYY-MM-DD HH:mm:ss');
   }
 }
 

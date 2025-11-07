@@ -556,7 +556,6 @@ def test_webhook_test_with_wrong_secret(mlflow_client: MlflowClient, app_client:
 
 
 def test_webhook_retry_on_5xx_error(mlflow_client: MlflowClient, app_client: AppClient) -> None:
-    """Test that webhooks retry on 5xx errors"""
     # Create webhook pointing to flaky endpoint
     mlflow_client.create_webhook(
         name="retry_test_webhook",
