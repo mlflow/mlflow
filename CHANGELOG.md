@@ -48,7 +48,7 @@ Features:
 - [Gateway] Add configuration option for long-running deployments client requests (#18363, @BenWilson2)
 - [Gateway] Make Openai, Anthropic, Gemini provider supporting streamed function calling response (#18367, #18328, #18294, @WeichenXu123)
 - [Gateway] Add traffic route to multiple endpoints (#18064, @WeichenXu123)
-- [Docs] Add Sticky Header to CodeBlock in MLflow/DOCS  Code Examples (#18508, @PavithraNelluri)
+- [Docs] Add Sticky Header to CodeBlock in MLflow/DOCS Code Examples (#18508, @PavithraNelluri)
 - [Build / Evaluation] Add CLI command to list registered scorers by experiment (#18255, @alkispoly-db)
 
 Bug fixes:
@@ -72,7 +72,7 @@ Bug fixes:
 - [Evaluation / UI] Fix evaluation runs table link to point to traces tab instead of overview (#18332, @ritoban23)
 - [Models] fix-streaming (#18337, @BenWilson2)
 - [Evaluation / Tracing / Tracking] Job backend: Fix job store sql engine race condition (#18233, @WeichenXu123)
-- [Evaluation] Add atomicity to job_start API  (#18226, @BenWilson2)
+- [Evaluation] Add atomicity to job_start API (#18226, @BenWilson2)
 - [Evaluation / Tracking] Job backend: Eager launch huey consumer to prevent Huey race condition (#18220, @WeichenXu123)
 
 Documentation updates:
@@ -80,7 +80,7 @@ Documentation updates:
 - [Docs] Add basic doc for Otel support (#18623, @B-Step62)
 - [Docs] clarify datasets package requirement (#18610, @BenWilson2)
 - [Evaluation] Deprecate v2 eval (#18470, @B-Step62)
-- [Docs / UI] Add Sticky Header to CodeBlock in MLflow/DOCS  Code Examples (#18508, @PavithraNelluri)
+- [Docs / UI] Add Sticky Header to CodeBlock in MLflow/DOCS Code Examples (#18508, @PavithraNelluri)
 - [Docs] [Doc; 1/N] Clean up getting started for classical ML/DL (#18379, @B-Step62)
 - [Docs] AI-gateway-revamp: Update doc (#18397, @WeichenXu123)
 - [Docs] Fix documentation: update deprecated pandas fillna usage in classic-ml tutorial (#17927, @Kalindu-C)
@@ -105,7 +105,6 @@ Stay tuned for the full release, which will be packed with more features and bug
 To try out this release candidate, please run:
 
 `pip install mlflow==3.6.0rc0`
-
 
 ## 3.5.1 (2025-10-21)
 
