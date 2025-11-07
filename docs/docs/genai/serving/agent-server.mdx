@@ -1,0 +1,134 @@
+# MLflow Agent Server
+
+## Table of Contents
+
+- [Agent Server Features](#agent-server-features)
+- [Full Example](#full-example)
+- [Testing Your Agent Locally](#testing-your-agent-locally)
+- [Evaluating Your Agent](#evaluating-your-agent)
+- Running in production
+
+## Agent Server Features
+
+:::note
+The MLflow Agent Server was released with MLflow 3.6.0. It is currently under active development and is marked as Experimental. Public APIs are subject to change, and new features are being added to enhance its functionality.
+:::
+
+- Simple FastAPI server to host agents
+- Wire together `/invocations` to a function that is decorated with `@invoke` or `@stream`
+- If doing a conversational agent, can create an AgentServer with ResponsesAgent type for automatic tracing aggregation and input/output validation
+
+## Full Example
+
+In this example, we'll use the openai-agents-sdk to define our Responses API compatible agent. See [the openai-agents-sdk quickstart](https://openai.github.io/openai-agents-python/quickstart/#create-your-first-agent) for more information.
+
+0. Install the openai-agents-sdk and mlflow, and set your OpenAI API key:
+
+   ```bash
+   pip install -U openai-agents mlflow>=3.6.0
+   export OPENAI_API_KEY=sk-...
+   ```
+
+1. Define your agent in `agent.py` and create methods to annotate with `@invoke`:
+
+   ```python
+   from agents import Agent, Runner
+   from mlflow.genai.agent_server import invoke, stream
+   from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+
+   agent = Agent(
+       name="Math Tutor",
+       instructions="You provide help with math problems. Explain your reasoning at each step and include examples",
+   )
+
+
+   @invoke()
+   async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+       result = await Runner.run(agent, request.input)
+       return ResponsesAgentResponse(output=[item.to_input_item() for item in result.new_items])
+   ```
+
+2. Define a `start_server.py` file to start the `AgentServer`:
+
+   ```python
+    # Need to import the agent to register the functions with the server
+    import agent  # noqa: F401
+    from mlflow.genai.agent_server import AgentServer, setup_mlflow_git_based_version_tracking
+
+    agent_server = AgentServer("ResponsesAgent")
+    app = agent_server.app
+    setup_mlflow_git_based_version_tracking()
+
+
+    def main():
+        # To support multiple workers, pass the app as an import string
+        agent_server.run(app_import_string="start_server:app")
+
+
+    if __name__ == "__main__":
+        main()
+   ```
+
+## Testing Your Agent Locally
+
+Run your agent server with the `--reload` flag to automatically reload the server on code changes:
+
+```bash
+python3 start_server.py --reload
+```
+
+In a separate terminal window, you can send a request to the server:
+
+```bash
+curl -X POST http://localhost:8000/invocations \
+   -H "Content-Type: application/json" \
+   -d '{ "input": [{ "role": "user", "content": "what is the 14th fibonacci number?" }]}'
+```
+
+## Evaluating Your Agent
+
+You can use <APILink fn="mlflow.genai.evaluate_agent" /> to evaluate your agent. See the [Evaluating Agents](/genai/eval-monitor/) guide and [Scorer](/genai/eval-monitor/scorers) documentation for more information.
+
+1. Define a file like `eval_agent.py` to evaluate your agent:
+
+   ```python
+   import asyncio
+
+   import mlflow
+
+   # need to import agent for our @invoke-registered function to be found
+   from agent import agent  # noqa: F401
+   from mlflow.genai.agent_server import get_invoke_function
+   from mlflow.genai.scorers import RelevanceToQuery, Safety
+   from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
+
+   eval_dataset = [
+       {
+           "inputs": {
+               "request": {"input": [{"role": "user", "content": "What's the 15th Fibonacci number"}]}
+           },
+           "expected_response": "The 15th Fibonacci number is 610.",
+       }
+   ]
+
+
+   def sync_invoke_fn(request: dict) -> ResponsesAgentResponse:
+       # Get the invoke function that was registered via @invoke decorator in your agent
+       invoke_fn = get_invoke_function()
+       return asyncio.run(invoke_fn(ResponsesAgentRequest(**request)))
+
+
+   mlflow.genai.evaluate(
+       data=eval_dataset,
+       predict_fn=sync_invoke_fn,
+       scorers=[RelevanceToQuery(), Safety()],
+   )
+   ```
+
+2. Run the evaluation:
+
+   ```bash
+   python3 eval_agent.py
+   ```
+
+   You should see the evaluation results and MLflow run information in the console output.
