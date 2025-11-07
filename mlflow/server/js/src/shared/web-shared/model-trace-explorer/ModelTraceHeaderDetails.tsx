@@ -20,6 +20,8 @@ import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateCon
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
 import { MLFLOW_TRACE_SESSION_KEY, MLFLOW_TRACE_TOKEN_USAGE_KEY, MLFLOW_TRACE_USER_KEY } from './ModelTrace.types';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
+import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
+import { useParams } from './RoutingUtils';
 
 const BASE_TAG_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details';
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
@@ -80,6 +82,7 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
+  const { experimentId } = useParams();
 
   const tags = Object.entries(modelTrace.info.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
@@ -161,17 +164,8 @@ export const ModelTraceHeaderDetails = ({ modelTrace }: { modelTrace: ModelTrace
             onCopy={handleCopy}
           />
         )}
-        {sessionId && (
-          <ModelTraceHeaderMetricSection
-            label={<FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />}
-            icon={<SpeechBubbleIcon css={{ fontSize: 12, display: 'flex' }} />}
-            value={sessionId}
-            tagKey="session"
-            color="default"
-            getTruncatedLabel={getTruncatedSessionLabel}
-            getComponentId={getComponentId}
-            onCopy={handleCopy}
-          />
+        {sessionId && experimentId && (
+          <ModelTraceHeaderSessionIdTag experimentId={experimentId} sessionId={sessionId} />
         )}
         {userId && (
           <ModelTraceHeaderMetricSection

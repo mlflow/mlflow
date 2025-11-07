@@ -408,15 +408,16 @@ test('renderSourceFromMetadata', () => {
       'mlflow.source.git.commit': 'b2fda8216f2568b62213ee99314f5bf4ce89be96',
     },
   };
-  expect(MlflowUtils.renderSourceFromMetadata(gitSourceWithCommit)).toEqual(
+  expect(MlflowUtils.renderSourceFromMetadata(gitSourceWithCommit)).toMatchInlineSnapshot(`
     <a
-      target="_blank"
-      rel="noopener noreferrer"
       href="https://github.com/username/repo/tree/b2fda8216f2568b62213ee99314f5bf4ce89be96/runner.py"
+      onClick={[Function]}
+      rel="noopener noreferrer"
+      target="_blank"
     >
       runner.py
-    </a>,
-  );
+    </a>
+  `);
 
   // Test git repository with branch
   const gitSourceWithBranch: any = {
@@ -427,11 +428,16 @@ test('renderSourceFromMetadata', () => {
       'mlflow.source.git.branch': 'main',
     },
   };
-  expect(MlflowUtils.renderSourceFromMetadata(gitSourceWithBranch)).toEqual(
-    <a target="_blank" rel="noopener noreferrer" href="https://github.com/username/repo/tree/main/runner.py">
+  expect(MlflowUtils.renderSourceFromMetadata(gitSourceWithBranch)).toMatchInlineSnapshot(`
+    <a
+      href="https://github.com/username/repo/tree/main/runner.py"
+      onClick={[Function]}
+      rel="noopener noreferrer"
+      target="_blank"
+    >
       runner.py
-    </a>,
-  );
+    </a>
+  `);
 
   // Test git repository with GitLab
   const gitSourceGitLab: any = {
@@ -442,15 +448,16 @@ test('renderSourceFromMetadata', () => {
       'mlflow.source.git.commit': 'b2fda8216f2568b62213ee99314f5bf4ce89be96',
     },
   };
-  expect(MlflowUtils.renderSourceFromMetadata(gitSourceGitLab)).toEqual(
+  expect(MlflowUtils.renderSourceFromMetadata(gitSourceGitLab)).toMatchInlineSnapshot(`
     <a
-      target="_blank"
-      rel="noopener noreferrer"
       href="https://gitlab.com/username/repo/-/tree/b2fda8216f2568b62213ee99314f5bf4ce89be96/runner.py"
+      onClick={[Function]}
+      rel="noopener noreferrer"
+      target="_blank"
     >
       runner.py
-    </a>,
-  );
+    </a>
+  `);
 
   // Test notebook source
   const notebookSource: any = {
