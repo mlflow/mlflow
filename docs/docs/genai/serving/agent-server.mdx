@@ -1,12 +1,6 @@
+import { APILink } from "@site/src/components/APILink";
+
 # MLflow Agent Server
-
-## Table of Contents
-
-- [Agent Server Features](#agent-server-features)
-- [Full Example](#full-example)
-- [Testing Your Agent Locally](#testing-your-agent-locally)
-- [Evaluating Your Agent](#evaluating-your-agent)
-- Running in production
 
 ## Agent Server Features
 
@@ -14,9 +8,10 @@
 The MLflow Agent Server was released with MLflow 3.6.0. It is currently under active development and is marked as Experimental. Public APIs are subject to change, and new features are being added to enhance its functionality.
 :::
 
-- Simple FastAPI server to host agents
-- Wire together `/invocations` to a function that is decorated with `@invoke` or `@stream`
-- If doing a conversational agent, can create an AgentServer with ResponsesAgent type for automatic tracing aggregation and input/output validation
+- Simple FastAPI server to host agents at `/invocations` endpoint
+- Decorator-based function registration (@invoke, @stream) for easy agent development
+- Automatic request and response validation for Responses API schema agents
+- Automatic MLflow tracing integration and aggregation
 
 ## Full Example
 
@@ -38,14 +33,17 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
 
    agent = Agent(
        name="Math Tutor",
-       instructions="You provide help with math problems. Explain your reasoning at each step and include examples",
+       instructions="You provide help with math problems. Explain your reasoning and include examples",
    )
 
 
    @invoke()
-   async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-       result = await Runner.run(agent, request.input)
-       return ResponsesAgentResponse(output=[item.to_input_item() for item in result.new_items])
+    async def non_streaming(request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        msgs = [i.model_dump() for i in request.input]
+        result = await Runner.run(agent, msgs)
+        return ResponsesAgentResponse(output=[item.to_input_item() for item in result.new_items])
+
+    # You can also optionally register a @stream function to support streaming responses
    ```
 
 2. Define a `start_server.py` file to start the `AgentServer`:
@@ -69,20 +67,35 @@ In this example, we'll use the openai-agents-sdk to define our Responses API com
         main()
    ```
 
-## Testing Your Agent Locally
+## Deploying and Testing Your Agent
 
 Run your agent server with the `--reload` flag to automatically reload the server on code changes:
 
 ```bash
 python3 start_server.py --reload
+# Pass in a number of workers to support multiple concurrent requests
+# python3 start_server.py --workers 4
+# Pass in a port to run the server on
+# python3 start_server.py --reload --port 8000
 ```
 
-In a separate terminal window, you can send a request to the server:
+Send a request to the server to test your agent out:
 
 ```bash
 curl -X POST http://localhost:8000/invocations \
    -H "Content-Type: application/json" \
-   -d '{ "input": [{ "role": "user", "content": "what is the 14th fibonacci number?" }]}'
+   -d '{ "input": [{ "role": "user", "content": "What is the 14th Fibonacci number?"}]}'
+```
+
+If you have registered a `@stream` function, you can send a streaming request to the server by passing in `"stream": true`:
+
+```bash
+curl -X POST http://localhost:8000/invocations \
+   -H "Content-Type: application/json" \
+   -d '{
+    "input": [{ "role": "user", "content": "What is the 14th Fibonacci number?"}],
+    "stream": true
+    }'
 ```
 
 ## Evaluating Your Agent
