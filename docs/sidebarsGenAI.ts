@@ -812,6 +812,11 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
+          id: 'serving/agent-server',
+          label: 'Agent Server',
+        },
+        {
+          type: 'doc',
           id: 'serving/responses-agent',
           label: 'Responses Agent',
         },
