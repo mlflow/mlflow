@@ -191,7 +191,10 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
-            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
+            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``.
+            The default format is ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``
+            which guarantees security for model loading.
+            The Cloudpickle
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
@@ -205,6 +208,8 @@ def save_model(
             are: ``"predict"``, ``"predict_proba"``, ``"predict_log_proba"``,
             ``"predict_joint_log_proba"``, and ``"score"``.
         metadata: {{ metadata }}
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
 
     .. code-block:: python
         :caption: Example
@@ -360,6 +365,7 @@ def log_model(
     step: int = 0,
     model_id: str | None = None,
     name: str | None = None,
+    skops_trusted_types: list[str] | None = None,
 ):
     """
     Log a scikit-learn model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -376,7 +382,10 @@ def log_model(
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats listed in
-            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``. The Cloudpickle
+            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``.
+            The default format is ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``
+            which guarantees security for model loading.
+            The Cloudpickle
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
@@ -401,6 +410,8 @@ def log_model(
         step: {{ step }}
         model_id: {{ model_id }}
         name: {{ name }}
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -451,6 +462,7 @@ def log_model(
         model_type=model_type,
         step=step,
         model_id=model_id,
+        skops_trusted_types=skops_trusted_types,
     )
 
 
@@ -474,7 +486,16 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
-        skops.io.load(path, trusted=skops_trusted_types)
+        from skops.io.exceptions import UntrustedTypesFoundException
+        try:
+            skops.io.load(path, trusted=skops_trusted_types)
+        except UntrustedTypesFoundException as e:
+            raise MlflowException(
+                "The saved sklearn model contains untrusted type, "
+                "if you are sure loading these types are safe, "
+                "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
+                "to the list of trusted types."
+            ) from e
     else:
         with open(path, "rb") as f:
             # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
