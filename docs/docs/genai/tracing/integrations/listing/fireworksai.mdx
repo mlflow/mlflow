@@ -26,7 +26,6 @@ MLflow automatically captures the following information about FireworksAI calls:
 - Tool Use if returned in the response
 - Any exception if raised
 
-
 ## Supported APIs
 
 Since FireworksAI is OpenAI SDK compatible, all APIs supported by MLflow's OpenAI integration work seamlessly with FireworksAI. See [the model library](https://fireworks.ai/models) for a list of available models on FireworksAI.
@@ -59,14 +58,10 @@ openai_client = openai.OpenAI(
 response = openai_client.chat.completions.create(
     model="accounts/fireworks/models/deepseek-v3-0324",  # For other models see: https://fireworks.ai/models
     messages=[
-        {
-            "role": "user",
-            "content": "Why is open source better than closed source?"
-        }
+        {"role": "user", "content": "Why is open source better than closed source?"}
     ],
 )
 ```
-
 
 ## Chat Completion API Examples
 
