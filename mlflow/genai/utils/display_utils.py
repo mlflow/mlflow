@@ -144,7 +144,9 @@ def _resolve_evaluation_results_url(store: RestStore, run: Run) -> str:
     experiment_id = run.info.experiment_id
 
     if is_databricks_uri(get_tracking_uri()):
-        workspace_url = run.data.tags[MLFLOW_DATABRICKS_WORKSPACE_URL]
+        workspace_url = run.data.tags.get(MLFLOW_DATABRICKS_WORKSPACE_URL)
+        if not workspace_url:
+            workspace_url = store.get_host_creds().host.rstrip("/")
         url_base = f"{workspace_url}/ml"
     else:
         host_url = store.get_host_creds().host.rstrip("/")
