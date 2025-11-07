@@ -1,0 +1,35 @@
+# ensure in repo root
+pwd   # confirm you are in the cloned repo directory
+
+# create directory (if not exists)
+mkdir -p selfhosted
+
+# create the markdown file with a small template (replace placeholders later)
+cat > selfhosted/nextcloud-home-gallery-telegu.md <<'EOF'
+# Nextcloud — Home Gallery (తెలుగు)
+
+**ప్రాజెక్ట్:** Nextcloud (Home Gallery)
+
+**వివరణ:** (ఇక్కడ ప్రాజెక్ట్ గురించి ఒక చిన్న వివరణ వ్రాయండి: ఏం చేస్తుంది, ముఖ్య ఫీచర్లు)
+
+**స్థాపన (Installation summary):**
+1. Requirements: Docker / PHP / DB ...
+2. Basic example: (సరళమైన ఇనిస్టాలేషన్ సూచనలు)
+
+**డెమో వీడియో (Google Drive లింక్):**
+<PASTE_GOOGLE_DRIVE_LINK_HERE>
+
+**LinkedIn పోస్ట్ URL:**
+<PASTE_LINKEDIN_POST_URL_HERE>
+
+**టeam mates:**
+- మీ పేరు
+- టీమ్‍మేట్ 1
+- టీమ్‍మేట్ 2
+
+**తేదీ:** YYYY-MM-DD
+EOF
+DRIVE_LINK='https://drive.google.com/file/d/1AbCdEfGh1234567890/view?usp=sharing
+'
+LINKEDIN='https://www.linkedin.com/posts/manikonda-anjali-64780a348_opensource-kluniversity-foss-activity-7382317100318568448-YQya?utm_source=social_share_send&utm_medium=android_app&rcm=ACoAAFb5JxcBpdDn_i10sfsKwXliUt9Rj9_aEg0&utm_campaign=copy_link
+
