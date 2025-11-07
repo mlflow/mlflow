@@ -14,3 +14,4 @@ export { normalizeLangchainChatInput, normalizeLangchainChatResult } from './lan
 export { normalizeLlamaIndexChatInput, normalizeLlamaIndexChatResponse } from './llamaindex';
 export { normalizeDspyChatInput, normalizeDspyChatOutput } from './dspy';
 export { normalizeVercelAIChatInput, normalizeVercelAIChatOutput } from './vercelai';
+export { isOtelGenAIChatMessage, normalizeOtelGenAIChatMessage } from './otel';
