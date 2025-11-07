@@ -84,7 +84,7 @@ receivers:
 
 exporters:
   otlp:
-    endpoint: ${MLFLOW_TRACKING_URI}/v1/traces
+    endpoint: ${MLFLOW_TRACKING_URI}
     headers:
       x-mlflow-experiment-id: ${MLFLOW_EXPERIMENT_ID}
 
