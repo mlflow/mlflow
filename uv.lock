@@ -3429,6 +3429,7 @@ langchain = [
     { name = "langchain" },
 ]
 mcp = [
+    { name = "click" },
     { name = "fastmcp" },
 ]
 mlserver = [
@@ -3506,6 +3507,7 @@ requires-dist = [
     { name = "botocore", marker = "extra == 'extras'" },
     { name = "cachetools", specifier = ">=5.0.0,<7" },
     { name = "click", specifier = ">=7.0,<9" },
+    { name = "click", marker = "extra == 'mcp'", specifier = "!=8.3.0" },
     { name = "cloudpickle", specifier = "<4" },
     { name = "cryptography", specifier = ">=43.0.0,<47" },
     { name = "databricks-agents", marker = "extra == 'databricks'", specifier = ">=1.2.0,<2.0" },
