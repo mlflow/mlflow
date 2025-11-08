@@ -1,5 +1,6 @@
 import json
 import math
+from io import StringIO
 from unittest import mock
 
 import numpy as np
@@ -106,15 +107,12 @@ def test_input_examples(pandas_df_with_all_types, dict_of_ndarrays):
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
-        assert (pandas_df_with_all_types == parsed_df).all().all()
+        pd.testing.assert_frame_equal(pandas_df_with_all_types, parsed_df, check_dtype=False)
         # the frame read without schema should match except for the binary values
-        assert (
-            (
-                parsed_df.drop(columns=["binary"])
-                == dataframe_from_raw_json(tmp.path(filename)).drop(columns=["binary"])
-            )
-            .all()
-            .all()
+        pd.testing.assert_frame_equal(
+            parsed_df.drop(columns=["binary"]),
+            dataframe_from_raw_json(tmp.path(filename)).drop(columns=["binary"]),
+            check_dtype=False,
         )
 
     # NB: Drop columns that cannot be encoded by proto_json_utils.pyNumpyEncoder
@@ -187,15 +185,12 @@ def test_pandas_orients_for_input_examples(
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             dataframe = pd.read_json(
-                json.dumps(data), orient=example.info["pandas_orient"], precise_float=True
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"], precise_float=True
             )
-            assert (
-                (
-                    pandas_df_with_all_types.drop(columns=["binary"])
-                    == dataframe.drop(columns=["binary"])
-                )
-                .all()
-                .all()
+            pd.testing.assert_frame_equal(
+                pandas_df_with_all_types.drop(columns=["binary"]),
+                dataframe.drop(columns=["binary"]),
+                check_dtype=False,
             )
 
     with TempDir() as tmp:
@@ -210,8 +205,10 @@ def test_pandas_orients_for_input_examples(
             # NOTE: when no column names are provided (i.e. values orient),
             # saving an example adds a "data" key rather than directly storing the plain data
             data = data["data"]
-            dataframe = pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
-            assert (dataframe == df_without_columns).all().all()
+            dataframe = pd.read_json(
+                StringIO(json.dumps(data)), orient=example.info["pandas_orient"]
+            )
+            pd.testing.assert_frame_equal(dataframe, df_without_columns, check_dtype=False)
 
     # pass dict with scalars
     with TempDir() as tmp:
@@ -248,21 +245,17 @@ def test_input_examples_with_nan(df_with_nan, dict_of_ndarrays_with_nans):
         with open(tmp.path(filename)) as f:
             data = json.load(f)
             assert set(data.keys()) == {"columns", "data"}
-            pd.read_json(json.dumps(data), orient=example.info["pandas_orient"])
+            pd.read_json(StringIO(json.dumps(data)), orient=example.info["pandas_orient"])
 
         parsed_df = dataframe_from_raw_json(tmp.path(filename), schema=sig.inputs)
 
         # by definition of NaN, NaN == NaN is False but NaN != NaN is True
-        assert (
-            ((df_with_nan == parsed_df) | ((df_with_nan != df_with_nan) & (parsed_df != parsed_df)))
-            .all()
-            .all()
-        )
+        pd.testing.assert_frame_equal(df_with_nan, parsed_df, check_dtype=False)
         # the frame read without schema should match except for the binary values
         no_schema_df = dataframe_from_raw_json(tmp.path(filename))
         a = parsed_df.drop(columns=["binary"])
         b = no_schema_df.drop(columns=["binary"])
-        assert ((a == b) | ((a != a) & (b != b))).all().all()
+        pd.testing.assert_frame_equal(a, b, check_dtype=False)
 
     # pass multidimensional array
     for col in dict_of_ndarrays_with_nans:
@@ -335,25 +328,23 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(model, artifact_path, input_example=example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
 
 
 def test_infer_signature_from_example_can_be_disabled():
     artifact_path = "model"
     with mlflow.start_run():
-        mlflow.sklearn.log_model(
+        model_info = mlflow.sklearn.log_model(
             DummySklearnModel(output_shape=()),
-            artifact_path,
+            name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
         )
-        model_uri = mlflow.get_artifact_uri(artifact_path)
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature is None
 
 
@@ -369,9 +360,11 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), "model", input_example=np.array([[1]]))
-        mock_warning.assert_called_once()
-        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 @pytest.fixture(scope="module")
@@ -405,10 +398,11 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(iris_model, artifact_path, input_example=input_example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            iris_model, name=artifact_path, input_example=input_example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     input_columns = mlflow_model.signature.inputs.inputs
     assert len(input_columns) == 4
     assert all(col.type == DataType.double for col in input_columns)
@@ -432,10 +426,11 @@ def test_infer_signature_on_scalar_input_examples(input_example):
     artifact_path = "model"
 
     with mlflow.start_run():
-        mlflow.sklearn.log_model(IdentitySklearnModel(), artifact_path, input_example=input_example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.sklearn.log_model(
+            IdentitySklearnModel(), name=artifact_path, input_example=input_example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     signature = mlflow_model.signature
     assert isinstance(signature, ModelSignature)
     assert signature.inputs.inputs[0].name is None
@@ -445,4 +440,4 @@ def test_infer_signature_on_scalar_input_examples(input_example):
         outputs=Schema([ColSpec(name=0, type=t)]),
     )
     # test that a single string still passes pyfunc schema enforcement
-    mlflow.pyfunc.load_model(model_uri).predict(input_example)
+    mlflow.pyfunc.load_model(model_info.model_uri).predict(input_example)

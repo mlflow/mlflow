@@ -2,7 +2,7 @@ import importlib
 import json
 import math
 import pathlib
-from collections import namedtuple
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -23,7 +23,14 @@ from pyspark.ml.evaluation import (
     MulticlassClassificationEvaluator,
     RegressionEvaluator,
 )
-from pyspark.ml.feature import HashingTF, IndexToString, StringIndexer, Tokenizer, VectorAssembler
+from pyspark.ml.feature import (
+    HashingTF,
+    IndexToString,
+    StandardScaler,
+    StringIndexer,
+    Tokenizer,
+    VectorAssembler,
+)
 from pyspark.ml.functions import array_to_vector
 from pyspark.ml.linalg import Vectors
 from pyspark.ml.regression import LinearRegression, LinearRegressionModel
@@ -33,8 +40,8 @@ from pyspark.sql.functions import col
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import RunStatus
-from mlflow.models import Model
-from mlflow.models.utils import _read_example
+from mlflow.exceptions import MlflowException
+from mlflow.models import Model, ModelSignature
 from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
     _get_instance_param_map,
@@ -46,6 +53,7 @@ from mlflow.pyspark.ml import (
 )
 from mlflow.pyspark.ml._autolog import cast_spark_df_with_vector_to_array, get_feature_cols
 from mlflow.types import DataType
+from mlflow.types.schema import ColSpec, Schema, SparkMLVector
 from mlflow.utils import _truncate_dict
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING, MLFLOW_PARENT_RUN_ID
 from mlflow.utils.validation import (
@@ -151,7 +159,12 @@ def get_run_data(run_id):
     tags = {k: v for k, v in data.tags.items() if not k.startswith("mlflow.")}
     artifacts = [f.path for f in client.list_artifacts(run_id)]
 
-    RunData = namedtuple("RunData", ["params", "metrics", "tags", "artifacts"])
+    class RunData(NamedTuple):
+        params: Any
+        metrics: Any
+        tags: Any
+        artifacts: Any
+
     return RunData(data.params, data.metrics, tags, artifacts)
 
 
@@ -175,12 +188,19 @@ def load_model_by_run_id(run_id, model_dir=MODEL_DIR):
     return mlflow.spark.load_model(f"runs:/{run_id}/{model_dir}")
 
 
+def validate_predict_with_input_example(model_uri):
+    mlflow_model = Model.load(model_uri)
+    input_example = mlflow_model.load_input_example()
+    pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+    pyfunc_model.predict(input_example)
+
+
 def test_basic_estimator(dataset_binomial):
     mlflow.pyspark.ml.autolog()
 
     for estimator in [
-        LinearRegression(),
         MultilayerPerceptronClassifier(layers=[2, 2, 2], seed=123, blockSize=1),
+        LinearRegression(),
     ]:
         with mlflow.start_run() as run:
             model = estimator.fit(dataset_binomial)
@@ -191,9 +211,9 @@ def test_basic_estimator(dataset_binomial):
         )
         assert run_data.tags == get_expected_class_tags(estimator)
         if isinstance(estimator, MultilayerPerceptronClassifier):
-            assert MODEL_DIR not in run_data.artifacts
+            with pytest.raises(MlflowException, match=r"Failed to download artifacts"):
+                load_model_by_run_id(run_id)
         else:
-            assert MODEL_DIR in run_data.artifacts
             loaded_model = load_model_by_run_id(run_id)
             assert loaded_model.stages[0].uid == model.uid
 
@@ -218,9 +238,9 @@ def test_models_in_allowlist_exist(spark_session):
     non_existent_classes = list(
         filter(model_does_not_exist, mlflow.pyspark.ml._log_model_allowlist)
     )
-    assert (
-        len(non_existent_classes) == 0
-    ), f"{non_existent_classes} in log_model_allowlist don't exist"
+    assert len(non_existent_classes) == 0, (
+        f"{non_existent_classes} in log_model_allowlist don't exist"
+    )
 
 
 def test_autolog_does_not_terminate_active_run(dataset_binomial):
@@ -259,7 +279,6 @@ def test_meta_estimator_fit(dataset_binomial):
     run_data = get_run_data(run_id)
     assert run_data.params == truncate_param_dict(stringify_dict_values(get_params_to_log(ova)))
     assert run_data.tags == get_expected_class_tags(ova)
-    assert MODEL_DIR in run_data.artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert loaded_model.stages[0].uid == ova_model.uid
 
@@ -281,7 +300,6 @@ def test_fit_with_params(dataset_binomial):
         stringify_dict_values(get_params_to_log(lr.copy(extra_params)))
     )
     assert run_data.tags == get_expected_class_tags(lr)
-    assert MODEL_DIR in run_data.artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert loaded_model.stages[0].uid == lr_model.uid
 
@@ -505,10 +523,12 @@ def test_pipeline(dataset_text):
             stringify_dict_values(_get_instance_param_map(estimator, uid_to_indexed_name_map))
         )
         assert run_data.tags == get_expected_class_tags(estimator)
-        assert MODEL_DIR in run_data.artifacts
         loaded_model = load_model_by_run_id(run_id)
-        assert loaded_model.uid == model.uid
-        assert run_data.artifacts == ["estimator_info.json", "model"]
+        pd.testing.assert_frame_equal(
+            loaded_model.transform(dataset_text).toPandas(),
+            model.transform(dataset_text).toPandas(),
+        )
+        assert "estimator_info.json" in run_data.artifacts
 
 
 # Test on metric of rmse (smaller is better) and r2 (larger is better)
@@ -559,18 +579,15 @@ def test_param_search_estimator(
         )
     )
     assert run_data.tags == get_expected_class_tags(estimator)
-    assert MODEL_DIR in run_data.artifacts
     loaded_model = load_model_by_run_id(run_id)
     assert loaded_model.stages[0].uid == model.uid
     loaded_best_model = load_model_by_run_id(run_id, "best_model")
     assert loaded_best_model.stages[0].uid == model.bestModel.uid
-    assert run_data.artifacts == [
-        "best_model",
+    assert {
         "best_parameters.json",
         "estimator_info.json",
-        "model",
         "search_results.csv",
-    ]
+    }.issubset(run_data.artifacts)
 
     client = MlflowClient()
     child_runs = client.search_runs(
@@ -578,6 +595,7 @@ def test_param_search_estimator(
     )
     assert len(child_runs) == len(search_results)
 
+    # best_model_run_metrics = None
     for row_index, row in search_results.iterrows():
         row_params = json.loads(row.get("params", "{}"))
         for param_name, param_value in row_params.items():
@@ -595,6 +613,9 @@ def test_param_search_estimator(
         child_run = child_runs[0]
         assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
         run_data = get_run_data(child_run.info.run_id)
+        # TODO: Enable once spark flavor supports logged models
+        # if row_params == best_params:
+        #     best_model_run_metrics = run_data.metrics
         child_estimator = estimator.getEstimator().copy(
             estimator.getEstimatorParamMaps()[row_index]
         )
@@ -625,6 +646,11 @@ def test_param_search_estimator(
             std_metric_value = model.stdMetrics[row_index]
             assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
             assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
+
+    # TODO: Enable once spark flavor supports logged models
+    # assert best_model_run_metrics is not None
+    # best_logged_model = get_logged_model_by_name("best_model")
+    # assert best_model_run_metrics == {m.key: m.value for m in best_logged_model.metrics}
 
 
 def test_get_params_to_log(spark_session):
@@ -872,6 +898,11 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     area_under_roc_original = bce.evaluate(pred_result)
     assert np.isclose(area_under_roc, area_under_roc_original)
 
+    # TODO: Enable once spark flavor supports logged models
+    # logged_model = get_logged_model_by_name("model")
+    # assert logged_model is not None
+    # assert run_data.metrics == {m.key: m.value for m in logged_model.metrics}
+
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog()
@@ -894,11 +925,23 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_bin
     logloss1 = mce.evaluate(pred1_result)
     logloss2 = mce.evaluate(pred2_result)
 
+    # TODO: Uncomment commented-out code once spark flavor supports logged models
+    # logged_models = mlflow.search_logged_models(
+    #     filter_string="name='model'",
+    #     output_format="list",
+    # )
+    # assert len(logged_models) == 2
+    # logged_model2, logged_model1 = logged_models
+
     metrics1 = get_run_data(run1.info.run_id).metrics
     assert np.isclose(logloss1, metrics1["logLoss_eval_dataset1"])
+    # assert logged_model1 is not None
+    # assert metrics1 == {m.key: m.value for m in logged_model1.metrics}
 
     metrics2 = get_run_data(run2.info.run_id).metrics
     assert np.isclose(logloss2, metrics2["logLoss_eval_dataset2"])
+    # assert logged_model2 is not None
+    # assert metrics2 == {m.key: m.value for m in logged_model2.metrics}
 
 
 def test_meta_estimator_disable_post_training_autologging(dataset_regression):
@@ -1012,7 +1055,7 @@ def _read_model_conf_as_dict(run):
     ml_model_path = artifacts_dir.joinpath("model", ml_model_filename).absolute()
     assert ml_model_path.relative_to(artifacts_dir.absolute()).as_posix() in artifacts
     with open(ml_model_path) as f:
-        return yaml.load(f, Loader=yaml.FullLoader)
+        return yaml.safe_load(f)
 
 
 def _read_schema(schema_str):
@@ -1021,28 +1064,12 @@ def _read_schema(schema_str):
     return json.loads(schema_str)
 
 
-def _assert_autolog_infers_model_signature_correctly(run, input_sig_spec, output_sig_spec):
-    data = _read_model_conf_as_dict(run)
-    assert data is not None
-    assert "signature" in data
-    signature = data["signature"]
-    assert signature is not None
-    assert "inputs" in signature
-    assert "outputs" in signature
-    assert _read_schema(signature["inputs"]) == input_sig_spec
-    assert _read_schema(signature["outputs"]) == output_sig_spec
-
-
 def test_autolog_input_example_with_estimator(spark_session, dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        validate_predict_with_input_example(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr):
@@ -1050,39 +1077,28 @@ def test_autolog_signature_with_estimator(spark_session, dataset_multinomial, lr
 
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_conf = _read_model_conf_as_dict(run)
-        assert "signature" in model_conf
-        assert _read_schema(model_conf["signature"]["inputs"]) == [
-            {
-                "type": "sparkml_vector",
-                "name": "features",
-                "required": True,
-            }
-        ]
-        assert _read_schema(model_conf["signature"]["outputs"]) == [
-            {"type": "double", "required": True}
-        ]
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec(SparkMLVector(), "features")]),
+            Schema([ColSpec("double")]),
+        )
 
 
 def test_autolog_input_example_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        validate_predict_with_input_example(f"runs:/{run.info.run_id}/model")
 
 
 def test_autolog_signature_with_pipeline(lr_pipeline, dataset_text):
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         lr_pipeline.fit(dataset_text)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "text", "type": "string", "required": True}],
-            output_sig_spec=[{"required": True, "type": "double"}],
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("string", "text")]),
+            Schema([ColSpec("double")]),
         )
 
 
@@ -1090,18 +1106,11 @@ def test_autolog_signature_non_scaler_input(dataset_multinomial, lr):
     mlflow.pyspark.ml.autolog(log_models=True, log_model_signatures=True)
     with mlflow.start_run() as run:
         lr.fit(dataset_multinomial)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        assert model_conf.signature.inputs.to_dict() == (
-            [
-                {
-                    "type": "sparkml_vector",
-                    "name": "features",
-                    "required": True,
-                }
-            ]
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec(SparkMLVector(), "features")]),
+            Schema([ColSpec("double")]),
         )
-        assert model_conf.signature.outputs.to_dict() == [{"type": "double", "required": True}]
 
 
 def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
@@ -1112,14 +1121,11 @@ def test_autolog_signature_scalar_input_and_non_scalar_output(dataset_numeric):
     )
     with mlflow.start_run() as run:
         pipe.fit(dataset_numeric)
-        ml_model_path = pathlib.Path(run.info.artifact_uri).joinpath("model", "MLmodel")
-        with open(ml_model_path) as f:
-            data = yaml.safe_load(f)
-            signature = data["signature"]
-            assert json.loads(signature["inputs"]) == [
-                {"name": "number", "type": "double", "required": True}
-            ]
-            assert json.loads(signature["outputs"]) == [{"type": "double", "required": True}]
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("double", "number")]),
+            Schema([ColSpec("double")]),
+        )
 
 
 @pytest.fixture
@@ -1152,11 +1158,7 @@ def test_input_example_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        model_path = pathlib.Path(run.info.artifact_uri).joinpath("model")
-        model_conf = Model.load(model_path.joinpath("MLmodel"))
-        input_example = _read_example(model_conf, model_path.as_posix())
-        pyfunc_model = mlflow.pyfunc.load_model(model_path.as_posix())
-        pyfunc_model.predict(input_example)
+        validate_predict_with_input_example(f"runs:/{run.info.run_id}/model")
 
 
 def test_signature_with_index_to_string_stage(
@@ -1165,10 +1167,9 @@ def test_signature_with_index_to_string_stage(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         multinomial_lr_with_index_to_string_stage_pipeline.fit(multinomial_df_with_string_labels)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{"required": True, "type": "string"}],
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("long", "id")]), Schema([ColSpec("string")])
         )
 
 
@@ -1209,10 +1210,10 @@ def test_signature_with_non_feature_input_columns(
     mlflow.pyspark.ml.autolog(log_models=True, log_input_examples=True)
     with mlflow.start_run() as run:
         pipeline_for_feature_cols.fit(input_df_with_non_features)
-        _assert_autolog_infers_model_signature_correctly(
-            run,
-            input_sig_spec=[{"name": "id", "type": "long", "required": True}],
-            output_sig_spec=[{"required": True, "type": "string"}],
+        mlflow_model = Model.load(f"runs:/{run.info.run_id}/model")
+        assert mlflow_model.signature == ModelSignature(
+            Schema([ColSpec("long", "id")]),
+            Schema([ColSpec("string")]),
         )
 
 
@@ -1221,16 +1222,16 @@ def test_spark_df_with_vector_to_array_casts_successfully(dataset_multinomial):
 
     output_df = cast_spark_df_with_vector_to_array(dataset_multinomial)
     features_col = next(filter(lambda f: f.name == "features", output_df.schema.fields))
-    assert features_col.dataType == ArrayType(
-        DoubleType(), False
-    ), "'features' column isn't of expected type array<double>"
+    assert features_col.dataType == ArrayType(DoubleType(), False), (
+        "'features' column isn't of expected type array<double>"
+    )
 
 
 def test_get_feature_cols(input_df_with_non_features, pipeline_for_feature_cols):
     pipeline_model = pipeline_for_feature_cols.fit(input_df_with_non_features)
-    assert get_feature_cols(input_df_with_non_features, pipeline_model) == {
-        "id"
-    }, "Wrong feature columns returned"
+    assert get_feature_cols(input_df_with_non_features, pipeline_model) == {"id"}, (
+        "Wrong feature columns returned"
+    )
 
 
 def test_get_feature_cols_with_indexer_and_assembler(spark_session):
@@ -1266,9 +1267,9 @@ def test_find_and_set_features_col_as_vector_if_needed(lr, dataset_binomial):
     features_col = next(
         filter(lambda f: f.name == "features", df_with_vector_features.schema.fields)
     )
-    assert isinstance(
-        features_col.dataType, VectorUDT
-    ), "'features' column wasn't cast to vector type"
+    assert isinstance(features_col.dataType, VectorUDT), (
+        "'features' column wasn't cast to vector type"
+    )
     pipeline_model.transform(df_with_vector_features)
     with pytest.raises(
         IllegalArgumentException, match="requirement failed: Column features must be of type"
@@ -1291,11 +1292,11 @@ def test_model_with_vector_input(spark_session):
     model_uri = f"runs:/{run.info.run_id}/model"
 
     # check vector type is inferred correctly
-    model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()["features"].type
+    mlflow_model = Model.load(model_uri)
+    input_type = mlflow_model.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, SparkMLVector)
 
-    assert model_info.signature.outputs.inputs[0].type == DataType.double
+    assert mlflow_model.signature.outputs.inputs[0].type == DataType.double
 
     model = mlflow.pyfunc.load_model(model_uri)
 
@@ -1320,14 +1321,33 @@ def test_model_with_vector_input_vector_output(spark_session):
     model_uri = f"runs:/{run.info.run_id}/model"
 
     # check vector type is inferred correctly
-    model_info = mlflow.models.get_model_info(model_uri)
-    input_type = model_info.signature.inputs.input_dict()["features"].type
+    mlflow_model = Model.load(model_uri)
+    input_type = mlflow_model.signature.inputs.input_dict()["features"].type
     assert isinstance(input_type, SparkMLVector)
 
-    output_type = model_info.signature.outputs.inputs[0].type
+    output_type = mlflow_model.signature.outputs.inputs[0].type
     assert isinstance(output_type, SparkMLVector)
 
     model = mlflow.pyfunc.load_model(model_uri)
 
     test_pdf = pd.DataFrame({"features": [[1.0, 2.0], [3.0, 4.0]]})
     model.predict(test_pdf)  # ensure enforcing input / output schema passing
+
+
+def test_autolog_custom_output_col_pipeline(spark_session):
+    mlflow.pyspark.ml.autolog()
+    scaler = StandardScaler(inputCol="features", outputCol="scaled_features")
+    pipeline = Pipeline(stages=[scaler])
+    train_df = spark_session.createDataFrame(
+        [
+            (Vectors.dense([0.0]), 1.0),
+            (Vectors.dense([2.0]), 2.0),
+        ],
+        ["features", "label"],
+    )
+    with mlflow.start_run():
+        pipeline_model = pipeline.fit(train_df)
+
+    assert pipeline_model.stages[-1].getOutputCol() == "scaled_features"
+    pred_df = pipeline_model.transform(train_df)
+    assert "scaled_features" in pred_df.columns

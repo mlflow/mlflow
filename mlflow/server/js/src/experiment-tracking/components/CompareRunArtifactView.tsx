@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import ShowArtifactPage from './artifact-view-components/ShowArtifactPage';
-import { RunInfoEntity } from '../types';
+import type { RunInfoEntity } from '../types';
 import { useRunsArtifacts } from './experiment-page/hooks/useRunsArtifacts';
 import { getCommonArtifacts } from './experiment-page/utils/getCommonArtifacts';
 import { useDesignSystemTheme } from '@databricks/design-system';
@@ -81,7 +81,12 @@ export const CompareRunArtifactView = ({
                 whiteSpace: 'nowrap',
               }}
             >
-              <ShowArtifactPage runUuid={runUuid} artifactRootUri={runInfos[index].artifactUri} path={artifactPath} />
+              <ShowArtifactPage
+                runUuid={runUuid}
+                artifactRootUri={runInfos[index].artifactUri}
+                path={artifactPath}
+                experimentId={runInfos[index].experimentId}
+              />
             </div>
           ))}
         </div>

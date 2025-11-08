@@ -1,5 +1,5 @@
 import { getCommonArtifacts } from './getCommonArtifacts';
-import { ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactListFilesResponse } from '../../../types';
 
 describe('getCommonArtifacts', () => {
   it('returns an empty array if no runs are provided', () => {

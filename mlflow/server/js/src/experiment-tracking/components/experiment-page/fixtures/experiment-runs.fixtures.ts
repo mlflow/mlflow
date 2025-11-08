@@ -1,4 +1,4 @@
-import { ExperimentStoreEntities } from '../../../types';
+import type { ExperimentStoreEntities } from '../../../types';
 
 /**
  * Sample snapshot of the store with experiment and runs.
@@ -23,6 +23,7 @@ import { ExperimentStoreEntities } from '../../../types';
 export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } = {
   entities: {
     artifactRootUriByRunUuid: {},
+    runInputsOutputsByUuid: {},
     artifactsByRunUuid: {},
     sampledMetricsByRunUuid: {},
     modelByName: {},
@@ -489,13 +490,11 @@ export const EXPERIMENT_RUNS_MOCK_STORE: { entities: ExperimentStoreEntities } =
           experiment_id: '123456789',
           name: 'dataset_train',
           digest: 'abc',
-          context: 'training',
         },
         {
           experiment_id: '123456789',
           name: 'dataset_eval',
           digest: '123',
-          context: 'eval',
         },
       ],
     },

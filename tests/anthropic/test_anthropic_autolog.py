@@ -1,7 +1,11 @@
+import asyncio
 import base64
+from pathlib import Path
+from typing import Any
 from unittest.mock import patch
 
 import anthropic
+import pytest
 from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
@@ -18,7 +22,7 @@ DUMMY_CREATE_MESSAGE_REQUEST = {
 
 DUMMY_CREATE_MESSAGE_RESPONSE = Message(
     id="test_id",
-    content=[TextBlock(text="test answer", type="text")],
+    content=[TextBlock(text="test answer", type="text", citations=None)],
     model="test_model",
     role="assistant",
     stop_reason="end_turn",
@@ -100,7 +104,11 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST = {
 DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
     id="test_id",
     content=[
-        TextBlock(text="<thinking>Next, I need to use the get_weather</thinking>", type="text"),
+        TextBlock(
+            text="<thinking>Next, I need to use the get_weather</thinking>",
+            type="text",
+            citations=None,
+        ),
         ToolUseBlock(
             id="tool_456",
             name="get_weather",
@@ -121,19 +129,61 @@ DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE = Message(
     ),
 )
 
+_is_thinking_supported = False
+try:
+    from anthropic.types import ThinkingBlock
 
-@patch("anthropic._base_client.SyncAPIClient.post", return_value=DUMMY_CREATE_MESSAGE_RESPONSE)
-def test_messages_autolog(mock_post):
+    _is_thinking_supported = True
+
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST = {
+        **DUMMY_CREATE_MESSAGE_REQUEST,
+        "thinking": {"type": "enabled", "budget_tokens": 512},
+    }
+
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE = DUMMY_CREATE_MESSAGE_RESPONSE.model_copy()
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.content = [
+        ThinkingBlock(
+            type="thinking",
+            thinking="I need to think about this for a while.",
+            signature="ABC",
+        ),
+        TextBlock(
+            text="test answer",
+            type="text",
+            citations=None,
+        ),
+    ]
+except ImportError:
+    pass
+
+
+@pytest.fixture(params=[True, False], ids=["async", "sync"])
+def is_async(request):
+    return request.param
+
+
+def _call_anthropic(request: dict[str, Any], mock_response: Message, is_async: bool):
+    if is_async:
+        with patch("anthropic._base_client.AsyncAPIClient.post", return_value=mock_response):
+            client = anthropic.AsyncAnthropic(api_key="test_key")
+            return asyncio.run(client.messages.create(**request))
+    else:
+        with patch("anthropic._base_client.SyncAPIClient.post", return_value=mock_response):
+            client = anthropic.Anthropic(api_key="test_key")
+            return client.messages.create(**request)
+
+
+def test_messages_autolog(is_async):
     mlflow.anthropic.autolog()
-    client = anthropic.Anthropic(api_key="test_key")
-    client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
-    assert span.name == "Messages.create"
+    assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_REQUEST
     # Only keep input_tokens / output_tokens fields in usage dict.
@@ -142,37 +192,32 @@ def test_messages_autolog(mock_post):
     }
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test message",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "test answer",
-                    "type": "text",
-                }
-            ],
-        },
-    ]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
 
     mlflow.anthropic.autolog(disable=True)
-    client = anthropic.Anthropic(api_key="test_key")
-    client.messages.create(**DUMMY_CREATE_MESSAGE_REQUEST)
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
 
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
 
 
-@patch("anthropic._base_client.SyncAPIClient.post", return_value=DUMMY_CREATE_MESSAGE_RESPONSE)
-def test_messages_autolog_multi_modal(mock_post):
+def test_messages_autolog_multi_modal(is_async):
     mlflow.anthropic.autolog()
-    client = anthropic.Anthropic(api_key="test_key")
 
-    with open("tests/resources/images/test.png", "rb") as f:
+    image_dir = Path(__file__).parent.parent / "resources" / "images"
+    with open(image_dir / "test.png", "rb") as f:
         image_bytes = f.read()
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -197,112 +242,47 @@ def test_messages_autolog_multi_modal(mock_post):
         "max_tokens": 1024,
     }
 
-    client.messages.create(**dummy_multi_modal_request)
+    _call_anthropic(dummy_multi_modal_request, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
-    assert span.name == "Messages.create"
+    assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == dummy_multi_modal_request
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "text",
-                    "text": "What text is in this image?",
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "data:image/png;base64," + image_base64,
-                    },
-                },
-            ],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "test answer",
-                    "type": "text",
-                }
-            ],
-        },
-    ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
 
 
-@patch(
-    "anthropic._base_client.SyncAPIClient.post",
-    return_value=DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE,
-)
-def test_messages_autolog_tool_calling(mock_post):
+def test_messages_autolog_tool_calling(is_async):
     mlflow.anthropic.autolog()
-    client = anthropic.Anthropic(api_key="test_key")
-    client.messages.create(**DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST)
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST, DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE, is_async
+    )
 
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
     assert len(traces[0].data.spans) == 1
     span = traces[0].data.spans[0]
-    assert span.name == "Messages.create"
+    assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
-    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict()
-
-    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "What's the weather like in San Francisco?",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "<thinking>I need to use the get_unit first.</thinking>",
-                    "type": "text",
-                }
-            ],
-            "tool_calls": [
-                {
-                    "id": "tool_123",
-                    "type": "function",
-                    "function": {
-                        "name": "get_unit",
-                        "arguments": '{"location": "San Francisco"}',
-                    },
-                }
-            ],
-        },
-        {
-            "role": "tool",
-            "content": [{"text": "celsius", "type": "text"}],
-            "tool_call_id": "tool_123",
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {
-                    "text": "<thinking>Next, I need to use the get_weather</thinking>",
-                    "type": "text",
-                }
-            ],
-            "tool_calls": [
-                {
-                    "id": "tool_456",
-                    "type": "function",
-                    "function": {
-                        "name": "get_weather",
-                        "arguments": '{"location": "San Francisco", "unit": "celsius"}',
-                    },
-                }
-            ],
-        },
-    ]
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -345,3 +325,55 @@ def test_messages_autolog_tool_calling(mock_post):
             },
         },
     ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+
+@pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
+def test_messages_autolog_with_thinking(is_async):
+    mlflow.anthropic.autolog()
+
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST,
+        DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE,
+        is_async,
+    )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_REQUEST
+    # Only keep input_tokens / output_tokens fields in usage dict.
+    span.outputs["usage"] = {
+        key: span.outputs["usage"][key] for key in ["input_tokens", "output_tokens"]
+    }
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }

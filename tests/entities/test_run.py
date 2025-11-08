@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from mlflow.entities import (
@@ -55,7 +57,6 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
     _check_run(run1, run_info, metrics, params, tags, datasets)
 
     expected_info_dict = {
-        "run_uuid": run_id,
         "run_id": run_id,
         "run_name": run_name,
         "experiment_id": experiment_id,
@@ -73,8 +74,25 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
             "params": {p.key: p.value for p in params},
             "tags": {t.key: t.value for t in tags},
         },
-        "inputs": {"dataset_inputs": datasets},
+        "inputs": {
+            "dataset_inputs": [
+                {
+                    "dataset": {
+                        "digest": "digest1",
+                        "name": "name1",
+                        "profile": None,
+                        "schema": None,
+                        "source": "source",
+                        "source_type": "my_source_type",
+                    },
+                    "tags": {"key": "value"},
+                }
+            ],
+            "model_inputs": [],
+        },
     }
+    # Run must be json serializable
+    json.dumps(run1.to_dictionary())
 
     proto = run1.to_proto()
     run2 = Run.from_proto(proto)
@@ -89,7 +107,6 @@ def test_creation_and_hydration(run_data, run_info, run_inputs):
 
 def test_string_repr():
     run_info = RunInfo(
-        run_uuid="hi",
         run_id="hi",
         run_name="name",
         experiment_id=0,
@@ -113,10 +130,10 @@ def test_string_repr():
         "<Run: data=<RunData: metrics={'key-0': 0, 'key-1': 1, 'key-2': 2}, "
         "params={}, tags={}>, info=<RunInfo: artifact_uri=None, end_time=1, "
         "experiment_id=0, lifecycle_stage='active', run_id='hi', run_name='name', "
-        "run_uuid='hi', start_time=0, status=4, user_id='user-id'>, inputs=<RunInputs: "
+        "start_time=0, status=4, user_id='user-id'>, inputs=<RunInputs: "
         "dataset_inputs=<DatasetInput: dataset=<Dataset: digest='digest1', "
         "name='name1', profile=None, schema=None, source='source', "
-        "source_type='my_source_type'>, tags=[]>>>"
+        "source_type='my_source_type'>, tags=[]>, model_inputs=[]>, outputs=None>"
     )
     assert str(run1) == expected
 

@@ -1,16 +1,15 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { Config, Data, Layout } from 'plotly.js';
+import type { Config, Data, Layout } from 'plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightBarTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
   runsChartDefaultMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
@@ -20,6 +19,7 @@ import type { MetricEntity } from '../../../types';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import { customMetricBehaviorDefs } from '../../experiment-page/utils/customMetricBehaviorUtils';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 // We're not using params in bar plot
 export type BarPlotRunData = Omit<RunsChartsRunData, 'params' | 'tags' | 'images'>;
@@ -66,7 +66,7 @@ const PLOT_CONFIG: Partial<Config> = {
   modeBarButtonsToRemove: ['toImage'],
 };
 
-export const Y_AXIS_PARAMS = {
+const Y_AXIS_PARAMS = {
   ticklabelposition: 'inside',
   tickfont: { size: 11 },
   fixedrange: true,
@@ -266,6 +266,7 @@ export const RunsMetricsBarPlot = React.memo(
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
           onUnhover={unhoverCallback}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
       </div>
     );

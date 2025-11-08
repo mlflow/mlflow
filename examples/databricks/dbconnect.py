@@ -34,7 +34,7 @@ def main() -> None:
     mlflow.set_tracking_uri("databricks")
     mlflow.set_experiment(f"/Users/{wc.current_user.me().user_name}/dbconnect")
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     spark = DatabricksSession.builder.remote(
         host=wc.config.host,

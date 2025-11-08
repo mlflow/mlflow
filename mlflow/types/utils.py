@@ -2,7 +2,7 @@ import logging
 import warnings
 from collections import defaultdict
 from copy import deepcopy
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -39,7 +39,7 @@ class TensorsNotSupportedException(MlflowException):
         super().__init__(f"Multidimensional arrays (aka tensors) are not supported. {msg}")
 
 
-def _get_tensor_shape(data, variable_dimension: Optional[int] = 0) -> tuple:
+def _get_tensor_shape(data, variable_dimension: int | None = 0) -> tuple[int, ...]:
     """Infer the shape of the inputted data.
 
     This method creates the shape of the tensor to store in the TensorSpec. The variable dimension
@@ -95,7 +95,7 @@ def clean_tensor_type(dtype: np.dtype):
     return dtype
 
 
-def _infer_colspec_type(data: Any) -> Union[DataType, Array, Object, AnyType]:
+def _infer_colspec_type(data: Any) -> DataType | Array | Object | AnyType:
     """
     Infer an MLflow Colspec type from the dataset.
 
@@ -120,7 +120,7 @@ class InvalidDataForSignatureInferenceError(MlflowException):
         super().__init__(message=message, error_code=INVALID_PARAMETER_VALUE)
 
 
-def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyType]]:
+def _infer_datatype(data: Any) -> DataType | Array | Object | AnyType | None:
     """
     Infer the datatype of input data.
     Data type and inferred schema type mapping:
@@ -138,13 +138,14 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
         e.g. [] -> AnyType, [[], []] -> Array(Any)
     """
     if isinstance(data, pydantic.BaseModel):
-        # TODO: add link to documentation
         raise InvalidDataForSignatureInferenceError(
             message="MLflow does not support inferring model signature from input example "
             "with Pydantic objects. To use Pydantic objects, define your PythonModel's "
             "`predict` method with a Pydantic type hint, and model signature will be automatically "
             "inferred when logging the model. e.g. "
-            "`def predict(self, model_input: list[PydanticType])`"
+            "`def predict(self, model_input: list[PydanticType])`. Check "
+            "https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel "
+            "for more details."
         )
 
     if _is_none_or_nan(data) or (isinstance(data, (list, dict)) and not data):
@@ -167,7 +168,7 @@ def _infer_datatype(data: Any) -> Optional[Union[DataType, Array, Object, AnyTyp
     return _infer_scalar_datatype(data)
 
 
-def _infer_array_datatype(data: Union[list, np.ndarray]) -> Optional[Array]:
+def _infer_array_datatype(data: list[Any] | np.ndarray) -> Array | None:
     """Infer schema from an array. This tries to infer type if there is at least one
     non-null item in the list, assuming the list has a homogeneous type. However,
     if the list is empty or all items are null, returns None as a sign of undetermined.
@@ -479,7 +480,7 @@ def _infer_numpy_dtype(dtype) -> DataType:
 
     if dtype.kind == "b":
         return DataType.boolean
-    elif dtype.kind == "i" or dtype.kind == "u":
+    elif dtype.kind in {"i", "u"}:
         if dtype.itemsize < 4 or (dtype.kind == "i" and dtype.itemsize == 4):
             return DataType.integer
         elif dtype.itemsize < 8 or (dtype.kind == "i" and dtype.itemsize == 8):
@@ -506,7 +507,8 @@ def _infer_numpy_dtype(dtype) -> DataType:
 def _is_none_or_nan(x):
     if isinstance(x, float):
         return np.isnan(x)
-    return x is None
+    # NB: We can't use pd.isna() because the input can be a series.
+    return x is None or x is pd.NA or x is pd.NaT
 
 
 def _infer_required(col) -> bool:

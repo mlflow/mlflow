@@ -6,10 +6,10 @@
  */
 
 import React from 'react';
-import _ from 'lodash';
 import { Button, LegacySelect, Switch, LegacyTooltip, Radio, QuestionMarkIcon } from '@databricks/design-system';
 import { Progress } from '../../common/components/Progress';
-import { CHART_TYPE_LINE, METRICS_PLOT_POLLING_INTERVAL_MS } from './MetricsPlotPanel';
+import { CHART_TYPE_LINE } from './MetricsPlotPanel';
+import { EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL } from '../utils/MetricsUtils';
 
 import { FormattedMessage, injectIntl } from 'react-intl';
 import { LineSmoothSlider } from './LineSmoothSlider';
@@ -20,7 +20,7 @@ export const X_AXIS_STEP = 'step';
 export const X_AXIS_RELATIVE = 'relative';
 export const MAX_LINE_SMOOTHNESS = 100;
 
-type OwnProps = {
+type Props = {
   distinctMetricKeys: string[];
   selectedMetricKeys: string[];
   selectedXAxis: string;
@@ -28,9 +28,9 @@ type OwnProps = {
   handleShowPointChange: (...args: any[]) => any;
   handleMetricsSelectChange: (...args: any[]) => any;
   handleYAxisLogScaleChange: (...args: any[]) => any;
-  handleLineSmoothChange: (...args: any[]) => any;
+  handleLineSmoothChange: (value: number) => void;
   chartType: string;
-  initialLineSmoothness: number;
+  lineSmoothness: number;
   yAxisLogScale: boolean;
   showPoint: boolean;
   intl: {
@@ -42,9 +42,7 @@ type OwnProps = {
   disableSmoothnessControl: boolean;
 };
 
-type Props = OwnProps & typeof MetricsPlotControlsImpl.defaultProps;
-
-export class MetricsPlotControlsImpl extends React.Component<Props> {
+class MetricsPlotControlsImpl extends React.Component<Props> {
   static defaultProps = {
     disableSmoothnessControl: false,
   };
@@ -62,15 +60,8 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
   };
 
   render() {
-    const {
-      chartType,
-      yAxisLogScale,
-      initialLineSmoothness,
-      showPoint,
-      numRuns,
-      numCompletedRuns,
-      disableSmoothnessControl,
-    } = this.props;
+    const { chartType, yAxisLogScale, lineSmoothness, showPoint, numRuns, numCompletedRuns, disableSmoothnessControl } =
+      this.props;
 
     const lineSmoothnessTooltipText = (
       <FormattedMessage
@@ -84,7 +75,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
         // eslint-disable-next-line max-len
         defaultMessage="MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval."
         description="Helpful tooltip message to explain the automatic metrics plot update"
-        values={{ interval: Math.round(METRICS_PLOT_POLLING_INTERVAL_MS / 1000) }}
+        values={{ interval: Math.round(EXPERIMENT_RUNS_SAMPLE_METRIC_AUTO_REFRESH_INTERVAL / 1000) }}
       />
     );
     return (
@@ -139,8 +130,8 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
                   data-testid="smoothness-toggle"
                   min={1}
                   max={MAX_LINE_SMOOTHNESS}
-                  onChange={_.debounce(this.props.handleLineSmoothChange, 100)}
-                  defaultValue={initialLineSmoothness}
+                  onChange={this.props.handleLineSmoothChange}
+                  value={lineSmoothness}
                 />
               </div>
             )}
@@ -239,7 +230,7 @@ export class MetricsPlotControlsImpl extends React.Component<Props> {
               // eslint-disable-next-line max-len
               description="String for the download csv button to download metrics from this run offline in a CSV format"
             />
-            <i className="fas fa-download" />
+            <i className="fa fa-download" />
           </Button>
         </div>
       </div>

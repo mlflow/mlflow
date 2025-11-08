@@ -1,12 +1,11 @@
 import json
 import logging
+import warnings
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
-
-from mlflow.utils.annotations import experimental
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from mlflow.models.model import Model
@@ -22,20 +21,32 @@ class DependenciesSchemasType(Enum):
     RETRIEVERS = "retrievers"
 
 
-@experimental
 def set_retriever_schema(
     *,
     primary_key: str,
     text_column: str,
-    doc_uri: Optional[str] = None,
-    other_columns: Optional[list[str]] = None,
-    name: Optional[str] = "retriever",
+    doc_uri: str | None = None,
+    other_columns: list[str] | None = None,
+    name: str | None = "retriever",
 ):
     """
-    After defining your vector store in a Python file or notebook, call
-    set_retriever_schema() so that, when MLflow retrieves documents during
-    model inference, MLflow can interpret the fields in each retrieved document and
-    determine which fields correspond to the document text, document URI, etc.
+    Specify the return schema of a retriever span within your agent or generative AI app code.
+
+    .. deprecated:: 3.3.2
+        This function is deprecated and will be removed in a future version.
+
+    **Note**: MLflow recommends that your retriever return the default MLflow retriever output
+    schema described in https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans,
+    in which case you do not need to call `set_retriever_schema`. APIs that read MLflow traces
+    and look for retriever spans, such as MLflow evaluation, will automatically detect retriever
+    spans that match MLflow's default retriever schema.
+
+    If your retriever does not return the default MLflow retriever output schema, call this API to
+    specify which fields in each retrieved document correspond to the page content, document
+    URI, document ID, etc. This enables downstream features like MLflow evaluation to properly
+    identify these fields. Note that `set_retriever_schema` assumes that your retriever span
+    returns a list of objects.
+
 
     Args:
         primary_key: The primary key of the retriever or vector index.
@@ -50,13 +61,42 @@ def set_retriever_schema(
 
             from mlflow.models import set_retriever_schema
 
+            # The following call sets the schema for a custom retriever that retrieves content from
+            # MLflow documentation, with an output schema like:
+            # [
+            #     {
+            #         'document_id': '9a8292da3a9d4005a988bf0bfdd0024c',
+            #         'chunk_text': 'MLflow is an open-source platform, purpose-built to assist...',
+            #         'doc_uri': 'https://mlflow.org/docs/latest/index.html',
+            #         'title': 'MLflow: A Tool for Managing the Machine Learning Lifecycle'
+            #     },
+            #     {
+            #         'document_id': '7537fe93c97f4fdb9867412e9c1f9e5b',
+            #         'chunk_text': 'A great way to get started with MLflow is...',
+            #         'doc_uri': 'https://mlflow.org/docs/latest/getting-started/',
+            #         'title': 'Getting Started with MLflow'
+            #     },
+            # ...
+            # ]
             set_retriever_schema(
                 primary_key="chunk_id",
                 text_column="chunk_text",
                 doc_uri="doc_uri",
                 other_columns=["title"],
+                name="my_custom_retriever",
             )
     """
+    warnings.warn(
+        "set_retriever_schema is deprecated and will be removed in a future version. "
+        "Please migrate to use VectorSearchRetrieverTool in the 'databricks-ai-bridge' package, "
+        "or match the default schema so your retriever spans can be detected without requiring "
+        "explicit configuration. See "
+        "https://mlflow.org/docs/latest/genai/data-model/traces/#retriever-spans "
+        "for more information.",
+        category=FutureWarning,
+        stacklevel=2,
+    )
+
     retriever_schemas = globals().get(DependenciesSchemasType.RETRIEVERS.value, [])
 
     # Check if a retriever schema with the same name already exists
@@ -144,7 +184,7 @@ def _get_dependencies_schemas():
         _clear_dependencies_schemas()
 
 
-def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict]:
+def _get_dependencies_schema_from_model(model: "Model") -> dict[str, Any] | None:
     """
     Get the dependencies schema from the logged model metadata.
 
@@ -207,8 +247,8 @@ class RetrieverSchema(Schema):
         name: str,
         primary_key: str,
         text_column: str,
-        doc_uri: Optional[str] = None,
-        other_columns: Optional[list[str]] = None,
+        doc_uri: str | None = None,
+        other_columns: list[str] | None = None,
     ):
         super().__init__(type=DependenciesSchemasType.RETRIEVERS)
         self.name = name
@@ -245,7 +285,7 @@ class RetrieverSchema(Schema):
 class DependenciesSchemas:
     retriever_schemas: list[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict]]]:
+    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict[str, Any]]]]:
         if not self.retriever_schemas:
             return None
 

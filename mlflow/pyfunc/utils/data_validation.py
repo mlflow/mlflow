@@ -1,7 +1,9 @@
 import inspect
 import warnings
 from functools import lru_cache, wraps
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple
+
+import pydantic
 
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import (
@@ -15,6 +17,7 @@ from mlflow.types.type_hints import (
     _is_type_hint_from_example,
     _signature_cannot_be_inferred_from_type_hint,
     _validate_data_against_type_hint,
+    model_validate,
 )
 from mlflow.utils.annotations import filter_user_warnings_once
 from mlflow.utils.warnings_utils import color_warning
@@ -27,7 +30,7 @@ _INVALID_SIGNATURE_ERROR_MSG = (
 
 
 class FuncInfo(NamedTuple):
-    input_type_hint: Optional[type[Any]]
+    input_type_hint: type[Any] | None
     input_param_name: str
 
 
@@ -45,7 +48,7 @@ def pyfunc(func):
     return _wrap_predict_with_pyfunc(func, func_info)
 
 
-def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
+def _wrap_predict_with_pyfunc(func, func_info: FuncInfo | None):
     if func_info is not None:
         model_input_index = _model_input_index_in_function_signature(func)
 
@@ -77,6 +80,55 @@ def _wrap_predict_with_pyfunc(func, func_info: Optional[FuncInfo]):
     return wrapper
 
 
+def wrap_non_list_predict_pydantic(func, input_pydantic_model, validation_error_msg, unpack=False):
+    """
+    Used by MLflow defined subclasses of PythonModel that have non-list a pydantic model as input.
+    Takes in a dict input, validates it against `input_pydantic_model`, and then creates
+    the pydantic model.
+
+    If `unpack` is True, the validated dict is parsed into the function arguments.
+    Otherwise, the whole pydantic object is passed to the function.
+
+    Args:
+        func: The predict/predict_stream method of the PythonModel subclass.
+        input_pydantic_model: The pydantic model that the input should be validated against.
+        validation_error_msg: The error message to raise if the dict input fails to validate.
+        unpack: Whether to unpack the validated dict into the function arguments. Defaults to False.
+
+    Raises:
+        MlflowException: If the input fails to validate against the pydantic model.
+
+    Returns:
+        A function that can take either a dict input or a pydantic object as input.
+    """
+
+    @wraps(func)
+    def wrapper(self, *args, **kwargs):
+        if len(args) == 1 and isinstance(args[0], dict):
+            try:
+                model_validate(input_pydantic_model, args[0])
+                pydantic_obj = input_pydantic_model(**args[0])
+            except pydantic.ValidationError as e:
+                raise MlflowException(
+                    f"{validation_error_msg} Pydantic validation error: {e}"
+                ) from e
+            else:
+                if unpack:
+                    param_names = inspect.signature(func).parameters.keys() - {"self"}
+                    kwargs = {k: getattr(pydantic_obj, k) for k in param_names}
+                    return func(self, **kwargs)
+                else:
+                    return func(self, pydantic_obj)
+        else:
+            # Before logging, this is equivalent to the behavior from the raw predict method
+            # After logging, signature enforcement happens in the _convert_input method
+            # of the wrapper class
+            return func(self, *args, **kwargs)
+
+    wrapper._is_pyfunc = True
+    return wrapper
+
+
 def _check_func_signature(func, func_name) -> list[str]:
     parameters = inspect.signature(func).parameters
     param_names = [name for name in parameters.keys() if name != "self"]
@@ -91,7 +143,7 @@ def _check_func_signature(func, func_name) -> list[str]:
 
 @lru_cache
 @filter_user_warnings_once
-def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
+def _get_func_info_if_type_hint_supported(func) -> FuncInfo | None:
     """
     Internal method to check if the predict function has type hints and if they are supported
     by MLflow.
@@ -131,12 +183,14 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
         else:
             return FuncInfo(input_type_hint=type_hint, input_param_name=input_param_name)
     else:
-        # TODO: add link to documentation
         color_warning(
             "Add type hints to the `predict` method to enable data validation "
-            "and automatic signature inference during model logging.",
+            "and automatic signature inference during model logging. "
+            "Check https://mlflow.org/docs/latest/model/python_model.html#type-hint-usage-in-pythonmodel"
+            " for more details.",
             stacklevel=1,
             color="yellow",
+            category=UserWarning,
         )
 
 

@@ -53,13 +53,3 @@ export const parseEndpointEvaluationResponse = (
   // Should not happen since we shouldn't call other route types for now
   throw new Error(`Unrecognizable AI gateway response metadata "${response.usage}"!`);
 };
-export const parseEvaluationResponse = (
-  response: ModelGatewayResponseType | EndpointModelGatewayResponseType,
-  gatewayRoute: ModelGatewayRoute,
-) => {
-  if (gatewayRoute.type === 'mlflow_deployment_endpoint') {
-    // TODO
-    return parseEndpointEvaluationResponse(response as EndpointModelGatewayResponseType, gatewayRoute.task);
-  }
-  throw new Error(`Unrecognizable served LLM model route type "${gatewayRoute.type}"!`);
-};

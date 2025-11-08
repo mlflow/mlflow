@@ -15,7 +15,7 @@ def language_model(inputs: list[str]) -> list[str]:
 def test_write_to_delta_fails_without_spark():
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -39,7 +39,7 @@ def spark_session_with_delta():
     with tempfile.TemporaryDirectory() as tmpdir:
         with (
             SparkSession.builder.master("local[*]")
-            .config("spark.jars.packages", "io.delta:delta-spark_2.12:3.0.0")
+            .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
                 "spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog"
@@ -53,7 +53,7 @@ def spark_session_with_delta():
 def test_write_to_delta_fails_with_invalid_mode(spark_session_with_delta):
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         with pytest.raises(
@@ -76,7 +76,7 @@ def test_write_eval_table_to_delta(spark_session_with_delta):
     spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         results = mlflow.evaluate(
@@ -107,7 +107,7 @@ def test_write_eval_table_to_delta_append(spark_session_with_delta):
     spark_session, tmpdir = spark_session_with_delta
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "model", python_model=language_model, input_example=["a", "b"]
+            name="model", python_model=language_model, input_example=["a", "b"]
         )
         data = pd.DataFrame({"text": ["Hello world", "My name is MLflow"]})
         mlflow.evaluate(

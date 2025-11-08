@@ -1,4 +1,4 @@
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { type Location, useLocation } from '../../../common/utils/RoutingUtils';
 import {
   setupTestRouter,
@@ -7,7 +7,7 @@ import {
   TestRouter,
 } from '../../../common/utils/RoutingTestUtils';
 import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
-import { ModelEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity } from '../../../experiment-tracking/types';
 import { ModelsTableAliasedVersionsCell } from './ModelsTableAliasedVersionsCell';
 import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
 import { DesignSystemProvider } from '@databricks/design-system';

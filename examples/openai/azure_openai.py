@@ -20,7 +20,7 @@ with mlflow.start_run():
         # Your Azure OpenAI model e.g. gpt-4o-mini
         model="<YOUR AZURE OPENAI MODEL>",
         task=openai.chat.completions,
-        artifact_path="model",
+        name="model",
         messages=[{"role": "user", "content": "Tell me a joke about {animal}."}],
     )
 

@@ -1,10 +1,16 @@
 import base64
 import json
+import logging
+import random
+import time
+import warnings
 from functools import lru_cache
+from typing import Any, Callable
 
 import requests
 
 from mlflow.environment_variables import (
+    _MLFLOW_DATABRICKS_TRAFFIC_ID,
     _MLFLOW_HTTP_REQUEST_MAX_BACKOFF_FACTOR_LIMIT,
     _MLFLOW_HTTP_REQUEST_MAX_RETRIES_LIMIT,
     MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT,
@@ -35,11 +41,20 @@ from mlflow.utils.request_utils import (
 )
 from mlflow.utils.string_utils import strip_suffix
 
+_logger = logging.getLogger(__name__)
+
 RESOURCE_NON_EXISTENT = "RESOURCE_DOES_NOT_EXIST"
 _REST_API_PATH_PREFIX = "/api/2.0"
 _UC_OSS_REST_API_PATH_PREFIX = "/api/2.1"
 _TRACE_REST_API_PATH_PREFIX = f"{_REST_API_PATH_PREFIX}/mlflow/traces"
+_V3_REST_API_PATH_PREFIX = "/api/3.0"
+_V3_TRACE_REST_API_PATH_PREFIX = f"{_V3_REST_API_PATH_PREFIX}/mlflow/traces"
+_V4_REST_API_PATH_PREFIX = "/api/4.0"
+_V4_TRACE_REST_API_PATH_PREFIX = f"{_V4_REST_API_PATH_PREFIX}/mlflow/traces"
 _ARMERIA_OK = "200 OK"
+_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
+    "The 'retry_after_secs' parameter of DatabricksError is deprecated"
+)
 
 
 def http_request(
@@ -54,6 +69,7 @@ def http_request(
     timeout=None,
     raise_on_status=True,
     respect_retry_after_header=None,
+    retry_timeout_seconds=None,
     **kwargs,
 ):
     """Makes an HTTP request with the specified method to the specified hostname/endpoint. Transient
@@ -79,6 +95,7 @@ def http_request(
             in retry_codes range and retries have been exhausted.
         respect_retry_after_header: Whether to respect Retry-After header on status codes defined
             as Retry.RETRY_AFTER_STATUS_CODES or not.
+        retry_timeout_seconds: Timeout for retries. Only effective when using Databricks SDK.
         kwargs: Additional keyword arguments to pass to `requests.Session.request()`
 
     Returns:
@@ -86,6 +103,24 @@ def http_request(
     """
     cleaned_hostname = strip_suffix(host_creds.host, "/")
     url = f"{cleaned_hostname}{endpoint}"
+
+    # Set defaults for retry parameters from environment variables if not specified
+    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
+    backoff_factor = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
+    )
+    backoff_jitter = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
+    )
+
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
+    headers = dict(**resolve_request_headers())
+    if extra_headers:
+        headers = dict(**headers, **extra_headers)
+
+    if traffic_id := _MLFLOW_DATABRICKS_TRAFFIC_ID.get():
+        headers["x-databricks-traffic-id"] = traffic_id
 
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
@@ -95,22 +130,56 @@ def http_request(
             host_creds.host,
             host_creds.token,
             host_creds.databricks_auth_profile,
+            retry_timeout_seconds=retry_timeout_seconds,
+            timeout=timeout,
         )
-        try:
+
+        def make_sdk_call():
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
-            raw_response = ws_client.api_client.do(
-                method=method,
-                path=endpoint,
-                headers=extra_headers,
-                raw=True,
-                query=kwargs.get("params"),
-                body=kwargs.get("json"),
-                files=kwargs.get("files"),
-                data=kwargs.get("data"),
+            # suppress the warning due to https://github.com/databricks/databricks-sdk-py/issues/963
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore", message=f".*{_DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING}.*"
+                )
+                raw_response = ws_client.api_client.do(
+                    method=method,
+                    path=endpoint,
+                    headers=headers,
+                    raw=True,
+                    query=kwargs.get("params"),
+                    body=kwargs.get("json"),
+                    files=kwargs.get("files"),
+                    data=kwargs.get("data"),
+                )
+                return raw_response["contents"]._response
+
+        try:
+            # We retry the SDK call with exponential backoff because the Databricks SDK default
+            # retry behavior does not handle all transient errors that we want to retry, and it
+            # does not support a customizable retry policy based on HTTP response status codes.
+            # Note that, in uncommon cases (due to the limited set if HTTP status codes and
+            # response strings that Databricks SDK retries on), the SDK may retry internally,
+            # and MLflow may retry on top of that, leading to more retries than specified by
+            # `max_retries`. This is acceptable, given the enforcement of an overall request
+            # timeout via `retry_timeout_seconds`.
+            #
+            # TODO: Update transient error handling defaults in Databricks SDK to match standard
+            # practices (e.g. retrying on 429, 500, 503, etc.), support custom retries in Databricks
+            # SDK, and remove this custom retry wrapper from MLflow
+            return _retry_databricks_sdk_call_with_exponential_backoff(
+                call_func=make_sdk_call,
+                retry_codes=retry_codes,
+                retry_timeout_seconds=(
+                    retry_timeout_seconds
+                    if retry_timeout_seconds is not None
+                    else MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+                ),
+                backoff_factor=backoff_factor,
+                backoff_jitter=backoff_jitter,
+                max_retries=max_retries,
             )
-            return raw_response["contents"]._response
         except DatabricksError as e:
             response = requests.Response()
             response.url = url
@@ -123,22 +192,14 @@ def http_request(
                     "message": str(e),
                 }
             ).encode("UTF-8")
-
             return response
 
-    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
-    backoff_factor = (
-        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
-    )
     _validate_max_retries(max_retries)
     _validate_backoff_factor(backoff_factor)
     respect_retry_after_header = (
         MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
         if respect_retry_after_header is None
         else respect_retry_after_header
-    )
-    backoff_jitter = (
-        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
@@ -154,12 +215,6 @@ def http_request(
             f"'{MLFLOW_ENABLE_DB_SDK.name}' to true",
             error_code=CUSTOMER_UNAUTHORIZED,
         )
-
-    from mlflow.tracking.request_header.registry import resolve_request_headers
-
-    headers = dict(**resolve_request_headers())
-    if extra_headers:
-        headers = dict(**headers, **extra_headers)
 
     if auth_str:
         headers["Authorization"] = auth_str
@@ -206,8 +261,15 @@ def http_request(
         raise MlflowException(f"API request to {url} failed with exception {e}")
 
 
-@lru_cache(maxsize=1)
-def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_profile):
+@lru_cache(maxsize=5)
+def get_workspace_client(
+    use_secret_scope_token,
+    host,
+    token,
+    databricks_auth_profile,
+    retry_timeout_seconds=None,
+    timeout=None,
+):
     from databricks.sdk import WorkspaceClient
     from databricks.sdk.config import Config
 
@@ -215,9 +277,12 @@ def get_workspace_client(use_secret_scope_token, host, token, databricks_auth_pr
         kwargs = {"host": host, "token": token}
     else:
         kwargs = {"profile": databricks_auth_profile}
+    if timeout is not None:
+        kwargs["http_timeout_seconds"] = timeout
     config = Config(
         **kwargs,
-        retry_timeout_seconds=MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
+        retry_timeout_seconds=retry_timeout_seconds
+        or MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get(),
     )
     # Note: If we use `config` param, all SDK configurations must be set in `config` object.
     return WorkspaceClient(config=config)
@@ -241,7 +306,8 @@ def http_request_safe(host_creds, endpoint, method, **kwargs):
 def verify_rest_response(response, endpoint):
     """Verify the return code and format, raise exception if the request was not successful."""
     # Handle Armeria-specific response case where response text is "200 OK"
-    if response.status_code == 200 and response.text.strip() == _ARMERIA_OK:
+    # v1/traces endpoint might return empty response
+    if response.status_code == 200 and response.text.strip() in (_ARMERIA_OK, ""):
         response._content = b"{}"  # Update response content to be an empty JSON dictionary
         return response
 
@@ -320,6 +386,110 @@ def _validate_backoff_factor(backoff_factor):
         )
 
 
+def validate_deployment_timeout_config(timeout: int | None, retry_timeout_seconds: int | None):
+    """
+    Validate that total retry timeout is not less than single request timeout.
+
+    Args:
+        timeout: Maximum time for a single HTTP request (in seconds)
+        retry_timeout_seconds: Maximum time for all retry attempts combined (in seconds)
+    """
+    if timeout is not None and retry_timeout_seconds is not None:
+        if retry_timeout_seconds < timeout:
+            warnings.warn(
+                f"MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT ({retry_timeout_seconds}s) is set "
+                f"lower than MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT ({timeout}s). This means the "
+                "total retry timeout could expire before a single request completes, causing "
+                "premature failures. For long-running predictions, ensure "
+                "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT >= MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT. "
+                f"Recommended: Set MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT to at least {timeout}s.",
+                stacklevel=2,
+            )
+
+
+def _time_sleep(seconds: float) -> None:
+    """
+    This function is specifically mocked in `test_rest_utils.py` to test the backoff logic in
+    isolation. We avoid wrapping `time.sleep` globally to prevent interfering with unrelated sleep
+    calls elsewhere in the codebase or in third-party libraries.
+    """
+    time.sleep(seconds)
+
+
+def _retry_databricks_sdk_call_with_exponential_backoff(
+    *,
+    call_func: Callable[..., Any],
+    retry_codes: list[int],
+    retry_timeout_seconds: int,
+    backoff_factor: int,
+    backoff_jitter: float,
+    max_retries: int,
+):
+    """
+    Retry a Databricks SDK call with exponential backoff until timeout or max retries reached.
+
+    Args:
+        call_func: Function to call that may raise DatabricksError
+        retry_codes: Set of HTTP status codes that should trigger retries
+        retry_timeout_seconds: Maximum time to spend retrying in seconds
+        backoff_factor: Factor for exponential backoff
+        backoff_jitter: Random jitter to add to backoff
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        The result of call_func() on success
+
+    Raises:
+        DatabricksError: If all retries are exhausted or non-retryable error occurs
+    """
+    from databricks.sdk.errors import STATUS_CODE_MAPPING, DatabricksError
+
+    start_time = time.time()
+    attempt = 0
+
+    while attempt <= max_retries:
+        try:
+            return call_func()
+        except DatabricksError as e:
+            # Get HTTP status code from the error
+            status_code = next(
+                (code for code, cls in STATUS_CODE_MAPPING.items() if isinstance(e, cls)), 500
+            )
+            # Check if this is a retryable error
+            if status_code not in retry_codes:
+                raise
+
+            # Check if we've exceeded max retries
+            if attempt >= max_retries:
+                _logger.warning(f"Max retries ({max_retries}) exceeded: {e}")
+                raise
+
+            # Calculate backoff time with exponential backoff and jitter
+            # NB: Ideally, we'd use urllib3.Retry to compute the jitter, check whether we've
+            # exceed max retries, etc. However, urllib3.Retry in urllib3 version 1.x, which MLflow
+            # maintains compatibility with, doesn't support retries with jitter
+            if attempt <= 0:
+                backoff_time = 0  # No backoff on first retry attempt
+            else:
+                backoff_time = backoff_factor * (2**attempt)
+                if backoff_jitter > 0:
+                    backoff_time += random.random() * backoff_jitter
+
+            # Check if we've exceeded or would exceed timeout
+            elapsed_time = time.time() - start_time
+            if elapsed_time + backoff_time >= retry_timeout_seconds:
+                _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
+                raise
+
+            _logger.debug(
+                f"Databricks SDK call failed with retryable error (status {status_code}): {e}. "
+                f"Retrying in {backoff_time:.2f} seconds (attempt {attempt + 1})"
+            )
+
+            _time_sleep(backoff_time)
+            attempt += 1
+
+
 def _get_path(path_prefix, endpoint_path):
     return f"{path_prefix}{endpoint_path}"
 
@@ -348,19 +518,64 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_single_trace_endpoint(request_id):
+def get_single_trace_endpoint(request_id, use_v3=True):
+    """
+    Get the endpoint for a single trace.
+    For Databricks tracking URIs, use the V3 API.
+    For all other tracking URIs, use the V2 API.
+
+    Args:
+        request_id: The trace ID.
+        use_v3: Whether to use the V3 API. If True, use the V3 API. If False, use the V2 API.
+    """
+    if use_v3:
+        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{request_id}"
     return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}"
 
 
-def get_trace_info_endpoint(request_id):
-    return f"{get_single_trace_endpoint(request_id)}/info"
+def get_single_trace_endpoint_v4(location: str, trace_id: str) -> str:
+    """
+    Get the endpoint for a single trace using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}"
 
 
-def get_set_trace_tag_endpoint(request_id):
-    return f"{get_single_trace_endpoint(request_id)}/tags"
+def get_single_assessment_endpoint_v4(location: str, trace_id: str, assessment_id: str) -> str:
+    """
+    Get the endpoint for a single assessment using the V4 API.
+    """
+    return f"{_V4_TRACE_REST_API_PATH_PREFIX}/{location}/{trace_id}/assessments/{assessment_id}"
 
 
-def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra_headers=None):
+def get_logged_model_endpoint(model_id: str) -> str:
+    return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
+
+
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str) -> str:
+    """
+    Get the endpoint for a single assessment.
+
+    Args:
+        trace_id: The trace ID.
+        assessment_id: The assessment ID.
+    """
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+
+
+def get_trace_tag_endpoint(trace_id):
+    """Get the endpoint for trace tags. Always use v2 endpoint."""
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/tags"
+
+
+def call_endpoint(
+    host_creds,
+    endpoint,
+    method,
+    json_body,
+    response_proto,
+    extra_headers=None,
+    retry_timeout_seconds=None,
+):
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
@@ -371,6 +586,8 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
     }
     if extra_headers is not None:
         call_kwargs["extra_headers"] = extra_headers
+    if retry_timeout_seconds is not None:
+        call_kwargs["retry_timeout_seconds"] = retry_timeout_seconds
     if method == "GET":
         call_kwargs["params"] = json_body
         response = http_request(**call_kwargs)
@@ -380,7 +597,14 @@ def call_endpoint(host_creds, endpoint, method, json_body, response_proto, extra
 
     response = verify_rest_response(response, endpoint)
     response_to_parse = response.text
-    js_dict = json.loads(response_to_parse)
+    try:
+        js_dict = json.loads(response_to_parse)
+    except json.JSONDecodeError:
+        if len(response_to_parse) > 50:
+            response_to_parse = response_to_parse[:50] + "..."
+        _logger.warning(f"Response is not a valid JSON object: {response_to_parse}")
+        raise
+
     parse_dict(js_dict=js_dict, message=response_proto)
     return response_proto
 
@@ -488,6 +712,9 @@ class MlflowHostCreds:
         if isinstance(other, self.__class__):
             return self.__dict__ == other.__dict__
         return NotImplemented
+
+    def __hash__(self):
+        return hash(frozenset(self.__dict__.items()))
 
     @property
     def verify(self):

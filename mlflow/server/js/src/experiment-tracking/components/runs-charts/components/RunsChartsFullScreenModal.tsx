@@ -1,8 +1,9 @@
-import { ReactNode } from 'react';
-import { RunsChartsCardConfig } from '../runs-charts.types';
-import { RunsChartsRunData } from './RunsCharts.common';
+import type { ReactNode } from 'react';
+import type { RunsChartsCardConfig } from '../runs-charts.types';
+import type { RunsChartsRunData } from './RunsCharts.common';
 import { Modal, useDesignSystemTheme } from '@databricks/design-system';
-import { RunsChartsTooltipBodyProps, RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
+import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
+import { RunsChartsTooltipWrapper } from '../hooks/useRunsChartsTooltip';
 import { RunsChartsCard } from './cards/RunsChartsCard';
 import type { RunsGroupByConfig } from '../../experiment-page/utils/experimentPage.group-row-utils';
 import type { RunsChartsGlobalLineChartConfig } from '../../experiment-page/models/ExperimentPageUIState';
@@ -22,10 +23,16 @@ export const RunsChartsFullScreenModal = <TContext,>({
   isMetricHistoryLoading?: boolean;
   groupBy: RunsGroupByConfig | null;
   autoRefreshEnabled?: boolean;
-  fullScreenChart: { config: RunsChartsCardConfig; title: string; subtitle: ReactNode } | undefined;
+  fullScreenChart:
+    | {
+        config: RunsChartsCardConfig;
+        title: string | ReactNode;
+        subtitle: ReactNode;
+      }
+    | undefined;
   onCancel: () => void;
   tooltipContextValue: TContext;
-  tooltipComponent: React.ComponentType<RunsChartsTooltipBodyProps<TContext>>;
+  tooltipComponent: React.ComponentType<React.PropsWithChildren<RunsChartsTooltipBodyProps<TContext>>>;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
 }) => {
   const { theme, getPrefixedClassName } = useDesignSystemTheme();
@@ -79,6 +86,10 @@ export const RunsChartsFullScreenModal = <TContext,>({
     >
       <RunsChartsTooltipWrapper contextData={tooltipContextValue} component={tooltipComponent}>
         <RunsChartsCard
+          canMoveToTop={false}
+          canMoveToBottom={false}
+          firstChartUuid={undefined}
+          lastChartUuid={undefined}
           cardConfig={fullScreenChart.config}
           chartRunData={chartData}
           groupBy={groupBy}

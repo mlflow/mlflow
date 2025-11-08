@@ -1,0 +1,218 @@
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import ImageBox from "@site/src/components/ImageBox";
+import { ThumbsUp, BarChart3, Shield, Target, MessageSquare, FileText, Search, TrendingUp, Clock, Users, Zap, Database, Lock } from "lucide-react";
+import AssessmentsTraceDetailImageUrl from '@site/static/images/assessments/assessments_trace_detail_ui.png';
+import AddFeedbackImageUrl from '@site/static/images/assessments/add_feedback_ui.png';
+import AdditionalFeedbackImageUrl from '@site/static/images/assessments/additional_feedback_ui.png';
+
+# Collect User Feedback
+
+Capturing user feedback is critical for understanding the real-world quality of your GenAI application. MLflow's **Feedback API** provides a structured, standardized approach to collecting, storing, and analyzing user feedback directly within your traces.
+
+## Why Use MLflow Feedback for User Feedback?
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Direct Trace Integration",
+    description: "Feedback is linked directly to specific application executions, creating an immediate connection between user reactions and system performance."
+  },
+  {
+    icon: Shield,
+    title: "Structured Data Model",
+    description: "Standardized format with clear attribution and rationale ensures consistent feedback collection across your entire application."
+  },
+  {
+    icon: BarChart3,
+    title: "Production Ready",
+    description: "Available in OSS MLflow 3.2.0+ with no external dependencies, designed for high-throughput production environments."
+  },
+  {
+    icon: ThumbsUp,
+    title: "Complete Audit Trail",
+    description: "Track every feedback change with timestamps and user attribution, enabling comprehensive quality analysis over time."
+  }
+]} />
+
+## Step-by-Step Guide: Collecting User Feedback
+
+### 1. Set Up Your GenAI Application with Tracing
+
+First, create a simple application that automatically generates traces using MLflow's OpenAI autologging:
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+import openai
+
+# Enable automatic tracing for OpenAI calls
+mlflow.openai.autolog()
+
+# Initialize your LLM client
+client = openai.OpenAI()
+
+
+def ask_question(question):
+    """Simple Q&A application with automatic tracing."""
+    # This call is automatically traced by MLflow
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Answer questions clearly and concisely.",
+            },
+            {"role": "user", "content": question},
+        ],
+        temperature=0.7,
+    )
+
+    answer = response.choices[0].message.content
+    return answer
+
+
+# Generate some traces - each call creates a trace automatically
+question = "What is machine learning?"
+answer = ask_question(question)
+print(f"Question: {question}")
+print(f"Answer: {answer}")
+
+# You can get the trace ID from the MLflow UI or search API
+# For this example, we'll show how to collect feedback programmatically
+```
+
+### 2. Collect Simple Thumbs Up/Down Feedback
+
+Implement basic boolean feedback collection. In a real application, you'd get the trace_id from your tracing system:
+
+```python
+def collect_thumbs_feedback(trace_id, is_helpful, user_id):
+    """Collect simple thumbs up/down feedback from users."""
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="user_satisfaction",
+        value=is_helpful,
+        rationale="User indicated response was helpful"
+        if is_helpful
+        else "User indicated response was not helpful",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id=user_id
+        ),
+    )
+    print(f"✓ Feedback recorded: {'👍' if is_helpful else '👎'}")
+
+
+# Example: Collect feedback on a trace
+trace_id = mlflow.get_last_active_trace_id()
+collect_thumbs_feedback(trace_id, True, "user_123")
+```
+
+### 3. View Feedback in MLflow UI
+
+After collecting feedback, you can view it in the MLflow UI:
+
+<ImageBox
+  src={AssessmentsTraceDetailImageUrl}
+  alt="Feedback in MLflow UI"
+  width="90%"
+/>
+
+The trace detail page shows all feedback attached to your traces, making it easy to analyze user satisfaction and identify patterns in your application's performance.
+
+### 4. Adding and Updating Feedback via UI
+
+Users can also provide feedback directly through the MLflow UI:
+
+**Creating New Feedback:**
+
+<ImageBox
+  src={AddFeedbackImageUrl}
+  alt="Create Feedback"
+  width="90%"
+/>
+
+**Adding Additional Feedback:**
+
+<ImageBox
+  src={AdditionalFeedbackImageUrl}
+  alt="Additional Feedback"
+  width="90%"
+/>
+
+This collaborative approach enables both programmatic feedback collection and manual review workflows.
+
+## Feedback Value Types
+
+MLflow feedback supports various formats to match your application's needs:
+
+| Feedback Type   | Description                              | Example Use Cases                   |
+| --------------- | ---------------------------------------- | ----------------------------------- |
+| **Boolean**     | Simple `True`/`False` feedback           | Thumbs up/down, correct/incorrect   |
+| **Numeric**     | Integer or float ratings                 | 1-5 star ratings, confidence scores |
+| **Categorical** | String classifications                   | "Helpful", "Neutral", "Unhelpful"   |
+| **Structured**  | Complex objects with multiple dimensions | Detailed quality breakdowns         |
+
+## MLflow Feedback Collection Best Practices
+
+<ConceptOverview concepts={[
+  {
+    icon: TrendingUp,
+    title: "Start with Boolean Feedback",
+    description: "Use MLflow's boolean feedback type for simple thumbs up/down collection. Once you analyze patterns with MLflow's search APIs, expand to numeric ratings or structured feedback types."
+  },
+  {
+    icon: Clock,
+    title: "Link Feedback to Fresh Traces",
+    description: "Collect feedback immediately after trace generation when the interaction context is available. MLflow's direct trace-feedback linkage ensures you always have the full execution context."
+  },
+  {
+    icon: Database,
+    title: "Use Consistent Naming Conventions",
+    description: "Standardize feedback names like 'user_satisfaction' or 'quality_rating' across traces. This enables MLflow's search and aggregation features to provide meaningful insights across your application."
+  },
+   {
+    icon: Lock,
+    title: "Use Source Attribution Properly",
+    description: "Set meaningful source_id values in AssessmentSource objects for tracking feedback providers. MLflow preserves complete audit trails with timestamps and source attribution."
+  },
+  {
+    icon: Users,
+    title: "Combine Programmatic and UI Collection",
+    description: "Use MLflow's API for automated collection and the UI for manual review. Both methods integrate seamlessly, allowing different teams to contribute feedback through their preferred interface."
+  }
+]} />
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Feedback API Guide"
+    description="Comprehensive guide to all feedback APIs with advanced patterns and examples"
+    href="/genai/assessments/feedback"
+    linkText="View API reference →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Feedback Concepts"
+    description="Deep dive into feedback architecture, schema, and best practices"
+    href="/genai/concepts/feedback"
+    linkText="Learn concepts →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Search}
+    iconSize={48}
+    title="Search and Analyze Traces"
+    description="Query traces with feedback data and analyze patterns for quality insights"
+    href="/genai/tracing/search-traces"
+    linkText="Start analyzing →"
+    containerHeight={64}
+  />
+</TilesGrid>

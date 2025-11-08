@@ -26,12 +26,8 @@ _EVAL_DATA = pd.DataFrame(
 
 @pytest.fixture
 def client(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     return openai.OpenAI(api_key="test", base_url=mock_openai)
 
 
@@ -40,8 +36,7 @@ def client(monkeypatch, mock_openai):
     [
         None,
         {"log_traces": False},
-        {"log_models": True},
-        {"log_traces": False, "log_models": False},
+        {"log_traces": True},
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
@@ -84,15 +79,11 @@ def test_openai_evaluate(client, config):
     purge_traces()
 
     # Test original autolog configs is restored
-    with mock.patch("mlflow.openai.log_model") as log_model_mock:
-        client.chat.completions.create(
-            messages=[{"role": "user", "content": "hi"}], model="gpt-4o-mini"
-        )
+    client.chat.completions.create(
+        messages=[{"role": "user", "content": "hi"}], model="gpt-4o-mini"
+    )
 
-        if config and config.get("log_models", False):
-            log_model_mock.assert_called_once()
-
-        assert len(get_traces()) == (1 if is_trace_enabled else 0)
+    assert len(get_traces()) == (1 if is_trace_enabled else 0)
 
 
 @pytest.mark.usefixtures("reset_autolog_state")
@@ -101,7 +92,7 @@ def test_openai_pyfunc_evaluate(client):
         model_info = mlflow.openai.log_model(
             "gpt-4o-mini",
             "chat.completions",
-            "model",
+            name="model",
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
 

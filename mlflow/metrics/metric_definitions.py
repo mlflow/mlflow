@@ -1,9 +1,12 @@
 import functools
 import logging
-import os
+import subprocess
+import tempfile
+from pathlib import Path
 
 import numpy as np
 
+from mlflow.environment_variables import _MLFLOW_TESTING
 from mlflow.metrics.base import MetricValue, standard_aggregations
 
 _logger = logging.getLogger(__name__)
@@ -63,31 +66,40 @@ def _validate_array_like_id_data(data, metric_name, col_specifier):
     return True
 
 
-def _token_count_eval_fn(predictions, targets=None, metrics=None):
-    import tiktoken
+def _load_from_github(path: str, module_type: str = "metric"):
+    import evaluate
 
-    # ref: https://github.com/openai/tiktoken/issues/75
-    os.environ["TIKTOKEN_CACHE_DIR"] = ""
-    encoding = tiktoken.get_encoding("cl100k_base")
-
-    num_tokens = []
-    for prediction in predictions:
-        if isinstance(prediction, str):
-            num_tokens.append(len(encoding.encode(prediction)))
-        else:
-            num_tokens.append(None)
-
-    return MetricValue(
-        scores=num_tokens,
-        aggregate_results={},
-    )
+    with tempfile.TemporaryDirectory() as tmpdir:
+        tmpdir = Path(tmpdir)
+        subprocess.check_call(
+            [
+                "git",
+                "clone",
+                "--filter=blob:none",
+                "--no-checkout",
+                "https://github.com/huggingface/evaluate.git",
+                tmpdir,
+            ]
+        )
+        path = f"{module_type}s/{path}"
+        subprocess.check_call(["git", "sparse-checkout", "set", path], cwd=tmpdir)
+        subprocess.check_call(["git", "checkout"], cwd=tmpdir)
+        return evaluate.load(str(tmpdir / path))
 
 
 @functools.lru_cache(maxsize=8)
-def _cached_evaluate_load(path, module_type=None):
+def _cached_evaluate_load(path: str, module_type: str = "metric"):
     import evaluate
 
-    return evaluate.load(path, module_type=module_type)
+    try:
+        return evaluate.load(path, module_type=module_type)
+    except (FileNotFoundError, OSError):
+        if _MLFLOW_TESTING.get():
+            # `evaluate.load` is highly unstable and often fails due to a network error or
+            # huggingface hub being down. In testing, we want to avoid this instability, so we
+            # load the metric from the evaluate repository on GitHub.
+            return _load_from_github(path, module_type=module_type)
+        raise
 
 
 def _toxicity_eval_fn(predictions, targets=None, metrics=None):
@@ -383,7 +395,8 @@ def _precision_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), prediction[:k]
+            ground_truth = set(target)
+            retrieved = prediction[:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
@@ -508,7 +521,8 @@ def _recall_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), set(prediction[:k])
+            ground_truth = set(target)
+            retrieved = set(prediction[:k])
             relevant_doc_count = len(ground_truth.intersection(retrieved))
             if len(ground_truth) > 0:
                 scores.append(relevant_doc_count / len(ground_truth))

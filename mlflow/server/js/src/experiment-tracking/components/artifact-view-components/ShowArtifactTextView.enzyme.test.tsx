@@ -36,6 +36,7 @@ describe('ShowArtifactTextView', () => {
     expect(wrapper.length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render error message when error occurs', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.reject(new Error('my error text'));
@@ -57,6 +58,7 @@ describe('ShowArtifactTextView', () => {
     expect(wrapper.find('.artifact-text-view-loading').length).toBe(1);
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render text content when available', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
@@ -65,18 +67,19 @@ describe('ShowArtifactTextView', () => {
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('code').length).toBe(1);
       expect(wrapper.find('code').text()).toBe('my text');
       done();
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for a python script', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('print("foo")');
     });
-    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'fake.py', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -85,11 +88,12 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for an MLproject file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'MLproject', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -98,11 +102,12 @@ describe('ShowArtifactTextView', () => {
     });
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('SyntaxHighlighter has an appropriate language prop for an MLmodel file', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('key: value');
     });
-    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'MLmodel', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = shallow(<ShowArtifactTextView {...props} />).dive();
     setImmediate(() => {
       wrapper.update();
@@ -115,19 +120,20 @@ describe('ShowArtifactTextView', () => {
     instance = wrapper.instance();
     instance.fetchArtifacts = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchArtifacts).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchArtifacts).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should render prettified valid json', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('{"key1": "val1", "key2": "val2"}');
     });
-    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact };
+    const props = { path: 'fake.json', runUuid: 'fakeUuid', getArtifact, experimentId: '123' };
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('code').length).toBe(1);
       expect(wrapper.find('code').text()).toContain('\n');
       expect(wrapper.find('code').text()).toContain('key1');

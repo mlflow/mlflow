@@ -7,7 +7,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentViewRunsControls } from './ExperimentViewRunsControls';
 import { experimentRunsSelector } from '../../utils/experimentRuns.selector';
-import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
+import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 
@@ -59,6 +59,7 @@ const createComponentWrapper = (viewState: ExperimentPageViewState) => () => {
             refreshRuns={() => {}}
             uiState={createExperimentPageUIState()}
             isLoading={false}
+            isComparingExperiments={false}
           />
           <div
             css={{

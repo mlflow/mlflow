@@ -14,13 +14,9 @@ import {
   LegacyTooltip,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { isUndefined } from 'lodash';
+import { isArray, isObject, isUndefined } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
-import {
-  getArtifactContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent, getArtifactLocationUrl } from '../../../common/utils/ArtifactUtils';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { SortingState, PaginationState } from '@tanstack/react-table';
 import {
@@ -32,18 +28,28 @@ import {
 } from '@tanstack/react-table';
 import React from 'react';
 import { parseJSONSafe } from '@mlflow/mlflow/src/common/utils/TagUtils';
-import { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
+import type { ArtifactLogTableImageObject } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { LOG_TABLE_IMAGE_COLUMN_TYPE } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { ImagePlot } from '../runs-charts/components/charts/ImageGridPlot.common';
 import { ToggleIconButton } from '../../../common/components/ToggleIconButton';
 import { ShowArtifactLoggedTableViewDataPreview } from './ShowArtifactLoggedTableViewDataPreview';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 const MAX_ROW_HEIGHT = 160;
 const MIN_COLUMN_WIDTH = 100;
 const getDuboisTableHeight = (isCompact?: boolean) => 1 + (isCompact ? 24 : 32);
 const DEFAULT_PAGINATION_COMPONENT_HEIGHT = 48;
+
+/**
+ * This function ensures we have a valid ID for every column in the table.
+ * If the column name is a number, null or undefined we will convert it to a string.
+ * If the column name is an empty string, we will use a fallback name with numbered suffix.
+ * Refer to the corresponding unit test for more context.
+ */
+const sanitizeColumnId = (columnName: string, columnIndex: number) =>
+  columnName === '' ? `column-${columnIndex + 1}` : String(columnName);
 
 const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[][] }; runUuid: string }) => {
   const [sorting, setSorting] = useState<SortingState>([]);
@@ -66,7 +72,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
     }
   }, []);
 
-  const columns = useMemo(() => data['columns'], [data]);
+  const columns = useMemo(() => data['columns']?.map(sanitizeColumnId) ?? [], [data]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [previewData, setPreviewData] = useState<string | undefined>(undefined);
   const rows = useMemo(() => data['data'], [data]);
@@ -230,8 +236,9 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
                         sortable
                         sortDirection={header.column.getIsSorted() || 'none'}
                         onToggleSort={header.column.getToggleSortingHandler()}
-                        resizable={header.column.getCanResize()}
-                        resizeHandler={header.getResizeHandler()}
+                        header={header}
+                        column={header.column}
+                        setColumnSizing={table.setColumnSizing}
                         isResizing={header.column.getIsResizing()}
                         style={{ maxWidth: header.column.getSize() }}
                       >
@@ -381,7 +388,14 @@ type ShowArtifactLoggedTableViewProps = {
 } & LoggedModelArtifactViewerProps;
 
 export const ShowArtifactLoggedTableView = React.memo(
-  ({ runUuid, path, isLoggedModelsMode, loggedModelId }: ShowArtifactLoggedTableViewProps) => {
+  ({
+    runUuid,
+    path,
+    isLoggedModelsMode,
+    loggedModelId,
+    experimentId,
+    entityTags,
+  }: ShowArtifactLoggedTableViewProps) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<Error>();
     const [curPath, setCurPath] = useState<string | undefined>(undefined);
@@ -389,12 +403,10 @@ export const ShowArtifactLoggedTableView = React.memo(
 
     useEffect(() => {
       setLoading(true);
-      const artifactLocation =
-        isLoggedModelsMode && loggedModelId
-          ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-          : getArtifactLocationUrl(path, runUuid);
-
-      getArtifactContent(artifactLocation)
+      fetchArtifactUnified(
+        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifactContent,
+      )
         .then((value) => {
           setLoading(false);
           // Check if value is stringified JSON
@@ -410,9 +422,18 @@ export const ShowArtifactLoggedTableView = React.memo(
           setLoading(false);
         });
       setCurPath(path);
-    }, [path, runUuid, isLoggedModelsMode, loggedModelId]);
+    }, [path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
-    const data = useMemo(() => parseJSONSafe(text), [text]);
+    const data = useMemo<{
+      columns: string[];
+      data: any[][];
+    }>(() => {
+      const parsedJSON = parseJSONSafe(text);
+      if (!parsedJSON || !isArray(parsedJSON?.columns) || !isArray(parsedJSON?.data)) {
+        return undefined;
+      }
+      return parsedJSON;
+    }, [text]);
 
     const { theme } = useDesignSystemTheme();
 
@@ -450,8 +471,8 @@ export const ShowArtifactLoggedTableView = React.memo(
       if (!data) {
         return renderErrorState(
           <FormattedMessage
-            defaultMessage="Unable to parse JSON file"
-            description="Run page > artifact view > logged table view > unable to parse JSON file error"
+            defaultMessage="Unable to parse JSON file. The file should contain an object with 'columns' and 'data' keys."
+            description="An error message displayed when the logged table JSON file is malformed or does not contain 'columns' and 'data' keys"
           />,
         );
       }

@@ -3,7 +3,7 @@ import json
 import math
 import re
 from dataclasses import dataclass, field
-from typing import Optional, Union
+from typing import Optional
 
 import numpy as np
 import pandas as pd
@@ -1141,7 +1141,7 @@ def test_object_construction_with_errors():
         Property("p2", DataType.binary),
         Property("p2", DataType.boolean),
     ]
-    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: `p2`"):
         Object(properties)
 
 
@@ -1832,7 +1832,8 @@ def test_convert_dataclass_to_schema_for_rag():
 def test_convert_dataclass_to_schema_complex():
     @dataclass
     class Settings:
-        baz: Optional[bool] = True
+        baz: Optional[bool] = True  # noqa: UP045
+        qux: bool | None = None
 
     @dataclass
     class Config:
@@ -1856,7 +1857,10 @@ def test_convert_dataclass_to_schema_complex():
                     "bar": {"type": "long", "required": True},
                     "config_settings": {
                         "type": "object",
-                        "properties": {"baz": {"type": "boolean", "required": False}},
+                        "properties": {
+                            "baz": {"type": "boolean", "required": False},
+                            "qux": {"type": "boolean", "required": False},
+                        },
                         "required": True,
                     },
                 },
@@ -1871,7 +1875,7 @@ def test_convert_dataclass_to_schema_invalid():
     # Invalid dataclass with Union
     @dataclass
     class InvalidDataclassWithUnion:
-        foo: Union[str, int] = "1"
+        foo: str | int = "1"
 
     with pytest.raises(
         MlflowException,
@@ -1918,6 +1922,18 @@ def test_convert_dataclass_to_schema_invalid():
         (
             {"a": {"x": None}},
             Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            {"a": {"x": pd.NA}},
+            Schema([ColSpec(type=Object([Property("x", AnyType(), required=False)]), name="a")]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
+        ),
+        (
+            pd.DataFrame({"a": [True, None]}).astype("boolean"),
+            Schema([ColSpec(type=DataType.boolean, name="a", required=False)]),
         ),
         (
             [

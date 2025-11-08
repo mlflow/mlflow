@@ -2,8 +2,10 @@ import pytest
 
 from mlflow.models.resources import (
     DEFAULT_API_VERSION,
+    DatabricksApp,
     DatabricksFunction,
     DatabricksGenieSpace,
+    DatabricksLakebase,
     DatabricksServingEndpoint,
     DatabricksSQLWarehouse,
     DatabricksTable,
@@ -126,6 +128,38 @@ def test_table(on_behalf_of_user):
     }
 
 
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_app(on_behalf_of_user):
+    app = DatabricksApp(app_name="id1", on_behalf_of_user=on_behalf_of_user)
+    expected = (
+        {"app": [{"name": "id1"}]}
+        if on_behalf_of_user is None
+        else {"app": [{"name": "id1", "on_behalf_of_user": on_behalf_of_user}]}
+    )
+    assert app.to_dict() == expected
+    assert _ResourceBuilder.from_resources([app]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
+@pytest.mark.parametrize("on_behalf_of_user", [True, False, None])
+def test_lakebase(on_behalf_of_user):
+    lakebase = DatabricksLakebase(
+        database_instance_name="lakebase_name", on_behalf_of_user=on_behalf_of_user
+    )
+    expected = (
+        {"lakebase": [{"name": "lakebase_name"}]}
+        if on_behalf_of_user is None
+        else {"lakebase": [{"name": "lakebase_name", "on_behalf_of_user": on_behalf_of_user}]}
+    )
+    assert lakebase.to_dict() == expected
+    assert _ResourceBuilder.from_resources([lakebase]) == {
+        "api_version": DEFAULT_API_VERSION,
+        "databricks": expected,
+    }
+
+
 def test_resources():
     resources = [
         DatabricksVectorSearchIndex(index_name="rag.studio_bugbash.databricks_docs_index"),
@@ -135,6 +169,8 @@ def test_resources():
         DatabricksFunction(function_name="rag.studio.test_function_1"),
         DatabricksFunction(function_name="rag.studio.test_function_2"),
         DatabricksUCConnection(connection_name="slack_connection"),
+        DatabricksApp(app_name="test_databricks_app"),
+        DatabricksLakebase(database_instance_name="test_databricks_lakebase"),
     ]
     expected = {
         "api_version": DEFAULT_API_VERSION,
@@ -150,6 +186,8 @@ def test_resources():
                 {"name": "rag.studio.test_function_2"},
             ],
             "uc_connection": [{"name": "slack_connection"}],
+            "app": [{"name": "test_databricks_app"}],
+            "lakebase": [{"name": "test_databricks_lakebase"}],
         },
     }
 
@@ -209,8 +247,12 @@ def test_resources_from_yaml(tmp_path):
                 function:
                 - name: rag.studio.test_function_1
                 - name: rag.studio.test_function_2
+                lakebase:
+                - name: test_databricks_lakebase
                 uc_connection:
                 - name: slack_connection
+                app:
+                - name: test_databricks_app
             """
         )
 
@@ -228,6 +270,8 @@ def test_resources_from_yaml(tmp_path):
                 {"name": "rag.studio.test_function_2"},
             ],
             "uc_connection": [{"name": "slack_connection"}],
+            "app": [{"name": "test_databricks_app"}],
+            "lakebase": [{"name": "test_databricks_lakebase"}],
         },
     }
 

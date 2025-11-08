@@ -70,7 +70,7 @@ def test_integration(setup_servers, tmp_path):
         # Log the model and register it as a new version in UC.
         mlflow.sklearn.log_model(
             clf,
-            "model",
+            name="model",
             # The signature is automatically inferred from the input example and
             # its predicted output.
             input_example=input_example,

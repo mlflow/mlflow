@@ -1,18 +1,9 @@
-import {
-  Icon,
-  LegacyTooltip,
-  VisibleIcon as VisibleHollowIcon,
-  VisibleOffIcon,
-  useDesignSystemTheme,
-  visuallyHidden,
-} from '@databricks/design-system';
+import { Icon, LegacyTooltip, VisibleOffIcon, useDesignSystemTheme, visuallyHidden } from '@databricks/design-system';
 import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../../common/utils/FeatureUtils';
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 
-const VisibleIcon = () =>
-  shouldUseNewRunRowsVisibilityModel() ? <Icon component={VisibleFillIcon} /> : <VisibleHollowIcon />;
+const VisibleIcon = () => <Icon component={VisibleFillIcon} />;
 
 interface RunVisibilityControlButtonProps {
   className?: string;
@@ -64,12 +55,8 @@ export const RunVisibilityControlButton = ({
           checked={!rowHidden}
           onChange={() => {
             if (runUuid) {
-              if (shouldUseNewRunRowsVisibilityModel()) {
-                const isRowVisible = !rowHidden;
-                onClick(RUNS_VISIBILITY_MODE.CUSTOM, runUuid, isRowVisible);
-              } else {
-                onClick(runUuid);
-              }
+              const isRowVisible = !rowHidden;
+              onClick(RUNS_VISIBILITY_MODE.CUSTOM, runUuid, isRowVisible);
             }
           }}
         />

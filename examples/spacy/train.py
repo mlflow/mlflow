@@ -52,10 +52,10 @@ if __name__ == "__main__":
         mlflow.log_metrics(losses)
 
     # Log the spaCy model using mlflow
-    mlflow.spacy.log_model(spacy_model=nlp, artifact_path="model")
+    mlflow.spacy.log_model(spacy_model=nlp, name="model")
     model_uri = f"runs:/{mlflow.active_run().info.run_id}/model"
 
-    print(f"Model saved in run {mlflow.active_run().info.run_uuid}")
+    print(f"Model saved in run {mlflow.active_run().info.run_id}")
 
     # Load the model using mlflow and use it to predict data
     nlp2 = mlflow.spacy.load_model(model_uri=model_uri)

@@ -20,7 +20,7 @@ parser.add_argument(
 args = parser.parse_args()
 if args.test:
     assert "VIRTUAL_ENV" in os.environ
-    assert sys.version_info[:3] == (3, 9, 18), sys.version_info
+    assert sys.version_info[:3] == (3, 10, 16), sys.version_info
     assert sklearn.__version__ == "1.4.2", sklearn.__version__
 
 X = np.array([[-1, -1], [-2, -1], [1, 1], [2, 1]])
@@ -30,4 +30,4 @@ clf = make_pipeline(StandardScaler(), SVC(gamma="auto"))
 clf.fit(X, y)
 
 with mlflow.start_run():
-    mlflow.sklearn.log_model(clf, "model")
+    mlflow.sklearn.log_model(clf, name="model")

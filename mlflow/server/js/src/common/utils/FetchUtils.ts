@@ -8,8 +8,9 @@
 import cookie from 'cookie';
 import JsonBigInt from 'json-bigint';
 import yaml from 'js-yaml';
-import _ from 'lodash';
+import { pickBy } from 'lodash';
 import { ErrorWrapper } from './ErrorWrapper';
+import { matchPredefinedError } from '@databricks/web-shared/errors';
 
 export const HTTPMethods = {
   GET: 'GET',
@@ -52,8 +53,7 @@ export const getDefaultHeaders = (cookieStr: any) => {
 };
 
 export const getAjaxUrl = (relativeUrl: any) => {
-  // @ts-expect-error TS(4111): Property 'MLFLOW_USE_ABSOLUTE_AJAX_URLS' comes from an in... Remove this comment to see the full error message
-  if (process.env.MLFLOW_USE_ABSOLUTE_AJAX_URLS === 'true' && !relativeUrl.startsWith('/')) {
+  if (process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] === 'true' && !relativeUrl.startsWith('/')) {
     return '/' + relativeUrl;
   }
   return relativeUrl;
@@ -137,7 +137,7 @@ export const fetchEndpointRaw = ({
     ...options,
     ...(timeoutMs && { signal: abortController.signal }),
   };
-
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   return fetch(url, fetchOptions);
 };
 
@@ -263,7 +263,7 @@ export const fetchEndpoint = ({
 
 const filterUndefinedFields = (data: any) => {
   if (!Array.isArray(data)) {
-    return _.pickBy(data, (v) => v !== undefined);
+    return pickBy(data, (v) => v !== undefined);
   } else {
     return data.filter((v) => v !== undefined);
   }
@@ -344,7 +344,9 @@ export const getBigIntJson = (props: any) => {
   const queryParams = new URLSearchParams(filterUndefinedFields(data));
   return fetchEndpoint({
     ...props,
-    ...(String(queryParams).length > 0 && { relativeUrl: `${relativeUrl}?${queryParams}` }),
+    ...(String(queryParams).length > 0 && {
+      relativeUrl: `${relativeUrl}?${queryParams}`,
+    }),
     method: HTTPMethods.GET,
     success: jsonBigIntResponseParser,
   });
@@ -439,4 +441,35 @@ export const deleteYaml = (props: any) => {
     body: generateJsonBody(data),
     success: yamlResponseParser,
   });
+};
+
+function serializeRequestBody(payload: any | FormData | Blob) {
+  if (payload === undefined) {
+    return undefined;
+  }
+  return typeof payload === 'string' || payload instanceof FormData || payload instanceof Blob
+    ? payload
+    : JSON.stringify(payload);
+}
+
+export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | 'DELETE' = 'GET', body?: any) => {
+  const response = await fetch(url, {
+    method,
+    body: serializeRequestBody(body),
+    headers: body ? { 'Content-Type': 'application/json' } : {},
+  });
+  if (!response.ok) {
+    const predefinedError = matchPredefinedError(response);
+    if (predefinedError) {
+      try {
+        // Attempt to use message from the response
+        const message = (await response.json()).message;
+        predefinedError.message = message ?? predefinedError.message;
+      } catch {
+        // If the message can't be parsed, use default one
+      }
+      throw predefinedError;
+    }
+  }
+  return response.json();
 };

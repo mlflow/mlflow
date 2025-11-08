@@ -38,7 +38,8 @@ def _parse_abfss_uri(uri):
         uri: ABFSS URI to parse
 
     Returns:
-        A tuple containing the name of the filesystem, account name, domain suffix, and path
+        A tuple containing the name of the filesystem, account name, domain suffix,
+        and path
     """
     parsed = urllib.parse.urlparse(uri)
     if parsed.scheme != "abfss":
@@ -54,8 +55,7 @@ def _parse_abfss_uri(uri):
     account_name = match.group(2)
     domain_suffix = match.group(3)
     path = parsed.path
-    if path.startswith("/"):
-        path = path[1:]
+    path = path.removeprefix("/")
     return filesystem, account_name, domain_suffix, path
 
 
@@ -79,21 +79,34 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
 
     def __init__(
         self,
-        artifact_uri,
-        credential,
+        artifact_uri: str,
+        credential=None,
         credential_refresh_def=None,
-    ):
-        super().__init__(artifact_uri)
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
         self._parse_credentials(credential)
         self._credential_refresh_def = credential_refresh_def
 
     def _parse_credentials(self, credential):
-        self.credential = credential
         (filesystem, account_name, domain_suffix, path) = _parse_abfss_uri(self.artifact_uri)
         account_url = f"https://{account_name}.{domain_suffix}"
-        data_lake_client = _get_data_lake_client(account_url=account_url, credential=credential)
+        self.sas_token = ""
+        if credential is None:
+            if sas_token := os.environ.get("AZURE_STORAGE_SAS_TOKEN"):
+                self.sas_token = f"?{sas_token}"
+                account_url += self.sas_token
+            else:
+                from azure.identity import DefaultAzureCredential
+
+                credential = DefaultAzureCredential()
+        self.credential = credential
+        data_lake_client = _get_data_lake_client(
+            account_url=account_url, credential=self.credential
+        )
         self.fs_client = data_lake_client.get_file_system_client(filesystem)
         self.domain_suffix = domain_suffix
         self.base_data_lake_directory = path
@@ -139,8 +152,7 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
                 continue
             if result.is_directory:
                 subdir = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:
                 file_name = posixpath.relpath(path=result.name, start=self.base_data_lake_directory)
@@ -258,10 +270,14 @@ class AzureDataLakeArtifactRepository(CloudArtifactRepository):
         Returns:
             a string presigned URL.
         """
-        sas_token = self.credential.signature
+        sas_token = (
+            f"?{self.credential.signature}"
+            if hasattr(self.credential, "signature")
+            else self.sas_token
+        )
         return (
             f"https://{self.account_name}.{self.domain_suffix}/{self.container}/"
-            f"{self.base_data_lake_directory}/{artifact_file_path}?{sas_token}"
+            f"{self.base_data_lake_directory}/{artifact_file_path}{sas_token}"
         )
 
     def _get_write_credential_infos(self, remote_file_paths) -> list[ArtifactCredentialInfo]:

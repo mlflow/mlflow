@@ -1,16 +1,16 @@
 import { Tag, LegacyTooltip, Typography } from '@databricks/design-system';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import React, { useState } from 'react';
 import { useIntl } from 'react-intl';
 import { KeyValueTagFullViewModal } from './KeyValueTagFullViewModal';
-import { Interpolation, Theme } from '@emotion/react';
+import type { Interpolation, Theme } from '@emotion/react';
 
 /**
  * An arbitrary number that is used to determine if a tag is too
  * long and should be truncated. We want to avoid short keys or values
  * in a long tag to be truncated
  * */
-export const TRUNCATE_ON_CHARS_LENGTH = 30;
+const TRUNCATE_ON_CHARS_LENGTH = 30;
 
 function getTruncatedStyles(shouldTruncate = true): Interpolation<Theme> {
   return shouldTruncate

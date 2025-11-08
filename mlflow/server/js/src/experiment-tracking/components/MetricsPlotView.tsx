@@ -7,12 +7,13 @@
 
 import React from 'react';
 import Utils from '../../common/utils/Utils';
-import _ from 'lodash';
+import { cloneDeep, minBy, sortBy } from 'lodash';
 import { saveAs } from 'file-saver';
 import { X_AXIS_STEP, X_AXIS_RELATIVE, MAX_LINE_SMOOTHNESS } from './MetricsPlotControls';
 import { CHART_TYPE_BAR, convertMetricsToCsv } from './MetricsPlotPanel';
 import { LazyPlot } from './LazyPlot';
 import { generateInfinityAnnotations } from '../utils/MetricsUtils';
+import type { IntlShape } from 'react-intl';
 import { injectIntl } from 'react-intl';
 
 const MAX_RUN_NAME_DISPLAY_LENGTH = 24;
@@ -83,7 +84,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
     return legend;
   };
 
-  static getXValuesForLineChart(history: any, xAxisType: any) {
+  static getXValuesForLineChart(history: any, xAxisType: any, intl?: IntlShape) {
     if (history.length === 0) {
       return [];
     }
@@ -92,11 +93,11 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
         return history.map(({ step }: any) => step);
       case X_AXIS_RELATIVE: {
         // @ts-expect-error TS(2339): Property 'timestamp' does not exist on type '{ toS... Remove this comment to see the full error message
-        const { timestamp: minTimestamp } = _.minBy(history, 'timestamp');
+        const { timestamp: minTimestamp } = minBy(history, 'timestamp');
         return history.map(({ timestamp }: any) => (timestamp - minTimestamp) / 1000);
       }
       default: // X_AXIS_WALL
-        return history.map(({ timestamp }: any) => Utils.formatTimestamp(timestamp));
+        return history.map(({ timestamp }: any) => timestamp);
     }
   }
 
@@ -113,7 +114,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
       const { metricKey, history } = metric;
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       annotationData[metricKey] = generateInfinityAnnotations({
-        xValues: (MetricsPlotView as any).getXValuesForLineChart(history, xAxis),
+        xValues: (MetricsPlotView as any).getXValuesForLineChart(history, xAxis, this.props.intl),
         yValues: history.map((entry: any) => (typeof entry.value === 'number' ? entry.value : Number(entry.value))),
         isLogScale: isYAxisLog,
         stringFormatter: (value) => this.props.intl.formatMessage(value, { metricKey }),
@@ -197,7 +198,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
       return map;
     }, {});
 
-    const arrayOfHistorySortedByMetricKey = _.sortBy(Object.values(historyByMetricKey), 'metricKey');
+    const arrayOfHistorySortedByMetricKey = sortBy(Object.values(historyByMetricKey), 'metricKey');
 
     const sortedMetricKeys = arrayOfHistorySortedByMetricKey.map((history) => (history as any).metricKey);
     const deselectedCurvesSet = new Set(deselectedCurves);
@@ -249,7 +250,7 @@ export class MetricsPlotViewImpl extends React.Component<MetricsPlotViewImplProp
           onLegendClick={onLegendClick}
           onLegendDoubleClick={onLegendDoubleClick}
           style={{ width: '100%', height: '100%' }}
-          layout={_.cloneDeep((plotProps as any).layout)}
+          layout={cloneDeep((plotProps as any).layout)}
           config={{
             displaylogo: false,
             scrollZoom: true,

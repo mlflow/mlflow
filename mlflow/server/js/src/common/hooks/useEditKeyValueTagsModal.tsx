@@ -14,7 +14,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { Typography } from '@databricks/design-system';
-import { KeyValueEntity } from '../../experiment-tracking/types';
+import type { KeyValueEntity } from '../types';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { useForm } from 'react-hook-form';
 import { TagKeySelectDropdown } from '../components/TagSelectDropdown';
@@ -33,11 +33,13 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
   saveTagsHandler,
   allAvailableTags,
   valueRequired = false,
+  title,
 }: {
   onSuccess?: () => void;
   saveTagsHandler: (editedEntity: T, existingTags: KeyValueEntity[], newTags: KeyValueEntity[]) => Promise<any>;
   allAvailableTags?: string[];
   valueRequired?: boolean;
+  title?: React.ReactNode;
 }) => {
   const editedEntityRef = useRef<T>();
   const [errorMessage, setErrorMessage] = useState<string>('');
@@ -137,10 +139,12 @@ export const useEditKeyValueTagsModal = <T extends { tags?: KeyValueEntity[] }>(
       destroyOnClose
       visible={showModal}
       title={
-        <FormattedMessage
-          defaultMessage="Add/Edit tags"
-          description="Key-value tag editor modal > Title of the update tags modal"
-        />
+        title ?? (
+          <FormattedMessage
+            defaultMessage="Add/Edit tags"
+            description="Key-value tag editor modal > Title of the update tags modal"
+          />
+        )
       }
       onCancel={hideModal}
       footer={

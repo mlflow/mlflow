@@ -8,6 +8,7 @@ from unittest.mock import ANY
 import pytest
 import requests
 
+from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
 from mlflow.exceptions import RestException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_filesystem_service_pb2 import (
@@ -223,6 +224,7 @@ def test_download_from_cloud():
         mock_download.assert_called_once_with(
             http_uri=_make_presigned_url(remote_file_path),
             download_path=local_file,
+            chunk_size=MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
             headers=_make_headers(remote_file_path),
         )
 

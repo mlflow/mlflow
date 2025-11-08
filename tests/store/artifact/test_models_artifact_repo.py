@@ -1,3 +1,4 @@
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -12,6 +13,7 @@ from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
 from mlflow.store.artifact.unity_catalog_oss_models_artifact_repo import (
     UnityCatalogOSSModelsArtifactRepository,
 )
+from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.utils.os import is_windows
 
 from tests.store.artifact.constants import (
@@ -19,6 +21,20 @@ from tests.store.artifact.constants import (
     UC_OSS_MODELS_ARTIFACT_REPOSITORY,
     WORKSPACE_MODELS_ARTIFACT_REPOSITORY,
 )
+
+
+@pytest.mark.parametrize(
+    ("uri", "expected"),
+    [
+        ("models:/123", True),
+        ("models:/name/1", False),
+        ("/path/to/model", False),
+        (Path("path/to/model"), False),
+        ("s3://bucket/path/to/model", False),
+    ],
+)
+def test_is_logged_model_uri(uri: str, expected: bool):
+    assert ModelsArtifactRepository._is_logged_model_uri(uri) is expected
 
 
 @pytest.mark.parametrize(
@@ -36,7 +52,9 @@ def test_models_artifact_repo_init_with_uri_containing_profile(uri_with_profile)
         models_repo = ModelsArtifactRepository(uri_with_profile)
         assert models_repo.artifact_uri == uri_with_profile
         assert isinstance(models_repo.repo, DatabricksModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_with_profile)
+        mock_repo.assert_called_once_with(
+            uri_with_profile, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 @pytest.mark.parametrize(
@@ -56,7 +74,11 @@ def test_models_artifact_repo_init_with_db_profile_inferred_from_context(uri_wit
         models_repo = ModelsArtifactRepository(uri_without_profile)
         assert models_repo.artifact_uri == uri_without_profile
         assert isinstance(models_repo.repo, DatabricksModelsArtifactRepository)
-        mock_repo.assert_called_once_with(uri_without_profile)
+        mock_repo.assert_called_once_with(
+            uri_without_profile,
+            tracking_uri=None,
+            registry_uri="databricks://getRegistryUriDefault",
+        )
 
 
 def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_context():
@@ -71,7 +93,9 @@ def test_models_artifact_repo_init_with_uc_registry_db_profile_inferred_from_con
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, UnityCatalogModelsArtifactRepository)
-        mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
+        mock_repo.assert_called_once_with(
+            model_uri, registry_uri=uc_registry_uri, tracking_uri=None
+        )
 
 
 def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
@@ -86,7 +110,9 @@ def test_models_artifact_repo_init_with_uc_oss_profile_inferred_from_context():
         models_repo = ModelsArtifactRepository(model_uri)
         assert models_repo.artifact_uri == model_uri
         assert isinstance(models_repo.repo, UnityCatalogOSSModelsArtifactRepository)
-        mock_repo.assert_called_once_with(model_uri, registry_uri=uc_registry_uri)
+        mock_repo.assert_called_once_with(
+            model_uri, registry_uri=uc_registry_uri, tracking_uri=None
+        )
 
 
 def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_registry():
@@ -107,7 +133,9 @@ def test_models_artifact_repo_init_with_version_uri_and_not_using_databricks_reg
     ):
         model_uri = "models:/MyModel/12"
         ModelsArtifactRepository(model_uri)
-        get_repo_mock.assert_called_once_with(artifact_location)
+        get_repo_mock.assert_called_once_with(
+            artifact_location, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_registry():
@@ -125,7 +153,7 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         "run12345",
     )
     get_latest_versions_patch = mock.patch.object(
-        MlflowClient, "get_latest_versions", return_value=[model_version_detailed]
+        ModelRegistryClient, "get_latest_versions", return_value=[model_version_detailed]
     )
     get_model_version_download_uri_patch = mock.patch.object(
         MlflowClient, "get_model_version_download_uri", return_value=artifact_location
@@ -139,7 +167,9 @@ def test_models_artifact_repo_init_with_stage_uri_and_not_using_databricks_regis
         ) as get_repo_mock,
     ):
         ModelsArtifactRepository(model_uri)
-        get_repo_mock.assert_called_once_with(artifact_location)
+        get_repo_mock.assert_called_once_with(
+            artifact_location, tracking_uri=None, registry_uri=mock.ANY
+        )
 
 
 def test_models_artifact_repo_uses_repo_download_artifacts(tmp_path):
@@ -262,6 +292,16 @@ def test_models_artifact_repo_does_not_add_meta_for_directory_without_mlmodel(tm
         ("models:/model@alias/", "models:/model@alias", ""),
         ("models:/model@alias/path", "models:/model@alias", "path"),
         ("models:/model@alias/path/to/artifact", "models:/model@alias", "path/to/artifact"),
+        (
+            "models://scope:prefix@databricks/model/1",
+            "models://scope:prefix@databricks/model/1",
+            "",
+        ),
+        (
+            "models://scope:prefix@databricks/model/1/path/to/artifact",
+            "models://scope:prefix@databricks/model/1",
+            "path/to/artifact",
+        ),
     ],
 )
 def test_split_models_uri(model_uri, expected_uri, expected_path):

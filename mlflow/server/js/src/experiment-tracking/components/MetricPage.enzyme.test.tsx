@@ -110,7 +110,6 @@ describe('MetricPage', () => {
       </Provider>,
     ).find(MetricPage);
 
-    instance = wrapper.find(MetricPageImpl).instance();
-    expect(Utils.displayGlobalErrorNotification).toHaveBeenCalledWith('Error during metric page load: invalid URL');
+    expect(wrapper.find(MetricPage).html()).toContain('Error during metric page load: invalid URL');
   });
 });

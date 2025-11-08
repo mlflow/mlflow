@@ -1,12 +1,14 @@
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '@testing-library/react';
 import { RunsSearchAutoComplete } from './RunsSearchAutoComplete';
-import userEvent from '@testing-library/user-event-14';
+import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { shouldUseRegexpBasedAutoRunsSearchFilter } from '../../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../../common/utils/FeatureUtils')>(
+    '../../../../../common/utils/FeatureUtils',
+  ),
   shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(),
 }));
 

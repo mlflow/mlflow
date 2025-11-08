@@ -38,7 +38,6 @@ from mlflow.utils._unity_catalog_utils import (
     get_artifact_repo_from_storage_info,
     get_full_name_from_sc,
 )
-from mlflow.utils.annotations import experimental
 from mlflow.utils.oss_registry_utils import get_oss_host_creds
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -70,7 +69,6 @@ def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=N
         _raise_unsupported_arg(arg_name, message)
 
 
-@experimental
 class UnityCatalogOssStore(BaseRestStore):
     """
     Client for an Open Source Unity Catalog Server accessed via REST API calls.
@@ -103,7 +101,7 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
-    def create_registered_model(self, name, tags=None, description=None):
+    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
         """
         Create a new registered model in backend store.
 
@@ -111,6 +109,7 @@ class UnityCatalogOssStore(BaseRestStore):
             name: Name of the new model. This is expected to be unique in the backend store.
             tags: Not supported for Unity Catalog OSS yet.
             description: Description of the model.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.RegisteredModel`
@@ -133,13 +132,14 @@ class UnityCatalogOssStore(BaseRestStore):
         registered_model_info = self._call_endpoint(CreateRegisteredModel, req_body)
         return get_registered_model_from_uc_oss_proto(registered_model_info)
 
-    def update_registered_model(self, name, description):
+    def update_registered_model(self, name, description, deployment_job_id=None):
         """
         Update description of the registered model.
 
         Args:
             name: Registered model name.
             description: New description.
+            deployment_job_id: Optional deployment job ID.
 
         Returns:
             A single updated :py:class:`mlflow.entities.model_registry.RegisteredModel` object.
@@ -265,6 +265,7 @@ class UnityCatalogOssStore(BaseRestStore):
         run_link=None,
         description=None,
         local_model_path=None,
+        model_id: str | None = None,
     ):
         with self._local_model_dir(source, local_model_path) as local_model_dir:
             [catalog_name, schema_name, model_name] = name.split(".")
@@ -297,6 +298,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def update_model_version(self, name, version, description):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(
             UpdateModelVersion(
                 full_name=full_name,
@@ -320,6 +322,7 @@ class UnityCatalogOssStore(BaseRestStore):
 
     def delete_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
         return self._edit_endpoint_and_call(
@@ -335,6 +338,7 @@ class UnityCatalogOssStore(BaseRestStore):
     # which contains the storage location
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
+        version = int(version)
         req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
         return self._edit_endpoint_and_call(
@@ -426,7 +430,7 @@ class UnityCatalogOssStore(BaseRestStore):
             is_oss=True,
         )
 
-    def _get_temporary_model_version_write_credentials_oss(  # noqa: D417
+    def _get_temporary_model_version_write_credentials_oss(
         self, model_name, catalog_name, schema_name, version
     ):
         """
@@ -469,7 +473,7 @@ class UnityCatalogOssStore(BaseRestStore):
                     "Unable to download model artifacts from source artifact location "
                     f"'{source}' in order to upload them to Unity Catalog. Please ensure "
                     "the source artifact location exists and that you can download from "
-                    "it via mlflow.artifacts.download_artifacts()"
+                    f"it via mlflow.artifacts.download_artifacts(). Original error: {e}"
                 ) from e
             try:
                 yield local_model_dir

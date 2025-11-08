@@ -4,24 +4,28 @@ import logging
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
 from copy import deepcopy
-from typing import Optional
 
 import yaml
 from packaging.requirements import InvalidRequirement, Requirement
 from packaging.version import Version
 
 from mlflow.environment_variables import (
+    _MLFLOW_ACTIVE_MODEL_ID,
     _MLFLOW_TESTING,
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.tracking import get_tracking_uri
+from mlflow.tracking.fluent import _get_experiment_id, get_active_model_id
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils.databricks_utils import (
     _get_databricks_serverless_env_vars,
@@ -204,7 +208,7 @@ class _PythonEnv:
         return cls.from_dict(cls.get_dependencies_from_conda_yaml(path))
 
 
-def _mlflow_conda_env(  # noqa: D417
+def _mlflow_conda_env(
     path=None,
     additional_conda_deps=None,
     additional_pip_deps=None,
@@ -268,7 +272,7 @@ def _mlflow_conda_env(  # noqa: D417
         return env
 
 
-def _get_package_version(package_name: str) -> Optional[str]:
+def _get_package_version(package_name: str) -> str | None:
     try:
         return importlib.metadata.version(package_name)
     except importlib.metadata.PackageNotFoundError:
@@ -450,6 +454,131 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         return fallback
 
 
+def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]] | None:
+    """
+    Retrieves the predefined secrets to configure `pip` for Databricks, and converts them into
+    command-line arguments and environment variables for `uv`.
+
+    References:
+    - https://docs.databricks.com/aws/en/compute/serverless/dependencies#predefined-secret-scope-name
+    - https://docs.astral.sh/uv/configuration/environment/#environment-variables
+    """
+    from databricks.sdk import WorkspaceClient
+
+    from mlflow.utils.databricks_utils import (
+        _get_dbutils,
+        _NoDbutilsError,
+        is_in_databricks_runtime,
+    )
+
+    if not is_in_databricks_runtime():
+        return None
+
+    workspace_client = WorkspaceClient()
+    secret_scopes = workspace_client.secrets.list_scopes()
+    if not any(s.name == "databricks-package-management" for s in secret_scopes):
+        return None
+
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return None
+
+    def get_secret(key: str) -> str | None:
+        """
+        Retrieves a secret from the Databricks secrets scope.
+        """
+        try:
+            return dbutils.secrets.get(scope="databricks-package-management", key=key)
+        except Exception as e:
+            _logger.debug(f"Failed to fetch secret '{key}': {e}")
+            return None
+
+    args: list[str] = []
+    if url := get_secret("pip-index-url"):
+        args.append(f"--index-url={url}")
+
+    if urls := get_secret("pip-extra-index-urls"):
+        args.append(f"--extra-index-url={urls}")
+
+    # There is no command-line option for SSL_CERT_FILE in `uv`.
+    envs: dict[str, str] = {}
+    if cert := get_secret("pip-cert"):
+        envs["SSL_CERT_FILE"] = cert
+
+    _logger.debug(f"uv arguments and environment variables: {args}, {envs}")
+    return args, envs
+
+
+def _lock_requirements(
+    requirements: list[str], constraints: list[str] | None = None
+) -> list[str] | None:
+    """
+    Locks the given requirements using `uv`. Returns the locked requirements when the locking is
+    performed successfully, otherwise returns None.
+    """
+    if not MLFLOW_LOCK_MODEL_DEPENDENCIES.get():
+        return None
+
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        _logger.debug("`uv` binary not found. Skipping locking requirements.")
+        return None
+
+    _logger.info("Locking requirements...")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir_path = pathlib.Path(tmp_dir)
+        in_file = tmp_dir_path / "requirements.in"
+        in_file.write_text("\n".join(requirements))
+        out_file = tmp_dir_path / "requirements.out"
+        constraints_opt: list[str] = []
+        if constraints:
+            constraints_file = tmp_dir_path / "constraints.txt"
+            constraints_file.write_text("\n".join(constraints))
+            constraints_opt = [f"--constraints={constraints_file}"]
+        elif pip_constraint := os.environ.get("PIP_CONSTRAINT"):
+            # If PIP_CONSTRAINT is set, use it as a constraint file
+            constraints_opt = [f"--constraints={pip_constraint}"]
+
+        try:
+            if res := _get_uv_options_for_databricks():
+                uv_options, uv_envs = res
+            else:
+                uv_options = []
+                uv_envs = {}
+            out = subprocess.check_output(
+                [
+                    uv_bin,
+                    "pip",
+                    "compile",
+                    "--color=never",
+                    "--universal",
+                    "--no-annotate",
+                    "--no-header",
+                    f"--python-version={PYTHON_VERSION}",
+                    f"--output-file={out_file}",
+                    *uv_options,
+                    *constraints_opt,
+                    in_file,
+                ],
+                stderr=subprocess.STDOUT,
+                env=os.environ.copy() | uv_envs,
+                text=True,
+            )
+            _logger.debug(f"Successfully compiled requirements with `uv`:\n{out}")
+        except subprocess.CalledProcessError as e:
+            _logger.warning(f"Failed to lock requirements:\n{e.output}")
+            return None
+
+        return [
+            "# Original requirements",
+            *(f"# {l}" for l in requirements),  # Preserve original requirements as comments
+            "#",
+            "# Locked requirements",
+            *out_file.read_text().splitlines(),
+        ]
+
+
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
     """
     Validates that only one or none of `conda_env`, `pip_requirements`, and
@@ -489,7 +618,11 @@ def _is_mlflow_requirement(requirement_string):
     try:
         # `Requirement` throws an `InvalidRequirement` exception if `requirement_string` doesn't
         # conform to PEP 508 (https://www.python.org/dev/peps/pep-0508).
-        return Requirement(requirement_string).name.lower() in ["mlflow", "mlflow-skinny"]
+        return Requirement(requirement_string).name.lower() in [
+            "mlflow",
+            "mlflow-skinny",
+            "mlflow-tracing",
+        ]
     except InvalidRequirement:
         # A local file path or URL falls into this branch.
 
@@ -565,12 +698,18 @@ def _process_pip_requirements(
         pip_reqs.insert(0, _generate_mlflow_version_pinning())
 
     sanitized_pip_reqs = _deduplicate_requirements(pip_reqs)
+    sanitized_pip_reqs = _remove_incompatible_requirements(sanitized_pip_reqs)
 
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
 
-    if constraints:
-        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+    if locked_requirements := _lock_requirements(sanitized_pip_reqs, constraints):
+        # Locking requirements was performed successfully
+        sanitized_pip_reqs = locked_requirements
+    else:
+        # Locking requirements was skipped or failed
+        if constraints:
+            sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)
@@ -662,6 +801,28 @@ def _deduplicate_requirements(requirements):
             if req not in deduped_reqs:
                 deduped_reqs[req] = req
     return [str(req) for req in deduped_reqs.values()]
+
+
+def _parse_requirement_name(req: str) -> str:
+    try:
+        return Requirement(req).name
+    except InvalidRequirement:
+        return req
+
+
+def _remove_incompatible_requirements(requirements: list[str]) -> list[str]:
+    req_names = {_parse_requirement_name(req) for req in requirements}
+    if "databricks-connect" in req_names and req_names.intersection({"pyspark", "pyspark-connect"}):
+        _logger.debug(
+            "Found incompatible requirements: 'databricks-connect' with 'pyspark' or "
+            "'pyspark-connect'. Removing 'pyspark' or 'pyspark-connect' from the requirements."
+        )
+        requirements = [
+            req
+            for req in requirements
+            if _parse_requirement_name(req) not in ["pyspark", "pyspark-connect"]
+        ]
+    return requirements
 
 
 def _validate_version_constraints(requirements):
@@ -840,6 +1001,10 @@ class Environment:
             command_env.update(get_databricks_env_vars(get_tracking_uri()))
         if is_databricks_connect():
             command_env.update(_get_databricks_serverless_env_vars())
+        if exp_id := _get_experiment_id():
+            command_env[MLFLOW_EXPERIMENT_ID.name] = exp_id
+        if active_model_id := get_active_model_id():
+            command_env[_MLFLOW_ACTIVE_MODEL_ID.name] = active_model_id
         command_env.update(self._extra_env)
         if not isinstance(command, list):
             command = [command]

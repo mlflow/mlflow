@@ -13,7 +13,6 @@ def _check(
     artifact_uri,
 ):
     assert isinstance(ri, RunInfo)
-    assert ri.run_uuid == run_id
     assert ri.run_id == run_id
     assert ri.experiment_id == experiment_id
     assert ri.user_id == user_id
@@ -49,7 +48,6 @@ def test_creation_and_hydration(run_info):
         artifact_uri,
     )
     as_dict = {
-        "run_uuid": run_id,
         "run_id": run_id,
         "run_name": run_name,
         "experiment_id": experiment_id,

@@ -1,6 +1,7 @@
 import ast
 import logging
-from typing import Any, Optional, Sequence, Union
+from contextvars import ContextVar
+from typing import Any, Optional, Sequence
 from uuid import UUID
 
 import pydantic
@@ -14,63 +15,31 @@ from langchain_core.outputs import (
     GenerationChunk,
     LLMResult,
 )
-from langchain_core.runnables import RunnableSequence
 from tenacity import RetryCallState
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.entities import Document as MlflowDocument
 from mlflow.entities import LiveSpan, SpanEvent, SpanStatus, SpanStatusCode, SpanType
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.utils.chat import (
-    convert_lc_generation_to_chat_message,
-    convert_lc_message_to_chat_message,
-)
-from mlflow.pyfunc.context import Context, maybe_set_prediction_context
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.langchain.utils.chat import parse_token_usage
+from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import maybe_set_prediction_context, set_span_chat_tools
 from mlflow.tracing.utils.token import SpanWithToken
-from mlflow.types.chat import ChatMessage, ChatTool, FunctionToolDefinition
+from mlflow.types.chat import ChatTool, FunctionToolDefinition
 from mlflow.utils.autologging_utils import ExceptionSafeAbstractClass
+from mlflow.version import IS_TRACING_SDK_ONLY
+
+if not IS_TRACING_SDK_ONLY:
+    from mlflow.pyfunc.context import Context
+
 
 _logger = logging.getLogger(__name__)
-# Vector Search index column names
-VS_INDEX_ID_COL = "chunk_id"
-VS_INDEX_DOC_URL_COL = "doc_uri"
 
-
-def should_attach_span_to_context(func_name: str, instance: Any) -> bool:
-    """
-    Determine whether the span should be attached to the context during the execution
-    of the given function.
-
-    Spans should generally be attached to the context so that
-    they can work with fluent APIs or other auto-tracing integrations. However, there
-    are some tricky cases where attaching the span to the context can cause issues.
-
-    Args:
-        func_name: The name of the function (method) for which the span is being created.
-        instance: The instance of LangChain class that the function is being called on.
-
-    Returns:
-        True if the span should be attached to the context.
-    """
-    # NB: RunnableSequence's batch() methods are implemented in a peculiar way
-    # that iterates on steps->items sequentially within the same thread. For example, if a
-    # sequence has 2 steps and the batch size is 3, the execution flow will be:
-    #  - Step 1 for item 1
-    #  - Step 1 for item 2
-    #  - Step 1 for item 3
-    #  - Step 2 for item 1
-    #  - Step 2 for item 2
-    #  - Step 2 for item 3
-    # Due to this behavior, we cannot attach the span to the context for this particular
-    # API, otherwise spans for different inputs will be mixed up.
-    if isinstance(instance, RunnableSequence) and func_name == "batch":
-        return False
-
-    return True
+_should_attach_span_to_context = ContextVar("should_attach_span_to_context", default=True)
 
 
 class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstractClass):
@@ -84,84 +53,181 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             thread-local context. Occasionally this has to be passed manually because
             the callback may be invoked asynchronously and Langchain doesn't correctly
             propagate the thread-local context.
-        set_span_in_context: If True, the span created by this callback will be set as
-            the active span and attached to the current context. This will allow using
-            fluent APIs or other auto-tracing integrations with this callback. If set
-            to False, the span will not be set as active span.
     """
 
     def __init__(
         self,
-        prediction_context: Optional[Context] = None,
-        set_span_in_context: bool = True,
+        prediction_context: Optional["Context"] = None,
     ):
         # NB: The tracer can handle multiple traces in parallel under multi-threading scenarios.
         # DO NOT use instance variables to manage the state of single trace.
         super().__init__()
-        self._mlflow_client = MlflowClient()
         # run_id: (LiveSpan, OTel token)
         self._run_span_mapping: dict[str, SpanWithToken] = {}
         self._prediction_context = prediction_context
-        self._set_span_in_context = set_span_in_context
 
-    def _get_span_by_run_id(self, run_id: UUID) -> Optional[LiveSpan]:
+    def _get_span_by_run_id(self, run_id: UUID) -> LiveSpan | None:
         if span_with_token := self._run_span_mapping.get(str(run_id), None):
             return span_with_token.span
         raise MlflowException(f"Span for run_id {run_id!s} not found.")
 
+    def _serialize_invocation_params(
+        self, attributes: dict[str, Any] | None
+    ) -> dict[str, Any] | None:
+        """
+        Serialize the 'invocation_params' in the attributes dictionary.
+        If 'invocation_params' contains a key 'response_format' whose value is a subclass
+        of pydantic.BaseModel, replace it with its JSON schema.
+        """
+        if not attributes:
+            return attributes
+
+        invocation_params = attributes.get("invocation_params")
+        if not isinstance(invocation_params, dict):
+            return attributes
+
+        response_format = invocation_params.get("response_format")
+        if isinstance(response_format, type) and issubclass(response_format, pydantic.BaseModel):
+            try:
+                invocation_params["response_format"] = response_format.model_json_schema()
+            except Exception as e:
+                _logger.error(
+                    "Failed to generate JSON schema for response_format: %s", e, exc_info=True
+                )
+        return attributes
+
     def _start_span(
         self,
         span_name: str,
-        parent_run_id: Optional[UUID],
+        parent_run_id: UUID | None,
         span_type: str,
         run_id: UUID,
-        inputs: Optional[Union[str, dict[str, Any]]] = None,
-        attributes: Optional[dict[str, Any]] = None,
+        inputs: str | dict[str, Any] | None = None,
+        attributes: dict[str, Any] | None = None,
     ) -> LiveSpan:
         """Start MLflow Span (or Trace if it is root component)"""
-        with maybe_set_prediction_context(self._prediction_context):
-            parent = self._get_parent_span(parent_run_id)
-            if parent:
-                span = self._mlflow_client.start_span(
-                    name=span_name,
-                    request_id=parent.request_id,
-                    parent_id=parent.span_id,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=attributes,
-                )
-            else:
-                # When parent_run_id is None, this is root component so start trace
-                dependencies_schemas = (
-                    self._prediction_context.dependencies_schemas
-                    if self._prediction_context
-                    else None
-                )
-                span = self._mlflow_client.start_trace(
-                    name=span_name,
-                    span_type=span_type,
-                    inputs=inputs,
-                    attributes=attributes,
-                    tags=dependencies_schemas,
-                )
+        serialized_attributes = self._serialize_invocation_params(attributes)
+        dependencies_schemas = (
+            self._prediction_context.dependencies_schemas if self._prediction_context else None
+        )
+        with maybe_set_prediction_context(
+            self._prediction_context
+        ):  # When parent_run_id is None, this is root component so start trace
+            span = start_span_no_context(
+                name=span_name,
+                span_type=span_type,
+                parent_span=self._get_parent_span(parent_run_id),
+                inputs=inputs,
+                attributes=serialized_attributes,
+                tags=dependencies_schemas,
+            )
 
-            # Attach the span to the current context to mark it "active"
-            token = set_span_in_context(span) if self._set_span_in_context else None
-            self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
+            # Debugging purpose
+            if span.trace_id == NO_OP_SPAN_TRACE_ID:
+                _logger.debug("No Op span was created, the trace will not be recorded.")
+
+        # Attach the span to the current context to mark it "active"
+        token = set_span_in_context(span) if _should_attach_span_to_context.get() else None
+        self._run_span_mapping[str(run_id)] = SpanWithToken(span, token)
         return span
 
-    def _get_parent_span(self, parent_run_id) -> Optional[LiveSpan]:
+    def _get_parent_span(self, parent_run_id) -> LiveSpan | None:
         """
-        Get parent span from multiple sources:
-        1. If there is an active span in current context, use it as parent span
-        2. If parent_run_id is provided, get the corresponding span from the run -> span mapping
-        3. If none of the above, return None
+        Get parent span to create a new span under.
+
+        Ideally, we can simply rely on the active span in current context. However, LangChain
+        execution heavily uses threads and asyncio, and sometimes ContextVar is not correctly
+        propagated, resulting in missing parent span.
+
+        To address this, we check two sources of parent span:
+
+        1. An active span in current MLflow tracing context (get_current_active_span)
+        2. If parent_run_id is given by LangChain, get the corresponding span from the mapping
+
+        The complex case is when BOTH are present but different. In this case, we need to
+        resolve the correct parent span by traversing the span tree.
         """
-        if active_span := mlflow.get_current_active_span():
-            return active_span
-        elif parent_run_id:
-            return self._get_span_by_run_id(parent_run_id)
-        return None
+        parent_mlflow_span = mlflow.get_current_active_span()
+        parent_lc_span = self._get_span_by_run_id(parent_run_id) if parent_run_id else None
+
+        if parent_mlflow_span and parent_lc_span:
+            if parent_mlflow_span.span_id == parent_lc_span.span_id:
+                return parent_mlflow_span
+            else:
+                return self._resolve_parent_span(parent_mlflow_span, parent_lc_span)
+        elif parent_mlflow_span:
+            return parent_mlflow_span
+        elif parent_lc_span:
+            return parent_lc_span
+
+    def _resolve_parent_span(self, parent_mlflow_span, parent_lc_span):
+        """
+        Resolve the correct parent span when both MLflow and LangChain provide different
+        parent spans.
+
+        For example, the following two examples are mostly same but slightly different: where the
+        mlflow.start_span() is used.
+
+
+        For example, the following two examples are mostly same but slightly different: where the
+        mlflow.start_span() is used.
+
+        ```python
+        llm = ChatOpenAI()
+
+
+        @tool
+        def custom_tool_node(inputs):
+            response = ChatOpenAI().invoke(...)
+            return response.content
+
+
+        graph = create_react_agent(llm, [custom_tool_node])
+
+        with mlflow.start_span("parent"):
+            graph.invoke({"prompt": "Hello"})
+        ```
+
+        The correct span structure for this case is [parent] -> [tool] -> [ChatOpenAI]
+
+        ```python
+        @tool
+        def custom_tool_node(inputs):
+            with mlflow.start_span("parent"):
+                response = ChatOpenAI().invoke(...)
+                return response.content
+
+
+        graph = create_react_agent(llm, [custom_tool_node])
+        graph.invoke({"prompt": "Hello"})
+        ```
+
+        The correct span structure for this case is [tool] -> [parent] -> [ChatOpenAI]
+
+        When we try to create a new span for ChatOpenAI, we need to determine which span is the
+        parent span, "parent" or "tool". Unfortunately, there is no way to decide this from
+        metadata provided in the span itself, so we need to traverse the span tree and check
+        if one is parent of the other.
+        """
+        trace_manager = InMemoryTraceManager.get_instance()
+        span = parent_mlflow_span
+        while span.parent_id:
+            if span.parent_id == parent_lc_span.span_id:
+                # MLflow parent span is under the LangChain
+                # langchain_span
+                #  └──  mlflow_span
+                #       └── current span
+                return parent_mlflow_span
+
+            span = trace_manager.get_span_from_id(span.trace_id, span.parent_id)
+
+        # MLflow span is parent of LangChain span
+        # mlflow_span
+        #  └── langchain_span
+        #       └── current span
+        #
+        # or two spans are not related at all, then fallback to LangChain one.
+        return parent_lc_span
 
     def _end_span(
         self,
@@ -174,9 +240,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Close MLflow Span (or Trace if it is root component)"""
         try:
             with maybe_set_prediction_context(self._prediction_context):
-                self._mlflow_client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
+                span.end(
                     outputs=outputs,
                     attributes=attributes,
                     status=status,
@@ -184,7 +248,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         finally:
             # Span should be detached from the context even when the client.end_span fails
             st = self._run_span_mapping.pop(str(run_id), None)
-            if self._set_span_in_context:
+            if _should_attach_span_to_context.get():
                 if st.token is None:
                     raise MlflowException(
                         f"Token for span {st.span} is not found. "
@@ -213,15 +277,17 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         messages: list[list[BaseMessage]],
         *,
         run_id: UUID,
-        tags: Optional[list[str]] = None,
-        parent_run_id: Optional[UUID] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
+        tags: list[str] | None = None,
+        parent_run_id: UUID | None = None,
+        metadata: dict[str, Any] | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ):
         """Run when a chat model starts running."""
+
         if metadata:
             kwargs.update({"metadata": metadata})
+        kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
@@ -232,13 +298,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-        mlflow_messages = [
-            convert_lc_message_to_chat_message(msg)
-            for message_list in messages
-            for msg in message_list
-        ]
-        set_span_chat_messages(span, mlflow_messages)
-
         if tools := self._extract_tool_definitions(kwargs):
             set_span_chat_tools(span, tools)
 
@@ -248,15 +307,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         prompts: list[str],
         *,
         run_id: UUID,
-        tags: Optional[list[str]] = None,
-        parent_run_id: Optional[UUID] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
+        tags: list[str] | None = None,
+        parent_run_id: UUID | None = None,
+        metadata: dict[str, Any] | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ) -> None:
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+        kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),
@@ -267,9 +327,6 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
-        mlflow_messages = [ChatMessage(role="user", content=prompt) for prompt in prompts]
-        set_span_chat_messages(span, mlflow_messages)
-
         if tools := self._extract_tool_definitions(kwargs):
             set_span_chat_tools(span, tools)
 
@@ -279,7 +336,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         for raw_tool in raw_tools:
             # First, try to parse the raw tool dictionary as OpenAI-style tool
             try:
-                tool = ChatTool.validate_compat(raw_tool)
+                tool = ChatTool.model_validate(raw_tool)
                 tools.append(tool)
             except pydantic.ValidationError:
                 # If not OpenAI style, just try to extract the name and descriptions.
@@ -300,9 +357,9 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self,
         token: str,
         *,
-        chunk: Optional[Union[GenerationChunk, ChatGenerationChunk]] = None,
+        chunk: GenerationChunk | ChatGenerationChunk | None = None,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ):
         """Run on new LLM token. Only available when streaming is enabled."""
@@ -350,15 +407,16 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_llm_end(self, response: LLMResult, *, run_id: UUID, **kwargs: Any):
         """End the span for an LLM run."""
         llm_span = self._get_span_by_run_id(run_id)
+        # response.generations is a nested list of messages
+        generations = [g for gen_list in response.generations for g in gen_list]
 
-        # Record the chat messages attribute
-        input_messages = llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
-        output_messages = [
-            convert_lc_generation_to_chat_message(gen)
-            for gen_list in response.generations
-            for gen in gen_list
-        ]
-        set_span_chat_messages(llm_span, input_messages + output_messages)
+        # Record the token usage attribute
+        try:
+            if usage := parse_token_usage(generations):
+                llm_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        except Exception as e:
+            _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
+
         self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(
@@ -376,20 +434,20 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
     def on_chain_start(
         self,
         serialized: dict[str, Any],
-        inputs: Union[dict[str, Any], Any],
+        inputs: dict[str, Any] | Any,
         *,
         run_id: UUID,
-        tags: Optional[list[str]] = None,
-        parent_run_id: Optional[UUID] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        run_type: Optional[str] = None,
-        name: Optional[str] = None,
+        tags: list[str] | None = None,
+        parent_run_id: UUID | None = None,
+        metadata: dict[str, Any] | None = None,
+        run_type: str | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ):
         """Start span for a chain run."""
         if metadata:
             kwargs.update({"metadata": metadata})
-        # not considering streaming events for now
+
         self._start_span(
             span_name=name or self._assign_span_name(serialized, "chain"),
             parent_run_id=parent_run_id,
@@ -399,12 +457,21 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
             attributes=kwargs,
         )
 
+        # NB: We need to guard this with active trace existence because sometimes LangGraph
+        # execute the callback within an isolated thread where the active trace is not set.
+        if (
+            metadata is not None
+            and (thread_id := metadata.get("thread_id"))
+            and mlflow.get_current_active_span() is not None
+        ):
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: thread_id})
+
     def on_chain_end(
         self,
         outputs: dict[str, Any],
         *,
         run_id: UUID,
-        inputs: Optional[Union[dict[str, Any], Any]] = None,
+        inputs: dict[str, Any] | Any | None = None,
         **kwargs: Any,
     ):
         """Run when chain ends running."""
@@ -417,7 +484,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         self,
         error: BaseException,
         *,
-        inputs: Optional[Union[dict[str, Any], Any]] = None,
+        inputs: dict[str, Any] | Any | None = None,
         run_id: UUID,
         **kwargs: Any,
     ):
@@ -434,15 +501,15 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         input_str: str,
         *,
         run_id: UUID,
-        tags: Optional[list[str]] = None,
-        parent_run_id: Optional[UUID] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
+        tags: list[str] | None = None,
+        parent_run_id: UUID | None = None,
+        metadata: dict[str, Any] | None = None,
+        name: str | None = None,
         # We don't use inputs here because LangChain override the original inputs
         # with None for some cases. In order to avoid losing the original inputs,
         # we try to parse the input_str instead.
-        # https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/tools/base.py#L636-L640
-        inputs: Optional[dict[str, Any]] = None,
+        # https://github.com/langchain-ai/langchain/blob/2813e8640703b8066d8dd6c739829bb4f4aa634e/libs/core/langchain_core/tools/base.py#L636-L640
+        inputs: dict[str, Any] | None = None,
         **kwargs: Any,
     ):
         """Start span for a tool run."""
@@ -489,10 +556,10 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         query: str,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
-        tags: Optional[list[str]] = None,
-        metadata: Optional[dict[str, Any]] = None,
-        name: Optional[str] = None,
+        parent_run_id: UUID | None = None,
+        tags: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+        name: str | None = None,
         **kwargs: Any,
     ):
         """Run when Retriever starts running."""
@@ -582,7 +649,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         text: str,
         *,
         run_id: UUID,
-        parent_run_id: Optional[UUID] = None,
+        parent_run_id: UUID | None = None,
         **kwargs: Any,
     ) -> Any:
         """Run on arbitrary text."""

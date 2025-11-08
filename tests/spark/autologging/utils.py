@@ -1,5 +1,7 @@
 import os
 
+import pyspark
+from packaging.version import Version
 from pyspark.sql import SparkSession
 
 import mlflow
@@ -7,7 +9,8 @@ from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
 
 
 def _get_mlflow_spark_jar_path():
-    jar_dir = os.path.join(os.path.dirname(mlflow.__file__), "java", "spark", "target")
+    spark_dir = "spark_2.13" if Version(pyspark.__version__).major >= 4 else "spark_2.12"
+    jar_dir = os.path.join(os.path.dirname(mlflow.__file__), "java", spark_dir, "target")
     jar_filenames = [
         fname
         for fname in os.listdir(jar_dir)

@@ -85,14 +85,15 @@ describe('DirectRunPage', () => {
   test('properly dispatches redux actions for fetching the run', async () => {
     await mountComponent({}, '321-run-id');
 
-    expect(getRunApi).toBeCalledWith('321-run-id');
+    expect(getRunApi).toHaveBeenCalledWith('321-run-id');
     expect(mockStore.getActions()).toEqual(expect.arrayContaining([expect.objectContaining({ type: 'getRunApi' })]));
   });
 
   test('displays error if run does not exist', async () => {
     // Suppress 404 console error
     jest.spyOn(console, 'error').mockReturnThis();
-    (getRunApi as jest.Mock).mockImplementation(() => ({
+    // @ts-expect-error TODO(FEINF-4101)
+    jest.mocked(getRunApi).mockImplementation(() => ({
       type: 'getRunApi',
       payload: Promise.reject(new ErrorWrapper('', 404)),
     }));

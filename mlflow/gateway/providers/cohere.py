@@ -1,8 +1,9 @@
 import json
 import time
+import warnings
 from typing import Any, AsyncGenerator, AsyncIterable
 
-from mlflow.gateway.config import CohereConfig, RouteConfig
+from mlflow.gateway.config import CohereConfig, EndpointConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import rename_payload_keys, send_request, send_stream_request
@@ -94,10 +95,7 @@ class CohereAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=resp.get("index", 0),
                     finish_reason=resp.get("finish_reason"),
-                    delta=completions.StreamDelta(
-                        role=None,
-                        content=resp.get("text"),
-                    ),
+                    text=resp.get("text"),
                 )
             ],
             usage=completions.CompletionsUsage(
@@ -194,7 +192,7 @@ class CohereAdapter(ProviderAdapter):
         payload = cls._scale_temperature(payload)
 
         messages = payload.pop("messages")
-        last_message = messages.pop()  # pydantic enforces min_items=1
+        last_message = messages.pop()  # pydantic enforces min_length=1
         if last_message["role"] != "user":
             raise AIGatewayException(
                 status_code=422,
@@ -329,8 +327,13 @@ class CohereProvider(BaseProvider):
     NAME = "Cohere"
     CONFIG_TYPE = CohereConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
+        warnings.warn(
+            "Cohere provider is deprecated and will be removed in a future MLflow version.",
+            category=FutureWarning,
+            stacklevel=2,
+        )
         if config.model.config is None or not isinstance(config.model.config, CohereConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
         self.cohere_config: CohereConfig = config.model.config

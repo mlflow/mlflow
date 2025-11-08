@@ -172,7 +172,7 @@ test_that("mlflow can retrieve a list of registered models with args", {
       expect_equal(args$data$page_token, "abc")
       expect_equal(args$data$filter, "name LIKE '%foo'")
       expect_equal(
-        args$data$order_by, forge::cast_string_list(list("name ASC", "last_updated_timestamp"))
+        args$data$order_by, mlflow:::cast_string_list(list("name ASC", "last_updated_timestamp"))
       )
 
       return(list(

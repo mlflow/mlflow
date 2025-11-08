@@ -25,7 +25,7 @@ model = KNeighborsClassifier()
 model.fit(X, y)
 
 with mlflow.start_run():
-    model_info = mlflow.sklearn.log_model(model, "model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
 
 model_uri = model_info.model_uri
 

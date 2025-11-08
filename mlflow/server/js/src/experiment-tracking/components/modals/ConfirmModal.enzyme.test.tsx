@@ -34,7 +34,7 @@ describe('ConfirmModal', () => {
     expect(wrapper.find(Modal).length).toBe(1);
   });
 
-  test('test onRequestCloseHandler executes properly based on state', () => {
+  test('onRequestCloseHandler executes properly based on state', () => {
     instance = wrapper.instance();
     instance.onRequestCloseHandler();
     expect(onCloseMock).toHaveBeenCalledTimes(1);
@@ -44,7 +44,8 @@ describe('ConfirmModal', () => {
     expect(onCloseMock).toHaveBeenCalledTimes(1);
   });
 
-  test('test handleSubmitWrapper closes modal in both success & failure cases', (done) => {
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
+  test('handleSubmitWrapper closes modal in both success & failure cases', (done) => {
     const promise = wrapper.find(Modal).prop('onOk')();
     promise.finally(() => {
       expect(onCloseMock).toHaveBeenCalledTimes(1);

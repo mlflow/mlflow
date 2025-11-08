@@ -1,6 +1,6 @@
 import pandas as pd
 
-from mlflow.entities.evaluation import Evaluation as EvaluationEntity
+from mlflow.evaluation.evaluation import EvaluationEntity as EvaluationEntity
 from mlflow.evaluation.utils import (
     _get_assessments_dataframe_schema,
     _get_evaluations_dataframe_schema,

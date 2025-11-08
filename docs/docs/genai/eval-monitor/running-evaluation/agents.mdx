@@ -1,0 +1,269 @@
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from '@site/src/components/ImageBox';
+import TabsWrapper from '@site/src/components/TabsWrapper';
+import WorkflowSteps from '@site/src/components/WorkflowSteps';
+import TilesGrid from '@site/src/components/TilesGrid';
+import TileCard from '@site/src/components/TileCard';
+import { Bot, Database, Target, Play, Code, Activity, MessageSquare } from 'lucide-react';
+import ServerSetup from "@site/src/content/setup_server.mdx";
+
+# Evaluating Agents
+
+AI Agents are an emerging pattern of GenAI applications that can use tools, make decisions, and execute multi-step workflows. However, evaluating the performance of those complex agents is challenging. MLflow provides a powerful toolkit to systematically evaluate the agent behavior precisely using traces and scorers.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/agent-evaluation-hero.png" alt="Agent Evaluation" width="95%"/>
+
+## Workflow
+
+<WorkflowSteps
+  steps={[
+    {
+      icon: Bot,
+      title: "Build your agent",
+      description: "Create an AI agent with tools, instructions, and capabilities for your specific use case."
+    },
+    {
+      icon: Database,
+      title: "Create evaluation dataset",
+      description: "Design test cases with inputs and expectations for both outputs and agent behaviors like tool usage."
+    },
+    {
+      icon: Target,
+      title: "Define agent-specific scorers",
+      description: "Create scorers that evaluate multi-step agent behaviors using traces."
+    },
+    {
+      icon: Play,
+      title: "Run evaluation",
+      description: "Execute the evaluation and analyze both final outputs and intermediate agent behaviors in MLflow UI."
+    }
+  ]}
+/>
+
+## Example: Evaluating a Tool-Calling Agent
+
+### Prerequisites
+
+First, install the required packages by running the following command:
+
+```bash
+pip install --upgrade mlflow>=3.3 openai
+```
+
+MLflow stores evaluation results in a tracking server. Connect your local environment to the tracking server by one of the following methods.
+
+<ServerSetup />
+
+### Step 1: Build an agent
+
+Create a math agent that can use tools to answer questions. We use [OpenAI Agents](/genai/tracing/integrations/listing/openai-agent) to build the tool-calling agent in a few lines of code.
+
+```python
+from agents import Agent, Runner, function_tool
+
+
+@function_tool
+def add(a: float, b: float) -> float:
+    """Adds two numbers."""
+    return a + b
+
+
+@function_tool
+def multiply(a: float, b: float) -> float:
+    """Multiply two numbers."""
+    return a * b
+
+
+@function_tool
+def modular(a: int, b: int) -> int:
+    """Modular arithmetic"""
+    return a % b
+
+
+agent = Agent(
+    name="Math Agent",
+    instructions=(
+        "You will be given a math question. Calculate the answer using the given calculator tools. "
+        "Return the final number only as an integer."
+    ),
+    tools=[add, multiply, modular],
+)
+```
+
+Make sure you can run the agent locally.
+
+```python
+from agents import Runner
+
+result = await Runner.run(agent, "What is 15% of 240?")
+print(result.final_output)
+# 36
+```
+
+Lastly, let's wrap it in a function that MLflow can call. Note that MLflow runs each prediction in a threadpool,
+so using a synchronous function does not slow down the evaluation.
+
+```python
+from openai import OpenAI
+
+# If you are using Jupyter Notebook, you need to apply nest_asyncio.
+# import nest_asyncio
+# nest_asyncio.apply()
+
+
+def predict_fn(question: str) -> str:
+    return Runner.run_sync(agent, question).final_output
+```
+
+### Step 2: Create evaluation dataset
+
+Design test cases as a list of dictionaries, each with an `inputs`, `expectations`, and an optional `tags` field. We would like to evaluate the correctness of the output, but also the tool calls used by the agent.
+
+```python
+eval_dataset = [
+    {
+        "inputs": {"task": "What is 15% of 240?"},
+        "expectations": {"answer": 36, "tool_calls": ["multiply"]},
+        "tags": {"topic": "math"},
+    },
+    {
+        "inputs": {
+            "task": "I have 8 cookies and 3 friends. How many more cookies should I buy to share equally?"
+        },
+        "expectations": {"answer": 1, "tool_calls": ["modular", "add"]},
+        "tags": {"topic": "math"},
+    },
+    {
+        "inputs": {
+            "task": "I bought 2 shares of stock at $100 each. It's now worth $150. How much profit did I make?"
+        },
+        "expectations": {"answer": 100, "tool_calls": ["add", "multiply"]},
+        "tags": {"topic": "math"},
+    },
+]
+```
+
+### Step 3: Define agent-specific scorers
+
+Create scorers that evaluate agent-specific behaviors.
+
+:::tip
+
+MLflow's scorer can take the **Trace** from the agent execution. Trace is a powerful way to evaluate the agent's behavior precisely, not only the final output. For example, here we use the <APILink fn="mlflow.entities.Trace.search_spans">`Trace.search_spans`</APILink> method to extract the order of tool calls and compare it with the expected tool calls.
+
+For more details, see the <ins>[Evaluate Traces](/genai/eval-monitor/running-evaluation/traces)</ins> guide.
+
+:::
+
+```python
+from mlflow.entities import Feedback, SpanType, Trace
+from mlflow.genai import scorer
+
+
+@scorer
+def exact_match(outputs, expectations) -> bool:
+    return int(outputs) == expectations["answer"]
+
+
+@scorer
+def uses_correct_tools(trace: Trace, expectations: dict) -> Feedback:
+    """Evaluate if agent used tools appropriately"""
+    expected_tools = expectations["tool_calls"]
+
+    # Parse the trace to get the actual tool calls
+    tool_spans = trace.search_spans(span_type=SpanType.TOOL)
+    tool_names = [span.name for span in tool_spans]
+
+    score = "yes" if tool_names == expected_tools else "no"
+    rationale = (
+        "The agent used the correct tools."
+        if tool_names == expected_tools
+        else f"The agent used the incorrect tools: {tool_names}"
+    )
+    # Return a Feedback object with the score and rationale
+    return Feedback(value=score, rationale=rationale)
+```
+
+### Step 4: Run the evaluation
+
+Now we are ready to run the evaluation!
+
+```python
+results = mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+)
+```
+
+Once the evaluation is done, open the MLflow UI in your browser and navigate to the experiment page. You should see MLflow creates a new Run and logs the evaluation results.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/agent-evaluation-result.png" alt="Agent Evaluation" width="95%"/>
+
+It seems the agent does not call tools in the correct order for the second test case. Let's click on the row to **open the trace and inspect what happened under the hood**.
+
+<ImageBox src="/images/mlflow-3/eval-monitor/agent-evaluation-trace.png" alt="Agent Evaluation" width="95%"/>
+
+By looking at the trace, we can figure out the agent computes the answer in three steps (1) compute 100 _ 2 (2) compute 150 _ 2 (3) subtract the two results. However, the more effective way is (1) subtract 100 from 150 (2) multiply the result by 2. In the next version, we can update the system instruction to use tools in a more effective way.
+
+## Configure parallelization
+
+Running a complex agent can take a long time. MLflow by default uses background threadpool to speed up the evaluation process. You can configure the number of workers to use by setting the `MLFLOW_GENAI_EVAL_MAX_WORKERS` environment variable.
+
+```bash
+export MLFLOW_GENAI_EVAL_MAX_WORKERS=10
+```
+
+## Evaluating MLflow Models
+
+In MLflow 2.x, you can pass the model URI directly to the `model` argument of the legacy <APILink fn="mlflow.evaluate" /> API (deprecated). The new GenAI evaluation API in MLflow **3.x** still support evaluating MLflow Models, but the workflow is slightly different.
+
+```python
+import mlflow
+
+# Load the model **outside** the prediction function.
+model = mlflow.pyfunc.load_model("models:/math_agent/1")
+
+
+# Wrap the model in a function that MLflow can call.
+def predict_fn(question: str) -> str:
+    return model.predict(question)
+
+
+# Run the evaluation as usual.
+mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=predict_fn, scorers=[exact_match, uses_correct_tools]
+)
+```
+
+## Next steps
+
+<TilesGrid>
+  <TileCard
+    icon={Code}
+    iconSize={48}
+    title="Customize Scorers"
+    description="Build advanced evaluation criteria and metrics specifically designed for agent behaviors and tool usage patterns."
+    href="/genai/eval-monitor/scorers"
+    linkText="Create custom scorers →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Activity}
+    iconSize={48}
+    title="Evaluate Production Traces"
+    description="Analyze real agent executions in production environments to understand performance and identify improvement opportunities."
+    href="/genai/eval-monitor/running-evaluation/traces"
+    linkText="Analyze traces →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Collect User Feedback"
+    description="Gather human feedback on agent performance to create training data and improve evaluation accuracy."
+    href="/genai/assessments/feedback"
+    linkText="Start collecting →"
+    containerHeight={64}
+  />
+</TilesGrid>

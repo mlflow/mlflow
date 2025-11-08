@@ -7,10 +7,7 @@ from typing import ForwardRef, get_args, get_origin
 from mlflow.exceptions import MlflowException
 from mlflow.models.flavor_backend_registry import get_flavor_backend
 from mlflow.utils import env_manager as _EnvManager
-from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import (
-    is_databricks_connect,
-)
+from mlflow.utils.databricks_utils import is_databricks_connect
 from mlflow.utils.file_utils import TempDir
 
 _logger = logging.getLogger(__name__)
@@ -39,8 +36,8 @@ def build_docker(
     .. important::
 
         Since MLflow 2.10.1, the Docker image built with ``--model-uri`` does **not install Java**
-        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o",
-        "mleap", "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
+        for improved performance, unless the model flavor is one of ``["johnsnowlabs", "h2o"
+        "spark"]``. If you need to install Java for other flavors, e.g. custom Python model
         that uses SparkML, please specify ``install-java=True`` to enforce Java installation.
         For earlier versions, Java is always installed to the image.
 
@@ -48,9 +45,9 @@ def build_docker(
     .. warning::
 
         If ``model_uri`` is unspecified, the resulting image doesn't support serving models with
-        the RFunc or Java MLeap model servers.
+        the RFunc server.
 
-    NB: by default, the container will start nginx and gunicorn processes. If you don't need the
+    NB: by default, the container will start nginx and uvicorn processes. If you don't need the
     nginx process to be started (for instance if you deploy your container to Google Cloud Run),
     you can disable it via the DISABLE_NGINX environment variable:
 
@@ -80,7 +77,7 @@ def build_docker(
             The version of installed mlflow will be the same as the one used to invoke this command.
         enable_mlserver: If specified, the image will be built with the Seldon MLserver as backend.
         base_image: Base image for the Docker image. If not specified, the default image is either
-            UBUNTU_BASE_IMAGE = "ubuntu:20.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
+            UBUNTU_BASE_IMAGE = "ubuntu:22.04" or PYTHON_SLIM_BASE_IMAGE = "python:{version}-slim"
             Note: If custom image is used, there are no guarantees that the image will work. You
             may find greater compatibility by building your image on top of the ubuntu images. In
             addition, you must install Java and virtualenv to have the image work properly.
@@ -100,7 +97,6 @@ _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
 
-@experimental
 def predict(
     model_uri,
     input_data=None,
@@ -118,6 +114,25 @@ def predict(
     data formats accepted by this function, see the following documentation:
     https://www.mlflow.org/docs/latest/models.html#built-in-deployment-tools.
 
+    .. note::
+
+        To increase verbosity for debugging purposes (in order to inspect the full dependency
+        resolver operations when processing transient dependencies), consider setting the following
+        environment variables:
+
+        .. code-block:: bash
+
+            # For virtualenv
+            export PIP_VERBOSE=1
+
+            # For uv
+            export RUST_LOG=uv=debug
+
+        See also:
+
+        - https://pip.pypa.io/en/stable/topics/configuration/#environment-variables
+        - https://docs.astral.sh/uv/configuration/environment
+
     Args:
         model_uri: URI to the model. A local path, a local or remote URI e.g. runs:/, s3://.
         input_data: Input data for prediction. Must be valid input for the PyFunc model. Refer
@@ -128,7 +143,7 @@ def predict(
                 `mlflow.models.convert_input_example_to_serving_input` to manually validate
                 your input data.
         input_path: Path to a file containing input data. If provided, 'input_data' must be None.
-        content_type: Content type of the input data. Can be one of {‘json’, ‘csv’}.
+        content_type: Content type of the input data. Can be one of {'json', 'csv'}.
         output_path: File to output results to as json. If not provided, output to stdout.
         env_manager: Specify a way to create an environment for MLmodel inference:
 
@@ -153,6 +168,12 @@ def predict(
             model inference environment. This is useful for testing what environment variables are
             needed for the model to run correctly. By default, environment variables existing in the
             current os.environ are passed, and this parameter can be used to override them.
+
+            .. note::
+                If your model dependencies include pre-release versions such as `mlflow==3.2.0rc0`
+                and you are using `uv` as the environment manager, set `UV_PRERELEASE` environment
+                variable to "allow" in `extra_envs` to allow installing pre-release versions.
+                e.g. `extra_envs={"UV_PRERELEASE": "allow"}`.
 
             .. note::
                 This parameter is only supported when `env_manager` is set to "virtualenv",
@@ -186,6 +207,22 @@ def predict(
             content_type="json",
             pip_requirements_override=["scikit-learn==0.23.2"],
             extra_envs={"OPENAI_API_KEY": "some_value"},
+        )
+
+        # Run prediction with output_path
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            output_path="output.json",
+        )
+
+        # Run prediction with pre-release versions
+        mlflow.models.predict(
+            model_uri=f"runs:/{run_id}/model",
+            input_data={"x": 1, "y": 2},
+            env_manager="uv",
+            extra_envs={"UV_PRERELEASE": "allow"},
         )
 
     """

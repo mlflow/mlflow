@@ -62,10 +62,9 @@ def custom_artifact(eval_df, builtin_metrics, _artifacts_dir):
 
 
 with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(lin_reg, "model", signature=signature)
-    model_uri = mlflow.get_artifact_uri("model")
+    model_info = mlflow.sklearn.log_model(lin_reg, name="model", signature=signature)
     result = mlflow.evaluate(
-        model=model_uri,
+        model=model_info.model_uri,
         data=eval_data,
         targets="target",
         model_type="regressor",

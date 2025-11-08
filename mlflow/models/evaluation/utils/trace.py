@@ -66,7 +66,9 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                     new_config = {
                         k: False if k.startswith("log_") else v for k, v in original_config.items()
                     }
-                    new_config |= {"log_traces": True, "silent": True}
+                    # log_models needs to be disabled
+                    # so we don't init LoggedModels during eval for some GenAI flavors
+                    new_config |= {"log_traces": True, "silent": True, "log_models": False}
                     _kwargs_safe_invoke(autolog, new_config)
 
                     global _SHOWN_TRACE_MESSAGE_BEFORE
@@ -123,6 +125,14 @@ def configure_autologging_for_evaluation(enable_tracing: bool = True):
                         AUTOLOGGING_INTEGRATIONS.pop(flavor, None)
                 except ImportError:
                     pass
+                except Exception as e:
+                    if original_config is None or (
+                        not original_config.get("disable", False)
+                        and not original_config.get("silent", False)
+                    ):
+                        _logger.warning(
+                            f"Exception raised while calling autologging for {flavor}: {e}"
+                        )
 
 
 def _should_enable_tracing(flavor: str, autologging_config: dict[str, Any]) -> bool:

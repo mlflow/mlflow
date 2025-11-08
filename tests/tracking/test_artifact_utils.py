@@ -3,7 +3,10 @@ from unittest import mock
 from unittest.mock import ANY
 from uuid import UUID
 
+import pytest
+
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
     _upload_artifact_to_uri,
@@ -78,6 +81,14 @@ def test_download_artifact_with_special_characters_in_file_name_and_path(tmp_pat
     )
     with open(os.path.join(artifact_output_path, logged_artifact_subdir, artifact_file_name)) as f:
         assert f.read() == artifact_text
+
+
+def test_download_artifact_invalid_uri_model_id():
+    with pytest.raises(
+        MlflowException,
+        match="Invalid uri `m-dummy` is passed. Maybe you meant 'models:/m-dummy'?",
+    ):
+        _download_artifact_from_uri("m-dummy")
 
 
 def test_upload_artifacts_to_databricks():

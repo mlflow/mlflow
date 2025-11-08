@@ -17,7 +17,6 @@ import {
 } from '@databricks/design-system';
 import { getParams, getRunInfo } from '../reducers/Reducers';
 import { connect } from 'react-redux';
-import './CompareRunView.css';
 import Utils from '../../common/utils/Utils';
 import { getLatestMetrics } from '../reducers/MetricReducer';
 import CompareRunUtil from './CompareRunUtil';

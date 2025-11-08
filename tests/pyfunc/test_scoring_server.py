@@ -3,8 +3,8 @@ import math
 import os
 import random
 import signal
-from collections import namedtuple
 from io import StringIO
+from typing import Any, NamedTuple
 
 import keras
 import numpy as np
@@ -17,13 +17,13 @@ from sklearn import datasets
 
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 import mlflow.sklearn
+from mlflow.environment_variables import MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT
 from mlflow.models import ModelSignature, infer_signature
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, ErrorCode
 from mlflow.pyfunc import PythonModel
 from mlflow.pyfunc.scoring_server import _get_jsonable_obj, get_cmd
 from mlflow.types import ColSpec, DataType, ParamSchema, ParamSpec, Schema
 from mlflow.types.schema import Array, Object, Property
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import NumpyEncoder
@@ -46,7 +46,9 @@ else:
     from keras.optimizers import SGD
 
 
-ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
+class ModelWithData(NamedTuple):
+    model: Any
+    inference_data: Any
 
 
 def build_and_save_sklearn_model(model_path):
@@ -610,7 +612,7 @@ def test_serving_model_with_schema(pandas_df_with_all_types):
     with TempDir(chdr=True):
         with mlflow.start_run():
             model_info = mlflow.pyfunc.log_model(
-                "model", python_model=TestModel(), signature=ModelSignature(schema)
+                name="model", python_model=TestModel(), signature=ModelSignature(schema)
             )
         response = pyfunc_serve_and_score_model(
             model_uri=model_info.model_uri,
@@ -712,7 +714,7 @@ def test_numpy_encoder_for_pydantic():
     messages = Messages(
         messages=[Message(role="user", content="hello!"), Message(role="assistant", content="hi!")]
     )
-    msg_dict = messages.model_dump() if IS_PYDANTIC_V2_OR_NEWER else messages.dict()
+    msg_dict = messages.model_dump()
     assert json.dumps(_get_jsonable_obj(messages), cls=NumpyEncoder) == json.dumps(
         msg_dict, cls=NumpyEncoder
     )
@@ -724,7 +726,7 @@ def test_parse_json_input_including_path():
             return 1
 
     with mlflow.start_run() as run:
-        mlflow.pyfunc.log_model("model", python_model=TestModel())
+        mlflow.pyfunc.log_model(name="model", python_model=TestModel())
 
     pandas_split_content = pd.DataFrame(
         {
@@ -742,24 +744,32 @@ def test_parse_json_input_including_path():
 
 
 @pytest.mark.parametrize(
-    ("args", "expected"),
+    ("args", "expected", "timeout"),
     [
         (
             {"port": 5000, "host": "0.0.0.0", "nworkers": 4, "timeout": 60},
-            "--timeout=60 -b 0.0.0.0:5000 -w 4",
+            "--host 0.0.0.0 --port 5000 --workers 4",
+            "60",
         ),
-        ({"host": "0.0.0.0", "nworkers": 4, "timeout": 60}, "--timeout=60 -b 0.0.0.0 -w 4"),
-        ({"port": 5000, "nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"nworkers": 4, "timeout": 60}, "--timeout=60 -w 4"),
-        ({"timeout": 60}, "--timeout=60"),
+        (
+            {"host": "0.0.0.0", "nworkers": 4, "timeout": 60},
+            "--host 0.0.0.0 --workers 4",
+            "60",
+        ),
+        (
+            {"port": 5000, "nworkers": 4, "timeout": 60},
+            "--port 5000 --workers 4",
+            "60",
+        ),
+        ({"nworkers": 4, "timeout": 60}, "--workers 4", "60"),
+        ({"timeout": 30}, "", "30"),
     ],
 )
-def test_get_cmd(args: dict, expected: str):
-    cmd, _ = get_cmd(model_uri="foo", **args)
+def test_get_cmd(args: dict[str, Any], expected: str, timeout: str):
+    cmd, env = get_cmd(model_uri="foo", **args)
 
-    assert cmd == (
-        f"gunicorn {expected} ${{GUNICORN_CMD_ARGS}} -- mlflow.pyfunc.scoring_server.wsgi:app"
-    )
+    assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")
+    assert env[MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT.name] == timeout
 
 
 def test_scoring_server_client(sklearn_model, model_path):

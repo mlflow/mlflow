@@ -1,0 +1,105 @@
+syntax = "proto2";
+
+package mlflow.datasets;
+
+option java_package = "org.mlflow.api.proto";
+option py_generic_services = true;
+
+// Entity messages
+
+message Dataset {
+  // Unique identifier for the dataset
+  optional string dataset_id = 1;
+  
+  // Dataset name (user-friendly identifier)
+  optional string name = 2;
+  
+  // Tags as JSON string (key-value pairs for metadata)
+  optional string tags = 3;
+  
+  // Schema information (JSON)
+  optional string schema = 4;
+  
+  // Profile information (JSON)
+  optional string profile = 5;
+  
+  // Dataset digest for integrity checking
+  optional string digest = 6;
+  
+  // Creation timestamp in milliseconds
+  optional int64 created_time = 7;
+  
+  // Last update timestamp in milliseconds
+  optional int64 last_update_time = 8;
+  
+  // User who created the dataset
+  optional string created_by = 9;
+  
+  // User who last updated the dataset
+  optional string last_updated_by = 10;
+  
+  // Associated experiment IDs (populated from entity_associations table)
+  repeated string experiment_ids = 11;
+}
+
+message DatasetRecord {
+  // Unique identifier for the record
+  optional string dataset_record_id = 1;
+  
+  // ID of the dataset this record belongs to
+  optional string dataset_id = 2;
+  
+  // Inputs as JSON string
+  optional string inputs = 3;
+  
+  // Expectations as JSON string
+  optional string expectations = 4;
+  
+  // Tags as JSON string
+  optional string tags = 5;
+  
+  // Source information as JSON string
+  optional string source = 6;
+  
+  // Source ID for quick lookups (e.g., trace_id)
+  optional string source_id = 7;
+  
+  // Source type
+  optional DatasetRecordSource.SourceType source_type = 8;
+  
+  // Creation timestamp in milliseconds
+  optional int64 created_time = 9;
+  
+  // Last update timestamp in milliseconds
+  optional int64 last_update_time = 10;
+  
+  // User who created the record
+  optional string created_by = 11;
+  
+  // User who last updated the record
+  optional string last_updated_by = 12;
+
+  // Outputs as JSON string
+  optional string outputs = 13;
+}
+
+message DatasetRecordSource {
+  // Type of the dataset record source.
+  enum SourceType {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    // Record from a trace/span.
+    TRACE = 1;
+    // Record from human annotation.
+    HUMAN = 2;
+    // Record from a document.
+    DOCUMENT = 3;
+    // Record from code/computation.
+    CODE = 4;
+  }
+
+  // The type of the source.
+  optional SourceType source_type = 1;
+  
+  // Source-specific data as JSON
+  optional string source_data = 2;
+}

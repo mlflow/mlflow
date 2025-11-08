@@ -56,6 +56,7 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
             RUNS_VISIBILITY_MODE.HIDEALL,
             RUNS_VISIBILITY_MODE.FIRST_10_RUNS,
             RUNS_VISIBILITY_MODE.FIRST_20_RUNS,
+            RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS,
           ].includes(mode)
         ) {
           return {
@@ -107,9 +108,16 @@ export const useToggleRowVisibilityCallback = (tableRows: RunRowType[], useGroup
             runsHiddenMode: RUNS_VISIBILITY_MODE.FIRST_20_RUNS,
             runsHidden: [],
           };
+        } else if (mode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS) {
+          // Case #5: Hiding finished runs
+          return {
+            ...currentUIState,
+            runsHiddenMode: RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS,
+            runsHidden: [],
+          };
         }
 
-        // Case #5: Custom visibility mode enabled by manually toggling visibility of a run or a group
+        // Case #6: Custom visibility mode enabled by manually toggling visibility of a run or a group
         if (groupOrRunUuid) {
           // Determine which runs are hidden at the moment
           const currentlyHiddenRows = immediateTableRows.current

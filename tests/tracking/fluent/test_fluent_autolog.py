@@ -1,16 +1,15 @@
 import contextlib
 import inspect
 import sys
-from collections import namedtuple
 from io import StringIO
+from typing import Any, NamedTuple
 from unittest import mock
 
 import anthropic
 import autogen
 import boto3
 import dspy
-import fastai
-import google.generativeai
+import google.genai
 import groq
 import keras
 import langchain
@@ -49,7 +48,6 @@ from tests.helper_functions import start_mock_openai_server
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
     keras: mlflow.keras,
-    fastai: mlflow.fastai,
     sklearn: mlflow.sklearn,
     xgboost: mlflow.xgboost,
     lightgbm: mlflow.lightgbm,
@@ -66,13 +64,15 @@ library_to_mlflow_module_genai = {
     llama_index.core: mlflow.llama_index,
     langchain: mlflow.langchain,
     anthropic: mlflow.anthropic,
-    autogen: mlflow.autogen,
     dspy: mlflow.dspy,
     litellm: mlflow.litellm,
-    google.generativeai: mlflow.gemini,
+    google.genai: mlflow.gemini,
     boto3: mlflow.bedrock,
     groq: mlflow.groq,
     mistralai: mlflow.mistral,
+    autogen: mlflow.ag2,
+    # TODO: once Python 3.10 is introduced, enable smolagents
+    # smolagents: mlflow.smolagents,
 }
 
 library_to_mlflow_module_traditional_ai = {
@@ -113,8 +113,17 @@ def reset_global_states():
         except Exception:
             pass
 
-    # TODO: Remove this when we run ci with Python >= 3.10
+    # TODO: Remove these when we run ci with Python >= 3.10
+    mlflow.utils.import_hooks._post_import_hooks.pop("smolagents", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("pydantic_ai", None)
     mlflow.utils.import_hooks._post_import_hooks.pop("crewai", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("autogen_agentchat", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("semantic_kernel", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("agno", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("strands", None)
+    mlflow.utils.import_hooks._post_import_hooks.pop("haystack", None)
+    # TODO: Remove this line when we stop supporting google.generativeai
+    mlflow.utils.import_hooks._post_import_hooks.pop("google.generativeai", None)
 
     assert all(v == {} for v in AUTOLOGGING_INTEGRATIONS.values())
     assert mlflow.utils.import_hooks._post_import_hooks == {}
@@ -148,7 +157,7 @@ def test_universal_autolog_does_not_throw_if_specific_autolog_throws_in_standard
     with mock.patch(mlflow_module.__name__ + ".autolog") as autolog_mock:
         autolog_mock.side_effect = Exception("asdf")
         mlflow.autolog()
-        if library != pyspark and library != pyspark.ml:
+        if library not in (pyspark, pyspark.ml):
             autolog_mock.assert_not_called()
 
         mlflow.utils.import_hooks.notify_module_loaded(library)
@@ -248,7 +257,10 @@ def test_universal_autolog_attaches_pyspark_import_hook_in_non_databricks(config
 
 def test_universal_autolog_makes_expected_event_logging_calls():
     class TestLogger(AutologgingEventLogger):
-        LoggerCall = namedtuple("LoggerCall", ["integration", "call_args", "call_kwargs"])
+        class LoggerCall(NamedTuple):
+            integration: Any
+            call_args: Any
+            call_kwargs: Any
 
         def __init__(self):
             self.calls = []
@@ -405,12 +417,8 @@ def test_autolog_excluded_flavors(library, mlflow_module):
 @pytest.fixture
 def mock_openai(monkeypatch):
     with start_mock_openai_server() as base_url:
-        monkeypatch.setenvs(
-            {
-                "OPENAI_API_KEY": "test",
-                "OPENAI_API_BASE": base_url,
-            }
-        )
+        monkeypatch.setenv("OPENAI_API_KEY", "test")
+        monkeypatch.setenv("OPENAI_API_BASE", base_url)
         yield base_url
 
 
@@ -438,10 +446,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is None
     else:
-        trace = mlflow.get_last_active_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1
@@ -475,8 +483,19 @@ def test_autolog_genai_import(disable, flavor_and_module):
 
     # pytorch-lightning is not valid flavor name.
     # paddle autologging is not in the list of autologging integrations.
-    # crewai requires Python 3.10+ (our CI runs on Python 3.9).
-    if flavor in {"pytorch-lightning", "paddle", "crewai"}:
+    # crewai, smolagents, and semantic_kernel require Python 3.10+ (our CI runs on Python 3.9).
+    if flavor in {
+        "pytorch-lightning",
+        "paddle",
+        "crewai",
+        "smolagents",
+        "pydantic_ai",
+        "autogen",
+        "semantic_kernel",
+        "agno",
+        "strands",
+        "haystack",
+    }:
         return
 
     with reset_module_import():

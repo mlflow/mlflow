@@ -1,0 +1,284 @@
+syntax = "proto2";
+
+package mlflow;
+
+import "scalapb/scalapb.proto";
+import "databricks.proto";
+
+option java_package = "org.mlflow.api.proto";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+// Webhook service for Model Registry
+service WebhookService {
+  rpc createWebhook (CreateWebhook) returns (CreateWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/webhooks"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Create Webhook",
+    };
+  }
+
+  rpc listWebhooks (ListWebhooks) returns (ListWebhooks.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/webhooks"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Webhooks",
+    };
+  }
+
+  rpc getWebhook (GetWebhook) returns (GetWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/webhooks/{webhook_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Webhook",
+    };
+  }
+
+  rpc updateWebhook (UpdateWebhook) returns (UpdateWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/webhooks/{webhook_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Webhook",
+    };
+  }
+
+  rpc deleteWebhook (DeleteWebhook) returns (DeleteWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/webhooks/{webhook_id}"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Webhook",
+    };
+  }
+
+  rpc testWebhook (TestWebhook) returns (TestWebhook.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/webhooks/{webhook_id}/test"
+        since { major: 2, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Test Webhook",
+    };
+  }
+}
+
+// Webhook status enumeration
+enum WebhookStatus {
+  ACTIVE = 1;     // Webhook is active and receiving events
+  DISABLED = 2;   // Webhook is disabled and not receiving events
+}
+
+// Webhook entity types
+enum WebhookEntity {
+  ENTITY_UNSPECIFIED = 0;      // Default/unknown entity
+  REGISTERED_MODEL = 1;        // Registered model entity
+  MODEL_VERSION = 2;           // Model version entity
+  MODEL_VERSION_TAG = 3;       // Model version tag entity
+  MODEL_VERSION_ALIAS = 4;     // Model version alias entity
+  PROMPT = 5;                  // Prompt entity
+  PROMPT_VERSION = 6;          // Prompt version entity
+  PROMPT_TAG = 7;              // Prompt tag entity
+  PROMPT_VERSION_TAG = 8;      // Prompt version tag entity
+  PROMPT_ALIAS = 9;            // Prompt alias entity
+}
+
+// Webhook action types
+enum WebhookAction {
+  ACTION_UNSPECIFIED = 0;  // Default/unknown action
+  CREATED = 1;             // Entity was created
+  UPDATED = 2;             // Entity was updated
+  DELETED = 3;             // Entity was deleted
+  SET = 4;                 // Entity was set (e.g., tag set)
+}
+
+// Webhook event definition
+message WebhookEvent {
+  // Entity type (required)
+  optional WebhookEntity entity = 1 [(validate_required) = true];
+  
+  // Action type (required)
+  optional WebhookAction action = 2 [(validate_required) = true];
+}
+
+// Webhook entity
+message Webhook {
+  // Unique identifier for the webhook
+  optional string webhook_id = 1;
+
+  // Name of the webhook
+  optional string name = 2;
+
+  // Optional description for the webhook
+  optional string description = 3;
+
+  // URL to send webhook events to
+  optional string url = 4;
+
+  // List of events this webhook is subscribed to
+  repeated WebhookEvent events = 5;
+
+  // Current status of the webhook
+  optional WebhookStatus status = 6;
+
+  // Timestamp when webhook was created
+  optional int64 creation_timestamp = 7;
+
+  // Timestamp when webhook was last updated
+  optional int64 last_updated_timestamp = 8;
+}
+
+// Test webhook result
+message WebhookTestResult {
+  // Whether the test succeeded
+  optional bool success = 1;
+
+  // HTTP response status code if available
+  optional int32 response_status = 2;
+
+  // Response body if available
+  optional string response_body = 3;
+
+  // Error message if test failed
+  optional string error_message = 4;
+}
+
+// Create webhook request
+message CreateWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the webhook
+  optional string name = 1 [(validate_required) = true];
+
+  // Optional description for the webhook
+  optional string description = 2;
+
+  // URL to send webhook events to
+  optional string url = 3 [(validate_required) = true];
+
+  // List of events to subscribe to
+  repeated WebhookEvent events = 4 [(validate_required) = true];
+
+  // Secret key for HMAC signature verification
+  optional string secret = 5;
+
+  // Initial status (defaults to ACTIVE if not specified)
+  optional WebhookStatus status = 6;
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+// List webhooks request
+message ListWebhooks {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Maximum number of webhooks to return
+  optional int32 max_results = 1 [default = 100];
+
+  // Pagination token from previous request
+  optional string page_token = 2;
+
+  message Response {
+    // List of webhooks
+    repeated Webhook webhooks = 1;
+
+    // Pagination token for next page
+    optional string next_page_token = 2;
+  }
+}
+
+// Get webhook request
+message GetWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the webhook to retrieve
+  optional string webhook_id = 1 [(validate_required) = true];
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+// Update webhook request
+message UpdateWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the webhook to update
+  optional string webhook_id = 1 [(validate_required) = true];
+
+  // New name for the webhook
+  optional string name = 2;
+
+  // New description for the webhook
+  optional string description = 3;
+
+  // New URL for the webhook
+  optional string url = 4;
+
+  // New list of events to subscribe to
+  repeated WebhookEvent events = 5;
+
+  // New secret key for HMAC signature
+  optional string secret = 6;
+
+  // New status for the webhook
+  optional WebhookStatus status = 7;
+
+  message Response {
+    optional Webhook webhook = 1;
+  }
+}
+
+// Delete webhook request
+message DeleteWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the webhook to delete
+  optional string webhook_id = 1 [(validate_required) = true];
+
+  message Response {
+    // Empty response
+  }
+}
+
+// Test webhook request
+message TestWebhook {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the webhook to test
+  optional string webhook_id = 1 [(validate_required) = true];
+
+  // Optional event type to test. If not specified, defaults to the first event type
+  // in the webhook's subscribed events.
+  optional WebhookEvent event = 2;
+
+  message Response {
+    optional WebhookTestResult result = 1;
+  }
+}

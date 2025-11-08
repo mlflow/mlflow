@@ -8,7 +8,7 @@ import type {
 } from '../components/RunsMetricsLinePlot';
 import { compact, isNumber, isString, isUndefined, orderBy, throttle, uniq } from 'lodash';
 import type { LegendLabelData } from '../components/RunsMetricsLegend';
-import { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
+import type { RunsChartsLineChartXAxisType } from '../components/RunsCharts.common';
 
 // Plotly-specific selectors for finding particular elements of interest in the plot DOM structure
 const PLOTLY_SVG_SELECTOR = '.main-svg';
@@ -43,7 +43,7 @@ export const useRunsMultipleTracesTooltipData = ({
   containsMultipleMetricKeys,
   xAxisKeyLabel,
   xAxisKey,
-  disabled,
+  disabled = false,
   setHoveredPointIndex,
   xAxisScaleType = 'linear',
   positionInSection = 0,
@@ -52,7 +52,7 @@ export const useRunsMultipleTracesTooltipData = ({
   legendLabelData: LegendLabelData[];
   containsMultipleMetricKeys?: boolean;
   xAxisKeyLabel: string;
-  disabled: boolean;
+  disabled?: boolean;
   xAxisKey: RunsChartsLineChartXAxisType;
   setHoveredPointIndex: (value: number) => void;
   xAxisScaleType?: 'linear' | 'log';

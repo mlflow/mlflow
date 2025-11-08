@@ -3,7 +3,7 @@ import { fulfilled, pending } from '../../common/utils/ActionUtils';
 import { AsyncRejectedAction } from '../../redux-types';
 import { GET_EVALUATION_TABLE_ARTIFACT, GetEvaluationTableArtifactAction, UPLOAD_ARTIFACT_API } from '../actions';
 import { WRITE_BACK_EVALUATION_ARTIFACTS } from '../actions/PromptEngineeringActions';
-import { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
+import type { EvaluationArtifactTable, EvaluationArtifactTableEntry } from '../types';
 import { evaluationDataReducer } from './EvaluationDataReducer';
 
 describe('evaluationDataReducer', () => {

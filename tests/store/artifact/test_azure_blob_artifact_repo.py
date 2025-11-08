@@ -54,11 +54,11 @@ def test_artifact_uri_factory(mock_client, monkeypatch):
     assert isinstance(repo, AzureBlobArtifactRepository)
 
 
-@mock.patch("azure.identity.DefaultAzureCredential")
-def test_default_az_cred_if_no_env_vars(mock_default_azure_credential, mock_client):
+def test_default_az_cred_if_no_env_vars(mock_client):
     # We pass in the mock_client here to clear Azure environment variables, but we don't use it
-    AzureBlobArtifactRepository(TEST_URI)
-    assert mock_default_azure_credential.call_count == 1
+    with mock.patch("azure.identity.DefaultAzureCredential") as mock_default_azure_credential:
+        AzureBlobArtifactRepository(TEST_URI)
+        assert mock_default_azure_credential.call_count == 1
 
 
 def test_parse_global_wasbs_uri():
@@ -122,13 +122,13 @@ def test_parse_cn_wasbs_uri():
 
 
 def test_list_artifacts_empty(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
     assert repo.list_artifacts() == []
 
 
 def test_list_artifacts_single_file(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Evaluate single file
     blob_props = BlobProperties()
@@ -140,7 +140,7 @@ def test_list_artifacts_single_file(mock_client):
 @pytest.mark.parametrize("root_path", ["some/path", "some/path/"])
 def test_list_artifacts(mock_client, root_path):
     repo = AzureBlobArtifactRepository(
-        posixpath.join(TEST_BLOB_CONTAINER_ROOT, root_path), mock_client
+        posixpath.join(TEST_BLOB_CONTAINER_ROOT, root_path), client=mock_client
     )
 
     # Create some files to return
@@ -166,7 +166,7 @@ def test_list_artifacts(mock_client, root_path):
 
 
 def test_log_artifact(mock_client, tmp_path):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     d = tmp_path.joinpath("data")
     d.mkdir()
@@ -184,7 +184,7 @@ def test_log_artifact(mock_client, tmp_path):
 
 
 def test_log_artifacts(mock_client, tmp_path):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     parentd = tmp_path.joinpath("data")
     parentd.mkdir()
@@ -221,7 +221,7 @@ def test_log_artifacts(mock_client, tmp_path):
 
 
 def test_download_file_artifact(mock_client, tmp_path):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     mock_client.get_container_client().walk_blobs.return_value = MockBlobList([])
 
@@ -243,7 +243,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
     mock_client, tmp_path
 ):
     assert TEST_URI is not TEST_BLOB_CONTAINER_ROOT
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     file_path_1 = "file_1"
     file_path_2 = "file_2"
@@ -289,7 +289,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_not_blob_con
 def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_container_root(
     mock_client, tmp_path
 ):
-    repo = AzureBlobArtifactRepository(TEST_BLOB_CONTAINER_ROOT, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_BLOB_CONTAINER_ROOT, client=mock_client)
 
     subdir_path = "my_directory"
     dir_prefix = BlobPrefix()
@@ -340,7 +340,7 @@ def test_download_directory_artifact_succeeds_when_artifact_root_is_blob_contain
 def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_artifact_root_prefix(
     mock_client,
 ):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Create a "bad blob" with a name that is not prefixed by the root path of the artifact store
     bad_blob_props = BlobProperties()
@@ -372,7 +372,7 @@ def test_download_artifact_throws_value_error_when_listed_blobs_do_not_contain_a
 
 
 def test_create_multipart_upload(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     mock_client.url = "some-url"
     mock_client.account_name = "some-account"
@@ -387,7 +387,7 @@ def test_create_multipart_upload(mock_client):
 
 
 def test_complete_multipart_upload(mock_client, tmp_path):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     parts = [
         MultipartUploadPart(1, "", "some-url?comp=block&blockid=YQ%3D%3D%3D%3D"),
@@ -399,7 +399,7 @@ def test_complete_multipart_upload(mock_client, tmp_path):
 
 
 def test_trace_data(mock_client, tmp_path):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
     with pytest.raises(MlflowException, match=r"Trace data not found for path="):
         repo.download_trace_data()
     trace_data_path = tmp_path.joinpath("traces.json")
@@ -423,7 +423,7 @@ def test_trace_data(mock_client, tmp_path):
 
 
 def test_delete_artifacts_single_file(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return a single file
     blob_props = BlobProperties()
@@ -436,7 +436,7 @@ def test_delete_artifacts_single_file(mock_client):
 
 
 def test_delete_artifacts_directory(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return multiple files in a directory
     blob_props_1 = BlobProperties()
@@ -452,7 +452,7 @@ def test_delete_artifacts_directory(mock_client):
 
 
 def test_delete_artifacts_nonexistent_path(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return an empty list
     mock_client.get_container_client().list_blobs.return_value = []
@@ -462,7 +462,7 @@ def test_delete_artifacts_nonexistent_path(mock_client):
 
 
 def test_delete_artifacts_failure(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return a single file
     blob_props = BlobProperties()
@@ -479,7 +479,7 @@ def test_delete_artifacts_failure(mock_client):
 
 
 def test_delete_artifacts_folder(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return multiple files in a folder
     blob_props_1 = BlobProperties()
@@ -495,7 +495,7 @@ def test_delete_artifacts_folder(mock_client):
 
 
 def test_delete_artifacts_folder_with_nested_folders_and_files(mock_client):
-    repo = AzureBlobArtifactRepository(TEST_URI, mock_client)
+    repo = AzureBlobArtifactRepository(TEST_URI, client=mock_client)
 
     # Mock the list_blobs method to return multiple files in a folder with nested folders and files
     blob_props_1 = BlobProperties()

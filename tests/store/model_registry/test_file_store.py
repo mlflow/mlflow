@@ -5,20 +5,24 @@ from unittest import mock
 
 import pytest
 
+import mlflow
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
     RegisteredModelTag,
 )
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
+from mlflow.pyfunc import PythonModel
 from mlflow.store.model_registry.file_store import FileStore
-from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.yaml_utils import write_yaml
 
 from tests.helper_functions import random_int, random_str
 
@@ -56,11 +60,16 @@ def rm_data(registered_model_names, tmp_path):
     return rm_data
 
 
+def test_file_store_deprecation_warning(tmp_path):
+    with pytest.warns(FutureWarning, match="Filesystem model registry backend.*is deprecated"):
+        FileStore(str(tmp_path / "model_registry"))
+
+
 def test_create_registered_model(store):
     # Error cases
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.create_registered_model(None)
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.create_registered_model("")
 
     name = random_str()
@@ -123,7 +132,7 @@ def test_list_registered_model(store, registered_model_names, rm_data):
 def test_rename_registered_model(store, registered_model_names):
     # Error cases
     model_name = registered_model_names[0]
-    with pytest.raises(MlflowException, match=r"Registered model name cannot be empty\."):
+    with pytest.raises(MlflowException, match=r"Missing value for required parameter 'name'\."):
         store.rename_registered_model(model_name, None)
 
     # test that names of existing registered models are checked before renaming
@@ -358,10 +367,10 @@ def test_set_registered_model_tag(store):
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+    long_tag = RegisteredModelTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=("'value' exceeds the maximum length of 5000 characters"),
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -376,7 +385,7 @@ def test_set_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'\."
     ) as exception_context:
         store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -424,7 +433,7 @@ def test_delete_registered_model_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'\."
     ) as exception_context:
         store.delete_registered_model_tag(None, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1392,10 +1401,10 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(name1, 2, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+    long_tag = ModelVersionTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match="'value' exceeds the maximum length of 5000 characters",
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1410,12 +1419,13 @@ def test_set_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'\."
     ) as exception_context:
         store.set_model_version_tag(None, 1, ModelVersionTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException,
+        match=r"Parameter 'version' must be an integer, got 'I am not a version'.",
     ) as exception_context:
         store.set_model_version_tag(
             name2, "I am not a version", ModelVersionTag(key="key", value="value")
@@ -1473,12 +1483,12 @@ def test_delete_model_version_tag(store):
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # can not use invalid model name or version
     with pytest.raises(
-        MlflowException, match=r"Registered model name cannot be empty"
+        MlflowException, match=r"Missing value for required parameter 'name'\."
     ) as exception_context:
         store.delete_model_version_tag(None, 2, "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     with pytest.raises(
-        MlflowException, match=r"Model version must be an integer"
+        MlflowException, match=r"Parameter 'version' must be an integer, got 'I am not a version'\."
     ) as exception_context:
         store.delete_model_version_tag(name1, "I am not a version", "key")
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1553,9 +1563,11 @@ def test_pyfunc_model_registry_with_file_store(store):
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model1")
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model2")
-        mlflow.pyfunc.log_model("model", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model2")
+        mlflow.pyfunc.log_model(
+            name="model", python_model=MyModel(), registered_model_name="model1"
+        )
 
     with mlflow.start_run():
         mlflow.log_param("A", "B")
@@ -1641,3 +1653,250 @@ def test_writing_model_version_preserves_storage_location(store):
         store._fetch_file_model_version_if_exists("test_storage_location_new", 1).storage_location
         == source
     )
+
+
+def test_search_prompts(store):
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
+
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_registered_model(
+        "prompt_2",
+        tags=[
+            RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            RegisteredModelTag(key="fruit", value="apple"),
+        ],
+    )
+
+    # By default, should not return prompts
+    rms = store.search_registered_models(max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
+    assert len(rms) == 0
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "model"
+
+    # Search for prompts
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(rms) == 2
+    assert {rm.name for rm in rms} == {"prompt_1", "prompt_2"}
+
+    rms = store.search_registered_models(
+        filter_string="name = 'prompt_1' and tags.`mlflow.prompt.is_prompt` = 'true'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_1"
+
+    rms = store.search_registered_models(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(rms) == 1
+    assert rms[0].name == "prompt_2"
+
+
+def test_search_prompts_versions(store):
+    # A Model
+    store.create_registered_model("model")
+    store.create_model_version(
+        "model", "1", "dummy_source", tags=[ModelVersionTag(key="fruit", value="apple")]
+    )
+
+    # A Prompt with 1 version
+    store.create_registered_model(
+        "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+    store.create_model_version(
+        "prompt_1", "1", "dummy_source", tags=[ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true")]
+    )
+
+    # A Prompt with 2 versions
+    store.create_registered_model(
+        "prompt_2",
+        tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "1",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="apple"),
+        ],
+    )
+    store.create_model_version(
+        "prompt_2",
+        "2",
+        "dummy_source",
+        tags=[
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key="fruit", value="orange"),
+        ],
+    )
+
+    # Searching model versions should not return prompts by default either
+    mvs = store.search_model_versions(max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'false'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` != 'true'", max_results=10
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "model"
+
+    # Search for prompts via search_model_versions
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true'", max_results=10
+    )
+    assert len(mvs) == 3
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and name = 'prompt_2'",
+        max_results=10,
+    )
+    assert len(mvs) == 2
+
+    mvs = store.search_model_versions(
+        filter_string="tags.`mlflow.prompt.is_prompt` = 'true' and tags.fruit = 'apple'",
+        max_results=10,
+    )
+    assert len(mvs) == 1
+    assert mvs[0].name == "prompt_2"
+
+
+def test_create_registered_model_handle_prompt_properly(store):
+    prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+
+    store.create_registered_model("model")
+
+    store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(MlflowException, match=r"Registered Model \(name=model\) already exists"):
+        store.create_registered_model("model")
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt\) already exists"):
+        store.create_registered_model("prompt", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a prompt with name 'model', "
+        r"but the name is already taken by a registered model.",
+    ):
+        store.create_registered_model("model", tags=prompt_tags)
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Tried to create a registered model with name 'prompt', "
+        r"but the name is already taken by a prompt.",
+    ):
+        store.create_registered_model("prompt")
+
+
+def test_create_model_version_with_model_id_and_no_run_id(store: FileStore):
+    class SimpleModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    name = "test_model_with_model_id"
+    store.create_registered_model(name)
+
+    with mlflow.start_run() as run:
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=SimpleModel(),
+        )
+        run_id = run.info.run_id
+        model_id = model_info.model_id
+
+    mv = store.create_model_version(
+        name=name,
+        source="/absolute/path/to/source",
+        run_id=None,
+        model_id=model_id,
+    )
+
+    assert mv.run_id == run_id
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+
+
+def test_update_model_version_with_model_id_and_metrics(store: FileStore):
+    class SimpleModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return model_input
+
+    name = "test_model_with_model_id_and_metrics"
+    store.create_registered_model(name)
+
+    with mlflow.start_run() as run:
+        mlflow.log_param("learning_rate", "0.001")
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=SimpleModel(),
+        )
+        mlflow.log_metric("execution_time", 33.74682, step=0, model_id=model_info.model_id)
+        run_id = run.info.run_id
+        model_id = model_info.model_id
+
+    mv = store.create_model_version(
+        name=name,
+        source="/absolute/path/to/source",
+        run_id=None,
+        model_id=model_id,
+    )
+
+    assert mv.run_id == run_id
+
+    mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert mvd.run_id == run_id
+    assert mvd.metrics is not None
+    assert len(mvd.metrics) == 1
+    assert mvd.metrics[0].key == "execution_time"
+    assert mvd.metrics[0].value == 33.74682
+    assert mvd.params == {"learning_rate": "0.001"}
+
+    updated_mvd = store.update_model_version(
+        name=mv.name,
+        version=mv.version,
+        description="Test description with metrics",
+    )
+    assert updated_mvd.description == "Test description with metrics"
+
+    retrieved_mvd = store.get_model_version(name=mv.name, version=mv.version)
+    assert retrieved_mvd.description == "Test description with metrics"
+    assert retrieved_mvd.metrics is not None
+    assert len(retrieved_mvd.metrics) == 1
+    assert retrieved_mvd.metrics[0].key == "execution_time"
+    assert retrieved_mvd.params == {"learning_rate": "0.001"}

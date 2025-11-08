@@ -53,8 +53,10 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         addressing_style=None,
         s3_endpoint_url=None,
         s3_upload_extra_args=None,
+        tracking_uri=None,
+        registry_uri: str | None = None,
     ):
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri=tracking_uri, registry_uri=registry_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -135,8 +137,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if parsed.scheme != "s3":
             raise Exception(f"Not an S3 URI: {uri}")
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return parsed.netloc, path
 
     @staticmethod
@@ -275,6 +276,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if path:
             dest_path = posixpath.join(dest_path, path)
         infos = []
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
@@ -287,8 +289,7 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
                     listed_object_path=subdir_path, artifact_path=artifact_path
                 )
                 subdir_rel_path = posixpath.relpath(path=subdir_path, start=artifact_path)
-                if subdir_rel_path.endswith("/"):
-                    subdir_rel_path = subdir_rel_path[:-1]
+                subdir_rel_path = subdir_rel_path.removesuffix("/")
                 infos.append(FileInfo(subdir_rel_path, True, None))
             # Objects listed directly will be files
             for obj in result.get("Contents", []):
@@ -339,13 +340,17 @@ class OptimizedS3ArtifactRepository(CloudArtifactRepository):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         s3_client = self._get_s3_client()
-        list_objects = s3_client.list_objects(Bucket=self.bucket, Prefix=dest_path).get(
-            "Contents", []
-        )
-        for to_delete_obj in list_objects:
-            file_path = to_delete_obj.get("Key")
-            self._verify_listed_object_contains_artifact_path_prefix(
-                listed_object_path=file_path, artifact_path=dest_path
-            )
-            s3_client.delete_object(Bucket=self.bucket, Key=file_path)
+        paginator = s3_client.get_paginator("list_objects_v2")
+        results = paginator.paginate(Bucket=self.bucket, Prefix=dest_path)
+        for result in results:
+            keys = []
+            for to_delete_obj in result.get("Contents", []):
+                file_path = to_delete_obj.get("Key")
+                self._verify_listed_object_contains_artifact_path_prefix(
+                    listed_object_path=file_path, artifact_path=dest_path
+                )
+                keys.append({"Key": file_path})
+            if keys:
+                s3_client.delete_objects(Bucket=self.bucket, Delete={"Objects": keys})

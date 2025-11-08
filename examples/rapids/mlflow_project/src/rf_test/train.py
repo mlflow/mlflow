@@ -43,7 +43,9 @@ def _train(params, fpath, hyperopt=False):
         dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run).
     """
     max_depth, max_features, n_estimators = params
-    max_depth, max_features, n_estimators = (int(max_depth), float(max_features), int(n_estimators))
+    max_depth = int(max_depth)
+    max_features = float(max_features)
+    n_estimators = int(n_estimators)
 
     X_train, X_test, y_train, y_test = load_data(fpath)
 
@@ -67,7 +69,7 @@ def _train(params, fpath, hyperopt=False):
     predictions = mod.predict(X_train)
     signature = infer_signature(X_train, predictions)
 
-    mlflow.sklearn.log_model(mod, "saved_models", signature=signature)
+    mlflow.sklearn.log_model(mod, name="saved_models", signature=signature)
 
     if not hyperopt:
         return mod
@@ -123,7 +125,7 @@ if __name__ == "__main__":
 
         mlflow.sklearn.log_model(
             final_model,
-            artifact_path=artifact_path,
+            name=artifact_path,
             registered_model_name="rapids_mlflow_cli",
             conda_env="envs/conda.yaml",
         )

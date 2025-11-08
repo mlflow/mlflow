@@ -1,19 +1,18 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { compact, isEmpty, isEqual, isNumber, maxBy, minBy } from 'lodash';
-import { Config, Dash, Data as PlotlyData, Datum, Layout, LayoutAxis, TypedArray } from 'plotly.js';
-import { Figure } from 'react-plotly.js';
+import { isEmpty, isEqual, isNumber, maxBy, minBy } from 'lodash';
+import type { Config, Dash, Data as PlotlyData, Layout, LayoutAxis } from 'plotly.js';
+import { type Figure } from 'react-plotly.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
-import { MetricEntity } from '../../../types';
+import type { MetricEntity } from '../../../types';
 import { LazyPlot } from '../../LazyPlot';
 import { useMutableChartHoverCallback } from '../hooks/useMutableHoverCallback';
 import { highlightLineTraces, useRenderRunsChartTraceHighlight } from '../hooks/useRunsChartTraceHighlight';
+import type { RunsChartsRunData, RunsPlotsCommonProps } from './RunsCharts.common';
 import {
   commonRunsChartStyles,
-  RunsChartsRunData,
   runsChartDefaultMargin,
   runsChartHoverlabel,
-  RunsPlotsCommonProps,
   createThemedPlotlyLayout,
   normalizeChartValue,
   useDynamicPlotSize,
@@ -27,9 +26,6 @@ import {
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import {
-  shouldEnableDeepLearningUIPhase3,
-  shouldEnableManualRangeControls,
-  shouldEnableChartsOriginalLinesWhenSmoothing,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -43,6 +39,7 @@ import {
 import { type RunsChartsLineChartExpression, RunsChartsLineChartYAxisType } from '../runs-charts.types';
 import { useChartExpressionParser } from '../hooks/useChartExpressionParser';
 import { getExpressionChartsSortedMetricHistory } from '../utils/expressionCharts.utils';
+import { RunsChartCardLoadingPlaceholder } from './cards/ChartCard.common';
 
 export type LineChartTraceData = PlotlyData & {
   x?: number[] | undefined;
@@ -396,7 +393,7 @@ const PLOT_CONFIG: Partial<Config> = {
   modeBarButtonsToRemove: ['toImage'],
 };
 
-export const createTooltipTemplate = (runName: string) =>
+const createTooltipTemplate = (runName: string) =>
   `<b>${runName}</b>:<br>` +
   '<b>%{xaxis.title.text}:</b> %{x}<br>' +
   '<b>%{yaxis.title.text}:</b> %{y:.2f}<br>' +
@@ -518,8 +515,6 @@ export const RunsMetricsLinePlot = React.memo(
     positionInSection = 0,
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
-    const usingMultipleRunsHoverTooltip = shouldEnableDeepLearningUIPhase3();
-    const usingManualRangeControls = shouldEnableManualRangeControls();
     const { evaluateExpression } = useChartExpressionParser();
 
     const dynamicXAxisKey = useMemo(() => {
@@ -552,18 +547,15 @@ export const RunsMetricsLinePlot = React.memo(
 
     const getTraceAndOriginalTrace = (props: any) => {
       const dataTrace = getDataTraceForRun(props);
-      if (shouldEnableChartsOriginalLinesWhenSmoothing()) {
-        const originalLineProps = {
-          ...props,
-          lineSmoothness: 0,
-          useDefaultHoverBox: false,
-          displayPoints: false,
-          displayOriginalLine: true,
-        };
-        const originalDataTrace = getDataTraceForRun(originalLineProps);
-        return [dataTrace, originalDataTrace];
-      }
-      return [dataTrace];
+      const originalLineProps = {
+        ...props,
+        lineSmoothness: 0,
+        useDefaultHoverBox: false,
+        displayPoints: false,
+        displayOriginalLine: true,
+      };
+      const originalDataTrace = getDataTraceForRun(originalLineProps);
+      return [dataTrace, originalDataTrace];
     };
 
     const plotData = useMemo(() => {
@@ -674,40 +666,25 @@ export const RunsMetricsLinePlot = React.memo(
     }, [formatMessage, dynamicXAxisKey, selectedXAxisMetricKey]);
 
     const yAxisParams: Partial<LayoutAxis> = useMemo(() => {
-      if (usingManualRangeControls) {
-        return {
-          tickfont: { size: 11, color: theme.colors.textSecondary },
-          type: scaleType === 'log' ? 'log' : 'linear',
-          fixedrange: lockXAxisZoom,
-          range: yRange,
-          autorange: yRange === undefined,
-          tickformat: 'f',
-        };
-      } else {
-        return {
-          tickfont: { size: 11, color: theme.colors.textSecondary },
-          type: scaleType === 'log' ? 'log' : 'linear',
-          fixedrange: lockXAxisZoom,
-        };
-      }
-    }, [scaleType, lockXAxisZoom, theme, yRange, usingManualRangeControls]);
+      return {
+        tickfont: { size: 11, color: theme.colors.textSecondary },
+        type: scaleType === 'log' ? 'log' : 'linear',
+        fixedrange: lockXAxisZoom,
+        range: yRange,
+        autorange: yRange === undefined,
+        tickformat: 'f',
+      };
+    }, [scaleType, lockXAxisZoom, theme, yRange]);
 
     const xAxisParams: Partial<LayoutAxis> = useMemo(() => {
-      if (usingManualRangeControls) {
-        return {
-          title: xAxisKeyLabel,
-          tickfont: { size: 11, color: theme.colors.textSecondary },
-          range: xRange,
-          autorange: xRange === undefined,
-          type: xAxisPlotlyType,
-        };
-      } else {
-        return {
-          title: xAxisKeyLabel,
-          tickfont: { size: 11, color: theme.colors.textSecondary },
-        };
-      }
-    }, [theme, xAxisKeyLabel, xRange, xAxisPlotlyType, usingManualRangeControls]);
+      return {
+        title: xAxisKeyLabel,
+        tickfont: { size: 11, color: theme.colors.textSecondary },
+        range: xRange,
+        autorange: xRange === undefined,
+        type: xAxisPlotlyType,
+      };
+    }, [theme, xAxisKeyLabel, xRange, xAxisPlotlyType]);
 
     const [layout, setLayout] = useState<Partial<Layout>>({
       width: width || layoutWidth,
@@ -726,62 +703,18 @@ export const RunsMetricsLinePlot = React.memo(
           height: height || layoutHeight,
           margin,
           yaxis: yAxisParams,
+          xaxis: { ...current.xaxis, ...xAxisParams },
           showlegend: false,
         };
-        if (usingManualRangeControls) {
-          updatedLayout.xaxis = xAxisParams;
-        }
+
         if (isEqual(updatedLayout, current)) {
           return current;
         }
         return updatedLayout;
       });
-    }, [
-      layoutWidth,
-      layoutHeight,
-      margin,
-      xAxisParams,
-      yAxisParams,
-      width,
-      height,
-      xAxisKeyLabel,
-      usingManualRangeControls,
-    ]);
+    }, [layoutWidth, layoutHeight, margin, xAxisParams, yAxisParams, width, height, xAxisKeyLabel]);
 
     const containsMultipleMetricKeys = useMemo(() => (selectedMetricKeys?.length || 0) > 1, [selectedMetricKeys]);
-
-    const hoverCallback = useCallback(
-      ({ points, event }) => {
-        const hoveredPoint = points[0];
-        const hoveredPointData = hoveredPoint?.data;
-        setHoveredPointIndex(hoveredPoint?.curveNumber ?? -1);
-
-        if (!hoveredPointData) {
-          return;
-        }
-        const runUuid = hoveredPointData.uuid;
-
-        // Extract metric entity
-        const metricEntity = hoveredPointData.metricHistory?.[hoveredPoint.pointIndex];
-
-        const data: RunsMetricsSingleTraceTooltipData = {
-          // Value of the "x" axis (time, step)
-          xValue: hoveredPoint.x,
-          // Value of the "y" axis
-          yValue: hoveredPoint.y,
-          // Metric entity value
-          metricEntity,
-          // The index of the X datum
-          index: hoveredPoint.pointIndex,
-          // Current label ("Step", "Time" etc.)
-          label: xAxisKeyLabel,
-        };
-        if (runUuid) {
-          onHover?.(runUuid, event, data);
-        }
-      },
-      [onHover, setHoveredPointIndex, xAxisKeyLabel],
-    );
 
     const unhoverCallback = useCallback(() => {
       onUnhover?.();
@@ -789,29 +722,6 @@ export const RunsMetricsLinePlot = React.memo(
     }, [onUnhover, setHoveredPointIndex]);
 
     const themedPlotlyLayout = useMemo(() => createThemedPlotlyLayout(theme), [theme]);
-
-    const getXAxisRange = (
-      xAxisKey: RunsChartsLineChartXAxisType,
-      xRange: [number | string, number | string],
-      xAxisScaleType: 'linear' | 'log',
-    ) => {
-      if (
-        xAxisKey === RunsChartsLineChartXAxisType.STEP &&
-        typeof xRange[0] === 'number' &&
-        typeof xRange[1] === 'number'
-      ) {
-        if (xAxisScaleType === 'log') {
-          if (xRange[0] < 0 && xRange[1] < 0) {
-            // If both are negative, autoscale
-            return undefined;
-          } else if (xRange[0] < 0) {
-            // If only the lower bound is negative, set it to 0
-            return [0, xRange[1]];
-          }
-        }
-      }
-      return [...xRange];
-    };
 
     // When switching axis title, Plotly.js mutates its layout object
     // internally which leads to desync problems and automatic axis range
@@ -826,9 +736,7 @@ export const RunsMetricsLinePlot = React.memo(
       immediateLayout.xaxis.title = xAxisKeyLabel;
       immediateLayout.xaxis.type = xAxisPlotlyType;
       if (xRange) {
-        immediateLayout.xaxis.range = usingManualRangeControls
-          ? xRange
-          : getXAxisRange(xAxisKey, xRange, xAxisScaleType);
+        immediateLayout.xaxis.range = xRange;
       }
       immediateLayout.xaxis.automargin = true;
       immediateLayout.xaxis.tickformat =
@@ -866,7 +774,6 @@ export const RunsMetricsLinePlot = React.memo(
       xAxisKey: dynamicXAxisKey,
       xAxisScaleType: xAxisKey === RunsChartsLineChartXAxisType.STEP ? xAxisScaleType : 'linear',
       setHoveredPointIndex,
-      disabled: !usingMultipleRunsHoverTooltip,
       positionInSection,
     });
 
@@ -875,9 +782,7 @@ export const RunsMetricsLinePlot = React.memo(
      * so in order to achieve updated behavior we need to wrap its most recent implementation
      * in the immutable callback.
      */
-    const mutableHoverCallback = useMutableChartHoverCallback(
-      usingMultipleRunsHoverTooltip ? hoverCallbackMultipleRuns : hoverCallback,
-    );
+    const mutableHoverCallback = useMutableChartHoverCallback(hoverCallbackMultipleRuns);
 
     // Prepare data for image download handler
     useEffect(() => {
@@ -916,16 +821,15 @@ export const RunsMetricsLinePlot = React.memo(
           useResizeHandler={!isDynamicSizeSupported}
           css={commonRunsChartStyles.chart(theme)}
           onUpdate={(figure: Readonly<Figure>, graphDiv: Readonly<HTMLElement>) => {
-            if (usingMultipleRunsHoverTooltip) {
-              updateHandlerMultipleRuns(figure, graphDiv);
-            }
+            updateHandlerMultipleRuns(figure, graphDiv);
             onUpdate?.(figure, graphDiv);
           }}
           layout={immediateLayout}
           config={PLOT_CONFIG}
           onHover={mutableHoverCallback}
-          onUnhover={usingMultipleRunsHoverTooltip ? unhoverCallbackMultipleRuns : unhoverCallback}
+          onUnhover={unhoverCallbackMultipleRuns}
           onInitialized={initHandler}
+          fallback={<RunsChartCardLoadingPlaceholder />}
         />
         {scanlineElement}
       </div>

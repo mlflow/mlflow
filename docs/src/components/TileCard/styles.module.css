@@ -1,0 +1,79 @@
+.tileCard {
+  background: var(--ifm-background-color);
+  border: 1px solid var(--ifm-border-color);
+  border-radius: 12px;
+  padding: 2rem;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  opacity: 0.7;
+}
+
+.tileCard:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ifm-shadow-tile-hover);
+  border-color: #0194e2;
+  opacity: 1;
+}
+
+.tileCard:hover .tileIcon {
+  transform: scale(1.1);
+}
+
+.tileIcon {
+  margin-bottom: 1rem;
+  transition: transform 0.3s ease;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  color: #0194e2;
+}
+
+.tileCard h3 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  color: var(--ifm-color-emphasis-hover);
+}
+
+.tileCard p {
+  color: var(--ifm-border-color);
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.tileLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #0194e2;
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.tileLink:hover {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.tileImage {
+  max-width: 100%;
+  max-height: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+/* Add subtle background for X logo for better contrast */
+.tileCard[href*='x.com'] .tileImage {
+  background: rgba(128, 128, 128, 0.1);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+/* Dark mode specific styling for X logo */
+[data-theme='dark'] .tileCard[href*='x.com'] .tileImage {
+  background: rgba(255, 255, 255, 0.08);
+}

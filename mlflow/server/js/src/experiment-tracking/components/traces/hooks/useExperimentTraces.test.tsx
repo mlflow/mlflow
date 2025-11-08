@@ -3,7 +3,7 @@ import { useExperimentTraces } from './useExperimentTraces';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { first, last } from 'lodash';
-import { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 
 const testExperimentId = 'some-experiment-id';
 const testExperimentIds = [testExperimentId];

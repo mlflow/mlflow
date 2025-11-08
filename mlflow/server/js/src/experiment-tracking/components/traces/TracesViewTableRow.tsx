@@ -1,8 +1,10 @@
 import React from 'react';
-import { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
-import { Row, flexRender } from '@tanstack/react-table';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
+import type { Row } from '@tanstack/react-table';
+import { flexRender } from '@tanstack/react-table';
 import { useDesignSystemTheme } from '@databricks/design-system';
-import { TracesColumnDef, getColumnSizeClassName } from './TracesViewTable.utils';
+import type { TracesColumnDef } from './TracesViewTable.utils';
+import { getColumnSizeClassName } from './TracesViewTable.utils';
 import { TRACE_TABLE_CHECKBOX_COLUMN_ID } from './TracesView.utils';
 import { isEqual } from 'lodash';
 
@@ -29,6 +31,8 @@ export const TracesViewTableRow = React.memo(
           ':hover': {
             backgroundColor: 'var(--table-row-hover)',
           },
+          paddingRight: '32px', // width of the column selector defined in TableRowActionStyles
+          borderBottom: `1px solid var(--table-separator-color)`,
         }}
       >
         {row.getAllCells().map((cell) => {
@@ -44,7 +48,6 @@ export const TracesViewTableRow = React.memo(
                   '--table-row-vertical-padding': `${theme.spacing.sm}px`,
                   flex: `calc(var(${getColumnSizeClassName(cell.column.id)}) / 100)`,
                   overflow: 'hidden',
-                  borderBottom: `1px solid var(--table-separator-color)`,
                   whiteSpace: multiline ? 'pre-wrap' : 'nowrap',
                   textOverflow: multiline ? 'ellipsis' : undefined,
                   padding,

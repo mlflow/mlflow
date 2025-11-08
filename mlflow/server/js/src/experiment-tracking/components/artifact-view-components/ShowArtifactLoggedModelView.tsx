@@ -18,22 +18,27 @@ import {
   CustomPyfuncModelsDocUrl,
 } from '../../../common/constants';
 import { Typography } from '@databricks/design-system';
-import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
+import type { IntlShape } from 'react-intl';
+import { FormattedMessage, injectIntl } from 'react-intl';
 
 import './ShowArtifactLoggedModelView.css';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { ShowArtifactCodeSnippet } from './ShowArtifactCodeSnippet';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import type { KeyValueEntity } from '../../../common/types';
 
 const { Paragraph, Text, Title } = Typography;
 
 type OwnProps = {
+  experimentId: string;
   runUuid: string;
   path: string;
   getArtifact?: (...args: any[]) => any;
   artifactRootUri: string;
   registeredModelLink?: string;
   intl: IntlShape;
+  entityTags?: Partial<KeyValueEntity>[];
 };
 
 type State = any;
@@ -175,12 +180,13 @@ export class ShowArtifactLoggedModelViewImpl extends Component<Props, State> {
     );
   }
 
-  validateModelPredictText(modelPath: any) {
+  validateModelPredict(modelPath: any) {
     if (this.state.hasInputExample) {
       return `import mlflow
+from mlflow.models import Model
 
 model_uri = '${modelPath}'
-# This is the input example logged with the model
+# The model is logged with an input example
 pyfunc_model = mlflow.pyfunc.load_model(model_uri)
 input_data = pyfunc_model.input_example
 
@@ -318,7 +324,7 @@ mlflow.models.predict(
     );
   }
 
-  renderValidateModelPredict(modelPath: any) {
+  renderModelPredict(modelPath: any) {
     return (
       <div css={{ marginBottom: 16 }}>
         <Text>
@@ -327,12 +333,12 @@ mlflow.models.predict(
             description="Section heading to display the code block on how we can validate a model locally prior to serving"
           />
         </Text>
-        <ShowArtifactCodeSnippet code={this.validateModelPredictText(modelPath)} />
+        <ShowArtifactCodeSnippet code={this.validateModelPredict(modelPath)} />
       </div>
     );
   }
 
-  renderValidateServingInputCodeSnippet() {
+  renderModelPredictCodeSnippet() {
     const { runUuid, path } = this.props;
     const modelPath = `runs:/${runUuid}/${path}`;
     return (
@@ -344,7 +350,7 @@ mlflow.models.predict(
             description="Heading text for validating the model before deploying it for serving"
           />
         </Title>
-        <div className="artifact-logged-model-view-code-content">{this.renderValidateModelPredict(modelPath)}</div>
+        <div className="artifact-logged-model-view-code-content">{this.renderModelPredict(modelPath)}</div>
       </>
     );
   }
@@ -366,8 +372,8 @@ mlflow.models.predict(
       );
     } else {
       return (
-        <div className="ShowArtifactPage">
-          <div className="show-artifact-logged-model-view">
+        <div className="mlflow-ShowArtifactPage">
+          <div className="mlflow-show-artifact-logged-model-view">
             <div
               className="artifact-logged-model-view-header"
               style={{ marginTop: 16, marginBottom: 16, marginLeft: 16 }}
@@ -431,7 +437,7 @@ mlflow.models.predict(
               className="artifact-logged-model-view-code-group"
               style={{ width: '50%', marginRight: 16, float: 'right' }}
             >
-              {this.renderValidateServingInputCodeSnippet()}
+              {this.renderModelPredictCodeSnippet()}
               {this.state.flavor === 'pyfunc' ? this.renderPyfuncCodeSnippet() : this.renderNonPyfuncCodeSnippet()}
             </div>
           </div>
@@ -442,9 +448,18 @@ mlflow.models.predict(
 
   /** Fetches artifacts and updates component state with the result */
   fetchLoggedModelMetadata() {
-    const modelFileLocation = getArtifactLocationUrl(`${this.props.path}/${MLMODEL_FILE_NAME}`, this.props.runUuid);
-    this.props
-      .getArtifact(modelFileLocation)
+    const MLModelArtifactPath = `${this.props.path}/${MLMODEL_FILE_NAME}`;
+    const { getArtifact, path, runUuid, experimentId, entityTags } = this.props;
+
+    fetchArtifactUnified(
+      {
+        path: MLModelArtifactPath,
+        runUuid,
+        experimentId,
+        entityTags,
+      },
+      getArtifact,
+    )
       .then((response: any) => {
         const parsedJson = yaml.load(response);
         if (parsedJson.signature) {

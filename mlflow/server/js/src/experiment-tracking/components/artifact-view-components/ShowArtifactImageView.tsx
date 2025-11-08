@@ -13,7 +13,8 @@ import {
   getLoggedModelArtifactLocationUrl,
 } from '../../../common/utils/ArtifactUtils';
 import { ImagePreviewGroup, Image } from '../../../shared/building_blocks/Image';
-import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 type Props = {
   runUuid: string;
@@ -22,11 +23,13 @@ type Props = {
 } & LoggedModelArtifactViewerProps;
 
 const ShowArtifactImageView = ({
+  experimentId,
   runUuid,
   path,
   getArtifact = getArtifactBytesContent,
   isLoggedModelsMode,
   loggedModelId,
+  entityTags,
 }: Props) => {
   const [isLoading, setIsLoading] = useState(true);
   const [previewVisible, setPreviewVisible] = useState(false);
@@ -35,20 +38,25 @@ const ShowArtifactImageView = ({
   useEffect(() => {
     setIsLoading(true);
 
-    const artifactLocationUrl =
-      isLoggedModelsMode && loggedModelId
-        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-        : getArtifactLocationUrl(path, runUuid);
-
     // Download image contents using XHR so all necessary
     // HTTP headers will be automatically added
-    getArtifact(artifactLocationUrl).then((result: any) => {
+    fetchArtifactUnified(
+      {
+        runUuid,
+        path,
+        isLoggedModelsMode,
+        loggedModelId,
+        experimentId,
+        entityTags,
+      },
+      getArtifact,
+    ).then((result: any) => {
       const options = path.toLowerCase().endsWith('.svg') ? { type: 'image/svg+xml' } : undefined;
       // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setImageUrl(URL.createObjectURL(new Blob([new Uint8Array(result)], options)));
       setIsLoading(false);
     });
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
   return (
     imageUrl && (

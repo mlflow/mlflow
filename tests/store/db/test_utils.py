@@ -8,15 +8,11 @@ from mlflow.store.db import utils
 
 
 def test_create_sqlalchemy_engine_inject_pool_options(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_SQLALCHEMYSTORE_POOL_SIZE": "2",
-            "MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE": "3600",
-            "MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW": "4",
-            "MLFLOW_SQLALCHEMYSTORE_ECHO": "TRUE",
-            "MLFLOW_SQLALCHEMYSTORE_POOLCLASS": "QueuePool",
-        },
-    )
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_SIZE", "2")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE", "3600")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW", "4")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_ECHO", "TRUE")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "QueuePool")
     with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
         utils.create_sqlalchemy_engine("mydb://host:port/")
         mock_create_engine.assert_called_once_with(
@@ -91,7 +87,10 @@ def test_create_sqlalchemy_engine_with_retry_success_after_third_call():
 
 def test_create_sqlalchemy_engine_with_retry_fail():
     with (
-        mock.patch("sqlalchemy.inspect", side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT),
+        mock.patch(
+            "sqlalchemy.inspect",
+            side_effect=[Exception("failed")] * utils.MAX_RETRY_COUNT,
+        ),
         mock.patch(
             "mlflow.store.db.utils.create_sqlalchemy_engine", return_value="Engine"
         ) as mock_create_sqlalchemy_engine,
@@ -102,4 +101,66 @@ def test_create_sqlalchemy_engine_with_retry_fail():
         assert (
             mock_create_sqlalchemy_engine.mock_calls
             == [mock.call("mydb://host:port/")] * utils.MAX_RETRY_COUNT
+        )
+
+
+def test_mysql_ssl_params(monkeypatch):
+    """Test that MySQL SSL certificate params are correctly passed to create_engine."""
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
+
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mysql+pymysql://user@host:port/db")
+
+        # Check that create_engine was called with the right arguments
+        mock_create_engine.assert_called_once_with(
+            "mysql+pymysql://user@host:port/db",
+            pool_pre_ping=True,
+            connect_args={
+                "ssl_ca": "/path/to/ca.pem",
+                "ssl_cert": "/path/to/cert.pem",
+                "ssl_key": "/path/to/key.pem",
+            },
+            poolclass=NullPool,
+        )
+
+
+def test_mysql_ssl_params_partial(monkeypatch):
+    """Test that MySQL SSL certificate params work with only CA certificate."""
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
+    monkeypatch.delenv("MLFLOW_MYSQL_SSL_CERT", raising=False)
+    monkeypatch.delenv("MLFLOW_MYSQL_SSL_KEY", raising=False)
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
+
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("mysql+pymysql://user@host:port/db")
+
+        # Check that create_engine was called with the right arguments
+        mock_create_engine.assert_called_once_with(
+            "mysql+pymysql://user@host:port/db",
+            pool_pre_ping=True,
+            connect_args={
+                "ssl_ca": "/path/to/ca.pem",
+            },
+            poolclass=NullPool,
+        )
+
+
+def test_non_mysql_no_ssl_params(monkeypatch):
+    """Test that non-MySQL connections don't get SSL params."""
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_CA", "/path/to/ca.pem")
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_CERT", "/path/to/cert.pem")
+    monkeypatch.setenv("MLFLOW_MYSQL_SSL_KEY", "/path/to/key.pem")
+    monkeypatch.setenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", "NullPool")
+
+    with mock.patch("sqlalchemy.create_engine") as mock_create_engine:
+        utils.create_sqlalchemy_engine("postgresql://user@host:port/db")
+
+        # Check that create_engine was called without connect_args
+        mock_create_engine.assert_called_once_with(
+            "postgresql://user@host:port/db",
+            pool_pre_ping=True,
+            poolclass=NullPool,
         )

@@ -1,310 +1,236 @@
-import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react17';
-import { RunInfoEntity, SampledMetricsByRunUuidState } from '../../types';
+import { IntlProvider } from 'react-intl';
+import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
+import { render, screen, cleanup, act, waitFor } from '../../../common/utils/TestUtils.react18';
 import { RunViewMetricCharts } from './RunViewMetricCharts';
-import configureStore from 'redux-mock-store';
-import thunk from 'redux-thunk';
-import promiseMiddleware from 'redux-promise-middleware';
-import { Provider } from 'react-redux';
-import { RunsMetricsLinePlot } from '../runs-charts/components/RunsMetricsLinePlot';
-import { RunsMetricsBarPlot } from '../runs-charts/components/RunsMetricsBarPlot';
-import userEvent from '@testing-library/user-event-14';
-import { RunsChartsLineChartXAxisType, createChartAxisRangeKey } from '../runs-charts/components/RunsCharts.common';
-import { getSampledMetricHistoryBulkAction } from '../../sdk/SampledMetricHistoryService';
-import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
-import { openDropdownMenu } from '@databricks/design-system/test-utils/rtl';
+import { DeepPartial } from 'redux';
+import { ReduxState } from '../../../redux-types';
+import { type RunsChartsBarChartCardProps } from '../runs-charts/components/cards/RunsChartsBarChartCard';
+import type { RunsChartsLineChartCardProps } from '../runs-charts/components/cards/RunsChartsLineChartCard';
+import userEvent from '@testing-library/user-event';
+import type { MetricEntitiesByName } from '../../types';
+import type { KeyValueEntity } from '../../../common/types';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { TestApolloProvider } from '../../../common/utils/TestApolloProvider';
+import { MlflowService } from '../../sdk/MlflowService';
+import { LOG_IMAGE_TAG_INDICATOR } from '../../constants';
 
-jest.mock('../runs-charts/components/RunsMetricsLinePlot', () => ({
-  RunsMetricsLinePlot: jest.fn(() => <div />),
+// Mock plot components, as they are not relevant to this test and would hog a lot of resources
+jest.mock('../runs-charts/components/cards/RunsChartsBarChartCard', () => ({
+  RunsChartsBarChartCard: ({ config }: RunsChartsBarChartCardProps) => (
+    <div data-testid="test-bar-plot">Bar plot for {config.metricKey}</div>
+  ),
 }));
-jest.mock('../runs-charts/components/RunsMetricsBarPlot', () => ({
-  RunsMetricsBarPlot: jest.fn(() => <div />),
+jest.mock('../runs-charts/components/cards/RunsChartsLineChartCard', () => ({
+  RunsChartsLineChartCard: ({ config }: RunsChartsLineChartCardProps) => {
+    return <div data-testid="test-line-plot">Line plot for {config.metricKey}</div>;
+  },
 }));
-jest.mock('../../sdk/SampledMetricHistoryService', () => ({
-  getSampledMetricHistoryBulkAction: jest.fn().mockReturnValue({ type: 'getSampledMetricHistoryBulkAction' }),
-}));
-jest.mock('../../../common/utils/FeatureUtils');
 
-const testRunInfo: RunInfoEntity = {
-  experimentId: 123,
-  runUuid: 'run_1',
-  runName: 'test_run_name',
-} as any;
+// Mock useIsInViewport hook to simulate that the chart element is in the viewport
+jest.mock('../runs-charts/hooks/useIsInViewport', () => ({
+  useIsInViewport: () => ({ isInViewport: true, setElementRef: jest.fn() }),
+}));
 
-const defaultRangeKey = createChartAxisRangeKey();
-const defaultSampledState = {
-  run_1: {
-    met1: { [defaultRangeKey]: { loading: false, metricsHistory: [] } },
-    met2: { [defaultRangeKey]: { loading: false, metricsHistory: [] } },
+const testRunUuid = 'test_run_uuid';
+const testMetricKeys = ['metric_1', 'metric_2', 'system/gpu_1', 'system/gpu_2'];
+
+const testMetrics: MetricEntitiesByName = {
+  metric_1: {
+    key: 'metric_1',
+    step: 0,
+    timestamp: 0,
+    value: 1000,
+  },
+  metric_2: {
+    key: 'metric_2',
+    step: 5,
+    timestamp: 0,
+    value: 2000,
+  },
+  'system/gpu_1': {
+    key: 'system/gpu_1',
+    step: 10,
+    timestamp: 10,
+    value: 2000,
+  },
+  'system/gpu_2': {
+    key: 'system/gpu_1',
+    step: 10,
+    timestamp: 10,
+    value: 2000,
   },
 };
 
 describe('RunViewMetricCharts', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    jest.spyOn(MlflowService, 'listArtifacts').mockImplementation(() => Promise.resolve([]));
+  });
   const renderComponent = ({
-    metricKeys = ['met1', 'met2'],
-    state = defaultSampledState,
+    mode = 'model',
+    metricKeys = testMetricKeys,
+    metrics = testMetrics,
+    tags = {},
   }: {
+    mode?: 'model' | 'system';
     metricKeys?: string[];
-    state?: SampledMetricsByRunUuidState;
-  }) => {
-    const mockStore = configureStore([thunk, promiseMiddleware()]);
-    const MOCK_STATE = {
-      entities: {
-        sampledMetricsByRunUuid: state,
-      },
-    };
-    return renderWithIntl(
-      <Provider store={mockStore(MOCK_STATE)}>
-        <TestApolloProvider>
+    metrics?: MetricEntitiesByName;
+    tags?: Record<string, KeyValueEntity>;
+  } = {}) => {
+    const runInfo = {
+      runUuid: testRunUuid,
+    } as any;
+    return render(
+      <RunViewMetricCharts runInfo={runInfo} metricKeys={metricKeys} mode={mode} latestMetrics={metrics} tags={tags} />,
+      {
+        wrapper: ({ children }) => (
           <DesignSystemProvider>
-            <RunViewMetricCharts mode="model" metricKeys={metricKeys} runInfo={testRunInfo} />
+            <MockedReduxStoreProvider state={{ entities: { sampledMetricsByRunUuid: {}, imagesByRunUuid: {} } }}>
+              <IntlProvider locale="en">{children}</IntlProvider>
+            </MockedReduxStoreProvider>
           </DesignSystemProvider>
-        </TestApolloProvider>
-      </Provider>,
+        ),
+      },
     );
   };
 
-  beforeEach(() => {
-    jest.mocked(RunsMetricsLinePlot).mockClear();
-    jest.mocked(RunsMetricsBarPlot).mockClear();
-    jest.mocked(getSampledMetricHistoryBulkAction).mockClear();
-  });
-  test('Displays chart section for generic metrics and filters out metric keys', async () => {
-    renderComponent({});
-    expect(screen.getByRole('heading', { name: 'met1' })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: 'met2' })).toBeInTheDocument();
+  it('renders bar charts for two model metrics', async () => {
+    renderComponent();
 
-    act(() => screen.getByRole('searchbox').focus());
-    await userEvent.paste('met1');
+    await waitFor(() => {
+      expect(screen.getByText('Bar plot for metric_1')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Line plot for metric_2')).toBeInTheDocument();
 
-    expect(screen.queryByRole('heading', { name: 'met1' })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'met2' })).not.toBeInTheDocument();
+    expect(screen.queryAllByTestId('test-bar-plot')).toHaveLength(1);
+    expect(screen.queryAllByTestId('test-line-plot')).toHaveLength(1);
   });
 
-  test('Properly filters out system metric keys', async () => {
+  it('renders line charts for two system metrics', async () => {
+    renderComponent({ mode: 'system' });
+
+    await waitFor(() => {
+      expect(screen.getByText('Line plot for system/gpu_1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Line plot for system/gpu_2')).toBeInTheDocument();
+
+    expect(screen.queryAllByTestId('test-bar-plot')).toHaveLength(0);
+    expect(screen.queryAllByTestId('test-line-plot')).toHaveLength(2);
+  });
+
+  it('renders no charts when there are no metric keys configured', async () => {
     renderComponent({
-      metricKeys: ['system/metric_1', 'system/metric_2', 'system/metric_3', 'system/alpha', 'system/beta'],
+      mode: 'system',
+      metricKeys: [],
+      metrics: {},
     });
 
-    ['system/metric_1', 'system/metric_2', 'system/metric_3', 'system/alpha', 'system/beta'].forEach((key) => {
-      expect(screen.getByRole('heading', { name: key })).toBeInTheDocument();
-    });
+    await waitFor(() => {
+      expect(screen.queryAllByTestId('test-bar-plot')).toHaveLength(0);
+      expect(screen.queryAllByTestId('test-line-plot')).toHaveLength(0);
 
-    act(() => screen.getByRole('searchbox').focus());
-    await userEvent.paste('metric_2');
-
-    ['system/metric_1', 'system/metric_3', 'system/alpha', 'system/beta'].forEach((key) => {
-      expect(screen.queryByRole('heading', { name: key })).not.toBeInTheDocument();
-    });
-    expect(screen.queryByRole('heading', { name: 'system/metric_2' })).toBeInTheDocument();
-
-    await userEvent.clear(screen.getByRole('searchbox'));
-    act(() => screen.getByRole('searchbox').focus());
-    await userEvent.paste('metric');
-
-    ['system/alpha', 'system/beta'].forEach((key) => {
-      expect(screen.queryByRole('heading', { name: key })).not.toBeInTheDocument();
-    });
-    ['system/metric_1', 'system/metric_2', 'system/metric_3'].forEach((key) => {
-      expect(screen.queryByRole('heading', { name: key })).toBeInTheDocument();
+      expect(screen.getByText('No charts in this section')).toBeInTheDocument();
     });
   });
 
-  test('Fetches missing data for charts', async () => {
+  it('filters metric charts by name (regexp)', async () => {
+    jest.useFakeTimers();
+    const userEventWithTimers = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+
+    renderComponent();
+    expect(screen.getByText('Bar plot for metric_1')).toBeInTheDocument();
+    expect(screen.getByText('Line plot for metric_2')).toBeInTheDocument();
+
+    // Filter out one particular chart using regexp
+    // Note: in RTL, we need to use [[ to represent [
+    await userEventWithTimers.type(screen.getByRole('searchbox'), 'm.tric_[[2]$');
+
+    // Wait for filter input debounce
     act(() => {
-      renderComponent({
-        metricKeys: ['met1', 'system/sysmet1'],
-        state: {},
-      });
+      jest.advanceTimersByTime(300);
     });
 
-    expect(getSampledMetricHistoryBulkAction).toBeCalledWith(['run_1'], 'met1', expect.anything(), undefined);
-    expect(getSampledMetricHistoryBulkAction).toBeCalledWith(['run_1'], 'system/sysmet1', expect.anything(), undefined);
+    expect(screen.queryByText('Line plot for metric_2')).toBeInTheDocument();
+    expect(screen.queryByText('Bar plot for metric_1')).not.toBeInTheDocument();
+
+    jest.useRealTimers();
   });
 
-  test('Renders correct amount and types of charts with necessary props and x-axis', async () => {
-    const singleValueMetric: any = { step: 1, key: 'met_single', value: 123, timestamp: 1 };
-    const modelMetricHistory: any = [
-      { step: 1, key: 'met_history_1', value: 123, timestamp: 1 },
-      { step: 2, key: 'met_history_1', value: 124, timestamp: 2 },
-    ];
-    const systemMetricHistory: any = [
-      { step: 1, key: 'system/met_history_2', value: 123, timestamp: 100 },
-      { step: 2, key: 'system/met_history_2', value: 123, timestamp: 101 },
-    ];
-    const state: SampledMetricsByRunUuidState = {
-      run_1: {
-        met_single: {
-          [defaultRangeKey]: { metricsHistory: [singleValueMetric], loading: false },
-        },
-        met_history_1: {
-          [defaultRangeKey]: { metricsHistory: modelMetricHistory, loading: false },
-        },
-        'system/met_history_2': {
-          [defaultRangeKey]: { metricsHistory: systemMetricHistory, loading: false },
-        },
+  it('adds new charts and sections when new metrics are detected', async () => {
+    renderComponent();
+    // Assert charts for base metrics only
+    await waitFor(() => {
+      expect(screen.getByText('Bar plot for metric_1')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Line plot for metric_2')).toBeInTheDocument();
+    expect(screen.queryByText(/plot for metric_3/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/plot for metric_4/)).not.toBeInTheDocument();
+
+    // Ummount the component
+    cleanup();
+
+    const newMetrics = {
+      ...testMetrics,
+      metric_3: {
+        key: 'metric_3',
+        step: 5,
+        timestamp: 0,
+        value: 1000,
       },
-    };
-    renderComponent({
-      metricKeys: ['met_single', 'met_history_1', 'system/met_history_2'],
-      state,
-    });
-
-    // Expect to render a bar plot for a single value metric
-    expect(RunsMetricsBarPlot).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        metricKey: 'met_single',
-        runsData: [
-          {
-            uuid: 'run_1',
-            displayName: 'test_run_name',
-            color: expect.anything(),
-            metrics: { met_single: singleValueMetric },
-            runInfo: testRunInfo,
-          },
-        ],
-      }),
-      expect.anything(),
-    );
-
-    // Expect to render a line plot for system metric with time-based x-axis
-    expect(RunsMetricsLinePlot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lineSmoothness: 0,
-        metricKey: 'system/met_history_2',
-        runsData: [
-          {
-            uuid: 'run_1',
-            displayName: 'test_run_name',
-            color: expect.anything(),
-            metricsHistory: { 'system/met_history_2': systemMetricHistory },
-            runInfo: testRunInfo,
-          },
-        ],
-        xAxisKey: 'time',
-      }),
-      expect.anything(),
-    );
-
-    // Expect to render a line plot for a model metric with step-based x-axis
-    expect(RunsMetricsLinePlot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        lineSmoothness: 0,
-        metricKey: 'met_history_1',
-        runsData: [
-          {
-            uuid: 'run_1',
-            displayName: 'test_run_name',
-            color: expect.anything(),
-            metricsHistory: { met_history_1: modelMetricHistory },
-            runInfo: testRunInfo,
-          },
-        ],
-        xAxisKey: RunsChartsLineChartXAxisType.STEP,
-      }),
-      expect.anything(),
-    );
-  });
-
-  test('Renders loading and error states where necessary', async () => {
-    const systemMetricHistory: any = [{ step: 1, key: 'system/met_history_2', value: 123, timestamp: 100 }];
-    const state: SampledMetricsByRunUuidState = {
-      run_1: {
-        metric_valid: {
-          [defaultRangeKey]: { metricsHistory: [systemMetricHistory], loading: false },
-        },
-        metric_loading: {
-          [defaultRangeKey]: { metricsHistory: undefined, loading: true },
-        },
-        metric_error: {
-          [defaultRangeKey]: {
-            metricsHistory: undefined,
-            loading: false,
-            error: new ErrorWrapper({ message: 'This is an exception' }),
-          },
-        },
+      metric_4: {
+        key: 'metric_4',
+        step: 0,
+        timestamp: 0,
+        value: 1000,
+      },
+      'custom-prefix/test-metric': {
+        key: 'custom-prefix/test-metric',
+        step: 0,
+        timestamp: 0,
+        value: 1000,
       },
     };
 
     renderComponent({
-      metricKeys: ['metric_valid', 'metric_loading', 'metric_error'],
-      state,
+      metrics: newMetrics,
     });
 
-    expect(RunsMetricsBarPlot).toHaveBeenCalledWith(
-      expect.not.objectContaining({ metricKey: 'metric_loading' }),
-      expect.anything(),
-    );
-    expect(RunsMetricsBarPlot).toHaveBeenCalledWith(
-      expect.not.objectContaining({ metricKey: 'metric_error' }),
-      expect.anything(),
-    );
+    // Assert new charts
+    await waitFor(() => {
+      expect(screen.getByText('Line plot for metric_3')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Bar plot for metric_4')).toBeInTheDocument();
+    expect(screen.getByText('Bar plot for custom-prefix/test-metric')).toBeInTheDocument();
 
-    expect(screen.getByText('Error while fetching chart data')).toBeInTheDocument();
-    expect(screen.getByText('This is an exception')).toBeInTheDocument();
+    // Assert new section
+    expect(screen.getByText('custom-prefix')).toBeInTheDocument();
   });
 
-  test('Changes order of metric charts', async () => {
+  it('adds should not call for image artifacts when `mlflow.loggedImages` tag is not set', async () => {
+    renderComponent();
+
+    await waitFor(() => {
+      expect(screen.getByText('Model metrics')).toBeInTheDocument();
+    });
+
+    expect(MlflowService.listArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('adds should call for image artifacts when `mlflow.loggedImages` tag is set', async () => {
     renderComponent({
-      metricKeys: ['system/sysmet1', 'system/sysmet2', 'system/sysmet3'],
-      state: {
-        run_1: {
-          'system/sysmet1': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
-          'system/sysmet2': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
-          'system/sysmet3': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
+      tags: {
+        [LOG_IMAGE_TAG_INDICATOR]: {
+          key: LOG_IMAGE_TAG_INDICATOR,
+          value: 'true',
         },
       },
     });
 
-    const firstMetricHeading = screen.getByRole('heading', { name: 'system/sysmet1' });
-    const firstChartArea = firstMetricHeading.closest('[role="figure"]') as HTMLElement;
-
-    const dropdownTrigger = within(firstChartArea).getByRole('button', { name: 'Chart options' });
-
-    await act(async () => {
-      await openDropdownMenu(dropdownTrigger);
+    await waitFor(() => {
+      expect(screen.getByText('Model metrics')).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Move up')).toHaveAttribute('aria-disabled', 'true');
-    expect(screen.getByText('Move down')).not.toHaveAttribute('aria-disabled');
-    await userEvent.click(screen.getByText('Move down'));
-
-    const chartHeadings = screen
-      .getAllByRole('figure')
-      .map((chartArea) => within(chartArea).getByRole('heading').textContent);
-
-    expect(chartHeadings).toEqual(['system/sysmet2', 'system/sysmet1', 'system/sysmet3']);
-  });
-
-  test('Refreshes the data for visible charts', async () => {
-    renderComponent({
-      metricKeys: ['system/sysmet1', 'system/sysmet2', 'system/sysmet3'],
-      state: {
-        run_1: {
-          'system/sysmet1': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
-          'system/sysmet2': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
-          'system/sysmet3': {
-            [defaultRangeKey]: { loading: false, metricsHistory: [] },
-          },
-        },
-      },
-    });
-
-    expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledTimes(3);
-
-    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-
-    expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledTimes(6);
+    expect(MlflowService.listArtifacts).toHaveBeenCalledWith({ path: 'images', run_uuid: 'test_run_uuid' });
   });
 });

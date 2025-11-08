@@ -1,13 +1,6 @@
 import {
   Button,
-  ColumnsIcon,
-  DialogCombobox,
-  DialogComboboxContent,
-  DialogComboboxOptionList,
-  DialogComboboxOptionListCheckboxItem,
-  DialogComboboxOptionListSearch,
-  DialogComboboxTrigger,
-  InfoIcon,
+  InfoSmallIcon,
   Input,
   Popover,
   SearchIcon,
@@ -15,11 +8,10 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
-import { ExperimentViewTracesTableColumnLabels } from './TracesView.utils';
-import { entries } from 'lodash';
 import { TracesViewControlsActions } from './TracesViewControlsActions';
+import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
 
 const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
   const { theme } = useDesignSystemTheme();
@@ -34,7 +26,7 @@ const InputTooltip = ({ baseComponentId }: { baseComponentId: string }) => {
           size="small"
           type="link"
           icon={
-            <InfoIcon
+            <InfoSmallIcon
               css={{
                 svg: { width: 16, height: 16, color: theme.colors.textSecondary },
               }}
@@ -67,44 +59,38 @@ export const TracesViewControls = ({
   experimentIds,
   filter,
   onChangeFilter,
-  hiddenColumns = [],
-  disabledColumns = [],
-  toggleHiddenColumn,
   rowSelection,
   setRowSelection,
   refreshTraces,
   baseComponentId,
+  runUuid,
+  traces,
 }: {
   experimentIds: string[];
   filter: string;
   onChangeFilter: (newFilter: string) => void;
-  hiddenColumns?: string[];
-  disabledColumns?: string[];
-  toggleHiddenColumn: (columnId: string) => void;
   rowSelection: { [id: string]: boolean };
   setRowSelection: (newSelection: { [id: string]: boolean }) => void;
   refreshTraces: () => void;
   baseComponentId: string;
+  runUuid?: string;
+  traces: ModelTraceInfoWithRunName[];
 }) => {
   const intl = useIntl();
+  const { theme } = useDesignSystemTheme();
 
   // Internal filter value state, used to control the input value
   const [filterValue, setFilterValue] = useState<string | undefined>(filter || undefined);
-
-  const allColumnsList = useMemo(() => {
-    return entries(ExperimentViewTracesTableColumnLabels)
-      .map(([key, label]) => ({
-        key,
-        label: intl.formatMessage(label),
-      }))
-      .filter(({ key }) => !disabledColumns.includes(key));
-  }, [intl, disabledColumns]);
+  const [isEvaluateTracesModalOpen, setEvaluateTracesModalOpen] = useState(false);
 
   const displayedFilterValue = filterValue ?? filter;
 
-  const showActionButtons = Object.values(rowSelection).filter(Boolean).length > 0;
+  const selectedRequestIds = Object.entries(rowSelection)
+    .filter(([, isSelected]) => isSelected)
+    .map(([id]) => id);
+  const showActionButtons = selectedRequestIds.length > 0;
 
-  return showActionButtons ? (
+  const searchOrDeleteControls = showActionButtons ? (
     <TracesViewControlsActions
       experimentIds={experimentIds}
       rowSelection={rowSelection}
@@ -138,41 +124,13 @@ export const TracesViewControls = ({
           }
         }}
       />
-      <DialogCombobox
-        componentId={`${baseComponentId}.traces_table.column_selector`}
-        label={
-          <div css={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <ColumnsIcon />
-            <FormattedMessage
-              defaultMessage="Columns"
-              description="Experiment page > traces table > column selector > title"
-            />
-          </div>
-        }
-      >
-        <DialogComboboxTrigger
-          aria-label={intl.formatMessage({
-            defaultMessage: 'Columns',
-            description: 'Experiment page > traces table > column selector > title',
-          })}
-        />
-        <DialogComboboxContent>
-          <DialogComboboxOptionList>
-            <DialogComboboxOptionListSearch>
-              {allColumnsList.map(({ key, label }) => (
-                <DialogComboboxOptionListCheckboxItem
-                  key={key}
-                  value={key}
-                  checked={!hiddenColumns.includes(key)}
-                  onChange={() => toggleHiddenColumn(key)}
-                >
-                  {label}
-                </DialogComboboxOptionListCheckboxItem>
-              ))}
-            </DialogComboboxOptionListSearch>
-          </DialogComboboxOptionList>
-        </DialogComboboxContent>
-      </DialogCombobox>
     </TableFilterLayout>
+  );
+
+  return (
+    <div css={{ display: 'flex', gap: theme.spacing.xs }}>
+      {/* Search and delete controls */}
+      {searchOrDeleteControls}
+    </div>
   );
 };

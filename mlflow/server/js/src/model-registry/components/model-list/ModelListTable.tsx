@@ -10,20 +10,23 @@ import {
   TableSkeletonRows,
   WarningIcon,
 } from '@databricks/design-system';
-import { Interpolation, Theme } from '@emotion/react';
-import { ColumnDef, flexRender, getCoreRowModel, SortingState, useReactTable } from '@tanstack/react-table';
+import type { Interpolation, Theme } from '@emotion/react';
+import type { ColumnDef, SortingState } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { ModelListTagsCell, ModelListVersionLinkCell } from './ModelTableCellRenderers';
 import { RegisteringModelDocUrl } from '../../../common/constants';
 import Utils from '../../../common/utils/Utils';
-import type { KeyValueEntity, ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { ModelEntity, ModelVersionInfoEntity } from '../../../experiment-tracking/types';
+import type { KeyValueEntity } from '../../../common/types';
 import { Stages } from '../../constants';
 import { ModelRegistryRoutes } from '../../routes';
 import { CreateModelButton } from '../CreateModelButton';
 import { ModelsTableAliasedVersionsCell } from '../aliases/ModelsTableAliasedVersionsCell';
 import { useNextModelsUIContext } from '../../hooks/useNextModelsUI';
+import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 
 const getLatestVersionNumberByStage = (latestVersions: ModelVersionInfoEntity[], stage: string) => {
   const modelVersion = latestVersions && latestVersions.find((v) => v.current_stage === stage);
@@ -187,7 +190,7 @@ export const ModelListTable = ({
           description: 'Column title for last modified timestamp for a model in the registered model page',
         }),
         accessorKey: 'last_updated_timestamp',
-        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue())}</span>,
+        cell: ({ getValue }) => <span>{Utils.formatTimestamp(getValue(), intl)}</span>,
         meta: { styles: { flex: 1, maxWidth: 150 } },
       },
       {
@@ -205,11 +208,7 @@ export const ModelListTable = ({
     );
 
     return columns;
-  }, [
-    // prettier-ignore
-    intl,
-    usingNextModelsUI,
-  ]);
+  }, [intl, usingNextModelsUI]);
 
   const sorting: SortingState = [{ id: orderByKey, desc: !orderByAsc }];
 
@@ -234,7 +233,7 @@ export const ModelListTable = ({
   const emptyComponent = error ? (
     <Empty
       image={<WarningIcon />}
-      description={error.message}
+      description={error instanceof ErrorWrapper ? error.getMessageField() : error.message}
       title={
         <FormattedMessage
           defaultMessage="Error fetching models"

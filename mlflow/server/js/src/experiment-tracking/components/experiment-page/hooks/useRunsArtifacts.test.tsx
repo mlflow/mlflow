@@ -1,6 +1,6 @@
 import { listArtifactsApi } from '../../../actions';
 import { useRunsArtifacts } from './useRunsArtifacts';
-import { ArtifactListFilesResponse } from '../../../types';
+import type { ArtifactListFilesResponse } from '../../../types';
 import { renderHook, cleanup, waitFor } from '@testing-library/react';
 
 const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
@@ -27,7 +27,7 @@ const mockArtifactsData: Record<string, ArtifactListFilesResponse> = {
 };
 
 jest.mock('../../../actions', () => ({
-  ...jest.requireActual('../../../actions'),
+  ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
   listArtifactsApi: jest.fn((runUuid: string) => {
     return {
       payload: mockArtifactsData[runUuid],

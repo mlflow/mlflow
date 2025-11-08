@@ -11,7 +11,9 @@ from mlflow.tracing.display import (
     get_notebook_iframe_html,
 )
 
-from tests.tracing.helper import create_trace
+from tests.tracing.helper import create_trace, skip_module_when_testing_trace_sdk
+
+skip_module_when_testing_trace_sdk()
 
 
 class MockEventRegistry:
@@ -116,16 +118,6 @@ def test_display_is_called_in_correct_functions(monkeypatch):
     mock_ipython.mock_run_cell()
     assert mock_display.call_count == 1
 
-    class MockMlflowClient:
-        def search_traces(self, *args, **kwargs):
-            return [create_trace("a"), create_trace("b"), create_trace("c")]
-
-    monkeypatch.setattr("mlflow.tracing.fluent.MlflowClient", MockMlflowClient)
-    mlflow.search_traces(["123"])
-    mock_ipython.mock_run_cell()
-
-    assert mock_display.call_count == 2
-
 
 @in_databricks
 def test_display_deduplicates_traces(monkeypatch):
@@ -167,7 +159,7 @@ def test_display_respects_max_limit(monkeypatch):
     mock_display = Mock()
     monkeypatch.setattr("IPython.display.display", mock_display)
 
-    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", 1)
+    monkeypatch.setenv("MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", "1")
 
     trace_a = create_trace("a")
     trace_b = create_trace("b")

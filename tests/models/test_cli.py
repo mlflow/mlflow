@@ -5,6 +5,8 @@ import shutil
 import subprocess
 import sys
 import warnings
+from dataclasses import dataclass
+from io import BytesIO, StringIO
 from pathlib import Path
 from unittest import mock
 
@@ -31,7 +33,7 @@ from mlflow.pyfunc.scoring_server import (
     CONTENT_TYPE_CSV,
     CONTENT_TYPE_JSON,
 )
-from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
+from mlflow.store.artifact.models_artifact_repo import ModelsArtifactRepository
 from mlflow.utils import PYTHON_VERSION
 from mlflow.utils import env_manager as _EnvManager
 from mlflow.utils.conda import _get_conda_env_name
@@ -60,15 +62,14 @@ no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
 install_mlflow = ["--install-mlflow"] if not no_conda else []
 
 extra_options = no_conda + install_mlflow
-gunicorn_options = "--timeout 60 -w 5"
 
 
-def env_with_tracking_uri():
+def env_with_tracking_uri() -> dict[str, str]:
     return {**os.environ, "MLFLOW_TRACKING_URI": mlflow.get_tracking_uri()}
 
 
 @pytest.fixture(scope="module")
-def iris_data():
+def iris_data() -> tuple[np.ndarray, np.ndarray]:
     iris = sklearn.datasets.load_iris()
     x = iris.data[:, :2]
     y = iris.target
@@ -76,7 +77,7 @@ def iris_data():
 
 
 @pytest.fixture(scope="module")
-def sk_model(iris_data):
+def sk_model(iris_data: tuple[np.ndarray, np.ndarray]) -> sklearn.neighbors.KNeighborsClassifier:
     x, y = iris_data
     knn_model = sklearn.neighbors.KNeighborsClassifier()
     knn_model.fit(x, y)
@@ -142,23 +143,19 @@ def test_model_with_no_deployable_flavors_fails_pollitely():
         assert "No suitable flavor backend was found for the model." in prc.stderr
 
 
-def test_serve_gunicorn_opts(iris_data, sk_model):
+def test_serve_uvicorn_opts(iris_data, sk_model):
     if sys.platform == "win32":
         pytest.skip("This test requires gunicorn which is not available on windows.")
-    with mlflow.start_run() as active_run:
+    with mlflow.start_run():
         x, _ = iris_data
-        mlflow.sklearn.log_model(
-            sk_model, "model", registered_model_name="imlegit", input_example=pd.DataFrame(x)
+        model_info = mlflow.sklearn.log_model(
+            sk_model, name="model", registered_model_name="test", input_example=pd.DataFrame(x)
         )
-        run_id = active_run.info.run_id
 
-    model_uris = [
-        "models:/{name}/{stage}".format(name="imlegit", stage="None"),
-        f"runs:/{run_id}/model",
-    ]
+    model_uris = ["models:/test/None", model_info.model_uri]
     for model_uri in model_uris:
         with TempDir() as tpm:
-            output_file_path = tpm.path("stoudt")
+            output_file_path = tpm.path("stdout")
             inference_payload = load_serving_example(model_uri)
             with open(output_file_path, "w") as output_file:
                 scoring_response = pyfunc_serve_and_score_model(
@@ -166,198 +163,227 @@ def test_serve_gunicorn_opts(iris_data, sk_model):
                     inference_payload,
                     content_type=CONTENT_TYPE_JSON,
                     stdout=output_file,
-                    extra_args=["-w", "3"],
+                    extra_args=["-w", "3", "--env-manager", "local"],
                 )
             with open(output_file_path) as output_file:
                 stdout = output_file.read()
-        actual = pd.read_json(scoring_response.content.decode("utf-8"), orient="records")
+        actual = pd.read_json(BytesIO(scoring_response.content), orient="records")
         actual = actual[actual.columns[0]].values
         expected = sk_model.predict(x)
         assert all(expected == actual)
         expected_command_pattern = re.compile(
-            "gunicorn.*-w 3.*mlflow.pyfunc.scoring_server.wsgi:app"
+            r"uvicorn.*--workers 3.*mlflow\.pyfunc\.scoring_server\.app:app"
         )
         assert expected_command_pattern.search(stdout) is not None
 
 
-def test_predict(iris_data, sk_model):
-    with TempDir(chdr=True) as tmp:
-        with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
-            model_uri = f"runs:/{active_run.info.run_id}/model"
-        model_registry_uri = "models:/impredicting/None"
-        input_json_path = tmp.path("input.json")
-        input_csv_path = tmp.path("input.csv")
-        output_json_path = tmp.path("output.json")
-        x, _ = iris_data
-        with open(input_json_path, "w") as f:
-            json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+@dataclass
+class PredictTestData:
+    model_uri: str
+    model_registry_uri: str
+    input_json_path: Path
+    input_csv_path: Path
+    output_json_path: Path
+    x: np.ndarray
+    sk_model: sklearn.base.BaseEstimator
 
-        pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-        # Test with no conda & model registry URI
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_registry_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "--env-manager",
-                "local",
-            ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+@pytest.fixture
+def predict_test_setup(
+    iris_data: tuple[np.ndarray, np.ndarray],
+    sk_model: sklearn.neighbors.KNeighborsClassifier,
+    tmp_path: Path,
+) -> PredictTestData:
+    with mlflow.start_run() as active_run:
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        model_uri = f"runs:/{active_run.info.run_id}/model"
 
-        # With conda + --install-mlflow
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+    model_registry_uri = "models:/impredicting/None"
+    input_json_path = tmp_path / "input.json"
+    input_csv_path = tmp_path / "input.csv"
+    output_json_path = tmp_path / "output.json"
 
-        # explicit json format with default orient (should be split)
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
+    x, _ = iris_data
+    with open(input_json_path, "w") as f:
+        json.dump({"dataframe_split": pd.DataFrame(x).to_dict(orient="split")}, f)
+    pd.DataFrame(x).to_csv(input_csv_path, index=False)
 
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+    return PredictTestData(
+        model_uri=model_uri,
+        model_registry_uri=model_registry_uri,
+        input_json_path=input_json_path,
+        input_csv_path=input_csv_path,
+        output_json_path=output_json_path,
+        x=x,
+        sk_model=sk_model,
+    )
 
-        # explicit json format with orient==split
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_json_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
 
-        # read from stdin, write to stdout.
-        prc = subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-t",
-                "json",
-                *extra_options,
-            ],
-            input=Path(input_json_path).read_text(),
-            stdout=subprocess.PIPE,
-            env=env_with_tracking_uri(),
-            text=True,
-            check=True,
-        )
-        predictions = re.search(r"{\"predictions\": .*}", prc.stdout).group(0)
-        actual = pd.read_json(predictions, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+def test_predict_with_model_registry_uri(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_registry_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "--env-manager",
+            "local",
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
 
-        # NB: We do not test orient=records here because records may loose column ordering.
-        # orient == records is tested in other test with simpler model.
 
-        # csv
-        subprocess.run(
-            [
-                sys.executable,
-                "-m",
-                "mlflow",
-                "models",
-                "predict",
-                "-m",
-                model_uri,
-                "-i",
-                input_csv_path,
-                "-o",
-                output_json_path,
-                "-t",
-                "csv",
-                *extra_options,
-            ],
-            env=env_with_tracking_uri(),
-            check=True,
-        )
-        actual = pd.read_json(output_json_path, orient="records")
-        actual = actual[actual.columns[0]].values
-        expected = sk_model.predict(x)
-        assert all(expected == actual)
+def test_predict_with_conda_and_install_mlflow(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_explicit_json_format_default_orient(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_explicit_json_format_split_orient(predict_test_setup: PredictTestData) -> None:
+    # Note: This test has the same command as the previous one but tests orient==split
+    # The comment in original code mentions this should be split orient
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_json_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+
+
+def test_predict_stdin_stdout(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    stdout = subprocess.check_output(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-t",
+            "json",
+            *extra_options,
+        ],
+        input=setup.input_json_path.read_text(),
+        env=env_with_tracking_uri(),
+        text=True,
+    )
+    predictions = re.search(r"{\"predictions\": .*}", stdout).group(0)
+    actual = pd.read_json(StringIO(predictions), orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
+    # NB: We do not test orient=records here because records may loose column ordering.
+    # orient == records is tested in other test with simpler model.
+
+
+def test_predict_csv_format(predict_test_setup: PredictTestData) -> None:
+    setup = predict_test_setup
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "models",
+            "predict",
+            "-m",
+            setup.model_uri,
+            "-i",
+            setup.input_csv_path,
+            "-o",
+            setup.output_json_path,
+            "-t",
+            "csv",
+            *extra_options,
+        ],
+        env=env_with_tracking_uri(),
+    )
+    actual = pd.read_json(setup.output_json_path, orient="records")
+    actual = actual[actual.columns[0]].values
+    expected = setup.sk_model.predict(setup.x)
+    assert all(expected == actual)
 
 
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -399,7 +425,7 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input with space.json"
     input_csv_path = tmp_path / "input.csv"
@@ -494,7 +520,7 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, "model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -538,7 +564,7 @@ def test_prepare_env_passes(sk_model):
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda
@@ -579,7 +605,7 @@ def test_prepare_env_fails(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(
-                sk_model, "model", pip_requirements=["does-not-exist-dep==abc"]
+                sk_model, name="model", pip_requirements=["does-not-exist-dep==abc"]
             )
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
@@ -605,10 +631,10 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model")
+            mlflow.sklearn.log_model(sk_model, name="model")
         model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
@@ -633,10 +659,10 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
@@ -659,7 +685,7 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sk_model, "model", extra_pip_requirements=["/opt/mlflow"]
+            sk_model, name="model", extra_pip_requirements=["/opt/mlflow"]
         )
 
     x, _ = iris_data
@@ -681,10 +707,10 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, "model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
             )
         else:
-            mlflow.sklearn.log_model(sk_model, "model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)
@@ -699,9 +725,7 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
         env=env_with_tracking_uri(),
     )
     host_port = get_safe_port()
-    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
-        image_name, host_port, gunicorn_options
-    )
+    scoring_proc = pyfunc_serve_from_docker_image_with_env_override(image_name, host_port)
     _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enable_mlserver)
 
 
@@ -713,7 +737,6 @@ def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
         image_name,
         host_port,
-        gunicorn_options,
         extra_docker_run_options=["-v", f"{model_path}:/opt/ml/model"],
     )
     x = iris_data[0]
@@ -725,9 +748,9 @@ def _validate_with_rest_endpoint(scoring_proc, host_port, df, x, sk_model, enabl
     with RestEndpoint(proc=scoring_proc, port=host_port, validate_version=False) as endpoint:
         for content_type in [CONTENT_TYPE_JSON, CONTENT_TYPE_CSV]:
             scoring_response = endpoint.invoke(df, content_type)
-            assert (
-                scoring_response.status_code == 200
-            ), f"Failed to serve prediction, got response {scoring_response.text}"
+            assert scoring_response.status_code == 200, (
+                f"Failed to serve prediction, got response {scoring_response.text}"
+            )
             np.testing.assert_array_equal(
                 np.array(json.loads(scoring_response.text)["predictions"]), sk_model.predict(x)
             )
@@ -790,7 +813,7 @@ def test_host_invalid_value():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), registered_model_name="model"
+            name="test_model", python_model=MyModel(), registered_model_name="model"
         )
 
     with mock.patch(
@@ -871,7 +894,7 @@ def test_signature_enforcement_with_model_serving(input_schema, output_schema, p
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), signature=signature
+            name="test_model", python_model=MyModel(), signature=signature
         )
 
     inference_payload = json.dumps({"inputs": ["test"]})
@@ -902,9 +925,9 @@ def assert_base_model_reqs():
             return ["test"]
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_info.model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_info.model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     requirements_txt_file = local_paths.requirements
@@ -932,7 +955,7 @@ def test_update_requirements_cli_adds_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -958,7 +981,7 @@ def test_update_requirements_cli_removes_reqs_successfully():
         catch_exceptions=False,
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone
@@ -990,7 +1013,7 @@ def test_update_model_requirements_add():
         model_uri, "add", ["mlflow>=2.9, !=2.9.0", "coolpackage[extra]==8.8.8"]
     )
 
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should overwrite mlflow, add coolpackage, and leave cloudpickle alone
@@ -1011,7 +1034,7 @@ def test_update_model_requirements_remove():
     model_uri = assert_base_model_reqs()
 
     update_model_requirements(model_uri, "remove", ["mlflow"])
-    resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
     local_paths = get_model_requirements_files(resolved_uri)
 
     # the tool should remove mlflow and leave cloudpickle alone

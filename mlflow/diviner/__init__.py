@@ -20,7 +20,8 @@ import logging
 import os
 import pathlib
 import shutil
-from typing import Any, Optional
+import warnings
+from typing import Any
 
 import pandas as pd
 import yaml
@@ -71,6 +72,12 @@ _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "diviner flavor is deprecated and will be removed in a future release",
+    FutureWarning,
+    stacklevel=2,
+)
 
 
 def get_default_pip_requirements():
@@ -353,7 +360,7 @@ def _load_pyfunc(path):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     diviner_model,
-    artifact_path,
+    artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -363,17 +370,22 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
     **kwargs,
 ):
     """Log a ``Diviner`` object as an MLflow artifact for the current run.
 
     Args:
         diviner_model: ``Diviner`` model that has been ``fit`` on a grouped temporal ``DataFrame``.
-        artifact_path: Run-relative artifact path to save the model instance to.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: :py:class:`Model Signature <mlflow.models.ModelSignature>` describes model
@@ -407,6 +419,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
             Additionally, for models that have been fit in Spark, the following supported
             configuration options are available to set.
@@ -423,9 +441,9 @@ def log_model(
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         metadata of the logged model.
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.diviner,
         registered_model_name=registered_model_name,
         diviner_model=diviner_model,
@@ -437,6 +455,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -451,7 +474,7 @@ class _DivinerModelWrapper:
         """
         return self.diviner_model
 
-    def predict(self, dataframe, params: Optional[dict[str, Any]] = None) -> pd.DataFrame:
+    def predict(self, dataframe, params: dict[str, Any] | None = None) -> pd.DataFrame:
         """A method that allows a pyfunc implementation of this flavor to generate forecasted values
         from the end of a trained Diviner model's training series per group.
 

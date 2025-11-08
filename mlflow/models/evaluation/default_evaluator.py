@@ -7,9 +7,8 @@ import pickle
 import shutil
 import tempfile
 import traceback
-import warnings
 from abc import abstractmethod
-from typing import Any, Callable, NamedTuple, Optional, Union
+from typing import Any, Callable, NamedTuple, Optional
 
 import numpy as np
 import pandas as pd
@@ -49,9 +48,11 @@ def _extract_raw_model(model):
     # If we load a model with mlflow.pyfunc.load_model, the model will be wrapped
     # with a pyfunc wrapper. We need to extract the raw model so that shap
     # explainer uses the raw model instead of the wrapper and skips data schema validation.
-    if model_loader_module in ["mlflow.sklearn", "mlflow.xgboost"] and not isinstance(
-        model, _ServedPyFuncModel
-    ):
+    if model_loader_module in [
+        "mlflow.catboost",
+        "mlflow.sklearn",
+        "mlflow.xgboost",
+    ] and not isinstance(model, _ServedPyFuncModel):
         if hasattr(model._model_impl, "get_raw_model"):
             return model_loader_module, model._model_impl.get_raw_model()
         return model_loader_module, model._model_impl
@@ -59,7 +60,93 @@ def _extract_raw_model(model):
         return model_loader_module, None
 
 
-def _extract_predict_fn(model: Any) -> Optional[Callable]:
+def _extract_output_and_other_columns(
+    model_predictions: list[Any] | dict[str, Any] | pd.DataFrame | pd.Series,
+    output_column_name: str | None,
+) -> tuple[pd.Series, pd.DataFrame | None, str]:
+    y_pred = None
+    other_output_columns = None
+    ERROR_MISSING_OUTPUT_COLUMN_NAME = (
+        "Output column name is not specified for the multi-output model. "
+        "Please set the correct output column name using the `predictions` parameter."
+    )
+
+    if isinstance(model_predictions, list) and all(isinstance(p, dict) for p in model_predictions):
+        # Extract 'y_pred' and 'other_output_columns' from list of dictionaries
+        if output_column_name in model_predictions[0]:
+            y_pred = pd.Series(
+                [p.get(output_column_name) for p in model_predictions], name=output_column_name
+            )
+            other_output_columns = pd.DataFrame(
+                [{k: v for k, v in p.items() if k != output_column_name} for p in model_predictions]
+            )
+        elif len(model_predictions[0]) == 1:
+            # Set the only key as self.predictions and its value as self.y_pred
+            key, value = list(model_predictions[0].items())[0]
+            y_pred = pd.Series(value, name=key)
+            output_column_name = key
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the model "
+                f"predictions list: {model_predictions}. Please set the correct output column "
+                "name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif isinstance(model_predictions, pd.DataFrame):
+        if output_column_name in model_predictions.columns:
+            y_pred = model_predictions[output_column_name]
+            other_output_columns = model_predictions.drop(columns=output_column_name)
+        elif len(model_predictions.columns) == 1:
+            output_column_name = model_predictions.columns[0]
+            y_pred = model_predictions[output_column_name]
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the model "
+                f"predictions dataframe {model_predictions.columns}. Please set the correct "
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif isinstance(model_predictions, dict):
+        if output_column_name in model_predictions:
+            y_pred = pd.Series(model_predictions[output_column_name], name=output_column_name)
+            other_output_columns = pd.DataFrame(
+                {k: v for k, v in model_predictions.items() if k != output_column_name}
+            )
+        elif len(model_predictions) == 1:
+            key, value = list(model_predictions.items())[0]
+            y_pred = pd.Series(value, name=key)
+            output_column_name = key
+        elif output_column_name is None:
+            raise MlflowException(
+                ERROR_MISSING_OUTPUT_COLUMN_NAME,
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        else:
+            raise MlflowException(
+                f"Output column name '{output_column_name}' is not found in the "
+                f"model predictions dict {model_predictions}. Please set the correct "
+                "output column name using the `predictions` parameter.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    return (
+        y_pred if y_pred is not None else model_predictions,
+        other_output_columns,
+        output_column_name,
+    )
+
+
+def _extract_predict_fn(model: Any) -> Callable[..., Any] | None:
     """
     Extracts the predict function from the given model or raw_model.
 
@@ -136,7 +223,7 @@ class _CustomArtifact(NamedTuple):
     artifacts_dir : the path to a temporary directory to store produced artifacts of the function
     """
 
-    function: Callable
+    function: Callable[..., Any]
     name: str
     index: int
     artifacts_dir: str
@@ -204,7 +291,7 @@ class BuiltInEvaluator(ModelEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult | None:
         """Implement the evaluation logic for each evaluator."""
 
     def log_metrics(self):
@@ -222,6 +309,10 @@ class BuiltInEvaluator(ModelEvaluator):
                     value=value,
                     timestamp=timestamp,
                     step=0,
+                    model_id=self.model_id,
+                    dataset_name=self.dataset.name,
+                    dataset_digest=self.dataset.digest,
+                    run_id=self.run_id,
                 )
                 for key, value in self.aggregate_metrics.items()
             ],
@@ -356,8 +447,8 @@ class BuiltInEvaluator(ModelEvaluator):
         metric: MetricDefinition,
         eval_df: pd.DataFrame,
         input_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
-    ) -> tuple[bool, list[Union[str, pd.DataFrame]]]:
+        other_output_df: pd.DataFrame | None,
+    ) -> tuple[bool, list[str | pd.DataFrame]]:
         """
         Given a metric_tuple, read the signature of the metric function and get the appropriate
         arguments from the input/output columns, other calculated metrics, and evaluator_config.
@@ -397,13 +488,9 @@ class BuiltInEvaluator(ModelEvaluator):
             for param_name, param in parameters.items():
                 column = self.col_mapping.get(param_name, param_name)
 
-                if (
-                    column == "predictions"
-                    or column == self.predictions
-                    or column == self.dataset.predictions_name
-                ):
+                if column in ("predictions", self.predictions, self.dataset.predictions_name):
                     eval_fn_args.append(eval_df_copy["prediction"])
-                elif column == "targets" or column == self.dataset.targets_name:
+                elif column in ("targets", self.dataset.targets_name):
                     if "target" in eval_df_copy:
                         eval_fn_args.append(eval_df_copy["target"])
                     else:
@@ -457,7 +544,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         custom_artifacts: list[_CustomArtifact],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
+        target: np.ndarray | None = None,
     ):
         """Evaluate custom artifacts provided by users."""
         if not custom_artifacts:
@@ -551,7 +638,7 @@ class BuiltInEvaluator(ModelEvaluator):
 
         raise MlflowException(error_message, error_code=INVALID_PARAMETER_VALUE)
 
-    def _get_eval_df(self, prediction: pd.Series, target: Optional[np.array] = None):
+    def _get_eval_df(self, prediction: pd.Series, target: np.ndarray | None = None):
         """
         Create a DataFrame with "prediction" and "target" columns.
 
@@ -566,7 +653,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         """
         Order the list metrics so they can be computed in sequence.
@@ -607,7 +694,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[MetricDefinition],
         eval_df: pd.DataFrame,
-        other_output_df: Optional[pd.DataFrame],
+        other_output_df: pd.DataFrame | None,
     ):
         # test calculations on first row of eval_df
         _logger.info("Testing metrics on first row...")
@@ -639,8 +726,8 @@ class BuiltInEvaluator(ModelEvaluator):
         self,
         metrics: list[EvaluationMetric],
         prediction: pd.Series,
-        target: Optional[np.array] = None,
-        other_output_df: Optional[pd.DataFrame] = None,
+        target: np.ndarray | None = None,
+        other_output_df: pd.DataFrame | None = None,
     ):
         """
         Evaluate the metrics on the given prediction and target data.
@@ -780,10 +867,10 @@ class BuiltInEvaluator(ModelEvaluator):
         run_id,
         evaluator_config,
         model: "mlflow.pyfunc.PyFuncModel" = None,
-        custom_metrics=None,
         extra_metrics=None,
         custom_artifacts=None,
         predictions=None,
+        model_id=None,
         **kwargs,
     ) -> EvaluationResult:
         if model is None and predictions is None and dataset.predictions_data is None:
@@ -807,6 +894,7 @@ class BuiltInEvaluator(ModelEvaluator):
         self.dataset: EvaluationDataset = dataset
         self.run_id = run_id
         self.model_type = model_type
+        self.model_id = model_id
         self.evaluator_config = evaluator_config
 
         self.predictions = predictions
@@ -829,20 +917,6 @@ class BuiltInEvaluator(ModelEvaluator):
                     message="eval_results_mode can only be 'overwrite' or 'append'. ",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
-
-        if extra_metrics and custom_metrics:
-            raise MlflowException(
-                "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. Please update "
-                "your code to only use the 'extra_metrics' parameter instead."
-            )
-        if custom_metrics:
-            warnings.warn(
-                "The 'custom_metrics' parameter in mlflow.evaluate is deprecated. "
-                "Please update your code to use the 'extra_metrics' parameter instead.",
-                FutureWarning,
-                stacklevel=2,
-            )
-            extra_metrics = custom_metrics
 
         if extra_metrics is None:
             extra_metrics = []

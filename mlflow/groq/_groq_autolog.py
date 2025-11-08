@@ -1,7 +1,10 @@
 import logging
+from typing import Any
 
 import mlflow
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +34,32 @@ def patched_call(original, self, *args, **kwargs):
             span_type=_get_span_type(self.__class__),
         ) as span:
             span.set_inputs(kwargs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "groq")
+
+            if tools := kwargs.get("tools"):
+                try:
+                    set_span_chat_tools(span, tools)
+                except Exception:
+                    _logger.debug(f"Failed to set tools for {span}.", exc_info=True)
+
             outputs = original(self, *args, **kwargs)
             span.set_outputs(outputs)
+
+            if usage := _parse_usage(outputs):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
             return outputs
+
+
+def _parse_usage(output: Any) -> dict[str, int] | None:
+    try:
+        usage = getattr(output, "usage", None)
+        if usage:
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+            }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None

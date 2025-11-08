@@ -1,17 +1,20 @@
-import uuid
-from typing import Optional
+"""
+THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED SOON. PLEASE DO NOT USE THESE CLASSES
+IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES.
+"""
 
-from mlflow.entities.evaluation import Evaluation as EvaluationEntity
-from mlflow.evaluation.evaluation import Evaluation
+import uuid
+
+from mlflow.evaluation.evaluation import Evaluation, EvaluationEntity
 from mlflow.evaluation.utils import evaluations_to_dataframes
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _get_or_start_run
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
-@experimental
+@deprecated(since="3.0.0")
 def log_evaluations(
-    *, evaluations: list[Evaluation], run_id: Optional[str] = None
+    *, evaluations: list[Evaluation], run_id: str | None = None
 ) -> list[EvaluationEntity]:
     """
     Logs one or more evaluations to an MLflow Run.

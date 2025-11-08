@@ -1,5 +1,5 @@
-import collections
 import os
+from typing import Any, NamedTuple
 from unittest import mock
 
 import numpy as np
@@ -21,14 +21,10 @@ class ToyModel(tf.Module):
         return tf.reshape(tf.add(tf.matmul(x, self.w), self.b), [-1])
 
 
-TF2ModelInfo = collections.namedtuple(
-    "TF2ModelInfo",
-    [
-        "model",
-        "inference_data",
-        "expected_results",
-    ],
-)
+class TF2ModelInfo(NamedTuple):
+    model: Any
+    inference_data: Any
+    expected_results: Any
 
 
 @pytest.fixture
@@ -63,7 +59,7 @@ def test_save_and_load_tf2_module(tmp_path, tf2_toy_model):
 
 def test_log_and_load_tf2_module(tf2_toy_model):
     with mlflow.start_run():
-        model_info = mlflow.tensorflow.log_model(tf2_toy_model.model, "model")
+        model_info = mlflow.tensorflow.log_model(tf2_toy_model.model, name="model")
 
     model_uri = model_info.model_uri
     loaded_model = mlflow.tensorflow.load_model(model_uri)
@@ -87,10 +83,11 @@ def test_model_log_with_signature_inference(tf2_toy_model):
     example = tf2_toy_model.inference_data
 
     with mlflow.start_run():
-        mlflow.tensorflow.log_model(tf2_toy_model.model, artifact_path, input_example=example)
-        model_uri = mlflow.get_artifact_uri(artifact_path)
+        model_info = mlflow.tensorflow.log_model(
+            tf2_toy_model.model, name=artifact_path, input_example=example
+        )
 
-    mlflow_model = Model.load(model_uri)
+    mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == infer_signature(
         tf2_toy_model.inference_data, tf2_toy_model.expected_results.numpy()
     )
@@ -114,7 +111,7 @@ def test_save_with_options(tmp_path, tf2_toy_model):
 
         with mlflow.start_run():
             mlflow.tensorflow.log_model(
-                tf2_toy_model.model, "model", saved_model_kwargs=saved_model_kwargs
+                tf2_toy_model.model, name="model", saved_model_kwargs=saved_model_kwargs
             )
 
         mock_save.assert_called_once_with(mock.ANY, mock.ANY, **saved_model_kwargs)

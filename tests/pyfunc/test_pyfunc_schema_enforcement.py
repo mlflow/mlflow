@@ -132,7 +132,7 @@ def test_schema_enforcement_single_column_2d_array():
     assert signature.outputs.inputs[0].shape == (-1,)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, "model", signature=signature)
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
     pdf = pd.DataFrame(X)
@@ -1316,7 +1316,7 @@ def test_enforce_params_schema_add_default_values():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "my_model", python_model=MyModel(), signature=signature
+            name="my_model", python_model=MyModel(), signature=signature
         )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1446,7 +1446,9 @@ def test_enforce_params_schema_warns_with_model_without_params():
     signature = infer_signature(["input"])
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model1", python_model=MyModel(), signature=signature)
+        model_info = mlflow.pyfunc.log_model(
+            name="model1", python_model=MyModel(), signature=signature
+        )
 
     loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
@@ -1469,7 +1471,7 @@ def test_enforce_params_schema_errors_with_model_with_params():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model", python_model=MyModel(), signature=signature
+            name="test_model", python_model=MyModel(), signature=signature
         )
 
     loaded_model_with_params = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -1581,7 +1583,7 @@ def test_enforce_schema_in_python_model_predict(sample_params_basic, param_schem
     signature = infer_signature(["input1"], params=test_params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=PythonModelWithBasicParams(),
             signature=signature,
         )
@@ -1673,7 +1675,7 @@ def test_enforce_schema_in_python_model_serving(sample_params_basic):
     signature = infer_signature(["input1"], params=sample_params_basic)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=PythonModelWithBasicParams(),
             signature=signature,
         )
@@ -1923,7 +1925,7 @@ def test_enforce_schema_with_arrays_in_python_model_predict(sample_params_with_a
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=PythonModelWithArrayParams(),
             signature=signature,
         )
@@ -1979,7 +1981,7 @@ def test_enforce_schema_with_arrays_in_python_model_serving(sample_params_with_a
     signature = infer_signature(["input1"], params=params)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=PythonModelWithArrayParams(),
             signature=signature,
         )
@@ -2075,7 +2077,7 @@ def test_pyfunc_model_input_example_with_params(
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=(example, sample_params_basic),
         )
@@ -2135,12 +2137,14 @@ def test_invalid_input_example_warn_when_model_logging():
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
             mlflow.pyfunc.log_model(
-                "test_model",
+                name="test_model",
                 python_model=MyModel(),
                 input_example=["some string"],
             )
-        mock_warning.assert_called_once()
-        assert "Failed to validate serving input example" in mock_warning.call_args[0][0]
+        assert any(
+            "Failed to validate serving input example" in call[0][0]
+            for call in mock_warning.call_args_list
+        )
 
 
 def assert_equal(a, b):
@@ -2250,7 +2254,7 @@ def test_input_example_validation_during_logging(
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=example,
         )
@@ -2289,7 +2293,7 @@ def test_pyfunc_schema_inference_not_generate_trace():
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=["input"],
         )
@@ -2349,7 +2353,7 @@ def test_pyfunc_model_schema_enforcement_with_dicts_and_lists(data, schema):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -2398,7 +2402,7 @@ def test_pyfunc_model_serving_with_dicts(data, schema, format_key):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -2456,7 +2460,7 @@ def test_pyfunc_model_serving_with_lists_of_dicts(data, schema, format_key):
     signature = ModelSignature(schema)
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -2559,7 +2563,7 @@ def test_pyfunc_model_schema_enforcement_with_objects_and_arrays(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -2599,7 +2603,7 @@ def test_pyfunc_model_scoring_with_objects_and_arrays(data, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=infer_signature(data),
         )
@@ -2642,7 +2646,7 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances(data):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=infer_signature(data),
         )
@@ -2681,7 +2685,7 @@ def test_pyfunc_model_scoring_with_objects_and_arrays_instances_errors(data):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=infer_signature(data),
         )
@@ -2723,7 +2727,7 @@ def test_pyfunc_model_scoring_instances_backwards_compatibility(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=ModelSignature(schema),
         )
@@ -2776,7 +2780,7 @@ def test_pyfunc_model_schema_enforcement_nested_array(data, schema):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -2895,7 +2899,7 @@ def test_pyfunc_model_schema_enforcement_map_type(data, schema, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=ModelSignature(inputs=schema, outputs=schema),
         )
@@ -2978,7 +2982,7 @@ def test_pyfunc_model_schema_enforcement_complex(data, schema, format_key):
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             signature=signature,
         )
@@ -3126,7 +3130,7 @@ def test_schema_enforcement_for_anytype(input_example, expected_schema, payload_
 
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
-            "test_model",
+            name="test_model",
             python_model=MyModel(),
             input_example=input_example,
         )

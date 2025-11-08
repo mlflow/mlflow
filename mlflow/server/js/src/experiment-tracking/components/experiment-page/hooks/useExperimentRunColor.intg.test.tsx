@@ -9,9 +9,9 @@ import {
   useSaveExperimentRunColor,
 } from './useExperimentRunColor';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { ThunkDispatch } from '../../../../redux-types';
+import type { ThunkDispatch } from '../../../../redux-types';
 import { searchRunsApi } from '../../../actions';
-import userEventGlobal from '@testing-library/user-event-14';
+import userEventGlobal from '@testing-library/user-event';
 
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';

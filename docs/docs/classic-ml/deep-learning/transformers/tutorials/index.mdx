@@ -1,0 +1,109 @@
+---
+sidebar_position: 1
+sidebar_label: Tutorials
+---
+
+import Link from "@docusaurus/Link";
+import { CardGroup, PageCard } from "@site/src/components/Card";
+
+# MLflow Transformers Flavor - Tutorials and Guides
+
+Below, you will find a number of guides that focus on different use cases using _transformers_ that leverage MLflow's
+APIs for tracking and inference capabilities.
+
+### Introductory Quickstart to using Transformers with MLflow
+
+If this is your first exposure to transformers or use transformers extensively but are new to MLflow, this is a great place to start.
+
+<CardGroup>
+  <PageCard
+    headerText="Quickstart: Text Generation with Transformers"
+    link="/ml/deep-learning/transformers/tutorials/text-generation/text-generation/"
+    text={
+      <>
+        Learn how to leverage the transformers integration with MLflow in this <strong>introductory quickstart</strong>.
+      </>
+    }
+  />
+</CardGroup>
+
+### Transformers Fine-Tuning Tutorials with MLflow \{#transformers-finetuning-tutorials}
+
+Fine-tuning a model is a common task in machine learning workflows. These tutorials are designed to showcase how to fine-tune a model using the transformers library with harnessing MLflow's APIs for tracking experiment configurations and results.
+
+<CardGroup>
+  <PageCard
+    headerText="Fine tuning a transformers Foundation Model"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning/"
+    text={
+      <>
+        Learn how to fine-tune a transformers model using MLflow to keep track of the training process and to log a use-case-specific tuned pipeline.
+      </>
+    }
+  />
+  <PageCard
+    headerText="Fine tuning LLMs efficiently using PEFT and MLflow"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/"
+    text={
+      <>
+        Learn how to fine-tune a large foundational models with significantly reduced memory usage using PEFT (QLoRA) and MLflow.
+      </>
+    }
+  />
+
+</CardGroup>
+
+### Use Case Tutorials for Transformers with MLflow
+
+Interested in learning about how to leverage transformers for tasks other than basic text generation?
+Want to learn more about the breadth of problems that you can solve with transformers and MLflow?
+
+These more advanced tutorials are designed to showcase different applications of the transformers model architecture and how to leverage MLflow to track and deploy these models.
+
+<CardGroup>
+  <PageCard
+    headerText="Audio Transcription with Transformers"
+    link="/ml/deep-learning/transformers/tutorials/audio-transcription/whisper/"
+    text={
+      <>
+        Learn how to leverage the Whisper Model with MLflow to generate accurate audio transcriptions.
+      </>
+    }
+  />
+  <PageCard
+    headerText="Translation with Transformers"
+    link="/ml/deep-learning/transformers/tutorials/translation/component-translation/"
+    text={
+      <>
+        Learn about the options for saving and loading transformers models in MLflow for customization of your workflows with a fun translation example!
+      </>
+    }
+  />
+  <PageCard
+    headerText="Chat with Transformers"
+    link="/ml/deep-learning/transformers/tutorials/conversational/conversational-model/"
+    text={
+      <>
+        Learn the basics of stateful chat Conversational Pipelines with Transformers and MLflow.
+      </>
+    }
+  />
+  <PageCard
+    headerText="Building and Serving an OpenAI-Compatible Chatbot"
+    link="/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model/"
+    text={
+      <>
+        Learn how to build an OpenAI-compatible chatbot using a local Transformers model and MLflow, and serve it with minimal configuration.
+      </>
+    }
+  />
+  <PageCard
+    headerText="Prompt templating with Transformers Pipelines"
+    link="/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating/"
+    text={
+      <>
+        Learn how to set prompt templates on Transformers Pipelines to optimize your LLM's outputs, and simplify the end-user experience.
+      </>
+    }
+  />
+</CardGroup>

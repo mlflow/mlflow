@@ -6,25 +6,30 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import {
-  getArtifactContent,
-  getArtifactLocationUrl,
-  getLoggedModelArtifactLocationUrl,
-} from '../../../common/utils/ArtifactUtils';
+import { getArtifactContent } from '../../../common/utils/ArtifactUtils';
 import { LegacyTable } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 // @ts-expect-error TS(7016): Could not find a declaration file for module 'papa... Remove this comment to see the full error message
 import Papa from 'papaparse';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
 
 type Props = {
   runUuid: string;
   path: string;
-  getArtifact?: (...args: any[]) => any;
+  getArtifact: typeof getArtifactContent;
 } & LoggedModelArtifactViewerProps;
 
-const ShowArtifactTableView = ({ runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId }: Props) => {
+const ShowArtifactTableView = ({
+  runUuid,
+  path,
+  getArtifact,
+  isLoggedModelsMode,
+  loggedModelId,
+  experimentId,
+  entityTags,
+}: Props) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState();
   const [data, setData] = useState();
@@ -37,12 +42,10 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact, isLoggedModelsMode,
     resetState();
 
     function fetchArtifacts() {
-      const artifactLocation =
-        isLoggedModelsMode && loggedModelId
-          ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-          : getArtifactLocationUrl(path, runUuid);
-
-      getArtifact?.(artifactLocation)
+      fetchArtifactUnified?.(
+        { runUuid, path, isLoggedModelsMode, loggedModelId, experimentId, entityTags },
+        getArtifact,
+      )
         .then((artifactText: any) => {
           try {
             const result = Papa.parse(artifactText, {
@@ -72,7 +75,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact, isLoggedModelsMode,
     }
 
     fetchArtifacts();
-  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId]);
+  }, [runUuid, path, getArtifact, isLoggedModelsMode, loggedModelId, experimentId, entityTags]);
 
   function resetState() {
     // @ts-expect-error TS(2554): Expected 1 arguments, but got 0.
@@ -130,7 +133,7 @@ const ShowArtifactTableView = ({ runUuid, path, getArtifact, isLoggedModelsMode,
     );
   } else {
     return (
-      <div className="ShowArtifactPage">
+      <div className="mlflow-ShowArtifactPage">
         <div className="text-area-border-box">{text}</div>
       </div>
     );

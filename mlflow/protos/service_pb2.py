@@ -18,9 +18,15 @@ if Version(google.protobuf.__version__).major >= 5:
 
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from . import databricks_pb2 as databricks__pb2
+  from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+  from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
+  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+  from . import assessments_pb2 as assessments__pb2
+  from . import datasets_pb2 as datasets__pb2
+  from opentelemetry.proto.trace.v1 import trace_pb2 as opentelemetry_dot_proto_dot_trace_dot_v1_dot_trace__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"H\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"f\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\x12!\n\x06inputs\x18\x03 \x01(\x0b\x32\x11.mlflow.RunInputs\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"9\n\tRunInputs\x12,\n\x0e\x64\x61taset_inputs\x18\x01 \x03(\x0b\x32\x14.mlflow.DatasetInput\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"+\n\rExperimentTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xdd\x01\n\x07RunInfo\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\xbb\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\x12#\n\x04tags\x18\x07 \x03(\x0b\x32\x15.mlflow.ExperimentTag\"V\n\x0c\x44\x61tasetInput\x12\x1e\n\x04tags\x18\x01 \x03(\x0b\x32\x10.mlflow.InputTag\x12&\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x0f.mlflow.DatasetB\x04\xf8\x86\x19\x01\"2\n\x08InputTag\x12\x11\n\x03key\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"\x85\x01\n\x07\x44\x61taset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bsource_type\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\"\xb6\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x12#\n\x04tags\x18\x03 \x03(\x0b\x32\x15.mlflow.ExperimentTag\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xfe\x01\n\x11SearchExperiments\x12\x13\n\x0bmax_results\x18\x01 \x01(\x03\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0e\n\x06\x66ilter\x18\x03 \x01(\t\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12#\n\tview_type\x18\x05 \x01(\x0e\x32\x10.mlflow.ViewType\x1aL\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xca\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd0\x01\n\tUpdateRun\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x12\x10\n\x08run_name\x18\x05 \x01(\t\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tLogMetric\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x90\x01\n\x10SetExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"m\n\tDeleteTag\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd8\x01\n\rListArtifacts\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xea\x01\n\x10GetMetricHistory\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x44\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"a\n\x0fMetricWithRunId\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x0e\n\x06run_id\x18\x05 \x01(\t\"\xe7\x01\n\x1cGetMetricHistoryBulkInterval\x12\x0f\n\x07run_ids\x18\x01 \x03(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nstart_step\x18\x03 \x01(\x05\x12\x10\n\x08\x65nd_step\x18\x04 \x01(\x05\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x34\n\x08Response\x12(\n\x07metrics\x18\x01 \x03(\x0b\x32\x17.mlflow.MetricWithRunId:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"g\n\x08LogModel\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x12\n\nmodel_json\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\tLogInputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12&\n\x08\x64\x61tasets\x18\x02 \x03(\x0b\x32\x14.mlflow.DatasetInput\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x95\x01\n\x13GetExperimentByName\x12\x1d\n\x0f\x65xperiment_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\tTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x03 \x01(\x03\x12\x19\n\x11\x65xecution_time_ms\x18\x04 \x01(\x03\x12#\n\x06status\x18\x05 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x06 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x07 \x03(\x0b\x32\x10.mlflow.TraceTag\"2\n\x14TraceRequestMetadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"&\n\x08TraceTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xf1\x01\n\nStartTrace\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12\x36\n\x10request_metadata\x18\x03 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x04 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x02\n\x08\x45ndTrace\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x04 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x05 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x0cGetTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xeb\x01\n\x0cSearchTraces\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc3\x01\n\x0c\x44\x65leteTraces\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"v\n\x0bSetTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"j\n\x0e\x44\x65leteTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x0e\x44\x61tasetSummary\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63ontext\x18\x04 \x01(\t\"\x94\x01\n\x0eSearchDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x1a=\n\x08Response\x12\x31\n\x11\x64\x61taset_summaries\x18\x01 \x03(\x0b\x32\x16.mlflow.DatasetSummary:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05*O\n\x0bTraceStatus\x12\x1c\n\x18TRACE_STATUS_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\x32\xe7!\n\rMlflowService\x12\xa6\x01\n\x13getExperimentByName\x12\x1b.mlflow.GetExperimentByName\x1a$.mlflow.GetExperimentByName.Response\"L\xf2\x86\x19H\n,\n\x03GET\x12\x1f/mlflow/experiments/get-by-name\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Get Experiment By Name\x12\x94\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xc1\x01\n\x11searchExperiments\x12\x19.mlflow.SearchExperiments\x1a\".mlflow.SearchExperiments.Response\"m\xf2\x86\x19i\n(\n\x04POST\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\n\'\n\x03GET\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Search Experiments\x12\x88\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"@\xf2\x86\x19\x38\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\xba\x8c\x19\x00\x12\x94\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\x99\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"E\xf2\x86\x19\x41\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\x94\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12q\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12q\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12q\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12v\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12u\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12t\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\";\xf2\x86\x19\x37\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\xa1\x01\n\x10setExperimentTag\x12\x18.mlflow.SetExperimentTag\x1a!.mlflow.SetExperimentTag.Response\"P\xf2\x86\x19L\n4\n\x04POST\x12&/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Set Experiment Tag\x12\x66\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"3\xf2\x86\x19/\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\x88\x01\n\x0bsetTraceTag\x12\x13.mlflow.SetTraceTag\x1a\x1c.mlflow.SetTraceTag.Response\"F\xf2\x86\x19\x42\n/\n\x05PATCH\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\rSet Trace Tag\x12\x95\x01\n\x0e\x64\x65leteTraceTag\x12\x16.mlflow.DeleteTraceTag\x1a\x1f.mlflow.DeleteTraceTag.Response\"J\xf2\x86\x19\x46\n0\n\x06\x44\x45LETE\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x10\x44\x65lete Trace Tag\x12u\n\tdeleteTag\x12\x11.mlflow.DeleteTag\x1a\x1a.mlflow.DeleteTag.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Tag\x12\x65\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"2\xf2\x86\x19*\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\xba\x8c\x19\x00\x12y\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\":\xf2\x86\x19\x32\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\xba\x8c\x19\x00\x12\x87\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"?\xf2\x86\x19\x37\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\xba\x8c\x19\x00\x12\x95\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"D\xf2\x86\x19@\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\xb7\x01\n\x1cgetMetricHistoryBulkInterval\x12$.mlflow.GetMetricHistoryBulkInterval\x1a-.mlflow.GetMetricHistoryBulkInterval.Response\"B\xf2\x86\x19:\n6\n\x03GET\x12)/mlflow/metrics/get-history-bulk-interval\x1a\x04\x08\x02\x10\x0b\x10\x03\xba\x8c\x19\x00\x12p\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Batch\x12p\n\x08logModel\x12\x10.mlflow.LogModel\x1a\x19.mlflow.LogModel.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-model\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Model\x12u\n\tlogInputs\x12\x11.mlflow.LogInputs\x1a\x1a.mlflow.LogInputs.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-inputs\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Inputs\x12\x87\x01\n\x0esearchDatasets\x12\x16.mlflow.SearchDatasets\x1a\x1f.mlflow.SearchDatasets.Response\"<\xf2\x86\x19\x34\n0\n\x04POST\x12\"mlflow/experiments/search-datasets\x1a\x04\x08\x02\x10\x00\x10\x03\xba\x8c\x19\x00\x12p\n\nstartTrace\x12\x12.mlflow.StartTrace\x1a\x1b.mlflow.StartTrace.Response\"1\xf2\x86\x19-\n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bStart Trace\x12v\n\x08\x65ndTrace\x12\x10.mlflow.EndTrace\x1a\x19.mlflow.EndTrace.Response\"=\xf2\x86\x19\x39\n*\n\x05PATCH\x12\x1b/mlflow/traces/{request_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\tEnd Trace\x12\x89\x01\n\x0cgetTraceInfo\x12\x14.mlflow.GetTraceInfo\x1a\x1d.mlflow.GetTraceInfo.Response\"D\xf2\x86\x19@\n-\n\x03GET\x12 /mlflow/traces/{request_id}/info\x1a\x04\x08\x02\x10\x00\x10\x03*\rGet TraceInfo\x12w\n\x0csearchTraces\x12\x14.mlflow.SearchTraces\x1a\x1d.mlflow.SearchTraces.Response\"2\xf2\x86\x19.\n\x1b\n\x03GET\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rSearch Traces\x12\x86\x01\n\x0c\x64\x65leteTraces\x12\x14.mlflow.DeleteTraces\x1a\x1d.mlflow.DeleteTraces.Response\"A\xf2\x86\x19=\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rDelete TracesB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x11\x61ssessments.proto\x1a\x0e\x64\x61tasets.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"\xb0\x01\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8b\x01\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\x12!\n\x06inputs\x18\x03 \x01(\x0b\x32\x11.mlflow.RunInputs\x12#\n\x07outputs\x18\x04 \x01(\x0b\x32\x12.mlflow.RunOutputs\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"c\n\tRunInputs\x12,\n\x0e\x64\x61taset_inputs\x18\x01 \x03(\x0b\x32\x14.mlflow.DatasetInput\x12(\n\x0cmodel_inputs\x18\x02 \x03(\x0b\x32\x12.mlflow.ModelInput\"8\n\nRunOutputs\x12*\n\rmodel_outputs\x18\x01 \x03(\x0b\x32\x13.mlflow.ModelOutput\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"+\n\rExperimentTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xdd\x01\n\x07RunInfo\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\xbb\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\x12#\n\x04tags\x18\x07 \x03(\x0b\x32\x15.mlflow.ExperimentTag\"V\n\x0c\x44\x61tasetInput\x12\x1e\n\x04tags\x18\x01 \x03(\x0b\x32\x10.mlflow.InputTag\x12&\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x0f.mlflow.DatasetB\x04\xf8\x86\x19\x01\"$\n\nModelInput\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\"2\n\x08InputTag\x12\x11\n\x03key\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"\x85\x01\n\x07\x44\x61taset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bsource_type\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\"9\n\x0bModelOutput\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04step\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"\xb6\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x12#\n\x04tags\x18\x03 \x03(\x0b\x32\x15.mlflow.ExperimentTag\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xfe\x01\n\x11SearchExperiments\x12\x13\n\x0bmax_results\x18\x01 \x01(\x03\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0e\n\x06\x66ilter\x18\x03 \x01(\t\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12#\n\tview_type\x18\x05 \x01(\x0e\x32\x10.mlflow.ViewType\x1aL\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xca\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd0\x01\n\tUpdateRun\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x12\x10\n\x08run_name\x18\x05 \x01(\t\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\tLogMetric\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1a\n\x0c\x64\x61taset_name\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\t \x01(\tB\x04\xf0\x86\x19\x03\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x90\x01\n\x10SetExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x13\x44\x65leteExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"m\n\tDeleteTag\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd8\x01\n\rListArtifacts\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xea\x01\n\x10GetMetricHistory\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x44\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"a\n\x0fMetricWithRunId\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x0e\n\x06run_id\x18\x05 \x01(\t\"\xe7\x01\n\x1cGetMetricHistoryBulkInterval\x12\x0f\n\x07run_ids\x18\x01 \x03(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nstart_step\x18\x03 \x01(\x05\x12\x10\n\x08\x65nd_step\x18\x04 \x01(\x05\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x34\n\x08Response\x12(\n\x07metrics\x18\x01 \x03(\x0b\x32\x17.mlflow.MetricWithRunId:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"g\n\x08LogModel\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x12\n\nmodel_json\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xac\x01\n\tLogInputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12&\n\x08\x64\x61tasets\x18\x02 \x03(\x0b\x32\x14.mlflow.DatasetInput\x12(\n\x06models\x18\x03 \x03(\x0b\x32\x12.mlflow.ModelInputB\x04\xf0\x86\x19\x03\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x80\x01\n\nLogOutputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12#\n\x06models\x18\x02 \x03(\x0b\x32\x13.mlflow.ModelOutput\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x95\x01\n\x13GetExperimentByName\x12\x1d\n\x0f\x65xperiment_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x10\x43reateAssessment\x12\x38\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.AssessmentB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x10UpdateAssessment\x12\x38\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.AssessmentB\x04\xf8\x86\x19\x01\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x80\x01\n\x10\x44\x65leteAssessment\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\x14GetAssessmentRequest\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\tTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x03 \x01(\x03\x12\x19\n\x11\x65xecution_time_ms\x18\x04 \x01(\x03\x12#\n\x06status\x18\x05 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x06 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x07 \x03(\x0b\x32\x10.mlflow.TraceTag\"2\n\x14TraceRequestMetadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"&\n\x08TraceTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xf1\x01\n\nStartTrace\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12\x36\n\x10request_metadata\x18\x03 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x04 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x02\n\x08\x45ndTrace\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x04 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x05 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x0cGetTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"y\n\x0eGetTraceInfoV3\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x1a(\n\x08Response\x12\x1c\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"{\n\x0e\x42\x61tchGetTraces\x12\x11\n\ttrace_ids\x18\x01 \x03(\t\x1a)\n\x08Response\x12\x1d\n\x06traces\x18\x01 \x03(\x0b\x32\r.mlflow.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xeb\x01\n\x0cSearchTraces\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xaa\x02\n\x13SearchUnifiedTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x03 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x18\n\x0bmax_results\x18\x05 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t\"\xc3\x01\n\x0c\x44\x65leteTraces\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc5\x01\n\x0e\x44\x65leteTracesV3\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb5\x02\n\x1f\x43\x61lculateTraceFilterCorrelation\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x16\n\x0e\x66ilter_string1\x18\x02 \x01(\t\x12\x16\n\x0e\x66ilter_string2\x18\x03 \x01(\t\x12\x13\n\x0b\x62\x61se_filter\x18\x04 \x01(\t\x1a\x87\x01\n\x08Response\x12\x0c\n\x04npmi\x18\x01 \x01(\x01\x12\x15\n\rnpmi_smoothed\x18\x02 \x01(\x01\x12\x15\n\rfilter1_count\x18\x03 \x01(\x05\x12\x15\n\rfilter2_count\x18\x04 \x01(\x05\x12\x13\n\x0bjoint_count\x18\x05 \x01(\x05\x12\x13\n\x0btotal_count\x18\x06 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"v\n\x0bSetTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x88\x01\n\rSetTraceTagV3\x12\x10\n\x08trace_id\x18\x04 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x01\x10\x02R\nrequest_id\"z\n\x0e\x44\x65leteTraceTag\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x01\x10\x02R\nrequest_id\"l\n\x10\x44\x65leteTraceTagV3\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"c\n\x05Trace\x12\'\n\ntrace_info\x18\x01 \x01(\x0b\x32\x13.mlflow.TraceInfoV3\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xb6\x03\n\rTraceLocation\x12\x35\n\x04type\x18\x01 \x01(\x0e\x32\'.mlflow.TraceLocation.TraceLocationType\x12K\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32..mlflow.TraceLocation.MlflowExperimentLocationH\x00\x12G\n\x0finference_table\x18\x03 \x01(\x0b\x32,.mlflow.TraceLocation.InferenceTableLocationH\x00\x1a\x31\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x1a\x31\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"d\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x42\x0c\n\nidentifier\"\x9b\x05\n\x0bTraceInfoV3\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12-\n\x0etrace_location\x18\x03 \x01(\x0b\x32\x15.mlflow.TraceLocation\x12\x0f\n\x07request\x18\x04 \x01(\t\x12\x10\n\x08response\x18\x05 \x01(\t\x12\x17\n\x0frequest_preview\x18\x0c \x01(\t\x12\x18\n\x10response_preview\x18\r \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12(\n\x05state\x18\x08 \x01(\x0e\x32\x19.mlflow.TraceInfoV3.State\x12>\n\x0etrace_metadata\x18\t \x03(\x0b\x32&.mlflow.TraceInfoV3.TraceMetadataEntry\x12\x33\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1e.mlflow.assessments.Assessment\x12+\n\x04tags\x18\x0b \x03(\x0b\x32\x1d.mlflow.TraceInfoV3.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\\\n\x0cStartTraceV3\x12\"\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.TraceB\x04\xf8\x86\x19\x01\x1a(\n\x08Response\x12\x1c\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.Trace\"F\n\x0fLinkTracesToRun\x12\x11\n\ttrace_ids\x18\x01 \x03(\t\x12\x14\n\x06run_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"h\n\x0e\x44\x61tasetSummary\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63ontext\x18\x04 \x01(\t\"\x94\x01\n\x0eSearchDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x1a=\n\x08Response\x12\x31\n\x11\x64\x61taset_summaries\x18\x01 \x03(\x0b\x32\x16.mlflow.DatasetSummary:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x02\n\x11\x43reateLoggedModel\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\nmodel_type\x18\x03 \x01(\t\x12\x15\n\rsource_run_id\x18\x04 \x01(\t\x12,\n\x06params\x18\x05 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x12$\n\x04tags\x18\x06 \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbb\x01\n\x13\x46inalizeLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12/\n\x06status\x18\x02 \x01(\x0e\x32\x19.mlflow.LoggedModelStatusB\x04\xf8\x86\x19\x01\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x85\x01\n\x0eGetLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf7\x03\n\x12SearchLoggedModels\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x34\n\x08\x64\x61tasets\x18\x06 \x03(\x0b\x32\".mlflow.SearchLoggedModels.Dataset\x12\x17\n\x0bmax_results\x18\x03 \x01(\x05:\x02\x35\x30\x12\x34\n\x08order_by\x18\x04 \x03(\x0b\x32\".mlflow.SearchLoggedModels.OrderBy\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a=\n\x07\x44\x61taset\x12\x1a\n\x0c\x64\x61taset_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x64\x61taset_digest\x18\x02 \x01(\t\x1aj\n\x07OrderBy\x12\x18\n\nfield_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\tascending\x18\x02 \x01(\x08:\x04true\x12\x14\n\x0c\x64\x61taset_name\x18\x03 \x01(\t\x12\x16\n\x0e\x64\x61taset_digest\x18\x04 \x01(\t\x1aH\n\x08Response\x12#\n\x06models\x18\x01 \x03(\x0b\x32\x13.mlflow.LoggedModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xaf\x01\n\x12SetLoggedModelTags\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x04tags\x18\x02 \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x14\x44\x65leteLoggedModelTag\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07tag_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x18ListLoggedModelArtifacts\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1f\n\x17\x61rtifact_directory_path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9c\x01\n\x1bLogLoggedModelParamsRequest\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12,\n\x06params\x18\x02 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\x0bLoggedModel\x12%\n\x04info\x18\x01 \x01(\x0b\x32\x17.mlflow.LoggedModelInfo\x12%\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x17.mlflow.LoggedModelData\"\x84\x03\n\x0fLoggedModelInfo\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x04 \x01(\x03\x12!\n\x19last_updated_timestamp_ms\x18\x05 \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\x06 \x01(\t\x12)\n\x06status\x18\x07 \x01(\x0e\x32\x19.mlflow.LoggedModelStatus\x12\x12\n\ncreator_id\x18\x08 \x01(\x03\x12\x12\n\nmodel_type\x18\t \x01(\t\x12\x15\n\rsource_run_id\x18\n \x01(\t\x12\x16\n\x0estatus_message\x18\x0b \x01(\t\x12$\n\x04tags\x18\x0c \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x12:\n\rregistrations\x18\r \x03(\x0b\x32#.mlflow.LoggedModelRegistrationInfo\",\n\x0eLoggedModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"<\n\x1bLoggedModelRegistrationInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"`\n\x0fLoggedModelData\x12,\n\x06params\x18\x01 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\"2\n\x14LoggedModelParameter\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x81\x02\n\x0eSearchTracesV3\x12(\n\tlocations\x18\x01 \x03(\x0b\x32\x15.mlflow.TraceLocation\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1aH\n\x08Response\x12#\n\x06traces\x18\x01 \x03(\x0b\x32\x13.mlflow.TraceInfoV3\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x02\n\rCreateDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x44\n\x0bsource_type\x18\x03 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x12\n\ncreated_by\x18\x07 \x01(\t\x12\x0c\n\x04tags\x18\x08 \x01(\t\x1a\x35\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb7\x01\n\nGetDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x02 \x01(\t\x1aN\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"b\n\rDeleteDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x88\x02\n\x18SearchEvaluationDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x19\n\x0bmax_results\x18\x03 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1aO\n\x08Response\x12*\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x18.mlflow.datasets.Dataset\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa2\x01\n\x0eSetDatasetTags\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04tags\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x35\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"x\n\x10\x44\x65leteDatasetTag\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc3\x01\n\x14UpsertDatasetRecords\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07records\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nupdated_by\x18\x03 \x01(\t\x1a\x39\n\x08Response\x12\x16\n\x0einserted_count\x18\x01 \x01(\x05\x12\x15\n\rupdated_count\x18\x02 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x84\x01\n\x17GetDatasetExperimentIds\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\"\n\x08Response\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbf\x01\n\x11GetDatasetRecords\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bmax_results\x18\x02 \x01(\x05:\x04\x31\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x34\n\x08Response\x12\x0f\n\x07records\x18\x01 \x01(\t\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa6\x01\n\x17\x41\x64\x64\x44\x61tasetToExperiments\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x1a,\n\x08Response\x12 \n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x0f.mlflow.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xab\x01\n\x1cRemoveDatasetFromExperiments\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x1a,\n\x08Response\x12 \n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x0f.mlflow.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x85\x02\n\x0eRegisterScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11serialized_scorer\x18\x03 \x01(\t\x1a\x85\x01\n\x08Response\x12\x0f\n\x07version\x18\x01 \x01(\x05\x12\x11\n\tscorer_id\x18\x02 \x01(\t\x12\x15\n\rexperiment_id\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x19\n\x11serialized_scorer\x18\x05 \x01(\t\x12\x15\n\rcreation_time\x18\x06 \x01(\x03:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x0bListScorers\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x1a+\n\x08Response\x12\x1f\n\x07scorers\x18\x01 \x03(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x93\x01\n\x12ListScorerVersions\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x1a+\n\x08Response\x12\x1f\n\x07scorers\x18\x01 \x03(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\tGetScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\x05\x1a*\n\x08Response\x12\x1e\n\x06scorer\x18\x01 \x01(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x0c\x44\x65leteScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\x05\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x01\n\x06Scorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\x05\x12\x13\n\x0bscorer_name\x18\x02 \x01(\t\x12\x16\n\x0escorer_version\x18\x03 \x01(\x05\x12\x19\n\x11serialized_scorer\x18\x04 \x01(\t\x12\x15\n\rcreation_time\x18\x05 \x01(\x03\x12\x11\n\tscorer_id\x18\x06 \x01(\t*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05*O\n\x0bTraceStatus\x12\x1c\n\x18TRACE_STATUS_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03*\x8a\x01\n\x11LoggedModelStatus\x12#\n\x1fLOGGED_MODEL_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14LOGGED_MODEL_PENDING\x10\x01\x12\x16\n\x12LOGGED_MODEL_READY\x10\x02\x12\x1e\n\x1aLOGGED_MODEL_UPLOAD_FAILED\x10\x03\x32\x83V\n\rMlflowService\x12\xa6\x01\n\x13getExperimentByName\x12\x1b.mlflow.GetExperimentByName\x1a$.mlflow.GetExperimentByName.Response\"L\xf2\x86\x19H\n,\n\x03GET\x12\x1f/mlflow/experiments/get-by-name\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Get Experiment By Name\x12\x94\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xc1\x01\n\x11searchExperiments\x12\x19.mlflow.SearchExperiments\x1a\".mlflow.SearchExperiments.Response\"m\xf2\x86\x19i\n(\n\x04POST\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\n\'\n\x03GET\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Search Experiments\x12\x88\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"@\xf2\x86\x19\x38\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\xba\x8c\x19\x00\x12\x94\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\x99\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"E\xf2\x86\x19\x41\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\x94\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12q\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12q\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12q\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12v\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12u\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12t\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\";\xf2\x86\x19\x37\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\xa1\x01\n\x10setExperimentTag\x12\x18.mlflow.SetExperimentTag\x1a!.mlflow.SetExperimentTag.Response\"P\xf2\x86\x19L\n4\n\x04POST\x12&/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Set Experiment Tag\x12\xb0\x01\n\x13\x64\x65leteExperimentTag\x12\x1b.mlflow.DeleteExperimentTag\x1a$.mlflow.DeleteExperimentTag.Response\"V\xf2\x86\x19R\n7\n\x04POST\x12)/mlflow/experiments/delete-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x15\x44\x65lete Experiment Tag\x12\x66\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"3\xf2\x86\x19/\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\x88\x01\n\x0bsetTraceTag\x12\x13.mlflow.SetTraceTag\x1a\x1c.mlflow.SetTraceTag.Response\"F\xf2\x86\x19\x42\n/\n\x05PATCH\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\rSet Trace Tag\x12\x8f\x01\n\rsetTraceTagV3\x12\x15.mlflow.SetTraceTagV3\x1a\x1e.mlflow.SetTraceTagV3.Response\"G\xf2\x86\x19\x43\n-\n\x05PATCH\x12\x1e/mlflow/traces/{trace_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Set Trace Tag V3\x12\x95\x01\n\x0e\x64\x65leteTraceTag\x12\x16.mlflow.DeleteTraceTag\x1a\x1f.mlflow.DeleteTraceTag.Response\"J\xf2\x86\x19\x46\n0\n\x06\x44\x45LETE\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x10\x44\x65lete Trace Tag\x12\x9c\x01\n\x10\x64\x65leteTraceTagV3\x12\x18.mlflow.DeleteTraceTagV3\x1a!.mlflow.DeleteTraceTagV3.Response\"K\xf2\x86\x19G\n.\n\x06\x44\x45LETE\x12\x1e/mlflow/traces/{trace_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03*\x13\x44\x65lete Trace Tag V3\x12u\n\tdeleteTag\x12\x11.mlflow.DeleteTag\x1a\x1a.mlflow.DeleteTag.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Tag\x12\x65\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"2\xf2\x86\x19*\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\xba\x8c\x19\x00\x12y\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\":\xf2\x86\x19\x32\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\xba\x8c\x19\x00\x12\x87\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"?\xf2\x86\x19\x37\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\xba\x8c\x19\x00\x12\x95\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"D\xf2\x86\x19@\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\xb7\x01\n\x1cgetMetricHistoryBulkInterval\x12$.mlflow.GetMetricHistoryBulkInterval\x1a-.mlflow.GetMetricHistoryBulkInterval.Response\"B\xf2\x86\x19:\n6\n\x03GET\x12)/mlflow/metrics/get-history-bulk-interval\x1a\x04\x08\x02\x10\x0b\x10\x03\xba\x8c\x19\x00\x12p\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Batch\x12p\n\x08logModel\x12\x10.mlflow.LogModel\x1a\x19.mlflow.LogModel.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-model\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Model\x12u\n\tlogInputs\x12\x11.mlflow.LogInputs\x1a\x1a.mlflow.LogInputs.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-inputs\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Inputs\x12v\n\nlogOutputs\x12\x12.mlflow.LogOutputs\x1a\x1b.mlflow.LogOutputs.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/outputs\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bLog Outputs\x12\x87\x01\n\x0esearchDatasets\x12\x16.mlflow.SearchDatasets\x1a\x1f.mlflow.SearchDatasets.Response\"<\xf2\x86\x19\x34\n0\n\x04POST\x12\"mlflow/experiments/search-datasets\x1a\x04\x08\x02\x10\x00\x10\x03\xba\x8c\x19\x00\x12p\n\nstartTrace\x12\x12.mlflow.StartTrace\x1a\x1b.mlflow.StartTrace.Response\"1\xf2\x86\x19-\n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bStart Trace\x12v\n\x08\x65ndTrace\x12\x10.mlflow.EndTrace\x1a\x19.mlflow.EndTrace.Response\"=\xf2\x86\x19\x39\n*\n\x05PATCH\x12\x1b/mlflow/traces/{request_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\tEnd Trace\x12\x89\x01\n\x0cgetTraceInfo\x12\x14.mlflow.GetTraceInfo\x1a\x1d.mlflow.GetTraceInfo.Response\"D\xf2\x86\x19@\n-\n\x03GET\x12 /mlflow/traces/{request_id}/info\x1a\x04\x08\x02\x10\x00\x10\x03*\rGet TraceInfo\x12\x8b\x01\n\x0egetTraceInfoV3\x12\x16.mlflow.GetTraceInfoV3\x1a\x1f.mlflow.GetTraceInfoV3.Response\"@\xf2\x86\x19<\n&\n\x03GET\x12\x19/mlflow/traces/{trace_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Get TraceInfo v3\x12\x83\x01\n\x0e\x62\x61tchGetTraces\x12\x16.mlflow.BatchGetTraces\x1a\x1f.mlflow.BatchGetTraces.Response\"8\xf2\x86\x19\x34\n$\n\x03GET\x12\x17/mlflow/traces/batchGet\x1a\x04\x08\x03\x10\x00\x10\x03*\nGet Traces\x12w\n\x0csearchTraces\x12\x14.mlflow.SearchTraces\x1a\x1d.mlflow.SearchTraces.Response\"2\xf2\x86\x19.\n\x1b\n\x03GET\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rSearch Traces\x12\x88\x01\n\x0esearchTracesV3\x12\x16.mlflow.SearchTracesV3\x1a\x1f.mlflow.SearchTracesV3.Response\"=\xf2\x86\x19\x39\n#\n\x04POST\x12\x15/mlflow/traces/search\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Search Traces V3\x12i\n\x0cstartTraceV3\x12\x14.mlflow.StartTraceV3\x1a\x1d.mlflow.StartTraceV3.Response\"$\xf2\x86\x19 \n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x03\x10\x00\x10\x03\x12\x92\x01\n\x0flinkTracesToRun\x12\x17.mlflow.LinkTracesToRun\x1a .mlflow.LinkTracesToRun.Response\"D\xf2\x86\x19@\n(\n\x04POST\x12\x1a/mlflow/traces/link-to-run\x1a\x04\x08\x02\x10\x00\x10\x03*\x12Link Traces to Run\x12\xa2\x01\n\x19searchUnifiedTraceHandler\x12\x1b.mlflow.SearchUnifiedTraces\x1a$.mlflow.SearchUnifiedTraces.Response\"B\xf2\x86\x19>\n#\n\x03GET\x12\x16/mlflow/unified-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x15Search Unified Traces\x12\xaf\x01\n\x15getOnlineTraceDetails\x12\x1d.mlflow.GetOnlineTraceDetails\x1a&.mlflow.GetOnlineTraceDetails.Response\"O\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\x12\x86\x01\n\x0c\x64\x65leteTraces\x12\x14.mlflow.DeleteTraces\x1a\x1d.mlflow.DeleteTraces.Response\"A\xf2\x86\x19=\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rDelete Traces\x12\x8f\x01\n\x0e\x64\x65leteTracesV3\x12\x16.mlflow.DeleteTracesV3\x1a\x1f.mlflow.DeleteTracesV3.Response\"D\xf2\x86\x19@\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x03\x10\x00\x10\x03*\x10\x44\x65lete Traces V3\x12\xe3\x01\n\x1f\x63\x61lculateTraceFilterCorrelation\x12\'.mlflow.CalculateTraceFilterCorrelation\x1a\x30.mlflow.CalculateTraceFilterCorrelation.Response\"e\xf2\x86\x19\x61\n9\n\x04POST\x12+/mlflow/traces/calculate-filter-correlation\x1a\x04\x08\x03\x10\x00\x10\x03*\"Calculate Trace Filter Correlation\x12\x94\x01\n\x11\x63reateLoggedModel\x12\x19.mlflow.CreateLoggedModel\x1a\".mlflow.CreateLoggedModel.Response\"@\xf2\x86\x19<\n#\n\x04POST\x12\x15/mlflow/logged-models\x1a\x04\x08\x02\x10\x00\x10\x03*\x13\x43reate Logged Model\x12\xa8\x01\n\x13\x66inalizeLoggedModel\x12\x1b.mlflow.FinalizeLoggedModel\x1a$.mlflow.FinalizeLoggedModel.Response\"N\xf2\x86\x19J\n/\n\x05PATCH\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x15\x46inalize Logged Model\x12\x92\x01\n\x0egetLoggedModel\x12\x16.mlflow.GetLoggedModel\x1a\x1f.mlflow.GetLoggedModel.Response\"G\xf2\x86\x19\x43\n-\n\x03GET\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x10Get Logged Model\x12\xa3\x01\n\x11\x64\x65leteLoggedModel\x12\x19.mlflow.DeleteLoggedModel\x1a\".mlflow.DeleteLoggedModel.Response\"O\xf2\x86\x19K\n0\n\x06\x44\x45LETE\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x15\x44\x65lete a Logged Model\x12\x9e\x01\n\x12searchLoggedModels\x12\x1a.mlflow.SearchLoggedModels\x1a#.mlflow.SearchLoggedModels.Response\"G\xf2\x86\x19\x43\n*\n\x04POST\x12\x1c/mlflow/logged-models/search\x1a\x04\x08\x02\x10\x00\x10\x03*\x13Search LoggedModels\x12\xa9\x01\n\x12setLoggedModelTags\x12\x1a.mlflow.SetLoggedModelTags\x1a#.mlflow.SetLoggedModelTags.Response\"R\xf2\x86\x19N\n4\n\x05PATCH\x12%/mlflow/logged-models/{model_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Set Logged Model Tag\x12\xbd\x01\n\x14\x64\x65leteLoggedModelTag\x12\x1c.mlflow.DeleteLoggedModelTag\x1a%.mlflow.DeleteLoggedModelTag.Response\"`\xf2\x86\x19\\\n?\n\x06\x44\x45LETE\x12//mlflow/logged-models/{model_id}/tags/{tag_key}\x1a\x04\x08\x02\x10\x00\x10\x03*\x17\x44\x65lete Logged Model Tag\x12\xd6\x01\n\x18listLoggedModelArtifacts\x12 .mlflow.ListLoggedModelArtifacts\x1a).mlflow.ListLoggedModelArtifacts.Response\"m\xf2\x86\x19i\nC\n\x03GET\x12\x36/mlflow/logged-models/{model_id}/artifacts/directories\x1a\x04\x08\x02\x10\x00\x10\x03* List Artifacts for Logged Models\x12\xc1\x01\n\x14LogLoggedModelParams\x12#.mlflow.LogLoggedModelParamsRequest\x1a,.mlflow.LogLoggedModelParamsRequest.Response\"V\xf2\x86\x19R\n5\n\x04POST\x12\'/mlflow/logged-models/{model_id}/params\x1a\x04\x08\x02\x10\x00\x10\x03*\x17Log Logged Model Params\x12\xb0\x01\n\rGetAssessment\x12\x1c.mlflow.GetAssessmentRequest\x1a%.mlflow.GetAssessmentRequest.Response\"Z\xf2\x86\x19V\nB\n\x03GET\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x0eGet Assessment\x12\xdf\x01\n\x10\x63reateAssessment\x12\x18.mlflow.CreateAssessment\x1a!.mlflow.CreateAssessment.Response\"\x8d\x01\xf2\x86\x19\x88\x01\n>\n\x04POST\x12\x30/mlflow/traces/{assessment.trace_id}/assessments\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x0c\x18\x01*:Create an assessment of a trace or a span within the trace\x12\xd0\x01\n\x10updateAssessment\x12\x18.mlflow.UpdateAssessment\x1a!.mlflow.UpdateAssessment.Response\"\x7f\xf2\x86\x19{\nD\n\x05PATCH\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x01*)Update an existing assessment on a trace.\x12\xb1\x01\n\x10\x64\x65leteAssessment\x12\x18.mlflow.DeleteAssessment\x1a!.mlflow.DeleteAssessment.Response\"`\xf2\x86\x19\\\nE\n\x06\x44\x45LETE\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x11\x44\x65lete Assessment\x12\x9a\x01\n\rcreateDataset\x12\x15.mlflow.CreateDataset\x1a\x1e.mlflow.CreateDataset.Response\"R\xf2\x86\x19N\n%\n\x04POST\x12\x17/mlflow/datasets/create\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x0c\x18\x01*\x19\x43reate Evaluation Dataset\x12\x91\x01\n\ngetDataset\x12\x12.mlflow.GetDataset\x1a\x1b.mlflow.GetDataset.Response\"R\xf2\x86\x19N\n*\n\x03GET\x12\x1d/mlflow/datasets/{dataset_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x16Get Evaluation Dataset\x12\xa0\x01\n\rdeleteDataset\x12\x15.mlflow.DeleteDataset\x1a\x1e.mlflow.DeleteDataset.Response\"X\xf2\x86\x19T\n-\n\x06\x44\x45LETE\x12\x1d/mlflow/datasets/{dataset_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x19\x44\x65lete Evaluation Dataset\x12\xdd\x01\n\x18searchEvaluationDatasets\x12 .mlflow.SearchEvaluationDatasets\x1a).mlflow.SearchEvaluationDatasets.Response\"t\xf2\x86\x19p\n%\n\x04POST\x12\x17/mlflow/datasets/search\x1a\x04\x08\x03\x10\x00\n$\n\x03GET\x12\x17/mlflow/datasets/search\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\x01*\x1aSearch Evaluation Datasets\x12\xa9\x01\n\x0esetDatasetTags\x12\x16.mlflow.SetDatasetTags\x1a\x1f.mlflow.SetDatasetTags.Response\"^\xf2\x86\x19Z\n1\n\x05PATCH\x12\"/mlflow/datasets/{dataset_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1bSet Evaluation Dataset Tags\x12\xb8\x01\n\x10\x64\x65leteDatasetTag\x12\x18.mlflow.DeleteDatasetTag\x1a!.mlflow.DeleteDatasetTag.Response\"g\xf2\x86\x19\x63\n8\n\x06\x44\x45LETE\x12(/mlflow/datasets/{dataset_id}/tags/{key}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1d\x44\x65lete Evaluation Dataset Tag\x12\xc3\x01\n\x14upsertDatasetRecords\x12\x1c.mlflow.UpsertDatasetRecords\x1a%.mlflow.UpsertDatasetRecords.Response\"f\xf2\x86\x19\x62\n3\n\x04POST\x12%/mlflow/datasets/{dataset_id}/records\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*!Upsert Evaluation Dataset Records\x12\xd6\x01\n\x17getDatasetExperimentIds\x12\x1f.mlflow.GetDatasetExperimentIds\x1a(.mlflow.GetDatasetExperimentIds.Response\"p\xf2\x86\x19l\n9\n\x03GET\x12,/mlflow/datasets/{dataset_id}/experiment-ids\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*%Get Evaluation Dataset Experiment IDs\x12\x8a\x01\n\x0eregisterScorer\x12\x16.mlflow.RegisterScorer\x1a\x1f.mlflow.RegisterScorer.Response\"?\xf2\x86\x19;\n&\n\x04POST\x12\x18/mlflow/scorers/register\x1a\x04\x08\x03\x10\x00\x10\x01*\x0fRegister Scorer\x12y\n\x0blistScorers\x12\x13.mlflow.ListScorers\x1a\x1c.mlflow.ListScorers.Response\"7\xf2\x86\x19\x33\n!\n\x03GET\x12\x14/mlflow/scorers/list\x1a\x04\x08\x03\x10\x00\x10\x01*\x0cList Scorers\x12\x9a\x01\n\x12listScorerVersions\x12\x1a.mlflow.ListScorerVersions\x1a#.mlflow.ListScorerVersions.Response\"C\xf2\x86\x19?\n%\n\x03GET\x12\x18/mlflow/scorers/versions\x1a\x04\x08\x03\x10\x00\x10\x01*\x14List Scorer Versions\x12p\n\tgetScorer\x12\x11.mlflow.GetScorer\x1a\x1a.mlflow.GetScorer.Response\"4\xf2\x86\x19\x30\n \n\x03GET\x12\x13/mlflow/scorers/get\x1a\x04\x08\x03\x10\x00\x10\x01*\nGet Scorer\x12\x82\x01\n\x0c\x64\x65leteScorer\x12\x14.mlflow.DeleteScorer\x1a\x1d.mlflow.DeleteScorer.Response\"=\xf2\x86\x19\x39\n&\n\x06\x44\x45LETE\x12\x16/mlflow/scorers/delete\x1a\x04\x08\x03\x10\x00\x10\x01*\rDelete Scorer\x12\xb6\x01\n\x11getDatasetRecords\x12\x19.mlflow.GetDatasetRecords\x1a\".mlflow.GetDatasetRecords.Response\"b\xf2\x86\x19^\n2\n\x03GET\x12%/mlflow/datasets/{dataset_id}/records\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1eGet Evaluation Dataset RecordsB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _globals = globals()
   _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -28,8 +34,18 @@ if Version(google.protobuf.__version__).major >= 5:
   if not _descriptor._USE_C_DESCRIPTORS:
     _globals['DESCRIPTOR']._loaded_options = None
     _globals['DESCRIPTOR']._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
+    _globals['_METRIC'].fields_by_name['dataset_name']._loaded_options = None
+    _globals['_METRIC'].fields_by_name['dataset_name']._serialized_options = b'\360\206\031\003'
+    _globals['_METRIC'].fields_by_name['dataset_digest']._loaded_options = None
+    _globals['_METRIC'].fields_by_name['dataset_digest']._serialized_options = b'\360\206\031\003'
+    _globals['_METRIC'].fields_by_name['model_id']._loaded_options = None
+    _globals['_METRIC'].fields_by_name['model_id']._serialized_options = b'\360\206\031\003'
+    _globals['_METRIC'].fields_by_name['run_id']._loaded_options = None
+    _globals['_METRIC'].fields_by_name['run_id']._serialized_options = b'\360\206\031\003'
     _globals['_DATASETINPUT'].fields_by_name['dataset']._loaded_options = None
     _globals['_DATASETINPUT'].fields_by_name['dataset']._serialized_options = b'\370\206\031\001'
+    _globals['_MODELINPUT'].fields_by_name['model_id']._loaded_options = None
+    _globals['_MODELINPUT'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _globals['_INPUTTAG'].fields_by_name['key']._loaded_options = None
     _globals['_INPUTTAG'].fields_by_name['key']._serialized_options = b'\370\206\031\001'
     _globals['_INPUTTAG'].fields_by_name['value']._loaded_options = None
@@ -42,6 +58,10 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DATASET'].fields_by_name['source_type']._serialized_options = b'\370\206\031\001'
     _globals['_DATASET'].fields_by_name['source']._loaded_options = None
     _globals['_DATASET'].fields_by_name['source']._serialized_options = b'\370\206\031\001'
+    _globals['_MODELOUTPUT'].fields_by_name['model_id']._loaded_options = None
+    _globals['_MODELOUTPUT'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_MODELOUTPUT'].fields_by_name['step']._loaded_options = None
+    _globals['_MODELOUTPUT'].fields_by_name['step']._serialized_options = b'\370\206\031\001'
     _globals['_CREATEEXPERIMENT'].fields_by_name['name']._loaded_options = None
     _globals['_CREATEEXPERIMENT'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _globals['_CREATEEXPERIMENT']._loaded_options = None
@@ -82,6 +102,12 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_LOGMETRIC'].fields_by_name['value']._serialized_options = b'\370\206\031\001'
     _globals['_LOGMETRIC'].fields_by_name['timestamp']._loaded_options = None
     _globals['_LOGMETRIC'].fields_by_name['timestamp']._serialized_options = b'\370\206\031\001'
+    _globals['_LOGMETRIC'].fields_by_name['model_id']._loaded_options = None
+    _globals['_LOGMETRIC'].fields_by_name['model_id']._serialized_options = b'\360\206\031\003'
+    _globals['_LOGMETRIC'].fields_by_name['dataset_name']._loaded_options = None
+    _globals['_LOGMETRIC'].fields_by_name['dataset_name']._serialized_options = b'\360\206\031\003'
+    _globals['_LOGMETRIC'].fields_by_name['dataset_digest']._loaded_options = None
+    _globals['_LOGMETRIC'].fields_by_name['dataset_digest']._serialized_options = b'\360\206\031\003'
     _globals['_LOGMETRIC']._loaded_options = None
     _globals['_LOGMETRIC']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_LOGPARAM'].fields_by_name['key']._loaded_options = None
@@ -98,6 +124,12 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_SETEXPERIMENTTAG'].fields_by_name['value']._serialized_options = b'\370\206\031\001'
     _globals['_SETEXPERIMENTTAG']._loaded_options = None
     _globals['_SETEXPERIMENTTAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETEEXPERIMENTTAG'].fields_by_name['experiment_id']._loaded_options = None
+    _globals['_DELETEEXPERIMENTTAG'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEEXPERIMENTTAG'].fields_by_name['key']._loaded_options = None
+    _globals['_DELETEEXPERIMENTTAG'].fields_by_name['key']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEEXPERIMENTTAG']._loaded_options = None
+    _globals['_DELETEEXPERIMENTTAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_SETTAG'].fields_by_name['key']._loaded_options = None
     _globals['_SETTAG'].fields_by_name['key']._serialized_options = b'\370\206\031\001'
     _globals['_SETTAG'].fields_by_name['value']._loaded_options = None
@@ -130,28 +162,92 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_LOGMODEL']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_LOGINPUTS'].fields_by_name['run_id']._loaded_options = None
     _globals['_LOGINPUTS'].fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
+    _globals['_LOGINPUTS'].fields_by_name['models']._loaded_options = None
+    _globals['_LOGINPUTS'].fields_by_name['models']._serialized_options = b'\360\206\031\003'
     _globals['_LOGINPUTS']._loaded_options = None
     _globals['_LOGINPUTS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_LOGOUTPUTS'].fields_by_name['run_id']._loaded_options = None
+    _globals['_LOGOUTPUTS'].fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
+    _globals['_LOGOUTPUTS']._loaded_options = None
+    _globals['_LOGOUTPUTS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_GETEXPERIMENTBYNAME'].fields_by_name['experiment_name']._loaded_options = None
     _globals['_GETEXPERIMENTBYNAME'].fields_by_name['experiment_name']._serialized_options = b'\370\206\031\001'
     _globals['_GETEXPERIMENTBYNAME']._loaded_options = None
     _globals['_GETEXPERIMENTBYNAME']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_CREATEASSESSMENT'].fields_by_name['assessment']._loaded_options = None
+    _globals['_CREATEASSESSMENT'].fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEASSESSMENT']._loaded_options = None
+    _globals['_CREATEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_UPDATEASSESSMENT'].fields_by_name['assessment']._loaded_options = None
+    _globals['_UPDATEASSESSMENT'].fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _globals['_UPDATEASSESSMENT'].fields_by_name['update_mask']._loaded_options = None
+    _globals['_UPDATEASSESSMENT'].fields_by_name['update_mask']._serialized_options = b'\370\206\031\001'
+    _globals['_UPDATEASSESSMENT']._loaded_options = None
+    _globals['_UPDATEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETEASSESSMENT'].fields_by_name['trace_id']._loaded_options = None
+    _globals['_DELETEASSESSMENT'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEASSESSMENT'].fields_by_name['assessment_id']._loaded_options = None
+    _globals['_DELETEASSESSMENT'].fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEASSESSMENT']._loaded_options = None
+    _globals['_DELETEASSESSMENT']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETASSESSMENTREQUEST'].fields_by_name['trace_id']._loaded_options = None
+    _globals['_GETASSESSMENTREQUEST'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETASSESSMENTREQUEST'].fields_by_name['assessment_id']._loaded_options = None
+    _globals['_GETASSESSMENTREQUEST'].fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETASSESSMENTREQUEST']._loaded_options = None
+    _globals['_GETASSESSMENTREQUEST']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_STARTTRACE']._loaded_options = None
     _globals['_STARTTRACE']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_ENDTRACE']._loaded_options = None
     _globals['_ENDTRACE']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_GETTRACEINFO']._loaded_options = None
     _globals['_GETTRACEINFO']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETTRACEINFOV3']._loaded_options = None
+    _globals['_GETTRACEINFOV3']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_BATCHGETTRACES']._loaded_options = None
+    _globals['_BATCHGETTRACES']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_SEARCHTRACES']._loaded_options = None
     _globals['_SEARCHTRACES']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SEARCHUNIFIEDTRACES'].fields_by_name['model_id']._loaded_options = None
+    _globals['_SEARCHUNIFIEDTRACES'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_SEARCHUNIFIEDTRACES'].fields_by_name['sql_warehouse_id']._loaded_options = None
+    _globals['_SEARCHUNIFIEDTRACES'].fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
+    _globals['_SEARCHUNIFIEDTRACES']._loaded_options = None
+    _globals['_SEARCHUNIFIEDTRACES']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['trace_id']._loaded_options = None
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['sql_warehouse_id']._loaded_options = None
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['source_inference_table']._loaded_options = None
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['source_inference_table']._serialized_options = b'\370\206\031\001'
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['source_databricks_request_id']._loaded_options = None
+    _globals['_GETONLINETRACEDETAILS'].fields_by_name['source_databricks_request_id']._serialized_options = b'\370\206\031\001'
     _globals['_DELETETRACES'].fields_by_name['experiment_id']._loaded_options = None
     _globals['_DELETETRACES'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _globals['_DELETETRACES']._loaded_options = None
     _globals['_DELETETRACES']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETETRACESV3'].fields_by_name['experiment_id']._loaded_options = None
+    _globals['_DELETETRACESV3'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETETRACESV3']._loaded_options = None
+    _globals['_DELETETRACESV3']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_CALCULATETRACEFILTERCORRELATION']._loaded_options = None
+    _globals['_CALCULATETRACEFILTERCORRELATION']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_SETTRACETAG']._loaded_options = None
     _globals['_SETTRACETAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SETTRACETAGV3']._loaded_options = None
+    _globals['_SETTRACETAGV3']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_DELETETRACETAG']._loaded_options = None
     _globals['_DELETETRACETAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETETRACETAGV3']._loaded_options = None
+    _globals['_DELETETRACETAGV3']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_TRACEINFOV3_TRACEMETADATAENTRY']._loaded_options = None
+    _globals['_TRACEINFOV3_TRACEMETADATAENTRY']._serialized_options = b'8\001'
+    _globals['_TRACEINFOV3_TAGSENTRY']._loaded_options = None
+    _globals['_TRACEINFOV3_TAGSENTRY']._serialized_options = b'8\001'
+    _globals['_STARTTRACEV3'].fields_by_name['trace']._loaded_options = None
+    _globals['_STARTTRACEV3'].fields_by_name['trace']._serialized_options = b'\370\206\031\001'
+    _globals['_LINKTRACESTORUN'].fields_by_name['run_id']._loaded_options = None
+    _globals['_LINKTRACESTORUN'].fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
     _globals['_DATASETSUMMARY'].fields_by_name['experiment_id']._loaded_options = None
     _globals['_DATASETSUMMARY'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _globals['_DATASETSUMMARY'].fields_by_name['name']._loaded_options = None
@@ -160,6 +256,108 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_DATASETSUMMARY'].fields_by_name['digest']._serialized_options = b'\370\206\031\001'
     _globals['_SEARCHDATASETS']._loaded_options = None
     _globals['_SEARCHDATASETS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_CREATELOGGEDMODEL'].fields_by_name['experiment_id']._loaded_options = None
+    _globals['_CREATELOGGEDMODEL'].fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATELOGGEDMODEL']._loaded_options = None
+    _globals['_CREATELOGGEDMODEL']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_FINALIZELOGGEDMODEL'].fields_by_name['model_id']._loaded_options = None
+    _globals['_FINALIZELOGGEDMODEL'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_FINALIZELOGGEDMODEL'].fields_by_name['status']._loaded_options = None
+    _globals['_FINALIZELOGGEDMODEL'].fields_by_name['status']._serialized_options = b'\370\206\031\001'
+    _globals['_FINALIZELOGGEDMODEL']._loaded_options = None
+    _globals['_FINALIZELOGGEDMODEL']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETLOGGEDMODEL'].fields_by_name['model_id']._loaded_options = None
+    _globals['_GETLOGGEDMODEL'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETLOGGEDMODEL']._loaded_options = None
+    _globals['_GETLOGGEDMODEL']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETELOGGEDMODEL'].fields_by_name['model_id']._loaded_options = None
+    _globals['_DELETELOGGEDMODEL'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETELOGGEDMODEL']._loaded_options = None
+    _globals['_DELETELOGGEDMODEL']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SEARCHLOGGEDMODELS_DATASET'].fields_by_name['dataset_name']._loaded_options = None
+    _globals['_SEARCHLOGGEDMODELS_DATASET'].fields_by_name['dataset_name']._serialized_options = b'\370\206\031\001'
+    _globals['_SEARCHLOGGEDMODELS_ORDERBY'].fields_by_name['field_name']._loaded_options = None
+    _globals['_SEARCHLOGGEDMODELS_ORDERBY'].fields_by_name['field_name']._serialized_options = b'\370\206\031\001'
+    _globals['_SEARCHLOGGEDMODELS']._loaded_options = None
+    _globals['_SEARCHLOGGEDMODELS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SETLOGGEDMODELTAGS'].fields_by_name['model_id']._loaded_options = None
+    _globals['_SETLOGGEDMODELTAGS'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_SETLOGGEDMODELTAGS']._loaded_options = None
+    _globals['_SETLOGGEDMODELTAGS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETELOGGEDMODELTAG'].fields_by_name['model_id']._loaded_options = None
+    _globals['_DELETELOGGEDMODELTAG'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETELOGGEDMODELTAG'].fields_by_name['tag_key']._loaded_options = None
+    _globals['_DELETELOGGEDMODELTAG'].fields_by_name['tag_key']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETELOGGEDMODELTAG']._loaded_options = None
+    _globals['_DELETELOGGEDMODELTAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_LISTLOGGEDMODELARTIFACTS'].fields_by_name['model_id']._loaded_options = None
+    _globals['_LISTLOGGEDMODELARTIFACTS'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_LISTLOGGEDMODELARTIFACTS']._loaded_options = None
+    _globals['_LISTLOGGEDMODELARTIFACTS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST'].fields_by_name['model_id']._loaded_options = None
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST'].fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST']._loaded_options = None
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SEARCHTRACESV3']._loaded_options = None
+    _globals['_SEARCHTRACESV3']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_CREATEDATASET'].fields_by_name['name']._loaded_options = None
+    _globals['_CREATEDATASET'].fields_by_name['name']._serialized_options = b'\370\206\031\001'
+    _globals['_CREATEDATASET']._loaded_options = None
+    _globals['_CREATEDATASET']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETDATASET'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_GETDATASET'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETDATASET']._loaded_options = None
+    _globals['_GETDATASET']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETEDATASET'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_DELETEDATASET'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEDATASET']._loaded_options = None
+    _globals['_DELETEDATASET']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SEARCHEVALUATIONDATASETS']._loaded_options = None
+    _globals['_SEARCHEVALUATIONDATASETS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_SETDATASETTAGS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_SETDATASETTAGS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_SETDATASETTAGS'].fields_by_name['tags']._loaded_options = None
+    _globals['_SETDATASETTAGS'].fields_by_name['tags']._serialized_options = b'\370\206\031\001'
+    _globals['_SETDATASETTAGS']._loaded_options = None
+    _globals['_SETDATASETTAGS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETEDATASETTAG'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_DELETEDATASETTAG'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEDATASETTAG'].fields_by_name['key']._loaded_options = None
+    _globals['_DELETEDATASETTAG'].fields_by_name['key']._serialized_options = b'\370\206\031\001'
+    _globals['_DELETEDATASETTAG']._loaded_options = None
+    _globals['_DELETEDATASETTAG']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_UPSERTDATASETRECORDS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_UPSERTDATASETRECORDS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_UPSERTDATASETRECORDS'].fields_by_name['records']._loaded_options = None
+    _globals['_UPSERTDATASETRECORDS'].fields_by_name['records']._serialized_options = b'\370\206\031\001'
+    _globals['_UPSERTDATASETRECORDS']._loaded_options = None
+    _globals['_UPSERTDATASETRECORDS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETDATASETEXPERIMENTIDS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_GETDATASETEXPERIMENTIDS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETDATASETEXPERIMENTIDS']._loaded_options = None
+    _globals['_GETDATASETEXPERIMENTIDS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETDATASETRECORDS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_GETDATASETRECORDS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_GETDATASETRECORDS']._loaded_options = None
+    _globals['_GETDATASETRECORDS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_ADDDATASETTOEXPERIMENTS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_ADDDATASETTOEXPERIMENTS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_ADDDATASETTOEXPERIMENTS']._loaded_options = None
+    _globals['_ADDDATASETTOEXPERIMENTS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_REMOVEDATASETFROMEXPERIMENTS'].fields_by_name['dataset_id']._loaded_options = None
+    _globals['_REMOVEDATASETFROMEXPERIMENTS'].fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _globals['_REMOVEDATASETFROMEXPERIMENTS']._loaded_options = None
+    _globals['_REMOVEDATASETFROMEXPERIMENTS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_REGISTERSCORER']._loaded_options = None
+    _globals['_REGISTERSCORER']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_LISTSCORERS']._loaded_options = None
+    _globals['_LISTSCORERS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_LISTSCORERVERSIONS']._loaded_options = None
+    _globals['_LISTSCORERVERSIONS']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_GETSCORER']._loaded_options = None
+    _globals['_GETSCORER']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _globals['_DELETESCORER']._loaded_options = None
+    _globals['_DELETESCORER']._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _globals['_MLFLOWSERVICE'].methods_by_name['getExperimentByName']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['getExperimentByName']._serialized_options = b'\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name'
     _globals['_MLFLOWSERVICE'].methods_by_name['createExperiment']._loaded_options = None
@@ -188,12 +386,18 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_MLFLOWSERVICE'].methods_by_name['logParam']._serialized_options = b'\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param'
     _globals['_MLFLOWSERVICE'].methods_by_name['setExperimentTag']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['setExperimentTag']._serialized_options = b'\362\206\031L\n4\n\004POST\022&/mlflow/experiments/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteExperimentTag']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteExperimentTag']._serialized_options = b'\362\206\031R\n7\n\004POST\022)/mlflow/experiments/delete-experiment-tag\032\004\010\002\020\000\020\001*\025Delete Experiment Tag'
     _globals['_MLFLOWSERVICE'].methods_by_name['setTag']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['setTag']._serialized_options = b'\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag'
     _globals['_MLFLOWSERVICE'].methods_by_name['setTraceTag']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['setTraceTag']._serialized_options = b'\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['setTraceTagV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['setTraceTagV3']._serialized_options = b'\362\206\031C\n-\n\005PATCH\022\036/mlflow/traces/{trace_id}/tags\032\004\010\003\020\000\020\003*\020Set Trace Tag V3'
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraceTag']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraceTag']._serialized_options = b'\362\206\031F\n0\n\006DELETE\022 /mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\020Delete Trace Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraceTagV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraceTagV3']._serialized_options = b'\362\206\031G\n.\n\006DELETE\022\036/mlflow/traces/{trace_id}/tags\032\004\010\003\020\000\020\003*\023Delete Trace Tag V3'
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTag']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTag']._serialized_options = b'\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag'
     _globals['_MLFLOWSERVICE'].methods_by_name['getRun']._loaded_options = None
@@ -212,6 +416,8 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_MLFLOWSERVICE'].methods_by_name['logModel']._serialized_options = b'\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Model'
     _globals['_MLFLOWSERVICE'].methods_by_name['logInputs']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['logInputs']._serialized_options = b'\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs'
+    _globals['_MLFLOWSERVICE'].methods_by_name['logOutputs']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['logOutputs']._serialized_options = b'\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/outputs\032\004\010\002\020\000\020\003*\013Log Outputs'
     _globals['_MLFLOWSERVICE'].methods_by_name['searchDatasets']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['searchDatasets']._serialized_options = b'\362\206\0314\n0\n\004POST\022\"mlflow/experiments/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000'
     _globals['_MLFLOWSERVICE'].methods_by_name['startTrace']._loaded_options = None
@@ -220,184 +426,468 @@ if Version(google.protobuf.__version__).major >= 5:
     _globals['_MLFLOWSERVICE'].methods_by_name['endTrace']._serialized_options = b'\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd Trace'
     _globals['_MLFLOWSERVICE'].methods_by_name['getTraceInfo']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['getTraceInfo']._serialized_options = b'\362\206\031@\n-\n\003GET\022 /mlflow/traces/{request_id}/info\032\004\010\002\020\000\020\003*\rGet TraceInfo'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getTraceInfoV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getTraceInfoV3']._serialized_options = b'\362\206\031<\n&\n\003GET\022\031/mlflow/traces/{trace_id}\032\004\010\003\020\000\020\003*\020Get TraceInfo v3'
+    _globals['_MLFLOWSERVICE'].methods_by_name['batchGetTraces']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['batchGetTraces']._serialized_options = b'\362\206\0314\n$\n\003GET\022\027/mlflow/traces/batchGet\032\004\010\003\020\000\020\003*\nGet Traces'
     _globals['_MLFLOWSERVICE'].methods_by_name['searchTraces']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['searchTraces']._serialized_options = b'\362\206\031.\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rSearch Traces'
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchTracesV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchTracesV3']._serialized_options = b'\362\206\0319\n#\n\004POST\022\025/mlflow/traces/search\032\004\010\003\020\000\020\003*\020Search Traces V3'
+    _globals['_MLFLOWSERVICE'].methods_by_name['startTraceV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['startTraceV3']._serialized_options = b'\362\206\031 \n\034\n\004POST\022\016/mlflow/traces\032\004\010\003\020\000\020\003'
+    _globals['_MLFLOWSERVICE'].methods_by_name['linkTracesToRun']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['linkTracesToRun']._serialized_options = b'\362\206\031@\n(\n\004POST\022\032/mlflow/traces/link-to-run\032\004\010\002\020\000\020\003*\022Link Traces to Run'
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchUnifiedTraceHandler']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchUnifiedTraceHandler']._serialized_options = b'\362\206\031>\n#\n\003GET\022\026/mlflow/unified-traces\032\004\010\002\020\000\020\003*\025Search Unified Traces'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getOnlineTraceDetails']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getOnlineTraceDetails']._serialized_options = b'\362\206\031K\n-\n\003GET\022 /mlflow/get-online-trace-details\032\004\010\002\020\000\020\003*\030Get Online Trace Details'
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraces']._loaded_options = None
     _globals['_MLFLOWSERVICE'].methods_by_name['deleteTraces']._serialized_options = b'\362\206\031=\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Traces'
-    _globals['_VIEWTYPE']._serialized_start=7200
-    _globals['_VIEWTYPE']._serialized_end=7254
-    _globals['_SOURCETYPE']._serialized_start=7256
-    _globals['_SOURCETYPE']._serialized_end=7329
-    _globals['_RUNSTATUS']._serialized_start=7331
-    _globals['_RUNSTATUS']._serialized_end=7408
-    _globals['_TRACESTATUS']._serialized_start=7410
-    _globals['_TRACESTATUS']._serialized_end=7489
-    _globals['_METRIC']._serialized_start=66
-    _globals['_METRIC']._serialized_end=138
-    _globals['_PARAM']._serialized_start=140
-    _globals['_PARAM']._serialized_end=175
-    _globals['_RUN']._serialized_start=177
-    _globals['_RUN']._serialized_end=279
-    _globals['_RUNDATA']._serialized_start=281
-    _globals['_RUNDATA']._serialized_end=384
-    _globals['_RUNINPUTS']._serialized_start=386
-    _globals['_RUNINPUTS']._serialized_end=443
-    _globals['_RUNTAG']._serialized_start=445
-    _globals['_RUNTAG']._serialized_end=481
-    _globals['_EXPERIMENTTAG']._serialized_start=483
-    _globals['_EXPERIMENTTAG']._serialized_end=526
-    _globals['_RUNINFO']._serialized_start=529
-    _globals['_RUNINFO']._serialized_end=750
-    _globals['_EXPERIMENT']._serialized_start=753
-    _globals['_EXPERIMENT']._serialized_end=940
-    _globals['_DATASETINPUT']._serialized_start=942
-    _globals['_DATASETINPUT']._serialized_end=1028
-    _globals['_INPUTTAG']._serialized_start=1030
-    _globals['_INPUTTAG']._serialized_end=1080
-    _globals['_DATASET']._serialized_start=1083
-    _globals['_DATASET']._serialized_end=1216
-    _globals['_CREATEEXPERIMENT']._serialized_start=1219
-    _globals['_CREATEEXPERIMENT']._serialized_end=1401
-    _globals['_CREATEEXPERIMENT_RESPONSE']._serialized_start=1323
-    _globals['_CREATEEXPERIMENT_RESPONSE']._serialized_end=1356
-    _globals['_SEARCHEXPERIMENTS']._serialized_start=1404
-    _globals['_SEARCHEXPERIMENTS']._serialized_end=1658
-    _globals['_SEARCHEXPERIMENTS_RESPONSE']._serialized_start=1537
-    _globals['_SEARCHEXPERIMENTS_RESPONSE']._serialized_end=1613
-    _globals['_GETEXPERIMENT']._serialized_start=1661
-    _globals['_GETEXPERIMENT']._serialized_end=1802
-    _globals['_GETEXPERIMENT_RESPONSE']._serialized_start=1707
-    _globals['_GETEXPERIMENT_RESPONSE']._serialized_end=1757
-    _globals['_DELETEEXPERIMENT']._serialized_start=1804
-    _globals['_DELETEEXPERIMENT']._serialized_end=1908
-    _globals['_DELETEEXPERIMENT_RESPONSE']._serialized_start=1323
-    _globals['_DELETEEXPERIMENT_RESPONSE']._serialized_end=1333
-    _globals['_RESTOREEXPERIMENT']._serialized_start=1910
-    _globals['_RESTOREEXPERIMENT']._serialized_end=2015
-    _globals['_RESTOREEXPERIMENT_RESPONSE']._serialized_start=1323
-    _globals['_RESTOREEXPERIMENT_RESPONSE']._serialized_end=1333
-    _globals['_UPDATEEXPERIMENT']._serialized_start=2017
-    _globals['_UPDATEEXPERIMENT']._serialized_end=2139
-    _globals['_UPDATEEXPERIMENT_RESPONSE']._serialized_start=1323
-    _globals['_UPDATEEXPERIMENT_RESPONSE']._serialized_end=1333
-    _globals['_CREATERUN']._serialized_start=2142
-    _globals['_CREATERUN']._serialized_end=2344
-    _globals['_CREATERUN_RESPONSE']._serialized_start=2263
-    _globals['_CREATERUN_RESPONSE']._serialized_end=2299
-    _globals['_UPDATERUN']._serialized_start=2347
-    _globals['_UPDATERUN']._serialized_end=2555
-    _globals['_UPDATERUN_RESPONSE']._serialized_start=2465
-    _globals['_UPDATERUN_RESPONSE']._serialized_end=2510
-    _globals['_DELETERUN']._serialized_start=2557
-    _globals['_DELETERUN']._serialized_end=2647
-    _globals['_DELETERUN_RESPONSE']._serialized_start=1323
-    _globals['_DELETERUN_RESPONSE']._serialized_end=1333
-    _globals['_RESTORERUN']._serialized_start=2649
-    _globals['_RESTORERUN']._serialized_end=2740
-    _globals['_RESTORERUN_RESPONSE']._serialized_start=1323
-    _globals['_RESTORERUN_RESPONSE']._serialized_end=1333
-    _globals['_LOGMETRIC']._serialized_start=2743
-    _globals['_LOGMETRIC']._serialized_end=2927
-    _globals['_LOGMETRIC_RESPONSE']._serialized_start=1323
-    _globals['_LOGMETRIC_RESPONSE']._serialized_end=1333
-    _globals['_LOGPARAM']._serialized_start=2930
-    _globals['_LOGPARAM']._serialized_end=3071
-    _globals['_LOGPARAM_RESPONSE']._serialized_start=1323
-    _globals['_LOGPARAM_RESPONSE']._serialized_end=1333
-    _globals['_SETEXPERIMENTTAG']._serialized_start=3074
-    _globals['_SETEXPERIMENTTAG']._serialized_end=3218
-    _globals['_SETEXPERIMENTTAG_RESPONSE']._serialized_start=1323
-    _globals['_SETEXPERIMENTTAG_RESPONSE']._serialized_end=1333
-    _globals['_SETTAG']._serialized_start=3221
-    _globals['_SETTAG']._serialized_end=3360
-    _globals['_SETTAG_RESPONSE']._serialized_start=1323
-    _globals['_SETTAG_RESPONSE']._serialized_end=1333
-    _globals['_DELETETAG']._serialized_start=3362
-    _globals['_DELETETAG']._serialized_end=3471
-    _globals['_DELETETAG_RESPONSE']._serialized_start=1323
-    _globals['_DELETETAG_RESPONSE']._serialized_end=1333
-    _globals['_GETRUN']._serialized_start=3473
-    _globals['_GETRUN']._serialized_end=3598
-    _globals['_GETRUN_RESPONSE']._serialized_start=2263
-    _globals['_GETRUN_RESPONSE']._serialized_end=2299
-    _globals['_SEARCHRUNS']._serialized_start=3601
-    _globals['_SEARCHRUNS']._serialized_end=3881
-    _globals['_SEARCHRUNS_RESPONSE']._serialized_start=3774
-    _globals['_SEARCHRUNS_RESPONSE']._serialized_end=3836
-    _globals['_LISTARTIFACTS']._serialized_start=3884
-    _globals['_LISTARTIFACTS']._serialized_end=4100
-    _globals['_LISTARTIFACTS_RESPONSE']._serialized_start=3969
-    _globals['_LISTARTIFACTS_RESPONSE']._serialized_end=4055
-    _globals['_FILEINFO']._serialized_start=4102
-    _globals['_FILEINFO']._serialized_end=4161
-    _globals['_GETMETRICHISTORY']._serialized_start=4164
-    _globals['_GETMETRICHISTORY']._serialized_end=4398
-    _globals['_GETMETRICHISTORY_RESPONSE']._serialized_start=4285
-    _globals['_GETMETRICHISTORY_RESPONSE']._serialized_end=4353
-    _globals['_METRICWITHRUNID']._serialized_start=4400
-    _globals['_METRICWITHRUNID']._serialized_end=4497
-    _globals['_GETMETRICHISTORYBULKINTERVAL']._serialized_start=4500
-    _globals['_GETMETRICHISTORYBULKINTERVAL']._serialized_end=4731
-    _globals['_GETMETRICHISTORYBULKINTERVAL_RESPONSE']._serialized_start=4634
-    _globals['_GETMETRICHISTORYBULKINTERVAL_RESPONSE']._serialized_end=4686
-    _globals['_LOGBATCH']._serialized_start=4734
-    _globals['_LOGBATCH']._serialized_end=4911
-    _globals['_LOGBATCH_RESPONSE']._serialized_start=1323
-    _globals['_LOGBATCH_RESPONSE']._serialized_end=1333
-    _globals['_LOGMODEL']._serialized_start=4913
-    _globals['_LOGMODEL']._serialized_end=5016
-    _globals['_LOGMODEL_RESPONSE']._serialized_start=1323
-    _globals['_LOGMODEL_RESPONSE']._serialized_end=1333
-    _globals['_LOGINPUTS']._serialized_start=5019
-    _globals['_LOGINPUTS']._serialized_end=5149
-    _globals['_LOGINPUTS_RESPONSE']._serialized_start=1323
-    _globals['_LOGINPUTS_RESPONSE']._serialized_end=1333
-    _globals['_GETEXPERIMENTBYNAME']._serialized_start=5152
-    _globals['_GETEXPERIMENTBYNAME']._serialized_end=5301
-    _globals['_GETEXPERIMENTBYNAME_RESPONSE']._serialized_start=1707
-    _globals['_GETEXPERIMENTBYNAME_RESPONSE']._serialized_end=1757
-    _globals['_TRACEINFO']._serialized_start=5304
-    _globals['_TRACEINFO']._serialized_end=5532
-    _globals['_TRACEREQUESTMETADATA']._serialized_start=5534
-    _globals['_TRACEREQUESTMETADATA']._serialized_end=5584
-    _globals['_TRACETAG']._serialized_start=5586
-    _globals['_TRACETAG']._serialized_end=5624
-    _globals['_STARTTRACE']._serialized_start=5627
-    _globals['_STARTTRACE']._serialized_end=5868
-    _globals['_STARTTRACE_RESPONSE']._serialized_start=5774
-    _globals['_STARTTRACE_RESPONSE']._serialized_end=5823
-    _globals['_ENDTRACE']._serialized_start=5871
-    _globals['_ENDTRACE']._serialized_end=6144
-    _globals['_ENDTRACE_RESPONSE']._serialized_start=5774
-    _globals['_ENDTRACE_RESPONSE']._serialized_end=5823
-    _globals['_GETTRACEINFO']._serialized_start=6147
-    _globals['_GETTRACEINFO']._serialized_end=6277
-    _globals['_GETTRACEINFO_RESPONSE']._serialized_start=5774
-    _globals['_GETTRACEINFO_RESPONSE']._serialized_end=5823
-    _globals['_SEARCHTRACES']._serialized_start=6280
-    _globals['_SEARCHTRACES']._serialized_end=6515
-    _globals['_SEARCHTRACES_RESPONSE']._serialized_start=6400
-    _globals['_SEARCHTRACES_RESPONSE']._serialized_end=6470
-    _globals['_DELETETRACES']._serialized_start=6518
-    _globals['_DELETETRACES']._serialized_end=6713
-    _globals['_DELETETRACES_RESPONSE']._serialized_start=6634
-    _globals['_DELETETRACES_RESPONSE']._serialized_end=6668
-    _globals['_SETTRACETAG']._serialized_start=6715
-    _globals['_SETTRACETAG']._serialized_end=6833
-    _globals['_SETTRACETAG_RESPONSE']._serialized_start=1323
-    _globals['_SETTRACETAG_RESPONSE']._serialized_end=1333
-    _globals['_DELETETRACETAG']._serialized_start=6835
-    _globals['_DELETETRACETAG']._serialized_end=6941
-    _globals['_DELETETRACETAG_RESPONSE']._serialized_start=1323
-    _globals['_DELETETRACETAG_RESPONSE']._serialized_end=1333
-    _globals['_DATASETSUMMARY']._serialized_start=6943
-    _globals['_DATASETSUMMARY']._serialized_end=7047
-    _globals['_SEARCHDATASETS']._serialized_start=7050
-    _globals['_SEARCHDATASETS']._serialized_end=7198
-    _globals['_SEARCHDATASETS_RESPONSE']._serialized_start=7092
-    _globals['_SEARCHDATASETS_RESPONSE']._serialized_end=7153
-    _globals['_MLFLOWSERVICE']._serialized_start=7492
-    _globals['_MLFLOWSERVICE']._serialized_end=11819
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteTracesV3']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteTracesV3']._serialized_options = b'\362\206\031@\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004\010\003\020\000\020\003*\020Delete Traces V3'
+    _globals['_MLFLOWSERVICE'].methods_by_name['calculateTraceFilterCorrelation']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['calculateTraceFilterCorrelation']._serialized_options = b'\362\206\031a\n9\n\004POST\022+/mlflow/traces/calculate-filter-correlation\032\004\010\003\020\000\020\003*\"Calculate Trace Filter Correlation'
+    _globals['_MLFLOWSERVICE'].methods_by_name['createLoggedModel']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['createLoggedModel']._serialized_options = b'\362\206\031<\n#\n\004POST\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023Create Logged Model'
+    _globals['_MLFLOWSERVICE'].methods_by_name['finalizeLoggedModel']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['finalizeLoggedModel']._serialized_options = b'\362\206\031J\n/\n\005PATCH\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\025Finalize Logged Model'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getLoggedModel']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getLoggedModel']._serialized_options = b'\362\206\031C\n-\n\003GET\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\020Get Logged Model'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteLoggedModel']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteLoggedModel']._serialized_options = b'\362\206\031K\n0\n\006DELETE\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\025Delete a Logged Model'
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchLoggedModels']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchLoggedModels']._serialized_options = b'\362\206\031C\n*\n\004POST\022\034/mlflow/logged-models/search\032\004\010\002\020\000\020\003*\023Search LoggedModels'
+    _globals['_MLFLOWSERVICE'].methods_by_name['setLoggedModelTags']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['setLoggedModelTags']._serialized_options = b'\362\206\031N\n4\n\005PATCH\022%/mlflow/logged-models/{model_id}/tags\032\004\010\002\020\000\020\003*\024Set Logged Model Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteLoggedModelTag']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteLoggedModelTag']._serialized_options = b'\362\206\031\\\n?\n\006DELETE\022//mlflow/logged-models/{model_id}/tags/{tag_key}\032\004\010\002\020\000\020\003*\027Delete Logged Model Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['listLoggedModelArtifacts']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['listLoggedModelArtifacts']._serialized_options = b'\362\206\031i\nC\n\003GET\0226/mlflow/logged-models/{model_id}/artifacts/directories\032\004\010\002\020\000\020\003* List Artifacts for Logged Models'
+    _globals['_MLFLOWSERVICE'].methods_by_name['LogLoggedModelParams']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['LogLoggedModelParams']._serialized_options = b'\362\206\031R\n5\n\004POST\022\'/mlflow/logged-models/{model_id}/params\032\004\010\002\020\000\020\003*\027Log Logged Model Params'
+    _globals['_MLFLOWSERVICE'].methods_by_name['GetAssessment']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['GetAssessment']._serialized_options = b'\362\206\031V\nB\n\003GET\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003*\016Get Assessment'
+    _globals['_MLFLOWSERVICE'].methods_by_name['createAssessment']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['createAssessment']._serialized_options = b'\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{assessment.trace_id}/assessments\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Create an assessment of a trace or a span within the trace'
+    _globals['_MLFLOWSERVICE'].methods_by_name['updateAssessment']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['updateAssessment']._serialized_options = b'\362\206\031{\nD\n\005PATCH\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\001*)Update an existing assessment on a trace.'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteAssessment']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteAssessment']._serialized_options = b'\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003*\021Delete Assessment'
+    _globals['_MLFLOWSERVICE'].methods_by_name['createDataset']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['createDataset']._serialized_options = b'\362\206\031N\n%\n\004POST\022\027/mlflow/datasets/create\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*\031Create Evaluation Dataset'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDataset']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDataset']._serialized_options = b'\362\206\031N\n*\n\003GET\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\026Get Evaluation Dataset'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteDataset']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteDataset']._serialized_options = b'\362\206\031T\n-\n\006DELETE\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\031Delete Evaluation Dataset'
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchEvaluationDatasets']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['searchEvaluationDatasets']._serialized_options = b'\362\206\031p\n%\n\004POST\022\027/mlflow/datasets/search\032\004\010\003\020\000\n$\n\003GET\022\027/mlflow/datasets/search\032\004\010\003\020\000\020\003\030\350\007\030\001*\032Search Evaluation Datasets'
+    _globals['_MLFLOWSERVICE'].methods_by_name['setDatasetTags']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['setDatasetTags']._serialized_options = b'\362\206\031Z\n1\n\005PATCH\022\"/mlflow/datasets/{dataset_id}/tags\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Set Evaluation Dataset Tags'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteDatasetTag']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteDatasetTag']._serialized_options = b'\362\206\031c\n8\n\006DELETE\022(/mlflow/datasets/{dataset_id}/tags/{key}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\035Delete Evaluation Dataset Tag'
+    _globals['_MLFLOWSERVICE'].methods_by_name['upsertDatasetRecords']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['upsertDatasetRecords']._serialized_options = b'\362\206\031b\n3\n\004POST\022%/mlflow/datasets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Upsert Evaluation Dataset Records'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDatasetExperimentIds']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDatasetExperimentIds']._serialized_options = b'\362\206\031l\n9\n\003GET\022,/mlflow/datasets/{dataset_id}/experiment-ids\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*%Get Evaluation Dataset Experiment IDs'
+    _globals['_MLFLOWSERVICE'].methods_by_name['registerScorer']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['registerScorer']._serialized_options = b'\362\206\031;\n&\n\004POST\022\030/mlflow/scorers/register\032\004\010\003\020\000\020\001*\017Register Scorer'
+    _globals['_MLFLOWSERVICE'].methods_by_name['listScorers']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['listScorers']._serialized_options = b'\362\206\0313\n!\n\003GET\022\024/mlflow/scorers/list\032\004\010\003\020\000\020\001*\014List Scorers'
+    _globals['_MLFLOWSERVICE'].methods_by_name['listScorerVersions']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['listScorerVersions']._serialized_options = b'\362\206\031?\n%\n\003GET\022\030/mlflow/scorers/versions\032\004\010\003\020\000\020\001*\024List Scorer Versions'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getScorer']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getScorer']._serialized_options = b'\362\206\0310\n \n\003GET\022\023/mlflow/scorers/get\032\004\010\003\020\000\020\001*\nGet Scorer'
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteScorer']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['deleteScorer']._serialized_options = b'\362\206\0319\n&\n\006DELETE\022\026/mlflow/scorers/delete\032\004\010\003\020\000\020\001*\rDelete Scorer'
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDatasetRecords']._loaded_options = None
+    _globals['_MLFLOWSERVICE'].methods_by_name['getDatasetRecords']._serialized_options = b'\362\206\031^\n2\n\003GET\022%/mlflow/datasets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\036Get Evaluation Dataset Records'
+    _globals['_VIEWTYPE']._serialized_start=17672
+    _globals['_VIEWTYPE']._serialized_end=17726
+    _globals['_SOURCETYPE']._serialized_start=17728
+    _globals['_SOURCETYPE']._serialized_end=17801
+    _globals['_RUNSTATUS']._serialized_start=17803
+    _globals['_RUNSTATUS']._serialized_end=17880
+    _globals['_TRACESTATUS']._serialized_start=17882
+    _globals['_TRACESTATUS']._serialized_end=17961
+    _globals['_LOGGEDMODELSTATUS']._serialized_start=17964
+    _globals['_LOGGEDMODELSTATUS']._serialized_end=18102
+    _globals['_METRIC']._serialized_start=243
+    _globals['_METRIC']._serialized_end=419
+    _globals['_PARAM']._serialized_start=421
+    _globals['_PARAM']._serialized_end=456
+    _globals['_RUN']._serialized_start=459
+    _globals['_RUN']._serialized_end=598
+    _globals['_RUNDATA']._serialized_start=600
+    _globals['_RUNDATA']._serialized_end=703
+    _globals['_RUNINPUTS']._serialized_start=705
+    _globals['_RUNINPUTS']._serialized_end=804
+    _globals['_RUNOUTPUTS']._serialized_start=806
+    _globals['_RUNOUTPUTS']._serialized_end=862
+    _globals['_RUNTAG']._serialized_start=864
+    _globals['_RUNTAG']._serialized_end=900
+    _globals['_EXPERIMENTTAG']._serialized_start=902
+    _globals['_EXPERIMENTTAG']._serialized_end=945
+    _globals['_RUNINFO']._serialized_start=948
+    _globals['_RUNINFO']._serialized_end=1169
+    _globals['_EXPERIMENT']._serialized_start=1172
+    _globals['_EXPERIMENT']._serialized_end=1359
+    _globals['_DATASETINPUT']._serialized_start=1361
+    _globals['_DATASETINPUT']._serialized_end=1447
+    _globals['_MODELINPUT']._serialized_start=1449
+    _globals['_MODELINPUT']._serialized_end=1485
+    _globals['_INPUTTAG']._serialized_start=1487
+    _globals['_INPUTTAG']._serialized_end=1537
+    _globals['_DATASET']._serialized_start=1540
+    _globals['_DATASET']._serialized_end=1673
+    _globals['_MODELOUTPUT']._serialized_start=1675
+    _globals['_MODELOUTPUT']._serialized_end=1732
+    _globals['_CREATEEXPERIMENT']._serialized_start=1735
+    _globals['_CREATEEXPERIMENT']._serialized_end=1917
+    _globals['_CREATEEXPERIMENT_RESPONSE']._serialized_start=1839
+    _globals['_CREATEEXPERIMENT_RESPONSE']._serialized_end=1872
+    _globals['_SEARCHEXPERIMENTS']._serialized_start=1920
+    _globals['_SEARCHEXPERIMENTS']._serialized_end=2174
+    _globals['_SEARCHEXPERIMENTS_RESPONSE']._serialized_start=2053
+    _globals['_SEARCHEXPERIMENTS_RESPONSE']._serialized_end=2129
+    _globals['_GETEXPERIMENT']._serialized_start=2177
+    _globals['_GETEXPERIMENT']._serialized_end=2318
+    _globals['_GETEXPERIMENT_RESPONSE']._serialized_start=2223
+    _globals['_GETEXPERIMENT_RESPONSE']._serialized_end=2273
+    _globals['_DELETEEXPERIMENT']._serialized_start=2320
+    _globals['_DELETEEXPERIMENT']._serialized_end=2424
+    _globals['_DELETEEXPERIMENT_RESPONSE']._serialized_start=1839
+    _globals['_DELETEEXPERIMENT_RESPONSE']._serialized_end=1849
+    _globals['_RESTOREEXPERIMENT']._serialized_start=2426
+    _globals['_RESTOREEXPERIMENT']._serialized_end=2531
+    _globals['_RESTOREEXPERIMENT_RESPONSE']._serialized_start=1839
+    _globals['_RESTOREEXPERIMENT_RESPONSE']._serialized_end=1849
+    _globals['_UPDATEEXPERIMENT']._serialized_start=2533
+    _globals['_UPDATEEXPERIMENT']._serialized_end=2655
+    _globals['_UPDATEEXPERIMENT_RESPONSE']._serialized_start=1839
+    _globals['_UPDATEEXPERIMENT_RESPONSE']._serialized_end=1849
+    _globals['_CREATERUN']._serialized_start=2658
+    _globals['_CREATERUN']._serialized_end=2860
+    _globals['_CREATERUN_RESPONSE']._serialized_start=2779
+    _globals['_CREATERUN_RESPONSE']._serialized_end=2815
+    _globals['_UPDATERUN']._serialized_start=2863
+    _globals['_UPDATERUN']._serialized_end=3071
+    _globals['_UPDATERUN_RESPONSE']._serialized_start=2981
+    _globals['_UPDATERUN_RESPONSE']._serialized_end=3026
+    _globals['_DELETERUN']._serialized_start=3073
+    _globals['_DELETERUN']._serialized_end=3163
+    _globals['_DELETERUN_RESPONSE']._serialized_start=1839
+    _globals['_DELETERUN_RESPONSE']._serialized_end=1849
+    _globals['_RESTORERUN']._serialized_start=3165
+    _globals['_RESTORERUN']._serialized_end=3256
+    _globals['_RESTORERUN_RESPONSE']._serialized_start=1839
+    _globals['_RESTORERUN_RESPONSE']._serialized_end=1849
+    _globals['_LOGMETRIC']._serialized_start=3259
+    _globals['_LOGMETRIC']._serialized_end=3525
+    _globals['_LOGMETRIC_RESPONSE']._serialized_start=1839
+    _globals['_LOGMETRIC_RESPONSE']._serialized_end=1849
+    _globals['_LOGPARAM']._serialized_start=3528
+    _globals['_LOGPARAM']._serialized_end=3669
+    _globals['_LOGPARAM_RESPONSE']._serialized_start=1839
+    _globals['_LOGPARAM_RESPONSE']._serialized_end=1849
+    _globals['_SETEXPERIMENTTAG']._serialized_start=3672
+    _globals['_SETEXPERIMENTTAG']._serialized_end=3816
+    _globals['_SETEXPERIMENTTAG_RESPONSE']._serialized_start=1839
+    _globals['_SETEXPERIMENTTAG_RESPONSE']._serialized_end=1849
+    _globals['_DELETEEXPERIMENTTAG']._serialized_start=3818
+    _globals['_DELETEEXPERIMENTTAG']._serialized_end=3944
+    _globals['_DELETEEXPERIMENTTAG_RESPONSE']._serialized_start=1839
+    _globals['_DELETEEXPERIMENTTAG_RESPONSE']._serialized_end=1849
+    _globals['_SETTAG']._serialized_start=3947
+    _globals['_SETTAG']._serialized_end=4086
+    _globals['_SETTAG_RESPONSE']._serialized_start=1839
+    _globals['_SETTAG_RESPONSE']._serialized_end=1849
+    _globals['_DELETETAG']._serialized_start=4088
+    _globals['_DELETETAG']._serialized_end=4197
+    _globals['_DELETETAG_RESPONSE']._serialized_start=1839
+    _globals['_DELETETAG_RESPONSE']._serialized_end=1849
+    _globals['_GETRUN']._serialized_start=4199
+    _globals['_GETRUN']._serialized_end=4324
+    _globals['_GETRUN_RESPONSE']._serialized_start=2779
+    _globals['_GETRUN_RESPONSE']._serialized_end=2815
+    _globals['_SEARCHRUNS']._serialized_start=4327
+    _globals['_SEARCHRUNS']._serialized_end=4607
+    _globals['_SEARCHRUNS_RESPONSE']._serialized_start=4500
+    _globals['_SEARCHRUNS_RESPONSE']._serialized_end=4562
+    _globals['_LISTARTIFACTS']._serialized_start=4610
+    _globals['_LISTARTIFACTS']._serialized_end=4826
+    _globals['_LISTARTIFACTS_RESPONSE']._serialized_start=4695
+    _globals['_LISTARTIFACTS_RESPONSE']._serialized_end=4781
+    _globals['_FILEINFO']._serialized_start=4828
+    _globals['_FILEINFO']._serialized_end=4887
+    _globals['_GETMETRICHISTORY']._serialized_start=4890
+    _globals['_GETMETRICHISTORY']._serialized_end=5124
+    _globals['_GETMETRICHISTORY_RESPONSE']._serialized_start=5011
+    _globals['_GETMETRICHISTORY_RESPONSE']._serialized_end=5079
+    _globals['_METRICWITHRUNID']._serialized_start=5126
+    _globals['_METRICWITHRUNID']._serialized_end=5223
+    _globals['_GETMETRICHISTORYBULKINTERVAL']._serialized_start=5226
+    _globals['_GETMETRICHISTORYBULKINTERVAL']._serialized_end=5457
+    _globals['_GETMETRICHISTORYBULKINTERVAL_RESPONSE']._serialized_start=5360
+    _globals['_GETMETRICHISTORYBULKINTERVAL_RESPONSE']._serialized_end=5412
+    _globals['_LOGBATCH']._serialized_start=5460
+    _globals['_LOGBATCH']._serialized_end=5637
+    _globals['_LOGBATCH_RESPONSE']._serialized_start=1839
+    _globals['_LOGBATCH_RESPONSE']._serialized_end=1849
+    _globals['_LOGMODEL']._serialized_start=5639
+    _globals['_LOGMODEL']._serialized_end=5742
+    _globals['_LOGMODEL_RESPONSE']._serialized_start=1839
+    _globals['_LOGMODEL_RESPONSE']._serialized_end=1849
+    _globals['_LOGINPUTS']._serialized_start=5745
+    _globals['_LOGINPUTS']._serialized_end=5917
+    _globals['_LOGINPUTS_RESPONSE']._serialized_start=1839
+    _globals['_LOGINPUTS_RESPONSE']._serialized_end=1849
+    _globals['_LOGOUTPUTS']._serialized_start=5920
+    _globals['_LOGOUTPUTS']._serialized_end=6048
+    _globals['_LOGOUTPUTS_RESPONSE']._serialized_start=1839
+    _globals['_LOGOUTPUTS_RESPONSE']._serialized_end=1849
+    _globals['_GETEXPERIMENTBYNAME']._serialized_start=6051
+    _globals['_GETEXPERIMENTBYNAME']._serialized_end=6200
+    _globals['_GETEXPERIMENTBYNAME_RESPONSE']._serialized_start=2223
+    _globals['_GETEXPERIMENTBYNAME_RESPONSE']._serialized_end=2273
+    _globals['_CREATEASSESSMENT']._serialized_start=6203
+    _globals['_CREATEASSESSMENT']._serialized_end=6388
+    _globals['_CREATEASSESSMENT_RESPONSE']._serialized_start=6281
+    _globals['_CREATEASSESSMENT_RESPONSE']._serialized_end=6343
+    _globals['_UPDATEASSESSMENT']._serialized_start=6391
+    _globals['_UPDATEASSESSMENT']._serialized_end=6631
+    _globals['_UPDATEASSESSMENT_RESPONSE']._serialized_start=6281
+    _globals['_UPDATEASSESSMENT_RESPONSE']._serialized_end=6343
+    _globals['_DELETEASSESSMENT']._serialized_start=6634
+    _globals['_DELETEASSESSMENT']._serialized_end=6762
+    _globals['_DELETEASSESSMENT_RESPONSE']._serialized_start=1839
+    _globals['_DELETEASSESSMENT_RESPONSE']._serialized_end=1849
+    _globals['_GETASSESSMENTREQUEST']._serialized_start=6765
+    _globals['_GETASSESSMENTREQUEST']._serialized_end=6949
+    _globals['_GETASSESSMENTREQUEST_RESPONSE']._serialized_start=6281
+    _globals['_GETASSESSMENTREQUEST_RESPONSE']._serialized_end=6343
+    _globals['_TRACEINFO']._serialized_start=6952
+    _globals['_TRACEINFO']._serialized_end=7180
+    _globals['_TRACEREQUESTMETADATA']._serialized_start=7182
+    _globals['_TRACEREQUESTMETADATA']._serialized_end=7232
+    _globals['_TRACETAG']._serialized_start=7234
+    _globals['_TRACETAG']._serialized_end=7272
+    _globals['_STARTTRACE']._serialized_start=7275
+    _globals['_STARTTRACE']._serialized_end=7516
+    _globals['_STARTTRACE_RESPONSE']._serialized_start=7422
+    _globals['_STARTTRACE_RESPONSE']._serialized_end=7471
+    _globals['_ENDTRACE']._serialized_start=7519
+    _globals['_ENDTRACE']._serialized_end=7792
+    _globals['_ENDTRACE_RESPONSE']._serialized_start=7422
+    _globals['_ENDTRACE_RESPONSE']._serialized_end=7471
+    _globals['_GETTRACEINFO']._serialized_start=7795
+    _globals['_GETTRACEINFO']._serialized_end=7925
+    _globals['_GETTRACEINFO_RESPONSE']._serialized_start=7422
+    _globals['_GETTRACEINFO_RESPONSE']._serialized_end=7471
+    _globals['_GETTRACEINFOV3']._serialized_start=7927
+    _globals['_GETTRACEINFOV3']._serialized_end=8048
+    _globals['_GETTRACEINFOV3_RESPONSE']._serialized_start=7963
+    _globals['_GETTRACEINFOV3_RESPONSE']._serialized_end=8003
+    _globals['_BATCHGETTRACES']._serialized_start=8050
+    _globals['_BATCHGETTRACES']._serialized_end=8173
+    _globals['_BATCHGETTRACES_RESPONSE']._serialized_start=8087
+    _globals['_BATCHGETTRACES_RESPONSE']._serialized_end=8128
+    _globals['_SEARCHTRACES']._serialized_start=8176
+    _globals['_SEARCHTRACES']._serialized_end=8411
+    _globals['_SEARCHTRACES_RESPONSE']._serialized_start=8296
+    _globals['_SEARCHTRACES_RESPONSE']._serialized_end=8366
+    _globals['_SEARCHUNIFIEDTRACES']._serialized_start=8414
+    _globals['_SEARCHUNIFIEDTRACES']._serialized_end=8712
+    _globals['_SEARCHUNIFIEDTRACES_RESPONSE']._serialized_start=8296
+    _globals['_SEARCHUNIFIEDTRACES_RESPONSE']._serialized_end=8366
+    _globals['_GETONLINETRACEDETAILS']._serialized_start=8715
+    _globals['_GETONLINETRACEDETAILS']._serialized_end=8908
+    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_start=8878
+    _globals['_GETONLINETRACEDETAILS_RESPONSE']._serialized_end=8908
+    _globals['_DELETETRACES']._serialized_start=8911
+    _globals['_DELETETRACES']._serialized_end=9106
+    _globals['_DELETETRACES_RESPONSE']._serialized_start=9027
+    _globals['_DELETETRACES_RESPONSE']._serialized_end=9061
+    _globals['_DELETETRACESV3']._serialized_start=9109
+    _globals['_DELETETRACESV3']._serialized_end=9306
+    _globals['_DELETETRACESV3_RESPONSE']._serialized_start=9027
+    _globals['_DELETETRACESV3_RESPONSE']._serialized_end=9061
+    _globals['_CALCULATETRACEFILTERCORRELATION']._serialized_start=9309
+    _globals['_CALCULATETRACEFILTERCORRELATION']._serialized_end=9618
+    _globals['_CALCULATETRACEFILTERCORRELATION_RESPONSE']._serialized_start=9438
+    _globals['_CALCULATETRACEFILTERCORRELATION_RESPONSE']._serialized_end=9573
+    _globals['_SETTRACETAG']._serialized_start=9620
+    _globals['_SETTRACETAG']._serialized_end=9738
+    _globals['_SETTRACETAG_RESPONSE']._serialized_start=1839
+    _globals['_SETTRACETAG_RESPONSE']._serialized_end=1849
+    _globals['_SETTRACETAGV3']._serialized_start=9741
+    _globals['_SETTRACETAGV3']._serialized_end=9877
+    _globals['_SETTRACETAGV3_RESPONSE']._serialized_start=1839
+    _globals['_SETTRACETAGV3_RESPONSE']._serialized_end=1849
+    _globals['_DELETETRACETAG']._serialized_start=9879
+    _globals['_DELETETRACETAG']._serialized_end=10001
+    _globals['_DELETETRACETAG_RESPONSE']._serialized_start=1839
+    _globals['_DELETETRACETAG_RESPONSE']._serialized_end=1849
+    _globals['_DELETETRACETAGV3']._serialized_start=10003
+    _globals['_DELETETRACETAGV3']._serialized_end=10111
+    _globals['_DELETETRACETAGV3_RESPONSE']._serialized_start=1839
+    _globals['_DELETETRACETAGV3_RESPONSE']._serialized_end=1849
+    _globals['_TRACE']._serialized_start=10113
+    _globals['_TRACE']._serialized_end=10212
+    _globals['_TRACELOCATION']._serialized_start=10215
+    _globals['_TRACELOCATION']._serialized_end=10653
+    _globals['_TRACELOCATION_MLFLOWEXPERIMENTLOCATION']._serialized_start=10437
+    _globals['_TRACELOCATION_MLFLOWEXPERIMENTLOCATION']._serialized_end=10486
+    _globals['_TRACELOCATION_INFERENCETABLELOCATION']._serialized_start=10488
+    _globals['_TRACELOCATION_INFERENCETABLELOCATION']._serialized_end=10537
+    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_start=10539
+    _globals['_TRACELOCATION_TRACELOCATIONTYPE']._serialized_end=10639
+    _globals['_TRACEINFOV3']._serialized_start=10656
+    _globals['_TRACEINFOV3']._serialized_end=11323
+    _globals['_TRACEINFOV3_TRACEMETADATAENTRY']._serialized_start=11158
+    _globals['_TRACEINFOV3_TRACEMETADATAENTRY']._serialized_end=11210
+    _globals['_TRACEINFOV3_TAGSENTRY']._serialized_start=11212
+    _globals['_TRACEINFOV3_TAGSENTRY']._serialized_end=11255
+    _globals['_TRACEINFOV3_STATE']._serialized_start=11257
+    _globals['_TRACEINFOV3_STATE']._serialized_end=11323
+    _globals['_STARTTRACEV3']._serialized_start=11325
+    _globals['_STARTTRACEV3']._serialized_end=11417
+    _globals['_STARTTRACEV3_RESPONSE']._serialized_start=7963
+    _globals['_STARTTRACEV3_RESPONSE']._serialized_end=8003
+    _globals['_LINKTRACESTORUN']._serialized_start=11419
+    _globals['_LINKTRACESTORUN']._serialized_end=11489
+    _globals['_LINKTRACESTORUN_RESPONSE']._serialized_start=1839
+    _globals['_LINKTRACESTORUN_RESPONSE']._serialized_end=1849
+    _globals['_DATASETSUMMARY']._serialized_start=11491
+    _globals['_DATASETSUMMARY']._serialized_end=11595
+    _globals['_SEARCHDATASETS']._serialized_start=11598
+    _globals['_SEARCHDATASETS']._serialized_end=11746
+    _globals['_SEARCHDATASETS_RESPONSE']._serialized_start=11640
+    _globals['_SEARCHDATASETS_RESPONSE']._serialized_end=11701
+    _globals['_CREATELOGGEDMODEL']._serialized_start=11749
+    _globals['_CREATELOGGEDMODEL']._serialized_end=12031
+    _globals['_CREATELOGGEDMODEL_RESPONSE']._serialized_start=11940
+    _globals['_CREATELOGGEDMODEL_RESPONSE']._serialized_end=11986
+    _globals['_FINALIZELOGGEDMODEL']._serialized_start=12034
+    _globals['_FINALIZELOGGEDMODEL']._serialized_end=12221
+    _globals['_FINALIZELOGGEDMODEL_RESPONSE']._serialized_start=11940
+    _globals['_FINALIZELOGGEDMODEL_RESPONSE']._serialized_end=11986
+    _globals['_GETLOGGEDMODEL']._serialized_start=12224
+    _globals['_GETLOGGEDMODEL']._serialized_end=12357
+    _globals['_GETLOGGEDMODEL_RESPONSE']._serialized_start=11940
+    _globals['_GETLOGGEDMODEL_RESPONSE']._serialized_end=11986
+    _globals['_DELETELOGGEDMODEL']._serialized_start=12359
+    _globals['_DELETELOGGEDMODEL']._serialized_end=12459
+    _globals['_DELETELOGGEDMODEL_RESPONSE']._serialized_start=1839
+    _globals['_DELETELOGGEDMODEL_RESPONSE']._serialized_end=1849
+    _globals['_SEARCHLOGGEDMODELS']._serialized_start=12462
+    _globals['_SEARCHLOGGEDMODELS']._serialized_end=12965
+    _globals['_SEARCHLOGGEDMODELS_DATASET']._serialized_start=12677
+    _globals['_SEARCHLOGGEDMODELS_DATASET']._serialized_end=12738
+    _globals['_SEARCHLOGGEDMODELS_ORDERBY']._serialized_start=12740
+    _globals['_SEARCHLOGGEDMODELS_ORDERBY']._serialized_end=12846
+    _globals['_SEARCHLOGGEDMODELS_RESPONSE']._serialized_start=12848
+    _globals['_SEARCHLOGGEDMODELS_RESPONSE']._serialized_end=12920
+    _globals['_SETLOGGEDMODELTAGS']._serialized_start=12968
+    _globals['_SETLOGGEDMODELTAGS']._serialized_end=13143
+    _globals['_SETLOGGEDMODELTAGS_RESPONSE']._serialized_start=11940
+    _globals['_SETLOGGEDMODELTAGS_RESPONSE']._serialized_end=11986
+    _globals['_DELETELOGGEDMODELTAG']._serialized_start=13145
+    _globals['_DELETELOGGEDMODELTAG']._serialized_end=13271
+    _globals['_DELETELOGGEDMODELTAG_RESPONSE']._serialized_start=1839
+    _globals['_DELETELOGGEDMODELTAG_RESPONSE']._serialized_end=1849
+    _globals['_LISTLOGGEDMODELARTIFACTS']._serialized_start=13274
+    _globals['_LISTLOGGEDMODELARTIFACTS']._serialized_end=13510
+    _globals['_LISTLOGGEDMODELARTIFACTS_RESPONSE']._serialized_start=4695
+    _globals['_LISTLOGGEDMODELARTIFACTS_RESPONSE']._serialized_end=4781
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST']._serialized_start=13513
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST']._serialized_end=13669
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST_RESPONSE']._serialized_start=1839
+    _globals['_LOGLOGGEDMODELPARAMSREQUEST_RESPONSE']._serialized_end=1849
+    _globals['_LOGGEDMODEL']._serialized_start=13671
+    _globals['_LOGGEDMODEL']._serialized_end=13762
+    _globals['_LOGGEDMODELINFO']._serialized_start=13765
+    _globals['_LOGGEDMODELINFO']._serialized_end=14153
+    _globals['_LOGGEDMODELTAG']._serialized_start=14155
+    _globals['_LOGGEDMODELTAG']._serialized_end=14199
+    _globals['_LOGGEDMODELREGISTRATIONINFO']._serialized_start=14201
+    _globals['_LOGGEDMODELREGISTRATIONINFO']._serialized_end=14261
+    _globals['_LOGGEDMODELDATA']._serialized_start=14263
+    _globals['_LOGGEDMODELDATA']._serialized_end=14359
+    _globals['_LOGGEDMODELPARAMETER']._serialized_start=14361
+    _globals['_LOGGEDMODELPARAMETER']._serialized_end=14411
+    _globals['_SEARCHTRACESV3']._serialized_start=14414
+    _globals['_SEARCHTRACESV3']._serialized_end=14671
+    _globals['_SEARCHTRACESV3_RESPONSE']._serialized_start=14554
+    _globals['_SEARCHTRACESV3_RESPONSE']._serialized_end=14626
+    _globals['_CREATEDATASET']._serialized_start=14674
+    _globals['_CREATEDATASET']._serialized_end=14986
+    _globals['_CREATEDATASET_RESPONSE']._serialized_start=14888
+    _globals['_CREATEDATASET_RESPONSE']._serialized_end=14941
+    _globals['_GETDATASET']._serialized_start=14989
+    _globals['_GETDATASET']._serialized_end=15172
+    _globals['_GETDATASET_RESPONSE']._serialized_start=15049
+    _globals['_GETDATASET_RESPONSE']._serialized_end=15127
+    _globals['_DELETEDATASET']._serialized_start=15174
+    _globals['_DELETEDATASET']._serialized_end=15272
+    _globals['_DELETEDATASET_RESPONSE']._serialized_start=1839
+    _globals['_DELETEDATASET_RESPONSE']._serialized_end=1849
+    _globals['_SEARCHEVALUATIONDATASETS']._serialized_start=15275
+    _globals['_SEARCHEVALUATIONDATASETS']._serialized_end=15539
+    _globals['_SEARCHEVALUATIONDATASETS_RESPONSE']._serialized_start=15415
+    _globals['_SEARCHEVALUATIONDATASETS_RESPONSE']._serialized_end=15494
+    _globals['_SETDATASETTAGS']._serialized_start=15542
+    _globals['_SETDATASETTAGS']._serialized_end=15704
+    _globals['_SETDATASETTAGS_RESPONSE']._serialized_start=14888
+    _globals['_SETDATASETTAGS_RESPONSE']._serialized_end=14941
+    _globals['_DELETEDATASETTAG']._serialized_start=15706
+    _globals['_DELETEDATASETTAG']._serialized_end=15826
+    _globals['_DELETEDATASETTAG_RESPONSE']._serialized_start=1839
+    _globals['_DELETEDATASETTAG_RESPONSE']._serialized_end=1849
+    _globals['_UPSERTDATASETRECORDS']._serialized_start=15829
+    _globals['_UPSERTDATASETRECORDS']._serialized_end=16024
+    _globals['_UPSERTDATASETRECORDS_RESPONSE']._serialized_start=15922
+    _globals['_UPSERTDATASETRECORDS_RESPONSE']._serialized_end=15979
+    _globals['_GETDATASETEXPERIMENTIDS']._serialized_start=16027
+    _globals['_GETDATASETEXPERIMENTIDS']._serialized_end=16159
+    _globals['_GETDATASETEXPERIMENTIDS_RESPONSE']._serialized_start=16080
+    _globals['_GETDATASETEXPERIMENTIDS_RESPONSE']._serialized_end=16114
+    _globals['_GETDATASETRECORDS']._serialized_start=16162
+    _globals['_GETDATASETRECORDS']._serialized_end=16353
+    _globals['_GETDATASETRECORDS_RESPONSE']._serialized_start=16256
+    _globals['_GETDATASETRECORDS_RESPONSE']._serialized_end=16308
+    _globals['_ADDDATASETTOEXPERIMENTS']._serialized_start=16356
+    _globals['_ADDDATASETTOEXPERIMENTS']._serialized_end=16522
+    _globals['_ADDDATASETTOEXPERIMENTS_RESPONSE']._serialized_start=16433
+    _globals['_ADDDATASETTOEXPERIMENTS_RESPONSE']._serialized_end=16477
+    _globals['_REMOVEDATASETFROMEXPERIMENTS']._serialized_start=16525
+    _globals['_REMOVEDATASETFROMEXPERIMENTS']._serialized_end=16696
+    _globals['_REMOVEDATASETFROMEXPERIMENTS_RESPONSE']._serialized_start=16433
+    _globals['_REMOVEDATASETFROMEXPERIMENTS_RESPONSE']._serialized_end=16477
+    _globals['_REGISTERSCORER']._serialized_start=16699
+    _globals['_REGISTERSCORER']._serialized_end=16960
+    _globals['_REGISTERSCORER_RESPONSE']._serialized_start=16782
+    _globals['_REGISTERSCORER_RESPONSE']._serialized_end=16915
+    _globals['_LISTSCORERS']._serialized_start=16962
+    _globals['_LISTSCORERS']._serialized_end=17088
+    _globals['_LISTSCORERS_RESPONSE']._serialized_start=17000
+    _globals['_LISTSCORERS_RESPONSE']._serialized_end=17043
+    _globals['_LISTSCORERVERSIONS']._serialized_start=17091
+    _globals['_LISTSCORERVERSIONS']._serialized_end=17238
+    _globals['_LISTSCORERVERSIONS_RESPONSE']._serialized_start=17000
+    _globals['_LISTSCORERVERSIONS_RESPONSE']._serialized_end=17043
+    _globals['_GETSCORER']._serialized_start=17241
+    _globals['_GETSCORER']._serialized_end=17395
+    _globals['_GETSCORER_RESPONSE']._serialized_start=17308
+    _globals['_GETSCORER_RESPONSE']._serialized_end=17350
+    _globals['_DELETESCORER']._serialized_start=17397
+    _globals['_DELETESCORER']._serialized_end=17522
+    _globals['_DELETESCORER_RESPONSE']._serialized_start=1839
+    _globals['_DELETESCORER_RESPONSE']._serialized_end=1849
+    _globals['_SCORER']._serialized_start=17525
+    _globals['_SCORER']._serialized_end=17670
+    _globals['_MLFLOWSERVICE']._serialized_start=18105
+    _globals['_MLFLOWSERVICE']._serialized_end=29116
   _builder.BuildServices(DESCRIPTOR, 'service_pb2', _globals)
   # @@protoc_insertion_point(module_scope)
 
@@ -421,9 +911,15 @@ else:
 
   from .scalapb import scalapb_pb2 as scalapb_dot_scalapb__pb2
   from . import databricks_pb2 as databricks__pb2
+  from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
+  from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
+  from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
+  from . import assessments_pb2 as assessments__pb2
+  from . import datasets_pb2 as datasets__pb2
+  from opentelemetry.proto.trace.v1 import trace_pb2 as opentelemetry_dot_proto_dot_trace_dot_v1_dot_trace__pb2
 
 
-  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\"H\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"f\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\x12!\n\x06inputs\x18\x03 \x01(\x0b\x32\x11.mlflow.RunInputs\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"9\n\tRunInputs\x12,\n\x0e\x64\x61taset_inputs\x18\x01 \x03(\x0b\x32\x14.mlflow.DatasetInput\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"+\n\rExperimentTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xdd\x01\n\x07RunInfo\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\xbb\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\x12#\n\x04tags\x18\x07 \x03(\x0b\x32\x15.mlflow.ExperimentTag\"V\n\x0c\x44\x61tasetInput\x12\x1e\n\x04tags\x18\x01 \x03(\x0b\x32\x10.mlflow.InputTag\x12&\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x0f.mlflow.DatasetB\x04\xf8\x86\x19\x01\"2\n\x08InputTag\x12\x11\n\x03key\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"\x85\x01\n\x07\x44\x61taset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bsource_type\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\"\xb6\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x12#\n\x04tags\x18\x03 \x03(\x0b\x32\x15.mlflow.ExperimentTag\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xfe\x01\n\x11SearchExperiments\x12\x13\n\x0bmax_results\x18\x01 \x01(\x03\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0e\n\x06\x66ilter\x18\x03 \x01(\t\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12#\n\tview_type\x18\x05 \x01(\x0e\x32\x10.mlflow.ViewType\x1aL\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xca\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd0\x01\n\tUpdateRun\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x12\x10\n\x08run_name\x18\x05 \x01(\t\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\tLogMetric\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x90\x01\n\x10SetExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"m\n\tDeleteTag\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd8\x01\n\rListArtifacts\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xea\x01\n\x10GetMetricHistory\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x44\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"a\n\x0fMetricWithRunId\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x0e\n\x06run_id\x18\x05 \x01(\t\"\xe7\x01\n\x1cGetMetricHistoryBulkInterval\x12\x0f\n\x07run_ids\x18\x01 \x03(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nstart_step\x18\x03 \x01(\x05\x12\x10\n\x08\x65nd_step\x18\x04 \x01(\x05\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x34\n\x08Response\x12(\n\x07metrics\x18\x01 \x03(\x0b\x32\x17.mlflow.MetricWithRunId:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"g\n\x08LogModel\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x12\n\nmodel_json\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\tLogInputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12&\n\x08\x64\x61tasets\x18\x02 \x03(\x0b\x32\x14.mlflow.DatasetInput\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x95\x01\n\x13GetExperimentByName\x12\x1d\n\x0f\x65xperiment_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\tTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x03 \x01(\x03\x12\x19\n\x11\x65xecution_time_ms\x18\x04 \x01(\x03\x12#\n\x06status\x18\x05 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x06 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x07 \x03(\x0b\x32\x10.mlflow.TraceTag\"2\n\x14TraceRequestMetadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"&\n\x08TraceTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xf1\x01\n\nStartTrace\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12\x36\n\x10request_metadata\x18\x03 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x04 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x02\n\x08\x45ndTrace\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x04 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x05 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x0cGetTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xeb\x01\n\x0cSearchTraces\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc3\x01\n\x0c\x44\x65leteTraces\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"v\n\x0bSetTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"j\n\x0e\x44\x65leteTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x0e\x44\x61tasetSummary\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63ontext\x18\x04 \x01(\t\"\x94\x01\n\x0eSearchDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x1a=\n\x08Response\x12\x31\n\x11\x64\x61taset_summaries\x18\x01 \x03(\x0b\x32\x16.mlflow.DatasetSummary:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05*O\n\x0bTraceStatus\x12\x1c\n\x18TRACE_STATUS_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\x32\xe7!\n\rMlflowService\x12\xa6\x01\n\x13getExperimentByName\x12\x1b.mlflow.GetExperimentByName\x1a$.mlflow.GetExperimentByName.Response\"L\xf2\x86\x19H\n,\n\x03GET\x12\x1f/mlflow/experiments/get-by-name\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Get Experiment By Name\x12\x94\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xc1\x01\n\x11searchExperiments\x12\x19.mlflow.SearchExperiments\x1a\".mlflow.SearchExperiments.Response\"m\xf2\x86\x19i\n(\n\x04POST\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\n\'\n\x03GET\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Search Experiments\x12\x88\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"@\xf2\x86\x19\x38\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\xba\x8c\x19\x00\x12\x94\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\x99\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"E\xf2\x86\x19\x41\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\x94\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12q\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12q\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12q\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12v\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12u\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12t\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\";\xf2\x86\x19\x37\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\xa1\x01\n\x10setExperimentTag\x12\x18.mlflow.SetExperimentTag\x1a!.mlflow.SetExperimentTag.Response\"P\xf2\x86\x19L\n4\n\x04POST\x12&/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Set Experiment Tag\x12\x66\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"3\xf2\x86\x19/\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\x88\x01\n\x0bsetTraceTag\x12\x13.mlflow.SetTraceTag\x1a\x1c.mlflow.SetTraceTag.Response\"F\xf2\x86\x19\x42\n/\n\x05PATCH\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\rSet Trace Tag\x12\x95\x01\n\x0e\x64\x65leteTraceTag\x12\x16.mlflow.DeleteTraceTag\x1a\x1f.mlflow.DeleteTraceTag.Response\"J\xf2\x86\x19\x46\n0\n\x06\x44\x45LETE\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x10\x44\x65lete Trace Tag\x12u\n\tdeleteTag\x12\x11.mlflow.DeleteTag\x1a\x1a.mlflow.DeleteTag.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Tag\x12\x65\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"2\xf2\x86\x19*\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\xba\x8c\x19\x00\x12y\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\":\xf2\x86\x19\x32\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\xba\x8c\x19\x00\x12\x87\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"?\xf2\x86\x19\x37\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\xba\x8c\x19\x00\x12\x95\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"D\xf2\x86\x19@\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\xb7\x01\n\x1cgetMetricHistoryBulkInterval\x12$.mlflow.GetMetricHistoryBulkInterval\x1a-.mlflow.GetMetricHistoryBulkInterval.Response\"B\xf2\x86\x19:\n6\n\x03GET\x12)/mlflow/metrics/get-history-bulk-interval\x1a\x04\x08\x02\x10\x0b\x10\x03\xba\x8c\x19\x00\x12p\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Batch\x12p\n\x08logModel\x12\x10.mlflow.LogModel\x1a\x19.mlflow.LogModel.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-model\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Model\x12u\n\tlogInputs\x12\x11.mlflow.LogInputs\x1a\x1a.mlflow.LogInputs.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-inputs\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Inputs\x12\x87\x01\n\x0esearchDatasets\x12\x16.mlflow.SearchDatasets\x1a\x1f.mlflow.SearchDatasets.Response\"<\xf2\x86\x19\x34\n0\n\x04POST\x12\"mlflow/experiments/search-datasets\x1a\x04\x08\x02\x10\x00\x10\x03\xba\x8c\x19\x00\x12p\n\nstartTrace\x12\x12.mlflow.StartTrace\x1a\x1b.mlflow.StartTrace.Response\"1\xf2\x86\x19-\n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bStart Trace\x12v\n\x08\x65ndTrace\x12\x10.mlflow.EndTrace\x1a\x19.mlflow.EndTrace.Response\"=\xf2\x86\x19\x39\n*\n\x05PATCH\x12\x1b/mlflow/traces/{request_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\tEnd Trace\x12\x89\x01\n\x0cgetTraceInfo\x12\x14.mlflow.GetTraceInfo\x1a\x1d.mlflow.GetTraceInfo.Response\"D\xf2\x86\x19@\n-\n\x03GET\x12 /mlflow/traces/{request_id}/info\x1a\x04\x08\x02\x10\x00\x10\x03*\rGet TraceInfo\x12w\n\x0csearchTraces\x12\x14.mlflow.SearchTraces\x1a\x1d.mlflow.SearchTraces.Response\"2\xf2\x86\x19.\n\x1b\n\x03GET\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rSearch Traces\x12\x86\x01\n\x0c\x64\x65leteTraces\x12\x14.mlflow.DeleteTraces\x1a\x1d.mlflow.DeleteTraces.Response\"A\xf2\x86\x19=\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rDelete TracesB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
+  DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\rservice.proto\x12\x06mlflow\x1a\x15scalapb/scalapb.proto\x1a\x10\x64\x61tabricks.proto\x1a\x1egoogle/protobuf/duration.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x11\x61ssessments.proto\x1a\x0e\x64\x61tasets.proto\x1a(opentelemetry/proto/trace/v1/trace.proto\"\xb0\x01\n\x06Metric\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x1a\n\x0c\x64\x61taset_name\x18\x05 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\x06 \x01(\tB\x04\xf0\x86\x19\x03\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x14\n\x06run_id\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\"#\n\x05Param\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x8b\x01\n\x03Run\x12\x1d\n\x04info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo\x12\x1d\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x0f.mlflow.RunData\x12!\n\x06inputs\x18\x03 \x01(\x0b\x32\x11.mlflow.RunInputs\x12#\n\x07outputs\x18\x04 \x01(\x0b\x32\x12.mlflow.RunOutputs\"g\n\x07RunData\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x02 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x03 \x03(\x0b\x32\x0e.mlflow.RunTag\"c\n\tRunInputs\x12,\n\x0e\x64\x61taset_inputs\x18\x01 \x03(\x0b\x32\x14.mlflow.DatasetInput\x12(\n\x0cmodel_inputs\x18\x02 \x03(\x0b\x32\x12.mlflow.ModelInput\"8\n\nRunOutputs\x12*\n\rmodel_outputs\x18\x01 \x03(\x0b\x32\x13.mlflow.ModelOutput\"$\n\x06RunTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"+\n\rExperimentTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xdd\x01\n\x07RunInfo\x12\x0e\n\x06run_id\x18\x0f \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0f\n\x07user_id\x18\x06 \x01(\t\x12!\n\x06status\x18\x07 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x12\n\nstart_time\x18\x08 \x01(\x03\x12\x10\n\x08\x65nd_time\x18\t \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\r \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x0e \x01(\t\"\xbb\x01\n\nExperiment\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11\x61rtifact_location\x18\x03 \x01(\t\x12\x17\n\x0flifecycle_stage\x18\x04 \x01(\t\x12\x18\n\x10last_update_time\x18\x05 \x01(\x03\x12\x15\n\rcreation_time\x18\x06 \x01(\x03\x12#\n\x04tags\x18\x07 \x03(\x0b\x32\x15.mlflow.ExperimentTag\"V\n\x0c\x44\x61tasetInput\x12\x1e\n\x04tags\x18\x01 \x03(\x0b\x32\x10.mlflow.InputTag\x12&\n\x07\x64\x61taset\x18\x02 \x01(\x0b\x32\x0f.mlflow.DatasetB\x04\xf8\x86\x19\x01\"$\n\nModelInput\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\"2\n\x08InputTag\x12\x11\n\x03key\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\"\x85\x01\n\x07\x44\x61taset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bsource_type\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06source\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\"9\n\x0bModelOutput\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04step\x18\x02 \x01(\x03\x42\x04\xf8\x86\x19\x01\"\xb6\x01\n\x10\x43reateExperiment\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x11\x61rtifact_location\x18\x02 \x01(\t\x12#\n\x04tags\x18\x03 \x03(\x0b\x32\x15.mlflow.ExperimentTag\x1a!\n\x08Response\x12\x15\n\rexperiment_id\x18\x01 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xfe\x01\n\x11SearchExperiments\x12\x13\n\x0bmax_results\x18\x01 \x01(\x03\x12\x12\n\npage_token\x18\x02 \x01(\t\x12\x0e\n\x06\x66ilter\x18\x03 \x01(\t\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12#\n\tview_type\x18\x05 \x01(\x0e\x32\x10.mlflow.ViewType\x1aL\n\x08Response\x12\'\n\x0b\x65xperiments\x18\x01 \x03(\x0b\x32\x12.mlflow.Experiment\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\rGetExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"h\n\x10\x44\x65leteExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"i\n\x11RestoreExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"z\n\x10UpdateExperiment\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x10\n\x08new_name\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xca\x01\n\tCreateRun\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0f\n\x07user_id\x18\x02 \x01(\t\x12\x10\n\x08run_name\x18\x03 \x01(\t\x12\x12\n\nstart_time\x18\x07 \x01(\x03\x12\x1c\n\x04tags\x18\t \x03(\x0b\x32\x0e.mlflow.RunTag\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd0\x01\n\tUpdateRun\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12!\n\x06status\x18\x02 \x01(\x0e\x32\x11.mlflow.RunStatus\x12\x10\n\x08\x65nd_time\x18\x03 \x01(\x03\x12\x10\n\x08run_name\x18\x05 \x01(\t\x1a-\n\x08Response\x12!\n\x08run_info\x18\x01 \x01(\x0b\x32\x0f.mlflow.RunInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"Z\n\tDeleteRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\nRestoreRun\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8a\x02\n\tLogMetric\x12\x0e\n\x06run_id\x18\x06 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\x01\x42\x04\xf8\x86\x19\x01\x12\x17\n\ttimestamp\x18\x04 \x01(\x03\x42\x04\xf8\x86\x19\x01\x12\x0f\n\x04step\x18\x05 \x01(\x03:\x01\x30\x12\x16\n\x08model_id\x18\x07 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1a\n\x0c\x64\x61taset_name\x18\x08 \x01(\tB\x04\xf0\x86\x19\x03\x12\x1c\n\x0e\x64\x61taset_digest\x18\t \x01(\tB\x04\xf0\x86\x19\x03\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8d\x01\n\x08LogParam\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x90\x01\n\x10SetExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x13\x44\x65leteExperimentTag\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x8b\x01\n\x06SetTag\x12\x0e\n\x06run_id\x18\x04 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x13\n\x05value\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"m\n\tDeleteTag\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x06GetRun\x12\x0e\n\x06run_id\x18\x02 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x1a$\n\x08Response\x12\x18\n\x03run\x18\x01 \x01(\x0b\x32\x0b.mlflow.Run:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x98\x02\n\nSearchRuns\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x34\n\rrun_view_type\x18\x03 \x01(\x0e\x32\x10.mlflow.ViewType:\x0b\x41\x43TIVE_ONLY\x12\x19\n\x0bmax_results\x18\x05 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a>\n\x08Response\x12\x19\n\x04runs\x18\x01 \x03(\x0b\x32\x0b.mlflow.Run\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xd8\x01\n\rListArtifacts\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x0c\n\x04path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x04 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\";\n\x08\x46ileInfo\x12\x0c\n\x04path\x18\x01 \x01(\t\x12\x0e\n\x06is_dir\x18\x02 \x01(\x08\x12\x11\n\tfile_size\x18\x03 \x01(\x03\"\xea\x01\n\x10GetMetricHistory\x12\x0e\n\x06run_id\x18\x03 \x01(\t\x12\x10\n\x08run_uuid\x18\x01 \x01(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x04 \x01(\t\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x44\n\x08Response\x12\x1f\n\x07metrics\x18\x01 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"a\n\x0fMetricWithRunId\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\x01\x12\x11\n\ttimestamp\x18\x03 \x01(\x03\x12\x0f\n\x04step\x18\x04 \x01(\x03:\x01\x30\x12\x0e\n\x06run_id\x18\x05 \x01(\t\"\xe7\x01\n\x1cGetMetricHistoryBulkInterval\x12\x0f\n\x07run_ids\x18\x01 \x03(\t\x12\x18\n\nmetric_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nstart_step\x18\x03 \x01(\x05\x12\x10\n\x08\x65nd_step\x18\x04 \x01(\x05\x12\x13\n\x0bmax_results\x18\x05 \x01(\x05\x1a\x34\n\x08Response\x12(\n\x07metrics\x18\x01 \x03(\x0b\x32\x17.mlflow.MetricWithRunId:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb1\x01\n\x08LogBatch\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\x12\x1d\n\x06params\x18\x03 \x03(\x0b\x32\r.mlflow.Param\x12\x1c\n\x04tags\x18\x04 \x03(\x0b\x32\x0e.mlflow.RunTag\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"g\n\x08LogModel\x12\x0e\n\x06run_id\x18\x01 \x01(\t\x12\x12\n\nmodel_json\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xac\x01\n\tLogInputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12&\n\x08\x64\x61tasets\x18\x02 \x03(\x0b\x32\x14.mlflow.DatasetInput\x12(\n\x06models\x18\x03 \x03(\x0b\x32\x12.mlflow.ModelInputB\x04\xf0\x86\x19\x03\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x80\x01\n\nLogOutputs\x12\x14\n\x06run_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12#\n\x06models\x18\x02 \x03(\x0b\x32\x13.mlflow.ModelOutput\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x95\x01\n\x13GetExperimentByName\x12\x1d\n\x0f\x65xperiment_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x32\n\x08Response\x12&\n\nexperiment\x18\x01 \x01(\x0b\x32\x12.mlflow.Experiment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb9\x01\n\x10\x43reateAssessment\x12\x38\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.AssessmentB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf0\x01\n\x10UpdateAssessment\x12\x38\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.AssessmentB\x04\xf8\x86\x19\x01\x12\x35\n\x0bupdate_mask\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x80\x01\n\x10\x44\x65leteAssessment\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x01\n\x14GetAssessmentRequest\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1b\n\rassessment_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a>\n\x08Response\x12\x32\n\nassessment\x18\x01 \x01(\x0b\x32\x1e.mlflow.assessments.Assessment:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xe4\x01\n\tTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x03 \x01(\x03\x12\x19\n\x11\x65xecution_time_ms\x18\x04 \x01(\x03\x12#\n\x06status\x18\x05 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x06 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x07 \x03(\x0b\x32\x10.mlflow.TraceTag\"2\n\x14TraceRequestMetadata\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"&\n\x08TraceTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\xf1\x01\n\nStartTrace\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12\x36\n\x10request_metadata\x18\x03 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x04 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x02\n\x08\x45ndTrace\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x14\n\x0ctimestamp_ms\x18\x02 \x01(\x03\x12#\n\x06status\x18\x03 \x01(\x0e\x32\x13.mlflow.TraceStatus\x12\x36\n\x10request_metadata\x18\x04 \x03(\x0b\x32\x1c.mlflow.TraceRequestMetadata\x12\x1e\n\x04tags\x18\x05 \x03(\x0b\x32\x10.mlflow.TraceTag\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x82\x01\n\x0cGetTraceInfo\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x1a\x31\n\x08Response\x12%\n\ntrace_info\x18\x01 \x01(\x0b\x32\x11.mlflow.TraceInfo:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"y\n\x0eGetTraceInfoV3\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x1a(\n\x08Response\x12\x1c\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"{\n\x0e\x42\x61tchGetTraces\x12\x11\n\ttrace_ids\x18\x01 \x03(\t\x1a)\n\x08Response\x12\x1d\n\x06traces\x18\x01 \x03(\x0b\x32\r.mlflow.Trace:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xeb\x01\n\x0cSearchTraces\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xaa\x02\n\x13SearchUnifiedTraces\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x03 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x04 \x01(\t\x12\x18\n\x0bmax_results\x18\x05 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x06 \x03(\t\x12\x12\n\npage_token\x18\x07 \x01(\t\x1a\x46\n\x08Response\x12!\n\x06traces\x18\x01 \x03(\x0b\x32\x11.mlflow.TraceInfo\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc1\x01\n\x15GetOnlineTraceDetails\x12\x16\n\x08trace_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1e\n\x10sql_warehouse_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x16source_inference_table\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12*\n\x1csource_databricks_request_id\x18\x04 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x1e\n\x08Response\x12\x12\n\ntrace_data\x18\x01 \x01(\t\"\xc3\x01\n\x0c\x44\x65leteTraces\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc5\x01\n\x0e\x44\x65leteTracesV3\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1c\n\x14max_timestamp_millis\x18\x02 \x01(\x03\x12\x12\n\nmax_traces\x18\x03 \x01(\x05\x12\x13\n\x0brequest_ids\x18\x04 \x03(\t\x1a\"\n\x08Response\x12\x16\n\x0etraces_deleted\x18\x01 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb5\x02\n\x1f\x43\x61lculateTraceFilterCorrelation\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x16\n\x0e\x66ilter_string1\x18\x02 \x01(\t\x12\x16\n\x0e\x66ilter_string2\x18\x03 \x01(\t\x12\x13\n\x0b\x62\x61se_filter\x18\x04 \x01(\t\x1a\x87\x01\n\x08Response\x12\x0c\n\x04npmi\x18\x01 \x01(\x01\x12\x15\n\rnpmi_smoothed\x18\x02 \x01(\x01\x12\x15\n\rfilter1_count\x18\x03 \x01(\x05\x12\x15\n\rfilter2_count\x18\x04 \x01(\x05\x12\x13\n\x0bjoint_count\x18\x05 \x01(\x05\x12\x13\n\x0btotal_count\x18\x06 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"v\n\x0bSetTraceTag\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x88\x01\n\rSetTraceTagV3\x12\x10\n\x08trace_id\x18\x04 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x12\r\n\x05value\x18\x03 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x01\x10\x02R\nrequest_id\"z\n\x0e\x44\x65leteTraceTag\x12\x10\n\x08trace_id\x18\x03 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]J\x04\x08\x01\x10\x02R\nrequest_id\"l\n\x10\x44\x65leteTraceTagV3\x12\x12\n\nrequest_id\x18\x01 \x01(\t\x12\x0b\n\x03key\x18\x02 \x01(\t\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"c\n\x05Trace\x12\'\n\ntrace_info\x18\x01 \x01(\x0b\x32\x13.mlflow.TraceInfoV3\x12\x31\n\x05spans\x18\x02 \x03(\x0b\x32\".opentelemetry.proto.trace.v1.Span\"\xb6\x03\n\rTraceLocation\x12\x35\n\x04type\x18\x01 \x01(\x0e\x32\'.mlflow.TraceLocation.TraceLocationType\x12K\n\x11mlflow_experiment\x18\x02 \x01(\x0b\x32..mlflow.TraceLocation.MlflowExperimentLocationH\x00\x12G\n\x0finference_table\x18\x03 \x01(\x0b\x32,.mlflow.TraceLocation.InferenceTableLocationH\x00\x1a\x31\n\x18MlflowExperimentLocation\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x1a\x31\n\x16InferenceTableLocation\x12\x17\n\x0f\x66ull_table_name\x18\x01 \x01(\t\"d\n\x11TraceLocationType\x12#\n\x1fTRACE_LOCATION_TYPE_UNSPECIFIED\x10\x00\x12\x15\n\x11MLFLOW_EXPERIMENT\x10\x01\x12\x13\n\x0fINFERENCE_TABLE\x10\x02\x42\x0c\n\nidentifier\"\x9b\x05\n\x0bTraceInfoV3\x12\x10\n\x08trace_id\x18\x01 \x01(\t\x12\x19\n\x11\x63lient_request_id\x18\x02 \x01(\t\x12-\n\x0etrace_location\x18\x03 \x01(\x0b\x32\x15.mlflow.TraceLocation\x12\x0f\n\x07request\x18\x04 \x01(\t\x12\x10\n\x08response\x18\x05 \x01(\t\x12\x17\n\x0frequest_preview\x18\x0c \x01(\t\x12\x18\n\x10response_preview\x18\r \x01(\t\x12\x30\n\x0crequest_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x35\n\x12\x65xecution_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.Duration\x12(\n\x05state\x18\x08 \x01(\x0e\x32\x19.mlflow.TraceInfoV3.State\x12>\n\x0etrace_metadata\x18\t \x03(\x0b\x32&.mlflow.TraceInfoV3.TraceMetadataEntry\x12\x33\n\x0b\x61ssessments\x18\n \x03(\x0b\x32\x1e.mlflow.assessments.Assessment\x12+\n\x04tags\x18\x0b \x03(\x0b\x32\x1d.mlflow.TraceInfoV3.TagsEntry\x1a\x34\n\x12TraceMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x1a+\n\tTagsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"B\n\x05State\x12\x15\n\x11STATE_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03\"\\\n\x0cStartTraceV3\x12\"\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.TraceB\x04\xf8\x86\x19\x01\x1a(\n\x08Response\x12\x1c\n\x05trace\x18\x01 \x01(\x0b\x32\r.mlflow.Trace\"F\n\x0fLinkTracesToRun\x12\x11\n\ttrace_ids\x18\x01 \x03(\t\x12\x14\n\x06run_id\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response\"h\n\x0e\x44\x61tasetSummary\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04name\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x14\n\x06\x64igest\x18\x03 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0f\n\x07\x63ontext\x18\x04 \x01(\t\"\x94\x01\n\x0eSearchDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x1a=\n\x08Response\x12\x31\n\x11\x64\x61taset_summaries\x18\x01 \x03(\x0b\x32\x16.mlflow.DatasetSummary:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x02\n\x11\x43reateLoggedModel\x12\x1b\n\rexperiment_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x12\n\nmodel_type\x18\x03 \x01(\t\x12\x15\n\rsource_run_id\x18\x04 \x01(\t\x12,\n\x06params\x18\x05 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x12$\n\x04tags\x18\x06 \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbb\x01\n\x13\x46inalizeLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12/\n\x06status\x18\x02 \x01(\x0e\x32\x19.mlflow.LoggedModelStatusB\x04\xf8\x86\x19\x01\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x85\x01\n\x0eGetLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"d\n\x11\x44\x65leteLoggedModel\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xf7\x03\n\x12SearchLoggedModels\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x34\n\x08\x64\x61tasets\x18\x06 \x03(\x0b\x32\".mlflow.SearchLoggedModels.Dataset\x12\x17\n\x0bmax_results\x18\x03 \x01(\x05:\x02\x35\x30\x12\x34\n\x08order_by\x18\x04 \x03(\x0b\x32\".mlflow.SearchLoggedModels.OrderBy\x12\x12\n\npage_token\x18\x05 \x01(\t\x1a=\n\x07\x44\x61taset\x12\x1a\n\x0c\x64\x61taset_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x64\x61taset_digest\x18\x02 \x01(\t\x1aj\n\x07OrderBy\x12\x18\n\nfield_name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x17\n\tascending\x18\x02 \x01(\x08:\x04true\x12\x14\n\x0c\x64\x61taset_name\x18\x03 \x01(\t\x12\x16\n\x0e\x64\x61taset_digest\x18\x04 \x01(\t\x1aH\n\x08Response\x12#\n\x06models\x18\x01 \x03(\x0b\x32\x13.mlflow.LoggedModel\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xaf\x01\n\x12SetLoggedModelTags\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12$\n\x04tags\x18\x02 \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x1a.\n\x08Response\x12\"\n\x05model\x18\x01 \x01(\x0b\x32\x13.mlflow.LoggedModel:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x14\x44\x65leteLoggedModelTag\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07tag_key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xec\x01\n\x18ListLoggedModelArtifacts\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x1f\n\x17\x61rtifact_directory_path\x18\x02 \x01(\t\x12\x12\n\npage_token\x18\x03 \x01(\t\x1aV\n\x08Response\x12\x10\n\x08root_uri\x18\x01 \x01(\t\x12\x1f\n\x05\x66iles\x18\x02 \x03(\x0b\x32\x10.mlflow.FileInfo\x12\x17\n\x0fnext_page_token\x18\x03 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9c\x01\n\x1bLogLoggedModelParamsRequest\x12\x16\n\x08model_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12,\n\x06params\x18\x02 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"[\n\x0bLoggedModel\x12%\n\x04info\x18\x01 \x01(\x0b\x32\x17.mlflow.LoggedModelInfo\x12%\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32\x17.mlflow.LoggedModelData\"\x84\x03\n\x0fLoggedModelInfo\x12\x10\n\x08model_id\x18\x01 \x01(\t\x12\x15\n\rexperiment_id\x18\x02 \x01(\t\x12\x0c\n\x04name\x18\x03 \x01(\t\x12\x1d\n\x15\x63reation_timestamp_ms\x18\x04 \x01(\x03\x12!\n\x19last_updated_timestamp_ms\x18\x05 \x01(\x03\x12\x14\n\x0c\x61rtifact_uri\x18\x06 \x01(\t\x12)\n\x06status\x18\x07 \x01(\x0e\x32\x19.mlflow.LoggedModelStatus\x12\x12\n\ncreator_id\x18\x08 \x01(\x03\x12\x12\n\nmodel_type\x18\t \x01(\t\x12\x15\n\rsource_run_id\x18\n \x01(\t\x12\x16\n\x0estatus_message\x18\x0b \x01(\t\x12$\n\x04tags\x18\x0c \x03(\x0b\x32\x16.mlflow.LoggedModelTag\x12:\n\rregistrations\x18\r \x03(\x0b\x32#.mlflow.LoggedModelRegistrationInfo\",\n\x0eLoggedModelTag\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"<\n\x1bLoggedModelRegistrationInfo\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x0f\n\x07version\x18\x02 \x01(\t\"`\n\x0fLoggedModelData\x12,\n\x06params\x18\x01 \x03(\x0b\x32\x1c.mlflow.LoggedModelParameter\x12\x1f\n\x07metrics\x18\x02 \x03(\x0b\x32\x0e.mlflow.Metric\"2\n\x14LoggedModelParameter\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t\"\x81\x02\n\x0eSearchTracesV3\x12(\n\tlocations\x18\x01 \x03(\x0b\x32\x15.mlflow.TraceLocation\x12\x0e\n\x06\x66ilter\x18\x02 \x01(\t\x12\x18\n\x0bmax_results\x18\x03 \x01(\x05:\x03\x31\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1aH\n\x08Response\x12#\n\x06traces\x18\x01 \x03(\x0b\x32\x13.mlflow.TraceInfoV3\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb8\x02\n\rCreateDataset\x12\x12\n\x04name\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x12\x44\n\x0bsource_type\x18\x03 \x01(\x0e\x32/.mlflow.datasets.DatasetRecordSource.SourceType\x12\x0e\n\x06source\x18\x04 \x01(\t\x12\x0e\n\x06schema\x18\x05 \x01(\t\x12\x0f\n\x07profile\x18\x06 \x01(\t\x12\x12\n\ncreated_by\x18\x07 \x01(\t\x12\x0c\n\x04tags\x18\x08 \x01(\t\x1a\x35\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xb7\x01\n\nGetDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\npage_token\x18\x02 \x01(\t\x1aN\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"b\n\rDeleteDataset\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x88\x02\n\x18SearchEvaluationDatasets\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t\x12\x15\n\rfilter_string\x18\x02 \x01(\t\x12\x19\n\x0bmax_results\x18\x03 \x01(\x05:\x04\x31\x30\x30\x30\x12\x10\n\x08order_by\x18\x04 \x03(\t\x12\x12\n\npage_token\x18\x05 \x01(\t\x1aO\n\x08Response\x12*\n\x08\x64\x61tasets\x18\x01 \x03(\x0b\x32\x18.mlflow.datasets.Dataset\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa2\x01\n\x0eSetDatasetTags\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\x04tags\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\x35\n\x08Response\x12)\n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x18.mlflow.datasets.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"x\n\x10\x44\x65leteDatasetTag\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x11\n\x03key\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xc3\x01\n\x14UpsertDatasetRecords\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x15\n\x07records\x18\x02 \x01(\tB\x04\xf8\x86\x19\x01\x12\x12\n\nupdated_by\x18\x03 \x01(\t\x1a\x39\n\x08Response\x12\x16\n\x0einserted_count\x18\x01 \x01(\x05\x12\x15\n\rupdated_count\x18\x02 \x01(\x05:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x84\x01\n\x17GetDatasetExperimentIds\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x1a\"\n\x08Response\x12\x16\n\x0e\x65xperiment_ids\x18\x01 \x03(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xbf\x01\n\x11GetDatasetRecords\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x19\n\x0bmax_results\x18\x02 \x01(\x05:\x04\x31\x30\x30\x30\x12\x12\n\npage_token\x18\x03 \x01(\t\x1a\x34\n\x08Response\x12\x0f\n\x07records\x18\x01 \x01(\t\x12\x17\n\x0fnext_page_token\x18\x02 \x01(\t:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xa6\x01\n\x17\x41\x64\x64\x44\x61tasetToExperiments\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x1a,\n\x08Response\x12 \n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x0f.mlflow.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\xab\x01\n\x1cRemoveDatasetFromExperiments\x12\x18\n\ndataset_id\x18\x01 \x01(\tB\x04\xf8\x86\x19\x01\x12\x16\n\x0e\x65xperiment_ids\x18\x02 \x03(\t\x1a,\n\x08Response\x12 \n\x07\x64\x61taset\x18\x01 \x01(\x0b\x32\x0f.mlflow.Dataset:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x85\x02\n\x0eRegisterScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x19\n\x11serialized_scorer\x18\x03 \x01(\t\x1a\x85\x01\n\x08Response\x12\x0f\n\x07version\x18\x01 \x01(\x05\x12\x11\n\tscorer_id\x18\x02 \x01(\t\x12\x15\n\rexperiment_id\x18\x03 \x01(\t\x12\x0c\n\x04name\x18\x04 \x01(\t\x12\x19\n\x11serialized_scorer\x18\x05 \x01(\t\x12\x15\n\rcreation_time\x18\x06 \x01(\x03:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"~\n\x0bListScorers\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x1a+\n\x08Response\x12\x1f\n\x07scorers\x18\x01 \x03(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x93\x01\n\x12ListScorerVersions\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x1a+\n\x08Response\x12\x1f\n\x07scorers\x18\x01 \x03(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x9a\x01\n\tGetScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\x05\x1a*\n\x08Response\x12\x1e\n\x06scorer\x18\x01 \x01(\x0b\x32\x0e.mlflow.Scorer:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"}\n\x0c\x44\x65leteScorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\t\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x0f\n\x07version\x18\x03 \x01(\x05\x1a\n\n\x08Response:+\xe2?(\n&com.databricks.rpc.RPC[$this.Response]\"\x91\x01\n\x06Scorer\x12\x15\n\rexperiment_id\x18\x01 \x01(\x05\x12\x13\n\x0bscorer_name\x18\x02 \x01(\t\x12\x16\n\x0escorer_version\x18\x03 \x01(\x05\x12\x19\n\x11serialized_scorer\x18\x04 \x01(\t\x12\x15\n\rcreation_time\x18\x05 \x01(\x03\x12\x11\n\tscorer_id\x18\x06 \x01(\t*6\n\x08ViewType\x12\x0f\n\x0b\x41\x43TIVE_ONLY\x10\x01\x12\x10\n\x0c\x44\x45LETED_ONLY\x10\x02\x12\x07\n\x03\x41LL\x10\x03*I\n\nSourceType\x12\x0c\n\x08NOTEBOOK\x10\x01\x12\x07\n\x03JOB\x10\x02\x12\x0b\n\x07PROJECT\x10\x03\x12\t\n\x05LOCAL\x10\x04\x12\x0c\n\x07UNKNOWN\x10\xe8\x07*M\n\tRunStatus\x12\x0b\n\x07RUNNING\x10\x01\x12\r\n\tSCHEDULED\x10\x02\x12\x0c\n\x08\x46INISHED\x10\x03\x12\n\n\x06\x46\x41ILED\x10\x04\x12\n\n\x06KILLED\x10\x05*O\n\x0bTraceStatus\x12\x1c\n\x18TRACE_STATUS_UNSPECIFIED\x10\x00\x12\x06\n\x02OK\x10\x01\x12\t\n\x05\x45RROR\x10\x02\x12\x0f\n\x0bIN_PROGRESS\x10\x03*\x8a\x01\n\x11LoggedModelStatus\x12#\n\x1fLOGGED_MODEL_STATUS_UNSPECIFIED\x10\x00\x12\x18\n\x14LOGGED_MODEL_PENDING\x10\x01\x12\x16\n\x12LOGGED_MODEL_READY\x10\x02\x12\x1e\n\x1aLOGGED_MODEL_UPLOAD_FAILED\x10\x03\x32\x83V\n\rMlflowService\x12\xa6\x01\n\x13getExperimentByName\x12\x1b.mlflow.GetExperimentByName\x1a$.mlflow.GetExperimentByName.Response\"L\xf2\x86\x19H\n,\n\x03GET\x12\x1f/mlflow/experiments/get-by-name\x1a\x04\x08\x02\x10\x00\x10\x01*\x16Get Experiment By Name\x12\x94\x01\n\x10\x63reateExperiment\x12\x18.mlflow.CreateExperiment\x1a!.mlflow.CreateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/create\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x43reate Experiment\x12\xc1\x01\n\x11searchExperiments\x12\x19.mlflow.SearchExperiments\x1a\".mlflow.SearchExperiments.Response\"m\xf2\x86\x19i\n(\n\x04POST\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\n\'\n\x03GET\x12\x1a/mlflow/experiments/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Search Experiments\x12\x88\x01\n\rgetExperiment\x12\x15.mlflow.GetExperiment\x1a\x1e.mlflow.GetExperiment.Response\"@\xf2\x86\x19\x38\n$\n\x03GET\x12\x17/mlflow/experiments/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eGet Experiment\xba\x8c\x19\x00\x12\x94\x01\n\x10\x64\x65leteExperiment\x12\x18.mlflow.DeleteExperiment\x1a!.mlflow.DeleteExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\x11\x44\x65lete Experiment\x12\x99\x01\n\x11restoreExperiment\x12\x19.mlflow.RestoreExperiment\x1a\".mlflow.RestoreExperiment.Response\"E\xf2\x86\x19\x41\n)\n\x04POST\x12\x1b/mlflow/experiments/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Restore Experiment\x12\x94\x01\n\x10updateExperiment\x12\x18.mlflow.UpdateExperiment\x1a!.mlflow.UpdateExperiment.Response\"C\xf2\x86\x19?\n(\n\x04POST\x12\x1a/mlflow/experiments/update\x1a\x04\x08\x02\x10\x00\x10\x01*\x11Update Experiment\x12q\n\tcreateRun\x12\x11.mlflow.CreateRun\x1a\x1a.mlflow.CreateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/create\x1a\x04\x08\x02\x10\x00\x10\x01*\nCreate Run\x12q\n\tupdateRun\x12\x11.mlflow.UpdateRun\x1a\x1a.mlflow.UpdateRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/update\x1a\x04\x08\x02\x10\x00\x10\x01*\nUpdate Run\x12q\n\tdeleteRun\x12\x11.mlflow.DeleteRun\x1a\x1a.mlflow.DeleteRun.Response\"5\xf2\x86\x19\x31\n!\n\x04POST\x12\x13/mlflow/runs/delete\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Run\x12v\n\nrestoreRun\x12\x12.mlflow.RestoreRun\x1a\x1b.mlflow.RestoreRun.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/restore\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bRestore Run\x12u\n\tlogMetric\x12\x11.mlflow.LogMetric\x1a\x1a.mlflow.LogMetric.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-metric\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Metric\x12t\n\x08logParam\x12\x10.mlflow.LogParam\x1a\x19.mlflow.LogParam.Response\";\xf2\x86\x19\x37\n(\n\x04POST\x12\x1a/mlflow/runs/log-parameter\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Param\x12\xa1\x01\n\x10setExperimentTag\x12\x18.mlflow.SetExperimentTag\x1a!.mlflow.SetExperimentTag.Response\"P\xf2\x86\x19L\n4\n\x04POST\x12&/mlflow/experiments/set-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Set Experiment Tag\x12\xb0\x01\n\x13\x64\x65leteExperimentTag\x12\x1b.mlflow.DeleteExperimentTag\x1a$.mlflow.DeleteExperimentTag.Response\"V\xf2\x86\x19R\n7\n\x04POST\x12)/mlflow/experiments/delete-experiment-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x15\x44\x65lete Experiment Tag\x12\x66\n\x06setTag\x12\x0e.mlflow.SetTag\x1a\x17.mlflow.SetTag.Response\"3\xf2\x86\x19/\n\"\n\x04POST\x12\x14/mlflow/runs/set-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Set Tag\x12\x88\x01\n\x0bsetTraceTag\x12\x13.mlflow.SetTraceTag\x1a\x1c.mlflow.SetTraceTag.Response\"F\xf2\x86\x19\x42\n/\n\x05PATCH\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\rSet Trace Tag\x12\x8f\x01\n\rsetTraceTagV3\x12\x15.mlflow.SetTraceTagV3\x1a\x1e.mlflow.SetTraceTagV3.Response\"G\xf2\x86\x19\x43\n-\n\x05PATCH\x12\x1e/mlflow/traces/{trace_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Set Trace Tag V3\x12\x95\x01\n\x0e\x64\x65leteTraceTag\x12\x16.mlflow.DeleteTraceTag\x1a\x1f.mlflow.DeleteTraceTag.Response\"J\xf2\x86\x19\x46\n0\n\x06\x44\x45LETE\x12 /mlflow/traces/{request_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x10\x44\x65lete Trace Tag\x12\x9c\x01\n\x10\x64\x65leteTraceTagV3\x12\x18.mlflow.DeleteTraceTagV3\x1a!.mlflow.DeleteTraceTagV3.Response\"K\xf2\x86\x19G\n.\n\x06\x44\x45LETE\x12\x1e/mlflow/traces/{trace_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03*\x13\x44\x65lete Trace Tag V3\x12u\n\tdeleteTag\x12\x11.mlflow.DeleteTag\x1a\x1a.mlflow.DeleteTag.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/delete-tag\x1a\x04\x08\x02\x10\x00\x10\x01*\nDelete Tag\x12\x65\n\x06getRun\x12\x0e.mlflow.GetRun\x1a\x17.mlflow.GetRun.Response\"2\xf2\x86\x19*\n\x1d\n\x03GET\x12\x10/mlflow/runs/get\x1a\x04\x08\x02\x10\x00\x10\x01*\x07Get Run\xba\x8c\x19\x00\x12y\n\nsearchRuns\x12\x12.mlflow.SearchRuns\x1a\x1b.mlflow.SearchRuns.Response\":\xf2\x86\x19\x32\n!\n\x04POST\x12\x13/mlflow/runs/search\x1a\x04\x08\x02\x10\x00\x10\x01*\x0bSearch Runs\xba\x8c\x19\x00\x12\x87\x01\n\rlistArtifacts\x12\x15.mlflow.ListArtifacts\x1a\x1e.mlflow.ListArtifacts.Response\"?\xf2\x86\x19\x37\n#\n\x03GET\x12\x16/mlflow/artifacts/list\x1a\x04\x08\x02\x10\x00\x10\x01*\x0eList Artifacts\xba\x8c\x19\x00\x12\x95\x01\n\x10getMetricHistory\x12\x18.mlflow.GetMetricHistory\x1a!.mlflow.GetMetricHistory.Response\"D\xf2\x86\x19@\n(\n\x03GET\x12\x1b/mlflow/metrics/get-history\x1a\x04\x08\x02\x10\x00\x10\x01*\x12Get Metric History\x12\xb7\x01\n\x1cgetMetricHistoryBulkInterval\x12$.mlflow.GetMetricHistoryBulkInterval\x1a-.mlflow.GetMetricHistoryBulkInterval.Response\"B\xf2\x86\x19:\n6\n\x03GET\x12)/mlflow/metrics/get-history-bulk-interval\x1a\x04\x08\x02\x10\x0b\x10\x03\xba\x8c\x19\x00\x12p\n\x08logBatch\x12\x10.mlflow.LogBatch\x1a\x19.mlflow.LogBatch.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-batch\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Batch\x12p\n\x08logModel\x12\x10.mlflow.LogModel\x1a\x19.mlflow.LogModel.Response\"7\xf2\x86\x19\x33\n$\n\x04POST\x12\x16/mlflow/runs/log-model\x1a\x04\x08\x02\x10\x00\x10\x01*\tLog Model\x12u\n\tlogInputs\x12\x11.mlflow.LogInputs\x1a\x1a.mlflow.LogInputs.Response\"9\xf2\x86\x19\x35\n%\n\x04POST\x12\x17/mlflow/runs/log-inputs\x1a\x04\x08\x02\x10\x00\x10\x01*\nLog Inputs\x12v\n\nlogOutputs\x12\x12.mlflow.LogOutputs\x1a\x1b.mlflow.LogOutputs.Response\"7\xf2\x86\x19\x33\n\"\n\x04POST\x12\x14/mlflow/runs/outputs\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bLog Outputs\x12\x87\x01\n\x0esearchDatasets\x12\x16.mlflow.SearchDatasets\x1a\x1f.mlflow.SearchDatasets.Response\"<\xf2\x86\x19\x34\n0\n\x04POST\x12\"mlflow/experiments/search-datasets\x1a\x04\x08\x02\x10\x00\x10\x03\xba\x8c\x19\x00\x12p\n\nstartTrace\x12\x12.mlflow.StartTrace\x1a\x1b.mlflow.StartTrace.Response\"1\xf2\x86\x19-\n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x0bStart Trace\x12v\n\x08\x65ndTrace\x12\x10.mlflow.EndTrace\x1a\x19.mlflow.EndTrace.Response\"=\xf2\x86\x19\x39\n*\n\x05PATCH\x12\x1b/mlflow/traces/{request_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\tEnd Trace\x12\x89\x01\n\x0cgetTraceInfo\x12\x14.mlflow.GetTraceInfo\x1a\x1d.mlflow.GetTraceInfo.Response\"D\xf2\x86\x19@\n-\n\x03GET\x12 /mlflow/traces/{request_id}/info\x1a\x04\x08\x02\x10\x00\x10\x03*\rGet TraceInfo\x12\x8b\x01\n\x0egetTraceInfoV3\x12\x16.mlflow.GetTraceInfoV3\x1a\x1f.mlflow.GetTraceInfoV3.Response\"@\xf2\x86\x19<\n&\n\x03GET\x12\x19/mlflow/traces/{trace_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Get TraceInfo v3\x12\x83\x01\n\x0e\x62\x61tchGetTraces\x12\x16.mlflow.BatchGetTraces\x1a\x1f.mlflow.BatchGetTraces.Response\"8\xf2\x86\x19\x34\n$\n\x03GET\x12\x17/mlflow/traces/batchGet\x1a\x04\x08\x03\x10\x00\x10\x03*\nGet Traces\x12w\n\x0csearchTraces\x12\x14.mlflow.SearchTraces\x1a\x1d.mlflow.SearchTraces.Response\"2\xf2\x86\x19.\n\x1b\n\x03GET\x12\x0e/mlflow/traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rSearch Traces\x12\x88\x01\n\x0esearchTracesV3\x12\x16.mlflow.SearchTracesV3\x1a\x1f.mlflow.SearchTracesV3.Response\"=\xf2\x86\x19\x39\n#\n\x04POST\x12\x15/mlflow/traces/search\x1a\x04\x08\x03\x10\x00\x10\x03*\x10Search Traces V3\x12i\n\x0cstartTraceV3\x12\x14.mlflow.StartTraceV3\x1a\x1d.mlflow.StartTraceV3.Response\"$\xf2\x86\x19 \n\x1c\n\x04POST\x12\x0e/mlflow/traces\x1a\x04\x08\x03\x10\x00\x10\x03\x12\x92\x01\n\x0flinkTracesToRun\x12\x17.mlflow.LinkTracesToRun\x1a .mlflow.LinkTracesToRun.Response\"D\xf2\x86\x19@\n(\n\x04POST\x12\x1a/mlflow/traces/link-to-run\x1a\x04\x08\x02\x10\x00\x10\x03*\x12Link Traces to Run\x12\xa2\x01\n\x19searchUnifiedTraceHandler\x12\x1b.mlflow.SearchUnifiedTraces\x1a$.mlflow.SearchUnifiedTraces.Response\"B\xf2\x86\x19>\n#\n\x03GET\x12\x16/mlflow/unified-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\x15Search Unified Traces\x12\xaf\x01\n\x15getOnlineTraceDetails\x12\x1d.mlflow.GetOnlineTraceDetails\x1a&.mlflow.GetOnlineTraceDetails.Response\"O\xf2\x86\x19K\n-\n\x03GET\x12 /mlflow/get-online-trace-details\x1a\x04\x08\x02\x10\x00\x10\x03*\x18Get Online Trace Details\x12\x86\x01\n\x0c\x64\x65leteTraces\x12\x14.mlflow.DeleteTraces\x1a\x1d.mlflow.DeleteTraces.Response\"A\xf2\x86\x19=\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x02\x10\x00\x10\x03*\rDelete Traces\x12\x8f\x01\n\x0e\x64\x65leteTracesV3\x12\x16.mlflow.DeleteTracesV3\x1a\x1f.mlflow.DeleteTracesV3.Response\"D\xf2\x86\x19@\n*\n\x04POST\x12\x1c/mlflow/traces/delete-traces\x1a\x04\x08\x03\x10\x00\x10\x03*\x10\x44\x65lete Traces V3\x12\xe3\x01\n\x1f\x63\x61lculateTraceFilterCorrelation\x12\'.mlflow.CalculateTraceFilterCorrelation\x1a\x30.mlflow.CalculateTraceFilterCorrelation.Response\"e\xf2\x86\x19\x61\n9\n\x04POST\x12+/mlflow/traces/calculate-filter-correlation\x1a\x04\x08\x03\x10\x00\x10\x03*\"Calculate Trace Filter Correlation\x12\x94\x01\n\x11\x63reateLoggedModel\x12\x19.mlflow.CreateLoggedModel\x1a\".mlflow.CreateLoggedModel.Response\"@\xf2\x86\x19<\n#\n\x04POST\x12\x15/mlflow/logged-models\x1a\x04\x08\x02\x10\x00\x10\x03*\x13\x43reate Logged Model\x12\xa8\x01\n\x13\x66inalizeLoggedModel\x12\x1b.mlflow.FinalizeLoggedModel\x1a$.mlflow.FinalizeLoggedModel.Response\"N\xf2\x86\x19J\n/\n\x05PATCH\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x15\x46inalize Logged Model\x12\x92\x01\n\x0egetLoggedModel\x12\x16.mlflow.GetLoggedModel\x1a\x1f.mlflow.GetLoggedModel.Response\"G\xf2\x86\x19\x43\n-\n\x03GET\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x10Get Logged Model\x12\xa3\x01\n\x11\x64\x65leteLoggedModel\x12\x19.mlflow.DeleteLoggedModel\x1a\".mlflow.DeleteLoggedModel.Response\"O\xf2\x86\x19K\n0\n\x06\x44\x45LETE\x12 /mlflow/logged-models/{model_id}\x1a\x04\x08\x02\x10\x00\x10\x03*\x15\x44\x65lete a Logged Model\x12\x9e\x01\n\x12searchLoggedModels\x12\x1a.mlflow.SearchLoggedModels\x1a#.mlflow.SearchLoggedModels.Response\"G\xf2\x86\x19\x43\n*\n\x04POST\x12\x1c/mlflow/logged-models/search\x1a\x04\x08\x02\x10\x00\x10\x03*\x13Search LoggedModels\x12\xa9\x01\n\x12setLoggedModelTags\x12\x1a.mlflow.SetLoggedModelTags\x1a#.mlflow.SetLoggedModelTags.Response\"R\xf2\x86\x19N\n4\n\x05PATCH\x12%/mlflow/logged-models/{model_id}/tags\x1a\x04\x08\x02\x10\x00\x10\x03*\x14Set Logged Model Tag\x12\xbd\x01\n\x14\x64\x65leteLoggedModelTag\x12\x1c.mlflow.DeleteLoggedModelTag\x1a%.mlflow.DeleteLoggedModelTag.Response\"`\xf2\x86\x19\\\n?\n\x06\x44\x45LETE\x12//mlflow/logged-models/{model_id}/tags/{tag_key}\x1a\x04\x08\x02\x10\x00\x10\x03*\x17\x44\x65lete Logged Model Tag\x12\xd6\x01\n\x18listLoggedModelArtifacts\x12 .mlflow.ListLoggedModelArtifacts\x1a).mlflow.ListLoggedModelArtifacts.Response\"m\xf2\x86\x19i\nC\n\x03GET\x12\x36/mlflow/logged-models/{model_id}/artifacts/directories\x1a\x04\x08\x02\x10\x00\x10\x03* List Artifacts for Logged Models\x12\xc1\x01\n\x14LogLoggedModelParams\x12#.mlflow.LogLoggedModelParamsRequest\x1a,.mlflow.LogLoggedModelParamsRequest.Response\"V\xf2\x86\x19R\n5\n\x04POST\x12\'/mlflow/logged-models/{model_id}/params\x1a\x04\x08\x02\x10\x00\x10\x03*\x17Log Logged Model Params\x12\xb0\x01\n\rGetAssessment\x12\x1c.mlflow.GetAssessmentRequest\x1a%.mlflow.GetAssessmentRequest.Response\"Z\xf2\x86\x19V\nB\n\x03GET\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x0eGet Assessment\x12\xdf\x01\n\x10\x63reateAssessment\x12\x18.mlflow.CreateAssessment\x1a!.mlflow.CreateAssessment.Response\"\x8d\x01\xf2\x86\x19\x88\x01\n>\n\x04POST\x12\x30/mlflow/traces/{assessment.trace_id}/assessments\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x0c\x18\x01*:Create an assessment of a trace or a span within the trace\x12\xd0\x01\n\x10updateAssessment\x12\x18.mlflow.UpdateAssessment\x1a!.mlflow.UpdateAssessment.Response\"\x7f\xf2\x86\x19{\nD\n\x05PATCH\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x01*)Update an existing assessment on a trace.\x12\xb1\x01\n\x10\x64\x65leteAssessment\x12\x18.mlflow.DeleteAssessment\x1a!.mlflow.DeleteAssessment.Response\"`\xf2\x86\x19\\\nE\n\x06\x44\x45LETE\x12\x35/mlflow/traces/{trace_id}/assessments/{assessment_id}\x1a\x04\x08\x03\x10\x00\x10\x03*\x11\x44\x65lete Assessment\x12\x9a\x01\n\rcreateDataset\x12\x15.mlflow.CreateDataset\x1a\x1e.mlflow.CreateDataset.Response\"R\xf2\x86\x19N\n%\n\x04POST\x12\x17/mlflow/datasets/create\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xee\x07\x18\x0c\x18\x01*\x19\x43reate Evaluation Dataset\x12\x91\x01\n\ngetDataset\x12\x12.mlflow.GetDataset\x1a\x1b.mlflow.GetDataset.Response\"R\xf2\x86\x19N\n*\n\x03GET\x12\x1d/mlflow/datasets/{dataset_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x16Get Evaluation Dataset\x12\xa0\x01\n\rdeleteDataset\x12\x15.mlflow.DeleteDataset\x1a\x1e.mlflow.DeleteDataset.Response\"X\xf2\x86\x19T\n-\n\x06\x44\x45LETE\x12\x1d/mlflow/datasets/{dataset_id}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x19\x44\x65lete Evaluation Dataset\x12\xdd\x01\n\x18searchEvaluationDatasets\x12 .mlflow.SearchEvaluationDatasets\x1a).mlflow.SearchEvaluationDatasets.Response\"t\xf2\x86\x19p\n%\n\x04POST\x12\x17/mlflow/datasets/search\x1a\x04\x08\x03\x10\x00\n$\n\x03GET\x12\x17/mlflow/datasets/search\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\x01*\x1aSearch Evaluation Datasets\x12\xa9\x01\n\x0esetDatasetTags\x12\x16.mlflow.SetDatasetTags\x1a\x1f.mlflow.SetDatasetTags.Response\"^\xf2\x86\x19Z\n1\n\x05PATCH\x12\"/mlflow/datasets/{dataset_id}/tags\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1bSet Evaluation Dataset Tags\x12\xb8\x01\n\x10\x64\x65leteDatasetTag\x12\x18.mlflow.DeleteDatasetTag\x1a!.mlflow.DeleteDatasetTag.Response\"g\xf2\x86\x19\x63\n8\n\x06\x44\x45LETE\x12(/mlflow/datasets/{dataset_id}/tags/{key}\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1d\x44\x65lete Evaluation Dataset Tag\x12\xc3\x01\n\x14upsertDatasetRecords\x12\x1c.mlflow.UpsertDatasetRecords\x1a%.mlflow.UpsertDatasetRecords.Response\"f\xf2\x86\x19\x62\n3\n\x04POST\x12%/mlflow/datasets/{dataset_id}/records\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*!Upsert Evaluation Dataset Records\x12\xd6\x01\n\x17getDatasetExperimentIds\x12\x1f.mlflow.GetDatasetExperimentIds\x1a(.mlflow.GetDatasetExperimentIds.Response\"p\xf2\x86\x19l\n9\n\x03GET\x12,/mlflow/datasets/{dataset_id}/experiment-ids\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*%Get Evaluation Dataset Experiment IDs\x12\x8a\x01\n\x0eregisterScorer\x12\x16.mlflow.RegisterScorer\x1a\x1f.mlflow.RegisterScorer.Response\"?\xf2\x86\x19;\n&\n\x04POST\x12\x18/mlflow/scorers/register\x1a\x04\x08\x03\x10\x00\x10\x01*\x0fRegister Scorer\x12y\n\x0blistScorers\x12\x13.mlflow.ListScorers\x1a\x1c.mlflow.ListScorers.Response\"7\xf2\x86\x19\x33\n!\n\x03GET\x12\x14/mlflow/scorers/list\x1a\x04\x08\x03\x10\x00\x10\x01*\x0cList Scorers\x12\x9a\x01\n\x12listScorerVersions\x12\x1a.mlflow.ListScorerVersions\x1a#.mlflow.ListScorerVersions.Response\"C\xf2\x86\x19?\n%\n\x03GET\x12\x18/mlflow/scorers/versions\x1a\x04\x08\x03\x10\x00\x10\x01*\x14List Scorer Versions\x12p\n\tgetScorer\x12\x11.mlflow.GetScorer\x1a\x1a.mlflow.GetScorer.Response\"4\xf2\x86\x19\x30\n \n\x03GET\x12\x13/mlflow/scorers/get\x1a\x04\x08\x03\x10\x00\x10\x01*\nGet Scorer\x12\x82\x01\n\x0c\x64\x65leteScorer\x12\x14.mlflow.DeleteScorer\x1a\x1d.mlflow.DeleteScorer.Response\"=\xf2\x86\x19\x39\n&\n\x06\x44\x45LETE\x12\x16/mlflow/scorers/delete\x1a\x04\x08\x03\x10\x00\x10\x01*\rDelete Scorer\x12\xb6\x01\n\x11getDatasetRecords\x12\x19.mlflow.GetDatasetRecords\x1a\".mlflow.GetDatasetRecords.Response\"b\xf2\x86\x19^\n2\n\x03GET\x12%/mlflow/datasets/{dataset_id}/records\x1a\x04\x08\x03\x10\x00\x10\x03\x18\xe8\x07\x18\xba\x17\x18\x01*\x1eGet Evaluation Dataset RecordsB\x1e\n\x14org.mlflow.api.proto\x90\x01\x01\xe2?\x02\x10\x01')
 
   _VIEWTYPE = DESCRIPTOR.enum_types_by_name['ViewType']
   ViewType = enum_type_wrapper.EnumTypeWrapper(_VIEWTYPE)
@@ -433,6 +929,8 @@ else:
   RunStatus = enum_type_wrapper.EnumTypeWrapper(_RUNSTATUS)
   _TRACESTATUS = DESCRIPTOR.enum_types_by_name['TraceStatus']
   TraceStatus = enum_type_wrapper.EnumTypeWrapper(_TRACESTATUS)
+  _LOGGEDMODELSTATUS = DESCRIPTOR.enum_types_by_name['LoggedModelStatus']
+  LoggedModelStatus = enum_type_wrapper.EnumTypeWrapper(_LOGGEDMODELSTATUS)
   ACTIVE_ONLY = 1
   DELETED_ONLY = 2
   ALL = 3
@@ -450,6 +948,10 @@ else:
   OK = 1
   ERROR = 2
   IN_PROGRESS = 3
+  LOGGED_MODEL_STATUS_UNSPECIFIED = 0
+  LOGGED_MODEL_PENDING = 1
+  LOGGED_MODEL_READY = 2
+  LOGGED_MODEL_UPLOAD_FAILED = 3
 
 
   _METRIC = DESCRIPTOR.message_types_by_name['Metric']
@@ -457,13 +959,16 @@ else:
   _RUN = DESCRIPTOR.message_types_by_name['Run']
   _RUNDATA = DESCRIPTOR.message_types_by_name['RunData']
   _RUNINPUTS = DESCRIPTOR.message_types_by_name['RunInputs']
+  _RUNOUTPUTS = DESCRIPTOR.message_types_by_name['RunOutputs']
   _RUNTAG = DESCRIPTOR.message_types_by_name['RunTag']
   _EXPERIMENTTAG = DESCRIPTOR.message_types_by_name['ExperimentTag']
   _RUNINFO = DESCRIPTOR.message_types_by_name['RunInfo']
   _EXPERIMENT = DESCRIPTOR.message_types_by_name['Experiment']
   _DATASETINPUT = DESCRIPTOR.message_types_by_name['DatasetInput']
+  _MODELINPUT = DESCRIPTOR.message_types_by_name['ModelInput']
   _INPUTTAG = DESCRIPTOR.message_types_by_name['InputTag']
   _DATASET = DESCRIPTOR.message_types_by_name['Dataset']
+  _MODELOUTPUT = DESCRIPTOR.message_types_by_name['ModelOutput']
   _CREATEEXPERIMENT = DESCRIPTOR.message_types_by_name['CreateExperiment']
   _CREATEEXPERIMENT_RESPONSE = _CREATEEXPERIMENT.nested_types_by_name['Response']
   _SEARCHEXPERIMENTS = DESCRIPTOR.message_types_by_name['SearchExperiments']
@@ -490,6 +995,8 @@ else:
   _LOGPARAM_RESPONSE = _LOGPARAM.nested_types_by_name['Response']
   _SETEXPERIMENTTAG = DESCRIPTOR.message_types_by_name['SetExperimentTag']
   _SETEXPERIMENTTAG_RESPONSE = _SETEXPERIMENTTAG.nested_types_by_name['Response']
+  _DELETEEXPERIMENTTAG = DESCRIPTOR.message_types_by_name['DeleteExperimentTag']
+  _DELETEEXPERIMENTTAG_RESPONSE = _DELETEEXPERIMENTTAG.nested_types_by_name['Response']
   _SETTAG = DESCRIPTOR.message_types_by_name['SetTag']
   _SETTAG_RESPONSE = _SETTAG.nested_types_by_name['Response']
   _DELETETAG = DESCRIPTOR.message_types_by_name['DeleteTag']
@@ -512,8 +1019,18 @@ else:
   _LOGMODEL_RESPONSE = _LOGMODEL.nested_types_by_name['Response']
   _LOGINPUTS = DESCRIPTOR.message_types_by_name['LogInputs']
   _LOGINPUTS_RESPONSE = _LOGINPUTS.nested_types_by_name['Response']
+  _LOGOUTPUTS = DESCRIPTOR.message_types_by_name['LogOutputs']
+  _LOGOUTPUTS_RESPONSE = _LOGOUTPUTS.nested_types_by_name['Response']
   _GETEXPERIMENTBYNAME = DESCRIPTOR.message_types_by_name['GetExperimentByName']
   _GETEXPERIMENTBYNAME_RESPONSE = _GETEXPERIMENTBYNAME.nested_types_by_name['Response']
+  _CREATEASSESSMENT = DESCRIPTOR.message_types_by_name['CreateAssessment']
+  _CREATEASSESSMENT_RESPONSE = _CREATEASSESSMENT.nested_types_by_name['Response']
+  _UPDATEASSESSMENT = DESCRIPTOR.message_types_by_name['UpdateAssessment']
+  _UPDATEASSESSMENT_RESPONSE = _UPDATEASSESSMENT.nested_types_by_name['Response']
+  _DELETEASSESSMENT = DESCRIPTOR.message_types_by_name['DeleteAssessment']
+  _DELETEASSESSMENT_RESPONSE = _DELETEASSESSMENT.nested_types_by_name['Response']
+  _GETASSESSMENTREQUEST = DESCRIPTOR.message_types_by_name['GetAssessmentRequest']
+  _GETASSESSMENTREQUEST_RESPONSE = _GETASSESSMENTREQUEST.nested_types_by_name['Response']
   _TRACEINFO = DESCRIPTOR.message_types_by_name['TraceInfo']
   _TRACEREQUESTMETADATA = DESCRIPTOR.message_types_by_name['TraceRequestMetadata']
   _TRACETAG = DESCRIPTOR.message_types_by_name['TraceTag']
@@ -523,17 +1040,107 @@ else:
   _ENDTRACE_RESPONSE = _ENDTRACE.nested_types_by_name['Response']
   _GETTRACEINFO = DESCRIPTOR.message_types_by_name['GetTraceInfo']
   _GETTRACEINFO_RESPONSE = _GETTRACEINFO.nested_types_by_name['Response']
+  _GETTRACEINFOV3 = DESCRIPTOR.message_types_by_name['GetTraceInfoV3']
+  _GETTRACEINFOV3_RESPONSE = _GETTRACEINFOV3.nested_types_by_name['Response']
+  _BATCHGETTRACES = DESCRIPTOR.message_types_by_name['BatchGetTraces']
+  _BATCHGETTRACES_RESPONSE = _BATCHGETTRACES.nested_types_by_name['Response']
   _SEARCHTRACES = DESCRIPTOR.message_types_by_name['SearchTraces']
   _SEARCHTRACES_RESPONSE = _SEARCHTRACES.nested_types_by_name['Response']
+  _SEARCHUNIFIEDTRACES = DESCRIPTOR.message_types_by_name['SearchUnifiedTraces']
+  _SEARCHUNIFIEDTRACES_RESPONSE = _SEARCHUNIFIEDTRACES.nested_types_by_name['Response']
+  _GETONLINETRACEDETAILS = DESCRIPTOR.message_types_by_name['GetOnlineTraceDetails']
+  _GETONLINETRACEDETAILS_RESPONSE = _GETONLINETRACEDETAILS.nested_types_by_name['Response']
   _DELETETRACES = DESCRIPTOR.message_types_by_name['DeleteTraces']
   _DELETETRACES_RESPONSE = _DELETETRACES.nested_types_by_name['Response']
+  _DELETETRACESV3 = DESCRIPTOR.message_types_by_name['DeleteTracesV3']
+  _DELETETRACESV3_RESPONSE = _DELETETRACESV3.nested_types_by_name['Response']
+  _CALCULATETRACEFILTERCORRELATION = DESCRIPTOR.message_types_by_name['CalculateTraceFilterCorrelation']
+  _CALCULATETRACEFILTERCORRELATION_RESPONSE = _CALCULATETRACEFILTERCORRELATION.nested_types_by_name['Response']
   _SETTRACETAG = DESCRIPTOR.message_types_by_name['SetTraceTag']
   _SETTRACETAG_RESPONSE = _SETTRACETAG.nested_types_by_name['Response']
+  _SETTRACETAGV3 = DESCRIPTOR.message_types_by_name['SetTraceTagV3']
+  _SETTRACETAGV3_RESPONSE = _SETTRACETAGV3.nested_types_by_name['Response']
   _DELETETRACETAG = DESCRIPTOR.message_types_by_name['DeleteTraceTag']
   _DELETETRACETAG_RESPONSE = _DELETETRACETAG.nested_types_by_name['Response']
+  _DELETETRACETAGV3 = DESCRIPTOR.message_types_by_name['DeleteTraceTagV3']
+  _DELETETRACETAGV3_RESPONSE = _DELETETRACETAGV3.nested_types_by_name['Response']
+  _TRACE = DESCRIPTOR.message_types_by_name['Trace']
+  _TRACELOCATION = DESCRIPTOR.message_types_by_name['TraceLocation']
+  _TRACELOCATION_MLFLOWEXPERIMENTLOCATION = _TRACELOCATION.nested_types_by_name['MlflowExperimentLocation']
+  _TRACELOCATION_INFERENCETABLELOCATION = _TRACELOCATION.nested_types_by_name['InferenceTableLocation']
+  _TRACEINFOV3 = DESCRIPTOR.message_types_by_name['TraceInfoV3']
+  _TRACEINFOV3_TRACEMETADATAENTRY = _TRACEINFOV3.nested_types_by_name['TraceMetadataEntry']
+  _TRACEINFOV3_TAGSENTRY = _TRACEINFOV3.nested_types_by_name['TagsEntry']
+  _STARTTRACEV3 = DESCRIPTOR.message_types_by_name['StartTraceV3']
+  _STARTTRACEV3_RESPONSE = _STARTTRACEV3.nested_types_by_name['Response']
+  _LINKTRACESTORUN = DESCRIPTOR.message_types_by_name['LinkTracesToRun']
+  _LINKTRACESTORUN_RESPONSE = _LINKTRACESTORUN.nested_types_by_name['Response']
   _DATASETSUMMARY = DESCRIPTOR.message_types_by_name['DatasetSummary']
   _SEARCHDATASETS = DESCRIPTOR.message_types_by_name['SearchDatasets']
   _SEARCHDATASETS_RESPONSE = _SEARCHDATASETS.nested_types_by_name['Response']
+  _CREATELOGGEDMODEL = DESCRIPTOR.message_types_by_name['CreateLoggedModel']
+  _CREATELOGGEDMODEL_RESPONSE = _CREATELOGGEDMODEL.nested_types_by_name['Response']
+  _FINALIZELOGGEDMODEL = DESCRIPTOR.message_types_by_name['FinalizeLoggedModel']
+  _FINALIZELOGGEDMODEL_RESPONSE = _FINALIZELOGGEDMODEL.nested_types_by_name['Response']
+  _GETLOGGEDMODEL = DESCRIPTOR.message_types_by_name['GetLoggedModel']
+  _GETLOGGEDMODEL_RESPONSE = _GETLOGGEDMODEL.nested_types_by_name['Response']
+  _DELETELOGGEDMODEL = DESCRIPTOR.message_types_by_name['DeleteLoggedModel']
+  _DELETELOGGEDMODEL_RESPONSE = _DELETELOGGEDMODEL.nested_types_by_name['Response']
+  _SEARCHLOGGEDMODELS = DESCRIPTOR.message_types_by_name['SearchLoggedModels']
+  _SEARCHLOGGEDMODELS_DATASET = _SEARCHLOGGEDMODELS.nested_types_by_name['Dataset']
+  _SEARCHLOGGEDMODELS_ORDERBY = _SEARCHLOGGEDMODELS.nested_types_by_name['OrderBy']
+  _SEARCHLOGGEDMODELS_RESPONSE = _SEARCHLOGGEDMODELS.nested_types_by_name['Response']
+  _SETLOGGEDMODELTAGS = DESCRIPTOR.message_types_by_name['SetLoggedModelTags']
+  _SETLOGGEDMODELTAGS_RESPONSE = _SETLOGGEDMODELTAGS.nested_types_by_name['Response']
+  _DELETELOGGEDMODELTAG = DESCRIPTOR.message_types_by_name['DeleteLoggedModelTag']
+  _DELETELOGGEDMODELTAG_RESPONSE = _DELETELOGGEDMODELTAG.nested_types_by_name['Response']
+  _LISTLOGGEDMODELARTIFACTS = DESCRIPTOR.message_types_by_name['ListLoggedModelArtifacts']
+  _LISTLOGGEDMODELARTIFACTS_RESPONSE = _LISTLOGGEDMODELARTIFACTS.nested_types_by_name['Response']
+  _LOGLOGGEDMODELPARAMSREQUEST = DESCRIPTOR.message_types_by_name['LogLoggedModelParamsRequest']
+  _LOGLOGGEDMODELPARAMSREQUEST_RESPONSE = _LOGLOGGEDMODELPARAMSREQUEST.nested_types_by_name['Response']
+  _LOGGEDMODEL = DESCRIPTOR.message_types_by_name['LoggedModel']
+  _LOGGEDMODELINFO = DESCRIPTOR.message_types_by_name['LoggedModelInfo']
+  _LOGGEDMODELTAG = DESCRIPTOR.message_types_by_name['LoggedModelTag']
+  _LOGGEDMODELREGISTRATIONINFO = DESCRIPTOR.message_types_by_name['LoggedModelRegistrationInfo']
+  _LOGGEDMODELDATA = DESCRIPTOR.message_types_by_name['LoggedModelData']
+  _LOGGEDMODELPARAMETER = DESCRIPTOR.message_types_by_name['LoggedModelParameter']
+  _SEARCHTRACESV3 = DESCRIPTOR.message_types_by_name['SearchTracesV3']
+  _SEARCHTRACESV3_RESPONSE = _SEARCHTRACESV3.nested_types_by_name['Response']
+  _CREATEDATASET = DESCRIPTOR.message_types_by_name['CreateDataset']
+  _CREATEDATASET_RESPONSE = _CREATEDATASET.nested_types_by_name['Response']
+  _GETDATASET = DESCRIPTOR.message_types_by_name['GetDataset']
+  _GETDATASET_RESPONSE = _GETDATASET.nested_types_by_name['Response']
+  _DELETEDATASET = DESCRIPTOR.message_types_by_name['DeleteDataset']
+  _DELETEDATASET_RESPONSE = _DELETEDATASET.nested_types_by_name['Response']
+  _SEARCHEVALUATIONDATASETS = DESCRIPTOR.message_types_by_name['SearchEvaluationDatasets']
+  _SEARCHEVALUATIONDATASETS_RESPONSE = _SEARCHEVALUATIONDATASETS.nested_types_by_name['Response']
+  _SETDATASETTAGS = DESCRIPTOR.message_types_by_name['SetDatasetTags']
+  _SETDATASETTAGS_RESPONSE = _SETDATASETTAGS.nested_types_by_name['Response']
+  _DELETEDATASETTAG = DESCRIPTOR.message_types_by_name['DeleteDatasetTag']
+  _DELETEDATASETTAG_RESPONSE = _DELETEDATASETTAG.nested_types_by_name['Response']
+  _UPSERTDATASETRECORDS = DESCRIPTOR.message_types_by_name['UpsertDatasetRecords']
+  _UPSERTDATASETRECORDS_RESPONSE = _UPSERTDATASETRECORDS.nested_types_by_name['Response']
+  _GETDATASETEXPERIMENTIDS = DESCRIPTOR.message_types_by_name['GetDatasetExperimentIds']
+  _GETDATASETEXPERIMENTIDS_RESPONSE = _GETDATASETEXPERIMENTIDS.nested_types_by_name['Response']
+  _GETDATASETRECORDS = DESCRIPTOR.message_types_by_name['GetDatasetRecords']
+  _GETDATASETRECORDS_RESPONSE = _GETDATASETRECORDS.nested_types_by_name['Response']
+  _ADDDATASETTOEXPERIMENTS = DESCRIPTOR.message_types_by_name['AddDatasetToExperiments']
+  _ADDDATASETTOEXPERIMENTS_RESPONSE = _ADDDATASETTOEXPERIMENTS.nested_types_by_name['Response']
+  _REMOVEDATASETFROMEXPERIMENTS = DESCRIPTOR.message_types_by_name['RemoveDatasetFromExperiments']
+  _REMOVEDATASETFROMEXPERIMENTS_RESPONSE = _REMOVEDATASETFROMEXPERIMENTS.nested_types_by_name['Response']
+  _REGISTERSCORER = DESCRIPTOR.message_types_by_name['RegisterScorer']
+  _REGISTERSCORER_RESPONSE = _REGISTERSCORER.nested_types_by_name['Response']
+  _LISTSCORERS = DESCRIPTOR.message_types_by_name['ListScorers']
+  _LISTSCORERS_RESPONSE = _LISTSCORERS.nested_types_by_name['Response']
+  _LISTSCORERVERSIONS = DESCRIPTOR.message_types_by_name['ListScorerVersions']
+  _LISTSCORERVERSIONS_RESPONSE = _LISTSCORERVERSIONS.nested_types_by_name['Response']
+  _GETSCORER = DESCRIPTOR.message_types_by_name['GetScorer']
+  _GETSCORER_RESPONSE = _GETSCORER.nested_types_by_name['Response']
+  _DELETESCORER = DESCRIPTOR.message_types_by_name['DeleteScorer']
+  _DELETESCORER_RESPONSE = _DELETESCORER.nested_types_by_name['Response']
+  _SCORER = DESCRIPTOR.message_types_by_name['Scorer']
+  _TRACELOCATION_TRACELOCATIONTYPE = _TRACELOCATION.enum_types_by_name['TraceLocationType']
+  _TRACEINFOV3_STATE = _TRACEINFOV3.enum_types_by_name['State']
   Metric = _reflection.GeneratedProtocolMessageType('Metric', (_message.Message,), {
     'DESCRIPTOR' : _METRIC,
     '__module__' : 'service_pb2'
@@ -568,6 +1175,13 @@ else:
     # @@protoc_insertion_point(class_scope:mlflow.RunInputs)
     })
   _sym_db.RegisterMessage(RunInputs)
+
+  RunOutputs = _reflection.GeneratedProtocolMessageType('RunOutputs', (_message.Message,), {
+    'DESCRIPTOR' : _RUNOUTPUTS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.RunOutputs)
+    })
+  _sym_db.RegisterMessage(RunOutputs)
 
   RunTag = _reflection.GeneratedProtocolMessageType('RunTag', (_message.Message,), {
     'DESCRIPTOR' : _RUNTAG,
@@ -604,6 +1218,13 @@ else:
     })
   _sym_db.RegisterMessage(DatasetInput)
 
+  ModelInput = _reflection.GeneratedProtocolMessageType('ModelInput', (_message.Message,), {
+    'DESCRIPTOR' : _MODELINPUT,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ModelInput)
+    })
+  _sym_db.RegisterMessage(ModelInput)
+
   InputTag = _reflection.GeneratedProtocolMessageType('InputTag', (_message.Message,), {
     'DESCRIPTOR' : _INPUTTAG,
     '__module__' : 'service_pb2'
@@ -617,6 +1238,13 @@ else:
     # @@protoc_insertion_point(class_scope:mlflow.Dataset)
     })
   _sym_db.RegisterMessage(Dataset)
+
+  ModelOutput = _reflection.GeneratedProtocolMessageType('ModelOutput', (_message.Message,), {
+    'DESCRIPTOR' : _MODELOUTPUT,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ModelOutput)
+    })
+  _sym_db.RegisterMessage(ModelOutput)
 
   CreateExperiment = _reflection.GeneratedProtocolMessageType('CreateExperiment', (_message.Message,), {
 
@@ -813,6 +1441,21 @@ else:
   _sym_db.RegisterMessage(SetExperimentTag)
   _sym_db.RegisterMessage(SetExperimentTag.Response)
 
+  DeleteExperimentTag = _reflection.GeneratedProtocolMessageType('DeleteExperimentTag', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETEEXPERIMENTTAG_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteExperimentTag.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETEEXPERIMENTTAG,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteExperimentTag)
+    })
+  _sym_db.RegisterMessage(DeleteExperimentTag)
+  _sym_db.RegisterMessage(DeleteExperimentTag.Response)
+
   SetTag = _reflection.GeneratedProtocolMessageType('SetTag', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -977,6 +1620,21 @@ else:
   _sym_db.RegisterMessage(LogInputs)
   _sym_db.RegisterMessage(LogInputs.Response)
 
+  LogOutputs = _reflection.GeneratedProtocolMessageType('LogOutputs', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LOGOUTPUTS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.LogOutputs.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LOGOUTPUTS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LogOutputs)
+    })
+  _sym_db.RegisterMessage(LogOutputs)
+  _sym_db.RegisterMessage(LogOutputs.Response)
+
   GetExperimentByName = _reflection.GeneratedProtocolMessageType('GetExperimentByName', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -991,6 +1649,66 @@ else:
     })
   _sym_db.RegisterMessage(GetExperimentByName)
   _sym_db.RegisterMessage(GetExperimentByName.Response)
+
+  CreateAssessment = _reflection.GeneratedProtocolMessageType('CreateAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _CREATEASSESSMENT_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.CreateAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _CREATEASSESSMENT,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.CreateAssessment)
+    })
+  _sym_db.RegisterMessage(CreateAssessment)
+  _sym_db.RegisterMessage(CreateAssessment.Response)
+
+  UpdateAssessment = _reflection.GeneratedProtocolMessageType('UpdateAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _UPDATEASSESSMENT_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.UpdateAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _UPDATEASSESSMENT,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.UpdateAssessment)
+    })
+  _sym_db.RegisterMessage(UpdateAssessment)
+  _sym_db.RegisterMessage(UpdateAssessment.Response)
+
+  DeleteAssessment = _reflection.GeneratedProtocolMessageType('DeleteAssessment', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETEASSESSMENT_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteAssessment.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETEASSESSMENT,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteAssessment)
+    })
+  _sym_db.RegisterMessage(DeleteAssessment)
+  _sym_db.RegisterMessage(DeleteAssessment.Response)
+
+  GetAssessmentRequest = _reflection.GeneratedProtocolMessageType('GetAssessmentRequest', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETASSESSMENTREQUEST_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetAssessmentRequest.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETASSESSMENTREQUEST,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetAssessmentRequest)
+    })
+  _sym_db.RegisterMessage(GetAssessmentRequest)
+  _sym_db.RegisterMessage(GetAssessmentRequest.Response)
 
   TraceInfo = _reflection.GeneratedProtocolMessageType('TraceInfo', (_message.Message,), {
     'DESCRIPTOR' : _TRACEINFO,
@@ -1058,6 +1776,36 @@ else:
   _sym_db.RegisterMessage(GetTraceInfo)
   _sym_db.RegisterMessage(GetTraceInfo.Response)
 
+  GetTraceInfoV3 = _reflection.GeneratedProtocolMessageType('GetTraceInfoV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETTRACEINFOV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetTraceInfoV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETTRACEINFOV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetTraceInfoV3)
+    })
+  _sym_db.RegisterMessage(GetTraceInfoV3)
+  _sym_db.RegisterMessage(GetTraceInfoV3.Response)
+
+  BatchGetTraces = _reflection.GeneratedProtocolMessageType('BatchGetTraces', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _BATCHGETTRACES_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.BatchGetTraces.Response)
+      })
+    ,
+    'DESCRIPTOR' : _BATCHGETTRACES,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.BatchGetTraces)
+    })
+  _sym_db.RegisterMessage(BatchGetTraces)
+  _sym_db.RegisterMessage(BatchGetTraces.Response)
+
   SearchTraces = _reflection.GeneratedProtocolMessageType('SearchTraces', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -1072,6 +1820,36 @@ else:
     })
   _sym_db.RegisterMessage(SearchTraces)
   _sym_db.RegisterMessage(SearchTraces.Response)
+
+  SearchUnifiedTraces = _reflection.GeneratedProtocolMessageType('SearchUnifiedTraces', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHUNIFIEDTRACES_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchUnifiedTraces.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SEARCHUNIFIEDTRACES,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SearchUnifiedTraces)
+    })
+  _sym_db.RegisterMessage(SearchUnifiedTraces)
+  _sym_db.RegisterMessage(SearchUnifiedTraces.Response)
+
+  GetOnlineTraceDetails = _reflection.GeneratedProtocolMessageType('GetOnlineTraceDetails', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETONLINETRACEDETAILS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetOnlineTraceDetails.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETONLINETRACEDETAILS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetOnlineTraceDetails)
+    })
+  _sym_db.RegisterMessage(GetOnlineTraceDetails)
+  _sym_db.RegisterMessage(GetOnlineTraceDetails.Response)
 
   DeleteTraces = _reflection.GeneratedProtocolMessageType('DeleteTraces', (_message.Message,), {
 
@@ -1088,6 +1866,36 @@ else:
   _sym_db.RegisterMessage(DeleteTraces)
   _sym_db.RegisterMessage(DeleteTraces.Response)
 
+  DeleteTracesV3 = _reflection.GeneratedProtocolMessageType('DeleteTracesV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETETRACESV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteTracesV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETETRACESV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteTracesV3)
+    })
+  _sym_db.RegisterMessage(DeleteTracesV3)
+  _sym_db.RegisterMessage(DeleteTracesV3.Response)
+
+  CalculateTraceFilterCorrelation = _reflection.GeneratedProtocolMessageType('CalculateTraceFilterCorrelation', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _CALCULATETRACEFILTERCORRELATION_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.CalculateTraceFilterCorrelation.Response)
+      })
+    ,
+    'DESCRIPTOR' : _CALCULATETRACEFILTERCORRELATION,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.CalculateTraceFilterCorrelation)
+    })
+  _sym_db.RegisterMessage(CalculateTraceFilterCorrelation)
+  _sym_db.RegisterMessage(CalculateTraceFilterCorrelation.Response)
+
   SetTraceTag = _reflection.GeneratedProtocolMessageType('SetTraceTag', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -1103,6 +1911,21 @@ else:
   _sym_db.RegisterMessage(SetTraceTag)
   _sym_db.RegisterMessage(SetTraceTag.Response)
 
+  SetTraceTagV3 = _reflection.GeneratedProtocolMessageType('SetTraceTagV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SETTRACETAGV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SetTraceTagV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SETTRACETAGV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetTraceTagV3)
+    })
+  _sym_db.RegisterMessage(SetTraceTagV3)
+  _sym_db.RegisterMessage(SetTraceTagV3.Response)
+
   DeleteTraceTag = _reflection.GeneratedProtocolMessageType('DeleteTraceTag', (_message.Message,), {
 
     'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
@@ -1117,6 +1940,104 @@ else:
     })
   _sym_db.RegisterMessage(DeleteTraceTag)
   _sym_db.RegisterMessage(DeleteTraceTag.Response)
+
+  DeleteTraceTagV3 = _reflection.GeneratedProtocolMessageType('DeleteTraceTagV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETETRACETAGV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteTraceTagV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETETRACETAGV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteTraceTagV3)
+    })
+  _sym_db.RegisterMessage(DeleteTraceTagV3)
+  _sym_db.RegisterMessage(DeleteTraceTagV3.Response)
+
+  Trace = _reflection.GeneratedProtocolMessageType('Trace', (_message.Message,), {
+    'DESCRIPTOR' : _TRACE,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.Trace)
+    })
+  _sym_db.RegisterMessage(Trace)
+
+  TraceLocation = _reflection.GeneratedProtocolMessageType('TraceLocation', (_message.Message,), {
+
+    'MlflowExperimentLocation' : _reflection.GeneratedProtocolMessageType('MlflowExperimentLocation', (_message.Message,), {
+      'DESCRIPTOR' : _TRACELOCATION_MLFLOWEXPERIMENTLOCATION,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.TraceLocation.MlflowExperimentLocation)
+      })
+    ,
+
+    'InferenceTableLocation' : _reflection.GeneratedProtocolMessageType('InferenceTableLocation', (_message.Message,), {
+      'DESCRIPTOR' : _TRACELOCATION_INFERENCETABLELOCATION,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.TraceLocation.InferenceTableLocation)
+      })
+    ,
+    'DESCRIPTOR' : _TRACELOCATION,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.TraceLocation)
+    })
+  _sym_db.RegisterMessage(TraceLocation)
+  _sym_db.RegisterMessage(TraceLocation.MlflowExperimentLocation)
+  _sym_db.RegisterMessage(TraceLocation.InferenceTableLocation)
+
+  TraceInfoV3 = _reflection.GeneratedProtocolMessageType('TraceInfoV3', (_message.Message,), {
+
+    'TraceMetadataEntry' : _reflection.GeneratedProtocolMessageType('TraceMetadataEntry', (_message.Message,), {
+      'DESCRIPTOR' : _TRACEINFOV3_TRACEMETADATAENTRY,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.TraceInfoV3.TraceMetadataEntry)
+      })
+    ,
+
+    'TagsEntry' : _reflection.GeneratedProtocolMessageType('TagsEntry', (_message.Message,), {
+      'DESCRIPTOR' : _TRACEINFOV3_TAGSENTRY,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.TraceInfoV3.TagsEntry)
+      })
+    ,
+    'DESCRIPTOR' : _TRACEINFOV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.TraceInfoV3)
+    })
+  _sym_db.RegisterMessage(TraceInfoV3)
+  _sym_db.RegisterMessage(TraceInfoV3.TraceMetadataEntry)
+  _sym_db.RegisterMessage(TraceInfoV3.TagsEntry)
+
+  StartTraceV3 = _reflection.GeneratedProtocolMessageType('StartTraceV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _STARTTRACEV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.StartTraceV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _STARTTRACEV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.StartTraceV3)
+    })
+  _sym_db.RegisterMessage(StartTraceV3)
+  _sym_db.RegisterMessage(StartTraceV3.Response)
+
+  LinkTracesToRun = _reflection.GeneratedProtocolMessageType('LinkTracesToRun', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LINKTRACESTORUN_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.LinkTracesToRun.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LINKTRACESTORUN,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LinkTracesToRun)
+    })
+  _sym_db.RegisterMessage(LinkTracesToRun)
+  _sym_db.RegisterMessage(LinkTracesToRun.Response)
 
   DatasetSummary = _reflection.GeneratedProtocolMessageType('DatasetSummary', (_message.Message,), {
     'DESCRIPTOR' : _DATASETSUMMARY,
@@ -1140,13 +2061,478 @@ else:
   _sym_db.RegisterMessage(SearchDatasets)
   _sym_db.RegisterMessage(SearchDatasets.Response)
 
+  CreateLoggedModel = _reflection.GeneratedProtocolMessageType('CreateLoggedModel', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _CREATELOGGEDMODEL_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.CreateLoggedModel.Response)
+      })
+    ,
+    'DESCRIPTOR' : _CREATELOGGEDMODEL,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.CreateLoggedModel)
+    })
+  _sym_db.RegisterMessage(CreateLoggedModel)
+  _sym_db.RegisterMessage(CreateLoggedModel.Response)
+
+  FinalizeLoggedModel = _reflection.GeneratedProtocolMessageType('FinalizeLoggedModel', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _FINALIZELOGGEDMODEL_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.FinalizeLoggedModel.Response)
+      })
+    ,
+    'DESCRIPTOR' : _FINALIZELOGGEDMODEL,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.FinalizeLoggedModel)
+    })
+  _sym_db.RegisterMessage(FinalizeLoggedModel)
+  _sym_db.RegisterMessage(FinalizeLoggedModel.Response)
+
+  GetLoggedModel = _reflection.GeneratedProtocolMessageType('GetLoggedModel', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETLOGGEDMODEL_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetLoggedModel.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETLOGGEDMODEL,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetLoggedModel)
+    })
+  _sym_db.RegisterMessage(GetLoggedModel)
+  _sym_db.RegisterMessage(GetLoggedModel.Response)
+
+  DeleteLoggedModel = _reflection.GeneratedProtocolMessageType('DeleteLoggedModel', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETELOGGEDMODEL_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteLoggedModel.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETELOGGEDMODEL,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteLoggedModel)
+    })
+  _sym_db.RegisterMessage(DeleteLoggedModel)
+  _sym_db.RegisterMessage(DeleteLoggedModel.Response)
+
+  SearchLoggedModels = _reflection.GeneratedProtocolMessageType('SearchLoggedModels', (_message.Message,), {
+
+    'Dataset' : _reflection.GeneratedProtocolMessageType('Dataset', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHLOGGEDMODELS_DATASET,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchLoggedModels.Dataset)
+      })
+    ,
+
+    'OrderBy' : _reflection.GeneratedProtocolMessageType('OrderBy', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHLOGGEDMODELS_ORDERBY,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchLoggedModels.OrderBy)
+      })
+    ,
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHLOGGEDMODELS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchLoggedModels.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SEARCHLOGGEDMODELS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SearchLoggedModels)
+    })
+  _sym_db.RegisterMessage(SearchLoggedModels)
+  _sym_db.RegisterMessage(SearchLoggedModels.Dataset)
+  _sym_db.RegisterMessage(SearchLoggedModels.OrderBy)
+  _sym_db.RegisterMessage(SearchLoggedModels.Response)
+
+  SetLoggedModelTags = _reflection.GeneratedProtocolMessageType('SetLoggedModelTags', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SETLOGGEDMODELTAGS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SetLoggedModelTags.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SETLOGGEDMODELTAGS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetLoggedModelTags)
+    })
+  _sym_db.RegisterMessage(SetLoggedModelTags)
+  _sym_db.RegisterMessage(SetLoggedModelTags.Response)
+
+  DeleteLoggedModelTag = _reflection.GeneratedProtocolMessageType('DeleteLoggedModelTag', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETELOGGEDMODELTAG_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteLoggedModelTag.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETELOGGEDMODELTAG,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteLoggedModelTag)
+    })
+  _sym_db.RegisterMessage(DeleteLoggedModelTag)
+  _sym_db.RegisterMessage(DeleteLoggedModelTag.Response)
+
+  ListLoggedModelArtifacts = _reflection.GeneratedProtocolMessageType('ListLoggedModelArtifacts', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LISTLOGGEDMODELARTIFACTS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.ListLoggedModelArtifacts.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LISTLOGGEDMODELARTIFACTS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ListLoggedModelArtifacts)
+    })
+  _sym_db.RegisterMessage(ListLoggedModelArtifacts)
+  _sym_db.RegisterMessage(ListLoggedModelArtifacts.Response)
+
+  LogLoggedModelParamsRequest = _reflection.GeneratedProtocolMessageType('LogLoggedModelParamsRequest', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LOGLOGGEDMODELPARAMSREQUEST_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.LogLoggedModelParamsRequest.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LOGLOGGEDMODELPARAMSREQUEST,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LogLoggedModelParamsRequest)
+    })
+  _sym_db.RegisterMessage(LogLoggedModelParamsRequest)
+  _sym_db.RegisterMessage(LogLoggedModelParamsRequest.Response)
+
+  LoggedModel = _reflection.GeneratedProtocolMessageType('LoggedModel', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODEL,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModel)
+    })
+  _sym_db.RegisterMessage(LoggedModel)
+
+  LoggedModelInfo = _reflection.GeneratedProtocolMessageType('LoggedModelInfo', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODELINFO,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModelInfo)
+    })
+  _sym_db.RegisterMessage(LoggedModelInfo)
+
+  LoggedModelTag = _reflection.GeneratedProtocolMessageType('LoggedModelTag', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODELTAG,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModelTag)
+    })
+  _sym_db.RegisterMessage(LoggedModelTag)
+
+  LoggedModelRegistrationInfo = _reflection.GeneratedProtocolMessageType('LoggedModelRegistrationInfo', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODELREGISTRATIONINFO,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModelRegistrationInfo)
+    })
+  _sym_db.RegisterMessage(LoggedModelRegistrationInfo)
+
+  LoggedModelData = _reflection.GeneratedProtocolMessageType('LoggedModelData', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODELDATA,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModelData)
+    })
+  _sym_db.RegisterMessage(LoggedModelData)
+
+  LoggedModelParameter = _reflection.GeneratedProtocolMessageType('LoggedModelParameter', (_message.Message,), {
+    'DESCRIPTOR' : _LOGGEDMODELPARAMETER,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.LoggedModelParameter)
+    })
+  _sym_db.RegisterMessage(LoggedModelParameter)
+
+  SearchTracesV3 = _reflection.GeneratedProtocolMessageType('SearchTracesV3', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHTRACESV3_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchTracesV3.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SEARCHTRACESV3,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SearchTracesV3)
+    })
+  _sym_db.RegisterMessage(SearchTracesV3)
+  _sym_db.RegisterMessage(SearchTracesV3.Response)
+
+  CreateDataset = _reflection.GeneratedProtocolMessageType('CreateDataset', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _CREATEDATASET_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.CreateDataset.Response)
+      })
+    ,
+    'DESCRIPTOR' : _CREATEDATASET,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.CreateDataset)
+    })
+  _sym_db.RegisterMessage(CreateDataset)
+  _sym_db.RegisterMessage(CreateDataset.Response)
+
+  GetDataset = _reflection.GeneratedProtocolMessageType('GetDataset', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETDATASET_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetDataset.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETDATASET,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetDataset)
+    })
+  _sym_db.RegisterMessage(GetDataset)
+  _sym_db.RegisterMessage(GetDataset.Response)
+
+  DeleteDataset = _reflection.GeneratedProtocolMessageType('DeleteDataset', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETEDATASET_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteDataset.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETEDATASET,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteDataset)
+    })
+  _sym_db.RegisterMessage(DeleteDataset)
+  _sym_db.RegisterMessage(DeleteDataset.Response)
+
+  SearchEvaluationDatasets = _reflection.GeneratedProtocolMessageType('SearchEvaluationDatasets', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SEARCHEVALUATIONDATASETS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SearchEvaluationDatasets.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SEARCHEVALUATIONDATASETS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SearchEvaluationDatasets)
+    })
+  _sym_db.RegisterMessage(SearchEvaluationDatasets)
+  _sym_db.RegisterMessage(SearchEvaluationDatasets.Response)
+
+  SetDatasetTags = _reflection.GeneratedProtocolMessageType('SetDatasetTags', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _SETDATASETTAGS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.SetDatasetTags.Response)
+      })
+    ,
+    'DESCRIPTOR' : _SETDATASETTAGS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.SetDatasetTags)
+    })
+  _sym_db.RegisterMessage(SetDatasetTags)
+  _sym_db.RegisterMessage(SetDatasetTags.Response)
+
+  DeleteDatasetTag = _reflection.GeneratedProtocolMessageType('DeleteDatasetTag', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETEDATASETTAG_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteDatasetTag.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETEDATASETTAG,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteDatasetTag)
+    })
+  _sym_db.RegisterMessage(DeleteDatasetTag)
+  _sym_db.RegisterMessage(DeleteDatasetTag.Response)
+
+  UpsertDatasetRecords = _reflection.GeneratedProtocolMessageType('UpsertDatasetRecords', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _UPSERTDATASETRECORDS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.UpsertDatasetRecords.Response)
+      })
+    ,
+    'DESCRIPTOR' : _UPSERTDATASETRECORDS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.UpsertDatasetRecords)
+    })
+  _sym_db.RegisterMessage(UpsertDatasetRecords)
+  _sym_db.RegisterMessage(UpsertDatasetRecords.Response)
+
+  GetDatasetExperimentIds = _reflection.GeneratedProtocolMessageType('GetDatasetExperimentIds', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETDATASETEXPERIMENTIDS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetDatasetExperimentIds.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETDATASETEXPERIMENTIDS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetDatasetExperimentIds)
+    })
+  _sym_db.RegisterMessage(GetDatasetExperimentIds)
+  _sym_db.RegisterMessage(GetDatasetExperimentIds.Response)
+
+  GetDatasetRecords = _reflection.GeneratedProtocolMessageType('GetDatasetRecords', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETDATASETRECORDS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetDatasetRecords.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETDATASETRECORDS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetDatasetRecords)
+    })
+  _sym_db.RegisterMessage(GetDatasetRecords)
+  _sym_db.RegisterMessage(GetDatasetRecords.Response)
+
+  AddDatasetToExperiments = _reflection.GeneratedProtocolMessageType('AddDatasetToExperiments', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _ADDDATASETTOEXPERIMENTS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.AddDatasetToExperiments.Response)
+      })
+    ,
+    'DESCRIPTOR' : _ADDDATASETTOEXPERIMENTS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.AddDatasetToExperiments)
+    })
+  _sym_db.RegisterMessage(AddDatasetToExperiments)
+  _sym_db.RegisterMessage(AddDatasetToExperiments.Response)
+
+  RemoveDatasetFromExperiments = _reflection.GeneratedProtocolMessageType('RemoveDatasetFromExperiments', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _REMOVEDATASETFROMEXPERIMENTS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.RemoveDatasetFromExperiments.Response)
+      })
+    ,
+    'DESCRIPTOR' : _REMOVEDATASETFROMEXPERIMENTS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.RemoveDatasetFromExperiments)
+    })
+  _sym_db.RegisterMessage(RemoveDatasetFromExperiments)
+  _sym_db.RegisterMessage(RemoveDatasetFromExperiments.Response)
+
+  RegisterScorer = _reflection.GeneratedProtocolMessageType('RegisterScorer', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _REGISTERSCORER_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.RegisterScorer.Response)
+      })
+    ,
+    'DESCRIPTOR' : _REGISTERSCORER,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.RegisterScorer)
+    })
+  _sym_db.RegisterMessage(RegisterScorer)
+  _sym_db.RegisterMessage(RegisterScorer.Response)
+
+  ListScorers = _reflection.GeneratedProtocolMessageType('ListScorers', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LISTSCORERS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.ListScorers.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LISTSCORERS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ListScorers)
+    })
+  _sym_db.RegisterMessage(ListScorers)
+  _sym_db.RegisterMessage(ListScorers.Response)
+
+  ListScorerVersions = _reflection.GeneratedProtocolMessageType('ListScorerVersions', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _LISTSCORERVERSIONS_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.ListScorerVersions.Response)
+      })
+    ,
+    'DESCRIPTOR' : _LISTSCORERVERSIONS,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.ListScorerVersions)
+    })
+  _sym_db.RegisterMessage(ListScorerVersions)
+  _sym_db.RegisterMessage(ListScorerVersions.Response)
+
+  GetScorer = _reflection.GeneratedProtocolMessageType('GetScorer', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _GETSCORER_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.GetScorer.Response)
+      })
+    ,
+    'DESCRIPTOR' : _GETSCORER,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.GetScorer)
+    })
+  _sym_db.RegisterMessage(GetScorer)
+  _sym_db.RegisterMessage(GetScorer.Response)
+
+  DeleteScorer = _reflection.GeneratedProtocolMessageType('DeleteScorer', (_message.Message,), {
+
+    'Response' : _reflection.GeneratedProtocolMessageType('Response', (_message.Message,), {
+      'DESCRIPTOR' : _DELETESCORER_RESPONSE,
+      '__module__' : 'service_pb2'
+      # @@protoc_insertion_point(class_scope:mlflow.DeleteScorer.Response)
+      })
+    ,
+    'DESCRIPTOR' : _DELETESCORER,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.DeleteScorer)
+    })
+  _sym_db.RegisterMessage(DeleteScorer)
+  _sym_db.RegisterMessage(DeleteScorer.Response)
+
+  Scorer = _reflection.GeneratedProtocolMessageType('Scorer', (_message.Message,), {
+    'DESCRIPTOR' : _SCORER,
+    '__module__' : 'service_pb2'
+    # @@protoc_insertion_point(class_scope:mlflow.Scorer)
+    })
+  _sym_db.RegisterMessage(Scorer)
+
   _MLFLOWSERVICE = DESCRIPTOR.services_by_name['MlflowService']
   if _descriptor._USE_C_DESCRIPTORS == False:
 
     DESCRIPTOR._options = None
     DESCRIPTOR._serialized_options = b'\n\024org.mlflow.api.proto\220\001\001\342?\002\020\001'
+    _METRIC.fields_by_name['dataset_name']._options = None
+    _METRIC.fields_by_name['dataset_name']._serialized_options = b'\360\206\031\003'
+    _METRIC.fields_by_name['dataset_digest']._options = None
+    _METRIC.fields_by_name['dataset_digest']._serialized_options = b'\360\206\031\003'
+    _METRIC.fields_by_name['model_id']._options = None
+    _METRIC.fields_by_name['model_id']._serialized_options = b'\360\206\031\003'
+    _METRIC.fields_by_name['run_id']._options = None
+    _METRIC.fields_by_name['run_id']._serialized_options = b'\360\206\031\003'
     _DATASETINPUT.fields_by_name['dataset']._options = None
     _DATASETINPUT.fields_by_name['dataset']._serialized_options = b'\370\206\031\001'
+    _MODELINPUT.fields_by_name['model_id']._options = None
+    _MODELINPUT.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
     _INPUTTAG.fields_by_name['key']._options = None
     _INPUTTAG.fields_by_name['key']._serialized_options = b'\370\206\031\001'
     _INPUTTAG.fields_by_name['value']._options = None
@@ -1159,6 +2545,10 @@ else:
     _DATASET.fields_by_name['source_type']._serialized_options = b'\370\206\031\001'
     _DATASET.fields_by_name['source']._options = None
     _DATASET.fields_by_name['source']._serialized_options = b'\370\206\031\001'
+    _MODELOUTPUT.fields_by_name['model_id']._options = None
+    _MODELOUTPUT.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _MODELOUTPUT.fields_by_name['step']._options = None
+    _MODELOUTPUT.fields_by_name['step']._serialized_options = b'\370\206\031\001'
     _CREATEEXPERIMENT.fields_by_name['name']._options = None
     _CREATEEXPERIMENT.fields_by_name['name']._serialized_options = b'\370\206\031\001'
     _CREATEEXPERIMENT._options = None
@@ -1199,6 +2589,12 @@ else:
     _LOGMETRIC.fields_by_name['value']._serialized_options = b'\370\206\031\001'
     _LOGMETRIC.fields_by_name['timestamp']._options = None
     _LOGMETRIC.fields_by_name['timestamp']._serialized_options = b'\370\206\031\001'
+    _LOGMETRIC.fields_by_name['model_id']._options = None
+    _LOGMETRIC.fields_by_name['model_id']._serialized_options = b'\360\206\031\003'
+    _LOGMETRIC.fields_by_name['dataset_name']._options = None
+    _LOGMETRIC.fields_by_name['dataset_name']._serialized_options = b'\360\206\031\003'
+    _LOGMETRIC.fields_by_name['dataset_digest']._options = None
+    _LOGMETRIC.fields_by_name['dataset_digest']._serialized_options = b'\360\206\031\003'
     _LOGMETRIC._options = None
     _LOGMETRIC._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _LOGPARAM.fields_by_name['key']._options = None
@@ -1215,6 +2611,12 @@ else:
     _SETEXPERIMENTTAG.fields_by_name['value']._serialized_options = b'\370\206\031\001'
     _SETEXPERIMENTTAG._options = None
     _SETEXPERIMENTTAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETEEXPERIMENTTAG.fields_by_name['experiment_id']._options = None
+    _DELETEEXPERIMENTTAG.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _DELETEEXPERIMENTTAG.fields_by_name['key']._options = None
+    _DELETEEXPERIMENTTAG.fields_by_name['key']._serialized_options = b'\370\206\031\001'
+    _DELETEEXPERIMENTTAG._options = None
+    _DELETEEXPERIMENTTAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _SETTAG.fields_by_name['key']._options = None
     _SETTAG.fields_by_name['key']._serialized_options = b'\370\206\031\001'
     _SETTAG.fields_by_name['value']._options = None
@@ -1247,28 +2649,92 @@ else:
     _LOGMODEL._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _LOGINPUTS.fields_by_name['run_id']._options = None
     _LOGINPUTS.fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
+    _LOGINPUTS.fields_by_name['models']._options = None
+    _LOGINPUTS.fields_by_name['models']._serialized_options = b'\360\206\031\003'
     _LOGINPUTS._options = None
     _LOGINPUTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _LOGOUTPUTS.fields_by_name['run_id']._options = None
+    _LOGOUTPUTS.fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
+    _LOGOUTPUTS._options = None
+    _LOGOUTPUTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _GETEXPERIMENTBYNAME.fields_by_name['experiment_name']._options = None
     _GETEXPERIMENTBYNAME.fields_by_name['experiment_name']._serialized_options = b'\370\206\031\001'
     _GETEXPERIMENTBYNAME._options = None
     _GETEXPERIMENTBYNAME._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _CREATEASSESSMENT.fields_by_name['assessment']._options = None
+    _CREATEASSESSMENT.fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _CREATEASSESSMENT._options = None
+    _CREATEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _UPDATEASSESSMENT.fields_by_name['assessment']._options = None
+    _UPDATEASSESSMENT.fields_by_name['assessment']._serialized_options = b'\370\206\031\001'
+    _UPDATEASSESSMENT.fields_by_name['update_mask']._options = None
+    _UPDATEASSESSMENT.fields_by_name['update_mask']._serialized_options = b'\370\206\031\001'
+    _UPDATEASSESSMENT._options = None
+    _UPDATEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETEASSESSMENT.fields_by_name['trace_id']._options = None
+    _DELETEASSESSMENT.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _DELETEASSESSMENT.fields_by_name['assessment_id']._options = None
+    _DELETEASSESSMENT.fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _DELETEASSESSMENT._options = None
+    _DELETEASSESSMENT._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETASSESSMENTREQUEST.fields_by_name['trace_id']._options = None
+    _GETASSESSMENTREQUEST.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _GETASSESSMENTREQUEST.fields_by_name['assessment_id']._options = None
+    _GETASSESSMENTREQUEST.fields_by_name['assessment_id']._serialized_options = b'\370\206\031\001'
+    _GETASSESSMENTREQUEST._options = None
+    _GETASSESSMENTREQUEST._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _STARTTRACE._options = None
     _STARTTRACE._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _ENDTRACE._options = None
     _ENDTRACE._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _GETTRACEINFO._options = None
     _GETTRACEINFO._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETTRACEINFOV3._options = None
+    _GETTRACEINFOV3._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _BATCHGETTRACES._options = None
+    _BATCHGETTRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _SEARCHTRACES._options = None
     _SEARCHTRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SEARCHUNIFIEDTRACES.fields_by_name['model_id']._options = None
+    _SEARCHUNIFIEDTRACES.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _SEARCHUNIFIEDTRACES.fields_by_name['sql_warehouse_id']._options = None
+    _SEARCHUNIFIEDTRACES.fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
+    _SEARCHUNIFIEDTRACES._options = None
+    _SEARCHUNIFIEDTRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETONLINETRACEDETAILS.fields_by_name['trace_id']._options = None
+    _GETONLINETRACEDETAILS.fields_by_name['trace_id']._serialized_options = b'\370\206\031\001'
+    _GETONLINETRACEDETAILS.fields_by_name['sql_warehouse_id']._options = None
+    _GETONLINETRACEDETAILS.fields_by_name['sql_warehouse_id']._serialized_options = b'\370\206\031\001'
+    _GETONLINETRACEDETAILS.fields_by_name['source_inference_table']._options = None
+    _GETONLINETRACEDETAILS.fields_by_name['source_inference_table']._serialized_options = b'\370\206\031\001'
+    _GETONLINETRACEDETAILS.fields_by_name['source_databricks_request_id']._options = None
+    _GETONLINETRACEDETAILS.fields_by_name['source_databricks_request_id']._serialized_options = b'\370\206\031\001'
     _DELETETRACES.fields_by_name['experiment_id']._options = None
     _DELETETRACES.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _DELETETRACES._options = None
     _DELETETRACES._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETETRACESV3.fields_by_name['experiment_id']._options = None
+    _DELETETRACESV3.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _DELETETRACESV3._options = None
+    _DELETETRACESV3._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _CALCULATETRACEFILTERCORRELATION._options = None
+    _CALCULATETRACEFILTERCORRELATION._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _SETTRACETAG._options = None
     _SETTRACETAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SETTRACETAGV3._options = None
+    _SETTRACETAGV3._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _DELETETRACETAG._options = None
     _DELETETRACETAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETETRACETAGV3._options = None
+    _DELETETRACETAGV3._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _TRACEINFOV3_TRACEMETADATAENTRY._options = None
+    _TRACEINFOV3_TRACEMETADATAENTRY._serialized_options = b'8\001'
+    _TRACEINFOV3_TAGSENTRY._options = None
+    _TRACEINFOV3_TAGSENTRY._serialized_options = b'8\001'
+    _STARTTRACEV3.fields_by_name['trace']._options = None
+    _STARTTRACEV3.fields_by_name['trace']._serialized_options = b'\370\206\031\001'
+    _LINKTRACESTORUN.fields_by_name['run_id']._options = None
+    _LINKTRACESTORUN.fields_by_name['run_id']._serialized_options = b'\370\206\031\001'
     _DATASETSUMMARY.fields_by_name['experiment_id']._options = None
     _DATASETSUMMARY.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
     _DATASETSUMMARY.fields_by_name['name']._options = None
@@ -1277,6 +2743,108 @@ else:
     _DATASETSUMMARY.fields_by_name['digest']._serialized_options = b'\370\206\031\001'
     _SEARCHDATASETS._options = None
     _SEARCHDATASETS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _CREATELOGGEDMODEL.fields_by_name['experiment_id']._options = None
+    _CREATELOGGEDMODEL.fields_by_name['experiment_id']._serialized_options = b'\370\206\031\001'
+    _CREATELOGGEDMODEL._options = None
+    _CREATELOGGEDMODEL._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _FINALIZELOGGEDMODEL.fields_by_name['model_id']._options = None
+    _FINALIZELOGGEDMODEL.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _FINALIZELOGGEDMODEL.fields_by_name['status']._options = None
+    _FINALIZELOGGEDMODEL.fields_by_name['status']._serialized_options = b'\370\206\031\001'
+    _FINALIZELOGGEDMODEL._options = None
+    _FINALIZELOGGEDMODEL._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETLOGGEDMODEL.fields_by_name['model_id']._options = None
+    _GETLOGGEDMODEL.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _GETLOGGEDMODEL._options = None
+    _GETLOGGEDMODEL._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETELOGGEDMODEL.fields_by_name['model_id']._options = None
+    _DELETELOGGEDMODEL.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _DELETELOGGEDMODEL._options = None
+    _DELETELOGGEDMODEL._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SEARCHLOGGEDMODELS_DATASET.fields_by_name['dataset_name']._options = None
+    _SEARCHLOGGEDMODELS_DATASET.fields_by_name['dataset_name']._serialized_options = b'\370\206\031\001'
+    _SEARCHLOGGEDMODELS_ORDERBY.fields_by_name['field_name']._options = None
+    _SEARCHLOGGEDMODELS_ORDERBY.fields_by_name['field_name']._serialized_options = b'\370\206\031\001'
+    _SEARCHLOGGEDMODELS._options = None
+    _SEARCHLOGGEDMODELS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SETLOGGEDMODELTAGS.fields_by_name['model_id']._options = None
+    _SETLOGGEDMODELTAGS.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _SETLOGGEDMODELTAGS._options = None
+    _SETLOGGEDMODELTAGS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETELOGGEDMODELTAG.fields_by_name['model_id']._options = None
+    _DELETELOGGEDMODELTAG.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _DELETELOGGEDMODELTAG.fields_by_name['tag_key']._options = None
+    _DELETELOGGEDMODELTAG.fields_by_name['tag_key']._serialized_options = b'\370\206\031\001'
+    _DELETELOGGEDMODELTAG._options = None
+    _DELETELOGGEDMODELTAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _LISTLOGGEDMODELARTIFACTS.fields_by_name['model_id']._options = None
+    _LISTLOGGEDMODELARTIFACTS.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _LISTLOGGEDMODELARTIFACTS._options = None
+    _LISTLOGGEDMODELARTIFACTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _LOGLOGGEDMODELPARAMSREQUEST.fields_by_name['model_id']._options = None
+    _LOGLOGGEDMODELPARAMSREQUEST.fields_by_name['model_id']._serialized_options = b'\370\206\031\001'
+    _LOGLOGGEDMODELPARAMSREQUEST._options = None
+    _LOGLOGGEDMODELPARAMSREQUEST._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SEARCHTRACESV3._options = None
+    _SEARCHTRACESV3._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _CREATEDATASET.fields_by_name['name']._options = None
+    _CREATEDATASET.fields_by_name['name']._serialized_options = b'\370\206\031\001'
+    _CREATEDATASET._options = None
+    _CREATEDATASET._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETDATASET.fields_by_name['dataset_id']._options = None
+    _GETDATASET.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _GETDATASET._options = None
+    _GETDATASET._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETEDATASET.fields_by_name['dataset_id']._options = None
+    _DELETEDATASET.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _DELETEDATASET._options = None
+    _DELETEDATASET._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SEARCHEVALUATIONDATASETS._options = None
+    _SEARCHEVALUATIONDATASETS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _SETDATASETTAGS.fields_by_name['dataset_id']._options = None
+    _SETDATASETTAGS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _SETDATASETTAGS.fields_by_name['tags']._options = None
+    _SETDATASETTAGS.fields_by_name['tags']._serialized_options = b'\370\206\031\001'
+    _SETDATASETTAGS._options = None
+    _SETDATASETTAGS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETEDATASETTAG.fields_by_name['dataset_id']._options = None
+    _DELETEDATASETTAG.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _DELETEDATASETTAG.fields_by_name['key']._options = None
+    _DELETEDATASETTAG.fields_by_name['key']._serialized_options = b'\370\206\031\001'
+    _DELETEDATASETTAG._options = None
+    _DELETEDATASETTAG._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _UPSERTDATASETRECORDS.fields_by_name['dataset_id']._options = None
+    _UPSERTDATASETRECORDS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _UPSERTDATASETRECORDS.fields_by_name['records']._options = None
+    _UPSERTDATASETRECORDS.fields_by_name['records']._serialized_options = b'\370\206\031\001'
+    _UPSERTDATASETRECORDS._options = None
+    _UPSERTDATASETRECORDS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETDATASETEXPERIMENTIDS.fields_by_name['dataset_id']._options = None
+    _GETDATASETEXPERIMENTIDS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _GETDATASETEXPERIMENTIDS._options = None
+    _GETDATASETEXPERIMENTIDS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETDATASETRECORDS.fields_by_name['dataset_id']._options = None
+    _GETDATASETRECORDS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _GETDATASETRECORDS._options = None
+    _GETDATASETRECORDS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _ADDDATASETTOEXPERIMENTS.fields_by_name['dataset_id']._options = None
+    _ADDDATASETTOEXPERIMENTS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _ADDDATASETTOEXPERIMENTS._options = None
+    _ADDDATASETTOEXPERIMENTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _REMOVEDATASETFROMEXPERIMENTS.fields_by_name['dataset_id']._options = None
+    _REMOVEDATASETFROMEXPERIMENTS.fields_by_name['dataset_id']._serialized_options = b'\370\206\031\001'
+    _REMOVEDATASETFROMEXPERIMENTS._options = None
+    _REMOVEDATASETFROMEXPERIMENTS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _REGISTERSCORER._options = None
+    _REGISTERSCORER._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _LISTSCORERS._options = None
+    _LISTSCORERS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _LISTSCORERVERSIONS._options = None
+    _LISTSCORERVERSIONS._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _GETSCORER._options = None
+    _GETSCORER._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
+    _DELETESCORER._options = None
+    _DELETESCORER._serialized_options = b'\342?(\n&com.databricks.rpc.RPC[$this.Response]'
     _MLFLOWSERVICE.methods_by_name['getExperimentByName']._options = None
     _MLFLOWSERVICE.methods_by_name['getExperimentByName']._serialized_options = b'\362\206\031H\n,\n\003GET\022\037/mlflow/experiments/get-by-name\032\004\010\002\020\000\020\001*\026Get Experiment By Name'
     _MLFLOWSERVICE.methods_by_name['createExperiment']._options = None
@@ -1305,12 +2873,18 @@ else:
     _MLFLOWSERVICE.methods_by_name['logParam']._serialized_options = b'\362\206\0317\n(\n\004POST\022\032/mlflow/runs/log-parameter\032\004\010\002\020\000\020\001*\tLog Param'
     _MLFLOWSERVICE.methods_by_name['setExperimentTag']._options = None
     _MLFLOWSERVICE.methods_by_name['setExperimentTag']._serialized_options = b'\362\206\031L\n4\n\004POST\022&/mlflow/experiments/set-experiment-tag\032\004\010\002\020\000\020\001*\022Set Experiment Tag'
+    _MLFLOWSERVICE.methods_by_name['deleteExperimentTag']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteExperimentTag']._serialized_options = b'\362\206\031R\n7\n\004POST\022)/mlflow/experiments/delete-experiment-tag\032\004\010\002\020\000\020\001*\025Delete Experiment Tag'
     _MLFLOWSERVICE.methods_by_name['setTag']._options = None
     _MLFLOWSERVICE.methods_by_name['setTag']._serialized_options = b'\362\206\031/\n\"\n\004POST\022\024/mlflow/runs/set-tag\032\004\010\002\020\000\020\001*\007Set Tag'
     _MLFLOWSERVICE.methods_by_name['setTraceTag']._options = None
     _MLFLOWSERVICE.methods_by_name['setTraceTag']._serialized_options = b'\362\206\031B\n/\n\005PATCH\022 /mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\rSet Trace Tag'
+    _MLFLOWSERVICE.methods_by_name['setTraceTagV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['setTraceTagV3']._serialized_options = b'\362\206\031C\n-\n\005PATCH\022\036/mlflow/traces/{trace_id}/tags\032\004\010\003\020\000\020\003*\020Set Trace Tag V3'
     _MLFLOWSERVICE.methods_by_name['deleteTraceTag']._options = None
     _MLFLOWSERVICE.methods_by_name['deleteTraceTag']._serialized_options = b'\362\206\031F\n0\n\006DELETE\022 /mlflow/traces/{request_id}/tags\032\004\010\002\020\000\020\003*\020Delete Trace Tag'
+    _MLFLOWSERVICE.methods_by_name['deleteTraceTagV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteTraceTagV3']._serialized_options = b'\362\206\031G\n.\n\006DELETE\022\036/mlflow/traces/{trace_id}/tags\032\004\010\003\020\000\020\003*\023Delete Trace Tag V3'
     _MLFLOWSERVICE.methods_by_name['deleteTag']._options = None
     _MLFLOWSERVICE.methods_by_name['deleteTag']._serialized_options = b'\362\206\0315\n%\n\004POST\022\027/mlflow/runs/delete-tag\032\004\010\002\020\000\020\001*\nDelete Tag'
     _MLFLOWSERVICE.methods_by_name['getRun']._options = None
@@ -1329,6 +2903,8 @@ else:
     _MLFLOWSERVICE.methods_by_name['logModel']._serialized_options = b'\362\206\0313\n$\n\004POST\022\026/mlflow/runs/log-model\032\004\010\002\020\000\020\001*\tLog Model'
     _MLFLOWSERVICE.methods_by_name['logInputs']._options = None
     _MLFLOWSERVICE.methods_by_name['logInputs']._serialized_options = b'\362\206\0315\n%\n\004POST\022\027/mlflow/runs/log-inputs\032\004\010\002\020\000\020\001*\nLog Inputs'
+    _MLFLOWSERVICE.methods_by_name['logOutputs']._options = None
+    _MLFLOWSERVICE.methods_by_name['logOutputs']._serialized_options = b'\362\206\0313\n\"\n\004POST\022\024/mlflow/runs/outputs\032\004\010\002\020\000\020\003*\013Log Outputs'
     _MLFLOWSERVICE.methods_by_name['searchDatasets']._options = None
     _MLFLOWSERVICE.methods_by_name['searchDatasets']._serialized_options = b'\362\206\0314\n0\n\004POST\022\"mlflow/experiments/search-datasets\032\004\010\002\020\000\020\003\272\214\031\000'
     _MLFLOWSERVICE.methods_by_name['startTrace']._options = None
@@ -1337,184 +2913,468 @@ else:
     _MLFLOWSERVICE.methods_by_name['endTrace']._serialized_options = b'\362\206\0319\n*\n\005PATCH\022\033/mlflow/traces/{request_id}\032\004\010\002\020\000\020\003*\tEnd Trace'
     _MLFLOWSERVICE.methods_by_name['getTraceInfo']._options = None
     _MLFLOWSERVICE.methods_by_name['getTraceInfo']._serialized_options = b'\362\206\031@\n-\n\003GET\022 /mlflow/traces/{request_id}/info\032\004\010\002\020\000\020\003*\rGet TraceInfo'
+    _MLFLOWSERVICE.methods_by_name['getTraceInfoV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['getTraceInfoV3']._serialized_options = b'\362\206\031<\n&\n\003GET\022\031/mlflow/traces/{trace_id}\032\004\010\003\020\000\020\003*\020Get TraceInfo v3'
+    _MLFLOWSERVICE.methods_by_name['batchGetTraces']._options = None
+    _MLFLOWSERVICE.methods_by_name['batchGetTraces']._serialized_options = b'\362\206\0314\n$\n\003GET\022\027/mlflow/traces/batchGet\032\004\010\003\020\000\020\003*\nGet Traces'
     _MLFLOWSERVICE.methods_by_name['searchTraces']._options = None
     _MLFLOWSERVICE.methods_by_name['searchTraces']._serialized_options = b'\362\206\031.\n\033\n\003GET\022\016/mlflow/traces\032\004\010\002\020\000\020\003*\rSearch Traces'
+    _MLFLOWSERVICE.methods_by_name['searchTracesV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['searchTracesV3']._serialized_options = b'\362\206\0319\n#\n\004POST\022\025/mlflow/traces/search\032\004\010\003\020\000\020\003*\020Search Traces V3'
+    _MLFLOWSERVICE.methods_by_name['startTraceV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['startTraceV3']._serialized_options = b'\362\206\031 \n\034\n\004POST\022\016/mlflow/traces\032\004\010\003\020\000\020\003'
+    _MLFLOWSERVICE.methods_by_name['linkTracesToRun']._options = None
+    _MLFLOWSERVICE.methods_by_name['linkTracesToRun']._serialized_options = b'\362\206\031@\n(\n\004POST\022\032/mlflow/traces/link-to-run\032\004\010\002\020\000\020\003*\022Link Traces to Run'
+    _MLFLOWSERVICE.methods_by_name['searchUnifiedTraceHandler']._options = None
+    _MLFLOWSERVICE.methods_by_name['searchUnifiedTraceHandler']._serialized_options = b'\362\206\031>\n#\n\003GET\022\026/mlflow/unified-traces\032\004\010\002\020\000\020\003*\025Search Unified Traces'
+    _MLFLOWSERVICE.methods_by_name['getOnlineTraceDetails']._options = None
+    _MLFLOWSERVICE.methods_by_name['getOnlineTraceDetails']._serialized_options = b'\362\206\031K\n-\n\003GET\022 /mlflow/get-online-trace-details\032\004\010\002\020\000\020\003*\030Get Online Trace Details'
     _MLFLOWSERVICE.methods_by_name['deleteTraces']._options = None
     _MLFLOWSERVICE.methods_by_name['deleteTraces']._serialized_options = b'\362\206\031=\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004\010\002\020\000\020\003*\rDelete Traces'
-    _VIEWTYPE._serialized_start=7200
-    _VIEWTYPE._serialized_end=7254
-    _SOURCETYPE._serialized_start=7256
-    _SOURCETYPE._serialized_end=7329
-    _RUNSTATUS._serialized_start=7331
-    _RUNSTATUS._serialized_end=7408
-    _TRACESTATUS._serialized_start=7410
-    _TRACESTATUS._serialized_end=7489
-    _METRIC._serialized_start=66
-    _METRIC._serialized_end=138
-    _PARAM._serialized_start=140
-    _PARAM._serialized_end=175
-    _RUN._serialized_start=177
-    _RUN._serialized_end=279
-    _RUNDATA._serialized_start=281
-    _RUNDATA._serialized_end=384
-    _RUNINPUTS._serialized_start=386
-    _RUNINPUTS._serialized_end=443
-    _RUNTAG._serialized_start=445
-    _RUNTAG._serialized_end=481
-    _EXPERIMENTTAG._serialized_start=483
-    _EXPERIMENTTAG._serialized_end=526
-    _RUNINFO._serialized_start=529
-    _RUNINFO._serialized_end=750
-    _EXPERIMENT._serialized_start=753
-    _EXPERIMENT._serialized_end=940
-    _DATASETINPUT._serialized_start=942
-    _DATASETINPUT._serialized_end=1028
-    _INPUTTAG._serialized_start=1030
-    _INPUTTAG._serialized_end=1080
-    _DATASET._serialized_start=1083
-    _DATASET._serialized_end=1216
-    _CREATEEXPERIMENT._serialized_start=1219
-    _CREATEEXPERIMENT._serialized_end=1401
-    _CREATEEXPERIMENT_RESPONSE._serialized_start=1323
-    _CREATEEXPERIMENT_RESPONSE._serialized_end=1356
-    _SEARCHEXPERIMENTS._serialized_start=1404
-    _SEARCHEXPERIMENTS._serialized_end=1658
-    _SEARCHEXPERIMENTS_RESPONSE._serialized_start=1537
-    _SEARCHEXPERIMENTS_RESPONSE._serialized_end=1613
-    _GETEXPERIMENT._serialized_start=1661
-    _GETEXPERIMENT._serialized_end=1802
-    _GETEXPERIMENT_RESPONSE._serialized_start=1707
-    _GETEXPERIMENT_RESPONSE._serialized_end=1757
-    _DELETEEXPERIMENT._serialized_start=1804
-    _DELETEEXPERIMENT._serialized_end=1908
-    _DELETEEXPERIMENT_RESPONSE._serialized_start=1323
-    _DELETEEXPERIMENT_RESPONSE._serialized_end=1333
-    _RESTOREEXPERIMENT._serialized_start=1910
-    _RESTOREEXPERIMENT._serialized_end=2015
-    _RESTOREEXPERIMENT_RESPONSE._serialized_start=1323
-    _RESTOREEXPERIMENT_RESPONSE._serialized_end=1333
-    _UPDATEEXPERIMENT._serialized_start=2017
-    _UPDATEEXPERIMENT._serialized_end=2139
-    _UPDATEEXPERIMENT_RESPONSE._serialized_start=1323
-    _UPDATEEXPERIMENT_RESPONSE._serialized_end=1333
-    _CREATERUN._serialized_start=2142
-    _CREATERUN._serialized_end=2344
-    _CREATERUN_RESPONSE._serialized_start=2263
-    _CREATERUN_RESPONSE._serialized_end=2299
-    _UPDATERUN._serialized_start=2347
-    _UPDATERUN._serialized_end=2555
-    _UPDATERUN_RESPONSE._serialized_start=2465
-    _UPDATERUN_RESPONSE._serialized_end=2510
-    _DELETERUN._serialized_start=2557
-    _DELETERUN._serialized_end=2647
-    _DELETERUN_RESPONSE._serialized_start=1323
-    _DELETERUN_RESPONSE._serialized_end=1333
-    _RESTORERUN._serialized_start=2649
-    _RESTORERUN._serialized_end=2740
-    _RESTORERUN_RESPONSE._serialized_start=1323
-    _RESTORERUN_RESPONSE._serialized_end=1333
-    _LOGMETRIC._serialized_start=2743
-    _LOGMETRIC._serialized_end=2927
-    _LOGMETRIC_RESPONSE._serialized_start=1323
-    _LOGMETRIC_RESPONSE._serialized_end=1333
-    _LOGPARAM._serialized_start=2930
-    _LOGPARAM._serialized_end=3071
-    _LOGPARAM_RESPONSE._serialized_start=1323
-    _LOGPARAM_RESPONSE._serialized_end=1333
-    _SETEXPERIMENTTAG._serialized_start=3074
-    _SETEXPERIMENTTAG._serialized_end=3218
-    _SETEXPERIMENTTAG_RESPONSE._serialized_start=1323
-    _SETEXPERIMENTTAG_RESPONSE._serialized_end=1333
-    _SETTAG._serialized_start=3221
-    _SETTAG._serialized_end=3360
-    _SETTAG_RESPONSE._serialized_start=1323
-    _SETTAG_RESPONSE._serialized_end=1333
-    _DELETETAG._serialized_start=3362
-    _DELETETAG._serialized_end=3471
-    _DELETETAG_RESPONSE._serialized_start=1323
-    _DELETETAG_RESPONSE._serialized_end=1333
-    _GETRUN._serialized_start=3473
-    _GETRUN._serialized_end=3598
-    _GETRUN_RESPONSE._serialized_start=2263
-    _GETRUN_RESPONSE._serialized_end=2299
-    _SEARCHRUNS._serialized_start=3601
-    _SEARCHRUNS._serialized_end=3881
-    _SEARCHRUNS_RESPONSE._serialized_start=3774
-    _SEARCHRUNS_RESPONSE._serialized_end=3836
-    _LISTARTIFACTS._serialized_start=3884
-    _LISTARTIFACTS._serialized_end=4100
-    _LISTARTIFACTS_RESPONSE._serialized_start=3969
-    _LISTARTIFACTS_RESPONSE._serialized_end=4055
-    _FILEINFO._serialized_start=4102
-    _FILEINFO._serialized_end=4161
-    _GETMETRICHISTORY._serialized_start=4164
-    _GETMETRICHISTORY._serialized_end=4398
-    _GETMETRICHISTORY_RESPONSE._serialized_start=4285
-    _GETMETRICHISTORY_RESPONSE._serialized_end=4353
-    _METRICWITHRUNID._serialized_start=4400
-    _METRICWITHRUNID._serialized_end=4497
-    _GETMETRICHISTORYBULKINTERVAL._serialized_start=4500
-    _GETMETRICHISTORYBULKINTERVAL._serialized_end=4731
-    _GETMETRICHISTORYBULKINTERVAL_RESPONSE._serialized_start=4634
-    _GETMETRICHISTORYBULKINTERVAL_RESPONSE._serialized_end=4686
-    _LOGBATCH._serialized_start=4734
-    _LOGBATCH._serialized_end=4911
-    _LOGBATCH_RESPONSE._serialized_start=1323
-    _LOGBATCH_RESPONSE._serialized_end=1333
-    _LOGMODEL._serialized_start=4913
-    _LOGMODEL._serialized_end=5016
-    _LOGMODEL_RESPONSE._serialized_start=1323
-    _LOGMODEL_RESPONSE._serialized_end=1333
-    _LOGINPUTS._serialized_start=5019
-    _LOGINPUTS._serialized_end=5149
-    _LOGINPUTS_RESPONSE._serialized_start=1323
-    _LOGINPUTS_RESPONSE._serialized_end=1333
-    _GETEXPERIMENTBYNAME._serialized_start=5152
-    _GETEXPERIMENTBYNAME._serialized_end=5301
-    _GETEXPERIMENTBYNAME_RESPONSE._serialized_start=1707
-    _GETEXPERIMENTBYNAME_RESPONSE._serialized_end=1757
-    _TRACEINFO._serialized_start=5304
-    _TRACEINFO._serialized_end=5532
-    _TRACEREQUESTMETADATA._serialized_start=5534
-    _TRACEREQUESTMETADATA._serialized_end=5584
-    _TRACETAG._serialized_start=5586
-    _TRACETAG._serialized_end=5624
-    _STARTTRACE._serialized_start=5627
-    _STARTTRACE._serialized_end=5868
-    _STARTTRACE_RESPONSE._serialized_start=5774
-    _STARTTRACE_RESPONSE._serialized_end=5823
-    _ENDTRACE._serialized_start=5871
-    _ENDTRACE._serialized_end=6144
-    _ENDTRACE_RESPONSE._serialized_start=5774
-    _ENDTRACE_RESPONSE._serialized_end=5823
-    _GETTRACEINFO._serialized_start=6147
-    _GETTRACEINFO._serialized_end=6277
-    _GETTRACEINFO_RESPONSE._serialized_start=5774
-    _GETTRACEINFO_RESPONSE._serialized_end=5823
-    _SEARCHTRACES._serialized_start=6280
-    _SEARCHTRACES._serialized_end=6515
-    _SEARCHTRACES_RESPONSE._serialized_start=6400
-    _SEARCHTRACES_RESPONSE._serialized_end=6470
-    _DELETETRACES._serialized_start=6518
-    _DELETETRACES._serialized_end=6713
-    _DELETETRACES_RESPONSE._serialized_start=6634
-    _DELETETRACES_RESPONSE._serialized_end=6668
-    _SETTRACETAG._serialized_start=6715
-    _SETTRACETAG._serialized_end=6833
-    _SETTRACETAG_RESPONSE._serialized_start=1323
-    _SETTRACETAG_RESPONSE._serialized_end=1333
-    _DELETETRACETAG._serialized_start=6835
-    _DELETETRACETAG._serialized_end=6941
-    _DELETETRACETAG_RESPONSE._serialized_start=1323
-    _DELETETRACETAG_RESPONSE._serialized_end=1333
-    _DATASETSUMMARY._serialized_start=6943
-    _DATASETSUMMARY._serialized_end=7047
-    _SEARCHDATASETS._serialized_start=7050
-    _SEARCHDATASETS._serialized_end=7198
-    _SEARCHDATASETS_RESPONSE._serialized_start=7092
-    _SEARCHDATASETS_RESPONSE._serialized_end=7153
-    _MLFLOWSERVICE._serialized_start=7492
-    _MLFLOWSERVICE._serialized_end=11819
+    _MLFLOWSERVICE.methods_by_name['deleteTracesV3']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteTracesV3']._serialized_options = b'\362\206\031@\n*\n\004POST\022\034/mlflow/traces/delete-traces\032\004\010\003\020\000\020\003*\020Delete Traces V3'
+    _MLFLOWSERVICE.methods_by_name['calculateTraceFilterCorrelation']._options = None
+    _MLFLOWSERVICE.methods_by_name['calculateTraceFilterCorrelation']._serialized_options = b'\362\206\031a\n9\n\004POST\022+/mlflow/traces/calculate-filter-correlation\032\004\010\003\020\000\020\003*\"Calculate Trace Filter Correlation'
+    _MLFLOWSERVICE.methods_by_name['createLoggedModel']._options = None
+    _MLFLOWSERVICE.methods_by_name['createLoggedModel']._serialized_options = b'\362\206\031<\n#\n\004POST\022\025/mlflow/logged-models\032\004\010\002\020\000\020\003*\023Create Logged Model'
+    _MLFLOWSERVICE.methods_by_name['finalizeLoggedModel']._options = None
+    _MLFLOWSERVICE.methods_by_name['finalizeLoggedModel']._serialized_options = b'\362\206\031J\n/\n\005PATCH\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\025Finalize Logged Model'
+    _MLFLOWSERVICE.methods_by_name['getLoggedModel']._options = None
+    _MLFLOWSERVICE.methods_by_name['getLoggedModel']._serialized_options = b'\362\206\031C\n-\n\003GET\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\020Get Logged Model'
+    _MLFLOWSERVICE.methods_by_name['deleteLoggedModel']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteLoggedModel']._serialized_options = b'\362\206\031K\n0\n\006DELETE\022 /mlflow/logged-models/{model_id}\032\004\010\002\020\000\020\003*\025Delete a Logged Model'
+    _MLFLOWSERVICE.methods_by_name['searchLoggedModels']._options = None
+    _MLFLOWSERVICE.methods_by_name['searchLoggedModels']._serialized_options = b'\362\206\031C\n*\n\004POST\022\034/mlflow/logged-models/search\032\004\010\002\020\000\020\003*\023Search LoggedModels'
+    _MLFLOWSERVICE.methods_by_name['setLoggedModelTags']._options = None
+    _MLFLOWSERVICE.methods_by_name['setLoggedModelTags']._serialized_options = b'\362\206\031N\n4\n\005PATCH\022%/mlflow/logged-models/{model_id}/tags\032\004\010\002\020\000\020\003*\024Set Logged Model Tag'
+    _MLFLOWSERVICE.methods_by_name['deleteLoggedModelTag']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteLoggedModelTag']._serialized_options = b'\362\206\031\\\n?\n\006DELETE\022//mlflow/logged-models/{model_id}/tags/{tag_key}\032\004\010\002\020\000\020\003*\027Delete Logged Model Tag'
+    _MLFLOWSERVICE.methods_by_name['listLoggedModelArtifacts']._options = None
+    _MLFLOWSERVICE.methods_by_name['listLoggedModelArtifacts']._serialized_options = b'\362\206\031i\nC\n\003GET\0226/mlflow/logged-models/{model_id}/artifacts/directories\032\004\010\002\020\000\020\003* List Artifacts for Logged Models'
+    _MLFLOWSERVICE.methods_by_name['LogLoggedModelParams']._options = None
+    _MLFLOWSERVICE.methods_by_name['LogLoggedModelParams']._serialized_options = b'\362\206\031R\n5\n\004POST\022\'/mlflow/logged-models/{model_id}/params\032\004\010\002\020\000\020\003*\027Log Logged Model Params'
+    _MLFLOWSERVICE.methods_by_name['GetAssessment']._options = None
+    _MLFLOWSERVICE.methods_by_name['GetAssessment']._serialized_options = b'\362\206\031V\nB\n\003GET\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003*\016Get Assessment'
+    _MLFLOWSERVICE.methods_by_name['createAssessment']._options = None
+    _MLFLOWSERVICE.methods_by_name['createAssessment']._serialized_options = b'\362\206\031\210\001\n>\n\004POST\0220/mlflow/traces/{assessment.trace_id}/assessments\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*:Create an assessment of a trace or a span within the trace'
+    _MLFLOWSERVICE.methods_by_name['updateAssessment']._options = None
+    _MLFLOWSERVICE.methods_by_name['updateAssessment']._serialized_options = b'\362\206\031{\nD\n\005PATCH\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\001*)Update an existing assessment on a trace.'
+    _MLFLOWSERVICE.methods_by_name['deleteAssessment']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteAssessment']._serialized_options = b'\362\206\031\\\nE\n\006DELETE\0225/mlflow/traces/{trace_id}/assessments/{assessment_id}\032\004\010\003\020\000\020\003*\021Delete Assessment'
+    _MLFLOWSERVICE.methods_by_name['createDataset']._options = None
+    _MLFLOWSERVICE.methods_by_name['createDataset']._serialized_options = b'\362\206\031N\n%\n\004POST\022\027/mlflow/datasets/create\032\004\010\003\020\000\020\003\030\350\007\030\356\007\030\014\030\001*\031Create Evaluation Dataset'
+    _MLFLOWSERVICE.methods_by_name['getDataset']._options = None
+    _MLFLOWSERVICE.methods_by_name['getDataset']._serialized_options = b'\362\206\031N\n*\n\003GET\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\026Get Evaluation Dataset'
+    _MLFLOWSERVICE.methods_by_name['deleteDataset']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteDataset']._serialized_options = b'\362\206\031T\n-\n\006DELETE\022\035/mlflow/datasets/{dataset_id}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\031Delete Evaluation Dataset'
+    _MLFLOWSERVICE.methods_by_name['searchEvaluationDatasets']._options = None
+    _MLFLOWSERVICE.methods_by_name['searchEvaluationDatasets']._serialized_options = b'\362\206\031p\n%\n\004POST\022\027/mlflow/datasets/search\032\004\010\003\020\000\n$\n\003GET\022\027/mlflow/datasets/search\032\004\010\003\020\000\020\003\030\350\007\030\001*\032Search Evaluation Datasets'
+    _MLFLOWSERVICE.methods_by_name['setDatasetTags']._options = None
+    _MLFLOWSERVICE.methods_by_name['setDatasetTags']._serialized_options = b'\362\206\031Z\n1\n\005PATCH\022\"/mlflow/datasets/{dataset_id}/tags\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\033Set Evaluation Dataset Tags'
+    _MLFLOWSERVICE.methods_by_name['deleteDatasetTag']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteDatasetTag']._serialized_options = b'\362\206\031c\n8\n\006DELETE\022(/mlflow/datasets/{dataset_id}/tags/{key}\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\035Delete Evaluation Dataset Tag'
+    _MLFLOWSERVICE.methods_by_name['upsertDatasetRecords']._options = None
+    _MLFLOWSERVICE.methods_by_name['upsertDatasetRecords']._serialized_options = b'\362\206\031b\n3\n\004POST\022%/mlflow/datasets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*!Upsert Evaluation Dataset Records'
+    _MLFLOWSERVICE.methods_by_name['getDatasetExperimentIds']._options = None
+    _MLFLOWSERVICE.methods_by_name['getDatasetExperimentIds']._serialized_options = b'\362\206\031l\n9\n\003GET\022,/mlflow/datasets/{dataset_id}/experiment-ids\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*%Get Evaluation Dataset Experiment IDs'
+    _MLFLOWSERVICE.methods_by_name['registerScorer']._options = None
+    _MLFLOWSERVICE.methods_by_name['registerScorer']._serialized_options = b'\362\206\031;\n&\n\004POST\022\030/mlflow/scorers/register\032\004\010\003\020\000\020\001*\017Register Scorer'
+    _MLFLOWSERVICE.methods_by_name['listScorers']._options = None
+    _MLFLOWSERVICE.methods_by_name['listScorers']._serialized_options = b'\362\206\0313\n!\n\003GET\022\024/mlflow/scorers/list\032\004\010\003\020\000\020\001*\014List Scorers'
+    _MLFLOWSERVICE.methods_by_name['listScorerVersions']._options = None
+    _MLFLOWSERVICE.methods_by_name['listScorerVersions']._serialized_options = b'\362\206\031?\n%\n\003GET\022\030/mlflow/scorers/versions\032\004\010\003\020\000\020\001*\024List Scorer Versions'
+    _MLFLOWSERVICE.methods_by_name['getScorer']._options = None
+    _MLFLOWSERVICE.methods_by_name['getScorer']._serialized_options = b'\362\206\0310\n \n\003GET\022\023/mlflow/scorers/get\032\004\010\003\020\000\020\001*\nGet Scorer'
+    _MLFLOWSERVICE.methods_by_name['deleteScorer']._options = None
+    _MLFLOWSERVICE.methods_by_name['deleteScorer']._serialized_options = b'\362\206\0319\n&\n\006DELETE\022\026/mlflow/scorers/delete\032\004\010\003\020\000\020\001*\rDelete Scorer'
+    _MLFLOWSERVICE.methods_by_name['getDatasetRecords']._options = None
+    _MLFLOWSERVICE.methods_by_name['getDatasetRecords']._serialized_options = b'\362\206\031^\n2\n\003GET\022%/mlflow/datasets/{dataset_id}/records\032\004\010\003\020\000\020\003\030\350\007\030\272\027\030\001*\036Get Evaluation Dataset Records'
+    _VIEWTYPE._serialized_start=17672
+    _VIEWTYPE._serialized_end=17726
+    _SOURCETYPE._serialized_start=17728
+    _SOURCETYPE._serialized_end=17801
+    _RUNSTATUS._serialized_start=17803
+    _RUNSTATUS._serialized_end=17880
+    _TRACESTATUS._serialized_start=17882
+    _TRACESTATUS._serialized_end=17961
+    _LOGGEDMODELSTATUS._serialized_start=17964
+    _LOGGEDMODELSTATUS._serialized_end=18102
+    _METRIC._serialized_start=243
+    _METRIC._serialized_end=419
+    _PARAM._serialized_start=421
+    _PARAM._serialized_end=456
+    _RUN._serialized_start=459
+    _RUN._serialized_end=598
+    _RUNDATA._serialized_start=600
+    _RUNDATA._serialized_end=703
+    _RUNINPUTS._serialized_start=705
+    _RUNINPUTS._serialized_end=804
+    _RUNOUTPUTS._serialized_start=806
+    _RUNOUTPUTS._serialized_end=862
+    _RUNTAG._serialized_start=864
+    _RUNTAG._serialized_end=900
+    _EXPERIMENTTAG._serialized_start=902
+    _EXPERIMENTTAG._serialized_end=945
+    _RUNINFO._serialized_start=948
+    _RUNINFO._serialized_end=1169
+    _EXPERIMENT._serialized_start=1172
+    _EXPERIMENT._serialized_end=1359
+    _DATASETINPUT._serialized_start=1361
+    _DATASETINPUT._serialized_end=1447
+    _MODELINPUT._serialized_start=1449
+    _MODELINPUT._serialized_end=1485
+    _INPUTTAG._serialized_start=1487
+    _INPUTTAG._serialized_end=1537
+    _DATASET._serialized_start=1540
+    _DATASET._serialized_end=1673
+    _MODELOUTPUT._serialized_start=1675
+    _MODELOUTPUT._serialized_end=1732
+    _CREATEEXPERIMENT._serialized_start=1735
+    _CREATEEXPERIMENT._serialized_end=1917
+    _CREATEEXPERIMENT_RESPONSE._serialized_start=1839
+    _CREATEEXPERIMENT_RESPONSE._serialized_end=1872
+    _SEARCHEXPERIMENTS._serialized_start=1920
+    _SEARCHEXPERIMENTS._serialized_end=2174
+    _SEARCHEXPERIMENTS_RESPONSE._serialized_start=2053
+    _SEARCHEXPERIMENTS_RESPONSE._serialized_end=2129
+    _GETEXPERIMENT._serialized_start=2177
+    _GETEXPERIMENT._serialized_end=2318
+    _GETEXPERIMENT_RESPONSE._serialized_start=2223
+    _GETEXPERIMENT_RESPONSE._serialized_end=2273
+    _DELETEEXPERIMENT._serialized_start=2320
+    _DELETEEXPERIMENT._serialized_end=2424
+    _DELETEEXPERIMENT_RESPONSE._serialized_start=1839
+    _DELETEEXPERIMENT_RESPONSE._serialized_end=1849
+    _RESTOREEXPERIMENT._serialized_start=2426
+    _RESTOREEXPERIMENT._serialized_end=2531
+    _RESTOREEXPERIMENT_RESPONSE._serialized_start=1839
+    _RESTOREEXPERIMENT_RESPONSE._serialized_end=1849
+    _UPDATEEXPERIMENT._serialized_start=2533
+    _UPDATEEXPERIMENT._serialized_end=2655
+    _UPDATEEXPERIMENT_RESPONSE._serialized_start=1839
+    _UPDATEEXPERIMENT_RESPONSE._serialized_end=1849
+    _CREATERUN._serialized_start=2658
+    _CREATERUN._serialized_end=2860
+    _CREATERUN_RESPONSE._serialized_start=2779
+    _CREATERUN_RESPONSE._serialized_end=2815
+    _UPDATERUN._serialized_start=2863
+    _UPDATERUN._serialized_end=3071
+    _UPDATERUN_RESPONSE._serialized_start=2981
+    _UPDATERUN_RESPONSE._serialized_end=3026
+    _DELETERUN._serialized_start=3073
+    _DELETERUN._serialized_end=3163
+    _DELETERUN_RESPONSE._serialized_start=1839
+    _DELETERUN_RESPONSE._serialized_end=1849
+    _RESTORERUN._serialized_start=3165
+    _RESTORERUN._serialized_end=3256
+    _RESTORERUN_RESPONSE._serialized_start=1839
+    _RESTORERUN_RESPONSE._serialized_end=1849
+    _LOGMETRIC._serialized_start=3259
+    _LOGMETRIC._serialized_end=3525
+    _LOGMETRIC_RESPONSE._serialized_start=1839
+    _LOGMETRIC_RESPONSE._serialized_end=1849
+    _LOGPARAM._serialized_start=3528
+    _LOGPARAM._serialized_end=3669
+    _LOGPARAM_RESPONSE._serialized_start=1839
+    _LOGPARAM_RESPONSE._serialized_end=1849
+    _SETEXPERIMENTTAG._serialized_start=3672
+    _SETEXPERIMENTTAG._serialized_end=3816
+    _SETEXPERIMENTTAG_RESPONSE._serialized_start=1839
+    _SETEXPERIMENTTAG_RESPONSE._serialized_end=1849
+    _DELETEEXPERIMENTTAG._serialized_start=3818
+    _DELETEEXPERIMENTTAG._serialized_end=3944
+    _DELETEEXPERIMENTTAG_RESPONSE._serialized_start=1839
+    _DELETEEXPERIMENTTAG_RESPONSE._serialized_end=1849
+    _SETTAG._serialized_start=3947
+    _SETTAG._serialized_end=4086
+    _SETTAG_RESPONSE._serialized_start=1839
+    _SETTAG_RESPONSE._serialized_end=1849
+    _DELETETAG._serialized_start=4088
+    _DELETETAG._serialized_end=4197
+    _DELETETAG_RESPONSE._serialized_start=1839
+    _DELETETAG_RESPONSE._serialized_end=1849
+    _GETRUN._serialized_start=4199
+    _GETRUN._serialized_end=4324
+    _GETRUN_RESPONSE._serialized_start=2779
+    _GETRUN_RESPONSE._serialized_end=2815
+    _SEARCHRUNS._serialized_start=4327
+    _SEARCHRUNS._serialized_end=4607
+    _SEARCHRUNS_RESPONSE._serialized_start=4500
+    _SEARCHRUNS_RESPONSE._serialized_end=4562
+    _LISTARTIFACTS._serialized_start=4610
+    _LISTARTIFACTS._serialized_end=4826
+    _LISTARTIFACTS_RESPONSE._serialized_start=4695
+    _LISTARTIFACTS_RESPONSE._serialized_end=4781
+    _FILEINFO._serialized_start=4828
+    _FILEINFO._serialized_end=4887
+    _GETMETRICHISTORY._serialized_start=4890
+    _GETMETRICHISTORY._serialized_end=5124
+    _GETMETRICHISTORY_RESPONSE._serialized_start=5011
+    _GETMETRICHISTORY_RESPONSE._serialized_end=5079
+    _METRICWITHRUNID._serialized_start=5126
+    _METRICWITHRUNID._serialized_end=5223
+    _GETMETRICHISTORYBULKINTERVAL._serialized_start=5226
+    _GETMETRICHISTORYBULKINTERVAL._serialized_end=5457
+    _GETMETRICHISTORYBULKINTERVAL_RESPONSE._serialized_start=5360
+    _GETMETRICHISTORYBULKINTERVAL_RESPONSE._serialized_end=5412
+    _LOGBATCH._serialized_start=5460
+    _LOGBATCH._serialized_end=5637
+    _LOGBATCH_RESPONSE._serialized_start=1839
+    _LOGBATCH_RESPONSE._serialized_end=1849
+    _LOGMODEL._serialized_start=5639
+    _LOGMODEL._serialized_end=5742
+    _LOGMODEL_RESPONSE._serialized_start=1839
+    _LOGMODEL_RESPONSE._serialized_end=1849
+    _LOGINPUTS._serialized_start=5745
+    _LOGINPUTS._serialized_end=5917
+    _LOGINPUTS_RESPONSE._serialized_start=1839
+    _LOGINPUTS_RESPONSE._serialized_end=1849
+    _LOGOUTPUTS._serialized_start=5920
+    _LOGOUTPUTS._serialized_end=6048
+    _LOGOUTPUTS_RESPONSE._serialized_start=1839
+    _LOGOUTPUTS_RESPONSE._serialized_end=1849
+    _GETEXPERIMENTBYNAME._serialized_start=6051
+    _GETEXPERIMENTBYNAME._serialized_end=6200
+    _GETEXPERIMENTBYNAME_RESPONSE._serialized_start=2223
+    _GETEXPERIMENTBYNAME_RESPONSE._serialized_end=2273
+    _CREATEASSESSMENT._serialized_start=6203
+    _CREATEASSESSMENT._serialized_end=6388
+    _CREATEASSESSMENT_RESPONSE._serialized_start=6281
+    _CREATEASSESSMENT_RESPONSE._serialized_end=6343
+    _UPDATEASSESSMENT._serialized_start=6391
+    _UPDATEASSESSMENT._serialized_end=6631
+    _UPDATEASSESSMENT_RESPONSE._serialized_start=6281
+    _UPDATEASSESSMENT_RESPONSE._serialized_end=6343
+    _DELETEASSESSMENT._serialized_start=6634
+    _DELETEASSESSMENT._serialized_end=6762
+    _DELETEASSESSMENT_RESPONSE._serialized_start=1839
+    _DELETEASSESSMENT_RESPONSE._serialized_end=1849
+    _GETASSESSMENTREQUEST._serialized_start=6765
+    _GETASSESSMENTREQUEST._serialized_end=6949
+    _GETASSESSMENTREQUEST_RESPONSE._serialized_start=6281
+    _GETASSESSMENTREQUEST_RESPONSE._serialized_end=6343
+    _TRACEINFO._serialized_start=6952
+    _TRACEINFO._serialized_end=7180
+    _TRACEREQUESTMETADATA._serialized_start=7182
+    _TRACEREQUESTMETADATA._serialized_end=7232
+    _TRACETAG._serialized_start=7234
+    _TRACETAG._serialized_end=7272
+    _STARTTRACE._serialized_start=7275
+    _STARTTRACE._serialized_end=7516
+    _STARTTRACE_RESPONSE._serialized_start=7422
+    _STARTTRACE_RESPONSE._serialized_end=7471
+    _ENDTRACE._serialized_start=7519
+    _ENDTRACE._serialized_end=7792
+    _ENDTRACE_RESPONSE._serialized_start=7422
+    _ENDTRACE_RESPONSE._serialized_end=7471
+    _GETTRACEINFO._serialized_start=7795
+    _GETTRACEINFO._serialized_end=7925
+    _GETTRACEINFO_RESPONSE._serialized_start=7422
+    _GETTRACEINFO_RESPONSE._serialized_end=7471
+    _GETTRACEINFOV3._serialized_start=7927
+    _GETTRACEINFOV3._serialized_end=8048
+    _GETTRACEINFOV3_RESPONSE._serialized_start=7963
+    _GETTRACEINFOV3_RESPONSE._serialized_end=8003
+    _BATCHGETTRACES._serialized_start=8050
+    _BATCHGETTRACES._serialized_end=8173
+    _BATCHGETTRACES_RESPONSE._serialized_start=8087
+    _BATCHGETTRACES_RESPONSE._serialized_end=8128
+    _SEARCHTRACES._serialized_start=8176
+    _SEARCHTRACES._serialized_end=8411
+    _SEARCHTRACES_RESPONSE._serialized_start=8296
+    _SEARCHTRACES_RESPONSE._serialized_end=8366
+    _SEARCHUNIFIEDTRACES._serialized_start=8414
+    _SEARCHUNIFIEDTRACES._serialized_end=8712
+    _SEARCHUNIFIEDTRACES_RESPONSE._serialized_start=8296
+    _SEARCHUNIFIEDTRACES_RESPONSE._serialized_end=8366
+    _GETONLINETRACEDETAILS._serialized_start=8715
+    _GETONLINETRACEDETAILS._serialized_end=8908
+    _GETONLINETRACEDETAILS_RESPONSE._serialized_start=8878
+    _GETONLINETRACEDETAILS_RESPONSE._serialized_end=8908
+    _DELETETRACES._serialized_start=8911
+    _DELETETRACES._serialized_end=9106
+    _DELETETRACES_RESPONSE._serialized_start=9027
+    _DELETETRACES_RESPONSE._serialized_end=9061
+    _DELETETRACESV3._serialized_start=9109
+    _DELETETRACESV3._serialized_end=9306
+    _DELETETRACESV3_RESPONSE._serialized_start=9027
+    _DELETETRACESV3_RESPONSE._serialized_end=9061
+    _CALCULATETRACEFILTERCORRELATION._serialized_start=9309
+    _CALCULATETRACEFILTERCORRELATION._serialized_end=9618
+    _CALCULATETRACEFILTERCORRELATION_RESPONSE._serialized_start=9438
+    _CALCULATETRACEFILTERCORRELATION_RESPONSE._serialized_end=9573
+    _SETTRACETAG._serialized_start=9620
+    _SETTRACETAG._serialized_end=9738
+    _SETTRACETAG_RESPONSE._serialized_start=1839
+    _SETTRACETAG_RESPONSE._serialized_end=1849
+    _SETTRACETAGV3._serialized_start=9741
+    _SETTRACETAGV3._serialized_end=9877
+    _SETTRACETAGV3_RESPONSE._serialized_start=1839
+    _SETTRACETAGV3_RESPONSE._serialized_end=1849
+    _DELETETRACETAG._serialized_start=9879
+    _DELETETRACETAG._serialized_end=10001
+    _DELETETRACETAG_RESPONSE._serialized_start=1839
+    _DELETETRACETAG_RESPONSE._serialized_end=1849
+    _DELETETRACETAGV3._serialized_start=10003
+    _DELETETRACETAGV3._serialized_end=10111
+    _DELETETRACETAGV3_RESPONSE._serialized_start=1839
+    _DELETETRACETAGV3_RESPONSE._serialized_end=1849
+    _TRACE._serialized_start=10113
+    _TRACE._serialized_end=10212
+    _TRACELOCATION._serialized_start=10215
+    _TRACELOCATION._serialized_end=10653
+    _TRACELOCATION_MLFLOWEXPERIMENTLOCATION._serialized_start=10437
+    _TRACELOCATION_MLFLOWEXPERIMENTLOCATION._serialized_end=10486
+    _TRACELOCATION_INFERENCETABLELOCATION._serialized_start=10488
+    _TRACELOCATION_INFERENCETABLELOCATION._serialized_end=10537
+    _TRACELOCATION_TRACELOCATIONTYPE._serialized_start=10539
+    _TRACELOCATION_TRACELOCATIONTYPE._serialized_end=10639
+    _TRACEINFOV3._serialized_start=10656
+    _TRACEINFOV3._serialized_end=11323
+    _TRACEINFOV3_TRACEMETADATAENTRY._serialized_start=11158
+    _TRACEINFOV3_TRACEMETADATAENTRY._serialized_end=11210
+    _TRACEINFOV3_TAGSENTRY._serialized_start=11212
+    _TRACEINFOV3_TAGSENTRY._serialized_end=11255
+    _TRACEINFOV3_STATE._serialized_start=11257
+    _TRACEINFOV3_STATE._serialized_end=11323
+    _STARTTRACEV3._serialized_start=11325
+    _STARTTRACEV3._serialized_end=11417
+    _STARTTRACEV3_RESPONSE._serialized_start=7963
+    _STARTTRACEV3_RESPONSE._serialized_end=8003
+    _LINKTRACESTORUN._serialized_start=11419
+    _LINKTRACESTORUN._serialized_end=11489
+    _LINKTRACESTORUN_RESPONSE._serialized_start=1839
+    _LINKTRACESTORUN_RESPONSE._serialized_end=1849
+    _DATASETSUMMARY._serialized_start=11491
+    _DATASETSUMMARY._serialized_end=11595
+    _SEARCHDATASETS._serialized_start=11598
+    _SEARCHDATASETS._serialized_end=11746
+    _SEARCHDATASETS_RESPONSE._serialized_start=11640
+    _SEARCHDATASETS_RESPONSE._serialized_end=11701
+    _CREATELOGGEDMODEL._serialized_start=11749
+    _CREATELOGGEDMODEL._serialized_end=12031
+    _CREATELOGGEDMODEL_RESPONSE._serialized_start=11940
+    _CREATELOGGEDMODEL_RESPONSE._serialized_end=11986
+    _FINALIZELOGGEDMODEL._serialized_start=12034
+    _FINALIZELOGGEDMODEL._serialized_end=12221
+    _FINALIZELOGGEDMODEL_RESPONSE._serialized_start=11940
+    _FINALIZELOGGEDMODEL_RESPONSE._serialized_end=11986
+    _GETLOGGEDMODEL._serialized_start=12224
+    _GETLOGGEDMODEL._serialized_end=12357
+    _GETLOGGEDMODEL_RESPONSE._serialized_start=11940
+    _GETLOGGEDMODEL_RESPONSE._serialized_end=11986
+    _DELETELOGGEDMODEL._serialized_start=12359
+    _DELETELOGGEDMODEL._serialized_end=12459
+    _DELETELOGGEDMODEL_RESPONSE._serialized_start=1839
+    _DELETELOGGEDMODEL_RESPONSE._serialized_end=1849
+    _SEARCHLOGGEDMODELS._serialized_start=12462
+    _SEARCHLOGGEDMODELS._serialized_end=12965
+    _SEARCHLOGGEDMODELS_DATASET._serialized_start=12677
+    _SEARCHLOGGEDMODELS_DATASET._serialized_end=12738
+    _SEARCHLOGGEDMODELS_ORDERBY._serialized_start=12740
+    _SEARCHLOGGEDMODELS_ORDERBY._serialized_end=12846
+    _SEARCHLOGGEDMODELS_RESPONSE._serialized_start=12848
+    _SEARCHLOGGEDMODELS_RESPONSE._serialized_end=12920
+    _SETLOGGEDMODELTAGS._serialized_start=12968
+    _SETLOGGEDMODELTAGS._serialized_end=13143
+    _SETLOGGEDMODELTAGS_RESPONSE._serialized_start=11940
+    _SETLOGGEDMODELTAGS_RESPONSE._serialized_end=11986
+    _DELETELOGGEDMODELTAG._serialized_start=13145
+    _DELETELOGGEDMODELTAG._serialized_end=13271
+    _DELETELOGGEDMODELTAG_RESPONSE._serialized_start=1839
+    _DELETELOGGEDMODELTAG_RESPONSE._serialized_end=1849
+    _LISTLOGGEDMODELARTIFACTS._serialized_start=13274
+    _LISTLOGGEDMODELARTIFACTS._serialized_end=13510
+    _LISTLOGGEDMODELARTIFACTS_RESPONSE._serialized_start=4695
+    _LISTLOGGEDMODELARTIFACTS_RESPONSE._serialized_end=4781
+    _LOGLOGGEDMODELPARAMSREQUEST._serialized_start=13513
+    _LOGLOGGEDMODELPARAMSREQUEST._serialized_end=13669
+    _LOGLOGGEDMODELPARAMSREQUEST_RESPONSE._serialized_start=1839
+    _LOGLOGGEDMODELPARAMSREQUEST_RESPONSE._serialized_end=1849
+    _LOGGEDMODEL._serialized_start=13671
+    _LOGGEDMODEL._serialized_end=13762
+    _LOGGEDMODELINFO._serialized_start=13765
+    _LOGGEDMODELINFO._serialized_end=14153
+    _LOGGEDMODELTAG._serialized_start=14155
+    _LOGGEDMODELTAG._serialized_end=14199
+    _LOGGEDMODELREGISTRATIONINFO._serialized_start=14201
+    _LOGGEDMODELREGISTRATIONINFO._serialized_end=14261
+    _LOGGEDMODELDATA._serialized_start=14263
+    _LOGGEDMODELDATA._serialized_end=14359
+    _LOGGEDMODELPARAMETER._serialized_start=14361
+    _LOGGEDMODELPARAMETER._serialized_end=14411
+    _SEARCHTRACESV3._serialized_start=14414
+    _SEARCHTRACESV3._serialized_end=14671
+    _SEARCHTRACESV3_RESPONSE._serialized_start=14554
+    _SEARCHTRACESV3_RESPONSE._serialized_end=14626
+    _CREATEDATASET._serialized_start=14674
+    _CREATEDATASET._serialized_end=14986
+    _CREATEDATASET_RESPONSE._serialized_start=14888
+    _CREATEDATASET_RESPONSE._serialized_end=14941
+    _GETDATASET._serialized_start=14989
+    _GETDATASET._serialized_end=15172
+    _GETDATASET_RESPONSE._serialized_start=15049
+    _GETDATASET_RESPONSE._serialized_end=15127
+    _DELETEDATASET._serialized_start=15174
+    _DELETEDATASET._serialized_end=15272
+    _DELETEDATASET_RESPONSE._serialized_start=1839
+    _DELETEDATASET_RESPONSE._serialized_end=1849
+    _SEARCHEVALUATIONDATASETS._serialized_start=15275
+    _SEARCHEVALUATIONDATASETS._serialized_end=15539
+    _SEARCHEVALUATIONDATASETS_RESPONSE._serialized_start=15415
+    _SEARCHEVALUATIONDATASETS_RESPONSE._serialized_end=15494
+    _SETDATASETTAGS._serialized_start=15542
+    _SETDATASETTAGS._serialized_end=15704
+    _SETDATASETTAGS_RESPONSE._serialized_start=14888
+    _SETDATASETTAGS_RESPONSE._serialized_end=14941
+    _DELETEDATASETTAG._serialized_start=15706
+    _DELETEDATASETTAG._serialized_end=15826
+    _DELETEDATASETTAG_RESPONSE._serialized_start=1839
+    _DELETEDATASETTAG_RESPONSE._serialized_end=1849
+    _UPSERTDATASETRECORDS._serialized_start=15829
+    _UPSERTDATASETRECORDS._serialized_end=16024
+    _UPSERTDATASETRECORDS_RESPONSE._serialized_start=15922
+    _UPSERTDATASETRECORDS_RESPONSE._serialized_end=15979
+    _GETDATASETEXPERIMENTIDS._serialized_start=16027
+    _GETDATASETEXPERIMENTIDS._serialized_end=16159
+    _GETDATASETEXPERIMENTIDS_RESPONSE._serialized_start=16080
+    _GETDATASETEXPERIMENTIDS_RESPONSE._serialized_end=16114
+    _GETDATASETRECORDS._serialized_start=16162
+    _GETDATASETRECORDS._serialized_end=16353
+    _GETDATASETRECORDS_RESPONSE._serialized_start=16256
+    _GETDATASETRECORDS_RESPONSE._serialized_end=16308
+    _ADDDATASETTOEXPERIMENTS._serialized_start=16356
+    _ADDDATASETTOEXPERIMENTS._serialized_end=16522
+    _ADDDATASETTOEXPERIMENTS_RESPONSE._serialized_start=16433
+    _ADDDATASETTOEXPERIMENTS_RESPONSE._serialized_end=16477
+    _REMOVEDATASETFROMEXPERIMENTS._serialized_start=16525
+    _REMOVEDATASETFROMEXPERIMENTS._serialized_end=16696
+    _REMOVEDATASETFROMEXPERIMENTS_RESPONSE._serialized_start=16433
+    _REMOVEDATASETFROMEXPERIMENTS_RESPONSE._serialized_end=16477
+    _REGISTERSCORER._serialized_start=16699
+    _REGISTERSCORER._serialized_end=16960
+    _REGISTERSCORER_RESPONSE._serialized_start=16782
+    _REGISTERSCORER_RESPONSE._serialized_end=16915
+    _LISTSCORERS._serialized_start=16962
+    _LISTSCORERS._serialized_end=17088
+    _LISTSCORERS_RESPONSE._serialized_start=17000
+    _LISTSCORERS_RESPONSE._serialized_end=17043
+    _LISTSCORERVERSIONS._serialized_start=17091
+    _LISTSCORERVERSIONS._serialized_end=17238
+    _LISTSCORERVERSIONS_RESPONSE._serialized_start=17000
+    _LISTSCORERVERSIONS_RESPONSE._serialized_end=17043
+    _GETSCORER._serialized_start=17241
+    _GETSCORER._serialized_end=17395
+    _GETSCORER_RESPONSE._serialized_start=17308
+    _GETSCORER_RESPONSE._serialized_end=17350
+    _DELETESCORER._serialized_start=17397
+    _DELETESCORER._serialized_end=17522
+    _DELETESCORER_RESPONSE._serialized_start=1839
+    _DELETESCORER_RESPONSE._serialized_end=1849
+    _SCORER._serialized_start=17525
+    _SCORER._serialized_end=17670
+    _MLFLOWSERVICE._serialized_start=18105
+    _MLFLOWSERVICE._serialized_end=29116
   MlflowService = service_reflection.GeneratedServiceType('MlflowService', (_service.Service,), dict(
     DESCRIPTOR = _MLFLOWSERVICE,
     __module__ = 'service_pb2'

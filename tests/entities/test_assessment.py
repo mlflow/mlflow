@@ -1,58 +1,136 @@
+import json
+import time
+from unittest.mock import patch
+
 import pytest
 
-from mlflow.entities.assessment import Assessment, AssessmentSource
+from mlflow.entities.assessment import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
+    Expectation,
+    ExpectationValue,
+    Feedback,
+    FeedbackValue,
+)
+from mlflow.entities.assessment_error import _STACK_TRACE_TRUNCATION_LENGTH
 from mlflow.exceptions import MlflowException
+from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
+from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
+from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
+from mlflow.protos.databricks_tracing_pb2 import Assessment as ProtoAssessmentV4
+from mlflow.protos.databricks_tracing_pb2 import TraceLocation, UCSchemaLocation
+from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
+
+
+def test_assessment_creation():
+    default_params = {
+        "trace_id": "trace_id",
+        "name": "relevance",
+        "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
+        "create_time_ms": 123456789,
+        "last_update_time_ms": 123456789,
+        "expectation": None,
+        "feedback": FeedbackValue(0.9),
+        "rationale": "Rationale text",
+        "metadata": {"key1": "value1"},
+        "span_id": "span_id",
+        "assessment_id": "assessment_id",
+    }
+
+    assessment = Assessment(**default_params)
+    for key, value in default_params.items():
+        assert getattr(assessment, key) == value
+
+    assessment_with_error = Assessment(
+        **{
+            **default_params,
+            "feedback": FeedbackValue(
+                None, AssessmentError(error_code="E001", error_message="An error occurred.")
+            ),
+        }
+    )
+    assert assessment_with_error.feedback.error.error_code == "E001"
+    assert assessment_with_error.feedback.error.error_message == "An error occurred."
+
+    # Both feedback value and error can be set. For example, a default fallback value can
+    # be set when LLM judge fails to provide a value.
+    assessment_with_value_and_error = Assessment(
+        **{
+            **default_params,
+            "feedback": FeedbackValue(value=1, error=AssessmentError(error_code="E001")),
+        }
+    )
+    assert assessment_with_value_and_error.feedback.value == 1
+    assert assessment_with_value_and_error.feedback.error.error_code == "E001"
+
+    # Backward compatibility. "error" was previously in the Assessment class.
+    assessment_legacy_error = Assessment(
+        **{
+            **default_params,
+            "error": AssessmentError(error_code="E001", error_message="An error occurred."),
+            "feedback": FeedbackValue(None),
+        }
+    )
+    assert assessment_legacy_error.feedback.error.error_code == "E001"
+    assert assessment_legacy_error.feedback.error.error_message == "An error occurred."
 
 
 def test_assessment_equality():
     source_1 = AssessmentSource(source_type="HUMAN", source_id="user_1")
     source_2 = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    source_3 = AssessmentSource(source_type="AI_JUDGE", source_id="ai_1")
+    source_3 = AssessmentSource(source_type="LLM_JUDGE", source_id="llm_1")
+
+    common_args = {
+        "trace_id": "trace_id",
+        "name": "relevance",
+        "create_time_ms": 123456789,
+        "last_update_time_ms": 123456789,
+    }
 
     # Valid assessments
     assessment_1 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_1,
-        timestamp=123456789,
-        numeric_value=0.9,
+        feedback=FeedbackValue(0.9),
+        **common_args,
     )
     assessment_2 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_2,
-        timestamp=123456789,
-        numeric_value=0.9,
+        feedback=FeedbackValue(0.9),
+        **common_args,
     )
     assessment_3 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_1,
-        timestamp=123456789,
-        numeric_value=0.8,
+        feedback=FeedbackValue(0.8),
+        **common_args,
     )
     assessment_4 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_3,
-        timestamp=123456789,
-        numeric_value=0.9,
+        feedback=FeedbackValue(0.9),
+        **common_args,
     )
     assessment_5 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_1,
-        timestamp=123456789,
-        error_code="E002",
-        error_message="A different error occurred.",
+        feedback=FeedbackValue(
+            None,
+            AssessmentError(
+                error_code="E002",
+                error_message="A different error occurred.",
+            ),
+        ),
+        **common_args,
     )
     assessment_6 = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
         source=source_1,
-        timestamp=123456789,
-        error_code="E001",
-        error_message="Another error message.",
+        feedback=FeedbackValue(
+            None,
+            AssessmentError(
+                error_code="E001",
+                error_message="Another error message.",
+            ),
+        ),
+        **common_args,
     )
 
     # Same evaluation_id, name, source, timestamp, and numeric_value
@@ -63,162 +141,408 @@ def test_assessment_equality():
     assert assessment_5 != assessment_6  # Different error_code
 
 
-def test_assessment_properties():
-    source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        numeric_value=0.9,
-        rationale="Rationale text",
-        metadata={"key1": "value1"},
-    )
-
-    assert assessment.evaluation_id == "eval1"
-    assert assessment.name == "relevance"
-    assert assessment.source == source
-    assert assessment.timestamp == 123456789
-    assert assessment.numeric_value == 0.9
-    assert assessment.rationale == "Rationale text"
-    assert assessment.metadata == {"key1": "value1"}
-    assert assessment.error_code is None
-    assert assessment.error_message is None
-
-
-def test_assessment_to_from_dictionary():
-    source = AssessmentSource(source_type="HUMAN", source_id="user_1")
-    assessment = Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        numeric_value=0.9,
-        rationale="Rationale text",
-        metadata={"key1": "value1"},
-    )
-    assessment_dict = assessment.to_dictionary()
-
-    expected_dict = {
-        "evaluation_id": "eval1",
-        "name": "relevance",
-        "source": source.to_dictionary(),
-        "timestamp": 123456789,
-        "boolean_value": None,
-        "numeric_value": 0.9,
-        "string_value": None,
-        "rationale": "Rationale text",
-        "metadata": {"key1": "value1"},
-        "error_code": None,
-        "error_message": None,
-    }
-    assert assessment_dict == expected_dict
-
-    recreated_assessment = Assessment.from_dictionary(assessment_dict)
-    assert recreated_assessment == assessment
-
-
 def test_assessment_value_validation():
-    source = AssessmentSource(source_type="HUMAN", source_id="user_1")
+    common_args = {
+        "trace_id": "trace_id",
+        "name": "relevance",
+        "source": AssessmentSource(source_type="HUMAN", source_id="user_1"),
+        "create_time_ms": 123456789,
+        "last_update_time_ms": 123456789,
+    }
 
     # Valid cases
+    Assessment(expectation=ExpectationValue("MLflow"), **common_args)
+    Assessment(feedback=FeedbackValue("This is correct."), **common_args)
     Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        boolean_value=True,
+        feedback=FeedbackValue(None, error=AssessmentError(error_code="E001")), **common_args
     )
     Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        numeric_value=0.9,
-    )
-    Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        string_value="value",
-    )
-    Assessment(
-        evaluation_id="eval1",
-        name="relevance",
-        source=source,
-        timestamp=123456789,
-        error_code="E001",
-        error_message="Error",
+        feedback=FeedbackValue("This is correct.", AssessmentError(error_code="E001")),
+        **common_args,
     )
 
-    # Invalid case: more than one value type specified
-    with pytest.raises(
-        MlflowException,
-        match="Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
-        "specified for an assessment.",
-    ):
+    # Invalid case: no value specified
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
+        Assessment(**common_args)
+
+    # Invalid case: both feedback and expectation specified
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            boolean_value=True,
-            numeric_value=0.9,
+            expectation=ExpectationValue("MLflow"),
+            feedback=FeedbackValue("This is correct."),
+            **common_args,
         )
 
-    # Invalid case: no value type specified
-    with pytest.raises(
-        MlflowException,
-        match="Exactly one of boolean_value, numeric_value, string_value, or error_code must be "
-        "specified for an assessment.",
-    ):
+    # Invalid case: All three are set
+    with pytest.raises(MlflowException, match=r"Exactly one of"):
         Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
+            expectation=ExpectationValue("MLflow"),
+            feedback=FeedbackValue("This is correct.", AssessmentError(error_code="E001")),
+            **common_args,
         )
 
-    # Invalid case: error_message specified with another value type
-    with pytest.raises(
-        MlflowException,
-        match="error_message cannot be specified when boolean_value, numeric_value, or "
-        "string_value is specified.",
-    ):
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            numeric_value=0,
-            error_message="An error occurred",
-        )
 
-    with pytest.raises(
-        MlflowException,
-        match="error_message cannot be specified when boolean_value, numeric_value, or "
-        "string_value is specified.",
-    ):
-        Assessment(
-            evaluation_id="eval1",
+@pytest.mark.parametrize(
+    ("expectation", "feedback"),
+    [
+        (ExpectationValue("MLflow"), None),
+        (ExpectationValue({"complex": {"expectation": ["structure"]}}), None),
+        (None, FeedbackValue("This is correct.")),
+        (None, FeedbackValue(None, AssessmentError(error_code="E001"))),
+        (
+            None,
+            FeedbackValue(
+                None, AssessmentError(error_code="E001", error_message="An error occurred.")
+            ),
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "source",
+    [
+        AssessmentSource(source_type="HUMAN", source_id="user_1"),
+        AssessmentSource(source_type="CODE", source_id="code.py"),
+    ],
+)
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"key1": "value1"},
+        None,
+    ],
+)
+def test_assessment_conversion(expectation, feedback, source, metadata):
+    timestamp_ms = int(time.time() * 1000)
+    if expectation:
+        assessment = Expectation(
+            trace_id="trace_id",
             name="relevance",
             source=source,
-            timestamp=123456789,
-            string_value="value",
-            error_message="An error occurred",
+            create_time_ms=timestamp_ms,
+            last_update_time_ms=timestamp_ms,
+            value=expectation.value,
+            metadata=metadata,
+            span_id="span_id",
         )
+    elif feedback:
+        assessment = Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            source=source,
+            create_time_ms=timestamp_ms,
+            last_update_time_ms=timestamp_ms,
+            value=feedback.value,
+            error=feedback.error,
+            rationale="Rationale text",
+            metadata=metadata,
+            span_id="span_id",
+        )
+    else:
+        raise ValueError("Either expectation or feedback must be provided")
 
-    with pytest.raises(
-        MlflowException,
-        match="error_message cannot be specified when boolean_value, numeric_value, or "
-        "string_value is specified.",
+    proto = assessment.to_proto()
+
+    assert isinstance(proto, ProtoAssessment)
+
+    result = Assessment.from_proto(proto)
+    assert result == assessment
+
+    dict = assessment.to_dictionary()
+    assert dict.get("assessment_id") == assessment.assessment_id
+    assert dict["trace_id"] == assessment.trace_id
+    assert dict["assessment_name"] == assessment.name
+    assert dict["source"].get("source_type") == source.source_type
+    assert dict["source"].get("source_id") == source.source_id
+    assert proto_timestamp_to_milliseconds(dict["create_time"]) == assessment.create_time_ms
+    assert (
+        proto_timestamp_to_milliseconds(dict["last_update_time"]) == assessment.last_update_time_ms
+    )
+    assert dict.get("rationale") == assessment.rationale
+    assert dict.get("metadata") == metadata
+
+    if expectation:
+        if isinstance(expectation.value, str):
+            assert dict["expectation"] == {"value": expectation.value}
+        else:
+            assert dict["expectation"] == {
+                "serialized_value": {
+                    "value": json.dumps(expectation.value),
+                    "serialization_format": "JSON_FORMAT",
+                }
+            }
+
+    if feedback:
+        assert dict["feedback"] == feedback.to_dictionary()
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "MLflow",  # string
+        42,  # integer
+        3.14,  # float
+        True,  # boolean
+    ],
+    ids=["string", "integer", "float", "boolean"],
+)
+def test_expectation_proto_dict_conversion(value):
+    expectation = ExpectationValue(value)
+    proto = expectation.to_proto()
+    assert isinstance(proto, ProtoExpectation)
+
+    result = ExpectationValue.from_proto(proto)
+    assert result.value == expectation.value
+
+    expectation_dict = expectation.to_dictionary()
+    result = ExpectationValue.from_dictionary(expectation_dict)
+    assert result.value == expectation.value
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"key": "value"},
+        ["a", "b", "c"],
+        {"nested": {"dict": {"with": ["mixed", "types", 1, 2.0, True]}}},
+        [1, "two", 3.0, False, {"mixed": "list"}],
+        [{"complex": "structure"}, [1, 2, 3], {"with": ["nested", "arrays"]}],
+    ],
+)
+def test_expectation_value_serialization(value):
+    expectation = ExpectationValue(value)
+    proto = expectation.to_proto()
+
+    assert proto.HasField("serialized_value")
+    assert proto.serialized_value.serialization_format == "JSON_FORMAT"
+
+    result = ExpectationValue.from_proto(proto)
+    assert result.value == expectation.value
+
+    expectation_dict = expectation.to_dictionary()
+    result = ExpectationValue.from_dictionary(expectation_dict)
+    assert result.value == expectation.value
+
+
+def test_expectation_invalid_values():
+    class CustomObject:
+        pass
+
+    with pytest.raises(MlflowException, match="Expectation value must be JSON-serializable"):
+        ExpectationValue(CustomObject()).to_proto()
+
+    # Test invalid serialization format
+    proto = ProtoExpectation()
+    proto.serialized_value.serialization_format = "INVALID_FORMAT"
+    proto.serialized_value.value = '{"key": "value"}'
+
+    with pytest.raises(MlflowException, match="Unknown serialization format"):
+        ExpectationValue.from_proto(proto)
+
+
+@pytest.mark.parametrize(
+    ("value", "error"),
+    [
+        (0.9, None),
+        (None, AssessmentError(error_code="E001", error_message="An error occurred.")),
+        (
+            "Error message",
+            AssessmentError(error_code="E002", error_message="Another error occurred."),
+        ),
+    ],
+)
+def test_feedback_value_proto_dict_conversion(value, error):
+    feedback = FeedbackValue(value, error)
+    proto = feedback.to_proto()
+    assert isinstance(proto, ProtoFeedback)
+
+    result = FeedbackValue.from_proto(proto)
+    assert result.value == feedback.value
+    assert result.error == feedback.error
+
+    feedback_dict = feedback.to_dictionary()
+    result = FeedbackValue.from_dictionary(feedback_dict)
+    assert result.value == feedback.value
+    assert result.error == feedback.error
+
+
+@pytest.mark.parametrize("stack_trace_length", [500, 2000])
+def test_feedback_from_exception(stack_trace_length):
+    err = None
+    try:
+        raise ValueError("An error occurred.")
+    except ValueError as e:
+        err = e
+
+    # Mock traceback.format_tb to simulate long stack trace
+    with patch(
+        "mlflow.entities.assessment.get_stacktrace",
+        return_value="A" * (stack_trace_length - 9) + "last line",
     ):
-        Assessment(
-            evaluation_id="eval1",
-            name="relevance",
-            source=source,
-            timestamp=123456789,
-            boolean_value=False,
-            error_message="An error occurred",
+        feedback = Feedback(error=err)
+    assert feedback.error.error_code == "ValueError"
+    assert feedback.error.error_message == "An error occurred."
+    assert feedback.error.stack_trace is not None
+
+    # Feedback should expose error_code and error_message for backward compatibility
+    assert feedback.error_code == "ValueError"
+    assert feedback.error_message == "An error occurred."
+
+    proto = feedback.to_proto()
+    assert len(proto.feedback.error.stack_trace) == min(
+        stack_trace_length, _STACK_TRACE_TRUNCATION_LENGTH
+    )
+    assert proto.feedback.error.stack_trace.endswith("last line")
+    if stack_trace_length > _STACK_TRACE_TRUNCATION_LENGTH:
+        assert proto.feedback.error.stack_trace.startswith("[Stack trace is truncated]\n...\n")
+
+    recovered = Feedback.from_proto(feedback.to_proto())
+    assert feedback.error.error_code == recovered.error.error_code
+    assert feedback.error.error_message == recovered.error.error_message
+
+
+def test_assessment_value_assignment():
+    feedback = Feedback(name="relevance", value=1.0)
+    assert feedback.value == 1.0
+
+    feedback.value = 0.9
+    assert feedback.value == 0.9
+
+    expectation = Expectation(name="expected_value", value=1.0)
+    assert expectation.value == 1.0
+
+    expectation.value = 0.9
+    assert expectation.value == 0.9
+
+
+@pytest.mark.parametrize(
+    ("metadata", "explicit_run_id", "expected_run_id"),
+    [
+        ({AssessmentMetadataKey.SOURCE_RUN_ID: "run123"}, None, "run123"),
+        ({"other_key": "value"}, "explicit_run", "explicit_run"),
+        ({"other_key": "value"}, None, None),
+        (None, None, None),
+    ],
+)
+def test_run_id_handling(metadata, explicit_run_id, expected_run_id):
+    feedback = Feedback(name="test", value=True, metadata=metadata)
+    if explicit_run_id:
+        feedback.run_id = explicit_run_id
+
+    assert feedback.run_id == expected_run_id
+    assert not hasattr(feedback.to_proto(), "run_id")
+
+    if expected_run_id and not explicit_run_id:
+        recovered = Feedback.from_proto(feedback.to_proto())
+        assert recovered.run_id == expected_run_id
+
+
+def test_feedback_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "feedback123"
+    proto_v4.assessment_name = "accuracy"
+
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="prod", schema_name="ml_data"),
         )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "span789"
+    proto_v4.rationale = "Model output matches ground truth"
+    proto_v4.overrides = "prev_assessment"
+    proto_v4.valid = True
+
+    # Set source
+    source = AssessmentSource(source_type="CODE", source_id="scorer.py")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000000000)
+    proto_v4.last_update_time.FromMilliseconds(1700000001000)
+
+    # Set metadata
+    proto_v4.metadata["key1"] = "value1"
+    proto_v4.metadata["key2"] = "value2"
+
+    # Set feedback value with error
+    feedback_value = FeedbackValue(
+        value=0.85, error=AssessmentError(error_code="TIMEOUT", error_message="Request timed out")
+    )
+    proto_v4.feedback.CopyFrom(feedback_value.to_proto())
+
+    # Convert from proto
+    feedback = Feedback.from_proto(proto_v4)
+
+    # Validate all fields
+    assert feedback.assessment_id == "feedback123"
+    assert feedback.name == "accuracy"
+    assert feedback.trace_id == "trace:/prod.ml_data/123456"
+    assert feedback.span_id == "span789"
+    assert feedback.rationale == "Model output matches ground truth"
+    assert feedback.overrides == "prev_assessment"
+    assert feedback.valid is True
+    assert feedback.value == 0.85
+    assert feedback.error.error_code == "TIMEOUT"
+    assert feedback.error.error_message == "Request timed out"
+    assert feedback.source.source_type == "CODE"
+    assert feedback.source.source_id == "scorer.py"
+    assert feedback.create_time_ms == 1700000000000
+    assert feedback.last_update_time_ms == 1700000001000
+    assert feedback.metadata == {"key1": "value1", "key2": "value2"}
+
+
+def test_expectation_from_proto_v4():
+    # Create v4 proto with all fields
+    proto_v4 = ProtoAssessmentV4()
+    proto_v4.assessment_id = "exp123"
+    proto_v4.assessment_name = "expected_output"
+
+    # Set TraceIdentifier with UC schema location
+    proto_v4.trace_location.CopyFrom(
+        TraceLocation(
+            type=TraceLocation.TraceLocationType.UC_SCHEMA,
+            uc_schema=UCSchemaLocation(catalog_name="dev", schema_name="experiments"),
+        )
+    )
+    proto_v4.trace_id = "123456"
+
+    proto_v4.span_id = "exp_span789"
+
+    # Set source
+    source = AssessmentSource(source_type="HUMAN", source_id="expert@company.com")
+    proto_v4.source.CopyFrom(source.to_proto())
+
+    # Set timestamps
+    proto_v4.create_time.FromMilliseconds(1700000002000)
+    proto_v4.last_update_time.FromMilliseconds(1700000003000)
+
+    # Set metadata
+    proto_v4.metadata["dataset"] = "test_set_v1"
+    proto_v4.metadata["version"] = "1.0"
+
+    # Set expectation value (complex structure)
+    expectation_value = ExpectationValue(
+        value={"expected_response": "The capital is Paris", "alternatives": ["Paris, France"]}
+    )
+    proto_v4.expectation.CopyFrom(expectation_value.to_proto())
+
+    # Convert from proto
+    expectation = Expectation.from_proto(proto_v4)
+
+    # Validate all fields
+    assert expectation.assessment_id == "exp123"
+    assert expectation.name == "expected_output"
+    assert expectation.trace_id == "trace:/dev.experiments/123456"
+    assert expectation.span_id == "exp_span789"
+    assert expectation.value == {
+        "expected_response": "The capital is Paris",
+        "alternatives": ["Paris, France"],
+    }
+    assert expectation.source.source_type == "HUMAN"
+    assert expectation.source.source_id == "expert@company.com"
+    assert expectation.create_time_ms == 1700000002000
+    assert expectation.last_update_time_ms == 1700000003000
+    assert expectation.metadata == {"dataset": "test_set_v1", "version": "1.0"}

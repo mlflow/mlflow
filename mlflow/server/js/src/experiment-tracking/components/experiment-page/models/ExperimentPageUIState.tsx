@@ -1,4 +1,3 @@
-import { shouldEnableExperimentPageAutoRefresh } from '../../../../common/utils/FeatureUtils';
 import { ATTRIBUTE_COLUMN_LABELS, COLUMN_TYPES } from '../../../constants';
 import type { RunsChartsLineCardConfig, SerializedRunsChartsCardConfigCard } from '../../runs-charts/runs-charts.types';
 import { makeCanonicalSortKey } from '../utils/experimentPage.common-utils';
@@ -43,6 +42,7 @@ export enum RUNS_VISIBILITY_MODE {
   HIDEALL = 'HIDE_ALL',
   FIRST_10_RUNS = 'FIRST_10_RUNS',
   FIRST_20_RUNS = 'FIRST_20_RUNS',
+  HIDE_FINISHED_RUNS = 'HIDE_FINISHED_RUNS',
   CUSTOM = 'CUSTOM',
 }
 
@@ -173,8 +173,8 @@ export const createExperimentPageUIState = (): ExperimentPageUIState => ({
   hideEmptyCharts: true,
   groupBy: null,
   groupsExpanded: {},
-  // Auto-refresh is enabled by default only if the flag is set
-  autoRefreshEnabled: shouldEnableExperimentPageAutoRefresh(),
+  // Auto-refresh is enabled by default
+  autoRefreshEnabled: true,
   globalLineChartConfig: {
     xAxisKey: RunsChartsLineChartXAxisType.STEP,
     lineSmoothness: 0,

@@ -6,6 +6,7 @@ MLflow's environment variables adhere to the following naming conventions:
 """
 
 import os
+import warnings
 from pathlib import Path
 
 
@@ -15,6 +16,8 @@ class _EnvironmentVariable:
     """
 
     def __init__(self, name, type_, default):
+        if type_ == bool and not isinstance(self, _BooleanEnvironmentVariable):
+            raise ValueError("Use _BooleanEnvironmentVariable instead for boolean variables")
         self.name = name
         self.type = type_
         self.default = default
@@ -32,6 +35,9 @@ class _EnvironmentVariable:
     def unset(self):
         os.environ.pop(self.name, None)
 
+    def is_set(self):
+        return self.name in os.environ
+
     def get(self):
         """
         Reads the value of the environment variable if it exists and converts it to the desired
@@ -41,11 +47,11 @@ class _EnvironmentVariable:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
-        return f"{self.name} (default: {self.default}, type: {self.type.__name__})"
+        return f"{self.name} (default: {self.default})"
 
     def __repr__(self):
         return repr(self.name)
@@ -67,6 +73,18 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
         super().__init__(name, bool, default)
 
     def get(self):
+        # TODO: Remove this block in MLflow 3.2.0
+        if self.name == MLFLOW_CONFIGURE_LOGGING.name and (
+            val := os.getenv("MLFLOW_LOGGING_CONFIGURE_LOGGING")
+        ):
+            warnings.warn(
+                "Environment variable MLFLOW_LOGGING_CONFIGURE_LOGGING is deprecated and will be "
+                f"removed in a future release. Please use {MLFLOW_CONFIGURE_LOGGING.name} instead.",
+                FutureWarning,
+                stacklevel=2,
+            )
+            return val.lower() in ["true", "1"]
+
         if not self.defined:
             return self.default
 
@@ -123,6 +141,13 @@ MLFLOW_HTTP_REQUEST_BACKOFF_JITTER = _EnvironmentVariable(
 #: (default: ``120``)
 MLFLOW_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_HTTP_REQUEST_TIMEOUT", int, 120)
 
+#: Specifies the timeout in seconds for MLflow deployment client HTTP requests
+#: (non-predict operations). This is separate from MLFLOW_HTTP_REQUEST_TIMEOUT to allow
+#: longer timeouts for LLM calls (default: ``300``)
+MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_CLIENT_HTTP_REQUEST_TIMEOUT", int, 300
+)
+
 #: Specifies whether to respect Retry-After header on status codes defined as
 #: Retry.RETRY_AFTER_STATUS_CODES or not for MLflow HTTP request
 #: (default: ``True``)
@@ -161,11 +186,6 @@ MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_DOWNLOAD_CHUNK
 #: (default: ``None``). If None, the chunk size is automatically determined by the
 #: ``google-cloud-storage`` package.
 MLFLOW_GCS_UPLOAD_CHUNK_SIZE = _EnvironmentVariable("MLFLOW_GCS_UPLOAD_CHUNK_SIZE", int, None)
-
-#: (Deprecated, please use ``MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT``)
-#: Specifies the default timeout to use when downloading/uploading a file from/to GCS
-#: (default: ``None``). If None, ``google.cloud.storage.constants._DEFAULT_TIMEOUT`` is used.
-MLFLOW_GCS_DEFAULT_TIMEOUT = _EnvironmentVariable("MLFLOW_GCS_DEFAULT_TIMEOUT", int, None)
 
 #: Specifies whether to disable model logging and loading via mlflowdbfs.
 #: (default: ``None``)
@@ -462,25 +482,9 @@ MLFLOW_CONDA_HOME = _EnvironmentVariable("MLFLOW_CONDA_HOME", str, None)
 #: (default: ``conda``)
 MLFLOW_CONDA_CREATE_ENV_CMD = _EnvironmentVariable("MLFLOW_CONDA_CREATE_ENV_CMD", str, "conda")
 
-#: Specifies the execution directory for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_DIRECTORY = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_DIRECTORY", str, None
-)
-
-#: Specifies the target step to execute for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME = _EnvironmentVariable(
-    "MLFLOW_RECIPES_EXECUTION_TARGET_STEP_NAME", str, None
-)
-
 #: Specifies the flavor to serve in the scoring server.
 #: (default ``None``)
 MLFLOW_DEPLOYMENT_FLAVOR_NAME = _EnvironmentVariable("MLFLOW_DEPLOYMENT_FLAVOR_NAME", str, None)
-
-#: Specifies the profile to use for recipes.
-#: (default: ``None``)
-MLFLOW_RECIPES_PROFILE = _EnvironmentVariable("MLFLOW_RECIPES_PROFILE", str, None)
 
 #: Specifies the MLflow Run context
 #: (default: ``None``)
@@ -558,9 +562,27 @@ MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE = _EnvironmentVariable(
 #: (default: ``True``)
 MLFLOW_ALLOW_HTTP_REDIRECTS = _BooleanEnvironmentVariable("MLFLOW_ALLOW_HTTP_REDIRECTS", True)
 
-# Specifies the timeout for deployment client APIs to declare a request has timed out
+#: Timeout for a SINGLE HTTP request to a deployment endpoint (in seconds).
+#: This controls how long ONE individual predict/predict_stream request can take before timing out.
+#: If your model inference takes longer than this (e.g., long-running agent queries that take
+#: several minutes), you MUST increase this value to allow the single request to complete.
+#: For example, if your longest query takes 5 minutes, set this to at least 300 seconds.
+#: Used within the `predict` and `predict_stream` APIs.
+#: (default: ``120``)
 MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT", int, 120
+)
+
+#: TOTAL time limit for ALL retry attempts combined (in seconds).
+#: This controls how long the client will keep retrying failed requests across ALL attempts
+#: before giving up entirely. This is SEPARATE from MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT, which
+#: controls how long a SINGLE request can run, while this variable controls the TOTAL time
+#: for ALL retries. For long-running operations that may also experience transient failures,
+#: ensure BOTH timeouts are set appropriately. This value should be greater than or equal to
+#: MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.
+#: (default: ``600``)
+MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT", int, 600
 )
 
 MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
@@ -579,7 +601,7 @@ MLFLOW_ASYNC_LOGGING_THREADPOOL_SIZE = _EnvironmentVariable(
 #: If set to True, mlflow will configure ``mlflow.<module_name>`` loggers with
 #: logging handlers and formatters.
 #: (default: ``True``)
-MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_LOGGING_CONFIGURE_LOGGING", True)
+MLFLOW_CONFIGURE_LOGGING = _BooleanEnvironmentVariable("MLFLOW_CONFIGURE_LOGGING", True)
 
 #: If set to True, the following entities will be truncated to their maximum length:
 #: - Param value
@@ -597,16 +619,30 @@ _MLFLOW_RUN_SLOW_TESTS = _BooleanEnvironmentVariable("MLFLOW_RUN_SLOW_TESTS", Fa
 #: (default: ``11``)
 MLFLOW_DOCKER_OPENJDK_VERSION = _EnvironmentVariable("MLFLOW_DOCKER_OPENJDK_VERSION", str, "11")
 
-# How many traces to be buffered at the Trace Client.
-MLFLOW_TRACING_CLIENT_BUFFER_SIZE = _EnvironmentVariable(
-    "MLFLOW_TRACING_CLIENT_BUFFER_SIZE", int, 1000
+
+#: How long a trace can be "in-progress". When this is set to a positive value and a trace is
+#: not completed within this time, it will be automatically halted and exported to the specified
+#: backend destination with status "ERROR".
+MLFLOW_TRACE_TIMEOUT_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_TIMEOUT_SECONDS", int, None)
+
+#: How frequently to check for timed-out traces. For example, if this is set to 10, MLflow will
+#: check for timed-out traces every 10 seconds (in a background worker) and halt any traces that
+#: have exceeded the timeout. This is only effective if MLFLOW_TRACE_TIMEOUT_SECONDS is set to a
+#: positive value.
+MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS", int, 1
 )
 
-# How long a trace can be buffered at the in-memory trace client before being abandoned.
+# How long a trace can be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_SECONDS", int, 3600)
 
-# How many traces to be buffered at the in-memory trace client.
+# How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
+
+#: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
+#: This cache improves performance by avoiding repeated network calls for the same prompt version.
+#: (default: ``128``)
+MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
 
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
@@ -616,6 +652,27 @@ MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZ
 #: (default: ``False``)
 _MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS = _BooleanEnvironmentVariable(
     "_MLFLOW_EVALUATE_SUPPRESS_CLASSIFICATION_ERRORS", False
+)
+
+#: Maximum number of workers to use for running model prediction and scoring during
+#: for each row in the dataset passed to the `mlflow.genai.evaluate` function.
+#: (default: ``10``)
+MLFLOW_GENAI_EVAL_MAX_WORKERS = _EnvironmentVariable("MLFLOW_GENAI_EVAL_MAX_WORKERS", int, 10)
+
+
+#: Skip trace validation during GenAI evaluation. By default (False), MLflow will validate if
+#: the given predict function generates a valid trace, and otherwise wraps it with @mlflow.trace
+#: decorator to make sure a trace is generated. This validation requires running a single
+#: prediction. When you are sure that the predict function generates a trace, set this to True
+#: to skip the validation and save the time of running a single prediction.
+MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_SKIP_TRACE_VALIDATION", False
+)
+
+#: Enable tracing for evaluation scorers. By default (False), MLflow will not trace the scorer
+#: function calls. To trace the scorer functions for debugging purpose, set this to True.
+MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
+    "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
 
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
@@ -628,6 +685,35 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 # How many traces to display in Databricks Notebooks
 MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
+)
+
+#: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
+#: A value of 1.0 means all traces are sampled (default behavior).
+#: A value of 0.5 means 50% of traces are sampled.
+#: A value of 0.0 means no traces are sampled.
+#: (default: ``1.0``)
+MLFLOW_TRACE_SAMPLING_RATIO = _EnvironmentVariable("MLFLOW_TRACE_SAMPLING_RATIO", float, 1.0)
+
+#: When OTel export is configured and this is set to true, MLflow will write spans to BOTH
+#: MLflow Tracking Server and OpenTelemetry Collector. When false (default), OTel export
+#: replaces MLflow export.
+#: (default: ``False``)
+MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT", False
+)
+
+#: Controls whether MLflow should export traces to OTLP endpoint when
+#: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT is set. This allows users to disable MLflow's OTLP
+#: export even when the OTEL endpoint is configured for other telemetry clients.
+#: (default: ``True``)
+MLFLOW_ENABLE_OTLP_EXPORTER = _BooleanEnvironmentVariable("MLFLOW_ENABLE_OTLP_EXPORTER", True)
+
+#: By default, MLflow uses an isolated TracerProvider instance to generate traces, instead of the
+#: OpenTelemetry's singleton TracerProvider. Set this to False to let MLflow share the same OTel
+# TracerProvider and allow mixing MLflow SDK and Otel SDK to generate a single trace.
+#: (default: ``True``)
+MLFLOW_USE_DEFAULT_TRACER_PROVIDER = _BooleanEnvironmentVariable(
+    "MLFLOW_USE_DEFAULT_TRACER_PROVIDER", True
 )
 
 # Default addressing style to use for boto client
@@ -680,6 +766,20 @@ MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC = _BooleanEnvironmentVaria
     "MLFLOW_USE_DATABRICKS_SDK_MODEL_ARTIFACTS_REPO_FOR_UC", False
 )
 
+#: Disable Databricks SDK for run artifacts. We enable this by default since we want to
+#: use Databricks SDK for run artifacts in most cases, but this gives us a way to disable
+#: it for certain cases if needed.
+MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS = _BooleanEnvironmentVariable(
+    "MLFLOW_DISABLE_DATABRICKS_SDK_FOR_RUN_ARTIFACTS", False
+)
+
+#: Skip signature validation check when migrating model versions from Databricks Workspace
+#: Model Registry to Databricks Unity Catalog Model Registry.
+#: (default: ``False``)
+MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION = _BooleanEnvironmentVariable(
+    "MLFLOW_SKIP_SIGNATURE_CHECK_FOR_UC_REGISTRY_MIGRATION", False
+)
+
 # Specifies the model environment archive file downloading path when using
 # ``mlflow.pyfunc.spark_udf``. (default: ``None``)
 MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
@@ -690,6 +790,12 @@ MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR = _EnvironmentVariable(
 MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING = _BooleanEnvironmentVariable(
     "MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING", True
 )
+
+#: Specifies the artifact compression method used when logging a model
+#: allowed values are "lzma", "bzip2" and "gzip"
+#: (default: ``None``, indicating no compression)
+MLFLOW_LOG_MODEL_COMPRESSION = _EnvironmentVariable("MLFLOW_LOG_MODEL_COMPRESSION", str, None)
+
 
 # Specifies whether to convert a {"messages": [{"role": "...", "content": "..."}]} input
 # to a List[BaseMessage] object when invoking a PyFunc model saved with langchain flavor.
@@ -708,3 +814,312 @@ _MLFLOW_GO_STORE_TESTING = _BooleanEnvironmentVariable("MLFLOW_GO_STORE_TESTING"
 _MLFLOW_IS_IN_SERVING_ENVIRONMENT = _BooleanEnvironmentVariable(
     "_MLFLOW_IS_IN_SERVING_ENVIRONMENT", None
 )
+
+#: Secret key for the Flask app. This is necessary for enabling CSRF protection
+#: in the UI signup page when running the app with basic authentication enabled
+MLFLOW_FLASK_SERVER_SECRET_KEY = _EnvironmentVariable("MLFLOW_FLASK_SERVER_SECRET_KEY", str, None)
+
+#: (MLflow 3.5.0+) Comma-separated list of allowed CORS origins for the MLflow server.
+#: Example: "http://localhost:3000,https://app.example.com"
+#: Use "*" to allow ALL origins (DANGEROUS - only use for development!).
+#: (default: ``None`` - localhost origins only)
+MLFLOW_SERVER_CORS_ALLOWED_ORIGINS = _EnvironmentVariable(
+    "MLFLOW_SERVER_CORS_ALLOWED_ORIGINS", str, None
+)
+
+#: (MLflow 3.5.0+) Comma-separated list of allowed Host headers for the MLflow server.
+#: Example: "mlflow.company.com,mlflow.internal:5000"
+#: Use "*" to allow ALL hosts (not recommended for production).
+#: If not set, defaults to localhost variants and private IP ranges.
+#: (default: ``None`` - localhost and private IP ranges)
+MLFLOW_SERVER_ALLOWED_HOSTS = _EnvironmentVariable("MLFLOW_SERVER_ALLOWED_HOSTS", str, None)
+
+#: (MLflow 3.5.0+) Disable all security middleware (DANGEROUS - only use for testing!).
+#: Set to "true" to disable security headers, CORS protection, and host validation.
+#: (default: ``"false"``)
+MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE = _EnvironmentVariable(
+    "MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE", str, "false"
+)
+
+#: (MLflow 3.5.0+) X-Frame-Options header value for clickjacking protection.
+#: Options: "SAMEORIGIN" (default), "DENY", or "NONE" (disable).
+#: Set to "NONE" to allow embedding MLflow UI in iframes from different origins.
+#: (default: ``"SAMEORIGIN"``)
+MLFLOW_SERVER_X_FRAME_OPTIONS = _EnvironmentVariable(
+    "MLFLOW_SERVER_X_FRAME_OPTIONS", str, "SAMEORIGIN"
+)
+
+#: Specifies the max length (in chars) of an experiment's artifact location.
+#: The default is 2048.
+MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH = _EnvironmentVariable(
+    "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH", int, 2048
+)
+
+#: Path to SSL CA certificate file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_CA = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CA", str, None)
+
+#: Path to SSL certificate file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_CERT = _EnvironmentVariable("MLFLOW_MYSQL_SSL_CERT", str, None)
+
+#: Path to SSL key file for MySQL connections
+#: Used when creating a SQLAlchemy engine for MySQL
+#: (default: ``None``)
+MLFLOW_MYSQL_SSL_KEY = _EnvironmentVariable("MLFLOW_MYSQL_SSL_KEY", str, None)
+
+#: Specifies the Databricks traffic ID to inject as x-databricks-traffic-id header
+#: in HTTP requests to Databricks endpoints
+#: (default: ``None``)
+_MLFLOW_DATABRICKS_TRAFFIC_ID = _EnvironmentVariable("MLFLOW_DATABRICKS_TRAFFIC_ID", str, None)
+
+#######################################################################################
+# Tracing
+#######################################################################################
+
+#: Specifies whether to enable async trace logging to Databricks Tracing Server.
+#: TODO: Update OSS MLflow Server to logging async by default
+#: Default: ``True``.
+MLFLOW_ENABLE_ASYNC_TRACE_LOGGING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", True
+)
+
+#: Maximum number of worker threads to use for async trace logging.
+#: (default: ``10``)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS", int, 10
+)
+
+#: Maximum number of export tasks to queue for async trace logging.
+#: When the queue is full, new export tasks will be dropped.
+#: (default: ``1000``)
+MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE", int, 1000
+)
+
+
+#: Timeout seconds for retrying trace logging.
+#: (default: ``500``)
+MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
+    "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
+)
+
+#: Specifies the SQL warehouse ID to use for tracing with Databricks backend.
+#: (default: ``None``)
+MLFLOW_TRACING_SQL_WAREHOUSE_ID = _EnvironmentVariable("MLFLOW_TRACING_SQL_WAREHOUSE_ID", str, None)
+
+
+#: Specifies the location to send traces to. This can be either an MLflow experiment ID or a
+#: Databricks Unity Catalog (UC) schema (format: `<catalog_name>.<schema_name>`).
+#: (default: ``None`` (an active MLflow experiment will be used))
+MLFLOW_TRACING_DESTINATION = _EnvironmentVariable("MLFLOW_TRACING_DESTINATION", str, None)
+
+
+#######################################################################################
+# Model Logging
+#######################################################################################
+
+#: The default active LoggedModel ID. Traces created while this variable is set (unless overridden,
+#: e.g., by the `set_active_model()` API) will be associated with this LoggedModel ID.
+#: (default: ``None``)
+MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Legacy environment variable for setting the default active LoggedModel ID.
+#: This should only by used by MLflow internally. Users should use the
+#: public `MLFLOW_ACTIVE_MODEL_ID` environment variable or the `set_active_model`
+#: API to set the active LoggedModel, and should not set this environment variable directly.
+#: (default: ``None``)
+_MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
+
+#: Maximum number of parameters to include in the initial CreateLoggedModel request.
+#: Additional parameters will be logged in separate requests.
+#: (default: ``100``)
+_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+
+#: Maximum number of parameters to include in each batch when logging parameters
+#: for a logged model.
+#: (default: ``100``)
+_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE = _EnvironmentVariable(
+    "_MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE", int, 100
+)
+
+#: A boolean flag that enables printing URLs for logged and registered models when
+#: they are created.
+#: (default: ``True``)
+MLFLOW_PRINT_MODEL_URLS_ON_CREATION = _BooleanEnvironmentVariable(
+    "MLFLOW_PRINT_MODEL_URLS_ON_CREATION", True
+)
+
+#: Maximum number of threads to use when downloading traces during search operations.
+#: (default: ``max(32, (# of system CPUs * 4)``)
+MLFLOW_SEARCH_TRACES_MAX_THREADS = _EnvironmentVariable(
+    # Threads used to download traces during search are network IO-bound (waiting for downloads)
+    # rather than CPU-bound, so we want more threads than CPU cores
+    "MLFLOW_SEARCH_TRACES_MAX_THREADS",
+    int,
+    max(32, (os.cpu_count() or 1) * 4),
+)
+
+#: Maximum number of traces to fetch in a single BatchGetTraces request during search operations.
+#: (default: ``10``)
+_MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_SEARCH_TRACES_MAX_BATCH_SIZE", int, 10
+)
+
+_MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE = _EnvironmentVariable(
+    "MLFLOW_DELETE_TRACES_MAX_BATCH_SIZE", int, 100
+)
+
+#: Specifies the logging level for MLflow. This can be set to any valid logging level
+#: (e.g., "DEBUG", "INFO"). This environment must be set before importing mlflow to take
+#: effect. To modify the logging level after importing mlflow, use `importlib.reload(mlflow)`.
+#: (default: ``None``).
+MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
+
+#: Avoid printing experiment and run url to stdout at run termination
+#: (default: ``False``)
+MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
+    "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
+)
+
+#: If True, MLflow locks both direct and transitive model dependencies when logging a model.
+#: (default: ``False``).
+MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
+    "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
+)
+
+#: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
+#: a source that does not match the specified regular expression.
+#: (default: ``None``).
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
+)
+
+#: Maximum number of root fields to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", int, 10
+)
+
+#: Maximum number of aliases to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
+)
+
+
+#: Whether to disable schema details in error messages for MLflow schema enforcement.
+#: (default: ``False``)
+MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+
+def _split_strip(s: str) -> list[str]:
+    return [s.strip() for s in s.split(",")]
+
+
+# Specifies the allowed schemes for MLflow webhook URLs.
+# This environment variable is not intended for production use.
+_MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
+)
+
+
+#: Specifies the secret key used to encrypt webhook secrets in MLflow.
+MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
+)
+
+#: Specifies the timeout in seconds for webhook HTTP requests
+#: (default: ``30``)
+MLFLOW_WEBHOOK_REQUEST_TIMEOUT = _EnvironmentVariable("MLFLOW_WEBHOOK_REQUEST_TIMEOUT", int, 30)
+
+#: Specifies the maximum number of threads for webhook delivery thread pool
+#: (default: ``10``)
+MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_DELIVERY_MAX_WORKERS", int, 10
+)
+
+#: Specifies the maximum number of retries for webhook HTTP requests
+#: (default: ``3``)
+MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES", int, 3
+)
+
+#: Specifies the TTL in seconds for webhook list cache
+#: (default: ``60``)
+MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int, 60)
+
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Internal flag to enable telemetry in mlflow tests.
+#: (default: ``False``)
+_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
+
+
+#: Internal environment variable to set the telemetry session id when TelemetryClient is initialized
+#: This should never be set by users or explicitly.
+#: (default: ``None``)
+_MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_ID", str, None)
+
+
+#: Internal flag to enable telemetry logging
+#: (default: ``False``)
+_MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
+
+#: Internal environment variable to indicate which SGI is being used,
+#: e.g. "uvicorn" or "gunicorn".
+#: This should never be set by users or explicitly.
+#: (default: ``None``)
+_MLFLOW_SGI_NAME = _EnvironmentVariable("_MLFLOW_SGI_NAME", str, None)
+
+#: Specifies whether to enforce using stdin scoring server in Spark udf.
+#: (default: ``True``)
+MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF = _BooleanEnvironmentVariable(
+    "MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF", True
+)
+
+#: Specifies whether to enable job execution feature for MLflow server.
+#: This feature requires "huey" package dependency, and requires MLflow server to configure
+#: --backend-store-uri to database URI.
+#: (default: ``False``)
+MLFLOW_SERVER_ENABLE_JOB_EXECUTION = _BooleanEnvironmentVariable(
+    "MLFLOW_SERVER_ENABLE_JOB_EXECUTION", False
+)
+
+#: Specifies MLflow server job maximum allowed retries for transient errors.
+#: (default: ``3``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_MAX_RETRIES", int, 3
+)
+
+#: Specifies MLflow server job retry base delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``15``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_BASE_DELAY", int, 15
+)
+
+#: Specifies MLflow server job retry maximum delay in seconds for transient errors.
+#: The retry uses exponential backoff strategy, retry delay is computed by
+#: `delay = min(base_delay * (2 ** (retry_count - 1)), max_delay)`
+#: (default: ``60``)
+MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
+    "MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY", int, 60
+)
+
+
+#: Specifies the maximum number of completion iterations allowed when invoking
+#: judge models. This prevents infinite loops in case of complex traces or
+#: issues with the judge's reasoning.
+#: (default: ``30``)
+MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)

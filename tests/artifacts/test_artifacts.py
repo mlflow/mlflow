@@ -1,6 +1,5 @@
 import pathlib
 import uuid
-from collections import namedtuple
 from typing import NamedTuple
 from unittest import mock
 
@@ -11,7 +10,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.file_utils import mkdir, path_to_local_file_uri
 from mlflow.utils.os import is_windows
 
-Artifact = namedtuple("Artifact", ["uri", "content"])
+
+class Artifact(NamedTuple):
+    uri: str
+    content: str
 
 
 @pytest.fixture
@@ -175,12 +177,9 @@ def text_artifact(tmp_path):
     return ArtifactReturnType(artifacts_root_tmp, test_artifact_path, artifact_name)
 
 
-def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
+def _assert_artifact_uri(expected_artifact_path: pathlib.Path, test_artifact):
     mlflow.log_artifact(test_artifact.artifact_path)
-    artifact_uri = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path=test_artifact.artifact_name, tracking_uri=tracking_uri
-    )
-    assert artifact_uri == expected_artifact_uri
+    assert expected_artifact_path.exists()
 
 
 def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
@@ -190,17 +189,13 @@ def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeyp
     experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
-            str(
-                tmp_path.joinpath(
-                    "test_artifacts_root",
-                    run.info.run_id,
-                    "artifacts",
-                    text_artifact.artifact_name,
-                )
+            tmp_path.joinpath(
+                "test_artifacts_root",
+                run.info.run_id,
+                "artifacts",
+                text_artifact.artifact_name,
             ),
             text_artifact,
-            run.info.run_id,
         )
 
 
@@ -212,14 +207,8 @@ def test_custom_relative_artifact_uri_resolves(text_artifact):
     experiment_id = mlflow.create_experiment("test_exp_b", artifacts_root_uri)
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
-            str(
-                artifacts_root_path.joinpath(
-                    run.info.run_id, "artifacts", text_artifact.artifact_name
-                )
-            ),
+            artifacts_root_path.joinpath(run.info.run_id, "artifacts", text_artifact.artifact_name),
             text_artifact,
-            run.info.run_id,
         )
 
 
@@ -234,13 +223,10 @@ def test_artifact_logging_resolution_works_with_non_root_working_directory(tmp_p
     not_cwd.mkdir()
     monkeypatch.chdir(not_cwd)
 
-    tracking_uri = mlflow.get_tracking_uri()
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
-            str(cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name)),
+            cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name),
             ArtifactReturnType(tmp_path, text_file, text_file.name),
-            run.info.run_id,
         )
 
 
@@ -256,14 +242,13 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
             mock.patch("os.path.exists", return_value=True) as exists_mock,
         ):
             mlflow.log_artifact(text_artifact.artifact_path)
-            copyfile_mock.assert_called_once()
             exists_mock.assert_called_once()
-            local_path = mlflow.artifacts.download_artifacts(
-                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
-            )
-            assert (
-                rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
-                rf"\artifacts\{text_artifact.artifact_name}" == local_path
+            copyfile_mock.assert_called_once_with(
+                text_artifact.artifact_path,
+                (
+                    rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
+                    rf"\artifacts\{text_artifact.artifact_name}"
+                ),
             )
 
 
@@ -313,3 +298,78 @@ def test_list_artifacts_throws_for_invalid_arguments():
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
         mlflow.artifacts.list_artifacts(artifact_uri="uri", artifact_path="path")
+
+
+def test_download_artifacts_with_run_id_and_artifact_path(tmp_path):
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input: list[str]) -> list[str]:
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+    mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path="model", dst_path=tmp_path
+    )
+
+
+def test_list_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
+    tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
+    assert mlflow.get_tracking_uri() != tracking_uri
+    client = mlflow.MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("my_experiment")
+    run = client.create_run(experiment_id)
+    tmp_dir = tmp_path / "subdir"
+    tmp_dir.mkdir()
+    tmp_file = tmp_dir / "file.txt"
+    tmp_file.touch()
+    client.log_artifacts(run.info.run_id, tmp_dir, "subdir")
+
+    artifacts = mlflow.artifacts.list_artifacts(
+        run_id=run.info.run_id,
+        tracking_uri=tracking_uri,
+    )
+    assert [p.path for p in artifacts] == ["subdir"]
+
+    artifacts = mlflow.artifacts.list_artifacts(
+        run_id=run.info.run_id,
+        artifact_path="subdir",
+        tracking_uri=tracking_uri,
+    )
+    assert [p.path for p in artifacts] == ["subdir/file.txt"]
+
+
+def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
+    tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
+    assert mlflow.get_tracking_uri() != tracking_uri
+    client = mlflow.MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("my_experiment")
+    run = client.create_run(experiment_id)
+    tmp_dir = tmp_path / "subdir"
+    tmp_dir.mkdir()
+    tmp_file = tmp_dir / "file.txt"
+    tmp_file.touch()
+    client.log_artifacts(run.info.run_id, tmp_dir, "subdir")
+
+    dst_path = tmp_path / "dst"
+    mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id,
+        artifact_path="subdir",
+        tracking_uri=tracking_uri,
+        dst_path=dst_path,
+    )
+    assert tmp_file.name in [p.name for p in dst_path.rglob("*")]
+
+
+def test_single_run_artifact_download_when_both_run_and_model_artifacts_exist(tmp_path):
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(python_model=DummyModel(), name="model")
+        mlflow.log_text("test", "model/file.txt")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path="model/file.txt", dst_path=tmp_path
+    )
+    assert pathlib.Path(out).read_text() == "test"

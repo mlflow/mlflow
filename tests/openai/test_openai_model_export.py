@@ -39,13 +39,9 @@ def embeddings():
 
 @pytest.fixture(autouse=True)
 def set_envs(monkeypatch, mock_openai):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_TESTING": "true",
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_BASE": mock_openai,
-        }
-    )
+    monkeypatch.setenv("MLFLOW_TESTING", "true")
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_BASE", mock_openai)
     if is_v1:
         openai.base_url = mock_openai
     else:
@@ -57,7 +53,7 @@ def test_log_model():
         model_info = mlflow.openai.log_model(
             "gpt-4o-mini",
             "chat.completions",
-            "model",
+            name="model",
             temperature=0.9,
             messages=[{"role": "system", "content": "You are an MLflow expert."}],
         )
@@ -449,8 +445,8 @@ def test_save_model_with_secret_scope(tmp_path, monkeypatch):
     scope = "test"
     monkeypatch.setenv("MLFLOW_OPENAI_SECRET_SCOPE", scope)
     with (
-        mock.patch("mlflow.openai.is_in_databricks_runtime", return_value=True),
-        mock.patch("mlflow.openai.check_databricks_secret_scope_access"),
+        mock.patch("mlflow.openai.model.is_in_databricks_runtime", return_value=True),
+        mock.patch("mlflow.openai.model.check_databricks_secret_scope_access"),
     ):
         with pytest.warns(FutureWarning, match="MLFLOW_OPENAI_SECRET_SCOPE.+deprecated"):
             mlflow.openai.save_model(model="gpt-4o-mini", task="chat.completions", path=tmp_path)
@@ -545,7 +541,7 @@ def test_embeddings_pyfunc_server_and_score():
         model_info = mlflow.openai.log_model(
             "text-embedding-ada-002",
             embeddings(),
-            "model",
+            name="model",
             input_example=df,
         )
     inference_payload = load_serving_example(model_info.model_uri)
@@ -615,3 +611,116 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
+
+
+def test_multimodal_messages(tmp_path):
+    # Test multimodal content with variable placeholders
+    mlflow.openai.save_model(
+        model="gpt-4o-mini",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "{system_prompt}"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": "data:image/jpeg;base64,{image_base64}",
+                            "detail": "low",
+                        },
+                    },
+                ],
+            }
+        ],
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    assert model.signature.inputs.to_dict() == [
+        {"name": "image_base64", "type": "string", "required": True},
+        {"name": "system_prompt", "type": "string", "required": True},
+    ]
+    assert model.signature.outputs.to_dict() == [
+        {"type": "string", "required": True},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame(
+        {
+            "system_prompt": ["Analyze this image"],
+            "image_base64": [
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+            ],
+        }
+    )
+
+    expected_output = [
+        [
+            {
+                "content": [
+                    {"type": "text", "text": "Analyze this image"},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": (
+                                "data:image/jpeg;base64,"
+                                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="
+                            ),
+                            "detail": "low",
+                        },
+                    },
+                ],
+                "role": "user",
+            }
+        ]
+    ]
+
+    assert list(map(json.loads, model.predict(data))) == expected_output
+
+
+def test_multimodal_messages_no_variables(tmp_path):
+    mlflow.openai.save_model(
+        model="gpt-4o-mini",
+        task=chat_completions(),
+        path=tmp_path,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                    },
+                ],
+            }
+        ],
+    )
+
+    model = mlflow.models.Model.load(tmp_path)
+    # Should add default content variable since no variables found
+    assert model.signature.inputs.to_dict() == [
+        {"type": "string", "required": True},
+    ]
+
+    model = mlflow.pyfunc.load_model(tmp_path)
+    data = pd.DataFrame({"content": ["Additional context"]})
+
+    expected_output = [
+        [
+            {
+                "content": [
+                    {"type": "text", "text": "What's in this image?"},
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": "data:image/jpeg;base64,abc123", "detail": "low"},
+                    },
+                ],
+                "role": "user",
+            },
+            {"content": "Additional context", "role": "user"},
+        ]
+    ]
+
+    assert list(map(json.loads, model.predict(data))) == expected_output

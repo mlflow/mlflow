@@ -1,9 +1,8 @@
 import { renderHook, act, type RenderHookResult, waitFor } from '@testing-library/react';
-import {
-  ExperimentPageSearchFacetsState,
-  createExperimentPageSearchFacetsState,
-} from '../models/ExperimentPageSearchFacetsState';
-import { ExperimentPageUIState, createExperimentPageUIState } from '../models/ExperimentPageUIState';
+import type { ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
+import type { ExperimentPageUIState } from '../models/ExperimentPageUIState';
+import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useExperimentRuns } from './useExperimentRuns';
 import { loadMoreRunsApi, searchRunsApi } from '../../../actions';
 import { applyMiddleware, combineReducers, createStore } from 'redux';
@@ -26,22 +25,33 @@ import Utils from '../../../../common/utils/Utils';
 import { ExperimentRunsSelectorResult } from '../utils/experimentRuns.selector';
 import { RUNS_AUTO_REFRESH_INTERVAL } from '../utils/experimentPage.fetch-utils';
 import {
-  shouldEnableExperimentPageAutoRefresh,
+  shouldUsePredefinedErrorsInExperimentTracking,
   shouldUseRegexpBasedAutoRunsSearchFilter,
 } from '../../../../common/utils/FeatureUtils';
 import type { ExperimentQueryParamsSearchFacets } from './useExperimentPageSearchFacets';
 import { useMemo } from 'react';
+import { searchModelVersionsApi } from '../../../../model-registry/actions';
+import { NotFoundError, BadRequestError } from '@databricks/web-shared/errors';
+import { ErrorBoundary } from 'react-error-boundary';
+import { runInputsOutputsByUuid } from '../../../reducers/InputsOutputsReducer';
 
 jest.mock('../../../actions', () => ({
-  ...jest.requireActual('../../../actions'),
+  ...jest.requireActual<typeof import('../../../actions')>('../../../actions'),
   searchRunsApi: jest.fn(),
   loadMoreRunsApi: jest.fn(),
 }));
 
+jest.mock('../../../../model-registry/actions', () => ({
+  ...jest.requireActual<typeof import('../../../../model-registry/actions')>('../../../../model-registry/actions'),
+  searchModelVersionsApi: jest.fn(),
+}));
+
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
-  shouldEnableExperimentPageAutoRefresh: jest.fn(),
-  shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn().mockImplementation(() => false),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
+  shouldUsePredefinedErrorsInExperimentTracking: jest.fn(),
+  shouldUseRegexpBasedAutoRunsSearchFilter: jest.fn(() => false),
 }));
 
 const MOCK_RESPONSE_DELAY = 1000;
@@ -154,6 +164,7 @@ const store = createStore(
       paramsByRunUuid,
       tagsByRunUuid,
       runUuidsMatchingFilter,
+      runInputsOutputsByUuid,
     }),
   }),
   applyMiddleware(thunk, promiseMiddleware()),
@@ -165,6 +176,8 @@ const testSearchFacets = createExperimentPageSearchFacetsState();
 
 // This suite tests useExperimentRuns hook, related reducers, actions and selectors.
 describe('useExperimentRuns - integration test', () => {
+  const errorBoundaryFn = jest.fn();
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.mocked(searchRunsApi).mockClear();
@@ -198,7 +211,11 @@ describe('useExperimentRuns - integration test', () => {
           experimentIds: string[];
         }) => useExperimentRuns(uiState, searchFacets, experimentIds),
         {
-          wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+          wrapper: ({ children }) => (
+            <ErrorBoundary onError={errorBoundaryFn} fallback={<div />}>
+              <Provider store={store}>{children}</Provider>
+            </ErrorBoundary>
+          ),
           initialProps: {
             uiState: initialUiState,
             searchFacets: initialSearchFacets,
@@ -388,8 +405,34 @@ describe('useExperimentRuns - integration test', () => {
     });
     jest.spyOn(Utils, 'logErrorAndNotifyUser').mockImplementation(() => {});
     const { result } = await renderTestHook();
-    expect(result.current.requestError?.getMessageField()).toEqual('request failure');
+    expect(result.current.requestError).toBeInstanceOf(ErrorWrapper);
+    expect((result.current.requestError as ErrorWrapper).getMessageField()).toEqual('request failure');
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalled();
+  });
+
+  test('should pass error object through if known error occurred', async () => {
+    jest.mocked(shouldUsePredefinedErrorsInExperimentTracking).mockImplementation(() => true);
+    // Mock the response to be a failure
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'mocked-action',
+      payload: Promise.reject(new BadRequestError({})),
+      meta: { id: 0 },
+    });
+    const { result } = await renderTestHook();
+    expect(result.current.requestError).toBeInstanceOf(BadRequestError);
+  });
+
+  test('should translate ErrorWrapper into a known error', async () => {
+    jest.mocked(shouldUsePredefinedErrorsInExperimentTracking).mockImplementation(() => true);
+    // Mock the response to be a failure
+    jest.mocked(searchRunsApi).mockReturnValue({
+      type: 'mocked-action',
+      payload: Promise.reject(new ErrorWrapper({ error_code: 'RESOURCE_DOES_NOT_EXIST', message: 'not found' })),
+      meta: { id: 0 },
+    });
+    const { result } = await renderTestHook();
+    expect(result.current.requestError).toBeInstanceOf(NotFoundError);
+    expect((result.current.requestError as NotFoundError)?.message).toEqual('not found');
   });
 
   test('should refresh list using last valid request parameters', async () => {
@@ -532,7 +575,6 @@ describe('useExperimentRuns - integration test', () => {
 
   describe('useExperimentRuns auto-refresh', () => {
     beforeEach(() => {
-      jest.mocked(shouldEnableExperimentPageAutoRefresh).mockImplementation(() => true);
       jest.mocked(searchRunsApi).mockClear();
 
       // Mock the response to be a success with 100 runs
@@ -551,7 +593,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // The initial call for runs should go through
-      expect(searchRunsApi).toBeCalledTimes(1);
+      expect(searchRunsApi).toHaveBeenCalledTimes(1);
 
       // Wait for the initial runs to be fetched
       await act(async () => {
@@ -564,7 +606,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should get another call for runs
-      expect(searchRunsApi).toBeCalledTimes(2);
+      expect(searchRunsApi).toHaveBeenCalledTimes(2);
       await act(async () => {
         jest.advanceTimersByTime(MOCK_RESPONSE_DELAY);
       });
@@ -575,7 +617,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should get another call for runs
-      expect(searchRunsApi).toBeCalledTimes(3);
+      expect(searchRunsApi).toHaveBeenCalledTimes(3);
 
       // Unmount the hook
       unmount();
@@ -586,7 +628,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // No new calls should be made
-      expect(searchRunsApi).toBeCalledTimes(3);
+      expect(searchRunsApi).toHaveBeenCalledTimes(3);
     });
 
     test('should not replace results when user has refreshed runs manually by changing facets', async () => {
@@ -599,7 +641,7 @@ describe('useExperimentRuns - integration test', () => {
       const { rerender } = await renderTestHook(uiState);
 
       // The initial call for runs should go through
-      expect(searchRunsApi).toBeCalledTimes(1);
+      expect(searchRunsApi).toHaveBeenCalledTimes(1);
 
       // Wait for the initial runs to be fetched
       await act(async () => {
@@ -623,7 +665,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should get another call with new facets
-      expect(searchRunsApi).toBeCalledTimes(2);
+      expect(searchRunsApi).toHaveBeenCalledTimes(2);
 
       // Wait for results to be loaded
       await act(async () => {
@@ -636,7 +678,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should get no new calls for runs
-      expect(searchRunsApi).toBeCalledTimes(2);
+      expect(searchRunsApi).toHaveBeenCalledTimes(2);
 
       // Wait for another interval to pass
       await act(async () => {
@@ -644,7 +686,7 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should get another automatic call for runs
-      expect(searchRunsApi).toBeCalledTimes(3);
+      expect(searchRunsApi).toHaveBeenCalledTimes(3);
 
       // Disable auto refresh completely
       await act(async () => {
@@ -661,7 +703,37 @@ describe('useExperimentRuns - integration test', () => {
       });
 
       // We should not have any new calls
-      expect(searchRunsApi).toBeCalledTimes(3);
+      expect(searchRunsApi).toHaveBeenCalledTimes(3);
+    });
+
+    test('should autorefresh even if initial list is empty', async () => {
+      const uiState = {
+        ...testUiState,
+        autoRefreshEnabled: true,
+      };
+
+      jest.mocked(searchRunsApi).mockImplementation(() => ({
+        type: 'SEARCH_RUNS_API',
+        // Return empty list at first
+        payload: Promise.resolve({}),
+        meta: { id: 0 },
+      }));
+
+      // Render the hook
+      await renderTestHook(uiState);
+
+      // The initial call for runs should go through
+      expect(searchRunsApi).toHaveBeenCalledTimes(1);
+
+      // Wait for the refresh interval to pass
+      act(() => {
+        jest.advanceTimersByTime(RUNS_AUTO_REFRESH_INTERVAL);
+      });
+
+      await waitFor(() => {
+        // We should get another call
+        expect(searchRunsApi).toHaveBeenCalledTimes(2);
+      });
     });
 
     test("should sequentially call for more auto-refresh results if one call won't suffice", async () => {
@@ -727,7 +799,7 @@ describe('useExperimentRuns - integration test', () => {
 
       // Wait for the initial call to go through
       await waitFor(() => {
-        expect(searchRunsApi).toBeCalledTimes(1);
+        expect(searchRunsApi).toHaveBeenCalledTimes(1);
         expect(result.current.runsData.runInfos).toHaveLength(100);
       });
 
@@ -761,8 +833,8 @@ describe('useExperimentRuns - integration test', () => {
 
       // We should get three calls for all runs, the result list shouldn't change
       await waitFor(() => {
-        expect(searchRunsApi).toBeCalledTimes(1);
-        expect(loadMoreRunsApi).toBeCalledTimes(2);
+        expect(searchRunsApi).toHaveBeenCalledTimes(1);
+        expect(loadMoreRunsApi).toHaveBeenCalledTimes(2);
         expect(result.current.runsData.runInfos).toHaveLength(256);
       });
 
@@ -790,8 +862,8 @@ describe('useExperimentRuns - integration test', () => {
 
       // Again, we should get three calls for all runs. This time, the result list should change and include new runs.
       await waitFor(() => {
-        expect(searchRunsApi).toBeCalledTimes(1);
-        expect(loadMoreRunsApi).toBeCalledTimes(2);
+        expect(searchRunsApi).toHaveBeenCalledTimes(1);
+        expect(loadMoreRunsApi).toHaveBeenCalledTimes(2);
         expect(result.current.runsData.runInfos).toHaveLength(276);
       });
     });

@@ -1,0 +1,249 @@
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Delete Traces
+
+You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces" /> method. This method allows you to delete traces by **experiment ID**, **maximum timestamp**, or **trace IDs**.
+
+:::tip
+Deleting a trace is an irreversible process. Ensure that the parameters provided to the `delete_traces` API meet the intended range for deletion.
+:::
+
+## Deletion Methods
+
+<Tabs>
+  <TabItem value="by-timestamp" label="By Timestamp" default>
+    Delete traces older than a specific timestamp:
+
+    ```python
+    import time
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # Get current timestamp in milliseconds
+    current_time = int(time.time() * 1000)
+
+    # Delete traces older than current time, limit to 100 traces
+    deleted_count = client.delete_traces(
+        experiment_id="1", max_timestamp_millis=current_time, max_traces=100
+    )
+
+    print(f"Deleted {deleted_count} traces")
+    ```
+
+    **Delete traces older than a specific time period:**
+
+    ```python
+    from datetime import datetime, timedelta
+
+    # Calculate timestamp for 7 days ago
+    seven_days_ago = datetime.now() - timedelta(days=7)
+    timestamp_ms = int(seven_days_ago.timestamp() * 1000)
+
+    deleted_count = client.delete_traces(
+        experiment_id="1", max_timestamp_millis=timestamp_ms
+    )
+    ```
+
+  </TabItem>
+  <TabItem value="by-trace-ids" label="By Trace IDs">
+    Delete specific traces by their trace IDs:
+
+    ```python
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+
+    # Delete specific traces
+    trace_ids = ["trace_id_1", "trace_id_2", "trace_id_3"]
+
+    deleted_count = client.delete_traces(experiment_id="1", trace_ids=trace_ids)
+
+    print(f"Deleted {deleted_count} traces")
+    ```
+
+  </TabItem>
+  <TabItem value="batch-deletion" label="Batch Deletion">
+    Delete traces in batches for better performance:
+
+    ```python
+    import time
+    from datetime import datetime, timedelta
+    from mlflow import MlflowClient
+
+
+    def cleanup_old_traces(experiment_id: str, days_old: int = 30, batch_size: int = 100):
+        """Delete traces older than specified days in batches"""
+        client = MlflowClient()
+
+        # Calculate cutoff timestamp
+        cutoff_date = datetime.now() - timedelta(days=days_old)
+        cutoff_timestamp = int(cutoff_date.timestamp() * 1000)
+
+        total_deleted = 0
+
+        while True:
+            deleted_count = client.delete_traces(
+                experiment_id=experiment_id,
+                max_timestamp_millis=cutoff_timestamp,
+                max_traces=batch_size,
+            )
+
+            total_deleted += deleted_count
+            print(f"Deleted {deleted_count} traces (total: {total_deleted})")
+
+            if deleted_count < batch_size:
+                break
+
+            time.sleep(0.1)  # Brief pause between batches
+
+        return total_deleted
+
+
+    # Usage
+    cleanup_old_traces(experiment_id="1", days_old=7)
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Advanced Use Cases
+
+<Tabs>
+  <TabItem value="selective-cleanup" label="Selective Cleanup" default>
+    Delete traces based on specific criteria:
+
+    ```python
+    import mlflow
+    from mlflow import MlflowClient
+
+
+    def delete_error_traces(experiment_id: str):
+        """Delete only traces that resulted in errors"""
+        client = MlflowClient()
+
+        # Search for error traces
+        traces = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string="status = 'ERROR'",
+            max_results=1000,
+        )
+
+        if traces:
+            trace_ids = [trace.info.trace_id for trace in traces]
+            deleted_count = client.delete_traces(
+                experiment_id=experiment_id, trace_ids=trace_ids
+            )
+            print(f"Deleted {deleted_count} error traces")
+            return deleted_count
+
+        return 0
+
+
+    # Usage
+    delete_error_traces("1")
+    ```
+
+  </TabItem>
+  <TabItem value="dry-run" label="Dry Run Mode">
+    Test deletion criteria before actual deletion:
+
+    ```python
+    import mlflow
+    from mlflow import MlflowClient
+
+
+    def delete_with_dry_run(experiment_id: str, max_timestamp: int, dry_run: bool = True):
+        """Delete traces with optional dry-run mode"""
+        client = MlflowClient()
+
+        if dry_run:
+            # Search to see what would be deleted
+            traces = mlflow.search_traces(
+                experiment_ids=[experiment_id], filter_string=f"timestamp < {max_timestamp}"
+            )
+            print(f"DRY RUN: Would delete {len(traces)} traces")
+            return len(traces)
+        else:
+            deleted_count = client.delete_traces(
+                experiment_id=experiment_id,
+                max_timestamp_millis=max_timestamp,
+                max_traces=1000,
+            )
+            print(f"ACTUAL: Deleted {deleted_count} traces")
+            return deleted_count
+
+
+    # Always test with dry run first
+    count = delete_with_dry_run("1", 1234567890000, dry_run=True)
+    if count < 100:  # Only proceed if reasonable number
+        delete_with_dry_run("1", 1234567890000, dry_run=False)
+    ```
+
+  </TabItem>
+  <TabItem value="error-handling" label="Error Handling">
+    Handle deletion errors gracefully:
+
+    ```python
+    from mlflow import MlflowClient
+    from mlflow.exceptions import MlflowException
+
+
+    def safe_delete_traces(experiment_id: str, **delete_params):
+        """Delete traces with error handling"""
+        client = MlflowClient()
+
+        try:
+            deleted_count = client.delete_traces(
+                experiment_id=experiment_id, **delete_params
+            )
+            print(f"Successfully deleted {deleted_count} traces")
+            return deleted_count
+
+        except MlflowException as e:
+            if "experiment not found" in str(e).lower():
+                print("Error: Experiment not found")
+            elif "permission" in str(e).lower():
+                print("Error: Permission denied")
+            else:
+                print(f"MLflow error: {e}")
+            return 0
+
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return 0
+
+
+    # Usage
+    safe_delete_traces("1", max_timestamp_millis=1234567890000, max_traces=50)
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Best Practices
+
+**Always test first**: Use search queries or dry-run mode to verify which traces will be deleted before proceeding.
+
+**Delete in batches**: For large numbers of traces, delete in smaller batches to avoid timeouts and performance issues.
+
+**Set reasonable limits**: Use the `max_traces` parameter to prevent accidentally deleting too many traces at once.
+
+**Monitor and log**: Keep track of deletion activities for audit purposes, especially in production environments.
+
+**Handle errors gracefully**: Implement proper error handling to manage network issues, permission problems, or invalid parameters.
+
+## Parameters Reference
+
+| Parameter              | Type      | Description                                                        |
+| ---------------------- | --------- | ------------------------------------------------------------------ |
+| `experiment_id`        | str       | **Required.** The ID of the experiment containing traces to delete |
+| `max_timestamp_millis` | int       | Delete traces created before this timestamp (in milliseconds)      |
+| `trace_ids`            | List[str] | Delete traces with these specific trace IDs                        |
+| `max_traces`           | int       | Maximum number of traces to delete in this operation               |
+
+:::note
+You must specify either `max_timestamp_millis` or `trace_ids`, but not both. The `max_traces` parameter cannot be used with `trace_ids`.
+:::

@@ -1,7 +1,7 @@
 import { Button, Popover, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { useSelector } from 'react-redux';
-import { ReduxState } from '../../../../redux-types';
+import type { ReduxState } from '../../../../redux-types';
 import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import {
   canEvaluateOnRun,
@@ -50,6 +50,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
         <>
           <Typography.Hint>
             <FormattedMessage
+              // eslint-disable-next-line formatjs/enforce-placeholders -- TODO(FEINF-2480)
               defaultMessage="Temperature: {temperature}"
               description="Experiment page > artifact compare view > run column header prompt metadata > temperature parameter"
               values={parameters}
@@ -57,6 +58,7 @@ export const EvaluationRunHeaderModelIndicator = ({ run }: EvaluationRunHeaderMo
           </Typography.Hint>
           <Typography.Hint>
             <FormattedMessage
+              // eslint-disable-next-line formatjs/enforce-placeholders -- TODO(FEINF-2480)
               defaultMessage="Max. tokens: {max_tokens}"
               description="Experiment page > artifact compare view > run column header prompt metadata > max tokens parameter"
               values={parameters}

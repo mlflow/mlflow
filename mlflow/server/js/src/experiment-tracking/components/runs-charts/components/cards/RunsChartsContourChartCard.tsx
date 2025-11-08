@@ -1,16 +1,10 @@
 import { useMemo } from 'react';
 import type { RunsChartsRunData } from '../RunsCharts.common';
 import type { RunsChartsContourCardConfig } from '../../runs-charts.types';
-import {
-  ChartRunsCountIndicator,
-  RunsChartCardFullScreenProps,
-  RunsChartCardReorderProps,
-  RunsChartCardWrapper,
-  RunsChartsChartsDragGroup,
-} from './ChartCard.common';
+import type { RunsChartCardFullScreenProps, RunsChartCardReorderProps } from './ChartCard.common';
+import { RunsChartCardWrapper, RunsChartsChartsDragGroup } from './ChartCard.common';
 import { RunsContourPlot } from '../RunsContourPlot';
 import { useRunsChartsTooltip } from '../../hooks/useRunsChartsTooltip';
-import { shouldUseNewRunRowsVisibilityModel } from '../../../../../common/utils/FeatureUtils';
 import { useChartImageDownloadHandler } from '../../hooks/useChartImageDownloadHandler';
 import { downloadChartDataCsv } from '../../../experiment-page/utils/experimentPage.common-utils';
 import { intersection, uniq } from 'lodash';
@@ -42,16 +36,11 @@ export const RunsChartsContourChartCard = ({
     setFullScreenChart?.({
       config,
       title,
-      subtitle: <ChartRunsCountIndicator runsOrGroups={chartRunData} />,
+      subtitle: null,
     });
   };
 
-  const slicedRuns = useMemo(() => {
-    if (shouldUseNewRunRowsVisibilityModel()) {
-      return chartRunData.filter(({ hidden }) => !hidden);
-    }
-    return chartRunData.slice(0, config.runsCountToCompare || 10).reverse();
-  }, [chartRunData, config]);
+  const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden), [chartRunData]);
 
   const isEmptyDataset = useMemo(() => {
     const metricKeys = [config.xaxis.key, config.yaxis.key, config.zaxis.key];
@@ -100,7 +89,6 @@ export const RunsChartsContourChartCard = ({
       onEdit={onEdit}
       onDelete={onDelete}
       title={title}
-      subtitle={<ChartRunsCountIndicator runsOrGroups={slicedRuns} />}
       uuid={config.uuid}
       dragGroupKey={RunsChartsChartsDragGroup.GENERAL_AREA}
       // Disable fullscreen button if the chart is empty

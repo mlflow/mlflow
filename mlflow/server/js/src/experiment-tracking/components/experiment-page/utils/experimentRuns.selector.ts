@@ -1,15 +1,16 @@
-import {
+import type {
   ExperimentEntity,
   ExperimentStoreEntities,
-  KeyValueEntity,
-  LIFECYCLE_FILTER,
   ModelVersionInfoEntity,
-  MODEL_VERSION_FILTER,
   DatasetSummary,
   RunInfoEntity,
   RunDatasetWithTags,
   MetricEntity,
+  RunInputsType,
+  RunOutputsType,
 } from '../../../types';
+import { LIFECYCLE_FILTER, MODEL_VERSION_FILTER } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { getLatestMetrics } from '../../../reducers/MetricReducer';
 import { getExperimentTags, getParams, getRunDatasets, getRunInfo, getRunTags } from '../../../reducers/Reducers';
 import { pickBy } from 'lodash';
@@ -73,6 +74,11 @@ export type ExperimentRunsSelectorResult = {
    * datasets corresponding to the 3rd run in the run list
    */
   datasetsList: RunDatasetWithTags[][];
+
+  /**
+   * List of inputs and outputs for each run.
+   */
+  inputsOutputsList?: { inputs?: RunInputsType; outputs?: RunOutputsType }[];
 };
 
 export type ExperimentRunsSelectorParams = {
@@ -131,15 +137,8 @@ const extractRunInfos = (
         return datasets.some((datasetWithTags: RunDatasetWithTags) => {
           const datasetName = datasetWithTags.dataset.name;
           const datasetDigest = datasetWithTags.dataset.digest;
-          const datasetTag = datasetWithTags.tags
-            ? datasetWithTags.tags.find((tag) => tag.key === 'mlflow.data.context')
-            : undefined;
-          return datasetsFilter.some(
-            ({ name, digest, context }) =>
-              name === datasetName &&
-              digest === datasetDigest &&
-              (datasetTag ? context === datasetTag.value : context === undefined),
-          );
+
+          return datasetsFilter.some(({ name, digest }) => name === datasetName && digest === datasetDigest);
         });
       })
       .map(([rInfo, _]) => rInfo)
@@ -189,6 +188,10 @@ export const experimentRunsSelector = (
 
   const datasetsList = runInfos.map((runInfo) => {
     return state.entities.runDatasetsByUuid[runInfo.runUuid];
+  });
+
+  const inputsOutputsList = runInfos.map((runInfo) => {
+    return state.entities.runInputsOutputsByUuid[runInfo.runUuid];
   });
 
   /**
@@ -247,6 +250,7 @@ export const experimentRunsSelector = (
     metricsList,
     runUuidsMatchingFilter,
     datasetsList,
+    inputsOutputsList,
     metricKeyList: Array.from(metricKeysSet.values()).sort(),
     paramKeyList: Array.from(paramKeysSet.values()).sort(),
   };

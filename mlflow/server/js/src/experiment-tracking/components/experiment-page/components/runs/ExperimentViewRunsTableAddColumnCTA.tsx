@@ -1,5 +1,5 @@
 import { Button, PlusCircleIcon } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { useCallback, useEffect, useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 

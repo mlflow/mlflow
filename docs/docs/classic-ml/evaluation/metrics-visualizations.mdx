@@ -1,0 +1,781 @@
+---
+title: Custom Metrics & Visualizations
+sidebar_position: 4
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Custom Metrics & Visualizations
+
+MLflow's evaluation framework allows you to define custom metrics and create specialized visualizations tailored to your specific business requirements. This capability is essential when standard metrics don't capture your domain's unique success criteria or when you need custom visual analysis for stakeholder communication.
+
+## Quick Start: Creating Custom Metrics
+
+Define domain-specific metrics using MLflow's metric builder:
+
+```python
+import mlflow
+import numpy as np
+import pandas as pd
+from sklearn.datasets import make_classification
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+from mlflow.models import make_metric
+from mlflow.metrics.base import MetricValue
+
+# Generate sample data
+X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42
+)
+
+# Train model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Create evaluation dataset
+eval_data = pd.DataFrame(X_test)
+eval_data["target"] = y_test
+
+
+# Define a custom business metric
+def business_value_metric(predictions, targets, metrics):
+    """
+    Custom metric calculating business value impact.
+    True Positives = $100 value, False Positives = -$20 cost
+    """
+    tp = np.sum((predictions == 1) & (targets == 1))
+    fp = np.sum((predictions == 1) & (targets == 0))
+    tn = np.sum((predictions == 0) & (targets == 0))
+    fn = np.sum((predictions == 0) & (targets == 1))
+
+    # Business logic: TP worth $100, FP costs $20
+    business_value = (tp * 100) - (fp * 20)
+    total_possible_value = np.sum(targets == 1) * 100
+
+    return MetricValue(
+        scores=[business_value],  # Total business value
+        aggregate_results={
+            "total_business_value": business_value,
+            "value_per_prediction": business_value / len(predictions),
+            "value_efficiency": business_value / total_possible_value
+            if total_possible_value > 0
+            else 0,
+        },
+    )
+
+
+# Create the metric
+business_metric = make_metric(
+    eval_fn=business_value_metric, greater_is_better=True, name="business_value"
+)
+
+with mlflow.start_run():
+    # Log model
+    model_info = mlflow.sklearn.log_model(model, name="model")
+
+    # Evaluate with custom metric
+    result = mlflow.evaluate(
+        model_info.model_uri,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+        extra_metrics=[business_metric],
+    )
+
+    print(f"Standard Accuracy: {result.metrics['accuracy_score']:.3f}")
+    print(
+        f"Business Value: ${result.metrics['business_value/total_business_value']:.2f}"
+    )
+    print(
+        f"Value per Prediction: ${result.metrics['business_value/value_per_prediction']:.2f}"
+    )
+```
+
+## Custom Metric Patterns
+
+<Tabs>
+  <TabItem value="financial-metrics" label="Financial Impact Metrics" default>
+
+Create metrics that translate model performance into business terms:
+
+```python
+def create_profit_loss_metric(cost_per_fp=50, revenue_per_tp=200):
+    """Calculate profit/loss impact of model predictions."""
+
+    def eval_fn(predictions, targets, metrics):
+        tp = np.sum((predictions == 1) & (targets == 1))
+        fp = np.sum((predictions == 1) & (targets == 0))
+        fn = np.sum((predictions == 0) & (targets == 1))
+        tn = np.sum((predictions == 0) & (targets == 0))
+
+        # Calculate financial impact
+        revenue = tp * revenue_per_tp
+        costs = fp * cost_per_fp
+        missed_opportunity = fn * revenue_per_tp
+        net_profit = revenue - costs
+
+        return MetricValue(
+            aggregate_results={
+                "net_profit": net_profit,
+                "total_revenue": revenue,
+                "total_costs": costs,
+                "missed_revenue": missed_opportunity,
+                "roi": (net_profit / max(costs, 1)) * 100,
+            }
+        )
+
+    return make_metric(eval_fn=eval_fn, greater_is_better=True, name="profit_loss")
+
+
+# Usage
+profit_metric = create_profit_loss_metric(cost_per_fp=30, revenue_per_tp=150)
+
+with mlflow.start_run():
+    result = mlflow.evaluate(
+        model_uri,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+        extra_metrics=[profit_metric],
+    )
+
+    print(f"Net Profit: ${result.metrics['profit_loss/net_profit']:.2f}")
+    print(f"ROI: {result.metrics['profit_loss/roi']:.1f}%")
+```
+
+  </TabItem>
+  <TabItem value="threshold-metrics" label="Threshold-Based Metrics">
+
+Create metrics that evaluate performance at specific business thresholds:
+
+```python
+def create_threshold_precision_metric(threshold=0.8):
+    """Precision metric for high-confidence predictions only."""
+
+    def eval_fn(predictions, targets, metrics):
+        # This assumes predictions are probabilities; adjust for your use case
+        high_confidence_mask = np.abs(predictions - 0.5) >= (threshold - 0.5)
+
+        if np.sum(high_confidence_mask) == 0:
+            return MetricValue(aggregate_results={"high_confidence_precision": 0.0})
+
+        hc_predictions = predictions[high_confidence_mask]
+        hc_targets = targets[high_confidence_mask]
+
+        # Convert probabilities to binary predictions
+        binary_predictions = (hc_predictions > 0.5).astype(int)
+
+        tp = np.sum((binary_predictions == 1) & (hc_targets == 1))
+        fp = np.sum((binary_predictions == 1) & (hc_targets == 0))
+
+        precision = tp / (tp + fp) if (tp + fp) > 0 else 0
+        coverage = np.sum(high_confidence_mask) / len(predictions)
+
+        return MetricValue(
+            aggregate_results={
+                "high_confidence_precision": precision,
+                "high_confidence_coverage": coverage,
+                "high_confidence_count": np.sum(high_confidence_mask),
+            }
+        )
+
+    return make_metric(
+        eval_fn=eval_fn, greater_is_better=True, name="threshold_precision"
+    )
+
+
+# Create threshold-based metric
+threshold_metric = create_threshold_precision_metric(threshold=0.8)
+
+with mlflow.start_run():
+    result = mlflow.evaluate(
+        model_uri,
+        eval_data,
+        targets="target",
+        model_type="classifier",
+        extra_metrics=[threshold_metric],
+    )
+
+    print(
+        f"High Confidence Precision: {result.metrics['threshold_precision/high_confidence_precision']:.3f}"
+    )
+    print(
+        f"Coverage: {result.metrics['threshold_precision/high_confidence_coverage']:.3f}"
+    )
+```
+
+  </TabItem>
+  <TabItem value="domain-specific" label="Domain-Specific Metrics">
+
+Create metrics tailored to specific business domains:
+
+```python
+# Example: Healthcare/Medical Domain
+def create_medical_safety_metric(false_negative_penalty=10, false_positive_penalty=1):
+    """Safety-focused metric for medical predictions where FN is more critical than FP."""
+
+    def eval_fn(predictions, targets, metrics):
+        tp = np.sum((predictions == 1) & (targets == 1))
+        fp = np.sum((predictions == 1) & (targets == 0))
+        fn = np.sum((predictions == 0) & (targets == 1))
+        tn = np.sum((predictions == 0) & (targets == 0))
+
+        # Safety score: heavily penalize missed positive cases
+        safety_score = (
+            tp - (fn * false_negative_penalty) - (fp * false_positive_penalty)
+        )
+        max_possible_score = np.sum(
+            targets == 1
+        )  # All true positives, no false negatives
+
+        # Normalized safety score
+        normalized_safety = (
+            safety_score / max_possible_score if max_possible_score > 0 else 0
+        )
+
+        return MetricValue(
+            aggregate_results={
+                "safety_score": safety_score,
+                "normalized_safety": normalized_safety,
+                "missed_critical_cases": fn,
+                "false_alarms": fp,
+            }
+        )
+
+    return make_metric(eval_fn=eval_fn, greater_is_better=True, name="medical_safety")
+
+
+# Example: E-commerce/Recommendation Domain
+def create_recommendation_diversity_metric():
+    """Diversity metric for recommendation systems."""
+
+    def eval_fn(predictions, targets, metrics):
+        # Assumes predictions contain recommendation scores or categories
+        unique_predictions = len(np.unique(predictions))
+        total_predictions = len(predictions)
+
+        diversity_ratio = unique_predictions / total_predictions
+
+        # Calculate entropy as diversity measure
+        pred_counts = np.bincount(predictions.astype(int))
+        pred_probs = pred_counts / len(predictions)
+        entropy = -np.sum(pred_probs * np.log2(pred_probs + 1e-10))
+
+        return MetricValue(
+            aggregate_results={
+                "diversity_ratio": diversity_ratio,
+                "prediction_entropy": entropy,
+                "unique_predictions": unique_predictions,
+            }
+        )
+
+    return make_metric(
+        eval_fn=eval_fn, greater_is_better=True, name="recommendation_diversity"
+    )
+
+
+# Usage examples
+medical_metric = create_medical_safety_metric(
+    false_negative_penalty=5, false_positive_penalty=1
+)
+diversity_metric = create_recommendation_diversity_metric()
+```
+
+  </TabItem>
+</Tabs>
+
+## Custom Visualizations
+
+<Tabs>
+  <TabItem value="business-dashboards" label="Business Impact Visualizations" default>
+
+Generate custom visual analysis beyond standard plots:
+
+```python
+import matplotlib.pyplot as plt
+import seaborn as sns
+import os
+
+
+def create_business_impact_visualization(eval_df, builtin_metrics, artifacts_dir):
+    """Create custom business impact visualization."""
+
+    # Calculate business segments
+    eval_df["prediction_confidence"] = np.abs(eval_df["prediction"] - 0.5)
+    eval_df["confidence_segment"] = pd.cut(
+        eval_df["prediction_confidence"],
+        bins=[0, 0.1, 0.3, 0.5],
+        labels=["Low", "Medium", "High"],
+    )
+
+    # Create subplots
+    fig, axes = plt.subplots(2, 2, figsize=(15, 12))
+
+    # 1. Accuracy by confidence segment
+    accuracy_by_segment = eval_df.groupby("confidence_segment").apply(
+        lambda x: (x["prediction"] == x["target"]).mean()
+    )
+
+    axes[0, 0].bar(
+        accuracy_by_segment.index, accuracy_by_segment.values, color="skyblue"
+    )
+    axes[0, 0].set_title("Accuracy by Confidence Segment")
+    axes[0, 0].set_ylabel("Accuracy")
+    axes[0, 0].set_ylim(0, 1)
+
+    # 2. Prediction distribution
+    axes[0, 1].hist(
+        eval_df["prediction"],
+        bins=20,
+        alpha=0.7,
+        label="Predictions",
+        color="lightgreen",
+    )
+    axes[0, 1].axvline(
+        eval_df["prediction"].mean(), color="red", linestyle="--", label="Mean"
+    )
+    axes[0, 1].set_title("Prediction Distribution")
+    axes[0, 1].legend()
+
+    # 3. Confusion matrix heatmap
+    from sklearn.metrics import confusion_matrix
+
+    cm = confusion_matrix(eval_df["target"], eval_df["prediction"])
+    sns.heatmap(cm, annot=True, fmt="d", ax=axes[1, 0], cmap="Blues")
+    axes[1, 0].set_title("Confusion Matrix")
+    axes[1, 0].set_xlabel("Predicted")
+    axes[1, 0].set_ylabel("Actual")
+
+    # 4. Business value by segment
+    def calculate_segment_value(segment_data):
+        tp = np.sum((segment_data["prediction"] == 1) & (segment_data["target"] == 1))
+        fp = np.sum((segment_data["prediction"] == 1) & (segment_data["target"] == 0))
+        return (tp * 100) - (fp * 20)  # Business value calculation
+
+    value_by_segment = eval_df.groupby("confidence_segment").apply(
+        calculate_segment_value
+    )
+
+    colors = ["lightcoral" if v < 0 else "lightgreen" for v in value_by_segment.values]
+    axes[1, 1].bar(value_by_segment.index, value_by_segment.values, color=colors)
+    axes[1, 1].set_title("Business Value by Confidence Segment")
+    axes[1, 1].set_ylabel("Business Value ($)")
+    axes[1, 1].axhline(y=0, color="black", linestyle="-", alpha=0.3)
+
+    plt.tight_layout()
+
+    # Save visualization
+    viz_path = os.path.join(artifacts_dir, "business_impact_analysis.png")
+    plt.savefig(viz_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    return {"business_impact_analysis": viz_path}
+```
+
+  </TabItem>
+  <TabItem value="performance-analysis" label="Advanced Performance Analysis">
+
+Create detailed performance analysis visualizations:
+
+```python
+def create_performance_breakdown_visualization(eval_df, builtin_metrics, artifacts_dir):
+    """Create detailed performance breakdown visualization."""
+
+    fig, axes = plt.subplots(2, 3, figsize=(18, 12))
+
+    # 1. Performance by prediction probability
+    eval_df["prob_bin"] = pd.cut(eval_df["prediction"], bins=10, labels=False)
+    perf_by_prob = eval_df.groupby("prob_bin").apply(
+        lambda x: (x["prediction"] == x["target"]).mean() if len(x) > 0 else 0
+    )
+
+    axes[0, 0].plot(perf_by_prob.index, perf_by_prob.values, marker="o")
+    axes[0, 0].set_title("Accuracy by Prediction Probability Bin")
+    axes[0, 0].set_xlabel("Probability Bin")
+    axes[0, 0].set_ylabel("Accuracy")
+
+    # 2. Calibration plot
+    true_probs = eval_df.groupby("prob_bin")["target"].mean()
+    pred_probs = eval_df.groupby("prob_bin")["prediction"].mean()
+
+    axes[0, 1].plot([0, 1], [0, 1], "k--", alpha=0.5, label="Perfect Calibration")
+    axes[0, 1].scatter(pred_probs, true_probs, alpha=0.7, label="Model")
+    axes[0, 1].set_title("Calibration Plot")
+    axes[0, 1].set_xlabel("Mean Predicted Probability")
+    axes[0, 1].set_ylabel("Fraction of Positives")
+    axes[0, 1].legend()
+
+    # 3. Error distribution
+    errors = eval_df["target"] - eval_df["prediction"]
+    axes[0, 2].hist(errors, bins=20, alpha=0.7, color="orange")
+    axes[0, 2].set_title("Prediction Error Distribution")
+    axes[0, 2].set_xlabel("Error (Actual - Predicted)")
+    axes[0, 2].set_ylabel("Frequency")
+
+    # 4. Feature importance correlation (if available)
+    if "feature_0" in eval_df.columns:
+        feature_cols = [col for col in eval_df.columns if col.startswith("feature_")][
+            :5
+        ]
+        corr_with_error = []
+
+        for feature in feature_cols:
+            corr = np.corrcoef(eval_df[feature], errors)[0, 1]
+            corr_with_error.append(abs(corr))
+
+        axes[1, 0].bar(range(len(corr_with_error)), corr_with_error)
+        axes[1, 0].set_title("Feature Correlation with Prediction Errors")
+        axes[1, 0].set_xlabel("Feature Index")
+        axes[1, 0].set_ylabel("Absolute Correlation")
+        axes[1, 0].set_xticks(range(len(feature_cols)))
+        axes[1, 0].set_xticklabels([f"F{i}" for i in range(len(feature_cols))])
+
+    # 5. Class distribution
+    class_dist = eval_df["target"].value_counts()
+    axes[1, 1].pie(
+        class_dist.values,
+        labels=[f"Class {i}" for i in class_dist.index],
+        autopct="%1.1f%%",
+    )
+    axes[1, 1].set_title("Target Class Distribution")
+
+    # 6. Precision-Recall by threshold
+    from sklearn.metrics import precision_recall_curve
+
+    precision, recall, thresholds = precision_recall_curve(
+        eval_df["target"], eval_df["prediction"]
+    )
+
+    axes[1, 2].plot(recall, precision, marker=".", markersize=2)
+    axes[1, 2].set_title("Precision-Recall Curve")
+    axes[1, 2].set_xlabel("Recall")
+    axes[1, 2].set_ylabel("Precision")
+    axes[1, 2].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+
+    # Save visualization
+    viz_path = os.path.join(artifacts_dir, "performance_breakdown_analysis.png")
+    plt.savefig(viz_path, dpi=300, bbox_inches="tight")
+    plt.close()
+
+    return {"performance_breakdown_analysis": viz_path}
+```
+
+  </TabItem>
+  <TabItem value="interactive-plots" label="Interactive Visualizations">
+
+Create interactive visualizations for deeper analysis:
+
+```python
+def create_interactive_analysis_artifacts(eval_df, builtin_metrics, artifacts_dir):
+    """Create interactive HTML visualizations using Plotly."""
+
+    try:
+        import plotly.graph_objects as go
+        import plotly.express as px
+        from plotly.subplots import make_subplots
+        import plotly.offline as pyo
+
+        # Create subplot figure
+        fig = make_subplots(
+            rows=2,
+            cols=2,
+            subplot_titles=(
+                "Prediction Distribution",
+                "Accuracy by Confidence",
+                "ROC Curve",
+                "Feature Analysis",
+            ),
+            specs=[
+                [{"secondary_y": False}, {"secondary_y": False}],
+                [{"secondary_y": False}, {"secondary_y": False}],
+            ],
+        )
+
+        # 1. Interactive prediction distribution
+        fig.add_trace(
+            go.Histogram(x=eval_df["prediction"], name="Predictions", nbinsx=20),
+            row=1,
+            col=1,
+        )
+
+        # 2. Confidence-based accuracy
+        eval_df["confidence_level"] = pd.cut(
+            np.abs(eval_df["prediction"] - 0.5),
+            bins=5,
+            labels=["Very Low", "Low", "Medium", "High", "Very High"],
+        )
+
+        conf_accuracy = eval_df.groupby("confidence_level").apply(
+            lambda x: (x["prediction"] == x["target"]).mean()
+        )
+
+        fig.add_trace(
+            go.Bar(x=conf_accuracy.index, y=conf_accuracy.values, name="Accuracy"),
+            row=1,
+            col=2,
+        )
+
+        # 3. ROC Curve
+        from sklearn.metrics import roc_curve
+
+        fpr, tpr, _ = roc_curve(eval_df["target"], eval_df["prediction"])
+
+        fig.add_trace(
+            go.Scatter(x=fpr, y=tpr, mode="lines", name="ROC Curve"), row=2, col=1
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=[0, 1], y=[0, 1], mode="lines", name="Random", line=dict(dash="dash")
+            ),
+            row=2,
+            col=1,
+        )
+
+        # 4. Feature analysis (if features available)
+        if "feature_0" in eval_df.columns:
+            fig.add_trace(
+                go.Scatter(
+                    x=eval_df["feature_0"],
+                    y=eval_df["prediction"],
+                    mode="markers",
+                    marker=dict(color=eval_df["target"], colorscale="Viridis"),
+                    name="Feature vs Prediction",
+                ),
+                row=2,
+                col=2,
+            )
+
+        # Update layout
+        fig.update_layout(
+            title_text="Interactive Model Performance Analysis",
+            showlegend=True,
+            height=800,
+        )
+
+        # Save interactive plot
+        interactive_path = os.path.join(artifacts_dir, "interactive_analysis.html")
+        pyo.plot(fig, filename=interactive_path, auto_open=False)
+
+        return {"interactive_analysis": interactive_path}
+
+    except ImportError:
+        # Fallback to matplotlib if plotly not available
+        print("Plotly not available, creating static visualization instead")
+        return create_business_impact_visualization(
+            eval_df, builtin_metrics, artifacts_dir
+        )
+```
+
+  </TabItem>
+</Tabs>
+
+## Advanced Custom Metrics
+
+<Tabs>
+  <TabItem value="business-metric" label="Multi-Metric Combinations" default>
+
+    Create composite metrics that combine multiple evaluation criteria:
+
+    ```python
+    def create_composite_business_metric():
+        """Composite metric combining accuracy, profit, and risk measures."""
+
+        def eval_fn(predictions, targets, metrics):
+            # Get standard accuracy
+            accuracy = metrics.get("accuracy_score", 0)
+
+            # Calculate profit (reuse previous logic)
+            tp = np.sum((predictions == 1) & (targets == 1))
+            fp = np.sum((predictions == 1) & (targets == 0))
+            fn = np.sum((predictions == 0) & (targets == 1))
+
+            profit = (tp * 100) - (fp * 20) - (fn * 50)  # Include missed opportunity cost
+
+            # Calculate risk (variance in performance across segments)
+            n_segments = 5
+            segment_size = len(predictions) // n_segments
+            segment_accuracies = []
+
+            for i in range(n_segments):
+                start_idx = i * segment_size
+                end_idx = (
+                    start_idx + segment_size if i < n_segments - 1 else len(predictions)
+                )
+
+                seg_pred = predictions[start_idx:end_idx]
+                seg_target = targets[start_idx:end_idx]
+                seg_accuracy = np.mean(seg_pred == seg_target) if len(seg_pred) > 0 else 0
+                segment_accuracies.append(seg_accuracy)
+
+            risk_measure = np.std(segment_accuracies)  # Lower std = lower risk
+
+            # Composite score: balance accuracy, profit, and risk
+            composite_score = (
+                (accuracy * 0.4) + (profit / 1000 * 0.4) + ((1 - risk_measure) * 0.2)
+            )
+
+            return MetricValue(
+                aggregate_results={
+                    "composite_score": composite_score,
+                    "accuracy_component": accuracy,
+                    "profit_component": profit,
+                    "risk_component": risk_measure,
+                    "segment_consistency": 1 - risk_measure,
+                }
+            )
+
+        return make_metric(
+            eval_fn=eval_fn, greater_is_better=True, name="composite_business"
+        )
+
+
+    # Usage
+    composite_metric = create_composite_business_metric()
+    ```
+
+  </TabItem>
+  <TabItem value="time-metrics" label="Time-Aware Metrics" default>
+
+    Create metrics that consider temporal aspects of predictions:
+
+    ```python
+    def create_time_decay_metric(decay_rate=0.1):
+        """Metric that gives more weight to recent predictions."""
+
+        def eval_fn(predictions, targets, metrics):
+            # Assume predictions are ordered by time (most recent last)
+            n_predictions = len(predictions)
+
+            # Create time weights (exponential decay)
+            time_weights = np.exp(decay_rate * np.arange(n_predictions))
+            time_weights = time_weights / np.sum(time_weights)  # Normalize
+
+            # Calculate weighted accuracy
+            correct_predictions = (predictions == targets).astype(float)
+            weighted_accuracy = np.sum(correct_predictions * time_weights)
+
+            # Calculate recency bias
+            recent_accuracy = np.mean(
+                correct_predictions[-len(predictions) // 4 :]
+            )  # Last 25%
+            overall_accuracy = np.mean(correct_predictions)
+            recency_bias = recent_accuracy - overall_accuracy
+
+            return MetricValue(
+                aggregate_results={
+                    "time_weighted_accuracy": weighted_accuracy,
+                    "recent_accuracy": recent_accuracy,
+                    "overall_accuracy": overall_accuracy,
+                    "recency_bias": recency_bias,
+                }
+            )
+
+        return make_metric(eval_fn=eval_fn, greater_is_better=True, name="time_decay")
+    ```
+
+  </TabItem>
+</Tabs>
+
+## Best Practices and Guidelines
+
+### Metric Design Principles
+
+**Make Metrics Business-Relevant** - Translate technical performance into business impact using domain-specific terminology and thresholds that align with actual business objectives.
+
+**Ensure Metric Reliability** - Handle edge cases like division by zero and empty datasets, validate calculations with known test cases, and include confidence intervals when appropriate.
+
+**Optimize for Interpretability** - Provide multiple aggregation levels, include intermediate calculations for transparency, use descriptive naming, and add context through ratio and percentage metrics.
+
+**Documentation and Validation** - Document metric assumptions and limitations, test with synthetic data where ground truth is known, and provide clear interpretations of metric values.
+
+### Visualization Best Practices
+
+<ul>
+  <li><strong>Target Your Audience</strong>: Create technical plots for data scientists and executive dashboards for business stakeholders</li>
+  <li><strong>Make It Interactive</strong>: Use interactive visualizations for exploration and static ones for reports</li>
+  <li><strong>Focus on Insights</strong>: Highlight key findings and actionable insights rather than just displaying data</li>
+  <li><strong>Consistent Styling</strong>: Use consistent color schemes and formatting across all visualizations</li>
+  <li><strong>Performance Considerations</strong>: Optimize large visualizations for rendering speed and file size</li>
+</ul>
+
+## Integration Example
+
+Here's a comprehensive example combining custom metrics and visualizations:
+
+```python
+def comprehensive_custom_evaluation():
+    """Complete example of custom metrics and visualizations."""
+
+    # Define multiple custom metrics
+    business_metric = create_profit_loss_metric(cost_per_fp=30, revenue_per_tp=150)
+    threshold_metric = create_threshold_precision_metric(threshold=0.8)
+    composite_metric = create_composite_business_metric()
+
+    # Define custom visualizations
+    custom_artifacts = [
+        create_business_impact_visualization,
+        create_performance_breakdown_visualization,
+        create_interactive_analysis_artifacts,
+    ]
+
+    with mlflow.start_run(run_name="Comprehensive_Custom_Evaluation"):
+        # Evaluate with all custom components
+        result = mlflow.evaluate(
+            model_uri,
+            eval_data,
+            targets="target",
+            model_type="classifier",
+            extra_metrics=[business_metric, threshold_metric, composite_metric],
+            custom_artifacts=custom_artifacts,
+        )
+
+        # Log additional business context
+        mlflow.log_params(
+            {
+                "evaluation_focus": "business_impact",
+                "custom_metrics_count": 3,
+                "custom_visualizations_count": len(custom_artifacts),
+            }
+        )
+
+        print("Custom Evaluation Results:")
+        print(f"Profit/Loss: ${result.metrics.get('profit_loss/net_profit', 0):.2f}")
+        print(
+            f"High Confidence Precision: {result.metrics.get('threshold_precision/high_confidence_precision', 0):.3f}"
+        )
+        print(
+            f"Composite Score: {result.metrics.get('composite_business/composite_score', 0):.3f}"
+        )
+
+        print("\nCustom Artifacts Created:")
+        for name, path in result.artifacts.items():
+            if any(
+                keyword in name.lower()
+                for keyword in ["business", "performance", "interactive"]
+            ):
+                print(f"  {name}: {path}")
+
+
+# Run comprehensive evaluation
+# comprehensive_custom_evaluation()
+```
+
+## Conclusion
+
+Custom metrics and visualizations in MLflow enable you to create evaluation frameworks perfectly tailored to your business needs. By defining domain-specific success criteria and creating targeted visual analysis, you can bridge the gap between technical model performance and business value.
+
+Key benefits include:
+
+<ul>
+  <li><strong>Business Alignment</strong>: Metrics that directly reflect business impact and priorities</li>
+  <li><strong>Stakeholder Communication</strong>: Visual dashboards that make model performance accessible</li>
+  <li><strong>Domain Expertise</strong>: Evaluation criteria that capture industry-specific requirements</li>
+  <li><strong>Decision Support</strong>: Clear insights that drive informed model selection and deployment</li>
+</ul>
+
+Whether you're optimizing for profit, minimizing risk, or meeting regulatory requirements, custom metrics and visualizations ensure your model evaluation process aligns with what truly matters for your use case.

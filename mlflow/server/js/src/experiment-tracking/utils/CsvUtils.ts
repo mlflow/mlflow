@@ -1,9 +1,11 @@
 import { compact, uniq } from 'lodash';
 import Utils from '../../common/utils/Utils';
 import type { RunsChartsRunData } from '../components/runs-charts/components/RunsCharts.common';
-import type { KeyValueEntity, MetricEntity, RunInfoEntity } from '../types';
+import type { MetricEntity, RunInfoEntity } from '../types';
+import type { KeyValueEntity } from '../../common/types';
+import moment from 'moment';
 
-const { formatTimestamp, getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
+const { getDuration, getRunNameFromTags, getSourceType, getSourceName, getUser } = Utils;
 
 /**
  * Turn a list of params/metrics to a map of metric key to metric.
@@ -94,8 +96,10 @@ export const runInfosToCsv = (params: {
   ];
 
   const data = runInfos.map((runInfo, index) => {
+    // To avoid including a comma in the timestamp string, use manual formatting instead of one from intl
+    const startTime = moment(new Date(runInfo.startTime)).format('YYYY-MM-DD HH:mm:ss');
     const row = [
-      formatTimestamp(runInfo.startTime),
+      startTime,
       getDuration(runInfo.startTime, runInfo.endTime) || '',
       runInfo.runUuid,
       runInfo.runName || getRunNameFromTags(tagsList[index]), // add run name to csv export row

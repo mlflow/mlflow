@@ -2,14 +2,16 @@
 
 import os
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any
 
 import cloudpickle
 import yaml
 
 import mlflow
 from mlflow import pyfunc
+from mlflow.dspy.constant import FLAVOR_NAME
 from mlflow.dspy.wrapper import DspyChatModelWrapper, DspyModelWrapper
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import (
     Model,
@@ -25,7 +27,7 @@ from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
-from mlflow.utils.annotations import experimental
+from mlflow.types.schema import DataType
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -43,8 +45,6 @@ from mlflow.utils.model_utils import (
     _validate_and_prepare_target_save_path,
 )
 from mlflow.utils.requirements_utils import _get_pinned_requirement
-
-FLAVOR_NAME = "dspy"
 
 _MODEL_SAVE_PATH = "model"
 _MODEL_DATA_PATH = "data"
@@ -69,23 +69,22 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def save_model(
     model,
     path: str,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    mlflow_model: Optional[Model] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    mlflow_model: Model | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
 ):
     """
     Save a Dspy model.
@@ -173,9 +172,6 @@ def save_model(
     else:
         wrapped_dspy_model = DspyModelWrapper(model, dspy_settings, model_config)
 
-    with open(model_path, "wb") as f:
-        cloudpickle.dump(wrapped_dspy_model, f)
-
     flavor_options = {
         "model_path": model_subpath,
     }
@@ -192,6 +188,18 @@ def save_model(
     if saved_example and mlflow_model.signature is None:
         signature = _infer_signature_from_input_example(saved_example, wrapped_dspy_model)
         mlflow_model.signature = signature
+
+    streamable = False
+    # Set the output schema to the model wrapper to use it for streaming
+    if mlflow_model.signature and mlflow_model.signature.outputs:
+        wrapped_dspy_model.output_schema = mlflow_model.signature.outputs
+        # DSPy streaming only supports string outputs.
+        if all(spec.type == DataType.string for spec in mlflow_model.signature.outputs):
+            streamable = True
+
+    with open(model_path, "wb") as f:
+        cloudpickle.dump(wrapped_dspy_model, f)
+
     code_dir_subpath = _validate_and_copy_code_paths(code_paths, path)
 
     # Add flavor info to `mlflow_model`.
@@ -203,6 +211,7 @@ def save_model(
         code=code_dir_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
         python_env=_PYTHON_ENV_FILE_NAME,
+        streamable=streamable,
     )
 
     # Add model file size to `mlflow_model`.
@@ -251,24 +260,30 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(
     dspy_model,
-    artifact_path: str,
-    task: Optional[str] = None,
-    model_config: Optional[dict[str, Any]] = None,
-    code_paths: Optional[list[str]] = None,
-    conda_env: Optional[Union[list[str], str]] = None,
-    signature: Optional[ModelSignature] = None,
-    input_example: Optional[ModelInputExample] = None,
-    registered_model_name: Optional[str] = None,
+    artifact_path: str | None = None,
+    task: str | None = None,
+    model_config: dict[str, Any] | None = None,
+    code_paths: list[str] | None = None,
+    conda_env: list[str] | str | None = None,
+    signature: ModelSignature | None = None,
+    input_example: ModelInputExample | None = None,
+    registered_model_name: str | None = None,
     await_registration_for: int = DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
-    pip_requirements: Optional[Union[list[str], str]] = None,
-    extra_pip_requirements: Optional[Union[list[str], str]] = None,
-    metadata: Optional[dict[str, Any]] = None,
-    resources: Optional[Union[str, Path, list[Resource]]] = None,
+    pip_requirements: list[str] | str | None = None,
+    extra_pip_requirements: list[str] | str | None = None,
+    metadata: dict[str, Any] | None = None,
+    resources: str | Path | list[Resource] | None = None,
+    prompts: list[str | Prompt] | None = None,
+    name: str | None = None,
+    params: dict[str, Any] | None = None,
+    tags: dict[str, Any] | None = None,
+    model_type: str | None = None,
+    step: int = 0,
+    model_id: str | None = None,
 ):
     """
     Log a Dspy model along with metadata to MLflow.
@@ -278,7 +293,7 @@ def log_model(
 
     Args:
         dspy_model: an instance of `dspy.Module`. The Dspy model to be saved.
-        artifact_path: the run-relative path to which to log model artifacts.
+        artifact_path: Deprecated. Use `name` instead.
         task: defaults to None. The task type of the model. Can only be `llm/v1/chat` or None for
             now.
         model_config: keyword arguments to be passed to the Dspy Module at instantiation.
@@ -300,6 +315,13 @@ def log_model(
             file.
         resources: A list of model resources or a resources.yaml file containing a list of
             resources required to serve the model.
+        prompts: {{ prompts }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     .. code-block:: python
         :caption: Example
@@ -344,6 +366,7 @@ def log_model(
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.dspy,
         model=dspy_model,
         task=task,
@@ -358,4 +381,10 @@ def log_model(
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
         resources=resources,
+        prompts=prompts,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )

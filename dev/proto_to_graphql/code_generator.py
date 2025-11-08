@@ -40,7 +40,7 @@ def generate_code():
     # Generate the sdl schema for typescript type generation.
     sdl_schema = str(schema)
     sdl_schema = f"""# GENERATED FILE. PLEASE DON'T MODIFY.
-# Run python3 ./dev/proto_to_graphql/code_generator.py to regenerate.
+# Run uv run ./dev/proto_to_graphql/code_generator.py to regenerate.
 
 {sdl_schema}
 

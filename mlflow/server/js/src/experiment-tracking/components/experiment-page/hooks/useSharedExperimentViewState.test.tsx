@@ -4,7 +4,7 @@ import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUt
 import { useUpdateExperimentPageSearchFacets } from './useExperimentPageSearchFacets';
 import { useSharedExperimentViewState } from './useSharedExperimentViewState';
 import { createExperimentPageUIState } from '../models/ExperimentPageUIState';
-import { ExperimentEntity } from '../../../types';
+import type { ExperimentEntity } from '../../../types';
 import { createExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
 import { isNil, omitBy } from 'lodash';
 import { IntlProvider } from 'react-intl';
@@ -12,18 +12,22 @@ import { shouldUseCompressedExperimentViewSharedState } from '../../../../common
 import { textCompressDeflate } from '../../../../common/utils/StringUtils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldUseCompressedExperimentViewSharedState: jest.fn(),
 }));
 
 jest.mock('../../../../common/utils/RoutingUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/RoutingUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/RoutingUtils')>(
+    '../../../../common/utils/RoutingUtils',
+  ),
   useSearchParams: jest.fn(),
   useNavigate: jest.fn(),
 }));
 
 jest.mock('./useExperimentPageSearchFacets', () => ({
-  ...jest.requireActual('./useExperimentPageSearchFacets'),
+  ...jest.requireActual<typeof import('./useExperimentPageSearchFacets')>('./useExperimentPageSearchFacets'),
   useUpdateExperimentPageSearchFacets: jest.fn(),
 }));
 

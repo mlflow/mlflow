@@ -8,12 +8,12 @@ from abc import ABC, abstractmethod
 from copy import deepcopy
 from dataclasses import is_dataclass
 from enum import Enum
-from typing import Any, Optional, TypedDict, Union, get_args, get_origin
+from types import UnionType
+from typing import Any, TypedDict, Union, get_args, get_origin
 
 import numpy as np
 
 from mlflow.exceptions import MlflowException
-from mlflow.utils.annotations import experimental
 
 ARRAY_TYPE = "array"
 OBJECT_TYPE = "object"
@@ -142,7 +142,7 @@ class BaseType(ABC):
         """
 
     @abstractmethod
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         """
         Dictionary representation of the object.
         """
@@ -195,7 +195,7 @@ class Property(BaseType):
         return self._name
 
     @property
-    def dtype(self) -> Union[DataType, "Array", "Object", "Map"]:
+    def dtype(self) -> DataType | "Array" | "Object" | "Map":
         """The property data type."""
         return self._dtype
 
@@ -341,11 +341,16 @@ class Object(BaseType):
                 "Expected values to be instance of Property"
             )
         # check duplicated property names
-        names = [prop.name for prop in properties]
-        duplicates = {name for name in names if names.count(name) > 1}
+        names = set()
+        duplicates = set()
+        for prop in properties:
+            if prop.name in names:
+                duplicates.add(prop.name)
+            else:
+                names.add(prop.name)
         if len(duplicates) > 0:
             raise MlflowException.invalid_parameter_value(
-                f"Found duplicated property names: {duplicates}"
+                f"Found duplicated property names: `{', '.join(duplicates)}`"
             )
 
     @property
@@ -486,7 +491,7 @@ class Array(BaseType):
             )
 
     @property
-    def dtype(self) -> Union["Array", DataType, Object, "Map", "AnyType"]:
+    def dtype(self) -> "Array" | DataType | Object | "Map" | "AnyType":
         """The array data type."""
         return self._dtype
 
@@ -671,7 +676,6 @@ class Map(BaseType):
         raise MlflowException(f"Map type {self!r} and {other!r} are incompatible")
 
 
-@experimental
 class AnyType(BaseType):
     def __init__(self):
         """
@@ -724,7 +728,7 @@ class ColSpec:
     def __init__(
         self,
         type: ALLOWED_DTYPES,
-        name: Optional[str] = None,
+        name: str | None = None,
         required: bool = True,
     ):
         self._name = name
@@ -741,12 +745,12 @@ class ColSpec:
             raise TypeError(EXPECTED_TYPE_MESSAGE.format(arg_name="type", passed_type=self.type))
 
     @property
-    def type(self) -> Union[DataType, Array, Object, Map, AnyType]:
+    def type(self) -> DataType | Array | Object | Map | AnyType:
         """The column data type."""
         return self._type
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """The column name or None if the columns is unnamed."""
         return self._name
 
@@ -754,7 +758,6 @@ class ColSpec:
     def name(self, value: bool) -> None:
         self._name = value
 
-    @experimental
     @property
     def required(self) -> bool:
         """Whether this column is required."""
@@ -813,10 +816,10 @@ class TensorInfo:
     Representation of the shape and type of a Tensor.
     """
 
-    def __init__(self, dtype: np.dtype, shape: Union[tuple, list]):
+    def __init__(self, dtype: np.dtype, shape: tuple[Any, ...] | list[Any]):
         if not isinstance(dtype, np.dtype):
             raise TypeError(
-                f"Expected `dtype` to be instance of `{np.dtype}`, received `{ dtype.__class__}`"
+                f"Expected `dtype` to be instance of `{np.dtype}`, received `{dtype.__class__}`"
             )
         # Throw if size information exists flexible numpy data types
         if dtype.char in ["U", "S"] and not dtype.name.isalpha():
@@ -843,7 +846,7 @@ class TensorInfo:
         return self._dtype
 
     @property
-    def shape(self) -> tuple:
+    def shape(self) -> tuple[int, ...]:
         """The tensor shape"""
         return self._shape
 
@@ -876,8 +879,8 @@ class TensorSpec:
     def __init__(
         self,
         type: np.dtype,
-        shape: Union[tuple, list],
-        name: Optional[str] = None,
+        shape: tuple[int, ...] | list[int],
+        name: str | None = None,
     ):
         self._name = name
         self._tensorInfo = TensorInfo(type, shape)
@@ -891,16 +894,15 @@ class TensorSpec:
         return self._tensorInfo.dtype
 
     @property
-    def name(self) -> Optional[str]:
+    def name(self) -> str | None:
         """The tensor name or None if the tensor is unnamed."""
         return self._name
 
     @property
-    def shape(self) -> tuple:
+    def shape(self) -> tuple[int, ...]:
         """The tensor shape"""
         return self._tensorInfo.shape
 
-    @experimental
     @property
     def required(self) -> bool:
         """Whether this tensor is required."""
@@ -955,7 +957,7 @@ class Schema:
     Combination of named and unnamed data inputs are not allowed.
     """
 
-    def __init__(self, inputs: list[Union[ColSpec, TensorSpec]]):
+    def __init__(self, inputs: list[ColSpec | TensorSpec]):
         if not isinstance(inputs, list):
             raise MlflowException.invalid_parameter_value(
                 f"Inputs of Schema must be a list, got type {type(inputs).__name__}"
@@ -976,7 +978,7 @@ class Schema:
         ):
             raise MlflowException(
                 "Creating Schema with a combination of {0} and {1} is not supported. "
-                "Please choose one of {0} or {1}".format(ColSpec.__class__, TensorSpec.__class__)
+                f"Please choose one of {ColSpec.__name__} or {TensorSpec.__name__}"
             )
         if (
             all(isinstance(x, TensorSpec) for x in inputs)
@@ -1001,7 +1003,7 @@ class Schema:
         return iter(self._inputs)
 
     @property
-    def inputs(self) -> list[Union[ColSpec, TensorSpec]]:
+    def inputs(self) -> list[ColSpec | TensorSpec]:
         """Representation of a dataset that defines this schema."""
         return self._inputs
 
@@ -1009,16 +1011,15 @@ class Schema:
         """Return true iff this schema is specified using TensorSpec"""
         return self.inputs and isinstance(self.inputs[0], TensorSpec)
 
-    def input_names(self) -> list[Union[str, int]]:
+    def input_names(self) -> list[str | int]:
         """Get list of data names or range of indices if the schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs)]
 
-    def required_input_names(self) -> list[Union[str, int]]:
+    def required_input_names(self) -> list[str | int]:
         """Get list of required data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if x.required]
 
-    @experimental
-    def optional_input_names(self) -> list[Union[str, int]]:
+    def optional_input_names(self) -> list[str | int]:
         """Get list of optional data names or range of indices if schema has no names."""
         return [x.name or i for i, x in enumerate(self.inputs) if not x.required]
 
@@ -1026,17 +1027,17 @@ class Schema:
         """Return true iff this schema declares names, false otherwise."""
         return self.inputs and self.inputs[0].name is not None
 
-    def input_types(self) -> list[Union[DataType, np.dtype, Array, Object]]:
+    def input_types(self) -> list[DataType | np.dtype | Array | Object]:
         """Get types for each column in the schema."""
         return [x.type for x in self.inputs]
 
-    def input_types_dict(self) -> dict[str, Union[DataType, np.dtype, Array, Object]]:
+    def input_types_dict(self) -> dict[str, DataType | np.dtype | Array | Object]:
         """Maps column names to types, iff this schema declares names."""
         if not self.has_input_names():
             raise MlflowException("Cannot get input types as a dict for schema without names.")
         return {x.name: x.type for x in self.inputs}
 
-    def input_dict(self) -> dict[str, Union[ColSpec, TensorSpec]]:
+    def input_dict(self) -> dict[str, ColSpec | TensorSpec]:
         """Maps column names to inputs, iff this schema declares names."""
         if not self.has_input_names():
             raise MlflowException("Cannot get input dict for schema without names.")
@@ -1095,7 +1096,7 @@ class Schema:
     def from_json(cls, json_str: str):
         """Deserialize from a json string."""
 
-        def read_input(x: dict):
+        def read_input(x: dict[str, Any]):
             return (
                 TensorSpec.from_json_dict(**x)
                 if x["type"] == "tensor"
@@ -1114,7 +1115,6 @@ class Schema:
         return repr(self.inputs)
 
 
-@experimental
 class ParamSpec:
     """
     Specification used to represent parameters for the model.
@@ -1123,9 +1123,9 @@ class ParamSpec:
     def __init__(
         self,
         name: str,
-        dtype: Union[DataType, Object, str],
+        dtype: DataType | Object | str,
         default: Any,
-        shape: Optional[tuple[int, ...]] = None,
+        shape: tuple[int, ...] | None = None,
     ):
         self._name = str(name)
         self._shape = tuple(shape) if shape is not None else None
@@ -1161,8 +1161,8 @@ class ParamSpec:
         cls,
         spec: str,
         value: Any,
-        value_type: Union[DataType, Object],
-        shape: Optional[tuple[int, ...]],
+        value_type: DataType | Object,
+        shape: tuple[int, ...] | None,
     ):
         """
         Validate that the value has the expected type and shape.
@@ -1209,7 +1209,7 @@ class ParamSpec:
         return self._name
 
     @property
-    def dtype(self) -> Union[DataType, Object]:
+    def dtype(self) -> DataType | Object:
         """The parameter data type."""
         return self._dtype
 
@@ -1219,7 +1219,7 @@ class ParamSpec:
         return self._default
 
     @property
-    def shape(self) -> Optional[tuple]:
+    def shape(self) -> tuple[int, ...] | None:
         """
         The parameter shape.
         If shape is None, the parameter is a scalar.
@@ -1229,8 +1229,8 @@ class ParamSpec:
     class ParamSpecTypedDict(TypedDict):
         name: str
         type: str
-        default: Union[DataType, list[DataType], None]
-        shape: Optional[tuple[int, ...]]
+        default: DataType | list[DataType] | None
+        shape: tuple[int, ...] | None
 
     def to_dict(self) -> ParamSpecTypedDict:
         if self.shape is None:
@@ -1296,7 +1296,6 @@ class ParamSpec:
         )
 
 
-@experimental
 class ParamSchema:
     """
     Specification of parameters applicable to the model.
@@ -1390,7 +1389,13 @@ def _get_dataclass_annotations(cls) -> dict[str, Any]:
     return annotations
 
 
-@experimental
+def _is_union(t: type) -> bool:
+    """
+    Check if the field type is either `Union[X, Y]` or `X | Y`.
+    """
+    return get_origin(t) in [Union, UnionType]
+
+
 def convert_dataclass_to_schema(dataclass):
     """
     Converts a given dataclass into a Schema object. The dataclass must include type hints
@@ -1406,7 +1411,7 @@ def convert_dataclass_to_schema(dataclass):
         is_optional = False
         effective_type = field_type
 
-        if get_origin(field_type) == Union:
+        if _is_union(field_type):
             if type(None) in get_args(field_type) and len(get_args(field_type)) == 2:
                 # This is an Optional type; determine the effective type excluding None
                 is_optional = True
@@ -1485,7 +1490,7 @@ def _convert_field_to_property(field_name, field_type):
     is_optional = False
     effective_type = field_type
 
-    if get_origin(field_type) == Union and type(None) in get_args(field_type):
+    if _is_union(field_type) and type(None) in get_args(field_type):
         is_optional = True
         effective_type = next(t for t in get_args(field_type) if t is not type(None))
 

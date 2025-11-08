@@ -4,8 +4,9 @@ from unittest import mock
 
 import pytest
 
+from mlflow.deployments.server.config import Endpoint
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import Route, RouteModelInfo
+from mlflow.gateway.config import EndpointModelInfo
 from mlflow.metrics.genai.model_utils import (
     _parse_model_uri,
     call_deployments_api,
@@ -16,34 +17,22 @@ from mlflow.metrics.genai.model_utils import (
 
 @pytest.fixture
 def set_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_TYPE": "openai",
-            "OPENAI_API_KEY": "test",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_TYPE", "openai")
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
 
 
 @pytest.fixture
 def set_deployment_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "MLFLOW_DEPLOYMENTS_TARGET": "databricks",
-        }
-    )
+    monkeypatch.setenv("MLFLOW_DEPLOYMENTS_TARGET", "databricks")
 
 
 @pytest.fixture
 def set_azure_envs(monkeypatch):
-    monkeypatch.setenvs(
-        {
-            "OPENAI_API_KEY": "test",
-            "OPENAI_API_TYPE": "azure",
-            "OPENAI_API_VERSION": "2023-05-15",
-            "OPENAI_API_BASE": "https://openai-for.openai.azure.com/",
-            "OPENAI_DEPLOYMENT_NAME": "test-openai",
-        }
-    )
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setenv("OPENAI_API_TYPE", "azure")
+    monkeypatch.setenv("OPENAI_API_VERSION", "2023-05-15")
+    monkeypatch.setenv("OPENAI_API_BASE", "https://openai-for.openai.azure.com/")
+    monkeypatch.setenv("OPENAI_DEPLOYMENT_NAME", "test-openai")
 
 
 @pytest.fixture(autouse=True)
@@ -353,6 +342,8 @@ def test_score_model_togetherai(monkeypatch):
 
 
 def test_score_model_gateway_completions():
+    from mlflow.deployments.mlflow import MlflowDeploymentClient
+
     expected_output = {
         "choices": [
             {"text": "man, one giant leap for mankind.", "metadata": {"finish_reason": "stop"}}
@@ -366,21 +357,31 @@ def test_score_model_gateway_completions():
         },
     }
 
-    with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
-            name="my-route",
-            route_type="llm/v1/completions",
-            model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ).to_endpoint(),
+    with (
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+            return_value=Endpoint(
+                name="my-route",
+                endpoint_type="llm/v1/completions",
+                model=EndpointModelInfo(provider="openai"),
+                endpoint_url="my-route",
+                limit=None,
+            ),
+        ),
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
+        ),
+        mock.patch(
+            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        ),
     ):
-        with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            response = score_model_on_payload("gateway:/my-route", "")
-            assert response == expected_output["choices"][0]["text"]
+        response = score_model_on_payload("gateway:/my-route", "")
+        assert response == expected_output["choices"][0]["text"]
 
 
 def test_score_model_gateway_chat():
+    from mlflow.deployments.mlflow import MlflowDeploymentClient
+
     expected_output = {
         "choices": [
             {
@@ -401,18 +402,26 @@ def test_score_model_gateway_chat():
         },
     }
 
-    with mock.patch(
-        "mlflow.gateway.get_route",
-        return_value=Route(
-            name="my-route",
-            route_type="llm/v1/chat",
-            model=RouteModelInfo(provider="openai"),
-            route_url="my-route",
-        ).to_endpoint(),
+    with (
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.get_endpoint",
+            return_value=Endpoint(
+                name="my-route",
+                endpoint_type="llm/v1/chat",
+                model=EndpointModelInfo(provider="openai"),
+                endpoint_url="my-route",
+                limit=None,
+            ),
+        ),
+        mock.patch(
+            "mlflow.deployments.MlflowDeploymentClient.predict", return_value=expected_output
+        ),
+        mock.patch(
+            "mlflow.deployments.get_deploy_client", return_value=MlflowDeploymentClient("url")
+        ),
     ):
-        with mock.patch("mlflow.gateway.query", return_value=expected_output):
-            response = score_model_on_payload("gateway:/my-route", "")
-            assert response == expected_output["choices"][0]["message"]["content"]
+        response = score_model_on_payload("gateway:/my-route", "")
+        assert response == expected_output["choices"][0]["message"]["content"]
 
 
 @pytest.mark.parametrize(

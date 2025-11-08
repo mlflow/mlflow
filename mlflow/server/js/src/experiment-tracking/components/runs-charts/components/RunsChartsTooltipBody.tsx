@@ -8,26 +8,24 @@ import {
   VisibleIcon,
   Typography,
 } from '@databricks/design-system';
-import { Theme } from '@emotion/react';
+import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import Routes from '../../../routes';
 import { useExperimentIds } from '../../experiment-page/hooks/useExperimentIds';
-import { RunsChartsRunData, RunsChartsLineChartXAxisType } from './RunsCharts.common';
-import {
-  RunsChartsTooltipBodyProps,
-  RunsChartsTooltipMode,
-  containsMultipleRunsTooltipData,
-} from '../hooks/useRunsChartsTooltip';
-import {
+import type { RunsChartsRunData } from './RunsCharts.common';
+import { RunsChartsLineChartXAxisType } from './RunsCharts.common';
+import type { RunsChartsTooltipBodyProps } from '../hooks/useRunsChartsTooltip';
+import { RunsChartsTooltipMode, containsMultipleRunsTooltipData } from '../hooks/useRunsChartsTooltip';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsScatterCardConfig,
   RunsChartsContourCardConfig,
   RunsChartsLineCardConfig,
   RunsChartsParallelCardConfig,
 } from '../runs-charts.types';
+import { RunsChartType } from '../runs-charts.types';
 import {
   type RunsCompareMultipleTracesTooltipData,
   type RunsMetricsSingleTraceTooltipData,
@@ -40,13 +38,17 @@ interface RunsChartsContextMenuContentDataType {
   runs: RunsChartsRunData[];
   onTogglePin?: (runUuid: string) => void;
   onHideRun?: (runUuid: string) => void;
+  getDataTraceLink?: (experimentId: string, traceUuid: string) => string;
 }
 
 type RunsChartContextMenuHoverDataType = RunsChartsCardConfig;
 
 const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun: RunsChartsRunData) => {
-  const { metricKey } = cardConfig;
-  const metric = activeRun?.metrics[metricKey];
+  const { metricKey, dataAccessKey } = cardConfig;
+
+  const dataKey = dataAccessKey ?? metricKey;
+
+  const metric = activeRun?.metrics[dataKey];
 
   if (!metric) {
     return null;
@@ -65,8 +67,11 @@ const createBarChartValuesBox = (cardConfig: RunsChartsBarCardConfig, activeRun:
 
 const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, activeRun: RunsChartsRunData) => {
   const { xaxis, yaxis } = cardConfig;
-  const xKey = xaxis.key;
-  const yKey = yaxis.key;
+  const xKey = xaxis.dataAccessKey ?? xaxis.key;
+  const yKey = xaxis.dataAccessKey ?? yaxis.key;
+
+  const xLabel = xaxis.key;
+  const yLabel = yaxis.key;
 
   const xValue = xaxis.type === 'METRIC' ? activeRun.metrics[xKey]?.value : activeRun.params[xKey]?.value;
 
@@ -76,12 +81,12 @@ const createScatterChartValuesBox = (cardConfig: RunsChartsScatterCardConfig, ac
     <>
       {xValue && (
         <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {xValue}
+          <strong>X ({xLabel}):</strong> {xValue}
         </div>
       )}
       {yValue && (
         <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {yValue}
+          <strong>Y ({yLabel}):</strong> {yValue}
         </div>
       )}
     </>
@@ -102,21 +107,15 @@ const createContourChartValuesBox = (cardConfig: RunsChartsContourCardConfig, ac
 
   return (
     <>
-      {xValue && (
-        <div css={styles.value}>
-          <strong>X ({xKey}):</strong> {xValue}
-        </div>
-      )}
-      {yValue && (
-        <div css={styles.value}>
-          <strong>Y ({yKey}):</strong> {yValue}
-        </div>
-      )}
-      {zValue && (
-        <div css={styles.value}>
-          <strong>Z ({zKey}):</strong> {zValue}
-        </div>
-      )}
+      <div css={styles.value}>
+        <strong>X ({xKey}):</strong> {xValue}
+      </div>
+      <div css={styles.value}>
+        <strong>Y ({yKey}):</strong> {yValue}
+      </div>
+      <div css={styles.value}>
+        <strong>Z ({zKey}):</strong> {zValue}
+      </div>
     </>
   );
 };
@@ -274,7 +273,7 @@ export const RunsChartsTooltipBody = ({
   RunsChartContextMenuHoverDataType,
   RunsMetricsSingleTraceTooltipData | RunsCompareMultipleTracesTooltipData
 >) => {
-  const { runs, onTogglePin, onHideRun } = contextData;
+  const { runs, onTogglePin, onHideRun, getDataTraceLink } = contextData;
   const [experimentId] = useExperimentIds();
   const activeRun = runs?.find((run) => run.uuid === runUuid);
 
@@ -304,7 +303,7 @@ export const RunsChartsTooltipBody = ({
             <Typography.Text>{runName + metricSuffix}</Typography.Text>
           ) : (
             <Link
-              to={Routes.getRunPageRoute(experimentId, runUuid)}
+              to={getDataTraceLink?.(experimentId, runUuid) ?? Routes.getRunPageRoute(experimentId, runUuid)}
               target="_blank"
               css={styles.runLink}
               onClick={closeContextMenu}

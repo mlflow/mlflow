@@ -36,7 +36,7 @@ describe('RegisterModelForm', () => {
       modelByName,
     };
     wrapper = shallow(<RegisterModelForm {...props} />);
-    expect(wrapper.find('.create-new-model-option').length).toBe(1);
+    expect(wrapper.find('.mlflow-create-new-model-option').length).toBe(1);
     expect(wrapper.find('[value="Model A"]').length).toBe(1);
   });
 

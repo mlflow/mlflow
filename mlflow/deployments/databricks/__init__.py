@@ -1,7 +1,7 @@
 import json
 import posixpath
 import warnings
-from typing import Any, Iterator, Optional
+from typing import Any, Iterator
 
 from mlflow.deployments import BaseDeploymentClient
 from mlflow.deployments.constants import (
@@ -9,13 +9,18 @@ from mlflow.deployments.constants import (
 )
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT,
+    MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.utils import AttrDict
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import deprecated
 from mlflow.utils.databricks_utils import get_databricks_host_creds
-from mlflow.utils.rest_utils import augmented_raise_for_status, http_request
+from mlflow.utils.rest_utils import (
+    augmented_raise_for_status,
+    http_request,
+    validate_deployment_timeout_config,
+)
 
 
 class DatabricksEndpoint(AttrDict):
@@ -40,7 +45,6 @@ class DatabricksEndpoint(AttrDict):
     """
 
 
-@experimental
 class DatabricksDeploymentClient(BaseDeploymentClient):
     """
     Client for interacting with Databricks serving endpoints.
@@ -125,10 +129,22 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        retry_timeout_seconds: int | None = None,
     ):
+        """
+        Args:
+            method: HTTP method (GET, POST, etc.).
+            prefix: API prefix path.
+            route: Endpoint route.
+            json_body: Request payload.
+            timeout: Maximum time (in seconds) for a single HTTP request.
+            retry_timeout_seconds: Maximum time (in seconds) for all retry attempts combined.
+        """
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -140,6 +156,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            retry_timeout_seconds=retry_timeout_seconds,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
@@ -153,10 +170,13 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         *,
         method: str,
         prefix: str = "/api/2.0",
-        route: Optional[str] = None,
-        json_body: Optional[dict[str, Any]] = None,
-        timeout: Optional[int] = None,
+        route: str | None = None,
+        json_body: dict[str, Any] | None = None,
+        timeout: int | None = None,
+        retry_timeout_seconds: int | None = None,
     ) -> Iterator[str]:
+        validate_deployment_timeout_config(timeout, retry_timeout_seconds)
+
         call_kwargs = {}
         if method.lower() == "get":
             call_kwargs["params"] = json_body
@@ -168,6 +188,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             endpoint=posixpath.join(prefix, "serving-endpoints", route or ""),
             method=method,
             timeout=MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout,
+            retry_timeout_seconds=retry_timeout_seconds,
             raise_on_status=False,
             retry_codes=MLFLOW_DEPLOYMENT_CLIENT_REQUEST_RETRY_CODES,
             extra_headers={"X-Databricks-Endpoints-API-Client": "Databricks Deployment Client"},
@@ -178,13 +199,15 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
         # Streaming response content are composed of multiple lines.
         # Each line format depends on specific endpoint
+        # Explicitly set the encoding to `utf-8` so the `decode_unicode` in the next line
+        # will decode correctly
+        response.encoding = "utf-8"
         return (
             line.strip()
             for line in response.iter_lines(decode_unicode=True)
             if line.strip()  # filter out keep-alive new lines
         )
 
-    @experimental
     def predict(self, deployment_name=None, inputs=None, endpoint=None):
         """
         Query a serving endpoint with the provided model inputs.
@@ -242,9 +265,9 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body=inputs,
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
-    @experimental
     def predict_stream(
         self, deployment_name=None, inputs=None, endpoint=None
     ) -> Iterator[dict[str, Any]]:
@@ -302,6 +325,7 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             route=posixpath.join(endpoint, "invocations"),
             json_body={**inputs, "stream": True},
             timeout=MLFLOW_DEPLOYMENT_PREDICT_TIMEOUT.get(),
+            retry_timeout_seconds=MLFLOW_DEPLOYMENT_PREDICT_TOTAL_TIMEOUT.get(),
         )
 
         for line in chunk_line_iter:
@@ -326,7 +350,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
 
             yield json.loads(value)
 
-    @experimental
     def create_endpoint(self, name=None, config=None, route_optimized=False):
         """
         Create a new serving endpoint with the provided name and configuration.
@@ -560,7 +583,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
                 method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
             )
 
-    @experimental
     def update_endpoint_config(self, endpoint, config):
         """
         Update the configuration of a specified serving endpoint. See
@@ -620,7 +642,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "config"), json_body=config
         )
 
-    @experimental
     def update_endpoint_tags(self, endpoint, config):
         """
         Update the tags of a specified serving endpoint. See
@@ -650,7 +671,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PATCH", route=posixpath.join(endpoint, "tags"), json_body=config
         )
 
-    @experimental
     def update_endpoint_rate_limits(self, endpoint, config):
         """
         Update the rate limits of a specified serving endpoint.
@@ -686,7 +706,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "rate-limits"), json_body=config
         )
 
-    @experimental
     def update_endpoint_ai_gateway(self, endpoint, config):
         """
         Update the AI Gateway configuration of a specified serving endpoint.
@@ -733,7 +752,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
             method="PUT", route=posixpath.join(endpoint, "ai-gateway"), json_body=config
         )
 
-    @experimental
     def delete_endpoint(self, endpoint):
         """
         Delete a specified serving endpoint.
@@ -757,7 +775,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="DELETE", route=endpoint)
 
-    @experimental
     def list_endpoints(self):
         """
         Retrieve all serving endpoints.
@@ -792,7 +809,6 @@ class DatabricksDeploymentClient(BaseDeploymentClient):
         """
         return self._call_endpoint(method="GET").endpoints
 
-    @experimental
     def get_endpoint(self, endpoint):
         """
         Get a specified serving endpoint.

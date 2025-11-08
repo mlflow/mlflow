@@ -7,12 +7,19 @@ import logging
 import numbers
 import posixpath
 import re
+import urllib.parse
+from typing import Any
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.environment_variables import MLFLOW_TRUNCATE_LONG_VALUES
+from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
+from mlflow.entities.webhook import WebhookEvent
+from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
+    MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
+    MLFLOW_TRUNCATE_LONG_VALUES,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.string_utils import is_string_type
 
@@ -32,6 +39,9 @@ _REGISTERED_MODEL_ALIAS_REGEX = re.compile(r"^[\w\-]*$")
 # Regex for valid registered model alias to prevent conflict with version aliases.
 _REGISTERED_MODEL_ALIAS_VERSION_REGEX = re.compile(r"^[vV]\d+$")
 
+# The reserver "latest" alias name
+_REGISTERED_MODEL_ALIAS_LATEST = "latest"
+
 _BAD_ALIAS_CHARACTERS_MESSAGE = (
     "Names may only contain alphanumerics, underscores (_), and dashes (-)."
 )
@@ -50,7 +60,7 @@ MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
-MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
+MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 100_000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 MAX_DATASET_NAME_SIZE = 500
 MAX_DATASET_DIGEST_SIZE = 36
@@ -65,10 +75,6 @@ MAX_INPUT_TAG_VALUE_SIZE = 500
 MAX_REGISTERED_MODEL_ALIAS_LENGTH = 255
 MAX_TRACE_TAG_KEY_LENGTH = 250
 MAX_TRACE_TAG_VAL_LENGTH = 8000
-
-_UNSUPPORTED_DB_TYPE_MSG = "Supported database engines are {{{}}}".format(
-    ", ".join(DATABASE_ENGINES)
-)
 
 PARAM_VALIDATION_MSG = """
 
@@ -115,6 +121,10 @@ def missing_value(path):
     return f"Missing value for required parameter '{path}'."
 
 
+def not_integer_value(path, value):
+    return f"Parameter '{path}' must be an integer, got '{value}'."
+
+
 def exceeds_maximum_length(path, limit):
     return f"'{path}' exceeds the maximum length of {limit} characters"
 
@@ -159,7 +169,7 @@ def bad_character_message():
 
 def path_not_unique(name):
     norm = posixpath.normpath(name)
-    return norm != name or norm == "." or norm.startswith("..") or norm.startswith("/")
+    return norm != str(name) or norm == "." or norm.startswith("..") or norm.startswith("/")
 
 
 def _validate_metric_name(name, path="name"):
@@ -291,6 +301,13 @@ def _validate_model_version_tag(key, value):
     _validate_tag_name(key)
     _validate_tag_value(value)
     _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
+
+    # Check prompt text tag particularly for showing friendly error message
+    if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
+        )
+
     _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
@@ -461,9 +478,36 @@ def _validate_experiment_id_type(experiment_id):
         )
 
 
+def _validate_list_param(param_name: str, param_value: Any, allow_none: bool = False) -> None:
+    """
+    Validate that a parameter is a list and raise a helpful error if it isn't.
+
+    Args:
+        param_name: Name of the parameter being validated (e.g., "experiment_ids")
+        param_value: The value to validate
+        allow_none: If True, None is allowed. If False, None is treated as invalid.
+
+    Raises:
+        MlflowException: If the parameter is not a list (and not None when allow_none=True)
+    """
+    if allow_none and param_value is None:
+        return
+
+    if not isinstance(param_value, list):
+        raise MlflowException.invalid_parameter_value(
+            f"{param_name} must be a list, got {type(param_value).__name__}. "
+            f"Did you mean to use {param_name}=[{param_value!r}]?"
+        )
+
+
 def _validate_model_name(model_name):
     if model_name is None or model_name == "":
-        raise MlflowException("Registered model name cannot be empty.", INVALID_PARAMETER_VALUE)
+        raise MlflowException(missing_value("name"), error_code=INVALID_PARAMETER_VALUE)
+
+
+def _validate_model_renaming(model_new_name):
+    if model_new_name is None or model_new_name == "":
+        raise MlflowException(missing_value("new_name"), error_code=INVALID_PARAMETER_VALUE)
 
 
 def _validate_model_version(model_version):
@@ -471,8 +515,7 @@ def _validate_model_version(model_version):
         model_version = int(model_version)
     except ValueError:
         raise MlflowException(
-            f"Model version must be an integer, got '{model_version}'",
-            error_code=INVALID_PARAMETER_VALUE,
+            not_integer_value("version", model_version), error_code=INVALID_PARAMETER_VALUE
         )
 
 
@@ -491,6 +534,9 @@ def _validate_model_alias_name(model_alias_name):
         MAX_REGISTERED_MODEL_ALIAS_LENGTH,
         model_alias_name,
     )
+
+
+def _validate_model_alias_name_reserved(model_alias_name):
     if model_alias_name.lower() == "latest":
         raise MlflowException(
             "'latest' alias name (case insensitive) is reserved.",
@@ -513,8 +559,13 @@ def _validate_experiment_artifact_location(artifact_location):
 
 def _validate_db_type_string(db_type):
     """validates db_type parsed from DB URI is supported"""
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
     if db_type not in DATABASE_ENGINES:
-        error_msg = f"Invalid database engine: '{db_type}'. '{_UNSUPPORTED_DB_TYPE_MSG}'"
+        error_msg = (
+            f"Invalid database engine: '{db_type}'. "
+            f"Supported database engines are {', '.join(DATABASE_ENGINES)}"
+        )
         raise MlflowException(error_msg, INVALID_PARAMETER_VALUE)
 
 
@@ -604,8 +655,120 @@ def _validate_username(username):
         raise MlflowException("Username cannot be empty.", INVALID_PARAMETER_VALUE)
 
 
+def _validate_password(password) -> None:
+    if password is None or len(password) < 12:
+        raise MlflowException.invalid_parameter_value(
+            "Password must be a string longer than 12 characters."
+        )
+
+
 def _validate_trace_tag(key, value):
     _validate_tag_name(key)
     key = _validate_length_limit("key", MAX_TRACE_TAG_KEY_LENGTH, key)
     value = _validate_length_limit("value", MAX_TRACE_TAG_VAL_LENGTH, value, truncate=True)
     return key, value
+
+
+def _validate_experiment_artifact_location_length(artifact_location: str):
+    max_length = MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH.get()
+    if len(artifact_location) > max_length:
+        raise MlflowException(
+            "Invalid artifact path length. The length of the artifact path cannot be "
+            f"greater than {max_length} characters. To configure this limit, please set the "
+            "MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH environment variable.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_logged_model_name(name: str | None) -> None:
+    if name is None:
+        return
+
+    bad_chars = ("/", ":", ".", "%", '"', "'")
+    if not name or any(c in name for c in bad_chars):
+        raise MlflowException(
+            f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
+            f"and cannot contain the following characters: {bad_chars}",
+            INVALID_PARAMETER_VALUE,
+        )
+
+
+_WEBHOOK_NAME_REGEX = re.compile(
+    r"^(?=.{1,63}$)"  # Total length between 1 and 63 characters
+    r"[a-z0-9]"  # Must start with letter or digit
+    r"([a-z0-9._-]*[a-z0-9])?$",  # Optional middle + end with letter/digit
+    re.IGNORECASE,
+)
+
+
+def _validate_webhook_name(name: str) -> None:
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name must be a string, got {type(name).__name__!r}"
+        )
+
+    if not _WEBHOOK_NAME_REGEX.fullmatch(name):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
+            "be less than 63 characters long, and contain only letters, digits, dots (.), "
+            "underscores (_), and hyphens (-)."
+        )
+
+
+def _validate_webhook_url(url: str) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+    schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
+    if parsed_url.scheme not in schemes:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
+            f"Allowed schemes are: {', '.join(schemes)}."
+        )
+
+
+def _validate_webhook_events(events: list[WebhookEvent]) -> None:
+    if (
+        not events
+        or not isinstance(events, list)
+        or not all(isinstance(e, WebhookEvent) for e in events)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
+        )
+
+
+def _resolve_experiment_ids_and_locations(
+    experiment_ids: list[str] | None, locations: list[str] | None
+) -> list[str]:
+    if experiment_ids:
+        if locations:
+            raise MlflowException.invalid_parameter_value(
+                "`experiment_ids` is deprecated, use `locations` instead."
+            )
+        else:
+            locations = experiment_ids
+    if not locations:
+        return locations
+
+    if invalid_experiment_ids := [location for location in locations if "." in location]:
+        invalid_exp_ids_str = ", ".join(invalid_experiment_ids)
+        if len(invalid_exp_ids_str) > 20:
+            invalid_exp_ids_str = invalid_exp_ids_str[:20] + "..."
+        raise MlflowException.invalid_parameter_value(
+            "Locations must be a list of experiment IDs. "
+            f"Found invalid experiment IDs: {invalid_exp_ids_str}."
+        )
+
+    return locations

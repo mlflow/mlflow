@@ -1,5 +1,4 @@
 import React from 'react';
-import type { EmotionJSX } from '@emotion/react/types/jsx-namespace';
 
 import {
   type Location,
@@ -10,6 +9,7 @@ import {
   useNavigate,
   useParams,
 } from './RoutingUtils';
+import { useSearchParams } from './RoutingUtils';
 
 export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
   navigate: ReturnType<typeof useNavigate>;
@@ -24,11 +24,11 @@ export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMP
 export const withRouterNext =
   <
     T,
-    Props extends EmotionJSX.IntrinsicAttributes &
-      EmotionJSX.LibraryManagedAttributes<React.ComponentType<T>, React.PropsWithChildren<T>>,
+    Props extends JSX.IntrinsicAttributes &
+      JSX.LibraryManagedAttributes<React.ComponentType<React.PropsWithChildren<T>>, React.PropsWithChildren<T>>,
     Params extends RouterDOMParams = RouterDOMParams,
   >(
-    Component: React.ComponentType<T>,
+    Component: React.ComponentType<React.PropsWithChildren<T>>,
   ) =>
   (
     props: Omit<
@@ -43,6 +43,7 @@ export const withRouterNext =
     const location = useLocation();
     const navigate = useNavigate();
     const params = useParams<Params>();
+    const [searchParams, setSearchParams] = useSearchParams();
 
     return (
       <Component
@@ -50,6 +51,8 @@ export const withRouterNext =
         params={params as Params}
         location={location}
         navigate={navigate}
+        searchParams={searchParams}
+        setSearchParams={setSearchParams}
         {...(props as Props)}
       />
     );

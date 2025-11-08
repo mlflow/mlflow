@@ -1,20 +1,18 @@
 """add cascading deletion to datasets from experiments
 
-Revision ID: 0584bdc529eb
-Revises: f5a4f2784254
 Create Date: 2024-11-11 15:27:53.189685
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking.dbmodels.models import SqlDataset, SqlExperiment
 
-
 # revision identifiers, used by Alembic.
-revision = '0584bdc529eb'
-down_revision = 'f5a4f2784254'
+revision = "0584bdc529eb"
+down_revision = "f5a4f2784254"
 branch_labels = None
 depends_on = None
 
@@ -25,15 +23,17 @@ def get_datasets_experiment_fk_name():
     metadata.bind = conn
     datasets_table = sa.Table(
         SqlDataset.__tablename__,
-        metadata, 
+        metadata,
         autoload_with=conn,
     )
 
     for constraint in datasets_table.foreign_key_constraints:
-        if (constraint.referred_table.name == SqlExperiment.__tablename__ and
-            constraint.column_keys[0] == "experiment_id"):
+        if (
+            constraint.referred_table.name == SqlExperiment.__tablename__
+            and constraint.column_keys[0] == "experiment_id"
+        ):
             return constraint.name
-    
+
     raise MlflowException(
         "Unable to find the foreign key constraint name from datasets to experiments. "
         "All foreign key constraints in datasets table: \n"
@@ -45,7 +45,9 @@ def upgrade():
     dialect_name = op.get_context().dialect.name
 
     # standardize the constraint to sqlite naming convention
-    new_fk_constraint_name = f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}"
+    new_fk_constraint_name = (
+        f"fk_{SqlDataset.__tablename__}_experiment_id_{SqlExperiment.__tablename__}"
+    )
 
     if dialect_name == "sqlite":
         # Only way to drop unnamed fk constraint in sqllite

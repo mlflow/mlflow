@@ -63,7 +63,9 @@ def log_everything():
         mlflow.log_params({"param": "value"})
         mlflow.log_metrics({"metric": 0.1})
         mlflow.set_tags({"tag": "run"})
-        model_info = mlflow.pyfunc.log_model("model", python_model=Model())
+        model_info = mlflow.pyfunc.log_model(  # clint: disable=log-model-artifact-path
+            "model", python_model=Model()
+        )
 
     client = mlflow.MlflowClient()
     registered_model_name = uuid.uuid4().hex

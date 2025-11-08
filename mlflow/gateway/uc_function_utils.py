@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from io import StringIO
-from typing import TYPE_CHECKING, Any, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from databricks.sdk import WorkspaceClient
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 _UC_FUNCTION = "uc_function"
 
 
-def uc_type_to_json_schema_type(uc_type_json: Union[str, dict[str, Any]]) -> dict[str, Any]:
+def uc_type_to_json_schema_type(uc_type_json: str | dict[str, Any]) -> dict[str, Any]:
     """
     Converts the JSON representation of a Unity Catalog data type to the corresponding JSON schema
     type. The conversion is lossy because we do not need to convert it back.
@@ -71,7 +71,7 @@ def uc_type_to_json_schema_type(uc_type_json: Union[str, dict[str, Any]]) -> dic
             raise TypeError(f"Unknown type {uc_type_json}. Try upgrading this package.")
 
 
-def extract_param_metadata(p: "FunctionParameterInfo") -> dict:
+def extract_param_metadata(p: "FunctionParameterInfo") -> dict[str, Any]:
     type_json = json.loads(p.type_json)["type"]
     json_schema_type = uc_type_to_json_schema_type(type_json)
     json_schema_type["name"] = p.name
@@ -107,10 +107,10 @@ class FunctionExecutionResult:
     We always use a string to present the result value for AI model to consume.
     """
 
-    error: Optional[str] = None
-    format: Optional[Literal["SCALAR", "CSV"]] = None
-    value: Optional[str] = None
-    truncated: Optional[bool] = None
+    error: str | None = None
+    format: Literal["SCALAR", "CSV"] | None = None
+    value: str | None = None
+    truncated: bool | None = None
 
     def to_json(self) -> str:
         data = {k: v for (k, v) in self.__dict__.items() if v is not None}
@@ -197,8 +197,7 @@ def execute_function(
         import pandas as pd
     except ImportError as e:
         raise ImportError(
-            "Could not import pandas python package. "
-            "Please install it with `pip install pandas`."
+            "Could not import pandas python package. Please install it with `pip install pandas`."
         ) from e
     from databricks.sdk.service.sql import StatementState
 
@@ -232,9 +231,9 @@ def execute_function(
         return FunctionExecutionResult(format="SCALAR", value=value, truncated=truncated)
     else:
         schema = manifest.schema
-        assert (
-            schema is not None and schema.columns is not None
-        ), "Statement execution succeeded but no schema was provided."
+        assert schema is not None and schema.columns is not None, (
+            "Statement execution succeeded but no schema was provided."
+        )
         columns = [c.name for c in schema.columns]
         if data_array is None:
             data_array = []
@@ -287,7 +286,7 @@ _UC_REGEX = re.compile(
 )
 
 
-def parse_uc_functions(content) -> Optional[ParseResult]:
+def parse_uc_functions(content) -> ParseResult | None:
     tool_calls = []
     tool_messages = []
     for m in _UC_REGEX.finditer(content):

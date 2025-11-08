@@ -1,10 +1,8 @@
 from collections import Counter, defaultdict
 from unittest import mock
 
-import langchain
 import pytest
 from databricks.vector_search.client import VectorSearchIndex
-from packaging.version import Version
 
 from mlflow.langchain.databricks_dependencies import (
     _detect_databricks_dependencies,
@@ -39,7 +37,7 @@ class MockDatabricksServingEndpointClient:
 
 def _is_partner_package_installed():
     try:
-        import langchain_databricks  # noqa: F401
+        import databricks_langchain  # noqa: F401
 
         return True
     except ImportError:
@@ -61,7 +59,7 @@ def remove_langchain_community(monkeypatch):
 def test_parsing_dependency_from_databricks_llm(monkeypatch: pytest.MonkeyPatch):
     from langchain_community.llms import Databricks
 
-    from mlflow.langchain.utils import IS_PICKLE_SERIALIZATION_RESTRICTED
+    from mlflow.langchain.utils.logging import IS_PICKLE_SERIALIZATION_RESTRICTED
 
     monkeypatch.setattr(
         "langchain_community.llms.databricks._DatabricksServingEndpointClient",
@@ -145,7 +143,7 @@ def get_vector_search(
     index = MockVectorSearchIndex(endpoint_name, index_name, has_embedding_endpoint)
 
     if use_partner_package:
-        from langchain_databricks import DatabricksVectorSearch
+        from databricks_langchain import DatabricksVectorSearch
 
         with mock.patch("databricks.vector_search.client.VectorSearchClient") as mock_client:
             mock_client().get_index.return_value = index
@@ -165,10 +163,10 @@ def get_vector_search(
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import DatabricksEmbeddings
+        from databricks_langchain import DatabricksEmbeddings
         from langchain_openai import ChatOpenAI
 
         remove_langchain_community(monkeypatch)
@@ -257,7 +255,7 @@ def test_parsing_dependency_from_databricks_retriever(monkeypatch, use_partner_p
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_retriever_with_embedding_endpoint_in_index(use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     vectorstore = get_vector_search(
         use_partner_package=use_partner_package,
@@ -330,21 +328,17 @@ def test_parsing_dependency_from_agent(monkeypatch: pytest.MonkeyPatch):
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.1.0"),
-    reason="Tools are not supported the way we want in earlier versions",
-)
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
     from langchain.tools.retriever import create_retriever_tool
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -465,10 +459,15 @@ def test_parsing_multiple_dependency_from_agent(monkeypatch, use_partner_package
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
+
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -484,10 +483,15 @@ def test_parsing_dependency_from_databricks_chat(monkeypatch, use_partner_packag
 @pytest.mark.parametrize("use_partner_package", [True, False])
 def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     if use_partner_package and not _is_partner_package_installed():
-        pytest.skip("`langchain-databricks` is not installed")
+        pytest.skip("`databricks-langchain` is not installed")
 
     if use_partner_package:
-        from langchain_databricks import ChatDatabricks
+        from databricks_langchain import ChatDatabricks
+
+        # in databricks-langchain > 0.7.0, ChatDatabricks instantiates
+        # workspace client in __init__ which requires Databricks creds
+        monkeypatch.setenv("DATABRICKS_HOST", "my-default-host")
+        monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
 
         remove_langchain_community(monkeypatch)
         with pytest.raises(ImportError, match="No module named 'langchain_community"):
@@ -514,10 +518,6 @@ def test_parsing_dependency_from_databricks(monkeypatch, use_partner_package):
     ]
 
 
-@pytest.mark.skipif(
-    Version(langchain.__version__) < Version("0.2.0"),
-    reason="unitycatalog-langchain depends on langchain>=0.2.0",
-)
 def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch):
     from databricks.sdk.service.catalog import FunctionInfo
     from langchain.agents import initialize_agent
@@ -557,11 +557,10 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     monkeypatch.setenv("DATABRICKS_TOKEN", "my-default-token")
     monkeypatch.setattr("databricks.sdk.service.catalog.FunctionsAPI.get", mock_function_get)
 
-    with mock.patch(
-        "unitycatalog.ai.core.databricks.DatabricksFunctionClient._validate_warehouse_type",
-        return_value=None,
-    ):
-        client = DatabricksFunctionClient(warehouse_id="testId1")
+    # TODO: remove this mock after unitycatalog-ai release a new version to avoid setting
+    # spark session during initialization
+    with mock.patch("unitycatalog.ai.core.databricks.DatabricksFunctionClient.set_spark_session"):
+        client = DatabricksFunctionClient()
     toolkit = UCFunctionToolkit(function_names=["rag.test.test_function"], client=client)
     llm = OpenAI(temperature=0)
     agent = initialize_agent(
@@ -573,5 +572,4 @@ def test_parsing_unitycatalog_tool_as_dependency(monkeypatch: pytest.MonkeyPatch
     resources = list(_extract_dependency_list_from_lc_model(agent))
     assert resources == [
         DatabricksFunction(function_name="rag.test.test_function"),
-        DatabricksSQLWarehouse(warehouse_id="testId1"),
     ]

@@ -42,8 +42,7 @@ def create_fake_chain():
     [
         None,
         {"log_traces": False},
-        {"log_models": True},
-        {"log_traces": False, "log_models": False},
+        {"log_traces": True},
     ],
 )
 @pytest.mark.usefixtures("reset_autolog_state")
@@ -83,27 +82,19 @@ def test_langchain_evaluate(config):
     purge_traces()
 
     # Test original langchain autolog configs is restored
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        chain.invoke({"question": "text"})
-
-        if config and config.get("log_models", False):
-            log_model_mock.assert_called_once()
-
-        assert len(get_traces()) == (1 if is_trace_enabled else 0)
+    chain.invoke({"question": "text"})
+    assert len(get_traces()) == (1 if is_trace_enabled else 0)
 
 
 @pytest.mark.usefixtures("reset_autolog_state")
 def test_langchain_evaluate_fails_with_an_exception():
     # Check langchain autolog parameters are restored after evaluation
-    mlflow.langchain.autolog(log_models=True)
+    mlflow.langchain.autolog()
 
     chain = create_fake_chain()
 
-    with (
-        mock.patch("mlflow.langchain.log_model") as log_model_mock,
-        mock.patch.object(
-            DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
-        ),
+    with mock.patch.object(
+        DefaultEvaluator, "evaluate", side_effect=MlflowException("evaluate mock error")
     ):
 
         def model(inputs):
@@ -117,16 +108,12 @@ def test_langchain_evaluate_fails_with_an_exception():
                     targets="ground_truth",
                     extra_metrics=[mlflow.metrics.exact_match()],
                 )
-            log_model_mock.assert_not_called()
 
     assert len(get_traces()) == 0
 
     # Test original langchain autolog configs is restored
-    with mock.patch("mlflow.langchain.log_model") as log_model_mock:
-        chain.invoke({"question": "text"})
-
-        log_model_mock.assert_called_once()
-        assert len(get_traces()) == 1
+    chain.invoke({"question": "text"})
+    assert len(get_traces()) == 1
 
 
 @pytest.mark.usefixtures("reset_autolog_state")
@@ -134,7 +121,7 @@ def test_langchain_pyfunc_evaluate():
     chain = create_fake_chain()
 
     with mlflow.start_run() as run:
-        model_info = mlflow.langchain.log_model(chain, "model")
+        model_info = mlflow.langchain.log_model(chain, name="model")
         evaluate(
             model_info.model_uri,
             data=_EVAL_DATA,

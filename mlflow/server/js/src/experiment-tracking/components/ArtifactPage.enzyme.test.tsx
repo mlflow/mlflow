@@ -104,6 +104,7 @@ describe('ArtifactPage', () => {
     );
     expect(wrapper.find('ArtifactViewBrowserSkeleton').length).toBe(1);
   });
+  // eslint-disable-next-line jest/no-done-callback -- TODO(FEINF-1337)
   test('should make correct number of API requests if artifact path specified in url', (done) => {
     const mock = jest.fn();
     const props = {
@@ -167,18 +168,6 @@ describe('ArtifactPage', () => {
     });
     expect(expectedActions).toHaveLength(3);
   });
-  test('should not poll for model versions if registry is disabled', () => {
-    jest.useFakeTimers();
-    const enabledSpy = jest.spyOn(Utils, 'isModelRegistryEnabled').mockImplementation(() => false);
-    expect(Utils.isModelRegistryEnabled()).toEqual(false);
-    getArtifactPageInstance().handleActiveNodeChange(true);
-    jest.advanceTimersByTime(POLL_INTERVAL * 3);
-    const expectedActions = minimalStore.getActions().filter((action: any) => {
-      return action.type === pending(SEARCH_MODEL_VERSIONS);
-    });
-    expect(expectedActions).toHaveLength(0);
-    enabledSpy.mockRestore();
-  });
   test('should not poll for model versions if active node is not directory', () => {
     jest.useFakeTimers();
     expect(getArtifactPageInstance().state.activeNodeIsDirectory).toEqual(false);
@@ -192,7 +181,7 @@ describe('ArtifactPage', () => {
     jest.useFakeTimers();
     Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
     Utils.logErrorAndNotifyUser = jest.fn();
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(0);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(0);
     const props = {
       ...minimalProps,
       apis: {},
@@ -212,7 +201,7 @@ describe('ArtifactPage', () => {
     // Wait multiple poll intervals
     jest.advanceTimersByTime(POLL_INTERVAL * 3);
     // We should have only one error call
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(1);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(1);
     // Let's change the run uuid now by changing the props
     // sadly, enzyme provides no convenient method to change
     // the deeply nested component props so we need to
@@ -227,7 +216,7 @@ describe('ArtifactPage', () => {
     // Wait another multiple poll intervals
     jest.advanceTimersByTime(POLL_INTERVAL * 5);
     // We should have only one more error call
-    expect(Utils.logErrorAndNotifyUser).toBeCalledTimes(2);
+    expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(2);
     jest.clearAllMocks();
   });
   describe('autoselect logged model', () => {

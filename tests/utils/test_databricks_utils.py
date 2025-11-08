@@ -17,9 +17,11 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
+    DatabricksRuntimeVersion,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
+    get_databricks_workspace_client_config,
     get_dbconnect_udf_sandbox_info,
     get_mlflow_credential_context_by_run_id,
     get_workspace_info_from_databricks_secrets,
@@ -46,14 +48,17 @@ def test_no_throw():
     assert not databricks_utils.is_in_databricks_runtime()
 
 
-@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
-def test_databricks_registry_profile(ProfileConfigProvider):
+def test_databricks_registry_profile():
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = None
-    ProfileConfigProvider.return_value = mock_provider
     mock_dbutils = mock.MagicMock()
     mock_dbutils.secrets.get.return_value = "random"
-    with mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils):
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+        ),
+        mock.patch("mlflow.utils.databricks_utils._get_dbutils", return_value=mock_dbutils),
+    ):
         params = databricks_utils.get_databricks_host_creds("databricks://profile:prefix")
         mock_dbutils.secrets.get.assert_any_call(key="prefix-host", scope="profile")
         mock_dbutils.secrets.get.assert_any_call(key="prefix-token", scope="profile")
@@ -278,25 +283,32 @@ def test_is_databricks_default_tracking_uri(tracking_uri, result):
     assert is_databricks_default_tracking_uri(tracking_uri) == result
 
 
-@mock.patch("mlflow.utils.databricks_utils.ProfileConfigProvider")
-def test_databricks_params_throws_errors(ProfileConfigProvider):
+def test_databricks_params_throws_errors():
     # No hostname
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         None, "user", "pass", insecure=True
     )
-    ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading Databricks credential configuration failed with"):
-        databricks_utils.get_databricks_host_creds()
+    with mock.patch(
+        "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+    ):
+        with pytest.raises(
+            Exception, match="Reading Databricks credential configuration failed with"
+        ):
+            databricks_utils.get_databricks_host_creds()
 
     # No authentication
     mock_provider = mock.MagicMock()
     mock_provider.get_config.return_value = DatabricksConfig.from_password(
         "host", None, None, insecure=True
     )
-    ProfileConfigProvider.return_value = mock_provider
-    with pytest.raises(Exception, match="Reading Databricks credential configuration failed with"):
-        databricks_utils.get_databricks_host_creds()
+    with mock.patch(
+        "mlflow.utils.databricks_utils.ProfileConfigProvider", return_value=mock_provider
+    ):
+        with pytest.raises(
+            Exception, match="Reading Databricks credential configuration failed with"
+        ):
+            databricks_utils.get_databricks_host_creds()
 
 
 def test_is_in_databricks_runtime(monkeypatch):
@@ -313,10 +325,6 @@ def test_is_in_databricks_model_serving_environment(monkeypatch):
 
     monkeypatch.delenv("IS_IN_DB_MODEL_SERVING_ENV")
     assert not databricks_utils.is_in_databricks_model_serving_environment()
-
-    # Backward compatibility with old env var name
-    monkeypatch.setenv("IS_IN_DATABRICKS_MODEL_SERVING_ENV", "true")
-    assert databricks_utils.is_in_databricks_model_serving_environment()
 
 
 # test both is_in_databricks_model_serving_environment and
@@ -597,3 +605,263 @@ def test_get_dbconnect_udf_sandbox_info(spark, monkeypatch):
     assert info.image_version == "15.4"
     assert info.runtime_version == "15.4"
     assert info.platform_machine == platform.machine()
+
+
+def test_construct_databricks_uc_registered_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    registered_model_name = "name.mlflow.echo_model"
+    version = "6"
+    workspace_id = "123"
+
+    expected_url = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6?o=123"
+    )
+
+    result = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = (
+        "https://databricks.com/explore/data/models/name/mlflow/echo_model/version/6"
+    )
+
+    result_no_workspace = databricks_utils._construct_databricks_uc_registered_model_url(
+        workspace_url=workspace_url,
+        registered_model_name=registered_model_name,
+        version=version,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
+
+
+def test_construct_databricks_logged_model_url():
+    # Test case with workspace ID
+    workspace_url = "https://databricks.com"
+    experiment_id = "123456"
+    model_id = "model_789"
+    workspace_id = "123"
+
+    expected_url = "https://databricks.com/ml/experiments/123456/models/model_789?o=123"
+
+    result = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+        workspace_id=workspace_id,
+    )
+
+    assert result == expected_url
+
+    # Test case without workspace ID
+    expected_url_no_workspace = "https://databricks.com/ml/experiments/123456/models/model_789"
+
+    result_no_workspace = databricks_utils._construct_databricks_logged_model_url(
+        workspace_url=workspace_url,
+        experiment_id=experiment_id,
+        model_id=model_id,
+    )
+
+    assert result_no_workspace == expected_url_no_workspace
+
+
+def test_print_databricks_deployment_job_url():
+    workspace_url = "https://databricks.com"
+    job_id = "123"
+    workspace_id = "456"
+
+    expected_url_no_workspace = "https://databricks.com/jobs/123"
+    expected_url = f"{expected_url_no_workspace}?o=456"
+    model_name = "main.models.name"
+
+    with (
+        mock.patch("mlflow.utils.databricks_utils.eprint") as mock_eprint,
+        mock.patch("mlflow.utils.databricks_utils.get_workspace_url", return_value=workspace_url),
+    ):
+        # Test case with a workspace ID
+        with mock.patch(
+            "mlflow.utils.databricks_utils.get_workspace_id", return_value=workspace_id
+        ):
+            result = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result == expected_url
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url}"
+            )
+            mock_eprint.reset_mock()
+
+        # Test case without a workspace ID
+        with mock.patch("mlflow.utils.databricks_utils.get_workspace_id", return_value=None):
+            result_no_workspace = databricks_utils._print_databricks_deployment_job_url(
+                model_name=model_name,
+                job_id=job_id,
+            )
+
+            assert result_no_workspace == expected_url_no_workspace
+            mock_eprint.assert_called_once_with(
+                f"🔗 Linked deployment job to '{model_name}': {expected_url_no_workspace}"
+            )
+
+
+@pytest.mark.parametrize(
+    ("version_str", "expected_is_client", "expected_major", "expected_minor"),
+    [
+        ("client.2.0", True, 2, 0),
+        ("client.3.1", True, 3, 1),
+        ("13.2", False, 13, 2),
+        ("15.4", False, 15, 4),
+    ],
+)
+def test_databricks_runtime_version_parse(
+    version_str,
+    expected_is_client,
+    expected_major,
+    expected_minor,
+):
+    """Test that DatabricksRuntimeVersion.parse() correctly parses version strings."""
+    version = DatabricksRuntimeVersion.parse(version_str)
+    assert version.is_client_image == expected_is_client
+    assert version.major == expected_major
+    assert version.minor == expected_minor
+
+
+@pytest.mark.parametrize(
+    ("env_version", "expected_is_client", "expected_major", "expected_minor"),
+    [
+        ("client.2.0", True, 2, 0),
+        ("13.2", False, 13, 2),
+    ],
+)
+def test_databricks_runtime_version_parse_default(
+    monkeypatch,
+    env_version,
+    expected_is_client,
+    expected_major,
+    expected_minor,
+):
+    """Test that DatabricksRuntimeVersion.parse() works without arguments."""
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", env_version)
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image == expected_is_client
+    assert version.major == expected_major
+    assert version.minor == expected_minor
+
+
+def test_databricks_runtime_version_parse_default_no_env(monkeypatch):
+    """Test that DatabricksRuntimeVersion.parse() raises error when no environment variable is
+    set.
+    """
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION", raising=False)
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse()
+
+
+@pytest.mark.parametrize(
+    "invalid_version",
+    [
+        "invalid",
+        "client",
+        "client.invalid",
+        "13",
+    ],
+)
+def test_databricks_runtime_version_parse_invalid(invalid_version):
+    """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse(invalid_version)
+
+
+def test_get_databricks_workspace_client_config_with_tracking_uri_provider():
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    # Mock TrackingURIConfigProvider
+    mock_uri_config = mock.MagicMock()
+    mock_uri_config.host = "https://test.databricks.com"
+    mock_uri_config.token = "test_token"
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri",
+            return_value=("profile_name", "key_prefix"),
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+        mock.patch("mlflow.utils.databricks_utils.TrackingURIConfigProvider") as mock_provider,
+    ):
+        mock_provider.return_value.get_config.return_value = mock_uri_config
+
+        result = get_databricks_workspace_client_config("databricks://profile:prefix")
+
+        # Verify the WorkspaceClient was created with correct parameters
+        mock_workspace_client.assert_called_once_with(
+            host="https://test.databricks.com", token="test_token"
+        )
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_with_profile():
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri",
+            return_value=("profile_name", None),
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+    ):
+        result = get_databricks_workspace_client_config("databricks://profile_name")
+
+        # Verify the WorkspaceClient was created with profile
+        mock_workspace_client.assert_called_once_with(profile="profile_name")
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_env_profile(monkeypatch):
+    monkeypatch.setenv("DATABRICKS_CONFIG_PROFILE", "env_profile")
+    # Mock the workspace client and its config
+    mock_config = mock.MagicMock()
+    mock_client_instance = mock.MagicMock()
+    mock_client_instance.config = mock_config
+
+    with (
+        mock.patch("mlflow.utils.databricks_utils.get_db_info_from_uri", return_value=(None, None)),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", return_value=mock_client_instance
+        ) as mock_workspace_client,
+    ):
+        result = get_databricks_workspace_client_config("databricks")
+
+        # Verify the WorkspaceClient was created with environment profile
+        mock_workspace_client.assert_called_once_with(profile="env_profile")
+        assert result == mock_config
+
+
+def test_get_databricks_workspace_client_config_client_creation_error():
+    with (
+        mock.patch(
+            "mlflow.utils.databricks_utils.get_db_info_from_uri", return_value=("profile", None)
+        ),
+        mock.patch(
+            "databricks.sdk.WorkspaceClient", side_effect=Exception("Client creation failed")
+        ),
+    ):
+        with pytest.raises(Exception, match="Client creation failed"):
+            get_databricks_workspace_client_config("databricks://profile")

@@ -110,7 +110,7 @@ def test_dspy_evaluate(config):
 @pytest.mark.usefixtures("reset_autolog_state")
 def test_dspy_pyfunc_evaluate():
     with mlflow.start_run() as run:
-        model_info = mlflow.dspy.log_model(get_fake_model(), "model")
+        model_info = mlflow.dspy.log_model(get_fake_model(), name="model")
         eval_result = mlflow.evaluate(
             model_info.model_uri,
             data=_EVAL_DATA,

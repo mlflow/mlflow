@@ -1,0 +1,184 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import ImageBox from "@site/src/components/ImageBox";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Target, Users, Shield, GitCompare, MessageSquare, FileText, Book } from "lucide-react";
+
+# Expectation Concepts
+
+## What are Expectations?
+
+**Expectations** in MLflow represent the ground truth or desired outputs for your GenAI application. They provide a standardized way to capture what your AI system should produce for a given input, establishing the reference point against which actual performance is measured.
+
+Expectations serve as the foundation for systematic evaluation, enabling you to define clear quality standards and measure how well your application meets them across different scenarios and use cases.
+
+![Expectations in UI](/images/assessments/add_expectation_ui.png)
+
+## Use Cases
+
+<FeatureHighlights features={[
+  {
+    icon: Target,
+    title: "Ground Truth Definition",
+    description: "Establish clear, measurable standards for what your GenAI application should produce. For example, define expected answers for factual questions or desired formats for structured outputs."
+  },
+  {
+    icon: Users,
+    title: "Expert Knowledge Capture",
+    description: "Capture domain expertise by having subject matter experts define the correct outputs for complex scenarios, creating a knowledge base that can guide both development and evaluation."
+  },
+  {
+    icon: Shield,
+    title: "Quality Standards",
+    description: "Set explicit quality benchmarks for safety, accuracy, and compliance requirements. Expectations help ensure your AI meets organizational and regulatory standards."
+  },
+  {
+    icon: GitCompare,
+    title: "Model Comparison",
+    description: "Use expectations as a consistent baseline to compare different models, prompts, or configurations. This enables objective evaluation of which approach best meets your requirements."
+  }
+]} />
+
+## Core Structure
+
+Expectations are always created by human experts who understand the correct behavior for your AI system. The <APILink fn="mlflow.entities.Expectation">`Expectation`</APILink> object in MLflow provides a standard container for storing these ground truth values along with metadata about their creation. Expectations are associated with a Trace, or a particular Span in the Trace, allowing you to define expected behavior at any level of granularity.
+
+## Expectation Object Schema
+
+| Field                 | Type                       | Description                                                                                                                                                                                                                                                                                                                                               |
+| --------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                | `str`                      | A string identifying the specific aspect being defined as ground truth                                                                                                                                                                                                                                                                                    |
+| `value`               | `Any`                      | The expected value, which can be <br/><br/> <ul><li>Text responses (e.g., `"The capital of France is Paris"`)</li><li>Structured data (e.g., `{"category": "complaint", "priority": "high"}`)</li><li>Lists (e.g., `["doc_123", "doc_456"]` for expected retrieval results)</li><li>Any JSON-serializable value representing the desired output</li></ul> |
+| `source`              | `AssessmentSource`         | The source of the expectation, always of type `HUMAN` for expectations. The ID typically identifies the expert who defined the ground truth (e.g., email, username, or team identifier).                                                                                                                                                                  |
+| `metadata`            | `Optional[dict[str, str]]` | Optional key-value pairs providing context about the expectation, such as confidence level, annotation guidelines used, or version information.                                                                                                                                                                                                           |
+| `create_time_ms`      | `int`                      | The timestamp of when the expectation was created, in milliseconds.                                                                                                                                                                                                                                                                                       |
+| `last_update_time_ms` | `int`                      | The timestamp of when the expectation was last updated, in milliseconds.                                                                                                                                                                                                                                                                                  |
+| `trace_id`            | `str`                      | The ID of the trace that the expectation is attached to.                                                                                                                                                                                                                                                                                                  |
+| `span_id`             | `Optional[str]`            | The ID of the span that the expectation is attached to, if it targets a specific operation within the trace. For example, you can set expectations for what documents should be retrieved in a RAG application.                                                                                                                                           |
+
+## Expectation Examples
+
+**Expected Answer for Factual Question**
+
+```json
+{
+    "name": "expected_answer",
+    "value": "The capital of France is Paris. It has been the capital since 987 AD and is home to over 2 million people.",
+    "source": {
+        "source_type": "HUMAN",
+        "source_id": "geography_expert@company.com"
+    },
+    "metadata": {
+        "confidence": "high",
+        "reference": "Company knowledge base v2.1"
+    }
+}
+```
+
+**Expected Classification Output**
+
+```json
+{
+    "name": "expected_classification",
+    "value": {
+        "category": "customer_complaint",
+        "sentiment": "negative",
+        "priority": "high",
+        "department": "billing"
+    },
+    "source": {
+        "source_type": "HUMAN",
+        "source_id": "support_team_lead@company.com"
+    },
+    "metadata": {
+        "classification_version": "v3.2",
+        "based_on": "Historical ticket analysis"
+    }
+}
+```
+
+**Expected Document Retrieval for RAG System**
+
+```json
+{
+    "name": "expected_documents",
+    "value": ["policy_doc_2024_v3", "faq_billing_section", "terms_of_service_5.1"],
+    "source": {
+        "source_type": "HUMAN",
+        "source_id": "rag_specialist@company.com"
+    },
+    "metadata": {
+        "relevance_threshold": "0.85",
+        "expected_order": "by_relevance"
+    }
+}
+```
+
+## Key Differences from Feedback
+
+While both Expectations and Feedback are types of assessments in MLflow, they serve distinct purposes:
+
+| Aspect      | Expectations                      | Feedback                                |
+| ----------- | --------------------------------- | --------------------------------------- |
+| **Purpose** | Define what the AI should produce | Evaluate how well the AI performed      |
+| **Timing**  | Set before or during development  | Applied after AI generates output       |
+| **Source**  | Always from human experts         | Can be from humans, LLM judges, or code |
+| **Content** | Ground truth values               | Quality scores, pass/fail judgments     |
+| **Usage**   | Reference point for evaluation    | Actual evaluation results               |
+
+## Best Practices
+
+1. **Be Specific**: Define expectations that are clear and unambiguous. Avoid vague expectations that could be interpreted multiple ways.
+
+2. **Consider Edge Cases**: Include expectations for edge cases and error scenarios, not just happy path examples.
+
+3. **Version Your Standards**: Use metadata to track which version of guidelines or standards was used to create expectations.
+
+4. **Target Appropriate Granularity**: Use span-level expectations when you need to validate specific operations (like retrieval or parsing) within a larger workflow.
+
+5. **Maintain Consistency**: Ensure multiple experts use the same criteria when defining expectations for similar scenarios.
+
+## Integration with Evaluation
+
+Expectations work hand-in-hand with MLflow's evaluation capabilities:
+
+- **Automated Comparison**: Use expectations as the ground truth for automated evaluation metrics
+- **Human Review**: Compare actual outputs against expectations during manual review
+- **LLM Judge Evaluation**: Provide expectations as context to LLM judges for more accurate assessment
+- **Performance Tracking**: Monitor how well your system meets expectations over time
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Annotating Expectations"
+    description="Learn how to annotate ground truth expectations for your GenAI applications"
+    href="/genai/assessments/expectations"
+    linkText="Start annotating →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="Expectations API Guide"
+    description="Complete reference for the expectations API with practical examples"
+    href="/genai/assessments/expectations"
+    linkText="View API docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={MessageSquare}
+    iconSize={48}
+    title="Feedback Integration"
+    description="Understand how expectations work with feedback for comprehensive evaluation"
+    href="/genai/concepts/feedback"
+    linkText="Learn about feedback →"
+    containerHeight={64}
+  />
+</TilesGrid>

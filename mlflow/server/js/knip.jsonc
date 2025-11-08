@@ -1,0 +1,35 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema-jsonc.json",
+  "entry": [
+    // Main entry point
+    "src/index.tsx",
+
+    // Setup files
+    "src/setupProxy.js",
+    "src/setupTests.js",
+
+    // GraphQL codegen files
+    "src/graphql/graphql-codegen.ts",
+    "src/graphql/generated_graphql.ts",
+
+    // Feature store MFE entry points
+    "src/feature-store/index.tsx",
+    "src/feature-store/mfe/prefetch.ts",
+    "src/feature-store/mfe/register.tsx",
+    "src/feature-store/mfe/set-public-path.ts",
+
+    // MFE entry points
+    "src/mfe/prefetch.ts",
+    "src/mfe/public-path-utils.ts",
+    "src/mfe/register.tsx",
+    "src/mfe/set-public-path.ts",
+
+    // Test and storybook files
+    "**/*.test.{js,jsx,ts,tsx}",
+    "**/*.stories.{js,jsx,ts,tsx}"
+  ],
+  // Only warn on unused files and exports
+  "include": ["files", "exports"],
+  "ignore": ["**/*.d.ts", "src/shared/{databricks_edge,web-shared}/**/*.{js,jsx,ts,tsx}", "**/*.{js,jsx,ts,tsx}"],
+  "project": ["src/**/*.{js,jsx,ts,tsx}"]
+}

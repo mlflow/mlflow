@@ -25,7 +25,7 @@ export const ExpandedJSONValueCell = ({ value }: { value: string }) => {
   );
 };
 
-export const ExpandableCell = ({
+const ExpandableCell = ({
   value,
   isExpanded,
   toggleExpanded,
@@ -60,8 +60,8 @@ export const ExpandableCell = ({
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           display: '-webkit-box',
-          '-webkit-box-orient': 'vertical',
-          '-webkit-line-clamp': isExpanded ? undefined : '3',
+          WebkitBoxOrient: 'vertical',
+          WebkitLineClamp: isExpanded ? undefined : '3',
         }}
       >
         {isExpanded ? <ExpandedJSONValueCell value={value} /> : value}

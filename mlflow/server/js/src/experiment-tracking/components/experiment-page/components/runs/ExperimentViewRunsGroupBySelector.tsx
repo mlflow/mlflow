@@ -16,12 +16,9 @@ import {
 import { compact, isEmpty, isString, keys, uniq, values } from 'lodash';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MLFLOW_INTERNAL_PREFIX } from '../../../../../common/utils/TagUtils';
-import {
-  RunsGroupByConfig,
-  createRunsGroupByKey,
-  normalizeRunsGroupByKey,
-} from '../../utils/experimentPage.group-row-utils';
-import { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
+import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-utils';
+import { createRunsGroupByKey, isGroupedBy, normalizeRunsGroupByKey } from '../../utils/experimentPage.group-row-utils';
+import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
 import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../common/utils/FeatureUtils';
 
@@ -181,10 +178,6 @@ const GroupBySelectorBody = ({
     }
   };
 
-  const isGroupedBy = (mode: RunGroupingMode, groupByData: string) => {
-    return groupByKeys.some((key) => key.mode === mode && key.groupByData === groupByData);
-  };
-
   return (
     <>
       <div css={{ display: 'flex', gap: theme.spacing.xs, padding: theme.spacing.sm }}>
@@ -285,7 +278,7 @@ const GroupBySelectorBody = ({
             {datasetLabel.toLowerCase().includes(filter.toLowerCase()) && (
               <DropdownMenu.CheckboxItem
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_280"
-                checked={isGroupedBy(RunGroupingMode.Dataset, 'dataset')}
+                checked={isGroupedBy(groupBy, RunGroupingMode.Dataset, 'dataset')}
                 key={createRunsGroupByKey(RunGroupingMode.Dataset, 'dataset', aggregateFunction)}
                 ref={attributeElementRef}
                 onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Dataset, 'dataset', checked)}
@@ -308,7 +301,7 @@ const GroupBySelectorBody = ({
               return (
                 <DropdownMenu.CheckboxItem
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_302"
-                  checked={isGroupedBy(RunGroupingMode.Tag, tagName)}
+                  checked={isGroupedBy(groupBy, RunGroupingMode.Tag, tagName)}
                   key={groupByKey}
                   ref={index === 0 ? tagElementRef : undefined}
                   onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Tag, tagName, checked)}
@@ -340,7 +333,7 @@ const GroupBySelectorBody = ({
               return (
                 <DropdownMenu.CheckboxItem
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_330"
-                  checked={isGroupedBy(RunGroupingMode.Param, paramName)}
+                  checked={isGroupedBy(groupBy, RunGroupingMode.Param, paramName)}
                   key={groupByKey}
                   ref={index === 0 ? paramElementRef : undefined}
                   onCheckedChange={(checked) => groupByToggle(RunGroupingMode.Param, paramName, checked)}

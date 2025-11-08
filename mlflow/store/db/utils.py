@@ -1,12 +1,15 @@
+import hashlib
 import logging
 import os
+import re
+import tempfile
 import time
 from contextlib import contextmanager
 
 import sqlalchemy
 from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from sqlalchemy import sql
+from sqlalchemy import event, sql
 
 # We need to import sqlalchemy.pool to convert poolclass string to class object
 from sqlalchemy.pool import (
@@ -20,6 +23,9 @@ from sqlalchemy.pool import (
 )
 
 from mlflow.environment_variables import (
+    MLFLOW_MYSQL_SSL_CA,
+    MLFLOW_MYSQL_SSL_CERT,
+    MLFLOW_MYSQL_SSL_KEY,
     MLFLOW_SQLALCHEMYSTORE_ECHO,
     MLFLOW_SQLALCHEMYSTORE_MAX_OVERFLOW,
     MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE,
@@ -27,7 +33,11 @@ from mlflow.environment_variables import (
     MLFLOW_SQLALCHEMYSTORE_POOLCLASS,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST, INTERNAL_ERROR, TEMPORARILY_UNAVAILABLE
+from mlflow.protos.databricks_pb2 import (
+    BAD_REQUEST,
+    INTERNAL_ERROR,
+    TEMPORARILY_UNAVAILABLE,
+)
 from mlflow.store.db.db_types import SQLITE
 from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersion,
@@ -43,13 +53,16 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlExperimentTag,
     SqlInput,
     SqlInputTag,
+    SqlJob,
     SqlLatestMetric,
     SqlMetric,
     SqlParam,
     SqlRun,
+    SqlScorer,
+    SqlScorerVersion,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
+    SqlTraceMetadata,
     SqlTraceTag,
 )
 
@@ -88,7 +101,10 @@ def _all_tables_exist(engine):
         SqlInputTag.__tablename__,
         SqlTraceInfo.__tablename__,
         SqlTraceTag.__tablename__,
-        SqlTraceRequestMetadata.__tablename__,
+        SqlTraceMetadata.__tablename__,
+        SqlScorer.__tablename__,
+        SqlScorerVersion.__tablename__,
+        SqlJob.__tablename__,
     }
 
 
@@ -96,6 +112,23 @@ def _initialize_tables(engine):
     _logger.info("Creating initial MLflow database tables...")
     InitialBase.metadata.create_all(engine)
     _upgrade_db(engine)
+
+
+def _safe_initialize_tables(engine: sqlalchemy.engine.Engine) -> None:
+    from mlflow.utils.file_utils import ExclusiveFileLock
+
+    if os.name == "nt":
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
+        return
+
+    url_hash = hashlib.md5(
+        str(engine.url).encode("utf-8"),
+        usedforsecurity=False,
+    ).hexdigest()
+    with ExclusiveFileLock(f"{tempfile.gettempdir()}/db_init_lock-{url_hash}"):
+        if not _all_tables_exist(engine):
+            _initialize_tables(engine)
 
 
 def _get_latest_schema_revision():
@@ -155,13 +188,13 @@ def _get_managed_session_maker(SessionMaker, db_type):
                     "SQLAlchemy database error. The following exception is caught.\n%s",
                     e,
                 )
-                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE)
+                raise MlflowException(message=e, error_code=TEMPORARILY_UNAVAILABLE) from e
             except sqlalchemy.exc.SQLAlchemyError as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=BAD_REQUEST)
+                raise MlflowException(message=e, error_code=BAD_REQUEST) from e
             except Exception as e:
                 session.rollback()
-                raise MlflowException(message=e, error_code=INTERNAL_ERROR)
+                raise MlflowException(message=e, error_code=INTERNAL_ERROR) from e
 
     return make_managed_session
 
@@ -196,7 +229,7 @@ def _get_alembic_config(db_url, alembic_dir=None):
     return config
 
 
-def _upgrade_db(engine):  # noqa: D417
+def _upgrade_db(engine):
     """
     Upgrade the schema of an MLflow tracking database to the latest supported version.
     Note that schema migrations can be slow and are not guaranteed to be transactional -
@@ -257,17 +290,17 @@ def create_sqlalchemy_engine(db_uri):
     pool_recycle = MLFLOW_SQLALCHEMYSTORE_POOL_RECYCLE.get()
     echo = MLFLOW_SQLALCHEMYSTORE_ECHO.get()
     poolclass = MLFLOW_SQLALCHEMYSTORE_POOLCLASS.get()
-    pool_kwargs = {}
+    kwargs = {}
     # Send argument only if they have been injected.
     # Some engine does not support them (for example sqllite)
     if pool_size:
-        pool_kwargs["pool_size"] = pool_size
+        kwargs["pool_size"] = pool_size
     if pool_max_overflow:
-        pool_kwargs["max_overflow"] = pool_max_overflow
+        kwargs["max_overflow"] = pool_max_overflow
     if pool_recycle:
-        pool_kwargs["pool_recycle"] = pool_recycle
+        kwargs["pool_recycle"] = pool_recycle
     if echo:
-        pool_kwargs["echo"] = echo
+        kwargs["echo"] = echo
     if poolclass:
         pool_class_map = {
             "AssertionPool": AssertionPool,
@@ -286,7 +319,40 @@ def create_sqlalchemy_engine(db_uri):
             )
             _logger.warning(err_str)
             raise ValueError(err_str)
-        pool_kwargs["poolclass"] = pool_class_map[poolclass]
-    if pool_kwargs:
-        _logger.info("Create SQLAlchemy engine with pool options %s", pool_kwargs)
-    return sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **pool_kwargs)
+        kwargs["poolclass"] = pool_class_map[poolclass]
+    if kwargs:
+        _logger.info("Create SQLAlchemy engine with pool options %s", kwargs)
+
+    # Handle MySQL SSL certificates via connect_args
+    if db_uri.startswith("mysql"):
+        connect_args = {
+            k: v
+            for k, v in {
+                "ssl_ca": MLFLOW_MYSQL_SSL_CA.get(),
+                "ssl_cert": MLFLOW_MYSQL_SSL_CERT.get(),
+                "ssl_key": MLFLOW_MYSQL_SSL_KEY.get(),
+            }.items()
+            if v
+        }
+        if connect_args:
+            kwargs["connect_args"] = connect_args
+
+    engine = sqlalchemy.create_engine(db_uri, pool_pre_ping=True, **kwargs)
+
+    # Register REGEXP function for SQLite to enable RLIKE operator support
+    if db_uri.startswith("sqlite"):
+
+        @event.listens_for(engine, "connect")
+        def _set_sqlite_regexp(dbapi_conn, connection_record):
+            def regexp(pattern, string):
+                """Custom REGEXP function for SQLite that uses Python's re module."""
+                if string is None or pattern is None:
+                    return False
+                try:
+                    return re.search(pattern, string) is not None
+                except re.error:
+                    return False
+
+            dbapi_conn.create_function("regexp", 2, regexp)
+
+    return engine

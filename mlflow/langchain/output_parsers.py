@@ -1,5 +1,6 @@
 from dataclasses import asdict
-from typing import Any, Iterator
+from typing import Any, AsyncIterator, Iterator
+from uuid import uuid4
 
 from langchain_core.messages.base import BaseMessage
 from langchain_core.output_parsers.transform import BaseTransformOutputParser
@@ -12,6 +13,7 @@ from mlflow.models.rag_signatures import (
 from mlflow.models.rag_signatures import (
     ChatCompletionResponse as RagChatCompletionResponse,
 )
+from mlflow.types.agent import ChatAgentChunk, ChatAgentMessage, ChatAgentResponse
 from mlflow.types.llm import (
     ChatChoice,
     ChatChoiceDelta,
@@ -79,6 +81,17 @@ class ChatCompletionOutputParser(BaseTransformOutputParser[str]):
                 choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
             ).to_dict()
 
+    async def atransform(
+        self,
+        input: AsyncIterator[BaseMessage],
+        config: Any,
+        **kwargs: Any,
+    ) -> AsyncIterator[ChatCompletionChunk]:
+        async for chunk in input:
+            yield ChatCompletionChunk(
+                choices=[ChatChunkChoice(delta=ChatChoiceDelta(content=chunk.content))]
+            ).to_dict()
+
 
 @deprecated("mlflow.langchain.output_parser.ChatCompletionOutputParser")
 class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
@@ -99,3 +112,41 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
 
     def parse(self, text: str) -> dict[str, Any]:
         return asdict(StringResponse(content=text))
+
+
+class ChatAgentOutputParser(BaseTransformOutputParser[str]):
+    """
+    OutputParser that wraps the string output into a dictionary representation of a
+    :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>` or a
+    :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` for easy interoperability.
+    """
+
+    @classmethod
+    def is_lc_serializable(cls) -> bool:
+        """Return whether this class is serializable."""
+        return True
+
+    @property
+    def _type(self) -> str:
+        """Return the output parser type for serialization."""
+        return "mlflow_chat_agent"
+
+    def parse(self, text: str) -> dict[str, Any]:
+        """
+        Returns the output text as a dictionary representation of a
+        :py:class:`ChatAgentResponse <mlflow.types.agent.ChatAgentResponse>`.
+        """
+        return ChatAgentResponse(
+            messages=[ChatAgentMessage(content=text, role="assistant", id=str(uuid4()))]
+        ).model_dump(exclude_none=True)
+
+    def transform(self, input: Iterator[BaseMessage], config, **kwargs) -> Iterator[dict[str, Any]]:
+        """
+        Returns a generator of
+        :py:class:`ChatAgentChunk <mlflow.types.agent.ChatAgentChunk>` objects
+        """
+        for chunk in input:
+            if chunk.content:
+                yield ChatAgentChunk(
+                    delta=ChatAgentMessage(content=chunk.content, role="assistant", id=chunk.id)
+                ).model_dump(exclude_none=True)

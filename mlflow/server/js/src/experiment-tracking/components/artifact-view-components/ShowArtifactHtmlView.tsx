@@ -15,6 +15,7 @@ import './ShowArtifactHtmlView.css';
 import Iframe from 'react-iframe';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 type ShowArtifactHtmlViewState = {
   loading: boolean;
@@ -26,7 +27,7 @@ type ShowArtifactHtmlViewState = {
 type ShowArtifactHtmlViewProps = {
   runUuid: string;
   path: string;
-  getArtifact: (artifactLocation: string) => Promise<string>;
+  getArtifact: FetchArtifactUnifiedFn;
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArtifactHtmlViewState> {
@@ -36,7 +37,7 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
   }
 
   static defaultProps = {
-    getArtifact: getArtifactContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   state = {
@@ -66,14 +67,14 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
       return <div className="artifact-html-view-error">Oops we couldn't load your file because of an error.</div>;
     } else {
       return (
-        <div className="artifact-html-view">
+        <div className="mlflow-artifact-html-view">
           <Iframe
             url=""
             src={this.getBlobURL(this.state.html, 'text/html')}
             width="100%"
             height="100%"
             id="html"
-            className="html-iframe"
+            className="mlflow-html-iframe"
             display="block"
             position="relative"
             sandbox="allow-scripts"
@@ -90,14 +91,10 @@ class ShowArtifactHtmlView extends Component<ShowArtifactHtmlViewProps, ShowArti
 
   /** Fetches artifacts and updates component state with the result */
   fetchArtifacts() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
-    const artifactLocation =
-      isLoggedModelsMode && loggedModelId
-        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-        : getArtifactLocationUrl(path, runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags } = this.props;
 
     this.props
-      .getArtifact(artifactLocation)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId, entityTags }, getArtifactContent)
       .then((html: string) => {
         this.setState({ html: html, loading: false, path: this.props.path });
       })

@@ -1,13 +1,14 @@
 import { Provider } from 'react-redux';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { EvaluationArtifactCompareTable } from './EvaluationArtifactCompareTable';
 import { screen, waitFor, renderWithIntl } from '../../../../common/utils/TestUtils.react18';
-import { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
+import type { UseEvaluationArtifactTableDataResult } from '../hooks/useEvaluationArtifactTableData';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { BrowserRouter } from '../../../../common/utils/RoutingUtils';
 
+// eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(90000);
 
 jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({
@@ -15,6 +16,23 @@ jest.mock('../../experiment-page/hooks/useExperimentRunColor', () => ({
 }));
 
 describe('EvaluationArtifactCompareTable', () => {
+  let originalImageSrc: any;
+
+  beforeAll(() => {
+    // Mock <img> src setter to trigger load callback
+    originalImageSrc = Object.getOwnPropertyDescriptor(window.Image.prototype, 'src');
+    Object.defineProperty(window.Image.prototype, 'src', {
+      set() {
+        setTimeout(() => this.onload?.());
+      },
+      get() {},
+    });
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window.Image.prototype, 'src', originalImageSrc);
+  });
+
   const renderComponent = (
     resultList: UseEvaluationArtifactTableDataResult,
     groupByColumns: string[],
@@ -800,6 +818,9 @@ describe('EvaluationArtifactCompareTable', () => {
       ['able-panda-761', 'able-panda-762', 'able-panda-763'].forEach((value) => {
         expect(screen.getByRole('columnheader', { name: new RegExp(value, 'i') })).toBeInTheDocument();
       });
+    });
+
+    await waitFor(() => {
       const image = screen.getAllByRole('img');
       expect(image.length).toBeGreaterThan(0);
       expect(image[0]).toBeInTheDocument();

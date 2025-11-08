@@ -11,16 +11,26 @@ import functools
 import importlib
 import logging
 import re
-import uuid
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable
 
 import sqlalchemy
-from flask import Flask, Response, flash, jsonify, make_response, render_template_string, request
+from flask import (
+    Flask,
+    Request,
+    Response,
+    flash,
+    jsonify,
+    make_response,
+    render_template_string,
+    request,
+)
 from werkzeug.datastructures import Authorization
 
 from mlflow import MlflowException
 from mlflow.entities import Experiment
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -52,23 +62,33 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     CreateExperiment,
+    # Routes for logged models
+    CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteExperimentTag,
+    DeleteLoggedModel,
+    DeleteLoggedModelTag,
     DeleteRun,
     DeleteTag,
+    FinalizeLoggedModel,
     GetExperiment,
     GetExperimentByName,
+    GetLoggedModel,
     GetMetricHistory,
     GetRun,
     ListArtifacts,
     LogBatch,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
+    SearchLoggedModels,
     SetExperimentTag,
+    SetLoggedModelTags,
     SetTag,
     UpdateExperiment,
     UpdateRun,
@@ -81,6 +101,7 @@ from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_USER,
+    CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
@@ -95,6 +116,7 @@ from mlflow.server.auth.routes import (
     UPDATE_USER_PASSWORD,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
+from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_request_message,
@@ -106,6 +128,14 @@ from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
+
+try:
+    from flask_wtf.csrf import CSRFProtect
+except ImportError as e:
+    raise ImportError(
+        "The MLflow basic auth app requires the Flask-WTF package to perform CSRF "
+        "validation. Please run `pip install mlflow[auth]` to install it."
+    ) from e
 
 _logger = logging.getLogger(__name__)
 
@@ -137,14 +167,17 @@ def make_forbidden_response() -> Response:
 def _get_request_param(param: str) -> str:
     if request.method == "GET":
         args = request.args
-    elif request.method in ("POST", "PATCH", "DELETE"):
+    elif request.method in ("POST", "PATCH"):
         args = request.json
+    elif request.method == "DELETE":
+        args = request.json if request.is_json else request.args
     else:
         raise MlflowException(
             f"Unsupported HTTP method '{request.method}'",
             BAD_REQUEST,
         )
 
+    args = args | (request.view_args or {})
     if param not in args:
         # Special handling for run_id
         if param == "run_id":
@@ -225,6 +258,17 @@ def _get_permission_from_run_id() -> Permission:
     )
 
 
+def _get_permission_from_model_id() -> Permission:
+    # logged model permissions inherit from parent resource (experiment)
+    model_id = _get_request_param("model_id")
+    model = _get_tracking_store().get_logged_model(model_id)
+    experiment_id = model.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
 def _get_permission_from_registered_model_name() -> Permission:
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -265,6 +309,7 @@ def validate_can_delete_experiment_artifact_proxy():
     return _get_permission_from_experiment_id_artifact_proxy().can_manage
 
 
+# Runs
 def validate_can_read_run():
     return _get_permission_from_run_id().can_read
 
@@ -281,6 +326,24 @@ def validate_can_manage_run():
     return _get_permission_from_run_id().can_manage
 
 
+# Logged models
+def validate_can_read_logged_model():
+    return _get_permission_from_model_id().can_read
+
+
+def validate_can_update_logged_model():
+    return _get_permission_from_model_id().can_update
+
+
+def validate_can_delete_logged_model():
+    return _get_permission_from_model_id().can_delete
+
+
+def validate_can_manage_logged_model():
+    return _get_permission_from_model_id().can_manage
+
+
+# Registered models
 def validate_can_read_registered_model():
     return _get_permission_from_registered_model_name().can_read
 
@@ -301,6 +364,34 @@ def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
     return store.get_user(username).is_admin
+
+
+def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
+    """
+    Filter experiment IDs to only include those the user has read access to.
+
+    Args:
+        experiment_ids: List of experiment IDs to filter
+
+    Returns:
+        Filtered list of experiment IDs the user can read
+    """
+    if not auth_config:
+        return experiment_ids
+
+    try:
+        if sender_is_admin():
+            return experiment_ids
+
+        username = authenticate_request().username
+        perms = store.list_experiment_permissions(username)
+        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+        default_can_read = get_permission(auth_config.default_permission).can_read
+
+        return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
+    except (RuntimeError, AttributeError):
+        # Auth system not fully initialized, skip filtering
+        return experiment_ids
 
 
 def username_is_sender():
@@ -341,6 +432,7 @@ BEFORE_REQUEST_HANDLERS = {
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
     SetExperimentTag: validate_can_update_experiment,
+    DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
     CreateRun: validate_can_update_experiment,
     GetRun: validate_can_read_run,
@@ -381,6 +473,14 @@ def get_before_request_handler(request_class):
     return BEFORE_REQUEST_HANDLERS.get(request_class)
 
 
+def _re_compile_path(path: str) -> re.Pattern:
+    """
+    Convert a path with angle brackets to a regex pattern. For example,
+    "/api/2.0/experiments/<experiment_id>" becomes "/api/2.0/experiments/([^/]+)".
+    """
+    return re.compile(re.sub(r"<([^>]+)>", r"([^/]+)", path))
+
+
 BEFORE_REQUEST_VALIDATORS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_before_request_handler)
@@ -407,13 +507,36 @@ BEFORE_REQUEST_VALIDATORS.update(
 )
 
 
+LOGGED_MODEL_BEFORE_REQUEST_HANDLERS = {
+    CreateLoggedModel: validate_can_update_experiment,
+    GetLoggedModel: validate_can_read_logged_model,
+    DeleteLoggedModel: validate_can_delete_logged_model,
+    FinalizeLoggedModel: validate_can_update_logged_model,
+    DeleteLoggedModelTag: validate_can_delete_logged_model,
+    SetLoggedModelTags: validate_can_update_logged_model,
+    LogLoggedModelParamsRequest: validate_can_update_logged_model,
+}
+
+
+def get_logged_model_before_request_handler(request_class):
+    return LOGGED_MODEL_BEFORE_REQUEST_HANDLERS.get(request_class)
+
+
+LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS = {
+    # Paths for logged models contains path parameters (e.g. /mlflow/logged-models/<model_id>)
+    (_re_compile_path(http_path), method): handler
+    for http_path, handler, methods in get_endpoints(get_logged_model_before_request_handler)
+    for method in methods
+}
+
+
 def _is_proxy_artifact_path(path: str) -> bool:
     return path.startswith(f"{_REST_API_PATH_PREFIX}/mlflow-artifacts/artifacts/")
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: Optional[dict[str, Any]]
-) -> Optional[Callable[[], bool]]:
+    method: str, view_args: dict[str, Any] | None
+) -> Callable[[], bool] | None:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
 
@@ -424,14 +547,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Union[Authorization, Response]:
+def authenticate_request() -> Authorization | Response:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
+def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
     """
     Import and return the specified authorization function.
 
@@ -443,7 +566,7 @@ def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorizati
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Union[Authorization, Response]:
+def authenticate_request_basic_auth() -> Authorization | Response:
     """Authenticate the request using basic auth."""
     if request.authorization is None:
         return make_basic_auth_response()
@@ -455,6 +578,25 @@ def authenticate_request_basic_auth() -> Union[Authorization, Response]:
     else:
         # let user attempt login again
         return make_basic_auth_response()
+
+
+def _find_validator(req: Request) -> Callable[[], bool] | None:
+    """
+    Finds the validator matching the request path and method.
+    """
+    if "/mlflow/logged-models" in req.path:
+        # logged model routes are not registered in the app
+        # so we need to check them manually
+        return next(
+            (
+                v
+                for (pat, method), v in LOGGED_MODEL_BEFORE_REQUEST_VALIDATORS.items()
+                if pat.fullmatch(req.path) and method == req.method
+            ),
+            None,
+        )
+    else:
+        return BEFORE_REQUEST_VALIDATORS.get((req.path, req.method))
 
 
 @catch_mlflow_exception
@@ -477,7 +619,7 @@ def _before_request():
         return
 
     # authorization
-    if validator := BEFORE_REQUEST_VALIDATORS.get((request.path, request.method)):
+    if validator := _find_validator(request):
         if not validator():
             return make_forbidden_response()
     elif _is_proxy_artifact_path(request.path):
@@ -568,6 +710,80 @@ def filter_search_experiments(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_search_logged_models(resp: Response) -> None:
+    """
+    Filter out unreadable logged models from the search results.
+    """
+    from mlflow.utils.search_utils import SearchLoggedModelsPaginationToken as Token
+
+    if sender_is_admin():
+        return
+
+    response_proto = SearchLoggedModels.Response()
+    parse_dict(resp.json, response_proto)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_experiment_permissions(username)
+    can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # Remove unreadable models
+    for m in list(response_proto.models):
+        if not can_read.get(m.info.experiment_id, default_can_read):
+            response_proto.models.remove(m)
+
+    request_proto = _get_request_message(SearchLoggedModels())
+    max_results = request_proto.max_results
+    # These parameters won't change in the loop
+    params = {
+        "experiment_ids": list(request_proto.experiment_ids),
+        "filter_string": request_proto.filter or None,
+        "order_by": (
+            [
+                {
+                    "field_name": ob.field_name,
+                    "ascending": ob.ascending,
+                    "dataset_name": ob.dataset_name,
+                    "dataset_digest": ob.dataset_digest,
+                }
+                for ob in request_proto.order_by
+            ]
+            if request_proto.order_by
+            else None
+        ),
+    }
+    next_page_token = response_proto.next_page_token or None
+    tracking_store = _get_tracking_store()
+    while len(response_proto.models) < max_results and next_page_token is not None:
+        batch: PagedList[LoggedModel] = tracking_store.search_logged_models(
+            max_results=max_results, page_token=next_page_token, **params
+        )
+        is_last_page = batch.token is None
+        offset = Token.decode(next_page_token).offset if next_page_token else 0
+        last_index = len(batch) - 1
+        for index, model in enumerate(batch):
+            if not can_read.get(model.experiment_id, default_can_read):
+                continue
+            response_proto.models.append(model.to_proto())
+            if len(response_proto.models) >= max_results:
+                next_page_token = (
+                    None
+                    if is_last_page and index == last_index
+                    else Token(offset=offset + index + 1, **params).encode()
+                )
+                break
+        else:
+            # If we reach here, it means we have not reached the max results.
+            next_page_token = (
+                None if is_last_page else Token(offset=offset + max_results, **params).encode()
+            )
+
+    if next_page_token:
+        response_proto.next_page_token = next_page_token
+    resp.data = message_to_json(response_proto)
+
+
 def filter_search_registered_models(resp: Response):
     if sender_is_admin():
         return
@@ -638,6 +854,7 @@ AFTER_REQUEST_PATH_HANDLERS = {
     CreateRegisteredModel: set_can_manage_registered_model_permission,
     DeleteRegisteredModel: delete_can_manage_registered_model_permission,
     SearchExperiments: filter_search_experiments,
+    SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
 }
@@ -651,6 +868,7 @@ AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_after_request_handler)
     for method in methods
+    if handler is not None and "/graphql" not in http_path
 }
 
 
@@ -753,6 +971,7 @@ def signup():
 </style>
 
 <form action="{{ users_route }}" method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
   <div class="logo-container">
     {% autoescape false %}
     {{ mlflow_logo }}
@@ -764,19 +983,20 @@ def signup():
   <br>
   <label for="password">Password:</label>
   <br>
-  <input type="password" id="password" name="password" minlength="4">
+  <input type="password" id="password" name="password" minlength="12">
   <br>
   <br>
   <input type="submit" value="Sign up">
 </form>
 """,
         mlflow_logo=MLFLOW_LOGO,
-        users_route=CREATE_USER,
+        users_route=CREATE_USER_UI,
     )
 
 
 @catch_mlflow_exception
-def create_user():
+def create_user_ui(csrf):
+    csrf.protect()
     content_type = request.headers.get("Content-Type")
     if content_type == "application/x-www-form-urlencoded":
         username = request.form["username"]
@@ -793,7 +1013,15 @@ def create_user():
         store.create_user(username, password)
         flash(f"Successfully signed up user: {username}")
         return alert(href=HOME)
-    elif content_type == "application/json":
+    else:
+        message = "Invalid content type. Must be application/x-www-form-urlencoded"
+        return make_response(message, 400)
+
+
+@catch_mlflow_exception
+def create_user():
+    content_type = request.headers.get("Content-Type")
+    if content_type == "application/json":
         username = _get_request_param("username")
         password = _get_request_param("password")
 
@@ -804,10 +1032,7 @@ def create_user():
         user = store.create_user(username, password)
         return jsonify({"user": user.to_json()})
     else:
-        message = (
-            "Invalid content type. Must be one of: "
-            "application/x-www-form-urlencoded, application/json"
-        )
+        message = "Invalid content type. Must be application/json"
         return make_response(message, 400)
 
 
@@ -922,9 +1147,28 @@ def create_app(app: Flask = app):
     _logger.warning(
         "This feature is still experimental and may change in a future release without warning"
     )
-    # secret key required for flashing
-    if not app.secret_key:
-        app.secret_key = str(uuid.uuid4())
+
+    # a secret key is required for flashing, and also for
+    # CSRF protection. it's important that this is a static key,
+    # otherwise CSRF validation won't work across workers.
+    secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
+    if not secret_key:
+        raise MlflowException(
+            "A static secret key needs to be set for CSRF protection. Please set the "
+            "`MLFLOW_FLASK_SERVER_SECRET_KEY` environment variable before starting the "
+            "server. For example:\n\n"
+            "export MLFLOW_FLASK_SERVER_SECRET_KEY='my-secret-key'\n\n"
+            "If you are using multiple servers, please ensure this key is consistent between "
+            "them, in order to prevent validation issues."
+        )
+    app.secret_key = secret_key
+
+    # we only need to protect the CREATE_USER_UI route, since that's
+    # the only browser-accessible route. the rest are client / REST
+    # APIs that do not have access to the CSRF token for validation
+    app.config["WTF_CSRF_CHECK_DEFAULT"] = False
+    csrf = CSRFProtect()
+    csrf.init_app(app)
 
     store.init_db(auth_config.database_uri)
     create_admin_user(auth_config.admin_username, auth_config.admin_password)
@@ -933,6 +1177,11 @@ def create_app(app: Flask = app):
         rule=SIGNUP,
         view_func=signup,
         methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=CREATE_USER_UI,
+        view_func=lambda: create_user_ui(csrf),
+        methods=["POST"],
     )
     app.add_url_rule(
         rule=CREATE_USER,
@@ -1003,4 +1252,7 @@ def create_app(app: Flask = app):
     app.before_request(_before_request)
     app.after_request(_after_request)
 
-    return app
+    if _MLFLOW_SGI_NAME.get() == "uvicorn":
+        return create_fastapi_app(app)
+    else:
+        return app

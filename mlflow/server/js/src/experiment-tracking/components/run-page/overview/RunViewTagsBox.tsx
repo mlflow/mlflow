@@ -1,14 +1,15 @@
-import { Button, PencilIcon, Spinner, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { shouldUseSharedTaggingUI } from '../../../../common/utils/FeatureUtils';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
-import { KeyValueEntity } from '../../../types';
+import { useTagAssignmentModal } from '../../../../common/hooks/useTagAssignmentModal';
+import type { KeyValueEntity } from '../../../../common/types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { keys, values } from 'lodash';
 import { useDispatch } from 'react-redux';
-import { ThunkDispatch } from '../../../../redux-types';
-import { setRunTagsBulkApi } from '../../../actions';
-import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
-import { useMemo } from 'react';
+import type { ThunkDispatch } from '../../../../redux-types';
+import { setRunTagsBulkApi, saveRunTagsApi } from '../../../actions';
+import { useMemo, useState } from 'react';
 import { isUserFacingTag } from '../../../../common/utils/TagUtils';
 
 /**
@@ -23,6 +24,10 @@ export const RunViewTagsBox = ({
   tags: Record<string, KeyValueEntity>;
   onTagsUpdated: () => void;
 }) => {
+  const sharedTaggingUIEnabled = shouldUseSharedTaggingUI();
+
+  const [isSavingTags, setIsSavingTags] = useState(false);
+
   const { theme } = useDesignSystemTheme();
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
@@ -33,6 +38,21 @@ export const RunViewTagsBox = ({
     [tags],
   );
 
+  const tagsKeyValueMap: KeyValueEntity[] = visibleTagEntities.map(({ key, value }) => ({ key, value }));
+
+  const { TagAssignmentModal, showTagAssignmentModal } = useTagAssignmentModal({
+    componentIdPrefix: 'mlflow.run-view-tags-box',
+    initialTags: tagsKeyValueMap,
+    isLoading: isSavingTags,
+    onSubmit: (newTags: KeyValueEntity[], deletedTags: KeyValueEntity[]) => {
+      setIsSavingTags(true);
+      return dispatch(saveRunTagsApi(runUuid, newTags, deletedTags)).then(() => {
+        setIsSavingTags(false);
+      });
+    },
+    onSuccess: onTagsUpdated,
+  });
+
   const { EditTagsModal, showEditTagsModal, isLoading } = useEditKeyValueTagsModal({
     valueRequired: true,
     allAvailableTags: visibleTagKeys,
@@ -41,6 +61,11 @@ export const RunViewTagsBox = ({
   });
 
   const showEditModal = () => {
+    if (sharedTaggingUIEnabled) {
+      showTagAssignmentModal();
+      return;
+    }
+
     showEditTagsModal({ tags: visibleTagEntities });
   };
 
@@ -56,39 +81,46 @@ export const RunViewTagsBox = ({
         paddingBottom: theme.spacing.xs,
         display: 'flex',
         flexWrap: 'wrap',
+        alignItems: 'center',
         '> *': {
           marginRight: '0 !important',
         },
         gap: theme.spacing.xs,
       }}
     >
-      {visibleTagEntities.length < 1 ? (
+      {tagsKeyValueMap.length < 1 ? (
         <Button
-          componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_67"
+          componentId="mlflow.run_details.overview.tags.add_button"
           size="small"
-          type="link"
+          type="tertiary"
           onClick={showEditModal}
         >
-          <FormattedMessage defaultMessage="Add" description="Run page > Overview > Tags cell > 'Add' button label" />
+          <FormattedMessage
+            defaultMessage="Add tags"
+            description="Run page > Overview > Tags cell > 'Add' button label"
+          />
         </Button>
       ) : (
         <>
-          {visibleTagEntities.map((tag) => (
-            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal />
+          {tagsKeyValueMap.map((tag) => (
+            <KeyValueTag tag={tag} key={`${tag.key}-${tag.value}`} enableFullViewModal css={{ marginRight: 0 }} />
           ))}
-          <LegacyTooltip title={editTagsLabel}>
+          <Tooltip componentId="mlflow.run_details.overview.tags.edit_button.tooltip" content={editTagsLabel}>
             <Button
-              componentId="codegen_mlflow_app_src_experiment-tracking_components_run-page_overview_runviewtagsbox.tsx_76"
+              componentId="mlflow.run_details.overview.tags.edit_button"
               aria-label={editTagsLabel}
               size="small"
               icon={<PencilIcon />}
               onClick={showEditModal}
             />
-          </LegacyTooltip>
+          </Tooltip>
         </>
       )}
       {isLoading && <Spinner size="small" />}
+      {/** Old modal for editing tags */}
       {EditTagsModal}
+      {/** New modal for editing tags, using shared tagging UI */}
+      {TagAssignmentModal}
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useCallback, useMemo, useState } from 'react';
-import { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
+import type { RunRowType } from '../../experiment-page/utils/experimentPage.row-types';
 import { uniq, compact } from 'lodash';
 import { canEvaluateOnRun, extractRequiredInputParamsForRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { FormattedMessage } from 'react-intl';

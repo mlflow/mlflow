@@ -7,13 +7,14 @@ from mlflow.store.artifact.artifact_repo import (
     try_read_trace_data,
     verify_artifact_path,
 )
-from mlflow.tracing.artifact_utils import TRACE_DATA_FILE_NAME
+from mlflow.tracing.utils.artifact_utils import TRACE_DATA_FILE_NAME
 from mlflow.utils.file_utils import (
     get_file_info,
     list_all,
     local_file_uri_to_path,
     mkdir,
     relative_path_to_artifact_path,
+    shutil_copytree_without_file_permissions,
 )
 from mlflow.utils.uri import validate_path_is_safe
 
@@ -21,8 +22,10 @@ from mlflow.utils.uri import validate_path_is_safe
 class LocalArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a local directory."""
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         self._artifact_dir = local_file_uri_to_path(self.artifact_uri)
 
     @property
@@ -64,7 +67,7 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copytree(src=local_dir, dst=artifact_dir, dirs_exist_ok=True)
+        shutil_copytree_without_file_permissions(local_dir, artifact_dir)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """

@@ -1,0 +1,173 @@
+---
+sidebar_position: 3
+sidebar_label: OpenAI Agents SDK
+---
+
+import { APILink } from "@site/src/components/APILink";
+
+# Tracing OpenAI Agent🤖
+
+![OpenAI Tracing via autolog](/images/llms/tracing/openai-agent-tracing.png)
+
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for [OpenAI Agents SDK](https://platform.openai.com/docs/guides/agents-sdk), a multi-agent framework developed by OpenAI. By enabling auto tracing
+for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces and log them to the active MLflow Experiment.
+
+```python
+import mlflow
+
+mlflow.openai.autolog()
+```
+
+## Basic Example
+
+The following example demonstrates how to use the OpenAI Agents SDK with MLflow tracing for simple multi-language chat agents. The three agents collaborate to determine the language of the input and handoff to the appropriate sub-agent that speaks the language. MLflow captures how the agents interact with each other and make calls to the OpenAI API.
+
+```python
+import mlflow
+import asyncio
+from agents import Agent, Runner
+
+# Enable auto tracing for OpenAI Agents SDK
+mlflow.openai.autolog()
+
+# Optional: Set a tracking URI and an experiment
+mlflow.set_tracking_uri("http://localhost:5000")
+mlflow.set_experiment("OpenAI Agent")
+
+# Define a simple multi-agent workflow
+spanish_agent = Agent(
+    name="Spanish agent",
+    instructions="You only speak Spanish.",
+)
+
+english_agent = Agent(
+    name="English agent",
+    instructions="You only speak English",
+)
+
+triage_agent = Agent(
+    name="Triage agent",
+    instructions="Handoff to the appropriate agent based on the language of the request.",
+    handoffs=[spanish_agent, english_agent],
+)
+
+
+async def main():
+    result = await Runner.run(triage_agent, input="Hola, ¿cómo estás?")
+    print(result.final_output)
+
+
+# If you are running this code in a Jupyter notebook, replace this with `await main()`.
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+## Function Calling
+
+OpenAI Agents SDK support defining functions that can be called by the agent. MLflow captures the function calls and display what functions are available to the agent, which of them are called, and the inputs and outputs of the function calls.
+
+```python
+import asyncio
+
+from agents import Agent, Runner, function_tool
+
+# Enable auto tracing for OpenAI Agents SDK
+mlflow.openai.autolog()
+
+
+@function_tool
+def get_weather(city: str) -> str:
+    return f"The weather in {city} is sunny."
+
+
+agent = Agent(
+    name="Hello world",
+    instructions="You are a helpful agent.",
+    tools=[get_weather],
+)
+
+
+async def main():
+    result = await Runner.run(agent, input="What's the weather in Tokyo?")
+    print(result.final_output)
+    # The weather in Tokyo is sunny.
+
+
+# If you are running this code in a Jupyter notebook, replace this with `await main()`.
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+![OpenAI Tracing via autolog](/images/llms/tracing/openai-agent-tracing-function-calling.png)
+
+## Guardrails
+
+OpenAI Agents SDK support defining guardrails that can be used to check the input and output of the agent. MLflow captures the guardrail checks and display the reasoning behind the guardrail check and whether the guardrail was tripped.
+
+```python
+from pydantic import BaseModel
+from agents import (
+    Agent,
+    GuardrailFunctionOutput,
+    InputGuardrailTripwireTriggered,
+    RunContextWrapper,
+    Runner,
+    TResponseInputItem,
+    input_guardrail,
+)
+
+# Enable auto tracing for OpenAI Agents SDK
+mlflow.openai.autolog()
+
+
+class MathHomeworkOutput(BaseModel):
+    is_math_homework: bool
+    reasoning: str
+
+
+guardrail_agent = Agent(
+    name="Guardrail check",
+    instructions="Check if the user is asking you to do their math homework.",
+    output_type=MathHomeworkOutput,
+)
+
+
+@input_guardrail
+async def math_guardrail(
+    ctx: RunContextWrapper[None], agent: Agent, input
+) -> GuardrailFunctionOutput:
+    result = await Runner.run(guardrail_agent, input, context=ctx.context)
+
+    return GuardrailFunctionOutput(
+        output_info=result.final_output,
+        tripwire_triggered=result.final_output.is_math_homework,
+    )
+
+
+agent = Agent(
+    name="Customer support agent",
+    instructions="You are a customer support agent. You help customers with their questions.",
+    input_guardrails=[math_guardrail],
+)
+
+
+async def main():
+    # This should trip the guardrail
+    try:
+        await Runner.run(agent, "Hello, can you help me solve for x: 2x + 3 = 11?")
+        print("Guardrail didn't trip - this is unexpected")
+
+    except InputGuardrailTripwireTriggered:
+        print("Math homework guardrail tripped")
+
+
+# If you are running this code in a Jupyter notebook, replace this with `await main()`.
+if __name__ == "__main__":
+    asyncio.run(main())
+```
+
+![OpenAI Tracing via autolog](/images/llms/tracing/openai-agent-tracing-guardrail.png)
+
+## Disable auto-tracing
+
+Auto tracing for OpenAI Agents SDK can be disabled globally by calling `mlflow.openai.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

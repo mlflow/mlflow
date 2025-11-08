@@ -1,16 +1,16 @@
 import { Accordion } from '@databricks/design-system';
-import { ChartSectionConfig } from '../../../../types';
-import { RunsChartsRunData } from '../RunsCharts.common';
-import {
+import type { ChartSectionConfig } from '../../../../types';
+import type { RunsChartsRunData } from '../RunsCharts.common';
+import type {
   RunsChartsBarCardConfig,
   RunsChartsCardConfig,
-  RunsChartType,
   RunsChartsLineCardConfig,
   RunsChartsScatterCardConfig,
   RunsChartsContourCardConfig,
   SerializedRunsChartsCardConfigCard,
   RunsChartsParallelCardConfig,
 } from '../../runs-charts.types';
+import { RunsChartType } from '../../runs-charts.types';
 import MetricChartsAccordion, { METRIC_CHART_SECTION_HEADER_SIZE } from '../../../MetricChartsAccordion';
 import { RunsChartsSectionHeader } from './RunsChartsSectionHeader';
 import { RunsChartsSection } from './RunsChartsSection';
@@ -23,63 +23,32 @@ import { Empty } from '@databricks/design-system';
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { Spacer } from '@databricks/design-system';
 import { useUpdateRunsChartsUIConfiguration } from '../../hooks/useRunsChartsUIConfiguration';
-import { isArray } from 'lodash';
-import { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
+import { compact, isArray } from 'lodash';
+import type { RunsChartCardSetFullscreenFn } from '../cards/ChartCard.common';
 import type { RunsGroupByConfig } from '../../../experiment-page/utils/experimentPage.group-row-utils';
-import { shouldUseRegexpBasedChartFiltering } from '../../../../../common/utils/FeatureUtils';
 import type { RunsChartsGlobalLineChartConfig } from '../../../experiment-page/models/ExperimentPageUIState';
 
 const chartMatchesFilter = (filter: string, config: RunsChartsCardConfig) => {
   // Use regexp-based filtering if a feature flag is enabled
-  if (shouldUseRegexpBasedChartFiltering()) {
-    // Don't filter image or difference charts out
-    if (config.type === RunsChartType.IMAGE || config.type === RunsChartType.DIFFERENCE) {
-      return true;
-    }
-
-    try {
-      const filterRegex = new RegExp(filter, 'i');
-      return getChartMetricsAndParams(config).some((metricOrParam) => metricOrParam.match(filterRegex));
-    } catch {
-      // If the regex is invalid (e.g. user it still typing it), prevent from filtering
-      return true;
-    }
+  if (config.type === RunsChartType.IMAGE || config.type === RunsChartType.DIFFERENCE) {
+    return true;
   }
 
-  const filterLowerCase = filter.toLowerCase();
-
-  if (config.type === RunsChartType.BAR) {
-    const barConfig = config as RunsChartsBarCardConfig;
-    return barConfig.metricKey.toLowerCase().includes(filterLowerCase);
-  } else if (config.type === RunsChartType.LINE) {
-    const lineConfig = config as RunsChartsLineCardConfig;
-    if (isArray(lineConfig.selectedMetricKeys)) {
-      return lineConfig.selectedMetricKeys.some((metricKey) => metricKey.toLowerCase().includes(filterLowerCase));
-    }
-    return lineConfig.metricKey.toLowerCase().includes(filterLowerCase);
-  } else if (config.type === RunsChartType.SCATTER) {
-    const scatterConfig = config as RunsChartsScatterCardConfig;
-    return (
-      scatterConfig.xaxis.key.toLowerCase().includes(filterLowerCase) ||
-      scatterConfig.yaxis.key.toLowerCase().includes(filterLowerCase)
-    );
-  } else if (config.type === RunsChartType.PARALLEL) {
-    return 'Parallel Coordinates'.toLowerCase().includes(filterLowerCase);
-  } else if (config.type === RunsChartType.CONTOUR) {
-    const contourConfig = config as RunsChartsContourCardConfig;
-    return (
-      contourConfig.xaxis.key.toLowerCase().includes(filterLowerCase) ||
-      contourConfig.yaxis.key.toLowerCase().includes(filterLowerCase) ||
-      contourConfig.zaxis.key.toLowerCase().includes(filterLowerCase)
-    );
+  try {
+    const filterRegex = new RegExp(filter, 'i');
+    return getChartMetricsAndParams(config).some((metricOrParam) => metricOrParam.match(filterRegex));
+  } catch {
+    // If the regex is invalid (e.g. user it still typing it), prevent from filtering
+    return true;
   }
-
-  return true;
 };
 
 const getChartMetricsAndParams = (config: RunsChartsCardConfig): string[] => {
   if (config.type === RunsChartType.BAR) {
     const barConfig = config as RunsChartsBarCardConfig;
+    if (barConfig.dataAccessKey) {
+      return [barConfig.metricKey, barConfig.dataAccessKey];
+    }
     return [barConfig.metricKey];
   } else if (config.type === RunsChartType.LINE) {
     const lineConfig = config as RunsChartsLineCardConfig;
@@ -116,6 +85,7 @@ export interface RunsChartsSectionAccordionProps {
   supportedChartTypes?: RunsChartType[] | undefined;
   setFullScreenChart: RunsChartCardSetFullscreenFn;
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
+  noRunsSelectedEmptyState?: React.ReactElement;
 }
 
 export const RunsChartsSectionAccordion = ({
@@ -135,6 +105,7 @@ export const RunsChartsSectionAccordion = ({
   hideEmptyCharts,
   setFullScreenChart = () => {},
   globalLineChartConfig,
+  noRunsSelectedEmptyState,
 }: RunsChartsSectionAccordionProps) => {
   const updateUIState = useUpdateRunsChartsUIConfiguration();
   const [editSection, setEditSection] = useState(-1);
@@ -353,16 +324,18 @@ export const RunsChartsSectionAccordion = ({
 
   if (noRunsSelected) {
     return (
-      <div css={{ marginTop: theme.spacing.lg }}>
-        <Empty
-          description={
-            <FormattedMessage
-              defaultMessage="All runs are hidden. Select at least one run to view charts."
-              description="Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
-            />
-          }
-        />
-      </div>
+      noRunsSelectedEmptyState ?? (
+        <div css={{ marginTop: theme.spacing.lg }}>
+          <Empty
+            description={
+              <FormattedMessage
+                defaultMessage="All runs are hidden. Select at least one run to view charts."
+                description="Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
+              />
+            }
+          />
+        </div>
+      )
     );
   }
 

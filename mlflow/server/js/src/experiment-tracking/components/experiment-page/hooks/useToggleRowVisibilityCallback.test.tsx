@@ -3,16 +3,18 @@ import { useToggleRowVisibilityCallback } from './useToggleRowVisibilityCallback
 import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useEffect, useState } from 'react';
-import { RunRowType } from '../utils/experimentPage.row-types';
+import type { RunRowType } from '../utils/experimentPage.row-types';
 import {
   shouldEnableToggleIndividualRunsInGroups,
   shouldUseRunRowsVisibilityMap,
 } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
-  ...jest.requireActual('../../../../common/utils/FeatureUtils'),
+  ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
+    '../../../../common/utils/FeatureUtils',
+  ),
   shouldEnableToggleIndividualRunsInGroups: jest.fn(),
-  shouldUseRunRowsVisibilityMap: jest.fn().mockImplementation(() => false),
+  shouldUseRunRowsVisibilityMap: jest.fn(() => false),
 }));
 
 describe('useToggleRowVisibilityCallback', () => {

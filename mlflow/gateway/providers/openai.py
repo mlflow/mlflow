@@ -5,7 +5,7 @@ from urllib.parse import urlparse, urlunparse
 
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_FUNCTIONS
 from mlflow.exceptions import MlflowException
-from mlflow.gateway.config import OpenAIAPIType, OpenAIConfig, RouteConfig
+from mlflow.gateway.config import EndpointConfig, OpenAIAPIType, OpenAIConfig
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.base import BaseProvider, ProviderAdapter
 from mlflow.gateway.providers.utils import send_request, send_stream_request
@@ -46,7 +46,6 @@ class OpenAIAdapter(ProviderAdapter):
 
     @classmethod
     def completion_to_model(cls, payload, config):
-        payload["messages"] = [{"role": "user", "content": payload.pop("prompt")}]
         return cls._add_model_to_payload_if_necessary(payload, config)
 
     @classmethod
@@ -128,7 +127,12 @@ class OpenAIAdapter(ProviderAdapter):
                     index=c["index"],
                     finish_reason=c["finish_reason"],
                     delta=chat.StreamDelta(
-                        role=c["delta"].get("role"), content=c["delta"].get("content")
+                        role=c["delta"].get("role"),
+                        content=c["delta"].get("content"),
+                        tool_calls=(
+                            (calls := c["delta"].get("tool_calls"))
+                            and [chat.ToolCallDelta(**c) for c in calls]
+                        ),
                     ),
                 )
                 for c in resp["choices"]
@@ -136,7 +140,7 @@ class OpenAIAdapter(ProviderAdapter):
         )
 
     @classmethod
-    def model_to_completions(self, resp, config):
+    def model_to_completions(cls, resp, config):
         # Response example (https://platform.openai.com/docs/api-reference/completions/create)
         # ```
         # {
@@ -170,7 +174,7 @@ class OpenAIAdapter(ProviderAdapter):
             choices=[
                 completions.Choice(
                     index=idx,
-                    text=c["message"]["content"],
+                    text=c.get("message", {}).get("content") or c.get("text") or "",
                     finish_reason=c["finish_reason"],
                 )
                 for idx, c in enumerate(resp["choices"])
@@ -196,9 +200,7 @@ class OpenAIAdapter(ProviderAdapter):
                 completions.StreamChoice(
                     index=c["index"],
                     finish_reason=c["finish_reason"],
-                    delta=completions.StreamDelta(
-                        content=c["delta"].get("content"),
-                    ),
+                    text=c["delta"].get("content"),
                 )
                 for c in resp["choices"]
             ],
@@ -249,7 +251,7 @@ class OpenAIProvider(BaseProvider):
     NAME = "OpenAI"
     CONFIG_TYPE = OpenAIConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, OpenAIConfig):
             # Should be unreachable
@@ -560,7 +562,7 @@ class OpenAIProvider(BaseProvider):
         stream = send_stream_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
 
@@ -584,7 +586,7 @@ class OpenAIProvider(BaseProvider):
         resp = await send_request(
             headers=self.headers,
             base_url=self.base_url,
-            path="chat/completions",
+            path="completions",
             payload=OpenAIAdapter.completion_to_model(payload, self.config),
         )
         return OpenAIAdapter.model_to_completions(resp, self.config)

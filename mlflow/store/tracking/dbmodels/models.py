@@ -1,22 +1,41 @@
+import json
+import uuid
+from typing import Any
+
 import sqlalchemy as sa
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     CheckConstraint,
     Column,
+    Computed,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     PrimaryKeyConstraint,
     String,
+    Text,
     UnicodeText,
+    UniqueConstraint,
 )
+from sqlalchemy.ext.mutable import MutableDict
+from sqlalchemy.inspection import inspect
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
     Dataset,
+    DatasetRecord,
+    DatasetRecordSource,
+    EvaluationDataset,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     InputTag,
     Metric,
     Param,
@@ -29,11 +48,18 @@ from mlflow.entities import (
     TraceInfo,
     ViewType,
 )
+from mlflow.entities.dataset_record import DATASET_RECORD_WRAPPED_OUTPUT_KEY
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
-from mlflow.utils.mlflow_tags import _get_run_name_from_tags
+from mlflow.tracing.utils import generate_assessment_id
+from mlflow.utils.mlflow_tags import MLFLOW_USER, _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
 
 SourceTypes = [
@@ -51,6 +77,10 @@ RunStatusTypes = [
     RunStatus.to_string(RunStatus.RUNNING),
     RunStatus.to_string(RunStatus.KILLED),
 ]
+
+
+# Create MutableJSON type for tracking mutations in JSON columns
+MutableJSON = MutableDict.as_mutable(JSON)
 
 
 class SqlExperiment(Base):
@@ -218,7 +248,6 @@ class SqlRun(Base):
             mlflow.entities.Run: Description of the return value.
         """
         run_info = RunInfo(
-            run_uuid=self.run_uuid,
             run_id=self.run_uuid,
             run_name=self.name,
             experiment_id=str(self.experiment_id),
@@ -593,6 +622,7 @@ class SqlInput(Base):
     Destination Id: `String` (limit 36 characters). Defined as *Non-null* in schema.
     Part of *Primary Key* for ``inputs`` table.
     """
+    step = Column(BigInteger, nullable=False, server_default="0")
 
     def __repr__(self):
         return "<SqlInput ({}, {}, {}, {}, {})>".format(
@@ -647,7 +677,8 @@ class SqlTraceInfo(Base):
 
     request_id = Column(String(50), nullable=False)
     """
-    Request ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
+    Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
+    Named as "trace_id" in V3 format.
     """
     experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
     """
@@ -655,18 +686,30 @@ class SqlTraceInfo(Base):
     """
     timestamp_ms = Column(BigInteger, nullable=False)
     """
-    Start time of the trace, in milliseconds.
+    Start time of the trace, in milliseconds. Named as "request_time" in V3 format.
     """
     execution_time_ms = Column(BigInteger, nullable=True)
     """
     Duration of the trace, in milliseconds. Could be *null* if the trace is still in progress
-    or not ended correctly for some reason.
+    or not ended correctly for some reason. Named as "execution_duration" in V3 format.
     """
     status = Column(String(50), nullable=False)
     """
-    Status of the trace. The values are defined in
+    State of the trace. The values are defined in
     :py:class:`mlflow.entities.trace_status.TraceStatus` enum but we don't enforce
-    constraint at DB level.
+    constraint at DB level. Named as "state" in V3 format.
+    """
+    client_request_id = Column(String(50), nullable=True)
+    """
+    Client request ID: `String` (limit 50 characters). Could be *null*. Newly added in V3 format.
+    """
+    request_preview = Column(String(1000), nullable=True)
+    """
+    Request preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
+    """
+    response_preview = Column(String(1000), nullable=True)
+    """
+    Response preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
     """
 
     __table_args__ = (
@@ -685,13 +728,17 @@ class SqlTraceInfo(Base):
             :py:class:`mlflow.entities.TraceInfo` object.
         """
         return TraceInfo(
-            request_id=self.request_id,
-            experiment_id=str(self.experiment_id),
-            timestamp_ms=self.timestamp_ms,
-            execution_time_ms=self.execution_time_ms,
-            status=TraceStatus(self.status),
+            trace_id=self.request_id,
+            trace_location=TraceLocation.from_experiment_id(str(self.experiment_id)),
+            request_time=self.timestamp_ms,
+            execution_duration=self.execution_time_ms,
+            state=TraceState(self.status),
             tags={t.key: t.value for t in self.tags},
-            request_metadata={m.key: m.value for m in self.request_metadata},
+            trace_metadata={m.key: m.value for m in self.request_metadata},
+            client_request_id=self.client_request_id,
+            request_preview=self.request_preview,
+            response_preview=self.response_preview,
+            assessments=[a.to_mlflow_entity() for a in self.assessments],
         )
 
 
@@ -725,7 +772,7 @@ class SqlTraceTag(Base):
     )
 
 
-class SqlTraceRequestMetadata(Base):
+class SqlTraceMetadata(Base):
     __tablename__ = "trace_request_metadata"
 
     key = Column(String(250))
@@ -741,6 +788,7 @@ class SqlTraceRequestMetadata(Base):
     )
     """
     Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table.
+    **Corresponding to the "trace_id" in V3 format.**
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("request_metadata", cascade="all"))
     """
@@ -753,3 +801,1231 @@ class SqlTraceRequestMetadata(Base):
         PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
         Index(f"index_{__tablename__}_request_id"),
     )
+
+
+class SqlAssessments(Base):
+    __tablename__ = "assessments"
+
+    assessment_id = Column(String(50), nullable=False)
+    """
+    Assessment ID: `String` (limit 50 characters). *Primary Key* for ``assessments`` table.
+    """
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID that a given assessment belongs to. *Foreign Key* into ``trace_info`` table.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Assessment Name: `String` (limit of 250 characters).
+    """
+    assessment_type = Column(String(50), nullable=False)
+    """
+    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    """
+    value = Column(Text, nullable=False)
+    """
+    The assessment's value data stored as JSON: `Text` for the actual value content.
+    """
+    error = Column(Text, nullable=True)
+    """
+    AssessmentError stored as JSON: `Text` for error information (feedback only).
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    The assessment's creation timestamp: `BigInteger`.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    The update time of an assessment if the assessment has been updated: `BigInteger`.
+    """
+    source_type = Column(String(50), nullable=False)
+    """
+    Assessment source type: `String` (limit 50 characters). e.g., "HUMAN", "CODE", "LLM_JUDGE".
+    """
+    source_id = Column(String(250), nullable=True)
+    """
+    Assessment source ID: `String` (limit 250 characters). e.g., "evaluator@company.com".
+    """
+    run_id = Column(String(32), nullable=True)
+    """
+    Run ID associated with the assessment if generated due to a run event:
+    `String` (limit of 32 characters).
+    """
+    span_id = Column(String(50), nullable=True)
+    """
+    Span ID if the assessment is applied to a Span within a Trace:
+    `String` (limit of 50 characters).
+    """
+    rationale = Column(Text, nullable=True)
+    """
+    Justification for the assessment: `Text` for longer explanations.
+    """
+    overrides = Column(String(50), nullable=True)
+    """
+    Overridden assessment_id if an assessment is intended to update and replace an existing
+    assessment: `String` (limit of 50 characters).
+    """
+    valid = Column(Boolean, nullable=False, default=True)
+    """
+    Indicator for whether an assessment has been marked as invalid: `Boolean`. Defaults to True.
+    """
+    assessment_metadata = Column(Text, nullable=True)
+    """
+    Assessment metadata stored as JSON: `Text` for complex metadata structures.
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("assessments", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("assessment_id", name="assessments_pkey"),
+        Index(f"index_{__tablename__}_trace_id_created_timestamp", "trace_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_run_id_created_timestamp", "run_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
+        Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
+    )
+
+    def to_mlflow_entity(self) -> Assessment:
+        """Convert SqlAssessments to Assessment object."""
+        value_str = self.value
+        error_str = self.error
+        assessment_metadata_str = self.assessment_metadata
+        assessment_type_value = self.assessment_type
+
+        parsed_value = json.loads(value_str)
+        parsed_error = None
+        if error_str is not None:
+            error_dict = json.loads(error_str)
+            parsed_error = AssessmentError.from_dictionary(error_dict)
+
+        parsed_metadata = None
+        if assessment_metadata_str is not None:
+            parsed_metadata = json.loads(assessment_metadata_str)
+
+        source = AssessmentSource(source_type=self.source_type, source_id=self.source_id)
+
+        if assessment_type_value == "feedback":
+            assessment = Feedback(
+                name=self.name,
+                value=parsed_value,
+                error=parsed_error,
+                source=source,
+                trace_id=self.trace_id,
+                rationale=self.rationale,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+                overrides=self.overrides,
+                valid=self.valid,
+            )
+        elif assessment_type_value == "expectation":
+            assessment = Expectation(
+                name=self.name,
+                value=parsed_value,
+                source=source,
+                trace_id=self.trace_id,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
+        else:
+            raise ValueError(f"Unknown assessment type: {assessment_type_value}")
+
+        assessment.run_id = self.run_id
+        assessment.assessment_id = self.assessment_id
+
+        return assessment
+
+    @classmethod
+    def from_mlflow_entity(cls, assessment: Assessment):
+        if assessment.assessment_id is None:
+            assessment.assessment_id = generate_assessment_id()
+
+        current_timestamp = get_current_time_millis()
+
+        if assessment.feedback is not None:
+            assessment_type = "feedback"
+            value_json = json.dumps(assessment.feedback.value)
+            error_json = (
+                json.dumps(assessment.feedback.error.to_dictionary())
+                if assessment.feedback.error
+                else None
+            )
+        elif assessment.expectation is not None:
+            assessment_type = "expectation"
+            value_json = json.dumps(assessment.expectation.value)
+            error_json = None
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Assessment must have either feedback or expectation value"
+            )
+
+        metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
+
+        return SqlAssessments(
+            assessment_id=assessment.assessment_id,
+            trace_id=assessment.trace_id,
+            name=assessment.name,
+            assessment_type=assessment_type,
+            value=value_json,
+            error=error_json,
+            created_timestamp=assessment.create_time_ms or current_timestamp,
+            last_updated_timestamp=assessment.last_update_time_ms or current_timestamp,
+            source_type=assessment.source.source_type,
+            source_id=assessment.source.source_id,
+            run_id=assessment.run_id,
+            span_id=assessment.span_id,
+            rationale=assessment.rationale,
+            overrides=assessment.overrides,
+            valid=True,
+            assessment_metadata=metadata_json,
+        )
+
+    def __repr__(self):
+        return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
+class SqlLoggedModel(Base):
+    __tablename__ = "logged_models"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters). *Primary Key* for ``logged_models`` table.
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID to which this model belongs: *Foreign Key* into ``experiments`` table.
+    """
+
+    name = Column(String(500), nullable=False)
+    """
+    Model name: `String` (limit 500 characters).
+    """
+
+    artifact_location = Column(String(1000), nullable=False)
+    """
+    Artifact location: `String` (limit 1000 characters).
+    """
+
+    creation_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    last_updated_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Last updated timestamp: `BigInteger`.
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Status: `Integer`.
+    """
+
+    lifecycle_stage = Column(String(32), default=LifecycleStage.ACTIVE)
+    """
+    Lifecycle Stage of model: `String` (limit 32 characters).
+    """
+
+    model_type = Column(String(500), nullable=True)
+    """
+    Model type: `String` (limit 500 characters).
+    """
+
+    source_run_id = Column(String(32), nullable=True)
+    """
+    Source run ID: `String` (limit 32 characters).
+    """
+
+    status_message = Column(String(1000), nullable=True)
+    """
+    Status message: `String` (limit 1000 characters).
+    """
+
+    tags = relationship("SqlLoggedModelTag", backref="logged_model", cascade="all")
+    params = relationship("SqlLoggedModelParam", backref="logged_model", cascade="all")
+    metrics = relationship("SqlLoggedModelMetric", backref="logged_model", cascade="all")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("model_id", name="logged_models_pk"),
+        CheckConstraint(
+            lifecycle_stage.in_(LifecycleStage.view_type_to_stages(ViewType.ALL)),
+            name="logged_models_lifecycle_stage_check",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            ondelete="CASCADE",
+            name="fk_logged_models_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModel:
+        return LoggedModel(
+            model_id=self.model_id,
+            experiment_id=str(self.experiment_id),
+            name=self.name,
+            artifact_location=self.artifact_location,
+            creation_timestamp=self.creation_timestamp_ms,
+            last_updated_timestamp=self.last_updated_timestamp_ms,
+            status=LoggedModelStatus.from_int(self.status),
+            model_type=self.model_type,
+            source_run_id=self.source_run_id,
+            status_message=self.status_message,
+            tags={t.tag_key: t.tag_value for t in self.tags} if self.tags else None,
+            params={p.param_key: p.param_value for p in self.params} if self.params else None,
+            metrics=[m.to_mlflow_entity() for m in self.metrics] if self.metrics else None,
+        )
+
+    ALIASES = {
+        "creation_time": "creation_timestamp_ms",
+        "creation_timestamp": "creation_timestamp_ms",
+        "last_updated_timestamp": "last_updated_timestamp_ms",
+    }
+
+    @staticmethod
+    def is_numeric(s: str) -> bool:
+        return SqlLoggedModel.ALIASES.get(s, s) in {
+            "creation_timestamp_ms",
+            "last_updated_timestamp_ms",
+        }
+
+
+class SqlLoggedModelMetric(Base):
+    __tablename__ = "logged_model_metrics"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    metric_name = Column(String(500), nullable=False)
+    """
+    Metric name: `String` (limit 500 characters).
+    """
+
+    metric_timestamp_ms = Column(BigInteger, nullable=False)
+    """
+    Metric timestamp: `BigInteger`.
+    """
+
+    metric_step = Column(BigInteger, nullable=False)
+    """
+    Metric step: `BigInteger`.
+    """
+
+    metric_value = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Metric value: `Float`.
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    run_id = Column(String(32), nullable=False)
+    """
+    Run ID: `String` (limit 32 characters).
+    """
+
+    dataset_uuid = Column(String(36), nullable=True)
+    """
+    Dataset UUID: `String` (limit 36 characters).
+    """
+
+    dataset_name = Column(String(500), nullable=True)
+    """
+    Dataset name: `String` (limit 500 characters).
+    """
+
+    dataset_digest = Column(String(36), nullable=True)
+    """
+    Dataset digest: `String` (limit 36 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "metric_name",
+            "metric_timestamp_ms",
+            "metric_step",
+            "run_id",
+            name="logged_model_metrics_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            ondelete="CASCADE",
+            name="fk_logged_model_metrics_model_id",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_metrics_experiment_id",
+        ),
+        ForeignKeyConstraint(
+            ["run_id"],
+            ["runs.run_uuid"],
+            ondelete="CASCADE",
+            name="fk_logged_model_metrics_run_id",
+        ),
+        Index("index_logged_model_metrics_model_id", "model_id"),
+    )
+
+    def to_mlflow_entity(self) -> Metric:
+        return Metric(
+            key=self.metric_name,
+            value=self.metric_value,
+            timestamp=self.metric_timestamp_ms,
+            step=self.metric_step,
+            run_id=self.run_id,
+            dataset_name=self.dataset_name,
+            dataset_digest=self.dataset_digest,
+            model_id=self.model_id,
+        )
+
+
+class SqlLoggedModelParam(Base):
+    __tablename__ = "logged_model_params"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    param_key = Column(String(255), nullable=False)
+    """
+    Param key: `String` (limit 255 characters).
+    """
+
+    param_value = Column(Text(), nullable=False)
+    """
+    Param value: `Text`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "param_key",
+            name="logged_model_params_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            name="fk_logged_model_params_model_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_params_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModelParameter:
+        return LoggedModelParameter(key=self.param_key, value=self.param_value)
+
+
+class SqlLoggedModelTag(Base):
+    __tablename__ = "logged_model_tags"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters).
+    """
+
+    experiment_id = Column(Integer, nullable=False)
+    """
+    Experiment ID: `Integer`.
+    """
+
+    tag_key = Column(String(255), nullable=False)
+    """
+    Tag key: `String` (limit 255 characters).
+    """
+
+    tag_value = Column(Text(), nullable=False)
+    """
+    Tag value: `Text`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "model_id",
+            "tag_key",
+            name="logged_model_tags_pk",
+        ),
+        ForeignKeyConstraint(
+            ["model_id"],
+            ["logged_models.model_id"],
+            name="fk_logged_model_tags_model_id",
+            ondelete="CASCADE",
+        ),
+        ForeignKeyConstraint(
+            ["experiment_id"],
+            ["experiments.experiment_id"],
+            name="fk_logged_model_tags_experiment_id",
+        ),
+    )
+
+    def to_mlflow_entity(self) -> LoggedModelTag:
+        return LoggedModelTag(key=self.tag_key, value=self.tag_value)
+
+
+class SqlEvaluationDataset(Base):
+    """
+    DB model for evaluation datasets.
+    """
+
+    __tablename__ = "evaluation_datasets"
+
+    dataset_id = Column(String(36), primary_key=True)
+    """
+    Dataset ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_datasets`` table.
+    """
+
+    name = Column(String(255), nullable=False)
+    """
+    Dataset name: `String` (limit 255 characters). *Non null* in table schema.
+    """
+
+    schema = Column(Text, nullable=True)
+    """
+    Schema information: `Text`.
+    """
+
+    profile = Column(Text, nullable=True)
+    """
+    Profile information: `Text`.
+    """
+
+    digest = Column(String(64), nullable=True)
+    """
+    Dataset digest: `String` (limit 64 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    records = relationship(
+        "SqlEvaluationDatasetRecord", back_populates="dataset", cascade="all, delete-orphan"
+    )
+
+    tags = relationship(
+        "SqlEvaluationDatasetTag",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", name="evaluation_datasets_pk"),
+        Index("index_evaluation_datasets_name", "name"),
+        Index("index_evaluation_datasets_created_time", "created_time"),
+    )
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            :py:class:`mlflow.entities.EvaluationDataset`.
+        """
+        records = None
+        # NB: Using SQLAlchemy's inspect module to determine if the field is loaded
+        # or not as calling .records on the EvaluationDataset object will trigger
+        # lazy-loading of the records.
+        state = inspect(self)
+        if "records" in state.dict:
+            records = [record.to_mlflow_entity() for record in self.records]
+
+        # Convert tags from relationship to dict
+        # Since we use lazy="selectin", tags are always loaded
+        # Return empty dict if no tags exist
+        tags_dict = {tag.key: tag.value for tag in self.tags}
+
+        dataset = EvaluationDataset(
+            dataset_id=self.dataset_id,
+            name=self.name,
+            tags=tags_dict,
+            schema=self.schema,
+            profile=self.profile,
+            digest=self.digest,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            # experiment_ids will be loaded lazily when accessed
+        )
+
+        if records is not None:
+            dataset._records = records
+
+        return dataset
+
+    @classmethod
+    def from_mlflow_entity(cls, dataset: EvaluationDataset):
+        """
+        Create SqlEvaluationDataset from EvaluationDataset entity.
+
+        Args:
+            dataset: EvaluationDataset entity
+
+        Returns:
+            SqlEvaluationDataset instance
+        """
+        # Note: tags are not set here - they are handled as
+        # SqlEvaluationDatasetTag objects
+        return cls(
+            dataset_id=dataset.dataset_id,
+            name=dataset.name,
+            schema=dataset.schema,
+            profile=dataset.profile,
+            digest=dataset.digest,
+            created_time=dataset.created_time or get_current_time_millis(),
+            last_update_time=dataset.last_update_time or get_current_time_millis(),
+            created_by=dataset.created_by,
+            last_updated_by=dataset.last_updated_by,
+        )
+
+
+class SqlEvaluationDatasetTag(Base):
+    """
+    DB model for evaluation dataset tags.
+    """
+
+    __tablename__ = "evaluation_dataset_tags"
+
+    dataset_id = Column(
+        String(36),
+        ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    key = Column(String(255), primary_key=True)
+    """
+    Tag key: `String` (limit 255 characters).
+    *Primary Key* for ``evaluation_dataset_tags`` table.
+    """
+
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters).
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_id", "key", name="evaluation_dataset_tags_pk"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_tags_dataset_id",
+            ondelete="CASCADE",
+        ),
+        Index("index_evaluation_dataset_tags_dataset_id", "dataset_id"),
+    )
+
+
+class SqlEvaluationDatasetRecord(Base):
+    """
+    DB model for evaluation dataset records.
+    """
+
+    __tablename__ = "evaluation_dataset_records"
+    RECORD_ID_PREFIX = "dr-"
+
+    dataset_record_id = Column(String(36), primary_key=True)
+    """
+    Dataset record ID: `String` (limit 36 characters).
+    *Primary Key* for ``evaluation_dataset_records`` table.
+    """
+
+    dataset_id = Column(
+        String(36), ForeignKey("evaluation_datasets.dataset_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Dataset ID: `String` (limit 36 characters). Foreign key to evaluation_datasets.
+    """
+
+    inputs = Column(MutableJSON, nullable=False)
+    """
+    Inputs JSON: `JSON`. *Non null* in table schema.
+    """
+
+    outputs = Column(MutableJSON, nullable=True)
+    """
+    Outputs JSON: `JSON`.
+    """
+
+    expectations = Column(MutableJSON, nullable=True)
+    """
+    Expectations JSON: `JSON`.
+    """
+
+    tags = Column(MutableJSON, nullable=True)
+    """
+    Tags JSON: `JSON`.
+    """
+
+    source = Column(MutableJSON, nullable=True)
+    """
+    Source JSON: `JSON`.
+    """
+
+    source_id = Column(String(36), nullable=True)
+    """
+    Source ID for lookups: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(255), nullable=True)
+    """
+    Source type: `Text`.
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    last_update_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Last update time: `BigInteger`.
+    """
+
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+
+    input_hash = Column(String(64), nullable=False)
+    """
+    Hash of inputs for deduplication: `String` (limit 64 characters).
+    """
+
+    dataset = relationship("SqlEvaluationDataset", back_populates="records")
+
+    __table_args__ = (
+        PrimaryKeyConstraint("dataset_record_id", name="evaluation_dataset_records_pk"),
+        Index("index_evaluation_dataset_records_dataset_id", "dataset_id"),
+        UniqueConstraint("dataset_id", "input_hash", name="unique_dataset_input"),
+        ForeignKeyConstraint(
+            ["dataset_id"],
+            ["evaluation_datasets.dataset_id"],
+            name="fk_evaluation_dataset_records_dataset_id",
+            ondelete="CASCADE",
+        ),
+    )
+
+    def __init__(self, **kwargs):
+        """Initialize a new dataset record with auto-generated ID if not provided."""
+        if "dataset_record_id" not in kwargs:
+            kwargs["dataset_record_id"] = self.generate_record_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_record_id() -> str:
+        """
+        Generate a unique ID for dataset records.
+
+        Returns:
+            A unique record ID with the format "dr-<uuid_hex>".
+        """
+        return f"{SqlEvaluationDatasetRecord.RECORD_ID_PREFIX}{uuid.uuid4().hex}"
+
+    def to_mlflow_entity(self):
+        inputs = self.inputs
+        expectations = self.expectations
+        tags = self.tags
+
+        outputs = self.outputs.get(DATASET_RECORD_WRAPPED_OUTPUT_KEY) if self.outputs else None
+
+        source = None
+        if self.source:
+            source = DatasetRecordSource.from_dict(self.source)
+
+        return DatasetRecord(
+            dataset_record_id=self.dataset_record_id,
+            dataset_id=self.dataset_id,
+            inputs=inputs,
+            outputs=outputs,
+            expectations=expectations,
+            tags=tags,
+            source=source,
+            source_id=self.source_id,
+            created_time=self.created_time,
+            last_update_time=self.last_update_time,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
+
+    @classmethod
+    def from_mlflow_entity(cls, record: DatasetRecord, input_hash: str):
+        """
+        Create SqlEvaluationDatasetRecord from DatasetRecord entity.
+
+        Args:
+            record: DatasetRecord entity
+            input_hash: SHA256 hash of inputs for deduplication
+
+        Returns:
+            SqlEvaluationDatasetRecord instance
+        """
+
+        source_dict = None
+        if record.source:
+            source_dict = record.source.to_dict()
+
+        outputs = (
+            {DATASET_RECORD_WRAPPED_OUTPUT_KEY: record.outputs}
+            if record.outputs is not None
+            else None
+        )
+
+        kwargs = {
+            "dataset_id": record.dataset_id,
+            "inputs": record.inputs,
+            "outputs": outputs,
+            "expectations": record.expectations,
+            "tags": record.tags,
+            "source": source_dict,
+            "source_id": record.source_id,
+            "source_type": record.source.source_type if record.source else None,
+            "created_time": record.created_time or get_current_time_millis(),
+            "last_update_time": record.last_update_time or get_current_time_millis(),
+            "created_by": record.created_by,
+            "last_updated_by": record.last_updated_by,
+            "input_hash": input_hash,
+        }
+
+        if record.dataset_record_id:
+            kwargs["dataset_record_id"] = record.dataset_record_id
+
+        return cls(**kwargs)
+
+    def merge(self, new_record_dict: dict[str, Any]) -> None:
+        """
+        Merge new record data into this existing record.
+
+        Updates outputs, expectations and tags by merging new values with existing ones.
+        Preserves created_time and created_by from the original record.
+
+        Args:
+            new_record_dict: Dictionary containing new record data with optional
+                           'outputs', 'expectations' and 'tags' fields to merge.
+        """
+        if "outputs" in new_record_dict:
+            new_outputs = new_record_dict["outputs"]
+            self.outputs = (
+                {DATASET_RECORD_WRAPPED_OUTPUT_KEY: new_outputs}
+                if new_outputs is not None
+                else None
+            )
+
+        if new_expectations := new_record_dict.get("expectations"):
+            if self.expectations is None:
+                self.expectations = {}
+            self.expectations.update(new_expectations)
+
+        if new_tags := new_record_dict.get("tags"):
+            if self.tags is None:
+                self.tags = {}
+            self.tags.update(new_tags)
+
+        self.last_update_time = get_current_time_millis()
+
+        # Update last_updated_by if mlflow.user tag is present
+        # Otherwise keep the existing last_updated_by (don't change it to None)
+        if new_tags and MLFLOW_USER in new_tags:
+            self.last_updated_by = new_tags[MLFLOW_USER]
+
+
+class SqlSpan(Base):
+    __tablename__ = "spans"
+
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID: `String` (limit 50 characters). Part of composite primary key.
+    Foreign key to trace_info table.
+    """
+
+    experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
+    """
+    Experiment ID: `Integer`. Foreign key to experiments table.
+    """
+
+    span_id = Column(String(50), nullable=False)
+    """
+    Span ID: `String` (limit 50 characters). Part of composite primary key.
+    """
+
+    parent_span_id = Column(String(50), nullable=True)
+    """
+    Parent span ID: `String` (limit 50 characters). Can be null for root spans.
+    """
+
+    name = Column(Text, nullable=True)
+    """
+    Span name: `Text`. Can be null.
+    """
+
+    type = Column(String(500), nullable=True)
+    """
+    Span type: `String` (limit 500 characters). Can be null.
+    Uses String instead of Text to support MSSQL indexes.
+    Limited to 500 chars to stay within MySQL's max index key length.
+    """
+
+    status = Column(String(50), nullable=False)
+    """
+    Span status: `String` (limit 50 characters).
+    """
+
+    start_time_unix_nano = Column(BigInteger, nullable=False)
+    """
+    Start time in nanoseconds since Unix epoch: `BigInteger`.
+    """
+
+    end_time_unix_nano = Column(BigInteger, nullable=True)
+    """
+    End time in nanoseconds since Unix epoch: `BigInteger`. Can be null if span is in progress.
+    """
+
+    duration_ns = Column(
+        BigInteger,
+        Computed("end_time_unix_nano - start_time_unix_nano", persisted=True),
+        nullable=True,
+    )
+    """
+    Duration in nanoseconds: `BigInteger`. Computed from end_time - start_time.
+    Stored as a persisted/stored generated column for efficient filtering.
+    Will be NULL for in-progress spans (where end_time is NULL).
+    """
+
+    content = Column(Text, nullable=False)
+    """
+    Full span content as JSON: `Text`.
+    Uses LONGTEXT in MySQL to support large spans (up to 4GB).
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("spans", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("trace_id", "span_id", name="spans_pk"),
+        Index("index_spans_experiment_id", "experiment_id"),
+        # Two indexes needed to support both filter patterns efficiently:
+        Index(
+            "index_spans_experiment_id_status_type", "experiment_id", "status", "type"
+        ),  # For status-only and status+type filters
+        Index(
+            "index_spans_experiment_id_type_status", "experiment_id", "type", "status"
+        ),  # For type-only and type+status filters
+        Index("index_spans_experiment_id_duration", "experiment_id", "duration_ns"),
+    )
+
+
+class SqlEntityAssociation(Base):
+    """
+    DB model for entity associations.
+    """
+
+    __tablename__ = "entity_associations"
+    ASSOCIATION_ID_PREFIX = "a-"
+
+    association_id = Column(String(36), nullable=False)
+    """
+    Association ID: `String` (limit 36 characters).
+    """
+
+    source_type = Column(String(36), nullable=False)
+    """
+    Source entity type: `String` (limit 36 characters).
+    """
+
+    source_id = Column(String(36), nullable=False)
+    """
+    Source entity ID: `String` (limit 36 characters).
+    """
+
+    destination_type = Column(String(36), nullable=False)
+    """
+    Destination entity type: `String` (limit 36 characters).
+    """
+
+    destination_id = Column(String(36), nullable=False)
+    """
+    Destination entity ID: `String` (limit 36 characters).
+    """
+
+    created_time = Column(BigInteger, default=get_current_time_millis)
+    """
+    Creation time: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "source_type",
+            "source_id",
+            "destination_type",
+            "destination_id",
+            name="entity_associations_pk",
+        ),
+        Index("index_entity_associations_association_id", "association_id"),
+        Index(
+            "index_entity_associations_reverse_lookup",
+            "destination_type",
+            "destination_id",
+            "source_type",
+            "source_id",
+        ),
+    )
+
+    def __init__(self, **kwargs):
+        """Initialize a new entity association with auto-generated ID if not provided."""
+        if "association_id" not in kwargs:
+            kwargs["association_id"] = self.generate_association_id()
+        super().__init__(**kwargs)
+
+    @staticmethod
+    def generate_association_id() -> str:
+        """
+        Generate a unique ID for entity associations.
+
+        Returns:
+            A unique association ID with the format "a-<uuid_hex>".
+        """
+        return f"{SqlEntityAssociation.ASSOCIATION_ID_PREFIX}{uuid.uuid4().hex}"
+
+
+class SqlScorer(Base):
+    """
+    DB model for storing scorer information. These are recorded in ``scorers`` table.
+    """
+
+    __tablename__ = "scorers"
+
+    experiment_id = Column(
+        Integer, ForeignKey("experiments.experiment_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Experiment ID to which this scorer belongs: *Foreign Key* into ``experiments`` table.
+    """
+    scorer_name = Column(String(256), nullable=False)
+    """
+    Scorer name: `String` (limit 256 characters). Part of *Primary Key* for ``scorers`` table.
+    """
+    scorer_id = Column(String(36), nullable=False)
+    """
+    Scorer ID: `String` (limit 36 characters). Unique identifier for the scorer.
+    """
+
+    experiment = relationship("SqlExperiment", backref=backref("scorers", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlExperiment`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", name="scorer_pk"),
+        Index(
+            f"index_{__tablename__}_experiment_id_scorer_name",
+            "experiment_id",
+            "scorer_name",
+            unique=True,
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorer ({self.experiment_id}, {self.scorer_name}, {self.scorer_id})>"
+
+
+class SqlScorerVersion(Base):
+    """
+    DB model for storing scorer version information. These are recorded in
+    ``scorer_versions`` table.
+    """
+
+    __tablename__ = "scorer_versions"
+
+    scorer_id = Column(
+        String(36), ForeignKey("scorers.scorer_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Scorer ID: `String` (limit 36 characters). *Foreign Key* into ``scorers`` table.
+    """
+    scorer_version = Column(Integer, nullable=False)
+    """
+    Scorer version: `Integer`. Part of *Primary Key* for ``scorer_versions`` table.
+    """
+    serialized_scorer = Column(Text, nullable=False)
+    """
+    Serialized scorer data: `Text`. Contains the serialized scorer object.
+    """
+    creation_time = Column(BigInteger(), default=get_current_time_millis)
+    """
+    Creation time of scorer version: `BigInteger`. Automatically set to current time when created.
+    """
+
+    # Relationship to the parent scorer
+    scorer = relationship("SqlScorer", backref=backref("scorer_versions", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlScorer`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("scorer_id", "scorer_version", name="scorer_version_pk"),
+        Index(f"index_{__tablename__}_scorer_id", "scorer_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlScorerVersion ({self.scorer_id}, {self.scorer_version})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.ScorerVersion.
+        """
+        from mlflow.entities.scorer import ScorerVersion
+
+        return ScorerVersion(
+            experiment_id=str(self.scorer.experiment_id),
+            scorer_name=self.scorer.scorer_name,
+            scorer_version=self.scorer_version,
+            serialized_scorer=self.serialized_scorer,
+            creation_time=self.creation_time,
+            scorer_id=self.scorer_id,
+        )
+
+
+class SqlJob(Base):
+    """
+    DB model for Job entities. These are recorded in the ``jobs`` table.
+    """
+
+    __tablename__ = "jobs"
+
+    id = Column(String(36), nullable=False)
+    """
+    Job ID: `String` (limit 36 characters). *Primary Key* for ``jobs`` table.
+    """
+
+    creation_time = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+
+    function_fullname = Column(String(500), nullable=False)
+    """
+    Function fullname: `String` (limit 500 characters).
+    """
+
+    params = Column(Text, nullable=False)
+    """
+    Job parameters: `Text`.
+    """
+
+    timeout = Column(sa.types.Float(precision=53), nullable=True)
+    """
+    Job execution timeout in seconds: `Float`
+    """
+
+    status = Column(Integer, nullable=False)
+    """
+    Job status: `Integer`.
+    """
+
+    result = Column(Text, nullable=True)
+    """
+    Job result: `Text`.
+    """
+
+    retry_count = Column(Integer, default=0, nullable=False)
+    """
+    Job retry count: `Integer`
+    """
+
+    last_update_time = Column(BigInteger(), default=get_current_time_millis, nullable=False)
+    """
+    Last Update time of experiment: `BigInteger`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("id", name="jobs_pk"),
+        Index(
+            "index_jobs_function_status_creation_time",
+            "function_fullname",
+            "status",
+            "creation_time",
+        ),
+    )
+
+    def __repr__(self):
+        return f"<SqlJob ({self.id}, {self.function_fullname}, {self.status})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities._job.Job.
+        """
+        from mlflow.entities._job import Job
+        from mlflow.entities._job_status import JobStatus
+
+        return Job(
+            job_id=self.id,
+            creation_time=self.creation_time,
+            function_fullname=self.function_fullname,
+            params=self.params,
+            timeout=self.timeout,
+            status=JobStatus.from_int(self.status),
+            result=self.result,
+            retry_count=self.retry_count,
+            last_update_time=self.last_update_time,
+        )

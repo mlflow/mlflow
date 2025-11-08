@@ -63,7 +63,7 @@ with mlflow.start_run() as run:
     # Note: in most model validation use-cases the baseline model should instead b
     # a previously trained model (such as the current production model)
     baseline_model_uri = mlflow.sklearn.log_model(
-        baseline_model, "baseline_model", signature=baseline_signature
+        baseline_model, name="baseline_model", signature=baseline_signature
     ).model_uri
 
     # Evaluate the baseline model
@@ -80,7 +80,7 @@ with mlflow.start_run() as run:
 
     # Evaluate the candidate model
     candidate_model_uri = mlflow.sklearn.log_model(
-        candidate_model, "candidate_model", signature=candidate_signature
+        candidate_model, name="candidate_model", signature=candidate_signature
     ).model_uri
 
     candidate_result = mlflow.evaluate(

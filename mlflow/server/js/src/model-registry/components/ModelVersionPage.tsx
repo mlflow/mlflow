@@ -19,6 +19,7 @@ import {
 import { getRunApi } from '../../experiment-tracking/actions';
 import { getModelVersion, getModelVersionSchemas } from '../reducers';
 import { ModelVersionView } from './ModelVersionView';
+import type { PendingModelVersionActivity } from '../constants';
 import { ActivityTypes, MODEL_VERSION_STATUS_POLL_INTERVAL as POLL_INTERVAL } from '../constants';
 import Utils from '../../common/utils/Utils';
 import { getRunInfo, getRunTags } from '../../experiment-tracking/reducers/Reducers';
@@ -28,14 +29,14 @@ import { Spinner } from '../../common/components/Spinner';
 import { ModelRegistryRoutes } from '../routes';
 import { getProtoField } from '../utils';
 import { getUUID } from '../../common/utils/ActionUtils';
-import _ from 'lodash';
+import { without } from 'lodash';
 import { PageContainer } from '../../common/components/PageContainer';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import type { ModelEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { ReduxState } from '../../redux-types';
+import type { ReduxState } from '../../redux-types';
 import { ErrorCodes } from '../../common/constants';
 import { injectIntl } from 'react-intl';
 
@@ -86,7 +87,7 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
 
   loadData = (isInitialLoading: any) => {
     const promises = [this.getModelVersionDetailAndRunInfo(isInitialLoading)];
-    return Promise.all([promises]);
+    return Promise.all(promises);
   };
 
   pollData = () => {
@@ -119,7 +120,8 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         isInitialLoading === true ? this.initGetModelVersionDetailsRequestId : this.getModelVersionDetailsRequestId,
       )
       .then(({ value }: any) => {
-        if (value && !value[getProtoField('model_version')].run_link) {
+        // Do not fetch run info if there is no run_id (e.g. model version created directly from a logged model)
+        if (value && !value[getProtoField('model_version')].run_link && value[getProtoField('model_version')]?.run_id) {
           this.props.getRunApi(value[getProtoField('model_version')].run_id, this.getRunRequestId);
         }
       });
@@ -138,12 +140,16 @@ export class ModelVersionPageImpl extends React.Component<ModelVersionPageImplPr
         // `initGetMlModelFileRequestId` from `criticalInitialRequestIds`
         // to unblock RequestStateWrapper from rendering its content
         this.setState((prevState: any) => ({
-          criticalInitialRequestIds: _.without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
+          criticalInitialRequestIds: without(prevState.criticalInitialRequestIds, this.initGetMlModelFileRequestId),
         }));
       });
   }
 
-  handleStageTransitionDropdownSelect = (activity: any, archiveExistingVersions: any) => {
+  // prettier-ignore
+  handleStageTransitionDropdownSelect = (
+    activity: PendingModelVersionActivity,
+    archiveExistingVersions?: boolean,
+  ) => {
     const { modelName, version } = this.props;
     const toStage = activity.to_stage;
     if (activity.type === ActivityTypes.APPLIED_TRANSITION) {

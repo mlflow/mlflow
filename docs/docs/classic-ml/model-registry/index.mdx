@@ -1,0 +1,220 @@
+---
+sidebar_position: 15
+toc_max_heading_level: 4
+sidebar_label: Overview
+pagination_next: model-registry/tutorial
+---
+
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# MLflow Model Registry
+
+The MLflow Model Registry is a centralized model store, set of APIs and a UI designed to
+collaboratively manage the full lifecycle of a model. It provides lineage (i.e., which
+MLflow experiment and run produced the model), versioning, aliasing, metadata tagging and
+annotation support to ensure that you have the full spectrum of information at every stage from development to production deployment.
+
+## Why Model Registry?
+
+As machine learning projects grow in complexity and scale, managing models manually across different environments, teams, and iterations becomes increasingly error-prone and inefficient.
+The MLflow Model Registry addresses this challenge by providing a centralized, structured system for organizing and governing ML models throughout their lifecycle.
+
+Using the Model Registry offers the following benefits:
+
+- **🗂️ Version Control**: The registry automatically tracks versions of each model, allowing teams to compare iterations, roll back to previous states, and manage multiple versions in parallel (e.g., staging vs. production).
+- **🧬 Model Lineage and Traceability**: Each registered model version is linked to the MLflow run, logged model or notebook that produced it, enabling full reproducibility. You can trace back exactly how a model was trained, with what data and parameters.
+- **🚀 Production-Ready Workflows**: Features like model aliases (e.g., @champion) and tags make it easier to manage deployment workflows, promoting models to experimental, staging, or production environments in a controlled and auditable way.
+- **🛡️ Governance and Compliance**: With structured metadata, tagging, and role-based access controls (when used with a backend like Databricks or a managed MLflow service), the Model Registry supports governance requirements critical for enterprise-grade ML operations.
+
+Whether you're a solo data scientist or part of a large ML platform team, the Model Registry is a foundational component for scaling reliable and maintainable machine learning systems.
+
+## Concepts
+
+The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model.
+
+<table>
+  <thead>
+    <tr>
+      <th>Concept</th>
+      <th>Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Model</td>
+      <td>
+      An MLflow Model is created with one of the model flavor's **`mlflow.<model_flavor>.log_model()`** methods, or **<APILink fn="mlflow.create_external_model"/>** API since MLflow 3.
+      Once logged, this model can then be registered with the Model Registry.
+      </td>
+    </tr>
+    <tr>
+      <td>Registered Model</td>
+      <td>
+      An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, aliases, tags, and other metadata.
+      </td>
+    </tr>
+    <tr>
+      <td>Model Version</td>
+      <td>
+      Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to
+      the same model name **increments the version number**. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
+      </td>
+    </tr>
+    <tr>
+      <td>Model URI</td>
+      <td>
+      You can refer to the registered model by using a URI of this format: `models:/<model-name>/<model-version>`, e.g., if you have a registered model with name "MyModel" and version 1, the URI referring to the model is: `models:/MyModel/1`".
+      </td>
+    </tr>
+    <tr>
+      <td>Model Alias</td>
+      <td>
+      Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version,
+      you can use the alias to refer to that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
+      points to version 1 of a model named **`MyModel`**. You can then refer to version 1 of **`MyModel`** by using the URI **`models:/MyModel@champion`**.
+
+      Aliases are especially useful for deploying models. For example, you could assign a **`champion`** alias to the model version intended for production traffic
+      and target this alias in production workloads. You can then update the model serving production traffic by reassigning the **`champion`** alias to a different model version.
+      </td>
+    </tr>
+    <tr>
+      <td>Tags</td>
+      <td>
+      Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you
+      could apply a tag with key **`"task"`** and value **`"question-answering"`** (displayed in the UI as **`task:question-answering`**) to registered models intended for question
+      answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with **`validation_status:pending`** and those cleared for deployment
+      with **`validation_status:approved`**.
+      </td>
+    </tr>
+    <tr>
+      <td>Annotations and Descriptions</td>
+      <td>
+      You can annotate the top-level model and each version individually using Markdown, including the description and any relevant information useful for the team such as algorithm
+      descriptions, datasets employed or the overall methodology involved in a given version's modeling approach.
+      </td>
+    </tr>
+
+  </tbody>
+</table>
+
+## Model Registry in practice
+
+The MLflow Model Registry is available in both open-source (OSS) MLflow and managed platforms like Databricks. Depending on the environment, the registry offers different
+levels of integration, governance, and collaboration features.
+
+### Model Registry in OSS MLflow
+
+In the open-source version of MLflow, the Model Registry provides both a UI and API for managing the lifecycle of machine learning models.
+You can register models, track versions, add tags and descriptions, and transition models between stages such as Staging and Production.
+
+<details>
+  <summary>Register a model in MLflow</summary>
+
+  <Tabs>
+    <TabItem label="Python APIs" value="python-apis">
+      #### Register a model with MLflow Python APIs
+
+      MLflow provides several ways to register a model version
+      ```
+      # Option 1: specify `registered_model_name` parameter when logging a model
+      mlflow.<flavor>.log_model(..., registered_model_name="<YOUR_MODEL_NAME>")
+
+      # Option 2: register a logged model
+      mlflow.register_model(model_uri="<YOUR_MODEL_URI>", name="<YOUR_MODEL_NAME>")
+      ```
+
+      After registering the model, you can load it back with the model name and version
+      ```
+      mlflow.<flavor>.load_model("models:/<YOUR_MODEL_NAME>/<YOUR_MODEL_VERSION>")
+      ```
+
+    </TabItem>
+    <TabItem label="MLflow UI" value="mlflow-ui">
+      #### Register a model on MLflow UI
+
+      1. Open the details page for the MLflow Run containing the logged MLflow model you'd like to register. Select the model folder containing the intended MLflow model in the
+        **Artifacts** section.
+
+      ![](/images/oss_registry_1_register.png)
+
+      2. Click the **Register Model** button, which will trigger a modal form to pop up.
+
+      3. In the **Model** dropdown menu on the form, you can either select "Create New Model" (which creates a new registered model with your MLflow model as its initial version)
+        or select an existing registered model (which registers your model under it as a new version). The screenshot below demonstrates registering the MLflow model to a new registered
+        model named `"iris_model_testing"`.
+
+      ![](/images/oss_registry_2_dialog.png)
+    </TabItem>
+
+  </Tabs>
+</details>
+
+To learn more about the OSS Model Registry, refer to the [tutorial on the model registry](./tutorial).
+
+### Model Registry in Databricks
+
+Databricks extends MLflow's capabilities by integrating the Model Registry with Unity Catalog, enabling centralized governance, fine-grained access control, and cross-workspace collaboration.
+
+Key benefits of Unity Catalog integration include:
+
+- **🛡️ Enhanced governance**: Apply access policies and permission controls to model assets.
+- **🌐 Cross-workspace access**: Register models once and access them across multiple Databricks workspaces.
+- **🔗 Model lineage**: Track which notebooks, datasets, and experiments were used to create each model.
+- **🔍 Discovery and reuse**: Browse and reuse production-grade models from a shared catalog.
+
+<details>
+  <summary>Register a model in Databricks UC</summary>
+
+  <Tabs>
+    <TabItem label="Python APIs" value="python-apis">
+      #### Register a model to Databricks UC with MLflow Python APIs
+
+      **Prerequisite**: Set tracking uri to Databricks
+      ```python
+      import mlflow
+
+      mlflow.set_registry_uri("databricks-uc")
+      ```
+
+      Use MLflow APIs to register the model
+      ```
+      # Option 1: specify `registered_model_name` parameter when logging a model
+      mlflow.<flavor>.log_model(..., registered_model_name="<YOUR_MODEL_NAME>")
+
+      # Option 2: register a logged model
+      mlflow.register_model(model_uri="<YOUR_MODEL_URI>", name="<YOUR_MODEL_NAME>")
+      ```
+
+      :::warning
+      ML model versions in UC must have a [model signature](../model/signatures). If you want to set a signature on a model that's
+      already logged or saved, the <APILink fn="mlflow.models.set_signature"/> API is available for this purpose.
+      :::
+
+      After registering the model, you can load it back with the model name and version
+      ```
+      mlflow.<flavor>.load_model("models:/<YOUR_MODEL_NAME>/<YOUR_MODEL_VERSION>")
+      ```
+
+    </TabItem>
+    <TabItem label="Databricks UI" value="databricks-ui">
+      #### Register a model on Databricks UI
+
+      1. From the experiment run page or models page, click Register model in the upper-right corner of the UI.
+
+      2. In the dialog, select Unity Catalog, and select a destination model from the drop down list.
+
+      ![](/images/uc_register_model_1_dialog.png)
+
+      3. Click Register.
+
+      ![](/images/uc_register_model_2_button.png)
+
+      Registering a model can take time. To monitor progress, navigate to the destination model in Unity Catalog and refresh periodically.
+    </TabItem>
+
+  </Tabs>
+</details>
+
+For more information, refer to the [Databricks documentation](https://docs.databricks.com/aws/en/machine-learning/manage-model-lifecycle) on managing the model lifecycle.
