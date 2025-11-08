@@ -189,6 +189,9 @@ test = [
   "pytest-cov",
   "pytest-timeout",
   "psutil",
+  "pyspark",
+  "opentelemetry-exporter-otlp-proto-grpc",
+  "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 
