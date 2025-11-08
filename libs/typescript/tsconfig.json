@@ -1,7 +1,8 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+  "module": "commonjs",
+  "moduleResolution": "node10",
     "declaration": true,
     "outDir": "./dist",
     "strict": true,
@@ -9,6 +10,10 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@opentelemetry/sdk-node": ["node_modules/@opentelemetry/sdk-node"]
+    }
   }
 }

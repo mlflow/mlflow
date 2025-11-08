@@ -4,14 +4,21 @@ import { JSONBig } from '../../core/utils/json';
 import { GetCredentialsForTraceDataDownload, GetCredentialsForTraceDataUpload } from '../spec';
 import { getRequestHeaders, makeRequest } from '../utils';
 import { ArtifactsClient } from './base';
+import { DatabricksAuthProvider } from '../../core/databricks_auth';
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
   private databricksToken?: string;
+  private databricksAuthProvider?: DatabricksAuthProvider;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: {
+    host: string;
+    databricksToken?: string;
+    databricksAuthProvider?: DatabricksAuthProvider;
+  }) {
     this.host = options.host;
     this.databricksToken = options.databricksToken;
+    this.databricksAuthProvider = options.databricksAuthProvider;
   }
 
   /**
@@ -59,7 +66,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      await this.buildHeaders()
     );
     return response.credential_info;
   }
@@ -75,7 +82,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.databricksToken)
+      await this.buildHeaders()
     );
 
     if (response.credential_info) {
@@ -83,6 +90,20 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     } else {
       throw new Error('Invalid response format: missing credential_info');
     }
+  }
+
+  private async buildHeaders(): Promise<Record<string, string>> {
+    const token = this.databricksAuthProvider
+      ? await this.databricksAuthProvider.getAccessToken()
+      : this.databricksToken;
+
+    if (!token) {
+      throw new Error(
+        'Databricks access token is not available. Please verify authentication configuration.'
+      );
+    }
+
+    return getRequestHeaders(token);
   }
 
   /**
