@@ -12,7 +12,7 @@ module.exports = {
     tsconfigRootDir: __dirname
   },
   plugins: ['@typescript-eslint'],
-  ignorePatterns: ['dist/', 'build/', 'node_modules/', '*.d.ts', 'jest.config.js'],
+  ignorePatterns: ['dist/', 'build/', 'node_modules/', '*.d.ts', 'jest.config.js', '*.cjs'],
   rules: {
     // TypeScript-specific rules
     '@typescript-eslint/no-unused-vars': [
