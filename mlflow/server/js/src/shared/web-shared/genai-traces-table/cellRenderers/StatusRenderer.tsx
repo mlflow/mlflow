@@ -4,7 +4,7 @@ import { CheckCircleIcon, ClockIcon, useDesignSystemTheme, XCircleIcon } from '@
 import { useIntl, defineMessage } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
-import type { TraceInfoV3 } from '../types';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 export const ExperimentViewTracesStatusLabels = {
   STATE_UNSPECIFIED: null,
@@ -22,7 +22,7 @@ export const ExperimentViewTracesStatusLabels = {
   }),
 };
 
-const getIcon = (state: TraceInfoV3['state'], theme: Theme) => {
+const getIcon = (state: ModelTraceInfoV3['state'], theme: Theme) => {
   if (state === 'IN_PROGRESS') {
     return <ClockIcon css={{ color: theme.colors.textValidationWarning }} />;
   }
@@ -42,7 +42,7 @@ export const StatusCellRenderer = ({
   original,
   isComparing,
 }: {
-  original: TraceInfoV3 | undefined;
+  original: ModelTraceInfoV3 | undefined;
   isComparing: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();

@@ -158,6 +158,7 @@ def predict_fn(sentences: str) -> str:
 Run the <APILink fn="mlflow.genai.evaluate" /> API to evaluate the model with the prepared data and prompt. In this example, we will use the following two built-in metrics.
 
 ```python
+from typing import Literal
 from mlflow.genai.judges import make_judge
 
 answer_similarity = make_judge(
@@ -169,6 +170,7 @@ answer_similarity = make_judge(
         "Return 'yes' if the output is similar to the expected answer, otherwise return 'no'."
     ),
     model="openai:/gpt-5-mini",
+    feedback_value_type=Literal["yes", "no"],
 )
 
 results = mlflow.genai.evaluate(

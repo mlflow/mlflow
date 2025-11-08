@@ -10,8 +10,8 @@ import { GenAITracesTableBodyContainer } from './GenAITracesTableBodyContainer';
 // eslint-disable-next-line import/no-namespace
 import * as GenAiTracesTableUtils from './GenAiTracesTable.utils';
 import { createTestTraceInfoV3, createTestAssessmentInfo, createTestColumns } from './index';
-import type { TraceInfoV3 } from './types';
 import { TestRouter, testRoute } from './utils/RoutingTestUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 // Mock the virtualizer to render all rows in tests
 jest.mock('@tanstack/react-virtual', () => {
@@ -74,8 +74,8 @@ describe('GenAITracesTableBodyContainer - integration test', () => {
     });
 
   const renderTestComponent = (
-    currentTraceInfoV3: TraceInfoV3[],
-    compareToTraceInfoV3: TraceInfoV3[] = [],
+    currentTraceInfoV3: ModelTraceInfoV3[],
+    compareToTraceInfoV3: ModelTraceInfoV3[] = [],
     additionalProps: Partial<ComponentProps<typeof GenAITracesTableBodyContainer>> = {},
   ) => {
     const defaultAssessmentInfos = [

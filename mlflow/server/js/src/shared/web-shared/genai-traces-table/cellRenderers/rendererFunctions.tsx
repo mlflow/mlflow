@@ -4,7 +4,8 @@ import { first, isNil } from 'lodash';
 import type { ThemeType } from '@databricks/design-system';
 import { ArrowRightIcon, Tag, Tooltip, Typography, UserIcon } from '@databricks/design-system';
 import type { IntlShape } from '@databricks/i18n';
-import { ExpectationValuePreview, type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-explorer';
 
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
@@ -26,6 +27,7 @@ import {
 import { RunColorCircle } from '../components/RunColorCircle';
 import {
   CUSTOM_METADATA_COLUMN_ID,
+  EXECUTION_DURATION_COLUMN_ID,
   LOGGED_MODEL_COLUMN_ID,
   REQUEST_TIME_COLUMN_ID,
   RESPONSE_COLUMN_ID,
@@ -39,18 +41,19 @@ import {
   TRACE_NAME_COLUMN_ID,
   USER_COLUMN_ID,
 } from '../hooks/useTableColumns';
-import { type AssessmentInfo, type EvalTraceComparisonEntry } from '../types';
+import type { AssessmentInfo, EvalTraceComparisonEntry } from '../types';
 import { getUniqueValueCountsBySourceId } from '../utils/AggregationUtils';
 import { COMPARE_TO_RUN_COLOR, CURRENT_RUN_COLOR } from '../utils/Colors';
 import { timeSinceStr } from '../utils/DisplayUtils';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
-  convertTraceInfoV3ToModelTraceInfo,
   getCustomMetadataKeyFromColumnId,
   getTagKeyFromColumnId,
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
+import MlflowUtils from '../utils/MlflowUtils';
+import { Link } from '../utils/RoutingUtils';
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -351,7 +354,7 @@ export const traceInfoCellRenderer = (
   comparisonEntry: EvalTraceComparisonEntry,
   onChangeEvaluationId: (evalId: string) => void,
   theme: ThemeType,
-  onTraceTagsEdit?: (trace: ModelTraceInfo) => void,
+  onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void,
 ) => {
   const currentTraceInfo = comparisonEntry.currentRunValue?.traceInfo;
   const otherTraceInfo = isComparing ? comparisonEntry.otherRunValue?.traceInfo : undefined;
@@ -443,9 +446,7 @@ export const traceInfoCellRenderer = (
     );
 
     // We only support editing tags in single trace mode
-    const onAddEditTags = !otherTraceInfo
-      ? () => onTraceTagsEdit?.(currentTraceInfo ? convertTraceInfoV3ToModelTraceInfo(currentTraceInfo) : {})
-      : undefined;
+    const onAddEditTags = !otherTraceInfo && currentTraceInfo ? () => onTraceTagsEdit?.(currentTraceInfo) : undefined;
 
     return (
       <StackedComponents
@@ -603,7 +604,6 @@ export const traceInfoCellRenderer = (
               css={{ width: 'fit-content', maxWidth: '100%' }}
               componentId="mlflow.genai-traces-table.trace-id"
               color="indigo"
-              title={value}
               onClick={() => onChangeEvaluationId(value)}
             >
               <span
@@ -655,22 +655,24 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={value}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, value)}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={value}
               >
-                {value}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {value}
+                </span>
+              </Tag>
+            </Link>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -678,22 +680,24 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={otherValue}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, otherValue)}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={otherValue}
               >
-                {otherValue}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {otherValue}
+                </span>
+              </Tag>
+            </Link>
           ) : (
             <NullCell isComparing={isComparing} />
           ))
@@ -758,6 +762,50 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
+              {otherValue}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          ))
+        }
+      />
+    );
+  } else if (colId === EXECUTION_DURATION_COLUMN_ID) {
+    // Parse and reformat time values from the backend. Keep up to 3 decimal places for float values,
+    // trim trailing zeros and the dot if there are no decimal places
+    const normalizeFloatValue = (val?: string) => {
+      if (val === undefined) {
+        return undefined;
+      }
+      const floatVal = parseFloat(val);
+      const unit = val
+        ?.replace?.(/[0-9.]/g, '')
+        .trim()
+        .toLowerCase();
+      if (isNil(floatVal) || isNaN(floatVal)) {
+        return undefined;
+      }
+      return [floatVal.toFixed(3).replace(/\.?0+$/, ''), unit].filter(Boolean).join('');
+    };
+
+    const value = normalizeFloatValue(currentTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+    const otherValue = normalizeFloatValue(otherTraceInfo?.[EXECUTION_DURATION_COLUMN_ID]);
+
+    return (
+      <StackedComponents
+        first={
+          !isNil(value) ? (
+            <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={value}>
+              {value}
+            </div>
+          ) : (
+            <NullCell isComparing={isComparing} />
+          )
+        }
+        second={
+          isComparing &&
+          (!isNil(otherValue) ? (
             <div css={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={otherValue}>
               {otherValue}
             </div>

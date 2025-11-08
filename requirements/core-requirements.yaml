@@ -62,7 +62,7 @@ scikit-learn:
 pyarrow:
   pip_release: pyarrow
   minimum: "4.0.0"
-  max_major_version: 21
+  max_major_version: 22
 
 matplotlib:
   pip_release: matplotlib

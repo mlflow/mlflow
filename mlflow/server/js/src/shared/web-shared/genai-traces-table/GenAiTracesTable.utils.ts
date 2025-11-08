@@ -19,8 +19,9 @@ import {
   TOKENS_COLUMN_ID,
 } from './hooks/useTableColumns';
 import { TracesTableColumnGroup, TracesTableColumnType } from './types';
-import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry, TraceInfoV3 } from './types';
+import type { TracesTableColumn, EvalTraceComparisonEntry, RunEvaluationTracesDataEntry } from './types';
 import { getTraceInfoInputs, shouldUseTraceInfoV3 } from './utils/TraceUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 const GROUP_PRIORITY = [
   TracesTableColumnGroup.INFO,
@@ -126,8 +127,8 @@ export const sortColumns = (columns: ColumnDef<EvalTraceComparisonEntry>[], sele
 };
 
 export const traceInfoSortingFn = (
-  traceInfoA: TraceInfoV3 | undefined,
-  traceInfoB: TraceInfoV3 | undefined,
+  traceInfoA: ModelTraceInfoV3 | undefined,
+  traceInfoB: ModelTraceInfoV3 | undefined,
   colId: string,
 ) => {
   // only support sorting by request time for now
@@ -135,13 +136,13 @@ export const traceInfoSortingFn = (
     return 0;
   }
 
-  const aVal = String(getTraceInfoValueWithColId(traceInfoA as TraceInfoV3, colId) ?? '');
-  const bVal = String(getTraceInfoValueWithColId(traceInfoB as TraceInfoV3, colId) ?? '');
+  const aVal = String(getTraceInfoValueWithColId(traceInfoA as ModelTraceInfoV3, colId) ?? '');
+  const bVal = String(getTraceInfoValueWithColId(traceInfoB as ModelTraceInfoV3, colId) ?? '');
 
   return aVal.localeCompare(bVal, undefined, { numeric: true });
 };
 
-export const getTraceInfoValueWithColId = (traceInfo: TraceInfoV3, colId: string) => {
+export const getTraceInfoValueWithColId = (traceInfo: ModelTraceInfoV3, colId: string) => {
   switch (colId) {
     case REQUEST_TIME_COLUMN_ID:
     case EXECUTION_DURATION_COLUMN_ID:
@@ -167,7 +168,7 @@ function getUniqueInputRequests(
   const duplicateIndexMap = new Map<string, number>();
 
   evaluationResults?.forEach((entry) => {
-    let key = shouldUseTraceInfoV3([entry]) ? getTraceInfoInputs(entry.traceInfo as TraceInfoV3) : entry.inputsId;
+    let key = shouldUseTraceInfoV3([entry]) ? getTraceInfoInputs(entry.traceInfo as ModelTraceInfoV3) : entry.inputsId;
     if (resultMap.has(key)) {
       const currentCount = duplicateIndexMap.get(entry.inputsId) || 0;
       const newCount = currentCount + 1;

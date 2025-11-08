@@ -175,6 +175,10 @@
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
+  "/m44jJ": {
+    "defaultMessage": "View docs",
+    "description": "Text for docs link button on experiment view page header"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -263,10 +267,6 @@
     "defaultMessage": "Cancel",
     "description": "Cancel text to cancel the flow to copy the model"
   },
-  "0vs7Wu": {
-    "defaultMessage": "Sessions",
-    "description": "Label for the labeling sessions sub-tab in the MLflow experiment navbar"
-  },
   "0wxgDJ": {
     "defaultMessage": "Add tags",
     "description": "Add new prompt version tags button"
@@ -278,6 +278,10 @@
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
+  },
+  "128VYg": {
+    "defaultMessage": "User",
+    "description": "Label for the user id section"
   },
   "13vJft": {
     "defaultMessage": "View Examples",
@@ -658,6 +662,10 @@
     "defaultMessage": "Creator",
     "description": "Label name for creator metadata in model version page"
   },
+  "5N1yG6": {
+    "defaultMessage": "Datasets",
+    "description": "Label for the datasets tab in the MLflow experiment navbar"
+  },
   "5PlfiT": {
     "defaultMessage": "This request exceeds the maximum queries per second limit. Please wait and try again.",
     "description": "Too many requests (HTTP STATUS 429) generic error message"
@@ -874,10 +882,6 @@
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
   },
-  "7HLhyL": {
-    "defaultMessage": "Column",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
-  },
   "7KKvmS": {
     "defaultMessage": "Created by",
     "description": "Run page > Overview > Run author section label"
@@ -929,6 +933,10 @@
   "7kUi8J": {
     "defaultMessage": "Duration:",
     "description": "Row title for the duration of runs on the experiment compare runs page"
+  },
+  "7lROwq": {
+    "defaultMessage": "Models",
+    "description": "Label for the Models tab in the MLflow experiment navbar"
   },
   "7m2B5x": {
     "defaultMessage": "There are no evaluable rows within this column",
@@ -1378,6 +1386,10 @@
     "defaultMessage": "Delete",
     "description": "Label for the delete prompt action on the registered prompt details page"
   },
+  "C+nay+": {
+    "defaultMessage": "Evaluation",
+    "description": "Label for the evaluation section in the MLflow experiment navbar"
+  },
   "C4y1fv": {
     "defaultMessage": "-∞",
     "description": "Label displaying negative infinity symbol displayed on a plot UI element"
@@ -1554,6 +1566,10 @@
     "defaultMessage": "Show span tree",
     "description": "Tooltip for a button that show the span tree view of the trace UI."
   },
+  "EAf6xM": {
+    "defaultMessage": "Session",
+    "description": "Label preceding a chat session ID"
+  },
   "EBwDIg": {
     "defaultMessage": "Delete",
     "description": "Delete evaluation runs modal button text"
@@ -1689,6 +1705,10 @@
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
+  },
+  "FmKAee": {
+    "defaultMessage": "Observability",
+    "description": "Label for the observability section in the MLflow experiment navbar"
   },
   "FnG9dP": {
     "defaultMessage": "Execution time",
@@ -2005,6 +2025,10 @@
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
+  },
+  "JPd7WA": {
+    "defaultMessage": "Key must be unique",
+    "description": "Error message for unique key in trace tag assignment modal"
   },
   "JUTcIz": {
     "defaultMessage": "Time created",
@@ -2334,6 +2358,10 @@
     "defaultMessage": "Configure chart",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > configure chart button"
   },
+  "NEQwMj": {
+    "defaultMessage": "Evaluation runs",
+    "description": "Label for the evaluation runs tab in the MLflow experiment navbar"
+  },
   "NF6ePS": {
     "defaultMessage": "{count, plural, =1 {1 year} other {# years}} ago",
     "description": "Time duration in years"
@@ -2373,6 +2401,10 @@
   "NUjE6C": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments automatically identified as being focused on machine learning"
+  },
+  "NhEmyj": {
+    "defaultMessage": "Training runs",
+    "description": "Label for the training runs tab in the MLflow experiment navbar"
   },
   "NiSPrL": {
     "defaultMessage": "Model metrics",
@@ -2450,6 +2482,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OUPWd8": {
+    "defaultMessage": "View chat session",
+    "description": "Tooltip for the session id tag"
+  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -2469,6 +2505,10 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
+  },
+  "OlytgO": {
+    "defaultMessage": "Field",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -2629,6 +2669,10 @@
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
   },
+  "Qsifda": {
+    "defaultMessage": "Group traces from the same chat session together",
+    "description": "Empty state title for the chat sessions table"
+  },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
@@ -2660,6 +2704,10 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
+  },
+  "RWVGkL": {
+    "defaultMessage": "Columns",
+    "description": "Columns label for the chat sessions table column selector"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
@@ -2936,6 +2984,10 @@
     "defaultMessage": "Expectations",
     "description": "Label for the expectations section in the assessments pane"
   },
+  "Uf0z53": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button in unified trace tag assignment modal"
+  },
   "UgF7ax": {
     "defaultMessage": "Status",
     "description": "Label for the status of a logged model on the logged model details page"
@@ -3199,6 +3251,14 @@
   "XC1Pro": {
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode selector in the model trace explorer summary view"
+  },
+  "XG8dcL": {
+    "defaultMessage": "Key is required if value is present",
+    "description": "Error message for required key in trace tag assignment modal"
+  },
+  "XIWwOm": {
+    "defaultMessage": "Session ID",
+    "description": "Label for the session id section"
   },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
@@ -3543,6 +3603,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "adVHxN": {
+    "defaultMessage": "Outputs",
+    "description": "Section title for the outputs of a single chat turn"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -3590,6 +3654,10 @@
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
+  },
+  "bJpL0f": {
+    "defaultMessage": "An error occurred while rendering chat sessions.",
+    "description": "Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
   },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
@@ -3642,6 +3710,10 @@
   "bkWot5": {
     "defaultMessage": "The context sufficiency LLM judge determines whether the retrieved context is sufficient to generate the expected response.",
     "description": "Evaluation results > known type of evaluation result assessment > context sufficiency judge."
+  },
+  "bmHBO7": {
+    "defaultMessage": "Sessions",
+    "description": "Label for the chat sessions tab in the MLflow experiment navbar"
   },
   "bmd4rb": {
     "defaultMessage": "Latest version",
@@ -3907,6 +3979,10 @@
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
   },
+  "eLgTRT": {
+    "defaultMessage": "Key",
+    "description": "Tag key label in unified trace tag assignment modal"
+  },
   "eM4+ab": {
     "defaultMessage": "Source",
     "description": "Experiment page > traces table > source column header"
@@ -4018,6 +4094,10 @@
   "fWm1UC": {
     "defaultMessage": "Group by",
     "description": "Experiment page > artifact compare view > \"group by column\" select dropdown label"
+  },
+  "fYtbd8": {
+    "defaultMessage": "An error occurred while rendering the chat session.",
+    "description": "Generic error message for uncaught errors when rendering a single chat session in MLflow experiment page"
   },
   "fZPf0W": {
     "defaultMessage": "Reverse color:",
@@ -4227,6 +4307,10 @@
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
   },
+  "h2Ejm7": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for user and session tracking"
+  },
   "h2SXjO": {
     "defaultMessage": "Key",
     "description": "Tag assignment modal > Key label"
@@ -4274,6 +4358,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "hkXDZn": {
+    "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the chat sessions table"
   },
   "hlpNRa": {
     "defaultMessage": "No prompts found",
@@ -4338,10 +4426,6 @@
   "iF1UfU": {
     "defaultMessage": "New run using notebook",
     "description": "Experiment page > new notebook run modal > modal title"
-  },
-  "iKSfnk": {
-    "defaultMessage": "Schemas",
-    "description": "Label for the labeling schemas sub-tab in the MLflow experiment navbar"
   },
   "iLFoPb": {
     "defaultMessage": "State",
@@ -4475,6 +4559,10 @@
     "defaultMessage": "Open the {experimentsLink} page.",
     "description": "Instruction to open the experiments page from the log traces drawer"
   },
+  "jhjCgW": {
+    "defaultMessage": "Agent versions",
+    "description": "Label for the agent versions tab in the MLflow experiment navbar"
+  },
   "jjidVr": {
     "defaultMessage": "{numValue}/{numEvals} for run \"{runName}\"",
     "description": "Passing assessment tooltip"
@@ -4514,6 +4602,10 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
+  },
+  "k4uWRg": {
+    "defaultMessage": "Versions",
+    "description": "Label for the prompts & versions section in the MLflow experiment navbar"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",
@@ -4834,6 +4926,10 @@
   "nIk08y": {
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
+  },
+  "nJxDSh": {
+    "defaultMessage": "Inputs",
+    "description": "Section title for the inputs of a single chat turn"
   },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
@@ -5203,6 +5299,10 @@
     "defaultMessage": "Show execution timeline",
     "description": "Tooltip for a button that shows execution timeline info in the trace UI."
   },
+  "r7aGM3": {
+    "defaultMessage": "Save",
+    "description": "Save button in unified trace tag assignment modal"
+  },
   "rAJDzz": {
     "defaultMessage": "Transition existing {currentStage} model version to {archivedStage}",
     "description": "Description text for checkbox for archiving existing model versions\n                  in the toStage for model version stage transition request"
@@ -5234,6 +5334,10 @@
   "rNkAcB": {
     "defaultMessage": "Relevant",
     "description": "Evaluation results > relevancy assessment > positive value label. Displayed if evaluation result is considered as irrelevant to the query."
+  },
+  "rRhMQt": {
+    "defaultMessage": "Execution time (ms)",
+    "description": "Column label for execution time with the unit suffix"
   },
   "rY00Iw": {
     "defaultMessage": "Add filter",
@@ -5298,6 +5402,10 @@
   "sAtY9h": {
     "defaultMessage": "Track and compare versions of your models",
     "description": "Empty state title displayed when no models are logged in the machine learning logged models list page"
+  },
+  "sBsRzu": {
+    "defaultMessage": "Value",
+    "description": "Tag value label in unified trace tag assignment modal"
   },
   "sByLVU": {
     "defaultMessage": "No runs logged",
@@ -5807,6 +5915,10 @@
     "defaultMessage": "Default rendering",
     "description": "Tooltip content for a button that changes the render mode to default"
   },
+  "xyEaut": {
+    "defaultMessage": "Add tags",
+    "description": "Title for unified trace tag assignment modal"
+  },
   "y2oQyU": {
     "defaultMessage": "Model name",
     "description": "Header title for the model name column in the logged model list table"
@@ -5875,6 +5987,10 @@
     "defaultMessage": "No models versions are registered yet. <link>Learn more</link> about how to register a model version.",
     "description": "Message text when no model versions are registered"
   },
+  "ynrYyB": {
+    "defaultMessage": "View trace",
+    "description": "Button to view a full trace within a chat session"
+  },
   "yrsFOP": {
     "defaultMessage": "Datasets",
     "description": "Title for the datasets section on the run details page"
@@ -5938,6 +6054,10 @@
   "zNWzj6": {
     "defaultMessage": "Search traces by request",
     "description": "Placeholder text for the search input in the trace results table"
+  },
+  "zRKlAL": {
+    "defaultMessage": "Metadata",
+    "description": "Label for the metadata section"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",
