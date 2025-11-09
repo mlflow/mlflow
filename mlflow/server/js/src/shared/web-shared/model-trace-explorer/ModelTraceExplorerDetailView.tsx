@@ -98,7 +98,10 @@ export const ModelTraceExplorerDetailView = ({
     // Do not reset expanded nodes on background refresh to avoid flicker.
     if (!expandedKeys || expandedKeys.size === 0) {
       const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
-      setExpandedKeys(new Set(list));
+      const initial = new Set(list);
+      setExpandedKeys(initial);
+      // remember which keys we auto-expanded at bootstrap
+      seenAutoExpandedKeysRef.current = initial;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredTreeNodes]);
