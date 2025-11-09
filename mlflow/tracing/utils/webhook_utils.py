@@ -11,7 +11,6 @@ def fire_tracing_webhook(event_type: str, trace, metadata: dict | None = None):
     webhooks = client.list_webhooks()
 
     for hook in webhooks:
-        # event_type은 예: "TRACE_ERROR", "TRACE_LATENCY_EXCEEDED"
         if hook.event != event_type:
             continue
 
