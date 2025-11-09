@@ -1,5 +1,3 @@
-import { describe, expect, it } from '@jest/globals';
-
 import { ModelSpanType } from './ModelTrace.types';
 import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
@@ -31,6 +29,7 @@ import {
   getAssessmentMap,
   decodeSpanId,
   getDefaultActiveTab,
+  getTotalTokens,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -652,5 +651,55 @@ describe('getDefaultActiveTab', () => {
   it('should return attributes if the node has no chat messages or inputs or outputs', () => {
     const otelSpan = parseModelTraceToTree(MOCK_OTEL_TRACE) as ModelTraceSpanNode;
     expect(getDefaultActiveTab(otelSpan)).toBe('attributes');
+  });
+});
+
+describe('decodeSpanId', () => {
+  it('should decode v3 base64 span id when length < 16', () => {
+    const base64Id = 'FFJ0+hVpnGg=';
+    const result = decodeSpanId(base64Id, true);
+    expect(result).toBe('145274fa15699c68');
+  });
+
+  it('should return v3 hex span id as-is when length >= 16', () => {
+    // 16 character hex string (8 bytes)
+    const hexId = '145274fa15699c68';
+    const result = decodeSpanId(hexId, true);
+    expect(result).toBe('145274fa15699c68');
+  });
+
+  it('should decode v2 span id with 0x prefix', () => {
+    const spanId = '0x145274fa15699c68';
+    const result = decodeSpanId(spanId, false);
+    expect(result).toBe('145274fa15699c68');
+  });
+
+  it('should return v2 hex span id as-is without prefix', () => {
+    const spanId = '145274fa15699c68';
+    const result = decodeSpanId(spanId, false);
+    expect(result).toBe('145274fa15699c68');
+  });
+
+  it('should return empty string for null or undefined span id', () => {
+    expect(decodeSpanId(null, true)).toBe('');
+    expect(decodeSpanId(undefined, true)).toBe('');
+    expect(decodeSpanId(null, false)).toBe('');
+    expect(decodeSpanId(undefined, false)).toBe('');
+  });
+});
+
+describe('getTotalTokens', () => {
+  it('should return the total tokens from the trace metadata', () => {
+    expect(getTotalTokens(MOCK_TRACE_INFO_V3)).toBe(300);
+  });
+
+  it('should return null if the trace metadata is not present', () => {
+    expect(getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: undefined })).toBeNull();
+  });
+
+  it('should return null if the trace metadata is not a valid JSON object', () => {
+    expect(
+      getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
+    ).toBeNull();
   });
 });

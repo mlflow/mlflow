@@ -4,9 +4,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { isNil } from 'lodash';
 import React, { useEffect, useMemo, useState } from 'react';
 
-import { Empty, SearchIcon, Table, useDesignSystemTheme } from '@databricks/design-system';
+import { Empty, SearchIcon, Spinner, Table, useDesignSystemTheme } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
-import type { ModelTrace, ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { sortColumns, sortGroupedColumns } from './GenAiTracesTable.utils';
@@ -15,6 +15,7 @@ import { MemoizedGenAiTracesTableBodyRows } from './GenAiTracesTableBodyRows';
 import { GenAiTracesTableHeader } from './GenAiTracesTableHeader';
 import { HeaderCellRenderer } from './cellRenderers/HeaderCellRenderer';
 import { GenAiEvaluationTracesReviewModal } from './components/GenAiEvaluationTracesReviewModal';
+import type { GetTraceFunction } from './hooks/useGetTrace';
 import { REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID, SERVER_SORTABLE_INFO_COLUMNS } from './hooks/useTableColumns';
 import {
   type EvaluationsOverviewTableSort,
@@ -59,6 +60,7 @@ export const GenAiTracesTableBody = React.memo(
     enableRowSelection,
     enableGrouping = false,
     allColumns,
+    displayLoadingOverlay,
   }: {
     experimentId: string;
     selectedColumns: TracesTableColumn[];
@@ -79,7 +81,7 @@ export const GenAiTracesTableBody = React.memo(
     rowSelection?: RowSelectionState;
     setRowSelection?: OnChangeFn<RowSelectionState>;
     exportToEvalsInstanceEnabled?: boolean;
-    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+    getTrace?: GetTraceFunction;
     toggleAssessmentFilter: (
       assessmentName: string,
       filterValue: AssessmentValueType,
@@ -88,10 +90,11 @@ export const GenAiTracesTableBody = React.memo(
     ) => void;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
     disableAssessmentTooltips?: boolean;
-    onTraceTagsEdit?: (trace: ModelTraceInfo) => void;
+    onTraceTagsEdit?: (trace: ModelTraceInfoV3) => void;
     enableRowSelection?: boolean;
     enableGrouping?: boolean;
     allColumns: TracesTableColumn[];
+    displayLoadingOverlay?: boolean;
   }) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
@@ -361,6 +364,22 @@ export const GenAiTracesTableBody = React.memo(
             />
           </Table>
         </div>
+        {displayLoadingOverlay && (
+          <div
+            css={{
+              position: 'absolute',
+              inset: 0,
+              backgroundColor: theme.colors.backgroundPrimary,
+              opacity: 0.75,
+              pointerEvents: 'none',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+            }}
+          >
+            <Spinner size="large" />
+          </div>
+        )}
         {selectedEvaluationId && (
           <GenAiEvaluationTracesReviewModal
             experimentId={experimentId}

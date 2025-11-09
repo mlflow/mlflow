@@ -113,6 +113,9 @@ travis_wait*.log
 # Pytorch logs
 lightning_logs
 
+# Downloaded datasets
+examples/pytorch/*/data/
+
 a.py
 a.ipynb
 a.md
@@ -126,5 +129,8 @@ a.md
 # Ignore a gunicorn config file
 gunicorn.conf.py
 
-# Ignore claude files (but not CLAUDE.md which we're tracking)
-.claude/
+# ignore everything in .claude
+.claude/*
+# except commands and skills
+!.claude/commands/
+!.claude/skills/

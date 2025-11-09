@@ -4,6 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **For contribution guidelines, code standards, and additional development information not covered here, please refer to [CONTRIBUTING.md](./CONTRIBUTING.md).**
 
+## Code Style Principles
+
+- Use top-level imports (only use lazy imports when necessary)
+- Only add docstrings in tests when they provide additional context
+- Only add comments that explain non-obvious logic or provide additional context
+
 ## Repository Overview
 
 MLflow is an open-source platform for managing the end-to-end machine learning lifecycle. It provides tools for:
@@ -19,10 +25,8 @@ MLflow is an open-source platform for managing the end-to-end machine learning l
 ### Start the Full Development Environment (Recommended)
 
 ```bash
-# Kill any existing servers
-pkill -f "mlflow server" || true; pkill -f "yarn start" || true
-
 # Start both MLflow backend and React frontend dev servers
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -48,6 +52,7 @@ export MLFLOW_TRACKING_URI="databricks"                        # Must be set to 
 export MLFLOW_REGISTRY_URI="databricks-uc"                     # Use "databricks-uc" for Unity Catalog, or "databricks" for workspace model registry
 
 # Start the dev server with these environment variables
+# (The script will automatically clean up any existing servers)
 nohup uv run bash dev/run-dev-server.sh > /tmp/mlflow-dev-server.log 2>&1 &
 
 # Monitor the logs
@@ -82,7 +87,7 @@ uv run --with transformers pytest tests/transformers
 uv run --extra gateway pytest tests/gateway
 
 # Run JavaScript tests
-yarn --cwd mlflow/server/js test
+(cd mlflow/server/js && yarn test)
 ```
 
 **IMPORTANT**: `uv` may fail initially because the environment has not been set up yet. Follow the instructions to set up the environment and then rerun `uv` as needed.
@@ -101,15 +106,15 @@ uv run --only-group lint clint .                    # Run MLflow custom linter
 uv run --only-group lint bash dev/mlflow-typo.sh .
 
 # JavaScript linting and formatting
-yarn --cwd mlflow/server/js lint
-yarn --cwd mlflow/server/js prettier:check
-yarn --cwd mlflow/server/js prettier:fix
+(cd mlflow/server/js && yarn lint)
+(cd mlflow/server/js && yarn prettier:check)
+(cd mlflow/server/js && yarn prettier:fix)
 
 # Type checking
-yarn --cwd mlflow/server/js type-check
+(cd mlflow/server/js && yarn type-check)
 
 # Run all checks
-yarn --cwd mlflow/server/js check-all
+(cd mlflow/server/js && yarn check-all)
 ```
 
 ### Special Testing
@@ -129,7 +134,7 @@ uv run --all-extras bash dev/build-docs.sh --build-api-docs
 uv run --all-extras bash dev/build-docs.sh --build-api-docs --with-r-docs
 
 # Serve documentation locally (after building)
-cd docs && yarn serve --port 8080
+cd docs && npm run serve --port 8080
 ```
 
 ## Important Files
@@ -190,7 +195,7 @@ Commits without DCO sign-off will be rejected by CI.
 **Frontend Changes**: If your PR touches any code in `mlflow/server/js/`, you MUST run `yarn check-all` before committing:
 
 ```bash
-yarn --cwd mlflow/server/js check-all
+(cd mlflow/server/js && yarn check-all)
 ```
 
 ### Creating Pull Requests

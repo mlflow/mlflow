@@ -105,7 +105,11 @@ def filter_diff(full_diff: str) -> str:
             # Extract file path from: diff --git a/path/to/file.py b/path/to/file.py
             if match := re.match(r"diff --git a/(.*?) b/(.*?)$", line):
                 file_path = match.group(2)  # Use the 'b/' path (new file path)
-                in_included_file = not should_exclude_file(file_path)
+                # Exclude deleted files (where b/ path is dev/null)
+                if file_path == "dev/null":
+                    in_included_file = False
+                else:
+                    in_included_file = not should_exclude_file(file_path)
             else:
                 in_included_file = False
 
@@ -229,6 +233,10 @@ def add_pr_review_comment(
             "'file' indicates the entire file"
         ),
     ] = "line",
+    in_reply_to: Annotated[
+        int | None,
+        "The ID of the review comment to reply to. Use this to create a threaded reply",
+    ] = None,
 ) -> str:
     """
     Add a review comment to a pull request.
@@ -251,6 +259,8 @@ def add_pr_review_comment(
         data["start_side"] = start_side
     if subject_type == "file":
         data["subject_type"] = subject_type
+    if in_reply_to is not None:
+        data["in_reply_to"] = in_reply_to
 
     result = github_api_request(url, method="POST", data=data)
     return f"Comment added successfully: {result.get('html_url')}"

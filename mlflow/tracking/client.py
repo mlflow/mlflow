@@ -77,6 +77,7 @@ from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
+    NOT_FOUND,
     RESOURCE_DOES_NOT_EXIST,
     ErrorCode,
 )
@@ -124,6 +125,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import is_databricks_unity_catalog_uri, is_databricks_uri
 from mlflow.utils.validation import (
+    _validate_list_param,
     _validate_model_alias_name,
     _validate_model_name,
     _validate_model_version,
@@ -753,24 +755,20 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-        if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version/alias
-            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-        else:
-            # Name case: use the name and provided version
-            name = parsed_name_or_uri
-            version_or_alias = parsed_version
-
-        registry_client = self._get_registry_client()
+        prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
         try:
-            # If version_or_alias is not a digit, treat as alias
+            name, version_or_alias = self.parse_prompt_uri(prompt_uri)
+            registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
             else:
                 return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in (
+                ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                ErrorCode.Name(INVALID_PARAMETER_VALUE),  # Missing alias (file/sql registry only)
+                ErrorCode.Name(NOT_FOUND),
+            ):
                 return None
             raise
 
@@ -871,6 +869,34 @@ class MlflowClient:
         """
         return self._tracking_client.link_traces_to_run(trace_ids, run_id)
 
+    @experimental(version="3.5.0")
+    def unlink_traces_from_run(self, trace_ids: list[str], run_id: str) -> None:
+        """
+        Unlink multiple traces from a run by removing entity associations.
+
+        Args:
+            trace_ids: List of trace IDs to unlink from the run.
+            run_id: ID of the run to unlink traces from.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                # Unlink multiple V4 traces from a run
+                client.unlink_traces_from_run(
+                    trace_ids=[
+                        "trace://catalog.schema/abc123",
+                        "trace://catalog.schema/def456",
+                    ],
+                    run_id="run_abc",
+                )
+        """
+        return self._tracking_client.unlink_traces_from_run(trace_ids, run_id)
+
     # TODO: Use model_id in MLflow 3.0
     @experimental(version="3.0.0")
     @require_prompt_registry
@@ -929,7 +955,6 @@ class MlflowClient:
         # with a Run is expected to be small.
         return [model_version_to_prompt_version(mv) for mv in mvs]
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
@@ -944,7 +969,6 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
@@ -1120,9 +1144,10 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
+    @deprecated_parameter("experiment_ids", "locations")
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
@@ -1130,7 +1155,7 @@ class MlflowClient:
         run_id: str | None = None,
         include_spans: bool = True,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> PagedList[Trace]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -1149,9 +1174,9 @@ class MlflowClient:
                 the trace metadata is returned, e.g., trace ID, start time, end time, etc,
                 without any spans.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
-
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs. To search over UC tables on databricks, provide
+                a list of locations in the format `<catalog_name>.<schema_name>`.
 
         Returns:
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
@@ -1161,6 +1186,9 @@ class MlflowClient:
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        _validate_list_param("experiment_ids", experiment_ids, allow_none=True)
+        _validate_list_param("locations", locations, allow_none=True)
+
         return self._tracing_client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
@@ -1170,7 +1198,7 @@ class MlflowClient:
             run_id=run_id,
             include_spans=include_spans,
             model_id=model_id,
-            sql_warehouse_id=sql_warehouse_id,
+            locations=locations,
         )
 
     def start_trace(
@@ -4118,7 +4146,11 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -4169,7 +4201,11 @@ class MlflowClient:
             name: name2
             tags: {}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -4226,6 +4262,16 @@ class MlflowClient:
                 logged_model = self.get_logged_model(model_id)
                 # models:/<model_id> source is not supported by WSMR
                 new_source = logged_model.artifact_location
+        elif (
+            is_databricks_unity_catalog_uri(self._registry_uri)
+            and not is_databricks_uri(tracking_uri)
+            and model_id is not None
+        ):
+            logged_model = self.get_logged_model(model_id)
+            new_source = logged_model.artifact_location
+            if run_id is None:
+                run_id = logged_model.source_run_id
+            model_id = None
 
         return self._get_registry_client().create_model_version(
             name=name,
@@ -5011,7 +5057,11 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -5102,7 +5152,11 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "

@@ -1,5 +1,3 @@
-"""CLI integration tests for AI commands feature."""
-
 from unittest import mock
 
 from click.testing import CliRunner

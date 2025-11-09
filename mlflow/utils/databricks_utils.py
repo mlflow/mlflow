@@ -204,14 +204,7 @@ def is_in_databricks_model_serving_environment():
     Check if the code is running in Databricks Model Serving environment.
     The environment variable set by Databricks when starting the serving container.
     """
-    val = (
-        os.environ.get("IS_IN_DB_MODEL_SERVING_ENV")
-        # Checking the old env var name for backward compatibility. The env var was renamed once
-        # to fix a model loading issue, but we still need to support it for a while.
-        # TODO: Remove this once the new env var is fully rolled out.
-        or os.environ.get("IS_IN_DATABRICKS_MODEL_SERVING_ENV")
-        or "false"
-    )
+    val = os.environ.get("IS_IN_DB_MODEL_SERVING_ENV", "false")
     return val.lower() == "true"
 
 
@@ -839,6 +832,18 @@ def get_databricks_host_creds(server_uri=None):
         use_databricks_sdk=use_databricks_sdk,
         databricks_auth_profile=databricks_auth_profile,
     )
+
+
+def get_databricks_workspace_client_config(server_uri: str):
+    from databricks.sdk import WorkspaceClient
+
+    profile, key_prefix = get_db_info_from_uri(server_uri)
+    profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
+    if key_prefix is not None:
+        config = TrackingURIConfigProvider(server_uri).get_config()
+        return WorkspaceClient(host=config.host, token=config.token).config
+
+    return WorkspaceClient(profile=profile).config
 
 
 @_use_repl_context_if_available("mlflowGitRepoUrl")

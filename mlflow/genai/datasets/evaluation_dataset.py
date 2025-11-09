@@ -183,15 +183,23 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         if self._mlflow_dataset:
             self._mlflow_dataset.merge_records(records)
             return self
-        dataset = self._databricks_dataset.merge_records(records)
+
+        from mlflow.genai.datasets import _databricks_profile_env
+
+        with _databricks_profile_env():
+            dataset = self._databricks_dataset.merge_records(records)
         return EvaluationDataset(dataset)
 
     def to_df(self) -> "pd.DataFrame":
         """Convert the dataset to a pandas DataFrame."""
         if self._mlflow_dataset:
             return self._mlflow_dataset.to_df()
+
         if self._df is None:
-            self._df = self._databricks_dataset.to_df()
+            from mlflow.genai.datasets import _databricks_profile_env
+
+            with _databricks_profile_env():
+                self._df = self._databricks_dataset.to_df()
         return self._df
 
     def has_records(self) -> bool:

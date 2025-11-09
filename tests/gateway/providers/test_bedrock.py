@@ -8,7 +8,7 @@ from mlflow.gateway.config import (
     AWSBaseConfig,
     AWSIdAndKey,
     AWSRole,
-    RouteConfig,
+    EndpointConfig,
 )
 from mlflow.gateway.providers.bedrock import AmazonBedrockModelProvider, AmazonBedrockProvider
 from mlflow.gateway.schemas import completions
@@ -317,7 +317,7 @@ def _assert_any_call_at_least(mobj, *args, **kwargs):
 @pytest.mark.parametrize(("aws_config", "expected"), bedrock_aws_configs)
 def test_bedrock_aws_config(aws_config, expected):
     assert isinstance(
-        AmazonBedrockConfig.parse_obj({"aws_config": aws_config}).aws_config, expected
+        AmazonBedrockConfig.model_validate({"aws_config": aws_config}).aws_config, expected
     )
 
 
@@ -336,7 +336,7 @@ def test_bedrock_aws_client(provider, config, aws_config):
         mock_client.return_value.assume_role = mock_assume_role
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         provider.get_bedrock_client()
 
@@ -394,7 +394,7 @@ async def test_bedrock_request_response(
         expected["model"] = config["model"]["name"]
 
         provider = AmazonBedrockProvider(
-            RouteConfig(**_merge_model_and_aws_config(config, aws_config))
+            EndpointConfig(**_merge_model_and_aws_config(config, aws_config))
         )
         response = await provider.completions(completions.RequestPayload(**payload))
         assert jsonable_encoder(response) == expected

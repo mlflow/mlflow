@@ -8,6 +8,7 @@ import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LangChain🦜⛓️
 
@@ -16,13 +17,35 @@ import TabItem from "@theme/TabItem";
 [LangChain](https://www.langchain.com/) is an open-source framework for building LLM-powered applications.
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangChain. You can enable tracing
-for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains.
+for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, and nested traces are automatically logged to the active MLflow Experiment upon invocation of chains. In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
+
+<TabsWrapper>
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
 
 mlflow.langchain.autolog()
 ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import { MlflowCallback } from "mlflow-langchain";
+
+const tracer = new MlflowCallback();
+
+await agent.invoke(
+  { messages: [{ role: "user", content: "What is MLflow?" }] },
+  { callbacks: [tracer] }
+);
+```
+
+  </TabItem>
+</Tabs>
+</TabsWrapper>
 
 :::tip
 
@@ -31,6 +54,9 @@ MLflow LangChain integration is not only about tracing. MLflow offers full track
 :::
 
 ### Example Usage
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
@@ -67,6 +93,44 @@ chain.invoke(
 )
 ```
 
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+import { MlflowCallback } from "mlflow-langchain";
+import { ChatOpenAI } from "@langchain/openai";
+import { StringOutputParser } from "@langchain/core/output_parsers";
+import { PromptTemplate } from "@langchain/core/prompts";
+import { RunnableSequence } from '@langchain/core/runnables';
+
+mlflow.init({
+  trackingUri: process.env.MLFLOW_TRACKING_URI,
+  experimentId: process.env.MLFLOW_EXPERIMENT_ID,
+});
+
+
+// Define a chain as usual
+const llm = new ChatOpenAI({ model: "gpt-4o-mini", temperature: 0.7, maxTokens: 1000 });
+const prompt = PromptTemplate.fromTemplate(
+  "Answer the question as if you are {person}. The question is: {question}"
+);
+const chain = RunnableSequence.from([prompt, llm, new StringOutputParser()]);
+
+const tracer = new MlflowCallback();
+
+await chain.invoke(
+  {
+    person: "Linus Torvalds",
+    question: "Can I just set everyone's access to sudo to make things easier?",
+  },
+  { callbacks: [tracer] }
+);
+```
+
+  </TabItem>
+</Tabs>
+
 :::note
 This example above has been confirmed working with the following requirement versions:
 
@@ -92,6 +156,9 @@ The following APIs are supported by auto tracing for LangChain.
 ## Token Usage Tracking
 
 MLflow >= 3.1.0 supports token usage tracking for LangChain. The token usage for each LLM call during a chain invocation will be logged in the `mlflow.chat.tokenUsage` span attribute, and the total usage in the entire trace will be logged in the `mlflow.trace.tokenUsage` metadata field.
+
+<Tabs>
+  <TabItem value="python" label="Python" default>
 
 ```python
 import json
@@ -127,6 +194,38 @@ for span in trace.data.spans:
         print(f"  Output tokens: {usage['output_tokens']}")
         print(f"  Total tokens: {usage['total_tokens']}")
 ```
+
+  </TabItem>
+  <TabItem value="typescript" label="JS / TS">
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// After your LangChain call completes, flush and fetch the trace
+await mlflow.flushTraces();
+const lastTraceId = mlflow.getLastActiveTraceId();
+
+if (lastTraceId) {
+  const client = new mlflow.MlflowClient({ trackingUri: "http://localhost:5000" });
+  const trace = await client.getTrace(lastTraceId);
+
+  // Total token usage on the trace
+  console.log("== Total token usage: ==");
+  console.log(trace.info.tokenUsage); // { input_tokens, output_tokens, total_tokens }
+
+  // Per-span usage for each LLM call in the chain
+  console.log("\n== Token usage for each LLM call: ==");
+  for (const span of trace.data.spans) {
+    const usage = span.attributes?.["mlflow.chat.tokenUsage"];
+    if (usage) {
+      console.log(`${span.name}:`, usage);
+    }
+  }
+}
+```
+
+  </TabItem>
+</Tabs>
 
 ```bash
 == Total token usage: ==

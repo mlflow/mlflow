@@ -37,7 +37,9 @@ export const ModelTraceExplorerTextFieldRenderer = ({ title, value }: { title: s
           }}
           onClick={() => setExpanded(!expanded)}
         >
-          <Typography.Text bold>{title}</Typography.Text>
+          <Typography.Title level={4} color="secondary" withoutMargins>
+            {title}
+          </Typography.Title>
           {isExpandable && (expanded ? <ChevronDownIcon /> : <ChevronRightIcon />)}
         </div>
       )}

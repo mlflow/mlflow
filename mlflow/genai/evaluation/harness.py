@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -11,12 +12,17 @@ from typing import Any, Callable
 import pandas as pd
 
 import mlflow
+from mlflow.entities import SpanType
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import MLFLOW_GENAI_EVAL_MAX_WORKERS
+from mlflow.environment_variables import (
+    MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING,
+    MLFLOW_GENAI_EVAL_MAX_WORKERS,
+)
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
+from mlflow.genai.evaluation.telemetry import emit_custom_metric_event
 from mlflow.genai.evaluation.utils import (
     complete_eval_futures_with_progress_base,
     is_none_or_nan,
@@ -26,9 +32,17 @@ from mlflow.genai.evaluation.utils import (
 )
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.utils.trace_utils import create_minimal_trace
+from mlflow.genai.utils.trace_utils import (
+    _does_store_support_trace_linking,
+    batch_link_traces_to_run,
+    clean_up_extra_traces,
+    construct_eval_result_df,
+    create_minimal_trace,
+)
 from mlflow.pyfunc.context import Context, set_prediction_context
-from mlflow.tracing.constant import AssessmentMetadataKey
+from mlflow.tracing.constant import AssessmentMetadataKey, TraceTagKey
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
+from mlflow.tracking.client import MlflowClient
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 
 _logger = logging.getLogger(__name__)
@@ -56,6 +70,7 @@ def run(
     3. Compute the aggregated metrics from the assessments.
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in eval_df.to_dict(orient="records")]
+    eval_start_time = int(time.time() * 1000)
 
     run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
@@ -75,14 +90,28 @@ def run(
         ]
         eval_results = complete_eval_futures_with_progress_base(futures)
 
+    # Link traces to the run if the backend support it
+    batch_link_traces_to_run(run_id=run_id, eval_results=eval_results)
+
     # Aggregate metrics and log to MLflow run
     aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
     mlflow.log_metrics(aggregated_metrics)
 
-    eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
+    try:
+        emit_custom_metric_event(scorers, len(eval_items), aggregated_metrics)
+    except Exception as e:
+        _logger.debug(f"Failed to emit custom metric usage event: {e}", exc_info=True)
+
+    # Search for all traces in the run. We need to fetch the traces from backend here to include
+    # all traces in the result.
+    traces = mlflow.search_traces(run_id=run_id, include_spans=False, return_type="list")
+
+    # Clean up noisy traces generated during evaluation
+    clean_up_extra_traces(traces, eval_start_time)
+
     return EvaluationResult(
         run_id=run_id,
-        result_df=eval_results_df,
+        result_df=construct_eval_result_df(run_id, traces, eval_results),
         metrics=aggregated_metrics,
     )
 
@@ -116,6 +145,15 @@ def _run_single(
                 )
 
         eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
+    elif eval_item.trace is not None:
+        if _should_clone_trace(eval_item.trace, run_id):
+            try:
+                trace_id = copy_trace_to_experiment(eval_item.trace.to_dict())
+                eval_item.trace = mlflow.get_trace(trace_id)
+            except Exception as e:
+                eval_item.error_message = f"Failed to clone trace to the current experiment: {e}"
+        else:
+            MlflowClient().link_traces_to_run([eval_item.trace.info.trace_id], run_id=run_id)
     else:
         # When static dataset (a pair of inputs and outputs) is given, we create a minimal
         # trace with root span only, to log the assessments on it.
@@ -162,24 +200,50 @@ def _compute_eval_scores(
 
     def run_scorer(scorer):
         try:
-            value = scorer.run(
+            scorer_func = scorer.run
+
+            if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get():
+                scorer_func = mlflow.trace(name=scorer.name, span_type=SpanType.EVALUATOR)(
+                    scorer_func
+                )
+
+            value = scorer_func(
                 inputs=eval_item.inputs,
                 outputs=eval_item.outputs,
                 expectations=eval_item.expectations,
                 trace=eval_item.trace,
             )
-            return standardize_scorer_value(scorer.name, value)
+            feedbacks = standardize_scorer_value(scorer.name, value)
+
         except Exception as e:
-            error_assessment = Feedback(
-                name=scorer.name,
-                source=make_code_type_assessment_source(scorer.name),
-                error=AssessmentError(
-                    error_code="SCORER_ERROR",
-                    error_message=str(e),
-                    stack_trace=traceback.format_exc(),
-                ),
+            feedbacks = [
+                Feedback(
+                    name=scorer.name,
+                    source=make_code_type_assessment_source(scorer.name),
+                    error=AssessmentError(
+                        error_code="SCORER_ERROR",
+                        error_message=str(e),
+                        stack_trace=traceback.format_exc(),
+                    ),
+                )
+            ]
+
+        # Record the trace ID for the scorer function call.
+        if MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING.get() and (
+            trace_id := mlflow.get_last_active_trace_id(thread_local=True)
+        ):
+            for feedback in feedbacks:
+                feedback.metadata = {
+                    **(feedback.metadata or {}),
+                    AssessmentMetadataKey.SCORER_TRACE_ID: trace_id,
+                }
+            # Set the scorer name tag to the trace to identify the trace is generated by a scorer.
+            mlflow.set_trace_tag(
+                trace_id=trace_id,
+                key=TraceTagKey.SOURCE_SCORER_NAME,
+                value=scorer.name,
             )
-            return [error_assessment]
+        return feedbacks
 
     # Use a thread pool to run scorers in parallel
     with ThreadPoolExecutor(
@@ -213,7 +277,38 @@ def _log_assessments(
                 **(assessment.metadata or {}),
                 AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
+
+        # NB: Root span ID is necessarily to show assessment results in DBX eval UI.
+        if root_span := trace.data._get_root_span():
+            assessment.span_id = root_span.span_id
+        else:
+            _logger.debug(f"No root span found for trace {trace.info.trace_id}")
+
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 
     # Get the trace to fetch newly created assessments.
     return mlflow.get_trace(trace.info.trace_id)
+
+
+def _should_clone_trace(trace: Trace | None, run_id: str | None) -> bool:
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    if trace is None:
+        return False
+
+    # If the trace is stored in UC table, we don't clone the trace
+    if trace.info.trace_location.uc_schema is not None:
+        return False
+
+    # Check if the trace is from the same experiment. If it isn't, we need to clone the trace
+    trace_experiment = trace.info.trace_location.mlflow_experiment
+    current_experiment = _get_experiment_id()
+    if trace_experiment is not None and trace_experiment.experiment_id != current_experiment:
+        return True
+
+    # If the backend doesn't support trace<->run linking, need to clone the trace to the new run.
+    return not _does_store_support_trace_linking(
+        tracking_uri=mlflow.get_tracking_uri(),
+        trace=trace,
+        run_id=run_id,
+    )

@@ -1,6 +1,6 @@
 import time
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.providers import BaseProvider
 from mlflow.gateway.schemas import chat
 from my_llm.config import MyLLMConfig
@@ -10,7 +10,7 @@ class MyLLMProvider(BaseProvider):
     NAME = "MyLLM"
     CONFIG_TYPE = MyLLMConfig
 
-    def __init__(self, config: RouteConfig) -> None:
+    def __init__(self, config: EndpointConfig) -> None:
         super().__init__(config)
         if config.model.config is None or not isinstance(config.model.config, MyLLMConfig):
             raise TypeError(f"Unexpected config type {config.model.config}")
