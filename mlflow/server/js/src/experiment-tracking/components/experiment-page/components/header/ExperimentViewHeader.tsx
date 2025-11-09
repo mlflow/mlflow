@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
 import {
+  ArrowLeftIcon,
+  BeakerIcon,
   Breadcrumb,
+  Button,
+  InfoBookIcon,
   ParagraphSkeleton,
   TitleSkeleton,
   Tooltip,
@@ -20,10 +24,15 @@ import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifact
 import { InfoPopover } from '@databricks/design-system';
 import { TabSelectorBar } from './tab-selector-bar/TabSelectorBar';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
-import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
+import { getExperimentKindFromTags, isGenAIExperimentKind } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentViewManagementMenu } from './ExperimentViewManagementMenu';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
-import type { ExperimentKind } from '../../../../constants';
+import { ExperimentKind } from '../../../../constants';
+
+const GENAI_DOCS_PAGE_ROUTE = 'https://mlflow.org/docs/latest/genai/?rel=mlflow_ui';
+const ML_DOCS_PAGE_ROUTE = 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
+
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
  * controls for renaming, deleting and editing permissions.
@@ -107,18 +116,55 @@ export const ExperimentViewHeader = React.memo(
     };
 
     const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
+    const docLinkHref = isGenAIExperimentKind(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE)
+      ? GENAI_DOCS_PAGE_ROUTE
+      : ML_DOCS_PAGE_ROUTE;
 
     return (
-      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs, marginBottom: theme.spacing.sm }}>
-        <Breadcrumb includeTrailingCaret>
-          {breadcrumbs.map((breadcrumb, index) => (
-            <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
-          ))}
-        </Breadcrumb>
-        <div css={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr' }}>
+      <div
+        css={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: theme.spacing.xs,
+          marginBottom: theme.spacing.sm,
+        }}
+      >
+        {!shouldEnableExperimentPageSideTabs() && (
+          <Breadcrumb includeTrailingCaret>
+            {breadcrumbs.map((breadcrumb, index) => (
+              <Breadcrumb.Item key={index}>{breadcrumb}</Breadcrumb.Item>
+            ))}
+          </Breadcrumb>
+        )}
+        <div
+          css={{
+            display: 'grid',
+            gridTemplateColumns: shouldEnableExperimentPageSideTabs() ? '1fr auto auto' : '1fr 1fr 1fr',
+          }}
+        >
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center', overflow: 'hidden', minWidth: 250 }}
           >
+            {shouldEnableExperimentPageSideTabs() && (
+              <>
+                <Link to={Routes.experimentsObservatoryRoute}>
+                  <Button
+                    componentId="mlflow.experiment-page.header.back-icon-button"
+                    type="tertiary"
+                    icon={<ArrowLeftIcon />}
+                  />
+                </Link>
+                <div
+                  css={{
+                    borderRadius: theme.borders.borderRadiusSm,
+                    backgroundColor: theme.colors.backgroundSecondary,
+                    padding: theme.spacing.sm,
+                  }}
+                >
+                  <BeakerIcon />
+                </div>
+              </>
+            )}
             <Tooltip
               content={normalizedExperimentName}
               componentId="mlflow.experiment_view.header.experiment-name-tooltip"
@@ -145,20 +191,40 @@ export const ExperimentViewHeader = React.memo(
             {experimentKindSelector}
             {getInfoTooltip()}
           </div>
-          <TabSelectorBar experimentKind={experimentKind} />
+          {shouldEnableExperimentPageSideTabs() ? <div /> : <TabSelectorBar experimentKind={experimentKind} />}
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            <ExperimentViewHeaderShareButton
-              experimentIds={experimentIds}
-              searchFacetsState={searchFacetsState}
-              uiState={uiState}
-            />
+            {!shouldEnableExperimentPageSideTabs() && (
+              <ExperimentViewHeaderShareButton
+                experimentIds={experimentIds}
+                searchFacetsState={searchFacetsState}
+                uiState={uiState}
+                type="primary"
+              />
+            )}
             <ExperimentViewManagementMenu
               experiment={experiment}
               setEditing={setEditing}
               refetchExperiment={refetchExperiment}
             />
+            {shouldEnableExperimentPageSideTabs() && (
+              <>
+                <ExperimentViewHeaderShareButton
+                  experimentIds={experimentIds}
+                  searchFacetsState={searchFacetsState}
+                  uiState={uiState}
+                />
+                <Link to={docLinkHref} target="_blank" rel="noopener noreferrer">
+                  <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
+                    <FormattedMessage
+                      defaultMessage="View docs"
+                      description="Text for docs link button on experiment view page header"
+                    />
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>

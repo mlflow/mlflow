@@ -1,11 +1,15 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 
 import { ExperimentSourceTypeIcon } from './ExperimentSourceTypeIcon';
-import type { TraceInfoV3 } from '../../types';
+import type { ModelTraceInfoV3 } from '../../../model-trace-explorer';
 import MlflowUtils from '../../utils/MlflowUtils';
 import { NullCell } from '../NullCell';
 
-export const SourceCellRenderer = (props: { traceInfo: TraceInfoV3; isComparing: boolean; disableLinks?: boolean }) => {
+export const SourceCellRenderer = (props: {
+  traceInfo: ModelTraceInfoV3;
+  isComparing: boolean;
+  disableLinks?: boolean;
+}) => {
   const tags = props.traceInfo.tags;
   const { theme } = useDesignSystemTheme();
 

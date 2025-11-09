@@ -142,7 +142,13 @@ def register_llm_judge(
         mlflow scorers register-llm-judge -n my_judge \\
             -i "Check whether {{ outputs }} contains PII"
     """
-    judge = make_judge(name=name, instructions=instructions, model=model, description=description)
+    judge = make_judge(
+        name=name,
+        instructions=instructions,
+        model=model,
+        description=description,
+        feedback_value_type=str,
+    )
     registered_judge = judge.register(experiment_id=experiment_id)
     click.echo(
         f"Successfully created and registered judge scorer '{registered_judge.name}' "

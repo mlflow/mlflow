@@ -1,13 +1,23 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTrace, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
+import type { GetTraceFunction } from './useGetTrace';
 import { useGetTrace } from './useGetTrace';
 
 describe('useGetTrace', () => {
   let queryClient: QueryClient;
+
+  const demoTraceInfo: ModelTraceInfoV3 = {
+    trace_id: 'trace-id-123',
+    trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp-1' } },
+    request_time: '1625247600000',
+    state: 'OK',
+    trace_metadata: {},
+    tags: {},
+  };
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -43,7 +53,7 @@ describe('useGetTrace', () => {
 
   test('should be disabled when getTrace is not provided', () => {
     const mockGetTrace = jest.fn();
-    const { result } = renderHook(() => useGetTrace(undefined, 'trace-id'), { wrapper });
+    const { result } = renderHook(() => useGetTrace(undefined, demoTraceInfo), { wrapper });
 
     // Query should be disabled when getTrace is nil (enabled: !isNil(getTrace) && ...)
     // The enabled condition evaluates to false when getTrace is undefined
@@ -68,13 +78,13 @@ describe('useGetTrace', () => {
 
   test('should fetch trace when getTrace and traceId are provided', async () => {
     const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
-    const { result } = renderHook(() => useGetTrace(mockGetTrace, 'trace-id'), { wrapper });
+    const { result } = renderHook(() => useGetTrace(mockGetTrace, demoTraceInfo), { wrapper });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
     });
 
-    expect(mockGetTrace).toHaveBeenCalledWith('trace-id');
+    expect(mockGetTrace).toHaveBeenCalledWith('trace-id-123', demoTraceInfo);
     expect(result.current.data).toEqual(mockTrace);
   });
 });

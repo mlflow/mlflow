@@ -3,8 +3,9 @@ import { useMemo } from 'react';
 
 import type { IntlShape } from '@databricks/i18n';
 
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 import { KnownEvaluationResultAssessmentName } from '../enum';
-import type { AssessmentInfo, RunEvaluationTracesDataEntry, TraceInfoV3, TracesTableColumn } from '../types';
+import type { AssessmentInfo, RunEvaluationTracesDataEntry, TracesTableColumn } from '../types';
 import { TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import { shouldEnableTagGrouping } from '../utils/FeatureUtils';
 import {
@@ -29,6 +30,9 @@ export const RUN_NAME_COLUMN_ID = 'run_name';
 export const LOGGED_MODEL_COLUMN_ID = 'logged_model';
 export const TOKENS_COLUMN_ID = 'tokens';
 export const CUSTOM_METADATA_COLUMN_ID = 'custom_metadata';
+export const SPAN_NAME_COLUMN_ID = 'span.name';
+export const SPAN_TYPE_COLUMN_ID = 'span.type';
+export const SPAN_CONTENT_COLUMN_ID = 'span.content';
 
 export const SORTABLE_INFO_COLUMNS = [EXECUTION_DURATION_COLUMN_ID, REQUEST_TIME_COLUMN_ID, SESSION_COLUMN_ID];
 // Columns that are sortable by the server. Server-side sorting should be prioritized over client-side sorting.
@@ -70,16 +74,16 @@ export const useTableColumns = (
     let inputCols = [];
     if (!isTraceInfoV3) {
       let inputKeys = new Set<string>();
-      let traceInfoColumns = new Set<keyof TraceInfoV3>();
+      let traceInfoColumns = new Set<keyof ModelTraceInfoV3>();
 
       currentEvaluationResults.forEach((result) => {
         const { inputs } = result;
         inputKeys = new Set<string>([...inputKeys, ...Object.keys(inputs || {})]);
 
-        traceInfoColumns = new Set<keyof TraceInfoV3>([
+        traceInfoColumns = new Set<keyof ModelTraceInfoV3>([
           ...traceInfoColumns,
           ...Object.keys(result.traceInfo || {}),
-        ] as (keyof TraceInfoV3)[]);
+        ] as (keyof ModelTraceInfoV3)[]);
       });
 
       inputCols = [...inputKeys].map((key) => ({
@@ -170,6 +174,10 @@ export const useTableColumns = (
           label: intl.formatMessage({
             defaultMessage: 'Execution time',
             description: 'Column label for execution time',
+          }),
+          filterLabel: intl.formatMessage({
+            defaultMessage: 'Execution time (ms)',
+            description: 'Column label for execution time with the unit suffix',
           }),
           type: TracesTableColumnType.TRACE_INFO,
           group: TracesTableColumnGroup.INFO,

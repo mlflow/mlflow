@@ -79,6 +79,7 @@ def relevance(inputs, outputs):
 
 
 @scorer
+@mlflow.trace(span_type=SpanType.EVALUATOR)
 def has_trace(trace):
     return trace is not None
 
@@ -127,6 +128,26 @@ def _validate_assessments(traces):
         assert isinstance(a_max_length.value, (int, float))
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
         assert a_max_length.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
+
+
+def _validate_eval_result_df(result: EvaluationResult):
+    search_traces_df = mlflow.search_traces(run_id=result.run_id)
+    assert result.result_df is not None
+    assert len(result.result_df) == len(search_traces_df)
+    assert set(result.result_df.columns) >= set(search_traces_df.columns)
+
+    actual = result.result_df.sort_values(by="trace_id").reset_index(drop=True)
+    expected = search_traces_df.sort_values(by="trace_id").reset_index(drop=True)
+    for i in range(len(actual)):
+        assert actual.iloc[i].trace_id == expected.iloc[i].trace_id
+        assert actual.iloc[i].spans == expected.iloc[i].spans
+        assert actual.iloc[i].assessments == expected.iloc[i].assessments
+        assert actual.iloc[i]["exact_match/value"] is not None
+        assert actual.iloc[i]["is_concise/value"] is not None
+        assert actual.iloc[i]["relevance/value"] is not None
+        assert actual.iloc[i]["has_trace/value"] is not None
+        assert actual.iloc[i]["expected_response/value"] is not None
+        assert actual.iloc[i]["max_length/value"] is not None
 
 
 @dataclass
@@ -242,6 +263,7 @@ def test_evaluate_with_static_dataset(server_config):
         assert span.outputs == data[i]["outputs"]
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
     # Dataset input should be logged to the run
     run = mlflow.get_run(result.run_id)
@@ -314,6 +336,7 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
         assert span.outputs == "I don't know"
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
@@ -400,6 +423,7 @@ def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
 
     # Validate assessments are added to the traces
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset(is_in_databricks):
@@ -525,6 +549,7 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
     assert len(traces) == 2
 
     _validate_assessments(traces)
+    _validate_eval_result_df(result)
 
 
 def test_evaluate_with_managed_dataset_from_searched_traces():
@@ -972,8 +997,9 @@ def test_evaluate_with_only_trace_in_eval_dataset():
     assert result.metrics["has_trace/mean"] == 1.0
 
 
-def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
-    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", "true")
+@pytest.mark.parametrize("is_enabled", [True, False])
+def test_evaluate_with_scorer_tracing(server_config, monkeypatch, is_enabled):
+    monkeypatch.setenv("MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", str(is_enabled).lower())
 
     data = [
         {
@@ -1005,7 +1031,10 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
     assert metrics["has_trace/mean"] == 1.0
 
     traces = get_traces()
-    assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+    if is_enabled:
+        assert len(traces) == len(data) * 5  # 1 trace for prediction + 4 scorer traces
+    else:
+        assert len(traces) == len(data)
 
     # Traces should be associated with the eval run
     traces = mlflow.search_traces(
@@ -1018,8 +1047,44 @@ def test_evaluate_with_scorer_trace_enabled(server_config, monkeypatch):
     # Each assessment should have a source trace ID
     for trace in traces:
         for a in trace.info.assessments:
-            if isinstance(a, Feedback):
+            if isinstance(a, Feedback) and is_enabled:
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] is not None
                 assert a.metadata[AssessmentMetadataKey.SCORER_TRACE_ID] != trace.info.trace_id
-            elif isinstance(a, Expectation):
+            else:
                 assert AssessmentMetadataKey.SCORER_TRACE_ID not in a.metadata
+
+
+@pytest.mark.parametrize("diff_experiment_id", [True, False])
+def test_eval_with_traces_log_spans_correctly(diff_experiment_id):
+    exp_id = mlflow.set_experiment("traces exp").experiment_id
+    with mlflow.start_span() as span:
+        span.set_inputs({"question": "What is MLflow?"})
+        span.set_outputs({"answer": "MLflow is a tool for ML"})
+        span.set_attributes({"key": "value"})
+        with mlflow.start_span() as child_span:
+            child_span.set_inputs("test")
+
+    # set to a different experiment
+    if diff_experiment_id:
+        mlflow.set_experiment("diff exp")
+
+    # search traces from the original experiment
+    trace_df = mlflow.search_traces(locations=[exp_id])
+
+    result = mlflow.genai.evaluate(
+        data=trace_df,
+        scorers=[has_trace],
+    )
+
+    assert result.metrics["has_trace/mean"] == 1.0
+
+    traces = get_traces()
+    assert len(traces) == 1
+    # copied trace should contain all spans
+    assert len(traces[0].data.spans) == 2
+    span = traces[0].data.spans[0]
+    assert span.get_attribute("key") == "value"
+    assert span.inputs == {"question": "What is MLflow?"}
+    assert span.outputs == {"answer": "MLflow is a tool for ML"}
+    child_span = traces[0].data.spans[1]
+    assert child_span.inputs == "test"
