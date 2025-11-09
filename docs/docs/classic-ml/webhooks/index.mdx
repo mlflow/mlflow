@@ -260,6 +260,22 @@ Use <APILink fn="mlflow.client.MlflowClient.delete_webhook" >`MlflowClient.delet
 client.delete_webhook(webhook.webhook_id)
 ```
 
+## Trace Webhook Configuration
+
+MLflow tracing supports webhook notifications for tracing events:
+
+### Environment Variables
+
+- `MLFLOW_TRACE_LATENCY_THRESHOLD_MS`  
+  - Type: integer  
+  - Default: `2000` (milliseconds)  
+  - Description: Threshold for trace latency. If a trace takes longer than this value, a `TRACE_LATENCY_EXCEEDED` webhook will be triggered.
+
+### Example
+
+```bash
+export MLFLOW_TRACE_LATENCY_THRESHOLD_MS=3000
+
 ## Security
 
 ### HMAC Signature Verification

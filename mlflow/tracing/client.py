@@ -72,7 +72,14 @@ class TracingClient:
         Returns:
             The returned TraceInfoV3 object from the backend.
         """
-        return self.store.start_trace(trace_info=trace_info)
+        from mlflow.tracing.utils.webhook_utils import fire_tracing_webhook
+        from mlflow.entities.webhook import WebhookEvent
+        
+        try:
+            return self.store.start_trace(trace_info=trace_info)
+        except Exception as e:
+            fire_tracing_webhook(WebhookEvent.TRACE_ERROR, trace_info, {"error": str(e)})
+            raise
 
     def log_spans(self, experiment_id: str, spans: list[Span]) -> list[Span]:
         """

@@ -142,6 +142,9 @@ class WebhookEvent:
     """
     Represents a webhook event with a resource and action.
     """
+    
+    TRACE_ERROR = "TRACE_ERROR"
+    TRACE_LATENCY_EXCEEDED = "TRACE_LATENCY_EXCEEDED"
 
     def __init__(
         self,
