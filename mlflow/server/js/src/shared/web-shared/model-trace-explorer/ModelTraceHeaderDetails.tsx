@@ -9,12 +9,17 @@ import {
   ClockIcon,
   Notification,
   UserIcon,
+  CheckCircleIcon,
+  XCircleIcon,
+  TagColors,
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { type ModelTrace, type ModelTraceInfoV3 } from './ModelTrace.types';
-import { createTraceV4LongIdentifier, doesTraceSupportV4API, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
+import { type ModelTrace, type ModelTraceInfoV3, type ModelTraceState } from './ModelTrace.types';
+import { createTraceV4LongIdentifier, doesTraceSupportV4API, getModelTraceId, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
+import { FormattedMessage, useIntl } from 'react-intl';
+import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
 import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
@@ -30,6 +35,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const [showNotification, setShowNotification] = useState(false);
   const { rootNode } = useModelTraceExplorerViewState();
   const { experimentId } = useParams();
+  const intl = useIntl();
 
   const tags = Object.entries(modelTraceInfo.tags ?? {}).filter(([key]) => isUserFacingTag(key));
 
@@ -56,6 +62,64 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
   const userId = useMemo(() => {
     return (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_USER_KEY];
   }, [modelTraceInfo]);
+
+  // Derive status label/icon from TraceInfo (V3 preferred; V2 fallback)
+  const statusState: ModelTraceState | 'STATE_UNSPECIFIED' = useMemo(() => {
+    if (isV3ModelTraceInfo(modelTraceInfo)) {
+      return modelTraceInfo.state || 'STATE_UNSPECIFIED';
+    }
+    const legacy = (modelTraceInfo as any)?.status as string | undefined;
+    if (!legacy) return 'STATE_UNSPECIFIED';
+    if (legacy === 'OK') return 'OK';
+    if (legacy === 'ERROR') return 'ERROR';
+    if (legacy === 'IN_PROGRESS') return 'IN_PROGRESS';
+    return 'STATE_UNSPECIFIED';
+  }, [modelTraceInfo]);
+
+  const formatStatusLabel = useCallback(
+    (state: ModelTraceState | 'STATE_UNSPECIFIED'): string | null => {
+      switch (state) {
+        case 'IN_PROGRESS':
+          return intl.formatMessage({
+            defaultMessage: 'In progress',
+            description: 'Model trace header > status label > in progress',
+          });
+        case 'OK':
+          return intl.formatMessage({ defaultMessage: 'OK', description: 'Model trace header > status label > ok' });
+        case 'ERROR':
+          return intl.formatMessage({ defaultMessage: 'Error', description: 'Model trace header > status label > error' });
+        default:
+          return null;
+      }
+    },
+    [intl],
+  );
+
+  const statusIcon = useMemo(() => {
+    if (statusState === 'IN_PROGRESS') {
+      return <ClockIcon css={{ color: theme.colors.textValidationWarning }} />;
+    }
+    if (statusState === 'OK') {
+      return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />;
+    }
+    if (statusState === 'ERROR') {
+      return <XCircleIcon css={{ color: theme.colors.textValidationDanger }} />;
+    }
+    return null;
+  }, [statusState, theme.colors.textValidationDanger, theme.colors.textValidationSuccess, theme.colors.textValidationWarning]);
+
+  const statusTagColor: TagColors = useMemo(() => {
+    switch (statusState) {
+      case 'OK':
+        return 'teal';
+      case 'ERROR':
+        return 'coral';
+      case 'IN_PROGRESS':
+        return 'lemon';
+      default:
+        return 'default';
+    }
+  }, [statusState]);
 
   const latency = useMemo((): string | undefined => {
     if (rootNode) {
@@ -87,6 +151,16 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
           flexWrap: 'wrap',
         }}
       >
+        {formatStatusLabel(statusState) && (
+          <ModelTraceHeaderMetricSection
+            label={<FormattedMessage defaultMessage="Status" description="Label for the status section" />}
+            value={formatStatusLabel(statusState) as string}
+            color={statusTagColor}
+            icon={statusIcon}
+            getTruncatedLabel={getTruncatedLabel}
+            onCopy={handleCopy}
+          />
+        )}
         {modelTraceId && (
           <ModelTraceHeaderMetricSection
             label={<FormattedMessage defaultMessage="ID" description="Label for the ID section" />}
