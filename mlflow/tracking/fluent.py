@@ -1204,11 +1204,18 @@ def log_params(
         with mlflow.start_run():
             mlflow.log_params(params, synchronous=False)
     """
-    run_id = run_id or _get_or_start_run().info.run_id
+    run = None
+    if run_id is None:
+        run = _get_or_start_run()
+        run_id = run.info.run_id
     params_arr = [Param(key, str(value)) for key, value in params.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
-        run_id=run_id, metrics=[], params=params_arr, tags=[], synchronous=synchronous
+        run_id=run_id,
+        metrics=[],
+        params=params_arr,
+        tags=[],
+        synchronous=synchronous,
     )
 
 
@@ -1403,11 +1410,16 @@ def set_tags(tags: dict[str, Any], synchronous: bool | None = None) -> RunOperat
         with mlflow.start_run():
             mlflow.set_tags(tags, synchronous=False)
     """
-    run_id = _get_or_start_run().info.run_id
+    run = _get_or_start_run()
+    run_id = run.info.run_id
     tags_arr = [RunTag(key, str(value)) for key, value in tags.items()]
     synchronous = synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
     return MlflowClient().log_batch(
-        run_id=run_id, metrics=[], params=[], tags=tags_arr, synchronous=synchronous
+        run_id=run_id,
+        metrics=[],
+        params=[],
+        tags=tags_arr,
+        synchronous=synchronous,
     )
 
 

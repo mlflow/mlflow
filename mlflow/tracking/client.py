@@ -2076,6 +2076,11 @@ class MlflowClient:
             synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
         model_id = model_id or get_active_model_id()
+        experiment_id = None
+        active_run = mlflow.active_run()
+        if active_run and active_run.info.run_id == run_id:
+            experiment_id = active_run.info.experiment_id
+
         return self._tracking_client.log_metric(
             run_id,
             key,
@@ -2086,6 +2091,7 @@ class MlflowClient:
             dataset_name=dataset_name,
             dataset_digest=dataset_digest,
             model_id=model_id,
+            experiment_id=experiment_id,
         )
 
     def log_param(self, run_id: str, key: str, value: Any, synchronous: bool | None = None) -> Any:

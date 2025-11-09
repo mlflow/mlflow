@@ -1009,6 +1009,7 @@ def _log_metric():
             "model_id": [_assert_string],
             "dataset_name": [_assert_string],
             "dataset_digest": [_assert_string],
+            "experiment_id": [_assert_string],
         },
     )
     metric = Metric(
@@ -1022,7 +1023,8 @@ def _log_metric():
         request_message.run_id or None,
     )
     run_id = request_message.run_id or request_message.run_uuid
-    _get_tracking_store().log_metric(run_id, metric)
+    experiment_id = request_message.experiment_id or None
+    _get_tracking_store().log_metric(run_id, metric, experiment_id=experiment_id)
     response_message = LogMetric.Response()
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

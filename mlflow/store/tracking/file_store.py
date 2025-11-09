@@ -1044,22 +1044,26 @@ class FileStore(AbstractStore):
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
-    def log_metric(self, run_id: str, metric: Metric):
+    def log_metric(self, run_id: str, metric: Metric, experiment_id: str = None):
         _validate_run_id(run_id)
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
-        run_info = self._get_run_info(run_id)
-        check_run_is_active(run_info)
-        self._log_run_metric(run_info, metric)
+        if not experiment_id:
+            run_info = self._get_run_info(run_id)
+            check_run_is_active(run_info)
+            experiment_id = run_info.experiment_id
+        self._log_run_metric(run_id=run_id, experiment_id=experiment_id, metric=metric)
         if metric.model_id is not None:
             self._log_model_metric(
-                experiment_id=run_info.experiment_id,
+                experiment_id=experiment_id,
                 model_id=metric.model_id,
                 run_id=run_id,
                 metric=metric,
             )
 
-    def _log_run_metric(self, run_info, metric):
-        metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
+    def _log_run_metric(self, run_id, experiment_id, metric):
+        metric_path = self._get_metric_path(
+            experiment_id=experiment_id, run_uuid=run_id, metric_key=metric.key
+        )
         make_containing_dirs(metric_path)
         if metric.dataset_name is not None and metric.dataset_digest is not None:
             append_to(
@@ -1226,7 +1230,9 @@ class FileStore(AbstractStore):
             for param in params:
                 self._log_run_param(run_info, param)
             for metric in metrics:
-                self._log_run_metric(run_info, metric)
+                self._log_run_metric(
+                    experiment_id=run_info.experiment_id, run_id=run_id, metric=metric
+                )
                 if metric.model_id is not None:
                     self._log_model_metric(
                         experiment_id=run_info.experiment_id,

@@ -341,6 +341,7 @@ class TrackingServiceClient:
         dataset_name: str | None = None,
         dataset_digest: str | None = None,
         model_id: str | None = None,
+        experiment_id: str | None = None,
     ) -> RunOperations | None:
         """Log a metric against the run ID.
 
@@ -363,6 +364,8 @@ class TrackingServiceClient:
             dataset_digest: The digest of the dataset associated with the metric. If specified,
                 ``dataset_name`` must also be provided.
             model_id: The ID of the model associated with the metric.
+            experiment_id: The ID of the experiment associated with the metric. If not provided,
+                the backend store determines the experiment from the run.
 
         Returns:
             When synchronous=True, returns None. When synchronous=False, returns
@@ -382,7 +385,7 @@ class TrackingServiceClient:
             dataset_digest=dataset_digest,
         )
         if synchronous:
-            self.store.log_metric(run_id, metric)
+            self.store.log_metric(run_id, metric, experiment_id=experiment_id)
         else:
             return self.store.log_metric_async(run_id, metric)
 
