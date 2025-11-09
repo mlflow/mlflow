@@ -649,6 +649,9 @@ export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | n
     // No inputs/outputs/attributes/events for the synthetic root
     assessments: [],
     traceId,
+    // mark this node as synthetic so renderers can omit it from UI and render its children instead
+    // @ts-expect-error runtime-only flag, not part of the ModelTraceSpanNode interface
+    syntheticRoot: true,
   } as ModelTraceSpanNode;
 }
 

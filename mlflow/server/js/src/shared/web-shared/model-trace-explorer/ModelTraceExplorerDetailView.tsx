@@ -1,5 +1,5 @@
 import { values, isString } from 'lodash';
-import { useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useDesignSystemTheme } from '@databricks/design-system';
 
@@ -61,11 +61,52 @@ export const ModelTraceExplorerDetailView = ({
     isInComparisonView,
   } = useModelTraceExplorerViewState();
 
+  // If the parsed root is a synthetic root, render its children as top-level nodes
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - syntheticRoot is a runtime flag set in parseModelTraceToTree
+  const isSyntheticRoot = Boolean(treeNode?.syntheticRoot);
+  const rootNodesForRender = useMemo(
+    () => (treeNode ? (isSyntheticRoot ? treeNode.children ?? [] : [treeNode]) : []),
+    [treeNode, isSyntheticRoot],
+  );
+
   const { expandedKeys, setExpandedKeys } = useTimelineTreeExpandedNodes({
-    rootNodes: treeNode ? [treeNode] : [],
+    rootNodes: rootNodesForRender,
     // nodes beyond this depth will be collapsed
     initialExpandDepth: DEFAULT_EXPAND_DEPTH,
   });
+
+  // Track which keys we've auto-expanded so we don't override user collapses on refresh
+  const seenAutoExpandedKeysRef = useRef<Set<string | number>>(new Set());
+
+  // When a synthetic root transitions to a true root span (once export completes),
+  // ensure the new root is expanded so the tree does not appear collapsed.
+  const prevRootKeyRef = useRef<string | number | undefined>(undefined);
+  useEffect(() => {
+    const currentRootKey = treeNode?.key;
+    const prevRootKey = prevRootKeyRef.current;
+    if (currentRootKey && currentRootKey !== prevRootKey) {
+      // If new root is not expanded yet, expand it but preserve existing expansions
+      if (!expandedKeys.has(currentRootKey)) {
+        // If synthetic root, do not expand it; expand its immediate children instead
+        if (isSyntheticRoot) {
+          const next = new Set(expandedKeys);
+          (treeNode?.children ?? []).forEach((child) => next.add(child.key as string | number));
+          setExpandedKeys(next);
+          (treeNode?.children ?? []).forEach((child) => seenAutoExpandedKeysRef.current.add(child.key as any));
+        } else {
+          const next = new Set(expandedKeys);
+          next.add(currentRootKey);
+          setExpandedKeys(next);
+          // mark root as auto-expanded to avoid re-adding collapsed nodes later
+          seenAutoExpandedKeysRef.current.add(currentRootKey);
+        }
+        // mark root as auto-expanded to avoid re-adding collapsed nodes later
+        seenAutoExpandedKeysRef.current.add(currentRootKey);
+      }
+      prevRootKeyRef.current = currentRootKey;
+    }
+  }, [treeNode?.key, expandedKeys, setExpandedKeys]);
 
   const {
     matchData,
@@ -97,14 +138,31 @@ export const ModelTraceExplorerDetailView = ({
     // On first load, expand nodes up to the default depth.
     // Do not reset expanded nodes on background refresh to avoid flicker.
     if (!expandedKeys || expandedKeys.size === 0) {
-      const list = values(getTimelineTreeNodesMap(filteredTreeNodes, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
+      const list = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map((node) => node.key);
       const initial = new Set(list);
       setExpandedKeys(initial);
       // remember which keys we auto-expanded at bootstrap
       seenAutoExpandedKeysRef.current = initial;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredTreeNodes]);
+  }, [rootNodesForRender]);
+
+  // Ensure newly arrived spans are auto-expanded by default, but do not re-expand
+  // spans that the user has explicitly collapsed.
+  useEffect(() => {
+    const defaultDepthKeys = values(getTimelineTreeNodesMap(rootNodesForRender, DEFAULT_EXPAND_DEPTH)).map(
+      (node) => node.key,
+    );
+
+    // Only auto-expand keys we have never auto-expanded before (i.e., truly new)
+    const newKeys = defaultDepthKeys.filter((k) => !seenAutoExpandedKeysRef.current.has(k));
+    if (newKeys.length > 0) {
+      const next = new Set(expandedKeys);
+      newKeys.forEach((k) => next.add(k));
+      setExpandedKeys(next);
+      newKeys.forEach((k) => seenAutoExpandedKeysRef.current.add(k));
+    }
+  }, [rootNodesForRender, expandedKeys, setExpandedKeys]);
 
   const leftPaneMinWidth = useMemo(() => {
     // min width necessary to render all the spans in the tree accounting for indentation
