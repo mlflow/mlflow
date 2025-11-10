@@ -1,0 +1,27 @@
+name: Generate Custom Ubuntu Latest Snapshot
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/generate-ubuntu-latest-custom.yml"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - ".github/workflows/generate-ubuntu-latest-custom.yml"
+
+jobs:
+  build:
+    runs-on: generate-ubuntu-latest-custom
+    snapshot: ubuntu-latest-custom
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - name: Free up disk space
+        run: |
+          df -h
+          sudo rm -rf /usr/local/lib/android
+          df -h
