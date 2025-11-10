@@ -12,11 +12,15 @@ on:
     paths:
       - ".github/workflows/generate-ubuntu-latest-custom.yml"
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: generate-ubuntu-latest-custom
     snapshot: ubuntu-latest-custom
-    timeout-minutes: 30
+    timeout-minutes: 10
     permissions:
       contents: read
     steps:
