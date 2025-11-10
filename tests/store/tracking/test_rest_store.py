@@ -47,6 +47,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.protos.service_pb2 import (
+    AddDatasetToExperiments,
     CalculateTraceFilterCorrelation,
     CreateAssessment,
     CreateDataset,
@@ -76,6 +77,7 @@ from mlflow.protos.service_pb2 import (
     LogModel,
     LogParam,
     RegisterScorer,
+    RemoveDatasetFromExperiments,
     RestoreExperiment,
     RestoreRun,
     SearchEvaluationDatasets,
@@ -2327,6 +2329,79 @@ def test_evaluation_dataset_user_tracking_search():
         api, json_body = call_args[0]
         request_json = json.loads(json_body)
         assert request_json["filter_string"] == "last_updated_by = 'user2'"
+
+
+def test_add_dataset_to_experiments():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = AddDatasetToExperiments.Response()
+        response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        response.dataset.name = "test_dataset"
+        response.dataset.experiment_ids.extend(["0", "1", "3", "4"])
+        response.dataset.created_time = 1234567890
+        response.dataset.last_update_time = 1234567890
+        response.dataset.digest = "abc123"
+
+        mock_call.side_effect = [response]
+
+        result = store.add_dataset_to_experiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3", "4"],
+        )
+
+        assert mock_call.call_count == 1
+        assert result.dataset_id == "d-1234567890abcdef1234567890abcdef"
+        assert "3" in result.experiment_ids
+        assert "4" in result.experiment_ids
+        assert "0" in result.experiment_ids
+        assert "1" in result.experiment_ids
+
+        req = AddDatasetToExperiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3", "4"],
+        )
+        mock_call.assert_called_once_with(
+            AddDatasetToExperiments,
+            message_to_json(req),
+        )
+
+
+def test_remove_dataset_from_experiments():
+    creds = MlflowHostCreds("https://test-server")
+    store = RestStore(lambda: creds)
+
+    with mock.patch.object(store, "_call_endpoint") as mock_call:
+        response = RemoveDatasetFromExperiments.Response()
+        response.dataset.dataset_id = "d-1234567890abcdef1234567890abcdef"
+        response.dataset.name = "test_dataset"
+        response.dataset.experiment_ids.extend(["0", "1"])
+        response.dataset.created_time = 1234567890
+        response.dataset.last_update_time = 1234567890
+        response.dataset.digest = "abc123"
+
+        mock_call.side_effect = [response]
+
+        result = store.remove_dataset_from_experiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3"],
+        )
+
+        assert mock_call.call_count == 1
+        assert result.dataset_id == "d-1234567890abcdef1234567890abcdef"
+        assert "3" not in result.experiment_ids
+        assert "0" in result.experiment_ids
+        assert "1" in result.experiment_ids
+
+        req = RemoveDatasetFromExperiments(
+            dataset_id="d-1234567890abcdef1234567890abcdef",
+            experiment_ids=["3"],
+        )
+        mock_call.assert_called_once_with(
+            RemoveDatasetFromExperiments,
+            message_to_json(req),
+        )
 
 
 def test_register_scorer():

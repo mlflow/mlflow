@@ -1663,6 +1663,11 @@ class RestStore(AbstractStore):
         """
         Add a dataset to additional experiments via REST API.
         """
+        # NB: Local import to avoid circular dependency:
+        # rest_store -> EvaluationDataset -> mlflow.data -> artifact_repository_registry
+        # -> dbfs_artifact_repo -> rest_store
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
         req_body = message_to_json(
             AddDatasetToExperiments(
                 dataset_id=dataset_id,
@@ -1678,6 +1683,11 @@ class RestStore(AbstractStore):
         """
         Remove a dataset from experiments via REST API.
         """
+        # NB: Local import to avoid circular dependency:
+        # rest_store -> EvaluationDataset -> mlflow.data -> artifact_repository_registry
+        # -> dbfs_artifact_repo -> rest_store
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
         req_body = message_to_json(
             RemoveDatasetFromExperiments(
                 dataset_id=dataset_id,

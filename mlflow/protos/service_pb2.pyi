@@ -1499,8 +1499,8 @@ class AddDatasetToExperiments(_message.Message):
     class Response(_message.Message):
         __slots__ = ("dataset",)
         DATASET_FIELD_NUMBER: _ClassVar[int]
-        dataset: Dataset
-        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+        dataset: _datasets_pb2.Dataset
+        def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ...) -> None: ...
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str
@@ -1512,8 +1512,8 @@ class RemoveDatasetFromExperiments(_message.Message):
     class Response(_message.Message):
         __slots__ = ("dataset",)
         DATASET_FIELD_NUMBER: _ClassVar[int]
-        dataset: Dataset
-        def __init__(self, dataset: _Optional[_Union[Dataset, _Mapping]] = ...) -> None: ...
+        dataset: _datasets_pb2.Dataset
+        def __init__(self, dataset: _Optional[_Union[_datasets_pb2.Dataset, _Mapping]] = ...) -> None: ...
     DATASET_ID_FIELD_NUMBER: _ClassVar[int]
     EXPERIMENT_IDS_FIELD_NUMBER: _ClassVar[int]
     dataset_id: str

@@ -1149,6 +1149,42 @@ service MlflowService {
       rpc_doc_title: "Get Evaluation Dataset Records",
     };
   }
+
+  // Add a dataset to additional experiments
+  rpc addDatasetToExperiments(AddDatasetToExperiments) returns (AddDatasetToExperiments.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets/{dataset_id}/add-experiments"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Add Dataset to Experiments",
+    };
+  }
+
+  // Remove a dataset from experiments
+  rpc removeDatasetFromExperiments(RemoveDatasetFromExperiments) returns (RemoveDatasetFromExperiments.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/datasets/{dataset_id}/remove-experiments"
+        since { major: 3, minor: 0 },
+      }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Remove Dataset from Experiments",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -3056,31 +3092,31 @@ message GetDatasetRecords {
 
 message AddDatasetToExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to add to experiments
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Experiment IDs to associate with the dataset
   repeated string experiment_ids = 2;
-  
+
   message Response {
     // The updated dataset with new experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
 message RemoveDatasetFromExperiments {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-  
+
   // Dataset ID to remove from experiments
   optional string dataset_id = 1 [(validate_required) = true];
-  
+
   // Experiment IDs to disassociate from the dataset
   repeated string experiment_ids = 2;
-  
+
   message Response {
     // The updated dataset after removing experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
