@@ -7,8 +7,6 @@ on:
       - synchronize
       - reopened
       - ready_for_review
-      - labeled
-      - unlabeled
   push:
     branches:
       - master
