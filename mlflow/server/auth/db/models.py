@@ -8,7 +8,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    RegisteredModelPermission,
+    SecretPermission,
+    User,
+)
 
 Base = declarative_base()
 
@@ -21,6 +26,7 @@ class SqlUser(Base):
     is_admin = Column(Boolean, default=False)
     experiment_permissions = relationship("SqlExperimentPermission", backref="users")
     registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
+    secret_permissions = relationship("SqlSecretPermission", backref="users")
 
     def to_mlflow_entity(self):
         return User(
@@ -62,6 +68,22 @@ class SqlRegisteredModelPermission(Base):
     def to_mlflow_entity(self):
         return RegisteredModelPermission(
             name=self.name,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlSecretPermission(Base):
+    __tablename__ = "secret_permissions"
+    id = Column(Integer(), primary_key=True)
+    secret_id = Column(String(32), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),)
+
+    def to_mlflow_entity(self):
+        return SecretPermission(
+            secret_id=self.secret_id,
             user_id=self.user_id,
             permission=self.permission,
         )

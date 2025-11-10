@@ -1222,6 +1222,9 @@ mlflow.server.auth.entities.ExperimentPermission.to_json
 mlflow.server.auth.entities.RegisteredModelPermission
 mlflow.server.auth.entities.RegisteredModelPermission.from_json
 mlflow.server.auth.entities.RegisteredModelPermission.to_json
+mlflow.server.auth.entities.SecretPermission
+mlflow.server.auth.entities.SecretPermission.from_json
+mlflow.server.auth.entities.SecretPermission.to_json
 mlflow.server.auth.entities.User
 mlflow.server.auth.entities.User.from_json
 mlflow.server.auth.entities.User.to_json
