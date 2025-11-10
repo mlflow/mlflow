@@ -196,9 +196,15 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
         skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
     reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
     np.testing.assert_array_equal(
         sk_model.predict(sklearn_knn_model.inference_data),
         reloaded_model.predict(sklearn_knn_model.inference_data),
+    )
+
+    np.testing.assert_array_equal(
+        reloaded_model.predict(sklearn_knn_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_knn_model.inference_data),
     )
 
 
@@ -237,7 +243,10 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_sign
 
 
 def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model, path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     artifact_root = f"s3://{mock_s3_bucket}"
     artifact_path = "model"
@@ -719,7 +728,8 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, name=artifact_path, input_example=inference_dataframe
+            model, name=artifact_path, input_example=inference_dataframe,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     inference_payload = load_serving_example(model_info.model_uri)
@@ -824,7 +834,8 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         mock.patch("mlflow.sklearn._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name=artifact_path, code_paths=[__file__]
+            sklearn_knn_model.model, name=artifact_path, code_paths=[__file__],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.sklearn.FLAVOR_NAME)
         mlflow.sklearn.load_model(model_uri=model_info.model_uri)
@@ -861,7 +872,8 @@ def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_
 
 def test_model_save_load_with_metadata(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(
-        sklearn_knn_model.model, path=model_path, metadata={"metadata_key": "metadata_value"}
+        sklearn_knn_model.model, path=model_path, metadata={"metadata_key": "metadata_value"},
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_path)
@@ -876,6 +888,7 @@ def test_model_log_with_metadata(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_info.model_uri)
@@ -933,7 +946,10 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
     knn_model = sklearn_knn_model.model
     pipeline = make_pipeline(knn_model)
 
-    mlflow.sklearn.save_model(sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba")
+    mlflow.sklearn.save_model(
+        sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba",
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
     reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
 
     np.testing.assert_array_equal(
@@ -945,7 +961,8 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
 def test_get_raw_model(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", input_example=sklearn_knn_model.inference_data
+            sklearn_knn_model.model, name="model", input_example=sklearn_knn_model.inference_data,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
     raw_model = pyfunc_model.get_raw_model()
