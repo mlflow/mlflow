@@ -459,10 +459,16 @@ mlflow.entities.ScorerVersion
 mlflow.entities.ScorerVersion.from_proto
 mlflow.entities.ScorerVersion.to_proto
 mlflow.entities.Secret
+mlflow.entities.Secret.from_proto
+mlflow.entities.Secret.to_proto
 mlflow.entities.SecretBinding
+mlflow.entities.SecretBinding.from_proto
+mlflow.entities.SecretBinding.to_proto
 mlflow.entities.SecretResourceType
 mlflow.entities.SecretResourceType.from_string
 mlflow.entities.SecretWithBinding
+mlflow.entities.SecretWithBinding.from_proto
+mlflow.entities.SecretWithBinding.to_proto
 mlflow.entities.SourceType
 mlflow.entities.SourceType.from_string
 mlflow.entities.SourceType.to_string

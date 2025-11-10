@@ -357,6 +357,20 @@ def kek_passphrase(monkeypatch):
     return passphrase
 
 
+@pytest.fixture(autouse=True)
+def cleanup_secrets(request, store):
+    if "kek_passphrase" not in request.fixturenames:
+        yield
+        return
+
+    yield
+
+    with store.ManagedSessionMaker() as session:
+        session.query(SqlSecretBinding).delete()
+        session.query(SqlSecret).delete()
+        session.commit()
+
+
 @pytest.fixture
 def create_secret(store, kek_passphrase):
     def _create_secret(**kwargs):
@@ -420,6 +434,8 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlEvaluationDataset,
             SqlExperimentTag,
             SqlExperiment,
+            SqlSecretBinding,
+            SqlSecret,
         ):
             session.query(model).delete()
 
@@ -11446,8 +11462,8 @@ def test_create_and_bind_prevents_orphaned_secrets(store: SqlAlchemyStore, kek_p
     result = store._create_and_bind_secret(
         secret_name="test_secret",
         secret_value="test_value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace_id",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job-123",
         field_name="API_KEY",
         is_shared=True,
     )
@@ -11866,3 +11882,83 @@ def test_secret_update_nonexistent_secret(store: SqlAlchemyStore):
     fake_id = "nonexistent_secret_id_67890"
     with pytest.raises(MlflowException, match="not found"):
         store._update_secret(fake_id, "new-value")
+
+
+def test_create_and_bind_secret_invalid_resource_type(store: SqlAlchemyStore, kek_passphrase):
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store._create_and_bind_secret(
+            secret_name="test-secret",
+            secret_value="secret-value",
+            resource_type="INVALID_TYPE",
+            resource_id="resource-123",
+            field_name="API_KEY",
+        )
+
+
+def test_bind_secret_invalid_resource_type(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="shared-secret",
+        secret_value="secret-value",
+        resource_type="SCORER_JOB",
+        resource_id="job-1",
+        field_name="KEY1",
+        is_shared=True,
+    )
+
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store._bind_secret(
+            secret_id=result.secret.secret_id,
+            resource_type="invalid_type",
+            resource_id="job-2",
+            field_name="KEY2",
+        )
+
+
+def test_unbind_secret_invalid_resource_type(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store._unbind_secret(
+            resource_type="BadType",
+            resource_id="resource-123",
+            field_name="API_KEY",
+        )
+
+
+def test_list_secret_bindings_invalid_resource_type(store: SqlAlchemyStore):
+    with pytest.raises(MlflowException, match="Invalid resource type"):
+        store._list_secret_bindings(resource_type="WrongType")
+
+
+def test_create_and_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
+    with pytest.raises(
+        MlflowException,
+        match="GLOBAL secrets cannot be created through the API",
+    ):
+        store._create_and_bind_secret(
+            secret_name="test-secret",
+            secret_value="secret-value",
+            resource_type="GLOBAL",
+            resource_id="global-1",
+            field_name="API_KEY",
+        )
+
+
+def test_bind_secret_global_rejected(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="shared-secret",
+        secret_value="secret-value",
+        resource_type="SCORER_JOB",
+        resource_id="job-1",
+        field_name="KEY1",
+        is_shared=True,
+    )
+
+    with pytest.raises(
+        MlflowException,
+        match="GLOBAL secrets cannot be created through the API",
+    ):
+        store._bind_secret(
+            secret_id=result.secret.secret_id,
+            resource_type="GLOBAL",
+            resource_id="global-1",
+            field_name="KEY2",
+        )

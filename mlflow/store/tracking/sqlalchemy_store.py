@@ -57,6 +57,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.secret_binding import SecretResourceType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace import Span
 from mlflow.entities.trace_info_v2 import TraceInfoV2
@@ -2372,7 +2373,21 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             SecretWithBinding containing the created secret and its initial binding.
 
+        Raises:
+            MlflowException: If resource_type is not valid or is GLOBAL.
         """
+        try:
+            resource_type_enum = SecretResourceType.from_string(resource_type)
+        except ValueError as e:
+            raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+        if resource_type_enum == SecretResourceType.GLOBAL:
+            raise MlflowException(
+                "GLOBAL secrets cannot be created through the API. "
+                "They must be managed by administrators through CLI or configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         with self.ManagedSessionMaker() as session:
             if is_shared:
                 existing = (
@@ -2478,6 +2493,47 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_secret.to_mlflow_entity()
 
+    def _list_secrets(self, is_shared: bool | None = None) -> list[Secret]:
+        """
+        List all secrets with optional filtering and binding counts.
+
+        This method returns lightweight secret metadata optimized for UI display.
+        The binding_count field shows the actual number of bindings from the database.
+
+        Note: Private secrets (is_shared=false) should always have binding_count=1.
+        If a different count is returned, this indicates a data integrity issue.
+
+        Args:
+            is_shared: Optional filter for secret sharing status:
+                - True: Return only shared secrets (can be bound to multiple resources)
+                - False: Return only private secrets (single resource binding)
+                - None: Return all secrets (default)
+
+        Returns:
+            List of Secret entities with binding_count populated from actual DB values.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(
+                    SqlSecret, func.count(SqlSecretBinding.binding_id).label("binding_count")
+                )
+                .outerjoin(SqlSecretBinding, SqlSecret.secret_id == SqlSecretBinding.secret_id)
+                .group_by(SqlSecret.secret_id)
+            )
+
+            if is_shared is not None:
+                query = query.filter(SqlSecret.is_shared == is_shared)
+
+            results = query.all()
+
+            secrets = []
+            for sql_secret, binding_count in results:
+                secret = sql_secret.to_mlflow_entity()
+                secret.binding_count = binding_count
+                secrets.append(secret)
+
+            return secrets
+
     def _update_secret(
         self,
         secret_id: str,
@@ -2569,7 +2625,22 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             SecretBinding entity representing the new binding.
+
+        Raises:
+            MlflowException: If resource_type is not valid or is GLOBAL.
         """
+        try:
+            resource_type_enum = SecretResourceType.from_string(resource_type)
+        except ValueError as e:
+            raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
+        if resource_type_enum == SecretResourceType.GLOBAL:
+            raise MlflowException(
+                "GLOBAL secrets cannot be created through the API. "
+                "They must be managed by administrators through CLI or configuration.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         with self.ManagedSessionMaker() as session:
             sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
             if not sql_secret:
@@ -2637,7 +2708,15 @@ class SqlAlchemyStore(AbstractStore):
             resource_type: Type of resource (e.g., "SCORER_JOB").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field to unbind.
+
+        Raises:
+            MlflowException: If resource_type is not valid.
         """
+        try:
+            SecretResourceType.from_string(resource_type)
+        except ValueError as e:
+            raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
         with self.ManagedSessionMaker() as session:
             sql_binding = (
                 session.query(SqlSecretBinding)
@@ -2701,7 +2780,16 @@ class SqlAlchemyStore(AbstractStore):
 
         Returns:
             List of SecretBinding entities matching the filters.
+
+        Raises:
+            MlflowException: If resource_type is provided but not valid.
         """
+        if resource_type is not None:
+            try:
+                SecretResourceType.from_string(resource_type)
+            except ValueError as e:
+                raise MlflowException(str(e), error_code=INVALID_PARAMETER_VALUE)
+
         with self.ManagedSessionMaker() as session:
             query = session.query(SqlSecretBinding)
 
@@ -2721,9 +2809,15 @@ class SqlAlchemyStore(AbstractStore):
         resource_id: str,
     ) -> dict[str, str | dict[str, Any]]:
         """
-        Retrieve and decrypt all secrets bound to a specific resource.
+        BACKEND ONLY: Retrieve and decrypt all secrets bound to a specific resource.
 
-        Returns a dictionary mapping field names to decrypted secret values.
+        **SECURITY WARNING**: This method returns DECRYPTED secret values and must
+        NEVER be exposed via REST API. It is intentionally NOT in AbstractStore to
+        prevent accidental exposure through RestStore.
+
+        This method is designed for internal server-side use only, such as when the
+        MLflow server needs to inject secrets as environment variables for running
+        jobs (e.g., scorer jobs that need LLM API keys).
 
         Args:
             resource_type: Type of resource (e.g., "SCORER_JOB").

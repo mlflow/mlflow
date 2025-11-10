@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import Secret as ProtoSecret
+from mlflow.protos.service_pb2 import SecretWithBinding as ProtoSecretWithBinding
 
 if TYPE_CHECKING:
     from mlflow.entities.secret_binding import SecretBinding
@@ -24,6 +26,21 @@ class SecretWithBinding(_MlflowObject):
 
     secret: "Secret"
     binding: "SecretBinding"
+
+    def to_proto(self):
+        proto = ProtoSecretWithBinding()
+        proto.secret.CopyFrom(self.secret.to_proto())
+        proto.binding.CopyFrom(self.binding.to_proto())
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        from mlflow.entities.secret_binding import SecretBinding
+
+        return cls(
+            secret=Secret.from_proto(proto.secret),
+            binding=SecretBinding.from_proto(proto.binding),
+        )
 
 
 @dataclass
@@ -52,6 +69,9 @@ class Secret(_MlflowObject):
             Used for gateway model metadata.
         model: LLM model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo"), or None.
             Used for gateway model metadata.
+        binding_count: Number of resource bindings (only populated in list responses).
+            For private secrets (is_shared=false), this is always 1.
+            For shared secrets (is_shared=true), reflects actual count.
     """
 
     secret_id: str
@@ -64,3 +84,40 @@ class Secret(_MlflowObject):
     last_updated_by: str | None = None
     provider: str | None = None
     model: str | None = None
+    binding_count: int | None = None
+
+    def to_proto(self):
+        proto = ProtoSecret()
+        proto.secret_id = self.secret_id
+        proto.secret_name = self.secret_name
+        proto.masked_value = self.masked_value
+        proto.is_shared = self.is_shared
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.last_updated_by is not None:
+            proto.last_updated_by = self.last_updated_by
+        if self.provider is not None:
+            proto.provider = self.provider
+        if self.model is not None:
+            proto.model = self.model
+        if self.binding_count is not None:
+            proto.binding_count = self.binding_count
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            secret_id=proto.secret_id,
+            secret_name=proto.secret_name,
+            masked_value=proto.masked_value,
+            is_shared=proto.is_shared,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by if proto.HasField("created_by") else None,
+            last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
+            provider=proto.provider if proto.HasField("provider") else None,
+            model=proto.model if proto.HasField("model") else None,
+            binding_count=proto.binding_count if proto.HasField("binding_count") else None,
+        )

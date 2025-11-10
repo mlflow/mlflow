@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import SecretBinding as ProtoSecretBinding
 
 
 class SecretResourceType(str, Enum):
@@ -75,3 +76,32 @@ class SecretBinding(_MlflowObject):
     last_updated_at: int = 0
     created_by: str | None = None
     last_updated_by: str | None = None
+
+    def to_proto(self):
+        proto = ProtoSecretBinding()
+        proto.binding_id = self.binding_id
+        proto.secret_id = self.secret_id
+        proto.resource_type = self.resource_type
+        proto.resource_id = self.resource_id
+        proto.field_name = self.field_name
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.last_updated_by is not None:
+            proto.last_updated_by = self.last_updated_by
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            binding_id=proto.binding_id,
+            secret_id=proto.secret_id,
+            resource_type=proto.resource_type,
+            resource_id=proto.resource_id,
+            field_name=proto.field_name,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by if proto.HasField("created_by") else None,
+            last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
+        )
