@@ -7,6 +7,8 @@ on:
       - synchronize
       - reopened
       - ready_for_review
+      - labeled
+      - unlabeled
   push:
     branches:
       - master
@@ -80,11 +82,11 @@ jobs:
         run: |
           uv run --no-project dev/check_function_signatures.py
 
-      - name: Check blank line changes
+      - name: Check whitespace-only changes
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          uv run --no-project dev/check_blank_lines.py \
+          uv run --no-project dev/check_whitespace_only.py \
             --repo ${{ github.repository }} \
             --pr ${{ github.event.pull_request.number }}
