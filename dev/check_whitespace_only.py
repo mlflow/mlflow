@@ -13,10 +13,9 @@ import urllib.request
 BYPASS_LABEL = "allow-whitespace-only"
 
 
-def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
+def github_api_request(url: str, accept: str) -> str:
     headers = {
-        "Accept": "application/vnd.github.v3.diff",
+        "Accept": accept,
         "X-GitHub-Api-Version": "2022-11-28",
     }
 
@@ -28,20 +27,15 @@ def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
         return response.read().decode("utf-8")
 
 
+def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
+    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
+    return github_api_request(url, "application/vnd.github.v3.diff")
+
+
 def get_pr_labels(owner: str, repo: str, pull_number: int) -> list[str]:
     url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
-    headers = {
-        "Accept": "application/vnd.github.v3+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-    }
-
-    if github_token := os.environ.get("GITHUB_TOKEN"):
-        headers["Authorization"] = f"Bearer {github_token}"
-
-    request = urllib.request.Request(url, headers=headers)
-    with urllib.request.urlopen(request, timeout=30) as response:
-        data = json.loads(response.read().decode("utf-8"))
-        return [label_obj["name"] for label_obj in data.get("labels", [])]
+    data = json.loads(github_api_request(url, "application/vnd.github.v3+json"))
+    return [label_obj["name"] for label_obj in data.get("labels", [])]
 
 
 def parse_diff(diff_text: str | None) -> list[str]:
