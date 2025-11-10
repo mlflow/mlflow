@@ -8,6 +8,13 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import Guidelines
 
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
+
+
 # ============================================================================
 # FORMAT VALIDATION TESTS (Minimal - just check serialization structure)
 # ============================================================================
@@ -94,8 +101,6 @@ def test_simple_scorer_round_trip():
 
 
 def test_custom_name_and_aggregations_round_trip():
-    """Test round-trip with custom name and aggregations."""
-
     @scorer(name="length_check", aggregations=["mean", "max"])
     def my_scorer(inputs, outputs):
         return len(outputs) > len(inputs)
@@ -116,8 +121,6 @@ def test_custom_name_and_aggregations_round_trip():
 
 
 def test_multiple_parameters_round_trip():
-    """Test round-trip with multiple parameters."""
-
     @scorer
     def multi_param_scorer(inputs, outputs, expectations):
         return outputs.startswith(inputs) and len(outputs) > expectations.get("min_length", 0)
@@ -326,7 +329,7 @@ test_results = {
 
     # Execute in isolated namespace with only serialized_data available
     isolated_namespace = {"serialized_data": serialized_data}
-    exec(test_code, isolated_namespace)
+    exec(test_code, isolated_namespace)  # noqa: S102
 
     # Verify results from isolated execution
     results = isolated_namespace["test_results"]

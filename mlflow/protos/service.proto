@@ -9,6 +9,7 @@ import "google/protobuf/field_mask.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
+import "opentelemetry/proto/trace/v1/trace.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
@@ -585,17 +586,31 @@ service MlflowService {
     };
   }
 
-  // Get Trace (returning a TraceInfoV3). Differences between GetTraceInfoV4 and GetTraceInfoV3
-  // are location in the request path, which describes where the Trace is stored.
-  rpc getTraceInfoV4 (GetTraceInfoV4) returns (GetTraceInfoV4.Response) {
+  // Get trace with spans for given trace id.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc getTrace (GetTrace) returns (GetTrace.Response) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
-        path: "/mlflow/traces/{location}/{trace_id}/info",
-        since {major: 4, minor: 0},
+        path: "/mlflow/traces/get"
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Get TraceInfo v4",
+      rpc_doc_title: "Get Trace v3",
+    };
+  }
+
+  // Get complete traces with spans for given trace identifiers.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/batchGet",
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Traces",
     };
   }
 
@@ -2139,22 +2154,31 @@ message GetTraceInfoV3 {
   }
 }
 
-message GetTraceInfoV4 {
+message BatchGetTraces {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the traces to fetch. Must be provided.
+  repeated string trace_ids = 1;
+
+  message Response {
+    // The fetched trace information.
+    repeated Trace traces = 1;
+  }
+}
+
+message GetTrace {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace to fetch. Must be provided.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Location of the trace to fetch from. Must be provided.
-  optional string location = 2 [(validate_required) = true];
-
-  // Optional SQL warehouse ID for fetching trace data.
-  optional string sql_warehouse_id = 3;
+  // Whether to allow partial traces. Default to True.
+  optional bool allow_partial = 2 [default = true];;
 
   message Response {
+    // The fetched trace including spans.
     optional Trace trace = 1;
   }
-
 }
 
 message SearchTraces {
@@ -2358,6 +2382,7 @@ message SetTraceTagV3 {
   reserved 1;reserved "request_id";
 }
 
+
 message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
@@ -2389,6 +2414,7 @@ message DeleteTraceTagV3 {
 
 message Trace {
   optional TraceInfoV3 trace_info = 1;
+  repeated opentelemetry.proto.trace.v1.Span spans = 2;
 }
 
 
@@ -2399,7 +2425,6 @@ message TraceLocation {
     TRACE_LOCATION_TYPE_UNSPECIFIED = 0;
     MLFLOW_EXPERIMENT = 1;
     INFERENCE_TABLE = 2;
-    UC_SCHEMA = 3;
   }
   optional TraceLocationType type = 1;
 
@@ -2413,15 +2438,9 @@ message TraceLocation {
     optional string full_table_name = 1;
   }
 
-  message UCSchemaLocation {
-    optional string catalog_name = 1;
-    optional string schema_name = 2;
-  }
-
   oneof identifier {
     MlflowExperimentLocation mlflow_experiment = 2;
     InferenceTableLocation inference_table = 3;
-    UCSchemaLocation uc_schema = 4;
   }
 }
 
@@ -2503,6 +2522,7 @@ message StartTraceV3 {
     optional Trace trace = 1;
   }
 }
+
 
 message LinkTracesToRun {
   // IDs of the traces to link to the run.
@@ -3082,6 +3102,16 @@ message RegisterScorer {
   message Response {
     // The new version number for the scorer.
     optional int32 version = 1;
+    // The unique identifier for the scorer.
+    optional string scorer_id = 2;
+    // The experiment ID (same as request).
+    optional string experiment_id = 3;
+    // The scorer name (same as request).
+    optional string name = 4;
+    // The serialized scorer string (same as request).
+    optional string serialized_scorer = 5;
+    // The creation time of the scorer version (in milliseconds since epoch).
+    optional int64 creation_time = 6;
   }
 }
 
@@ -3158,4 +3188,6 @@ message Scorer {
   optional string serialized_scorer = 4;
   // The creation time of the scorer version (in milliseconds since epoch).
   optional int64 creation_time = 5;
+  // The unique identifier for the scorer.
+  optional string scorer_id = 6;
 }

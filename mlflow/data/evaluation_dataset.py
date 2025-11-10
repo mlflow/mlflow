@@ -88,8 +88,10 @@ def _hash_data_as_bytes(data):
             return _hash_dict_as_bytes(data)
         if np.isscalar(data):
             return _hash_uint64_ndarray_as_bytes(pd.util.hash_array(np.array([data])))
-    finally:
-        return b""  # Skip unsupported types by returning an empty byte string
+    except Exception:
+        pass
+    # Skip unsupported types by returning an empty byte string
+    return b""
 
 
 def _hash_dict_as_bytes(data_dict):

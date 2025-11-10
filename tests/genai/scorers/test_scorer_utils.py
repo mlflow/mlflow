@@ -148,7 +148,6 @@ def test_empty_signature():
 
 
 def test_single_parameter_signature():
-    """Test function with single parameter."""
     source = "return x * 2"
     signature = "(x)"
     func_name = "double"

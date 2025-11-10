@@ -2,9 +2,7 @@ syntax = "proto2";
 
 package mlflow.unitycatalog;
 
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
-import "google/protobuf/empty.proto";
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 

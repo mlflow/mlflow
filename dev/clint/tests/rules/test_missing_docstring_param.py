@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.missing_docstring_param import MissingDocstringParam
 
 
@@ -28,4 +28,4 @@ def good_function(param1: str, param2: int) -> None:
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, MissingDocstringParam) for v in violations)
-    assert violations[0].loc == Location(1, 0)
+    assert violations[0].range == Range(Position(1, 0))

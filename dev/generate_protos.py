@@ -12,6 +12,7 @@ MACHINE = platform.machine()
 CACHE_DIR = Path(".cache/protobuf_cache")
 MLFLOW_PROTOS_DIR = Path("mlflow/protos")
 TEST_PROTOS_DIR = Path("tests/protos")
+OTEL_PROTOS_DIR = Path("mlflow/protos/opentelemetry")
 
 
 def gen_protos(
@@ -19,16 +20,16 @@ def gen_protos(
     proto_files: list[Path],
     lang: Literal["python", "java"],
     protoc_bin: Path,
-    protoc_include_path: Path,
+    protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
     assert lang in ["python", "java"]
     out_dir.mkdir(parents=True, exist_ok=True)
-
     subprocess.check_call(
         [
             protoc_bin,
-            f"-I={protoc_include_path}",
+            "--fatal_warnings",
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--{lang}_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -40,13 +41,14 @@ def gen_stub_files(
     proto_dir: Path,
     proto_files: list[Path],
     protoc_bin: Path,
-    protoc_include_path: Path,
+    protoc_include_paths: list[Path],
     out_dir: Path,
 ) -> None:
     subprocess.check_call(
         [
             protoc_bin,
-            f"-I={protoc_include_path}",
+            "--fatal_warnings",
+            *(f"-I={p}" for p in protoc_include_paths),
             f"-I={proto_dir}",
             f"--pyi_out={out_dir}",
             *[proto_dir / pf for pf in proto_files],
@@ -94,7 +96,7 @@ uc_proto_files = to_paths(
     "unity_catalog_prompt_messages.proto",
     "unity_catalog_prompt_service.proto",
 )
-tracing_proto_files = to_paths("databricks_trace_server.proto")
+tracing_proto_files = to_paths("databricks_tracing.proto")
 facet_proto_files = to_paths("facet_feature_statistics.proto")
 python_proto_files = basic_proto_files + uc_proto_files + facet_proto_files + tracing_proto_files
 test_proto_files = to_paths("test_message.proto")
@@ -146,13 +148,13 @@ python_gencode_replacements = [
 ]
 
 
-def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path) -> None:
+def gen_python_protos(protoc_bin: Path, protoc_include_paths: list[Path], out_dir: Path) -> None:
     gen_protos(
         MLFLOW_PROTOS_DIR,
         python_proto_files,
         "python",
         protoc_bin,
-        protoc_include_path,
+        protoc_include_paths,
         out_dir,
     )
 
@@ -161,7 +163,7 @@ def gen_python_protos(protoc_bin: Path, protoc_include_path: Path, out_dir: Path
         test_proto_files,
         "python",
         protoc_bin,
-        protoc_include_path,
+        protoc_include_paths,
         out_dir,
     )
 
@@ -232,8 +234,12 @@ def main() -> None:
         protoc3194, protoc3194_include = download_and_extract_protoc("3.19.4")
         protoc5260, protoc5260_include = download_and_extract_protoc("26.0")
 
-        gen_python_protos(protoc3194, protoc3194_include, proto3194_out)
-        gen_python_protos(protoc5260, protoc5260_include, proto5260_out)
+        # Build include paths list
+        protoc3194_includes = [protoc3194_include, OTEL_PROTOS_DIR]
+        protoc5260_includes = [protoc5260_include, OTEL_PROTOS_DIR]
+
+        gen_python_protos(protoc3194, protoc3194_includes, proto3194_out)
+        gen_python_protos(protoc5260, protoc5260_includes, proto5260_out)
 
         for proto_files, protos_dir in [
             (python_proto_files, MLFLOW_PROTOS_DIR),
@@ -254,7 +260,7 @@ def main() -> None:
         basic_proto_files,
         "java",
         protoc3194,
-        protoc3194_include,
+        protoc3194_includes,
         Path("mlflow/java/client/src/main/java"),
     )
 
@@ -262,7 +268,7 @@ def main() -> None:
         MLFLOW_PROTOS_DIR,
         python_proto_files,
         protoc5260,
-        protoc5260_include,
+        protoc5260_includes,
         Path("mlflow/protos/"),
     )
 

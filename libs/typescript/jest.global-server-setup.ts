@@ -29,17 +29,7 @@ module.exports = async () => {
 
   const mlflowProcess = spawn(
     'uv',
-    [
-      'run',
-      '--with',
-      mlflowRoot,
-      '--python',
-      '3.10',
-      'mlflow',
-      'server',
-      '--port',
-      TEST_PORT.toString()
-    ],
+    ['run', '--directory', mlflowRoot, 'mlflow', 'server', '--port', TEST_PORT.toString()],
     {
       cwd: tempDir,
       stdio: 'inherit',

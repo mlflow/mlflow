@@ -19,6 +19,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.db_types import DATABASE_ENGINES
+from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
@@ -143,6 +144,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -177,6 +179,7 @@ def test_get_store_sqlalchemy_store_with_artifact_uri(tmp_path, monkeypatch, db_
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._verify_schema"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
@@ -205,7 +208,7 @@ def test_get_store_databricks(monkeypatch):
     }.items():
         monkeypatch.setenv(k, v)
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     assert store.get_host_creds().use_databricks_sdk
     assert _get_tracking_scheme() == "databricks"
 
@@ -215,7 +218,7 @@ def test_get_store_databricks_profile(monkeypatch):
     # It's kind of annoying to setup a profile, and we're not really trying to test
     # that anyway, so just check if we raise a relevant exception.
     store = _get_store()
-    assert isinstance(store, RestStore)
+    assert isinstance(store, DatabricksTracingRestStore)
     with pytest.raises(MlflowException, match="mycoolprofile"):
         store.get_host_creds()
 

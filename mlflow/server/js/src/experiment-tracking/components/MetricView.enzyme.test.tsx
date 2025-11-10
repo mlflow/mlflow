@@ -49,6 +49,7 @@ describe('MetricView', () => {
       runNames: [],
       metricKey: 'metricKey',
       location: createLocation(experimentIds, [''], 'metricKey'),
+      navigate: jest.fn(),
     };
   });
 
@@ -59,10 +60,12 @@ describe('MetricView', () => {
   });
 
   test('should render sub-components', () => {
+    const mockNavigate = jest.fn();
     const props = {
       ...minimalProps,
       runUuids: ['a', 'b', 'c'],
       runNames: ['d', 'e', 'f'],
+      navigate: mockNavigate,
     };
 
     // @ts-expect-error TS(2322): Type 'Mock<{ selectedMetricKeys: string[]; }, []>'... Remove this comment to see the full error message
@@ -81,5 +84,7 @@ describe('MetricView', () => {
     expect(metricsPlotPanel.props().experimentIds).toEqual(['2']);
     expect(metricsPlotPanel.props().runUuids).toEqual(['a', 'b', 'c']);
     expect(metricsPlotPanel.props().metricKey).toBe('metricKey');
+    expect(metricsPlotPanel.props().location).toEqual(props.location);
+    expect(metricsPlotPanel.props().navigate).toBe(mockNavigate);
   });
 });

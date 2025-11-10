@@ -1,5 +1,6 @@
 import { isNil } from 'lodash';
-import React, { useCallback, useMemo } from 'react';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+import React, { useCallback, useMemo, useContext } from 'react';
 
 import {
   Button,
@@ -14,8 +15,10 @@ import { ModelTraceExplorer, type ModelTrace } from '@databricks/web-shared/mode
 import { EvaluationsReviewDetailsHeader } from './EvaluationsReviewDetails';
 import { GenAiEvaluationTracesReview } from './GenAiEvaluationTracesReview';
 import { useGenAITracesTableConfig } from '../hooks/useGenAITracesTableConfig';
+import type { GetTraceFunction } from '../hooks/useGetTrace';
 import { useGetTrace } from '../hooks/useGetTrace';
 import type { AssessmentInfo, EvalTraceComparisonEntry, SaveAssessmentsQuery } from '../types';
+import { shouldUseTracesV4API } from '../utils/FeatureUtils';
 
 const MODAL_SPACING_REM = 4;
 const DEFAULT_MODAL_MARGIN_REM = 1;
@@ -43,7 +46,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
     otherRunDisplayName?: string;
     exportToEvalsInstanceEnabled?: boolean;
     assessmentInfos: AssessmentInfo[];
-    getTrace?: (traceId?: string) => Promise<ModelTrace | undefined>;
+    getTrace?: GetTraceFunction;
     saveAssessmentsQuery?: SaveAssessmentsQuery;
   }) => {
     const { theme, classNamePrefix } = useDesignSystemTheme();
@@ -108,12 +111,12 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
 
     const tracesTableConfig = useGenAITracesTableConfig();
 
-    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo?.trace_id);
-    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo?.trace_id);
+    const traceQueryResult = useGetTrace(getTrace, evaluation?.currentRunValue?.traceInfo);
+    const compareToTraceQueryResult = useGetTrace(getTrace, evaluation?.otherRunValue?.traceInfo);
 
     // Prefetching the next and previous traces to optimize performance
-    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo?.trace_id);
-    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo?.trace_id);
+    useGetTrace(getTrace, nextEvaluation?.currentRunValue?.traceInfo);
+    useGetTrace(getTrace, previousEvaluation?.currentRunValue?.traceInfo);
 
     // is true if only one of the two runs has a trace
     const isSingleTraceView = Boolean(evaluation?.currentRunValue) !== Boolean(evaluation?.otherRunValue);
@@ -179,7 +182,10 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
             // Show ModelTraceExplorer only if there is no run to compare to and there's trace data.
             isSingleTraceView && !isNil(currentTraceQueryResult.data) ? (
               <div css={{ height: '100%', marginLeft: -theme.spacing.lg, marginRight: -theme.spacing.lg }}>
-                <ModelTraceExplorerModalBody traceData={currentTraceQueryResult.data} />
+                {/* prettier-ignore */}
+                <ModelTraceExplorerModalBody
+                  traceData={currentTraceQueryResult.data}
+                />
               </div>
             ) : (
               evaluation.currentRunValue && (
@@ -269,6 +275,15 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
   },
 );
 
-const ModelTraceExplorerModalBody = ({ traceData }: { traceData: ModelTrace }) => {
-  return <ModelTraceExplorer modelTrace={traceData} />;
+// prettier-ignore
+const ModelTraceExplorerModalBody = ({
+  traceData,
+}: {
+  traceData: ModelTrace;
+}) => {
+  return (
+    <ModelTraceExplorer
+      modelTrace={traceData}
+    />
+  );
 };

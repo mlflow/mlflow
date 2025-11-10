@@ -1,15 +1,6 @@
 import pytest
 from pydantic import ValidationError
 
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-# Skip the entire module if not using pydantic v2
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
-
 from mlflow.types.responses import (
     ResponsesAgentRequest,
     ResponsesAgentResponse,

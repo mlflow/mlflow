@@ -6,7 +6,7 @@ from aiohttp import ClientTimeout
 from fastapi.encoders import jsonable_encoder
 from pydantic import ValidationError
 
-from mlflow.gateway.config import RouteConfig
+from mlflow.gateway.config import EndpointConfig
 from mlflow.gateway.constants import MLFLOW_GATEWAY_ROUTE_TIMEOUT_SECONDS
 from mlflow.gateway.exceptions import AIGatewayException
 from mlflow.gateway.providers.mistral import MistralProvider
@@ -62,7 +62,7 @@ async def test_completions():
         mock.patch("time.time", return_value=1677858242),
         mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post,
     ):
-        provider = MistralProvider(RouteConfig(**config))
+        provider = MistralProvider(EndpointConfig(**config))
         payload = {
             "prompt": TEST_STRING,
             "n": 1,
@@ -103,7 +103,7 @@ async def test_completions_temperature_is_scaled_correctly():
     resp = completions_response()
     config = completions_config()
     with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
-        provider = MistralProvider(RouteConfig(**config))
+        provider = MistralProvider(EndpointConfig(**config))
         payload = {
             "prompt": TEST_STRING,
             "temperature": 0.5,
@@ -191,7 +191,7 @@ async def test_embeddings():
     resp = embeddings_response()
     config = embeddings_config()
     with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
-        provider = MistralProvider(RouteConfig(**config))
+        provider = MistralProvider(EndpointConfig(**config))
         payload = {"input": TEST_STRING}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -221,7 +221,7 @@ async def test_batch_embeddings():
     resp = embeddings_batch_response()
     config = embeddings_config()
     with mock.patch(TARGET, return_value=MockAsyncResponse(resp)) as mock_post:
-        provider = MistralProvider(RouteConfig(**config))
+        provider = MistralProvider(EndpointConfig(**config))
         payload = {"input": ["This is a", "batch test"]}
         response = await provider.embeddings(embeddings.RequestPayload(**payload))
         assert jsonable_encoder(response) == {
@@ -261,7 +261,7 @@ async def test_batch_embeddings():
 @pytest.mark.asyncio
 async def test_param_model_is_not_permitted():
     config = embeddings_config()
-    provider = MistralProvider(RouteConfig(**config))
+    provider = MistralProvider(EndpointConfig(**config))
     payload = {
         "prompt": "This should fail",
         "max_tokens": 5000,
@@ -277,7 +277,7 @@ async def test_param_model_is_not_permitted():
 @pytest.mark.asyncio
 async def test_completions_throws_if_prompt_contains_non_string(prompt):
     config = completions_config()
-    provider = MistralProvider(RouteConfig(**config))
+    provider = MistralProvider(EndpointConfig(**config))
     payload = {"prompt": prompt}
     with pytest.raises(ValidationError, match=r"prompt"):
         await provider.completions(completions.RequestPayload(**payload))

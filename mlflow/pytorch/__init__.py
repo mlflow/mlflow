@@ -657,6 +657,15 @@ def load_model(model_uri, dst_path=None, **kwargs):
     return _load_model(path=torch_model_artifacts_path, **kwargs)
 
 
+def _is_forecasting_model(model) -> bool:
+    try:
+        from pytorch_forecasting.models import BaseModel
+    except ImportError:
+        return False
+
+    return isinstance(model, BaseModel)
+
+
 def _load_pyfunc(path, model_config=None, weights_only=False):
     """
     Load PyFunc implementation. Called by ``pyfunc.load_model``.
@@ -700,6 +709,7 @@ class _PyTorchWrapper:
     def __init__(self, pytorch_model, device):
         self.pytorch_model = pytorch_model
         self.device = device
+        self._is_forecasting_model = _is_forecasting_model(self.pytorch_model)
 
     def get_raw_model(self):
         """
@@ -727,8 +737,13 @@ class _PyTorchWrapper:
             )
 
         if isinstance(data, pd.DataFrame):
-            inp_data = data.to_numpy(dtype=np.float32)
+            inp_data = data if self._is_forecasting_model else data.to_numpy(dtype=np.float32)
         elif isinstance(data, np.ndarray):
+            if self._is_forecasting_model:
+                raise TypeError(
+                    "The pytorch forecasting model does not support numpy.ndarray input data, "
+                    "please provide pandas.DataFrame input data."
+                )
             inp_data = data
         elif isinstance(data, (list, dict)):
             raise TypeError(
@@ -740,8 +755,13 @@ class _PyTorchWrapper:
 
         device = self.device
         with torch.no_grad():
-            input_tensor = torch.from_numpy(inp_data).to(device)
-            preds = self.pytorch_model(input_tensor, **(params or {}))
+            if self._is_forecasting_model:
+                # forecasting model `predict` method supports
+                # dataframe input.
+                preds = self.pytorch_model.predict(inp_data)
+            else:
+                input_tensor = torch.from_numpy(inp_data).to(device)
+                preds = self.pytorch_model(input_tensor, **(params or {}))
             # if the predictions happened on a remote device, copy them back to
             # the host CPU for processing
             if device != _TORCH_CPU_DEVICE_NAME:
@@ -751,7 +771,7 @@ class _PyTorchWrapper:
                     "Expected PyTorch model to output a single output tensor, "
                     f"but got output of type '{type(preds)}'"
                 )
-            if isinstance(data, pd.DataFrame):
+            if isinstance(data, pd.DataFrame) and not self._is_forecasting_model:
                 predicted = pd.DataFrame(preds.numpy())
                 predicted.index = data.index
             else:
@@ -878,6 +898,7 @@ def autolog(
     checkpoint_save_best_only=True,
     checkpoint_save_weights_only=False,
     checkpoint_save_freq="epoch",
+    log_model_signatures=True,
 ):
     """
     Enables (or disables) and configures autologging from `PyTorch Lightning
@@ -948,6 +969,7 @@ def autolog(
             epochs, the monitored metric may potentially be less reliable (it
             could reflect as little as 1 batch, since the metrics get reset
             every epoch). Defaults to `"epoch"`.
+        log_model_signatures: Whether to log model signature when `log_model` is True.
 
     .. code-block:: python
         :test:

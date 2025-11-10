@@ -13,7 +13,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.telemetry.events import MergeRecordsEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 
@@ -104,6 +103,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
     def _load_experiment_ids(self):
         """Load experiment IDs from the backend."""
+        from mlflow.tracking._tracking_service.utils import _get_store
+
         tracking_store = _get_store()
         self._experiment_ids = tracking_store.get_dataset_experiment_ids(self.dataset_id)
 
@@ -116,6 +117,8 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         when accessed for the first time.
         """
         if self._records is None:
+            from mlflow.tracking._tracking_service.utils import _get_store
+
             tracking_store = _get_store()
             # For lazy loading, we want all records (no pagination)
             self._records, _ = tracking_store._load_dataset_records(
@@ -148,6 +151,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             root_span = trace.data._get_root_span()
             inputs = root_span.inputs if root_span and root_span.inputs is not None else {}
+            outputs = root_span.outputs if root_span and root_span.outputs is not None else None
 
             expectations = {}
             expectation_assessments = trace.search_assessments(type="expectation")
@@ -156,6 +160,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
 
             record_dict = {
                 "inputs": inputs,
+                "outputs": outputs,
                 "expectations": expectations,
                 "source": {
                     "source_type": DatasetRecordSourceType.TRACE.value,
@@ -220,6 +225,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         import pandas as pd
 
         from mlflow.entities.trace import Trace
+        from mlflow.tracking._tracking_service.utils import _get_store, get_tracking_uri
 
         if isinstance(records, pd.DataFrame):
             record_dicts = self._process_dataframe_records(records)

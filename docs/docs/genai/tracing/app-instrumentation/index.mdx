@@ -12,165 +12,40 @@ import { GitMerge } from "lucide-react";
 New to MLflow Tracing? Checkout the <ins>[Quick Start Guide](/genai/tracing/quickstart/python-openai)</ins> to get started.
 :::
 
-This page provides a comprehensive guide for instrumenting your GenAI applications with MLflow Tracing.
+## Three Steps to Trace Your App/Agents
 
-## 1. Installation
+### 1. Installation
 
 <TabsWrapper>
 <Tabs>
   <TabItem value="python" label="Python" default>
-    Add [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) to your Python environment to enable tracing features with minimum set of dependencies.
+    Add [`mlflow`](https://pypistats.org/packages/mlflow) to your Python environment.
+
     ```bash
-    pip install mlflow-tracing
+    pip install mlflow
     ```
+
   </TabItem>
   <TabItem value="js" label="JS/TS">
+    Install the [mlflow-tracing](https://www.npmjs.com/package/mlflow-tracing) package and other auto-tracing integrations (e.g., [mlflow-openai](https://www.npmjs.com/package/mlflow-tracing-openai)).
+
     ```bash
     npm install mlflow-tracing
     ```
-  </TabItem>
-</Tabs>
-</TabsWrapper>
-
-:::info
-
-The [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) Python package does not include other MLflow features, such as the self-host tracking server, evaluation capabilities, prompt management, etc. If you want to use the full set of MLflow's features, please install the full MLflow package. We recommend using the [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) package for production applications to keep the dependencies and package footprint minimal.
-
-```bash
-pip install mlflow
-```
-
-:::
-
-## 2. Connect Your Application with MLflow
-
-<TabsWrapper>
-<Tabs>
-  <TabItem value="local" label="Self-Host MLflow (Local)" default>
-    For local development or personal use, locally hosting MLflow is a good option. While this is not recommended for production use, it is the fastest way to get started. For logging traces, we recommend using a [SQL Backend](https://mlflow.org/docs/latest/tracking.html#sql-backend) for better performance.
-
-    To start a local MLflow server, run the following command in your terminal. Alternatively, you can use the official [Docker image](https://github.com/mlflow/mlflow/pkgs/container/mlflow) to run the server.
-
-    ```bash
-    # Replace sqlite:/// part with your preferred database URI.
-    mlflow server --host 127.0.0.1 --port 5000 --backend-store-uri sqlite:///mlruns.db
-    ```
-
-    Then, in your application, configure the tracking URI and set an active experiment using the following code:
-
-    **Python:**
-
-    ```python
-    import mlflow
-
-    mlflow.set_tracking_uri("http://127.0.0.1:5000")
-    mlflow.set_experiment("<your-experiment-name>")
-    ```
-
-    **JS/TS:**
-
-    ```typescript
-    import * as mlflow from "mlflow-tracing";
-
-    mlflow.init(
-      trackingUri: "http://127.0.0.1:5000",
-      experimentId: "<your-experiment-id>",  // If no experiment is created yet, create it on UI first.
-    );
-    ```
-
-  </TabItem>
-  <TabItem value="remote" label="Remote MLflow">
-    When you have a remote MLflow server already running (either self-hosted or a cloud-based managed MLflow), you can connect your application to it by configuring the tracking URI.
-
-    **Python**
-
-    ```python
-    import mlflow
-
-    mlflow.set_tracking_uri("https://<your-mlflow-server>:<port>")
-    mlflow.set_experiment("<your-experiment-name>")
-    ```
-
-    **JS/TS:**
-
-    ```typescript
-    import * as mlflow from "mlflow-tracing";
-
-    mlflow.init(
-      trackingUri: "https://<your-mlflow-server.com>:<port>",
-      experimentId: "<your-experiment-id>",  // If no experiment is created yet, create it within the MLflow UI first.
-    );
-    ```
-
-  </TabItem>
-  <TabItem value="databricks" label="Databricks">
-
-    :::info
-    These steps describe using a Databricks Personal Access Token. MLflow also works with the other <ins>[Databricks-supported authentication methods](https://mlflow.org/docs/latest/tracking.html#databricks)</ins>.
-    :::
-
-    If you're working on tracing with Databricks, configure your authentication with the Databricks CLI or by using the following environment variables:
-
-    ```bash
-    export DATABRICKS_HOST="https://your-workspace.databricks.com"
-    export DATABRICKS_TOKEN="your-databricks-token"
-    ```
-
-    Then, set the tracking URI and the target experiment to store the traces in MLflow from your application.
-
-    **Python:**
-    ```python
-    mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment("<your-experiment-name>")
-    ```
-
-    **JS/TS:**
-
-    ```typescript
-    import * as mlflow from "mlflow-tracing";
-
-    mlflow.init(
-      trackingUri: "databricks",
-      experimentId: "<your-experiment-id>",
-    );
-    ```
-
-  </TabItem>
-  <TabItem value="otel" label="OpenTelemetry">
-    MLflow traces are compatible with OpenTelemetry, allowing you to export traces to OpenTelemetry-compatible monitoring backends.
-
-    Install the OpenTelemetry Protocol (OTLP) exporter:
-
-    ```bash
-    pip install opentelemetry-exporter-otlp
-    ```
-
-
-    Then, configure the following environment variables:
-
-    ```bash
-    export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://your-otel-collector.com:4317/v1/traces"
-    ```
-
-    Your monitoring backends may have additional setup to enable trace exporting. Please refer to [OpenTelemetry Integration](/genai/tracing/prod-tracing#opentelemetry-integration) for additional configurations and links to the each vendor's setup documentation.
-
-    :::note
-      OpenTelemetry export is only supported for the Python SDK right now.
-    :::
 
   </TabItem>
 </Tabs>
 </TabsWrapper>
 
-## 3. Instrumenting Your Application Logic
+### 2. Instrumenting Your Application Logic
 
 MLflow offers different ways to instrument your application logic. Follow the links below to learn more about each approach to instrument your application:
 
-<TilesGrid>
+<TilesGrid cols={2}>
   <TileCard
     image="/images/llms/tracing/app-instrumentation/autolog-logos.png"
     title="Automatic Tracing"
-    description="Instrument your application with a single line of code."
+    description="Instrument your application with a single line of code. We recommend starting from here."
     href="/genai/tracing/app-instrumentation/automatic"
     containerHeight={96}
   />
@@ -188,9 +63,46 @@ MLflow offers different ways to instrument your application logic. Follow the li
     href="/genai/tracing/app-instrumentation/typescript-sdk"
     containerHeight={96}
   />
+  <TileCard
+    image="/images/logos/opentelemetry-logo.svg"
+    title="OpenTelemetry"
+    description="When you are using OpenTelemetry as your observability platform, you can export traces to MLflow directly."
+    href="/genai/tracing/app-instrumentation/opentelemetry"
+    containerHeight={96}
+  />
 </TilesGrid>
 
-## ⚙️ Common Patterns
+### 3. Choose Destination for Your Traces
+
+MLflow Tracing supports exporting traces to various destinations.
+
+<TilesGrid cols={3}>
+  <TileCard
+    image="/images/logos/mlflow-logo.svg"
+    title="MLflow Experiment"
+    description="Export traces to MLflow Tracking Server hosted on your machine."
+    href="/self-hosting"
+    containerHeight={96}
+    linkText="Self-hosting guide →"
+  />
+  <TileCard
+    image="/images/logos/databricks-logo.png"
+    title="Databricks"
+    description="Export traces to Databricks for centralized monitoring and governance."
+    href="https://docs.databricks.com/aws/en/mlflow3/genai/tracing/"
+    containerHeight={96}
+    linkText="View documentation →"
+  />
+  <TileCard
+    image="/images/logos/opentelemetry-logo.svg"
+    title="OpenTelemetry"
+    description="Export traces to any observability platform that supports OpenTelemetry protocol."
+    href="/genai/tracing/opentelemetry/export"
+    containerHeight={96}
+  />
+</TilesGrid>
+
+## Common System Patterns
 
 ### Production Considerations
 

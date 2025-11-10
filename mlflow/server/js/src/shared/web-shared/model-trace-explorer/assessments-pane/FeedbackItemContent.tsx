@@ -1,7 +1,7 @@
 import { isNil } from 'lodash';
 import { useState } from 'react';
 
-import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { Typography, useDesignSystemTheme, NewWindowIcon } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 import { GenAIMarkdownRenderer } from '@databricks/web-shared/genai-markdown-renderer';
 
@@ -11,11 +11,15 @@ import { FeedbackHistoryModal } from './FeedbackHistoryModal';
 import { SpanNameDetailViewLink } from './SpanNameDetailViewLink';
 import type { FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { Link, useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { MLFLOW_ASSESSMENT_JUDGE_COST, MLFLOW_ASSESSMENT_SCORER_TRACE_ID } from '../constants';
 
 export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment }) => {
   const [isHistoryModalVisible, setIsHistoryModalVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
   const { nodeMap, activeView } = useModelTraceExplorerViewState();
+  const { experimentId } = useParams();
 
   const value = feedback.feedback.value;
 
@@ -23,6 +27,32 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
   // the summary view displays all assessments regardless of span, so
   // we need some way to indicate which span an assessment is associated with.
   const showAssociatedSpan = activeView === 'summary' && associatedSpan;
+
+  const judgeTraceId = feedback.metadata?.[MLFLOW_ASSESSMENT_SCORER_TRACE_ID];
+  const judgeTraceHref = judgeTraceId && experimentId ? getJudgeTraceHref(experimentId, judgeTraceId) : undefined;
+
+  const judgeCost = feedback.metadata?.[MLFLOW_ASSESSMENT_JUDGE_COST];
+  const formattedCost = (() => {
+    if (judgeCost === null) {
+      return undefined;
+    }
+
+    const numericCost = Number(judgeCost);
+    if (!Number.isFinite(numericCost)) {
+      return undefined;
+    }
+
+    const decimalMatch = String(judgeCost).match(/\.(\d+)/);
+    const truncatedDecimals = Math.min(Math.max(decimalMatch ? decimalMatch[1].length : 0, 2), 6);
+
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: truncatedDecimals,
+      maximumFractionDigits: truncatedDecimals,
+    }).format(numericCost);
+  })();
+  const shouldShowCostSection = Boolean(formattedCost);
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginLeft: theme.spacing.lg }}>
@@ -89,6 +119,32 @@ export const FeedbackItemContent = ({ feedback }: { feedback: FeedbackAssessment
           </div>
         </div>
       )}
+      {shouldShowCostSection && (
+        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+          <Typography.Text size="sm" color="secondary">
+            <FormattedMessage
+              defaultMessage="Cost"
+              description="Label for the cost metadata associated with a judge feedback"
+            />
+          </Typography.Text>
+          <Typography.Text style={{ color: theme.colors.textSecondary }}>{formattedCost}</Typography.Text>
+        </div>
+      )}
+      {judgeTraceHref && (
+        <Link to={judgeTraceHref} target="_blank" rel="noreferrer">
+          <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+            <FormattedMessage
+              defaultMessage="View trace"
+              description="Link text for navigating to the corresponding judge trace"
+            />
+            <NewWindowIcon css={{ fontSize: 12 }} />
+          </span>
+        </Link>
+      )}
     </div>
   );
+};
+
+const getJudgeTraceHref = (experimentId: string, judgeTraceId: string) => {
+  return `${Routes.getExperimentPageTracesTabRoute(experimentId)}?selectedEvaluationId=${judgeTraceId}`;
 };

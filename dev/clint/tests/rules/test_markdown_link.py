@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.markdown_link import MarkdownLink
 
 
@@ -34,6 +34,6 @@ def function_with_rest_link():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 3
     assert all(isinstance(v.rule, MarkdownLink) for v in violations)
-    assert violations[0].loc == Location(3, 4)
-    assert violations[1].loc == Location(8, 4)
-    assert violations[2].loc == Location(13, 4)
+    assert violations[0].range == Range(Position(3, 4))
+    assert violations[1].range == Range(Position(8, 4))
+    assert violations[2].range == Range(Position(13, 4))
