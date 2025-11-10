@@ -7,6 +7,8 @@ sklearn:
   models:
     minimum: "1.4.0"
     maximum: "1.7.2"
+    requirements:
+      ">= 0.0.0": [ "skops" ]
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
@@ -14,7 +16,7 @@ sklearn:
     minimum: "1.4.0"
     maximum: "1.7.2"
     requirements:
-      ">= 0.0.0": ["matplotlib"]
+      ">= 0.0.0": ["matplotlib", "skops"]
     run: |
       pytest tests/sklearn/test_sklearn_autolog.py
 
