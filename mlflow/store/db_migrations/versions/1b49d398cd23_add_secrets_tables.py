@@ -25,8 +25,9 @@ def upgrade():
         sa.Column("wrapped_dek", sa.LargeBinary(), nullable=False),
         sa.Column("kek_version", sa.Integer(), nullable=False, default=1),
         sa.Column("masked_value", sa.String(length=100), nullable=False),
+        sa.Column("provider", sa.String(length=64), nullable=True),
+        sa.Column("model", sa.String(length=256), nullable=True),
         sa.Column("is_shared", sa.Boolean(), nullable=False, default=False),
-        sa.Column("state", sa.String(length=36), nullable=False, default="ACTIVE"),
         sa.Column("created_by", sa.String(length=255), nullable=True),
         sa.Column(
             "created_at",
@@ -47,7 +48,6 @@ def upgrade():
         batch_op.create_index(
             "index_secrets_is_shared_secret_name", ["is_shared", "secret_name"], unique=False
         )
-        batch_op.create_index("index_secrets_state", ["state"], unique=False)
 
     op.create_table(
         "secrets_bindings",
