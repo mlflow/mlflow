@@ -41,9 +41,9 @@ dependencies = [
   "numpy<3",
   "pandas<3",
   "pyarrow<23,>=4.0.0",
-  "scikit-learn<1",
+  "scikit-learn<2",
   "scipy<2",
-  "skops<2",
+  "skops<1",
   "sqlalchemy<3,>=1.4.0",
   "waitress<4; platform_system == 'Windows'",
 ]

@@ -57,11 +57,11 @@ waitress:
 
 scikit-learn:
   pip_release: scikit-learn
-  max_major_version: 0
+  max_major_version: 1
 
 skops:
   pip_release: skops
-  max_major_version: 1
+  max_major_version: 0
 
 pyarrow:
   pip_release: pyarrow
