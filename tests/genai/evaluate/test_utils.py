@@ -12,7 +12,6 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.datasets import create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
