@@ -16,9 +16,23 @@ import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book,
 
 Evaluation datasets are the foundation of systematic GenAI application testing. They provide a centralized way to manage test data, ground truth expectations, and evaluation results—enabling you to measure and improve the quality of your AI applications with confidence.
 
+:::warning[SQL Backend Required]
+Evaluation Datasets require an MLflow Tracking Server with a SQL backend (PostgreSQL, MySQL, SQLite, or MSSQL).
+This feature is **not available** in FileStore (local file system-based tracking). If you need
+a simple local configuration for MLflow, use the sqlite option when starting MLflow.
+:::
+
 ## Quickstart: Build Your First Evaluation Dataset
 
-There are several ways to create evaluation datasets, each suited to different stages of your GenAI development process. **Expectations are the cornerstone of effective evaluation**—they define the ground truth against which your AI's outputs are measured, enabling systematic quality assessment across iterations.
+There are several ways to create evaluation datasets, each suited to different stages of your GenAI development process.
+
+The simplest way to create one is through MLflow's UI. Navigate to an Expeirment that you want the evaluation dataset to be associated with and you can directly create a new one by supplying a unique name.
+After adding records to it, you can view the dataset's entries in the UI.
+
+<ImageBox src="/images/eval-datasets.gif" alt="Evaluation Datasets Video" />
+
+At its core, evaluation datasets are comprised of **inputs** and **expectations**. **Outputs** are an optional addition that can be added to an evaluation dataset for
+post-hoc evaluation with scorers. Adding these elements can be done either directly from traces, dictionaries, or via a Pandas DataFrame.
 
 <TabsWrapper>
 <Tabs>
