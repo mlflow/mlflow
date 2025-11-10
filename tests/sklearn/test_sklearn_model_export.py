@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -531,7 +532,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
     )
 
 
-def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model, model_path):
+def test_model_save_uses_skops_serialization_format_by_default(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
 
     sklearn_conf = _get_flavor_configuration(
@@ -541,7 +542,7 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
     assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
-def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
+def test_model_log_uses_skops_serialization_format_by_default(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
 
@@ -612,6 +613,8 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         assert all(
             "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
         )
+
+        shutil.rmtree(model_path)
 
 
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
