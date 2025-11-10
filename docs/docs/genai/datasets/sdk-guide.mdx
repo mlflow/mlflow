@@ -21,14 +21,12 @@ This feature is **not available** with FileStore (local file system-based tracki
 
 ```python
 from mlflow.genai.datasets import (
-    create_dataset,                  # Create new dataset
-    get_dataset,                     # Retrieve by ID
-    search_datasets,                 # Search and filter
-    set_dataset_tags,                # Update tags
-    delete_dataset_tag,              # Remove tags
-    add_dataset_to_experiments,      # Link to experiments
-    remove_dataset_from_experiments, # Unlink from experiments
-    delete_dataset,                  # Permanent deletion
+    create_dataset,  # Create new dataset
+    get_dataset,  # Retrieve by ID
+    search_datasets,  # Search and filter
+    set_dataset_tags,  # Update tags
+    delete_dataset_tag,  # Remove tags
+    delete_dataset,  # Permanent deletion
 )
 ```
 
@@ -168,11 +166,11 @@ Records from MLflow traces are automatically assigned the `TRACE` source type:
 
 ```python
 # When adding traces directly (automatic TRACE source)
-traces = mlflow.search_traces(experiment_ids=["0"], return_type="list")
+traces = mlflow.search_traces(locations=["0"], return_type="list")
 dataset.merge_records(traces)  # All records get TRACE source type
 
 # Or when using DataFrame from search_traces
-traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
+traces_df = mlflow.search_traces(locations=["0"])  # Returns DataFrame
 dataset.merge_records(
     traces_df
 )  # Automatically detects traces and assigns TRACE source
@@ -347,30 +345,6 @@ datasets = search_datasets(
     """,
     order_by=["last_update_time DESC"],
 )
-```
-
-## Experiment Association Management
-
-Datasets can be dynamically associated with experiments after creation using <APILink fn="mlflow.genai.datasets.add_dataset_to_experiments" /> and <APILink fn="mlflow.genai.datasets.remove_dataset_from_experiments" />.
-There are no limits to the number of Experiments that a dataset can be associated with, giving you flexibility in reusing an evaluation dataset for multiple projects.
-
-```python
-from mlflow.genai.datasets import (
-    add_dataset_to_experiments,
-    remove_dataset_from_experiments,
-)
-
-# Add dataset to additional experiments
-dataset = add_dataset_to_experiments(
-    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3", "4", "5"]
-)
-print(f"Dataset now linked to experiments: {dataset.experiment_ids}")
-
-# Remove dataset from specific experiments
-dataset = remove_dataset_from_experiments(
-    dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890", experiment_ids=["3"]
-)
-print(f"Updated experiment associations: {dataset.experiment_ids}")
 ```
 
 ## Client API vs Fluent API
