@@ -469,7 +469,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
 
 def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    default_reqs = mlflow.sklearn.get_default_pip_requirements(serialization_format="skops")
+    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_skops=True)
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
@@ -582,7 +582,8 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
     _assert_pip_requirements(
-        model_path, mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos")
+        model_path,
+        mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=False, include_skops=True),
     )
 
 
@@ -594,7 +595,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 
     _assert_pip_requirements(
         model_info.model_uri,
-        mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos"),
+        mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=False, include_skops=True),
     )
 
 

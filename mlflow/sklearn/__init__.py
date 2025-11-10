@@ -136,7 +136,7 @@ def _gen_estimators_to_patch():
     ]
 
 
-def get_default_pip_requirements(serialization_format=SERIALIZATION_FORMAT_SKOPS):
+def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
@@ -144,21 +144,23 @@ def get_default_pip_requirements(serialization_format=SERIALIZATION_FORMAT_SKOPS
         that, at minimum, contains these requirements.
     """
     pip_deps = [_get_pinned_requirement("scikit-learn", module="sklearn")]
-    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-        pip_deps += [_get_pinned_requirement("skops")]
-    elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+    if include_cloudpickle:
         pip_deps += [_get_pinned_requirement("cloudpickle")]
+    if include_skops:
+        pip_deps += [_get_pinned_requirement("skops")]
 
     return pip_deps
 
 
-def get_default_conda_env(serialization_format=SERIALIZATION_FORMAT_SKOPS):
+def get_default_conda_env(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(serialization_format))
+    return _mlflow_conda_env(
+        additional_pip_deps=get_default_pip_requirements(include_cloudpickle, include_skops)
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -312,7 +314,12 @@ def save_model(
 
     if conda_env is None:
         if pip_requirements is None:
-            default_reqs = get_default_pip_requirements(serialization_format)
+            include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
+            include_skops = serialization_format == SERIALIZATION_FORMAT_SKOPS
+            default_reqs = get_default_pip_requirements(
+                include_cloudpickle=include_cloudpickle,
+                include_skops=include_skops,
+            )
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
