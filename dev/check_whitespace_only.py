@@ -110,6 +110,7 @@ def main() -> None:
         )
 
         for file_path in files:
+            # https://docs.github.com/en/actions/reference/workflow-commands-for-github-actions
             print(f"::{level} file={file_path},line=1,col=1::{message}")
 
         if not has_bypass_label:
