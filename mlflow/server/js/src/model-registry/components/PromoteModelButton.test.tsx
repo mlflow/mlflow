@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -61,7 +62,7 @@ describe('PromoteModelButton', () => {
   });
 
   it('prepopulates the search registry on render', () => {
-    const searchRegistryMock = jest.fn();
+    const searchRegistryMock = jest.fn<typeof ModelRegistryService.searchRegisteredModels>();
     ModelRegistryService.searchRegisteredModels = searchRegistryMock;
     renderComponent();
     expect(searchRegistryMock).toHaveBeenCalledTimes(1);
@@ -105,7 +106,7 @@ describe('PromoteModelButton', () => {
     );
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
     jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     // Render the component with pre-populated redux state that already has a registered model entity
@@ -160,7 +161,7 @@ describe('PromoteModelButton', () => {
       .mockReturnValue(Promise.resolve(mockRegisteredModelDetailed('modelB')));
 
     // Mock the useNavigate hook
-    const mockNavigate = jest.fn();
+    const mockNavigate = jest.fn<ReturnType<typeof useNavigate>>();
     jest.mocked(useNavigate).mockReturnValue(mockNavigate);
 
     renderComponent({

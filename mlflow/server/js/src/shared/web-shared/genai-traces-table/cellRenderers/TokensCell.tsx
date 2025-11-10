@@ -3,7 +3,7 @@ import { useIntl } from '@databricks/i18n';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
-import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 export const TokensCell = (props: {
   currentTraceInfo?: ModelTraceInfoV3;

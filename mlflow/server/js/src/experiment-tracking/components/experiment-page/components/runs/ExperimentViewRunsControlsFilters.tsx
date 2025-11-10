@@ -15,14 +15,13 @@ import {
   OverflowIcon,
   PlusIcon,
   SidebarIcon,
-  LegacyTooltip,
+  Tooltip,
   useDesignSystemTheme,
   DropdownMenu,
   ToggleButton,
   SegmentedControlGroup,
   SegmentedControlButton,
   ListIcon,
-  Tooltip,
   ChartLineIcon,
   TableIcon,
 } from '@databricks/design-system';
@@ -322,8 +321,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             value={datasetsFilter.map((datasetSummary) => datasetSummary.name)}
             multiSelect
           >
-            <LegacyTooltip
-              title={
+            <Tooltip
+              componentId="mlflow.experiment-tracking.runs-filters.clear-1"
+              content={
                 !hasDatasets && (
                   <FormattedMessage
                     defaultMessage="No datasets were recorded for this experiment's runs."
@@ -332,42 +332,44 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 )
               }
             >
-              <DialogComboboxTrigger
-                allowClear
-                onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
-                data-testid="datasets-select-dropdown"
-                showTagAfterValueCount={1}
-                disabled={!hasDatasets}
-              />
-              {hasDatasets && (
-                <DialogComboboxContent maxHeight={600}>
-                  <DialogComboboxOptionList>
-                    <DialogComboboxOptionListSearch>
-                      {datasetSummaries.map((summary: DatasetSummary) => (
-                        <DialogComboboxOptionListCheckboxItem
-                          key={summary.name + summary.digest + summary.context}
-                          checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
-                          title={summary.name}
-                          data-testid={`dataset-dropdown-${summary.name}`}
-                          value={summary.name}
-                          onChange={() => updateDatasetsFilter(summary)}
-                        >
-                          {summary.name} ({summary.digest}){' '}
-                          {summary.context && (
-                            <Tag
-                              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_329"
-                              css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
-                            >
-                              {summary.context}
-                            </Tag>
-                          )}
-                        </DialogComboboxOptionListCheckboxItem>
-                      ))}
-                    </DialogComboboxOptionListSearch>
-                  </DialogComboboxOptionList>
-                </DialogComboboxContent>
-              )}
-            </LegacyTooltip>
+              <>
+                <DialogComboboxTrigger
+                  allowClear
+                  onClear={() => setUrlSearchFacets({ datasetsFilter: [] })}
+                  data-testid="datasets-select-dropdown"
+                  showTagAfterValueCount={1}
+                  disabled={!hasDatasets}
+                />
+                {hasDatasets && (
+                  <DialogComboboxContent maxHeight={600}>
+                    <DialogComboboxOptionList>
+                      <DialogComboboxOptionListSearch>
+                        {datasetSummaries.map((summary: DatasetSummary) => (
+                          <DialogComboboxOptionListCheckboxItem
+                            key={summary.name + summary.digest + summary.context}
+                            checked={datasetsFilter.some((item) => datasetSummariesEqual(item, summary))}
+                            title={summary.name}
+                            data-testid={`dataset-dropdown-${summary.name}`}
+                            value={summary.name}
+                            onChange={() => updateDatasetsFilter(summary)}
+                          >
+                            {summary.name} ({summary.digest}){' '}
+                            {summary.context && (
+                              <Tag
+                                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_329"
+                                css={{ textTransform: 'capitalize', marginRight: theme.spacing.xs }}
+                              >
+                                {summary.context}
+                              </Tag>
+                            )}
+                          </DialogComboboxOptionListCheckboxItem>
+                        ))}
+                      </DialogComboboxOptionListSearch>
+                    </DialogComboboxOptionList>
+                  </DialogComboboxContent>
+                )}
+              </>
+            </Tooltip>
           </DialogCombobox>
           {additionalControls}
         </div>
@@ -445,12 +447,12 @@ export const ExperimentViewRunsControlsFilters = React.memo(
           />
 
           {displaySidebarToggleButton && (
-            <LegacyTooltip
-              title={intl.formatMessage({
+            <Tooltip
+              componentId="mlflow.experiment-tracking.runs-filters.toggle-sidepane"
+              content={intl.formatMessage({
                 defaultMessage: 'Toggle the preview sidepane',
                 description: 'Experiment page > control bar > expanded view toggle button tooltip',
               })}
-              useAsLabel
             >
               <ToggleIconButton
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_403"
@@ -458,7 +460,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 icon={<SidebarIcon />}
                 onClick={() => updateViewState({ previewPaneVisible: !viewState.previewPaneVisible })}
               />
-            </LegacyTooltip>
+            </Tooltip>
           )}
           {/* TODO: Add tooltip to guide users to this button */}
           {!isComparingExperiments && (

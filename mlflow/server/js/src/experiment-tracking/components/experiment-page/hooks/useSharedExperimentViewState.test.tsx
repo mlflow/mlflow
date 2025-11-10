@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useSearchParams, useNavigate } from '../../../../common/utils/RoutingUtils';
 
@@ -53,7 +54,7 @@ const getTestExperiment = async (isCompressed: boolean) => {
 describe('useSharedExperimentViewState', () => {
   const uiStateSetterMock = jest.fn();
   const updateSearchFacetsMock = jest.fn();
-  const navigateMock = jest.fn();
+  const navigateMock = jest.fn<ReturnType<typeof useNavigate>>();
 
   const renderHookWithIntl = (hook: () => ReturnType<typeof useSharedExperimentViewState>) => {
     return renderHook(hook, { wrapper: ({ children }) => <IntlProvider locale="en">{children}</IntlProvider> });
