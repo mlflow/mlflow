@@ -228,3 +228,46 @@ class ScorerPermission:
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
         )
+
+
+class SecretPermission:
+    def __init__(
+        self,
+        secret_id,
+        user_id,
+        permission,
+    ):
+        self._secret_id = secret_id
+        self._user_id = user_id
+        self._permission = permission
+
+    @property
+    def secret_id(self):
+        return self._secret_id
+
+    @property
+    def user_id(self):
+        return self._user_id
+
+    @property
+    def permission(self):
+        return self._permission
+
+    @permission.setter
+    def permission(self, permission):
+        self._permission = permission
+
+    def to_json(self):
+        return {
+            "secret_id": self.secret_id,
+            "user_id": self.user_id,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        return cls(
+            secret_id=dictionary["secret_id"],
+            user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )

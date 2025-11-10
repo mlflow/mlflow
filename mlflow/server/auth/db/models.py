@@ -12,6 +12,7 @@ from mlflow.server.auth.entities import (
     ExperimentPermission,
     RegisteredModelPermission,
     ScorerPermission,
+    SecretPermission,
     User,
 )
 
@@ -27,6 +28,7 @@ class SqlUser(Base):
     experiment_permissions = relationship("SqlExperimentPermission", backref="users")
     registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
     scorer_permissions = relationship("SqlScorerPermission", backref="users")
+    secret_permissions = relationship("SqlSecretPermission", backref="users")
 
     def to_mlflow_entity(self):
         return User(
@@ -39,6 +41,7 @@ class SqlUser(Base):
                 p.to_mlflow_entity() for p in self.registered_model_permissions
             ],
             scorer_permissions=[p.to_mlflow_entity() for p in self.scorer_permissions],
+            secret_permissions=[p.to_mlflow_entity() for p in self.secret_permissions],
         )
 
 
@@ -89,6 +92,22 @@ class SqlScorerPermission(Base):
         return ScorerPermission(
             experiment_id=self.experiment_id,
             scorer_name=self.scorer_name,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlSecretPermission(Base):
+    __tablename__ = "secret_permissions"
+    id = Column(Integer(), primary_key=True)
+    secret_id = Column(String(32), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (UniqueConstraint("secret_id", "user_id", name="unique_secret_user"),)
+
+    def to_mlflow_entity(self):
+        return SecretPermission(
+            secret_id=self.secret_id,
             user_id=self.user_id,
             permission=self.permission,
         )

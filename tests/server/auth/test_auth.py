@@ -28,7 +28,12 @@ from mlflow.protos.databricks_pb2 import (
     UNAUTHENTICATED,
     ErrorCode,
 )
-from mlflow.server.auth.routes import GET_REGISTERED_MODEL_PERMISSION, GET_SCORER_PERMISSION
+from mlflow.server.auth.routes import (
+    GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
+    GET_SECRET_PERMISSION,
+)
+from mlflow.server.constants import SECRETS_KEK_PASSPHRASE_ENV_VAR
 from mlflow.utils.os import is_windows
 
 from tests.helper_functions import random_str
@@ -46,6 +51,7 @@ def client(request, tmp_path):
     backend_uri = ("sqlite://" if is_windows() else "sqlite:////") + path[len("file://") :]
     extra_env = getattr(request, "param", {})
     extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "my-secret-key"
+    extra_env[SECRETS_KEK_PASSPHRASE_ENV_VAR] = "test-dev-secret-passphrase-32chars-min"
 
     with _init_server(
         backend_uri=backend_uri,
@@ -632,6 +638,108 @@ def test_search_runs(client: MlflowClient, monkeypatch: pytest.MonkeyPatch):
         assert len(returned_inaccessible) == 0
 
 
+def _create_secret(
+    base_uri,
+    secret_name,
+    secret_value,
+    resource_type,
+    resource_id,
+    field_name,
+    auth,
+    is_shared=False,
+    provider=None,
+    model=None,
+):
+    payload = {
+        "secret_name": secret_name,
+        "secret_value": secret_value,
+        "resource_type": resource_type,
+        "resource_id": resource_id,
+        "field_name": field_name,
+        "is_shared": is_shared,
+    }
+    if provider is not None:
+        payload["provider"] = provider
+    if model is not None:
+        payload["model"] = model
+
+    response = requests.post(
+        f"{base_uri}/api/3.0/mlflow/secrets/create-and-bind",
+        json=payload,
+        auth=auth,
+    )
+    response.raise_for_status()
+    return response.json()["secret"]["secret_id"]
+
+
+def _get_secret_info(base_uri, secret_id, auth):
+    return requests.get(
+        f"{base_uri}/api/3.0/mlflow/secrets/get-info",
+        params={"secret_id": secret_id},
+        auth=auth,
+    )
+
+
+def _list_secret_bindings(base_uri, secret_id, auth):
+    return requests.get(
+        f"{base_uri}/api/3.0/mlflow/secrets/list-bindings",
+        params={"secret_id": secret_id},
+        auth=auth,
+    )
+
+
+def _update_secret(base_uri, secret_id, secret_value, auth):
+    return requests.post(
+        f"{base_uri}/api/3.0/mlflow/secrets/update",
+        json={"secret_id": secret_id, "secret_value": secret_value},
+        auth=auth,
+    )
+
+
+def _delete_secret(base_uri, secret_id, auth):
+    return requests.delete(
+        f"{base_uri}/api/3.0/mlflow/secrets/delete",
+        json={"secret_id": secret_id},
+        auth=auth,
+    )
+
+
+def _bind_secret(base_uri, secret_id, resource_type, resource_id, field_name, auth):
+    return requests.post(
+        f"{base_uri}/api/3.0/mlflow/secrets/bind",
+        json={
+            "secret_id": secret_id,
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "field_name": field_name,
+        },
+        auth=auth,
+    )
+
+
+def _unbind_secret(base_uri, resource_type, resource_id, field_name, auth):
+    return requests.post(
+        f"{base_uri}/api/3.0/mlflow/secrets/unbind",
+        json={
+            "resource_type": resource_type,
+            "resource_id": resource_id,
+            "field_name": field_name,
+        },
+        auth=auth,
+    )
+
+
+def _list_secrets(base_uri, is_shared, auth):
+    params = {}
+    if is_shared is not None:
+        params["is_shared"] = "true" if is_shared else "false"
+    return requests.get(
+        f"{base_uri}/api/3.0/mlflow/secrets/list",
+        params=params,
+        auth=auth,
+    )
+
+
 def test_register_and_delete_scorer(client, monkeypatch):
     username1, password1 = create_user(client.tracking_uri)
 
@@ -691,6 +799,361 @@ def test_register_and_delete_scorer(client, monkeypatch):
             },
             auth=("admin", "password1234"),
         )
+
+    assert response.status_code == 404
+    assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
+
+
+def test_create_secret_auto_grant(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            f"job-{experiment_id}",
+            "TEST_API_KEY",
+            (username1, password1),
+        )
+
+    response = requests.get(
+        url=client.tracking_uri + GET_SECRET_PERMISSION,
+        params={"secret_id": secret_id, "username": username1},
+        auth=(username1, password1),
+    )
+
+    assert response.status_code == 200
+    permission = response.json()["secret_permission"]
+    assert permission["secret_id"] == secret_id
+    assert permission["permission"] == "MANAGE"
+
+
+def test_secret_permissions_read(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+            is_shared=True,
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/create",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _get_secret_info(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        response = _list_secret_bindings(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        response = _update_secret(
+            client.tracking_uri, secret_id, "new_value", (username2, password2)
+        )
+        assert response.status_code == 403
+
+        response = _delete_secret(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 403
+
+        experiment_id2 = client.create_experiment("exp2")
+        job_id2 = f"job-{experiment_id2}"
+        response = _bind_secret(
+            client.tracking_uri,
+            secret_id,
+            "SCORER_JOB",
+            job_id2,
+            "TEST_API_KEY",
+            (username2, password2),
+        )
+        assert response.status_code == 403
+
+        response = _unbind_secret(
+            client.tracking_uri, "SCORER_JOB", job_id, "TEST_API_KEY", (username2, password2)
+        )
+        assert response.status_code == 403
+
+
+def test_secret_permissions_edit(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+            is_shared=True,
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/create",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "EDIT",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _get_secret_info(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        response = _list_secret_bindings(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        experiment_id2 = client.create_experiment("exp2")
+        job_id2 = f"job-{experiment_id2}"
+        response = _bind_secret(
+            client.tracking_uri,
+            secret_id,
+            "SCORER_JOB",
+            job_id2,
+            "TEST_API_KEY",
+            (username2, password2),
+        )
+        assert response.status_code == 200
+
+        response = _unbind_secret(
+            client.tracking_uri, "SCORER_JOB", job_id2, "TEST_API_KEY", (username2, password2)
+        )
+        assert response.status_code == 200
+
+        response = _update_secret(
+            client.tracking_uri, secret_id, "new_value", (username2, password2)
+        )
+        assert response.status_code == 403
+
+        response = _delete_secret(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 403
+
+
+def test_secret_permissions_manage(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+            is_shared=True,
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/create",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "MANAGE",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _get_secret_info(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        response = _list_secret_bindings(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+        experiment_id2 = client.create_experiment("exp2")
+        job_id2 = f"job-{experiment_id2}"
+        response = _bind_secret(
+            client.tracking_uri,
+            secret_id,
+            "SCORER_JOB",
+            job_id2,
+            "TEST_API_KEY",
+            (username2, password2),
+        )
+        assert response.status_code == 200
+
+        response = _unbind_secret(
+            client.tracking_uri, "SCORER_JOB", job_id2, "TEST_API_KEY", (username2, password2)
+        )
+        assert response.status_code == 200
+
+        response = _update_secret(
+            client.tracking_uri, secret_id, "new_value", (username2, password2)
+        )
+        assert response.status_code == 200
+
+        response = _delete_secret(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 200
+
+
+def test_secret_permission_boundaries(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+            is_shared=True,
+        )
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/create",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "NO_PERMISSIONS",
+            },
+            auth=(username1, password1),
+        )
+
+    with User(username2, password2, monkeypatch):
+        response = _get_secret_info(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 403
+
+        response = _list_secret_bindings(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 403
+
+        response = _update_secret(
+            client.tracking_uri, secret_id, "new_value", (username2, password2)
+        )
+        assert response.status_code == 403
+
+        response = _delete_secret(client.tracking_uri, secret_id, (username2, password2))
+        assert response.status_code == 403
+
+        experiment_id2 = client.create_experiment("exp2")
+        job_id2 = f"job-{experiment_id2}"
+        response = _bind_secret(
+            client.tracking_uri,
+            secret_id,
+            "SCORER_JOB",
+            job_id2,
+            "TEST_API_KEY",
+            (username2, password2),
+        )
+        assert response.status_code == 403
+
+        response = _unbind_secret(
+            client.tracking_uri, "SCORER_JOB", job_id, "TEST_API_KEY", (username2, password2)
+        )
+        assert response.status_code == 403
+
+
+def test_secret_permission_management(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+        )
+
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/create",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "READ",
+            },
+            auth=(username1, password1),
+        )
+
+    response = requests.get(
+        url=client.tracking_uri + GET_SECRET_PERMISSION,
+        params={"secret_id": secret_id, "username": username2},
+        auth=(username1, password1),
+    )
+
+    assert response.status_code == 200
+    permission = response.json()["secret_permission"]
+    assert permission["secret_id"] == secret_id
+    assert permission["permission"] == "READ"
+
+    with User(username1, password1, monkeypatch):
+        _send_rest_tracking_post_request(
+            client.tracking_uri,
+            "/api/2.0/mlflow/secrets/permissions/update",
+            json_payload={
+                "secret_id": secret_id,
+                "username": username2,
+                "permission": "EDIT",
+            },
+            auth=(username1, password1),
+        )
+
+    response = requests.get(
+        url=client.tracking_uri + GET_SECRET_PERMISSION,
+        params={"secret_id": secret_id, "username": username2},
+        auth=(username1, password1),
+    )
+
+    assert response.status_code == 200
+    permission = response.json()["secret_permission"]
+    assert permission["permission"] == "EDIT"
+
+    with User(username1, password1, monkeypatch):
+        response = requests.delete(
+            url=client.tracking_uri + "/api/2.0/mlflow/secrets/permissions/delete",
+            json={
+                "secret_id": secret_id,
+                "username": username2,
+            },
+            auth=(username1, password1),
+        )
+
+    assert response.status_code == 200
+
+    response = requests.get(
+        url=client.tracking_uri + GET_SECRET_PERMISSION,
+        params={"secret_id": secret_id, "username": username2},
+        auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+>>>>>>> 5a2500ba0 (Add auth integration for secrets)
 
     assert response.status_code == 404
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -803,3 +1266,125 @@ def test_scorer_read_permission(client, monkeypatch):
         )
         with pytest.raises(requests.HTTPError, match="403"):
             response.raise_for_status()
+
+
+def test_admin_bypass_secrets(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        job_id = f"job-{experiment_id}"
+        secret_id = _create_secret(
+            client.tracking_uri,
+            "my_secret",
+            "secret_value",
+            "SCORER_JOB",
+            job_id,
+            "TEST_API_KEY",
+            (username1, password1),
+            is_shared=True,
+        )
+
+    response = _get_secret_info(client.tracking_uri, secret_id, (ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert response.status_code == 200
+
+    response = _list_secret_bindings(
+        client.tracking_uri, secret_id, (ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert response.status_code == 200
+
+    with User(ADMIN_USERNAME, ADMIN_PASSWORD, monkeypatch):
+        experiment_id2 = client.create_experiment("exp2")
+        job_id2 = f"job-{experiment_id2}"
+
+    response = _bind_secret(
+        client.tracking_uri,
+        secret_id,
+        "SCORER_JOB",
+        job_id2,
+        "TEST_API_KEY",
+        (ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+
+    response = _unbind_secret(
+        client.tracking_uri,
+        "SCORER_JOB",
+        job_id2,
+        "TEST_API_KEY",
+        (ADMIN_USERNAME, ADMIN_PASSWORD),
+    )
+    assert response.status_code == 200
+
+    response = _update_secret(
+        client.tracking_uri, secret_id, "new_value", (ADMIN_USERNAME, ADMIN_PASSWORD)
+    )
+    assert response.status_code == 200
+
+    response = _delete_secret(client.tracking_uri, secret_id, (ADMIN_USERNAME, ADMIN_PASSWORD))
+    assert response.status_code == 200
+
+
+def test_list_secrets(client, monkeypatch):
+    username1, password1 = create_user(client.tracking_uri)
+    username2, password2 = create_user(client.tracking_uri)
+
+    readable = [0, 3, 4, 5, 6, 8]
+    secret_ids = []
+
+    with User(username1, password1, monkeypatch):
+        experiment_id = client.create_experiment("exp1")
+        for i in range(10):
+            job_id = f"job-{experiment_id}-{i}"
+            secret_id = _create_secret(
+                client.tracking_uri,
+                f"secret_{i}",
+                f"value_{i}",
+                "SCORER_JOB",
+                job_id,
+                "TEST_API_KEY",
+                (username1, password1),
+                is_shared=(i % 2 == 0),
+                provider="openai" if i % 3 == 0 else None,
+                model="gpt-4" if i % 3 == 0 else None,
+            )
+            secret_ids.append(secret_id)
+            _send_rest_tracking_post_request(
+                client.tracking_uri,
+                "/api/2.0/mlflow/secrets/permissions/create",
+                json_payload={
+                    "secret_id": secret_id,
+                    "username": username2,
+                    "permission": "READ" if i in readable else "NO_PERMISSIONS",
+                },
+                auth=(username1, password1),
+            )
+
+    with User(username1, password1, monkeypatch):
+        response = _list_secrets(client.tracking_uri, None, (username1, password1))
+        assert response.status_code == 200
+        secrets = response.json()["secrets"]
+        assert len(secrets) == 10
+        returned_ids = [s["secret_id"] for s in secrets]
+        assert set(returned_ids) == set(secret_ids)
+
+        for secret in secrets:
+            i = int(secret["secret_name"].split("_")[1])
+            if i % 3 == 0:
+                assert secret["provider"] == "openai"
+                assert secret["model"] == "gpt-4"
+
+    with User(username2, password2, monkeypatch):
+        response = _list_secrets(client.tracking_uri, None, (username2, password2))
+        assert response.status_code == 200
+        secrets = response.json()["secrets"]
+        assert len(secrets) == len(readable)
+        returned_ids = [s["secret_id"] for s in secrets]
+        expected_readable_ids = [secret_ids[i] for i in readable]
+        assert set(returned_ids) == set(expected_readable_ids)
+
+        for secret in secrets:
+            i = int(secret["secret_name"].split("_")[1])
+            if i % 3 == 0:
+                assert secret["provider"] == "openai"
+                assert secret["model"] == "gpt-4"

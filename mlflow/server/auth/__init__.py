@@ -61,6 +61,8 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    BindSecret,
+    CreateAndBindSecret,
     CreateExperiment,
     # Routes for logged models
     CreateLoggedModel,
@@ -71,6 +73,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
     DeleteTag,
     FinalizeLoggedModel,
     GetExperiment,
@@ -79,9 +82,12 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     ListArtifacts,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
+    ListSecrets,
     LogBatch,
     LogLoggedModelParamsRequest,
     LogMetric,
@@ -95,8 +101,10 @@ from mlflow.protos.service_pb2 import (
     SetExperimentTag,
     SetLoggedModelTags,
     SetTag,
+    UnbindSecret,
     UpdateExperiment,
     UpdateRun,
+    UpdateSecret,
 )
 from mlflow.server import app
 from mlflow.server.auth.config import read_auth_config
@@ -107,11 +115,13 @@ from mlflow.server.auth.routes import (
     CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_SCORER_PERMISSION,
+    CREATE_SECRET_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_SCORER_PERMISSION,
+    DELETE_SECRET_PERMISSION,
     DELETE_USER,
     GATEWAY_PROXY,
     GET_ARTIFACT,
@@ -121,6 +131,7 @@ from mlflow.server.auth.routes import (
     GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
     GET_SCORER_PERMISSION,
+    GET_SECRET_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
@@ -129,6 +140,7 @@ from mlflow.server.auth.routes import (
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_SCORER_PERMISSION,
+    UPDATE_SECRET_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
@@ -417,6 +429,60 @@ def validate_can_manage_scorer_permission():
     return _get_permission_from_scorer_permission_request().can_manage
 
 
+# Secrets
+def _get_permission_from_secret_id() -> Permission:
+    secret_id = _get_request_param("secret_id")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_secret_permission(secret_id, username).permission
+    )
+
+
+def validate_can_read_secret():
+    return _get_permission_from_secret_id().can_read
+
+
+def validate_can_update_secret():
+    return _get_permission_from_secret_id().can_update
+
+
+def validate_can_manage_secret():
+    return _get_permission_from_secret_id().can_manage
+
+
+def _get_permission_from_binding() -> Permission:
+    resource_type = _get_request_param("resource_type")
+    resource_id = _get_request_param("resource_id")
+    field_name = _get_request_param("field_name")
+
+    # Look up the binding to get the secret_id using list_secret_bindings
+    bindings = _get_tracking_store()._list_secret_bindings(
+        secret_id=None,  # We don't know the secret_id yet
+        resource_type=resource_type,
+        resource_id=resource_id,
+    )
+
+    # Filter to find the specific binding by field_name
+    matching_bindings = [b for b in bindings if b.field_name == field_name]
+    if not matching_bindings:
+        raise MlflowException(
+            f"Secret binding not found for resource_type='{resource_type}', "
+            f"resource_id='{resource_id}', field_name='{field_name}'.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+
+    secret_id = matching_bindings[0].secret_id
+
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_secret_permission(secret_id, username).permission
+    )
+
+
+def validate_can_update_secret_binding():
+    return _get_permission_from_binding().can_update
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
@@ -686,6 +752,13 @@ BEFORE_REQUEST_HANDLERS = {
     GetScorer: validate_can_read_scorer,
     DeleteScorer: validate_can_delete_scorer,
     ListScorerVersions: validate_can_read_scorer,
+    # Routes for secrets
+    GetSecretInfo: validate_can_read_secret,
+    ListSecretBindings: validate_can_read_secret,
+    UpdateSecret: validate_can_manage_secret,
+    DeleteSecret: validate_can_manage_secret,
+    BindSecret: validate_can_update_secret,
+    UnbindSecret: validate_can_update_secret_binding,
 }
 
 
@@ -728,6 +801,11 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
         (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
         (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
+        (GET_SECRET_PERMISSION, "GET"): validate_can_manage_secret,
+        (CREATE_SECRET_PERMISSION, "POST"): validate_can_manage_secret,
+        (UPDATE_SECRET_PERMISSION, "PATCH"): validate_can_manage_secret,
+        (UPDATE_SECRET_PERMISSION, "POST"): validate_can_manage_secret,
+        (DELETE_SECRET_PERMISSION, "DELETE"): validate_can_manage_secret,
     }
 )
 
@@ -870,6 +948,9 @@ def _before_request():
 
 
 def set_can_manage_experiment_permission(resp: Response):
+    if sender_is_admin():
+        return
+
     response_message = CreateExperiment.Response()
     parse_dict(resp.json, response_message)
     experiment_id = response_message.experiment_id
@@ -878,6 +959,9 @@ def set_can_manage_experiment_permission(resp: Response):
 
 
 def set_can_manage_registered_model_permission(resp: Response):
+    if sender_is_admin():
+        return
+
     response_message = CreateRegisteredModel.Response()
     parse_dict(resp.json, response_message)
     name = response_message.registered_model.name
@@ -1079,6 +1163,33 @@ def filter_search_registered_models(resp: Response):
     resp.data = message_to_json(response_message)
 
 
+def filter_list_secrets(resp: Response):
+    """
+    Filter out unreadable secrets from the list results.
+
+    Note: ListSecrets does not have pagination, so we just filter the results
+    without needing to re-fetch like SearchExperiments does.
+    """
+    if sender_is_admin():
+        return
+
+    response_message = ListSecrets.Response()
+    parse_dict(resp.json, response_message)
+
+    # fetch permissions
+    username = authenticate_request().username
+    perms = store.list_secret_permissions(username)
+    can_read = {p.secret_id: get_permission(p.permission).can_read for p in perms}
+    default_can_read = get_permission(auth_config.default_permission).can_read
+
+    # filter out unreadable
+    for secret in list(response_message.secrets):
+        if not can_read.get(secret.secret_id, default_can_read):
+            response_message.secrets.remove(secret)
+
+    resp.data = message_to_json(response_message)
+
+
 def rename_registered_model_permission(resp: Response):
     """
     A model registry can be assigned to multiple users with different permissions.
@@ -1107,6 +1218,17 @@ def delete_scorer_permissions_cascade(resp: Response):
         store.delete_scorer_permissions_for_scorer(experiment_id, name)
 
 
+def set_can_manage_secret_permission(resp: Response):
+    if sender_is_admin():
+        return
+
+    response_message = CreateAndBindSecret.Response()
+    parse_dict(resp.json, response_message)
+    secret_id = response_message.secret.secret_id
+    username = authenticate_request().username
+    store.create_secret_permission(secret_id, username, MANAGE.name)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -1117,6 +1239,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     RenameRegisteredModel: rename_registered_model_permission,
     RegisterScorer: set_can_manage_scorer_permission,
     DeleteScorer: delete_scorer_permissions_cascade,
+    CreateAndBindSecret: set_can_manage_secret_permission,
+    ListSecrets: filter_list_secrets,
 }
 
 
@@ -1432,6 +1556,40 @@ def delete_scorer_permission():
     return make_response({})
 
 
+@catch_mlflow_exception
+def create_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    sp = store.create_secret_permission(secret_id, username, permission)
+    return jsonify({"secret_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def get_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    sp = store.get_secret_permission(secret_id, username)
+    return make_response({"secret_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def update_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_secret_permission(secret_id, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_secret_permission():
+    secret_id = _get_request_param("secret_id")
+    username = _get_request_param("username")
+    store.delete_secret_permission(secret_id, username)
+    return make_response({})
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1564,6 +1722,26 @@ def create_app(app: Flask = app):
     app.add_url_rule(
         rule=DELETE_SCORER_PERMISSION,
         view_func=delete_scorer_permission,
+        methods=["DELETE"],
+    )
+    app.add_url_rule(
+        rule=CREATE_SECRET_PERMISSION,
+        view_func=create_secret_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_SECRET_PERMISSION,
+        view_func=get_secret_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_SECRET_PERMISSION,
+        view_func=update_secret_permission,
+        methods=["PATCH", "POST"],
+    )
+    app.add_url_rule(
+        rule=DELETE_SECRET_PERMISSION,
+        view_func=delete_secret_permission,
         methods=["DELETE"],
     )
 

@@ -13,12 +13,14 @@ from mlflow.server.auth.db.models import (
     SqlExperimentPermission,
     SqlRegisteredModelPermission,
     SqlScorerPermission,
+    SqlSecretPermission,
     SqlUser,
 )
 from mlflow.server.auth.entities import (
     ExperimentPermission,
     RegisteredModelPermission,
     ScorerPermission,
+    SecretPermission,
     User,
 )
 from mlflow.server.auth.permissions import _validate_permission
@@ -354,3 +356,74 @@ class SqlAlchemyStore:
                 SqlScorerPermission.experiment_id == experiment_id,
                 SqlScorerPermission.scorer_name == scorer_name,
             ).delete()
+
+    def create_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> SecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlSecretPermission(
+                    secret_id=secret_id, user_id=user.id, permission=permission
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Secret permission (secret_id={secret_id}, username={username}) "
+                    f"already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                )
+
+    def _get_secret_permission(self, session, secret_id: str, username: str) -> SqlSecretPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlSecretPermission)
+                .filter(
+                    SqlSecretPermission.secret_id == secret_id,
+                    SqlSecretPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Secret permission with secret_id={secret_id} and username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple secret permissions with secret_id={secret_id} "
+                f"and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_secret_permission(self, secret_id: str, username: str) -> SecretPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_secret_permission(session, secret_id, username).to_mlflow_entity()
+
+    def list_secret_permissions(self, username: str) -> list[SecretPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlSecretPermission)
+                .filter(SqlSecretPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_secret_permission(
+        self, secret_id: str, username: str, permission: str
+    ) -> SecretPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_secret_permission(session, secret_id, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_secret_permission(self, secret_id: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_secret_permission(session, secret_id, username)
+            session.delete(perm)
