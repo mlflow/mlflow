@@ -33,6 +33,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     pyfunc_serve_and_score_model,
 )
+from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
 
 EXTRA_PYFUNC_SERVING_TEST_ARGS = (
     [] if _is_available_on_pypi("scikit-learn", module="sklearn") else ["--env-manager", "local"]
@@ -334,6 +335,7 @@ def test_serving_wheeled_model(sklearn_knn_model):
             name=artifact_path,
             registered_model_name=model_name,
             input_example=pd.DataFrame(inference_data),
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     # Re-log with wheels

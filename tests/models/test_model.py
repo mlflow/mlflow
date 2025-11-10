@@ -28,6 +28,8 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
+from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
+
 
 @pytest.fixture(scope="module")
 def iris_data():
@@ -476,6 +478,7 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmp_path):
         sklearn_knn_model,
         sk_model_path,
         signature=signature,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     validate_schema(X, signature.inputs)

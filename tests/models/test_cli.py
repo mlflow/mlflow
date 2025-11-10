@@ -54,6 +54,7 @@ from tests.helper_functions import (
     pyfunc_serve_from_docker_image,
     pyfunc_serve_from_docker_image_with_env_override,
 )
+from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
 
 # NB: for now, windows tests do not have conda available.
 no_conda = ["--env-manager", "local"] if sys.platform == "win32" else []
@@ -149,7 +150,11 @@ def test_serve_uvicorn_opts(iris_data, sk_model):
     with mlflow.start_run():
         x, _ = iris_data
         model_info = mlflow.sklearn.log_model(
-            sk_model, name="model", registered_model_name="test", input_example=pd.DataFrame(x)
+            sk_model,
+            name="model",
+            registered_model_name="test",
+            input_example=pd.DataFrame(x),
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     model_uris = ["models:/test/None", model_info.model_uri]
@@ -195,7 +200,12 @@ def predict_test_setup(
     tmp_path: Path,
 ) -> PredictTestData:
     with mlflow.start_run() as active_run:
-        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(
+            sk_model,
+            name="model",
+            registered_model_name="impredicting",
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     model_registry_uri = "models:/impredicting/None"
@@ -425,7 +435,12 @@ def test_predict_check_content_type(iris_data, sk_model, tmp_path):
 
 def test_predict_check_input_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(
+            sk_model,
+            name="model",
+            registered_model_name="impredicting",
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input with space.json"
     input_csv_path = tmp_path / "input.csv"
@@ -520,7 +535,12 @@ def test_predict_check_input_path(iris_data, sk_model, tmp_path):
 
 def test_predict_check_output_path(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(
+            sk_model,
+            name="model",
+            registered_model_name="impredicting",
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -659,7 +679,10 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model,
+                name="model",
+                extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
         else:
             mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
@@ -685,7 +708,10 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
 def test_build_docker_virtualenv(iris_data, sk_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sk_model, name="model", extra_pip_requirements=["/opt/mlflow"]
+            sk_model,
+            name="model",
+            extra_pip_requirements=["/opt/mlflow"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     x, _ = iris_data
@@ -707,7 +733,10 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model,
+                name="model",
+                extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
         else:
             mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
@@ -731,7 +760,12 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
 
 def test_build_docker_without_model_uri(iris_data, sk_model, tmp_path):
     model_path = tmp_path.joinpath("model")
-    mlflow.sklearn.save_model(sk_model, model_path, extra_pip_requirements=["/opt/mlflow"])
+    mlflow.sklearn.save_model(
+        sk_model,
+        model_path,
+        extra_pip_requirements=["/opt/mlflow"],
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
     image_name = pyfunc_build_image(model_uri=None)
     host_port = get_safe_port()
     scoring_proc = pyfunc_serve_from_docker_image_with_env_override(
