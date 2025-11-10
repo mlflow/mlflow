@@ -135,21 +135,28 @@ def sklearn_custom_env(tmp_path):
     return conda_env
 
 
-def test_model_save_load(sklearn_knn_model, model_path):
-    knn_model = sklearn_knn_model.model
+@pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
+def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
+    knn_model = sklearn_logreg_model.model
 
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
-    reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, serialization_format=serialization_format)
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sklearn_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == serialization_format
 
     np.testing.assert_array_equal(
-        knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
+        knn_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
     )
 
     np.testing.assert_array_equal(
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_logreg_model.inference_data),
     )
 
 
