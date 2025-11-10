@@ -155,13 +155,13 @@ def test_model_save_load(sklearn_knn_model, model_path):
 def test_model_save_behavior_with_preexisting_folders(sklearn_knn_model, tmp_path):
     sklearn_model_path = tmp_path / "sklearn_model_empty_exists"
     sklearn_model_path.mkdir()
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=sklearn_model_path)
 
     sklearn_model_path = tmp_path / "sklearn_model_filled_exists"
     sklearn_model_path.mkdir()
     (sklearn_model_path / "foo.txt").write_text("dummy content")
     with pytest.raises(MlflowException, match="already exists and is not empty"):
-        mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+        mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=sklearn_model_path)
 
 
 def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_signature):
@@ -403,7 +403,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, tmp_path):
 
 def test_log_model_with_extra_pip_requirements(sklearn_knn_model, tmp_path):
     expected_mlflow_version = _mlflow_major_version_string()
-    default_reqs = mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+    default_reqs = mlflow.sklearn.get_default_pip_requirements(serialization_format="skops")
 
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
@@ -516,7 +516,7 @@ def test_model_save_without_specified_conda_env_uses_default_env_with_expected_d
 ):
     mlflow.sklearn.save_model(sk_model=sklearn_knn_model.model, path=model_path)
     _assert_pip_requirements(
-        model_path, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+        model_path, mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos")
     )
 
 
@@ -527,7 +527,7 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
 
     _assert_pip_requirements(
-        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(include_cloudpickle=True)
+        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos")
     )
 
 
@@ -538,7 +538,7 @@ def test_model_save_uses_cloudpickle_serialization_format_by_default(sklearn_knn
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
 def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_model):
@@ -550,7 +550,7 @@ def test_model_log_uses_cloudpickle_serialization_format_by_default(sklearn_knn_
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
     )
     assert "serialization_format" in sklearn_conf
-    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    assert sklearn_conf["serialization_format"] == mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS
 
 
 def test_model_save_with_cloudpickle_format_adds_cloudpickle_to_conda_environment(
