@@ -96,6 +96,9 @@ def sklearn_knn_model(iris_df):
     return ModelWithData(model=knn_model, inference_data=X)
 
 
+sklearn_knn_model_skops_trusted_types = ['sklearn.metrics._dist_metrics.EuclideanDistance64', 'sklearn.neighbors._kd_tree.KDTree']
+
+
 @pytest.fixture(scope="module")
 def sklearn_logreg_model(iris_df):
     X, y = iris_df
@@ -137,9 +140,12 @@ def sklearn_custom_env(tmp_path):
 
 @pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
 def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
-    knn_model = sklearn_logreg_model.model
+    from mlflow.utils.requirements_utils import _parse_requirements
+    import skops
+    import cloudpickle
 
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path, serialization_format=serialization_format)
+    sk_model = sklearn_logreg_model.model
+    mlflow.sklearn.save_model(sk_model=sk_model, path=model_path, serialization_format=serialization_format)
     reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
@@ -149,14 +155,50 @@ def test_model_save_load(sklearn_logreg_model, model_path, serialization_format)
     assert "serialization_format" in sklearn_conf
     assert sklearn_conf["serialization_format"] == serialization_format
 
+    req_map = {
+        mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS: f"skops=={skops.__version__}",
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE: f"cloudpickle=={cloudpickle.__version__}",
+    }
+
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, 'requirements.txt'), is_constraint=False
+        )
+    ]
+    if serialization_format != mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE:
+        assert req_map[serialization_format] in logged_reqs
+
     np.testing.assert_array_equal(
-        knn_model.predict(sklearn_logreg_model.inference_data),
+        sk_model.predict(sklearn_logreg_model.inference_data),
         reloaded_model.predict(sklearn_logreg_model.inference_data),
     )
 
     np.testing.assert_array_equal(
         reloaded_model.predict(sklearn_logreg_model.inference_data),
         reloaded_pyfunc.predict(sklearn_logreg_model.inference_data),
+    )
+
+
+def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
+    sk_model = sklearn_knn_model.model
+    mlflow.sklearn.save_model(
+        sk_model=sk_model,
+        path=model_path,
+    )
+    with pytest.raises(MlflowException, match="The saved sklearn model contains untrusted type"):
+        mlflow.sklearn.load_model(model_uri=model_path)
+
+    shutil.rmtree(model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    np.testing.assert_array_equal(
+        sk_model.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_knn_model.inference_data),
     )
 
 

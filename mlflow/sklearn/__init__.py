@@ -495,8 +495,9 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
                 "The saved sklearn model contains untrusted type, "
                 "if you are sure loading these types are safe, "
                 "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
-                "to the list of trusted types."
-            ) from e
+                "to the list of trusted types. "
+                f"Root error: {str(e)}"
+            )
     else:
         with open(path, "rb") as f:
             # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
