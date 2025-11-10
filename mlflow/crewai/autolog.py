@@ -125,10 +125,9 @@ def _get_span_type(instance) -> str:
 
 
 def _get_span_name(instance) -> str | None:
-    import crewai
-    from crewai import Crew, LLM, Agent, Task
-
     try:
+        from crewai import LLM, Agent, Crew, Task
+
         if isinstance(instance, Crew):
             default_name = Crew.model_fields["name"].default
             return instance.name if instance.name != default_name else None
@@ -140,7 +139,7 @@ def _get_span_name(instance) -> str | None:
             return instance.model
 
     except AttributeError as e:
-        _logger.warn("An exception happens when resolving the span name. Exception: %s", e)
+        _logger.debug("An exception happens when resolving the span name. Exception: %s", e)
 
     return None
 
