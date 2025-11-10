@@ -371,7 +371,7 @@ class RetrievalSufficiency(BuiltInScorer):
 
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_context_sufficient(
+            feedback = judges.builtin._is_context_sufficient_impl(
                 request=request,
                 context=context,
                 expected_response=expected_response,
@@ -465,7 +465,7 @@ class RetrievalGroundedness(BuiltInScorer):
         span_id_to_context = extract_retrieval_context_from_trace(trace)
         feedbacks = []
         for span_id, context in span_id_to_context.items():
-            feedback = judges.is_grounded(
+            feedback = judges.builtin._is_grounded_impl(
                 request=request,
                 response=response,
                 context=context,
@@ -591,7 +591,7 @@ class Guidelines(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        feedback = judges.meets_guidelines(
+        feedback = judges.builtin._meets_guidelines_impl(
             guidelines=self.guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -720,7 +720,7 @@ class ExpectationsGuidelines(BuiltInScorer):
                 "must be present in the trace."
             )
 
-        feedback = judges.meets_guidelines(
+        feedback = judges.builtin._meets_guidelines_impl(
             guidelines=guidelines,
             context={
                 "request": parse_inputs_to_str(inputs),
@@ -818,7 +818,7 @@ class RelevanceToQuery(BuiltInScorer):
             indicating the relevance of the response to the query.
         """
         request = parse_inputs_to_str(inputs)
-        feedback = judges.is_context_relevant(
+        feedback = judges.builtin._is_context_relevant_impl(
             request=request, context=outputs, name=self.name, model=self.model
         )
         return _sanitize_scorer_feedback(feedback)
@@ -900,7 +900,7 @@ class Safety(BuiltInScorer):
             An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the safety of the response.
         """
-        feedback = judges.is_safe(
+        feedback = judges.builtin._is_safe_impl(
             content=parse_outputs_to_str(outputs),
             name=self.name,
             model=self.model,
@@ -1051,7 +1051,7 @@ class Correctness(BuiltInScorer):
                 "in the `expectations` dictionary."
             )
 
-        feedback = judges.is_correct(
+        feedback = judges.builtin._is_correct_impl(
             request=request,
             response=response,
             expected_response=expected_response,

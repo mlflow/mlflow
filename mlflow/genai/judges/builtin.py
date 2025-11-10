@@ -57,6 +57,32 @@ def requires_databricks_agents(func):
     return wrapper
 
 
+def _is_context_relevant_impl(
+    *, request: str, context: Any, name: str | None = None, model: str | None = None
+) -> Feedback:
+    from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
+
+    model = model or get_default_model()
+
+    # NB: User-facing name for the is_context_relevant assessment. This is required
+    #     since the existing databricks judge is called `relevance_to_query`
+    assessment_name = name or RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+
+    if model == "databricks":
+        from databricks.agents.evals.judges import relevance_to_query
+
+        feedback = relevance_to_query(
+            request=request,
+            response=str(context),
+            assessment_name=assessment_name,
+        )
+    else:
+        prompt = get_prompt(request, str(context))
+        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+
+    return _sanitize_feedback(feedback)
+
+
 @deprecated(
     alternative="mlflow.genai.scorers.RelevanceToQuery",
     since="3.5.0",
@@ -101,24 +127,43 @@ def is_context_relevant(
             print(feedback.value)  # "no"
 
     """
-    from mlflow.genai.judges.prompts.relevance_to_query import get_prompt
+    return _is_context_relevant_impl(request=request, context=context, name=name, model=model)
+
+
+def _is_context_sufficient_impl(
+    *,
+    request: str,
+    context: Any,
+    expected_facts: list[str],
+    expected_response: str | None = None,
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    from mlflow.genai.judges.prompts.context_sufficiency import (
+        CONTEXT_SUFFICIENCY_FEEDBACK_NAME,
+        get_prompt,
+    )
 
     model = model or get_default_model()
-
-    # NB: User-facing name for the is_context_relevant assessment. This is required
-    #     since the existing databricks judge is called `relevance_to_query`
-    assessment_name = name or RELEVANCE_TO_QUERY_ASSESSMENT_NAME
+    assessment_name = name or CONTEXT_SUFFICIENCY_FEEDBACK_NAME
 
     if model == "databricks":
-        from databricks.agents.evals.judges import relevance_to_query
+        from databricks.agents.evals.judges import context_sufficiency
 
-        feedback = relevance_to_query(
+        feedback = context_sufficiency(
             request=request,
-            response=str(context),
+            retrieved_context=context,
+            expected_facts=expected_facts,
+            expected_response=expected_response,
             assessment_name=assessment_name,
         )
     else:
-        prompt = get_prompt(request, str(context))
+        prompt = get_prompt(
+            request=request,
+            context=context,
+            expected_response=expected_response,
+            expected_facts=expected_facts,
+        )
         feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 
     return _sanitize_feedback(feedback)
@@ -179,20 +224,36 @@ def is_context_sufficient(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.context_sufficiency import (
-        CONTEXT_SUFFICIENCY_FEEDBACK_NAME,
-        get_prompt,
+    return _is_context_sufficient_impl(
+        request=request,
+        context=context,
+        expected_facts=expected_facts,
+        expected_response=expected_response,
+        name=name,
+        model=model,
     )
 
+
+def _is_correct_impl(
+    *,
+    request: str,
+    response: str,
+    expected_facts: list[str] | None = None,
+    expected_response: str | None = None,
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+
     model = model or get_default_model()
-    assessment_name = name or CONTEXT_SUFFICIENCY_FEEDBACK_NAME
+    assessment_name = name or CORRECTNESS_FEEDBACK_NAME
 
     if model == "databricks":
-        from databricks.agents.evals.judges import context_sufficiency
+        from databricks.agents.evals.judges import correctness
 
-        feedback = context_sufficiency(
+        feedback = correctness(
             request=request,
-            retrieved_context=context,
+            response=response,
             expected_facts=expected_facts,
             expected_response=expected_response,
             assessment_name=assessment_name,
@@ -200,7 +261,7 @@ def is_context_sufficient(
     else:
         prompt = get_prompt(
             request=request,
-            context=context,
+            response=response,
             expected_response=expected_response,
             expected_facts=expected_facts,
         )
@@ -260,27 +321,43 @@ def is_correct(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.correctness import CORRECTNESS_FEEDBACK_NAME, get_prompt
+    return _is_correct_impl(
+        request=request,
+        response=response,
+        expected_facts=expected_facts,
+        expected_response=expected_response,
+        name=name,
+        model=model,
+    )
+
+
+def _is_grounded_impl(
+    *,
+    request: str,
+    response: str,
+    context: Any,
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_FEEDBACK_NAME, get_prompt
 
     model = model or get_default_model()
-    assessment_name = name or CORRECTNESS_FEEDBACK_NAME
+    assessment_name = name or GROUNDEDNESS_FEEDBACK_NAME
 
     if model == "databricks":
-        from databricks.agents.evals.judges import correctness
+        from databricks.agents.evals.judges import groundedness
 
-        feedback = correctness(
+        feedback = groundedness(
             request=request,
             response=response,
-            expected_facts=expected_facts,
-            expected_response=expected_response,
+            retrieved_context=context,
             assessment_name=assessment_name,
         )
     else:
         prompt = get_prompt(
             request=request,
             response=response,
-            expected_response=expected_response,
-            expected_facts=expected_facts,
+            context=context,
         )
         feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 
@@ -343,26 +420,27 @@ def is_grounded(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_FEEDBACK_NAME, get_prompt
+    return _is_grounded_impl(
+        request=request,
+        response=response,
+        context=context,
+        name=name,
+        model=model,
+    )
+
+
+def _is_safe_impl(*, content: str, name: str | None = None, model: str | None = None) -> Feedback:
+    from mlflow.genai.judges.prompts.safety import SAFETY_ASSESSMENT_NAME, get_prompt
 
     model = model or get_default_model()
-    assessment_name = name or GROUNDEDNESS_FEEDBACK_NAME
+    assessment_name = name or SAFETY_ASSESSMENT_NAME
 
     if model == "databricks":
-        from databricks.agents.evals.judges import groundedness
+        from databricks.agents.evals.judges import safety
 
-        feedback = groundedness(
-            request=request,
-            response=response,
-            retrieved_context=context,
-            assessment_name=assessment_name,
-        )
+        feedback = safety(response=content, assessment_name=assessment_name)
     else:
-        prompt = get_prompt(
-            request=request,
-            response=response,
-            context=context,
-        )
+        prompt = get_prompt(content=content)
         feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
 
     return _sanitize_feedback(feedback)
@@ -395,18 +473,33 @@ def is_safe(*, content: str, name: str | None = None, model: str | None = None) 
             feedback = is_safe(content="I am a happy person.")
             print(feedback.value)  # "yes"
     """
-    from mlflow.genai.judges.prompts.safety import SAFETY_ASSESSMENT_NAME, get_prompt
+    return _is_safe_impl(content=content, name=name, model=model)
+
+
+def _meets_guidelines_impl(
+    *,
+    guidelines: str | list[str],
+    context: dict[str, Any],
+    name: str | None = None,
+    model: str | None = None,
+) -> Feedback:
+    from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
 
     model = model or get_default_model()
-    assessment_name = name or SAFETY_ASSESSMENT_NAME
 
     if model == "databricks":
-        from databricks.agents.evals.judges import safety
+        from databricks.agents.evals.judges import guidelines as guidelines_judge
 
-        feedback = safety(response=content, assessment_name=assessment_name)
+        feedback = guidelines_judge(
+            guidelines=guidelines,
+            context=context,
+            assessment_name=name,
+        )
     else:
-        prompt = get_prompt(content=content)
-        feedback = invoke_judge_model(model, prompt, assessment_name=assessment_name)
+        prompt = get_prompt(guidelines, context)
+        feedback = invoke_judge_model(
+            model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME
+        )
 
     return _sanitize_feedback(feedback)
 
@@ -459,22 +552,9 @@ def meets_guidelines(
             )
             print(feedback.value)  # "no"
     """
-    from mlflow.genai.judges.prompts.guidelines import GUIDELINES_FEEDBACK_NAME, get_prompt
-
-    model = model or get_default_model()
-
-    if model == "databricks":
-        from databricks.agents.evals.judges import guidelines as guidelines_judge
-
-        feedback = guidelines_judge(
-            guidelines=guidelines,
-            context=context,
-            assessment_name=name,
-        )
-    else:
-        prompt = get_prompt(guidelines, context)
-        feedback = invoke_judge_model(
-            model, prompt, assessment_name=name or GUIDELINES_FEEDBACK_NAME
-        )
-
-    return _sanitize_feedback(feedback)
+    return _meets_guidelines_impl(
+        guidelines=guidelines,
+        context=context,
+        name=name,
+        model=model,
+    )
