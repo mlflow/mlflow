@@ -25,8 +25,6 @@ from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
-
 
 @pytest.fixture
 def pandas_df_with_all_types():
@@ -432,7 +430,7 @@ def test_infer_signature_on_scalar_input_examples(input_example):
             IdentitySklearnModel(),
             name=artifact_path,
             input_example=input_example,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
         )
 
     mlflow_model = Model.load(model_info.model_uri)

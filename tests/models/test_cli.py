@@ -685,7 +685,12 @@ def test_build_docker(iris_data, sk_model, enable_mlserver):
                 skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
         else:
-            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(
+                sk_model,
+                name="model",
+                extra_pip_requirements=["/opt/mlflow"],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            )
         model_uri = f"runs:/{active_run.info.run_id}/model"
 
     x, _ = iris_data
@@ -739,7 +744,12 @@ def test_build_docker_with_env_override(iris_data, sk_model, enable_mlserver):
                 skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
         else:
-            mlflow.sklearn.log_model(sk_model, name="model", extra_pip_requirements=["/opt/mlflow"])
+            mlflow.sklearn.log_model(
+                sk_model,
+                name="model",
+                extra_pip_requirements=["/opt/mlflow"],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            )
         model_uri = f"runs:/{active_run.info.run_id}/model"
     x, _ = iris_data
     df = pd.DataFrame(x)

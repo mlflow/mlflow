@@ -266,7 +266,11 @@ def test_scoring_server_responds_to_invalid_json_format_with_error_code_and_mess
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_model.model,
+        path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     pdf = pd.DataFrame(sklearn_model.inference_data)
     wrong_records_content = json.dumps({"dataframe_records": pdf.to_dict(orient="split")})

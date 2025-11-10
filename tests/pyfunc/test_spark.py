@@ -918,7 +918,7 @@ def test_spark_udf_datetime_with_model_schema(spark):
             model,
             name="model",
             signature=signature,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
         )
 
     inference_sample = X.sample(n=10, random_state=42)
@@ -954,7 +954,7 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
             model,
             name="model",
             signature=signature,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
         )
 
     inference_sample = X.sample(n=10, random_state=42)

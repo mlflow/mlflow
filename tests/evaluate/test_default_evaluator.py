@@ -1765,7 +1765,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
         pipeline_model_uri = mlflow.sklearn.log_model(
             model_pipeline,
             name="model",
-            skops_trusted_types=["tests.evaluate.test_default_evaluator.add_feature"],
+            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
         ).model_uri
 
         evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
