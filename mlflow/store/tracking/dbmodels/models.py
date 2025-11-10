@@ -2134,6 +2134,8 @@ class SqlSecret(Base):
             created_at=self.created_at,
             last_updated_by=self.last_updated_by,
             last_updated_at=self.last_updated_at,
+            provider=self.provider,
+            model=self.model,
         )
 
 

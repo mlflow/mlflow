@@ -39,6 +39,7 @@ from mlflow.entities import (
     ScorerVersion,
     Secret,
     SecretBinding,
+    SecretWithBinding,
     SourceType,
     Trace,
     TraceData,
@@ -2335,34 +2336,44 @@ class SqlAlchemyStore(AbstractStore):
 
     # Secrets management methods
 
-    def _create_secret(
+    def _create_and_bind_secret(
         self,
         secret_name: str,
         secret_value: str | dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
         is_shared: bool = False,
         created_by: str | None = None,
-    ) -> Secret:
+        provider: str | None = None,
+        model: str | None = None,
+    ) -> SecretWithBinding:
         """
-        Create a new secret with encrypted storage using envelope encryption.
+        Atomically create a secret and bind it to a resource in a single transaction.
+        Note that this method enforces uniqueness constraints for both shared secrets
+        (by name) and secret bindings (by resource/field combination).
 
-        For shared secrets, enforces uniqueness by name to ensure deterministic lookups.
-        Private (non-shared) secrets have no name restrictions.
+        Secrets cannot be created and bind in separate steps using the public API to
+        avoid having unbound secrets (orphaned secrets) in the backend.
 
         Args:
             secret_name: Name for the secret. Must be unique among shared secrets
                 if is_shared=True.
             secret_value: Secret value to encrypt. Can be a string or dict with arbitrary structure.
+            resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used
+                (e.g., "OPENAI_API_KEY").
             is_shared: Whether the secret can be reused across multiple resources.
             created_by: Username of the creator. Optional.
+            provider: LLM provider identifier (e.g., "anthropic", "openai"). Optional.
+            model: LLM model identifier (e.g., "claude-3-5-sonnet-20241022"). Optional.
 
         Returns:
-            Secret entity with metadata (encrypted fields not exposed).
+            SecretWithBinding containing the created secret and its initial binding.
+
         """
         with self.ManagedSessionMaker() as session:
-            # NB: Shared secrets must have unique names to ensure that a user can always
-            # retrieve the correct secret by name. For non-shared secrets, multiple secrets
-            # with the same name can exist since they are scoped to a specific resource
-            # via secret bindings.
             if is_shared:
                 existing = (
                     session.query(SqlSecret)
@@ -2380,11 +2391,27 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
 
+            existing_binding = (
+                session.query(SqlSecretBinding)
+                .filter_by(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    field_name=field_name,
+                )
+                .first()
+            )
+            if existing_binding:
+                raise MlflowException(
+                    f"Binding already exists for resource_type='{resource_type}', "
+                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
             secret_id = uuid.uuid4().hex
+            binding_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
 
             masked_value = mask_secret_value(secret_value)
-            if isinstance(masked_value, dict):
-                masked_value = json.dumps(masked_value)
 
             encrypted = encrypt_secret(
                 secret_value=secret_value,
@@ -2393,7 +2420,6 @@ class SqlAlchemyStore(AbstractStore):
                 secret_name=secret_name,
             )
 
-            current_time = get_current_time_millis()
             sql_secret = SqlSecret(
                 secret_id=secret_id,
                 secret_name=secret_name,
@@ -2406,12 +2432,30 @@ class SqlAlchemyStore(AbstractStore):
                 last_updated_at=current_time,
                 created_by=created_by,
                 last_updated_by=created_by,
+                provider=provider,
+                model=model,
+            )
+
+            sql_binding = SqlSecretBinding(
+                binding_id=binding_id,
+                secret_id=secret_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                created_by=created_by,
+                created_at=current_time,
+                last_updated_by=created_by,
+                last_updated_at=current_time,
             )
 
             session.add(sql_secret)
+            session.add(sql_binding)
             session.commit()
 
-            return sql_secret.to_mlflow_entity()
+            return SecretWithBinding(
+                secret=sql_secret.to_mlflow_entity(),
+                binding=sql_binding.to_mlflow_entity(),
+            )
 
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
@@ -2463,8 +2507,6 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             masked_value = mask_secret_value(secret_value)
-            if isinstance(masked_value, dict):
-                masked_value = json.dumps(masked_value)
 
             encrypted = encrypt_secret(
                 secret_value=secret_value,
@@ -2534,6 +2576,14 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Secret with ID '{secret_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if not sql_secret.is_shared:
+                raise MlflowException(
+                    f"Cannot bind private secret '{sql_secret.secret_name}' to additional "
+                    f"resources. Private secrets are scoped to a single resource. "
+                    f"Create a shared secret (is_shared=True) if you need to reuse it.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
             existing = (
@@ -2606,8 +2656,64 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=sql_binding.secret_id).first()
+            if sql_secret:
+                if not sql_secret.is_shared:
+                    raise MlflowException(
+                        f"Cannot unbind private secret '{sql_secret.secret_name}'. "
+                        f"Private secrets are scoped to a single resource. "
+                        f"Delete the secret entirely if it's no longer needed.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
+                binding_count = (
+                    session.query(SqlSecretBinding)
+                    .filter_by(secret_id=sql_secret.secret_id)
+                    .count()
+                )
+                if binding_count == 1:
+                    raise MlflowException(
+                        f"Cannot unbind the last binding for secret '{sql_secret.secret_name}'. "
+                        f"This would create an orphaned secret. "
+                        f"Delete the secret entirely if it's no longer needed.",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+
             session.delete(sql_binding)
             session.commit()
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[SecretBinding]:
+        """
+        List secret bindings with optional filters.
+
+        This method allows querying bindings by secret_id, resource_type, and/or resource_id.
+        If no filters are provided, returns all bindings.
+
+        Args:
+            secret_id: Optional filter by secret ID.
+            resource_type: Optional filter by resource type (e.g., "SCORER_JOB").
+            resource_id: Optional filter by resource ID.
+
+        Returns:
+            List of SecretBinding entities matching the filters.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlSecretBinding)
+
+            if secret_id is not None:
+                query = query.filter_by(secret_id=secret_id)
+            if resource_type is not None:
+                query = query.filter_by(resource_type=resource_type)
+            if resource_id is not None:
+                query = query.filter_by(resource_id=resource_id)
+
+            sql_bindings = query.all()
+            return [binding.to_mlflow_entity() for binding in sql_bindings]
 
     def _get_secrets_for_resource(
         self,

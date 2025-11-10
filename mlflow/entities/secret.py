@@ -1,6 +1,29 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
+
+if TYPE_CHECKING:
+    from mlflow.entities.secret_binding import SecretBinding
+
+
+@dataclass
+class SecretWithBinding(_MlflowObject):
+    """
+    Result of creating a secret with its initial binding atomically.
+
+    This structure is returned when creating a secret to ensure that every
+    secret always has at least one binding, preventing orphaned secrets.
+
+    Args:
+        secret: The created Secret entity with metadata.
+        binding: The initial SecretBinding that associates the secret with a resource.
+    """
+
+    secret: "Secret"
+    binding: "SecretBinding"
 
 
 @dataclass
@@ -25,6 +48,10 @@ class Secret(_MlflowObject):
         last_updated_at: Last update timestamp in milliseconds since the UNIX epoch.
         created_by: String containing the user ID who created the secret, or None.
         last_updated_by: String containing the user ID who last updated the secret, or None.
+        provider: LLM provider identifier (e.g., "anthropic", "openai", "cohere"), or None.
+            Used for gateway model metadata.
+        model: LLM model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo"), or None.
+            Used for gateway model metadata.
     """
 
     secret_id: str
@@ -35,3 +62,5 @@ class Secret(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+    provider: str | None = None
+    model: str | None = None

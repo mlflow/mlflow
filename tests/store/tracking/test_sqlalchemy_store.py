@@ -364,9 +364,13 @@ def create_secret(store, kek_passphrase):
             "secret_name": f"test_secret_{uuid.uuid4().hex[:8]}",
             "secret_value": "test-secret-value-default",
             "is_shared": False,
+            "resource_type": "SCORER_JOB",
+            "resource_id": f"test_resource_{uuid.uuid4().hex[:8]}",
+            "field_name": "TEST_SECRET",
         }
         defaults.update(kwargs)
-        return store._create_secret(**defaults)
+        result = store._create_and_bind_secret(**defaults)
+        return result.secret
 
     return _create_secret
 
@@ -11358,6 +11362,27 @@ def test_secret_model(create_secret):
     assert secret_entity.created_by == "user@example.com"
     assert secret_entity.last_updated_by == "user@example.com"
     assert secret_entity.secret_id is not None
+    assert secret_entity.provider is None
+    assert secret_entity.model is None
+
+
+def test_secret_with_provider_and_model(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(
+        secret_name="llm_api_key",
+        secret_value="sk-anthropic-test-key",
+        provider="anthropic",
+        model="claude-3-5-sonnet-20241022",
+        created_by="user@example.com",
+    )
+
+    assert secret_entity.secret_name == "llm_api_key"
+    assert secret_entity.provider == "anthropic"
+    assert secret_entity.model == "claude-3-5-sonnet-20241022"
+    assert secret_entity.created_by == "user@example.com"
+
+    retrieved_secret = store._get_secret_info(secret_entity.secret_id)
+    assert retrieved_secret.provider == "anthropic"
+    assert retrieved_secret.model == "claude-3-5-sonnet-20241022"
 
 
 def test_secret_binding_model(store: SqlAlchemyStore, create_secret):
@@ -11377,6 +11402,111 @@ def test_secret_binding_model(store: SqlAlchemyStore, create_secret):
     assert binding_entity.field_name == "api_key"
     assert binding_entity.created_by == "user@example.com"
     assert binding_entity.last_updated_by == "user@example.com"
+
+
+def test_create_and_bind_secret_atomic(store: SqlAlchemyStore, kek_passphrase):
+    secret_name = "test_api_key"
+    secret_value = "sk-test-value-12345"
+    resource_type = SecretResourceType.SCORER_JOB
+    resource_id = "scorer_123"
+    field_name = "OPENAI_API_KEY"
+    created_by = "user@example.com"
+
+    result = store._create_and_bind_secret(
+        secret_name=secret_name,
+        secret_value=secret_value,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+        is_shared=False,
+        created_by=created_by,
+    )
+
+    assert result.secret.secret_name == secret_name
+    assert result.secret.is_shared is False
+    assert result.secret.created_by == created_by
+    assert result.secret.masked_value == "sk-...2345"
+    assert not hasattr(result.secret, "secret_value")
+
+    assert result.binding.secret_id == result.secret.secret_id
+    assert result.binding.resource_type == resource_type
+    assert result.binding.resource_id == resource_id
+    assert result.binding.field_name == field_name
+    assert result.binding.created_by == created_by
+
+    retrieved_secret = store._get_secret_info(result.secret.secret_id)
+    assert retrieved_secret.secret_id == result.secret.secret_id
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 1
+    assert bindings[0].binding_id == result.binding.binding_id
+
+
+def test_create_and_bind_prevents_orphaned_secrets(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="test_secret",
+        secret_value="test_value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_id",
+        field_name="API_KEY",
+        is_shared=True,
+    )
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 1, "Secret must have at least one binding"
+
+    all_bindings = store._list_secret_bindings()
+    secret_binding_count = sum(1 for b in all_bindings if b.secret_id == result.secret.secret_id)
+    assert secret_binding_count == 1
+
+
+def test_create_and_bind_duplicate_binding_fails(store: SqlAlchemyStore, kek_passphrase):
+    resource_type = SecretResourceType.SCORER_JOB
+    resource_id = "scorer_456"
+    field_name = "ANTHROPIC_API_KEY"
+
+    store._create_and_bind_secret(
+        secret_name="first_secret",
+        secret_value="value1",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+    )
+
+    with pytest.raises(
+        MlflowException, match="Binding already exists for resource_type=.*resource_id="
+    ):
+        store._create_and_bind_secret(
+            secret_name="second_secret",
+            secret_value="value2",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            field_name=field_name,
+        )
+
+
+def test_create_and_bind_shared_secret_reuse_via_additional_binding(
+    store: SqlAlchemyStore, kek_passphrase
+):
+    result = store._create_and_bind_secret(
+        secret_name="shared_openai_key",
+        secret_value="sk-shared-value",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_1",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    store._bind_secret(
+        secret_id=result.secret.secret_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_2",
+        field_name="OPENAI_API_KEY",
+    )
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 2
+    assert {b.resource_id for b in bindings} == {"scorer_1", "scorer_2"}
 
 
 def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
@@ -11420,6 +11550,25 @@ def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
     assert secrets_retrieved_3["llm_api_key"] == "sk-test-openai-key-12345"
 
 
+def test_bind_private_secret_raises_error(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="private_key",
+        secret_value="sk-private-12345",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_1",
+        field_name="API_KEY",
+        is_shared=False,
+    )
+
+    with pytest.raises(MlflowException, match="Cannot bind private secret"):
+        store._bind_secret(
+            secret_id=result.secret.secret_id,
+            resource_type=SecretResourceType.SCORER_JOB,
+            resource_id="scorer_2",
+            field_name="API_KEY",
+        )
+
+
 def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(is_shared=True)
 
@@ -11461,8 +11610,8 @@ def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
 
 
 def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_secret):
-    secret_1 = create_secret(secret_name="openai_key")
-    secret_2 = create_secret(secret_name="anthropic_key")
+    secret_1 = create_secret(secret_name="openai_key", is_shared=True)
+    secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
 
     binding_1 = store._bind_secret(
         secret_id=secret_1.secret_id,
@@ -11575,6 +11724,7 @@ def test_get_encrypted_secret_by_binding(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(
         secret_name="test_encrypted_secret",
         secret_value="sk-test-api-key-value",
+        is_shared=True,
     )
 
     store._bind_secret(
@@ -11593,7 +11743,7 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "empty_job")
     assert secrets == {}
 
-    secret_1 = create_secret(secret_name="openai_key")
+    secret_1 = create_secret(secret_name="openai_key", is_shared=True)
     store._bind_secret(
         secret_id=secret_1.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
@@ -11605,8 +11755,8 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     assert len(secrets) == 1
     assert "openai_key" in secrets
 
-    secret_2 = create_secret(secret_name="anthropic_key")
-    secret_3 = create_secret(secret_name="db_password")
+    secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
+    secret_3 = create_secret(secret_name="db_password", is_shared=True)
 
     store._bind_secret(
         secret_id=secret_2.secret_id,
@@ -11625,8 +11775,8 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     assert len(secrets) == 2
     assert set(secrets.keys()) == {"anthropic_key", "db_password"}
 
-    secret_4 = create_secret(secret_name="job4_secret")
-    secret_5 = create_secret(secret_name="job5_secret")
+    secret_4 = create_secret(secret_name="job4_secret", is_shared=True)
+    secret_5 = create_secret(secret_name="job5_secret", is_shared=True)
 
     store._bind_secret(
         secret_id=secret_4.secret_id,
@@ -11654,6 +11804,7 @@ def test_secret_dict_value_storage(store: SqlAlchemyStore, create_secret):
     dict_secret = create_secret(
         secret_name="openai_config",
         secret_value={"api_key": "sk-test123", "organization": "org-test"},
+        is_shared=True,
     )
     assert dict_secret.secret_id is not None
 
@@ -11673,7 +11824,7 @@ def test_secret_dict_nested_structure(store: SqlAlchemyStore, create_secret):
         "credentials": {"username": "admin", "password": "secret123"},
         "endpoints": {"primary": "https://api.example.com", "backup": "https://backup.example.com"},
     }
-    secret = create_secret(secret_name="nested_config", secret_value=nested_dict)
+    secret = create_secret(secret_name="nested_config", secret_value=nested_dict, is_shared=True)
 
     store._bind_secret(
         secret_id=secret.secret_id,
@@ -11692,7 +11843,7 @@ def test_secret_dict_special_characters(store: SqlAlchemyStore, create_secret):
         "unicode": "测试数据",
         "json_string": '{"nested": "json"}',
     }
-    secret = create_secret(secret_name="special_chars", secret_value=special_dict)
+    secret = create_secret(secret_name="special_chars", secret_value=special_dict, is_shared=True)
 
     store._bind_secret(
         secret_id=secret.secret_id,
