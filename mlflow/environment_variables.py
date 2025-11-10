@@ -203,6 +203,13 @@ MLFLOW_S3_IGNORE_TLS = _BooleanEnvironmentVariable("MLFLOW_S3_IGNORE_TLS", False
 #: (default: ``None``)
 MLFLOW_S3_UPLOAD_EXTRA_ARGS = _EnvironmentVariable("MLFLOW_S3_UPLOAD_EXTRA_ARGS", str, None)
 
+#: Specifies the expected AWS account ID that owns the S3 bucket for bucket ownership verification.
+#: When set, all S3 API calls will include the ExpectedBucketOwner parameter to prevent
+#: bucket takeover attacks. This helps protect against scenarios where a bucket is deleted
+#: and recreated by a different AWS account with the same name.
+#: (default: ``None``)
+MLFLOW_S3_EXPECTED_BUCKET_OWNER = _EnvironmentVariable("MLFLOW_S3_EXPECTED_BUCKET_OWNER", str, None)
+
 #: Specifies the location of a Kerberos ticket cache to use for HDFS artifact operations.
 #: (default: ``None``)
 MLFLOW_KERBEROS_TICKET_CACHE = _EnvironmentVariable("MLFLOW_KERBEROS_TICKET_CACHE", str, None)

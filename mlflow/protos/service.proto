@@ -586,6 +586,20 @@ service MlflowService {
     };
   }
 
+  // Get trace with spans for given trace id.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc getTrace (GetTrace) returns (GetTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/get"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Trace v3",
+    };
+  }
+
   // Get complete traces with spans for given trace identifiers.
   // This API is for OSS MLflow only for traces in v3.
   rpc batchGetTraces (BatchGetTraces) returns (BatchGetTraces.Response) {
@@ -2149,6 +2163,21 @@ message BatchGetTraces {
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
+  }
+}
+
+message GetTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Whether to allow partial traces. Default to True.
+  optional bool allow_partial = 2 [default = true];;
+
+  message Response {
+    // The fetched trace including spans.
+    optional Trace trace = 1;
   }
 }
 
