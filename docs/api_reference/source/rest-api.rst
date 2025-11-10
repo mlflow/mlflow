@@ -1,10 +1,8 @@
-
 .. _rest-api:
 
 ========
 REST API
 ========
-
 
 The MLflow REST API allows you to manage MLflow experiments, runs, traces, artifacts, and more.
 The API is hosted under the ``/api`` route on the MLflow tracking server. For example, to search for
@@ -18,8 +16,6 @@ experiments on a tracking server hosted at ``http://localhost:5000``, make a POS
     :local:
     :depth: 2
 
-
-
 Experiment
 ==========
 
@@ -27,7 +23,6 @@ Experiment
 
 Create Experiment
 -----------------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -39,21 +34,12 @@ Create an experiment with a name. Returns the ID of the newly created experiment
 Validates that another experiment with the same name does not already exist and fails
 if another experiment with the same name already exists.
 
-
 Throws ``RESOURCE_ALREADY_EXISTS`` if a experiment with the given name exists.
-
-
-
 
 .. _mlflowCreateExperiment:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------------+----------------------------------------+------------------------------------------------------------------------------------------------+
 |    Field Name     |                  Type                  |                                          Description                                           |
@@ -76,11 +62,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +---------------+------------+---------------------------------------+
 |  Field Name   |    Type    |              Description              |
 +===============+============+=======================================+
@@ -89,13 +70,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicegetExperiment:
 
 Get Experiment
 --------------
-
 
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
@@ -105,14 +83,10 @@ Get Experiment
 
 Get metadata for an experiment. This method works on deleted experiments.
 
-
-
-
 .. _mlflowGetExperiment:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
 
 +---------------+------------+----------------------------------+
 |  Field Name   |    Type    |           Description            |
@@ -135,12 +109,10 @@ Response Structure
 
 ===========================
 
-
 .. _mlflowMlflowServicegetExperimentByName:
 
 Get Experiment By Name
 ----------------------
-
 
 +----------------------------------------+-------------+
 | Endpoint                               | HTTP Method |
@@ -156,14 +128,10 @@ experiments share the same name, the API will return one of them.
 
 Throws ``RESOURCE_DOES_NOT_EXIST`` if no experiment with the specified name exists.
 
-
-
-
 .. _mlflowGetExperimentByName:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
 
 +-----------------+------------+------------------------------------+
 |   Field Name    |    Type    |            Description             |
@@ -178,7 +146,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
 +------------+-------------------------+---------------------+
 | Field Name |          Type           |     Description     |
 +============+=========================+=====================+
@@ -187,13 +154,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServiceupdateExperiment:
 
 Update Experiment
 -----------------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -203,18 +167,10 @@ Update Experiment
 
 Update experiment metadata.
 
-
-
-
 .. _mlflowUpdateExperiment:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+------------+---------------------------------------------------------------------------------------------+
 |  Field Name   |    Type    |                                         Description                                         |
@@ -228,13 +184,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicedeleteExperiment:
 
 Delete Experiment
 -----------------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -245,18 +198,10 @@ Delete Experiment
 Mark an experiment and associated metadata, runs, metrics, params, and tags for deletion.
 If the experiment uses FileStore, artifacts associated with experiment are also deleted.
 
-
-
-
 .. _mlflowDeleteExperiment:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+------------+----------------------------------+
 |  Field Name   |    Type    |           Description            |
@@ -268,13 +213,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicerestoreExperiment:
 
 Restore Experiment
 ------------------
-
 
 +------------------------------------+-------------+
 | Endpoint                           | HTTP Method |
@@ -288,18 +230,10 @@ artifacts associated with experiment are also restored.
 
 Throws ``RESOURCE_DOES_NOT_EXIST`` if experiment was never created or was permanently deleted.
 
-
-
-
 .. _mlflowRestoreExperiment:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+------------+----------------------------------+
 |  Field Name   |    Type    |           Description            |
@@ -311,13 +245,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicesearchExperiments:
 
 Search Experiments
 ------------------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -325,20 +256,10 @@ Search Experiments
 | ``2.0/mlflow/experiments/search`` | ``POST``    |
 +-----------------------------------+-------------+
 
-
-
-
-
-
 .. _mlflowSearchExperiments:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------------------+--------------------------------------------------------------------------------------------+
 | Field Name  |          Type          |                                        Description                                         |
@@ -377,11 +298,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +-----------------+-------------------------------------+----------------------------------------------------------------------------+
 |   Field Name    |                Type                 |                                Description                                 |
 +=================+=====================================+============================================================================+
@@ -393,13 +309,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicesetExperimentTag:
 
 Set Experiment Tag
 ------------------
-
 
 +-----------------------------------------------+-------------+
 | Endpoint                                      | HTTP Method |
@@ -409,18 +322,10 @@ Set Experiment Tag
 
 Set a tag on an experiment. Experiment tags are metadata that can be updated.
 
-
-
-
 .. _mlflowSetExperimentTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+------------+-------------------------------------------------------------------------------------+
 |  Field Name   |    Type    |                                     Description                                     |
@@ -441,8 +346,6 @@ Request Structure
 +---------------+------------+-------------------------------------------------------------------------------------+
 
 ===========================
-
-
 
 .. _mlflowMlflowServicedeleteExperimentTag:
 
@@ -477,8 +380,6 @@ Response Structure
 
 ===========================
 
-
-
 Runs
 ====
 
@@ -486,7 +387,6 @@ Runs
 
 Create Run
 ----------
-
 
 +----------------------------+-------------+
 | Endpoint                   | HTTP Method |
@@ -498,18 +398,10 @@ Create a new run within an experiment. A run is usually a single execution of a
 machine learning or data ETL pipeline. MLflow uses runs to track :ref:`mlflowParam`,
 :ref:`mlflowMetric`, and :ref:`mlflowRunTag` associated with a single execution.
 
-
-
-
 .. _mlflowCreateRun:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------------+----------------------------------------------------------------------------+
 |  Field Name   |              Type               |                                Description                                 |
@@ -532,11 +424,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +------------+------------------+------------------------+
 | Field Name |       Type       |      Description       |
 +============+==================+========================+
@@ -545,13 +432,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicegetRun:
 
 Get Run
 -------
-
 
 +-------------------------+-------------+
 | Endpoint                | HTTP Method |
@@ -563,18 +447,10 @@ Get metadata, metrics, params, and tags for a run. In the case where multiple me
 with the same key are logged for a run, return only the value with the latest timestamp.
 If there are multiple values with the latest timestamp, return the maximum of these values.
 
-
-
-
 .. _mlflowGetRun:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+--------------------------------------------------------------------------+
 | Field Name |    Type    |                               Description                                |
@@ -590,11 +466,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +------------+------------------+----------------------------------------------------------------------------+
 | Field Name |       Type       |                                Description                                 |
 +============+==================+============================================================================+
@@ -603,13 +474,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServiceupdateRun:
 
 Update Run
 ----------
-
 
 +----------------------------+-------------+
 | Endpoint                   | HTTP Method |
@@ -619,18 +487,10 @@ Update Run
 
 Update run metadata.
 
-
-
-
 .. _mlflowUpdateRun:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------------------+----------------------------------------------------------------------------+
 | Field Name |          Type          |                                Description                                 |
@@ -652,11 +512,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +------------+----------------------+------------------------------+
 | Field Name |         Type         |         Description          |
 +============+======================+==============================+
@@ -665,13 +520,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicedeleteRun:
 
 Delete Run
 ----------
-
 
 +----------------------------+-------------+
 | Endpoint                   | HTTP Method |
@@ -681,18 +533,10 @@ Delete Run
 
 Mark a run for deletion.
 
-
-
-
 .. _mlflowDeleteRun:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+--------------------------+
 | Field Name |    Type    |       Description        |
@@ -704,13 +548,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicerestoreRun:
 
 Restore Run
 -----------
-
 
 +-----------------------------+-------------+
 | Endpoint                    | HTTP Method |
@@ -720,18 +561,10 @@ Restore Run
 
 Restore a deleted run.
 
-
-
-
 .. _mlflowRestoreRun:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+---------------------------+
 | Field Name |    Type    |        Description        |
@@ -743,13 +576,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicesearchRuns:
 
 Search Runs
 -----------
-
 
 +----------------------------+-------------+
 | Endpoint                   | HTTP Method |
@@ -760,18 +590,10 @@ Search Runs
 Search for runs that satisfy expressions. Search expressions can use :ref:`mlflowMetric` and
 :ref:`mlflowParam` keys.
 
-
-
-
 .. _mlflowSearchRuns:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +----------------+------------------------+------------------------------------------------------------------------------------------------------+
 |   Field Name   |          Type          |                                             Description                                              |
@@ -811,11 +633,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +-----------------+------------------------------+--------------------------------------+
 |   Field Name    |             Type             |             Description              |
 +=================+==============================+======================================+
@@ -826,12 +643,10 @@ Response Structure
 
 ===========================
 
-
 .. _mlflowMlflowServicesetTag:
 
 Set Tag
 -------
-
 
 +-----------------------------+-------------+
 | Endpoint                    | HTTP Method |
@@ -842,18 +657,10 @@ Set Tag
 Set a tag on a run. Tags are run metadata that can be updated during a run and after
 a run completes.
 
-
-
-
 .. _mlflowSetTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+--------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                        Description                                         |
@@ -876,13 +683,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicedeleteTag:
 
 Delete Tag
 ----------
-
 
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
@@ -893,18 +697,10 @@ Delete Tag
 Delete a tag on a run. Tags are run metadata that can be updated during a run and after
 a run completes.
 
-
-
-
 .. _mlflowDeleteTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+----------------------------------------------------------------+
 | Field Name |    Type    |                          Description                           |
@@ -920,19 +716,10 @@ Request Structure
 
 ===========================
 
-
-
-
-
-
-
-
-
 .. _mlflowMlflowServicelogMetric:
 
 Log Metric
 ----------
-
 
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
@@ -944,18 +731,10 @@ Log a metric for a run. A metric is a key-value pair (string key, float value) w
 associated timestamp. Examples include the various metrics that represent ML model accuracy.
 A metric can be logged multiple times.
 
-
-
-
 .. _mlflowLogMetric:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+-----------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                          Description                                          |
@@ -982,13 +761,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogParam:
 
 Log Param
 ---------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -1000,18 +776,10 @@ Log a param used for a run. A param is a key-value pair (string key,
 string value). Examples include hyperparameters used for ML model training and
 constant dates and values used in an ETL pipeline. A param can be logged only once for a run.
 
-
-
-
 .. _mlflowLogParam:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+----------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                         Description                                          |
@@ -1032,13 +800,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogBatch:
 
 Log Batch
 ---------
-
 
 +-------------------------------+-------------+
 | Endpoint                      | HTTP Method |
@@ -1095,18 +860,10 @@ to metric, param, and tag keys and values:
 - Metric, param, and tag keys can be up to 250 characters in length
 - Param and tag values can be up to 250 characters in length
 
-
-
-
 .. _mlflowLogBatch:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+---------------------------------+---------------------------------------------------------------------------------+
 | Field Name |              Type               |                                   Description                                   |
@@ -1125,13 +882,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogInputs:
 
 Log Inputs
 ----------
-
 
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
@@ -1142,19 +896,13 @@ Log Inputs
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
-
-
-
 .. _mlflowLogInputs:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
 
-
-
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
-
 
 +------------+---------------------------------------+----------------------------+
 | Field Name |                 Type                  |        Description         |
@@ -1168,13 +916,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowMlflowServicelogModel:
 
 Log Model
 ---------
-
 
 +-------------------------------+-------------+
 | Endpoint                      | HTTP Method |
@@ -1185,18 +930,10 @@ Log Model
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
-
-
-
 .. _mlflowLogModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------+
 | Field Name |    Type    |         Description          |
@@ -1207,8 +944,6 @@ Request Structure
 +------------+------------+------------------------------+
 
 ===========================
-
-
 
 .. _mlflowMlflowServicelogOutputs:
 
@@ -1241,18 +976,12 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
-
-
-
 
 .. _mlflowMlflowServicegetMetricHistory:
 
 Get Metric History
 ------------------
-
 
 +------------------------------------+-------------+
 | Endpoint                           | HTTP Method |
@@ -1262,18 +991,10 @@ Get Metric History
 
 Get a list of all values for the specified metric for a given run.
 
-
-
-
 .. _mlflowGetMetricHistory:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------+------------------------------------------------------------------------------------------------+
 | Field Name  |    Type    |                                          Description                                           |
@@ -1300,11 +1021,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +-----------------+---------------------------------+-------------------------------------------------------------------------------------+
 |   Field Name    |              Type               |                                     Description                                     |
 +=================+=================================+=====================================================================================+
@@ -1315,8 +1031,6 @@ Response Structure
 +-----------------+---------------------------------+-------------------------------------------------------------------------------------+
 
 ===========================
-
-
 
 .. _mlflowMlflowServicegetMetricHistoryBulkInterval:
 
@@ -1353,11 +1067,7 @@ Response Structure
 | metrics    | An array of ``MetricWithRunId`` | History of metric values for the requested runs. |
 +------------+---------------------------------+--------------------------------------------------+
 
-
 ===========================
-
-
-
 
 LoggedModels
 ============
@@ -1398,9 +1108,7 @@ Response Structure
 | model      | ``LoggedModel`` | The newly created Logged Model. |
 +------------+-----------------+---------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicegetLoggedModel:
 
@@ -1433,9 +1141,7 @@ Response Structure
 | model      | ``LoggedModel`` | Retrieved Logged Model. |
 +------------+-----------------+-------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicefinalizeLoggedModel:
 
@@ -1469,9 +1175,7 @@ Response Structure
 | model      | ``LoggedModel`` | Updated Logged Model. |
 +------------+-----------------+-----------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteLoggedModel:
 
@@ -1503,9 +1207,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicesearchLoggedModels:
 
@@ -1544,9 +1246,7 @@ Response Structure
 | next_page_token | ``STRING``                  | Token for the next page of results.  |
 +-----------------+-----------------------------+--------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicesetLoggedModelTags:
 
@@ -1580,9 +1280,7 @@ Response Structure
 | model      | ``LoggedModel`` | Updated Logged Model. |
 +------------+-----------------+-----------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteLoggedModelTag:
 
@@ -1615,9 +1313,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicelistLoggedModelArtifacts:
 
@@ -1654,9 +1350,7 @@ Response Structure
 | next_page_token | ``STRING``               | Token for the next page of artifacts. |
 +-----------------+--------------------------+---------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServiceLogLoggedModelParams:
 
@@ -1689,12 +1383,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
-
-
-
 
 Artifacts
 =========
@@ -1703,7 +1392,6 @@ Artifacts
 
 List Artifacts
 --------------
-
 
 +-------------------------------+-------------+
 | Endpoint                      | HTTP Method |
@@ -1714,18 +1402,10 @@ List Artifacts
 List artifacts for a run. Takes an optional ``artifact_path`` prefix which if specified,
 the response contains only artifacts with the specified prefix.
 
-
-
-
 .. _mlflowListArtifacts:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+-----------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                       Description                                       |
@@ -1745,11 +1425,6 @@ Request Structure
 Response Structure
 ~~~~~~~~~~~~~~~~~~
 
-
-
-
-
-
 +-----------------+-----------------------------------+----------------------------------------------------------------------+
 |   Field Name    |               Type                |                             Description                              |
 +=================+===================================+======================================================================+
@@ -1761,9 +1436,6 @@ Response Structure
 +-----------------+-----------------------------------+----------------------------------------------------------------------+
 
 ===========================
-
-
-
 
 Dataset
 =======
@@ -1799,10 +1471,7 @@ Response Structure
 | dataset_summaries | An array of ``DatasetSummary`` | Most recently created datasets per backend policy. |
 +-------------------+--------------------------------+----------------------------------------------------+
 
-
 ===========================
-
-
 
 Traces
 ======
@@ -1838,9 +1507,7 @@ Response Structure
 | trace      | ``Trace`` | Created trace. |
 +------------+-----------+----------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteTraces:
 
@@ -1876,10 +1543,7 @@ Response Structure
 | traces_deleted | ``INT32`` | Number of traces deleted. |
 +----------------+-----------+---------------------------+
 
-
 ===========================
-
-
 
 .. _mlflowMlflowServicegetTraceInfo:
 
@@ -1912,9 +1576,7 @@ Response Structure
 | trace      | ``Trace`` | Trace with metadata and spans. |
 +------------+-----------+--------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicesearchTraces:
 
@@ -1952,9 +1614,7 @@ Response Structure
 | next_page_token | ``STRING``                  | Token for the next page of results.   |
 +-----------------+-----------------------------+---------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicebatchGetTraces:
 
@@ -1987,10 +1647,7 @@ Response Structure
 | traces     | An array of ``Trace`` | Fetched traces. |
 +------------+-----------------------+-----------------+
 
-
 ===========================
-
-
 
 .. _mlflowMlflowServicesetTraceTag:
 
@@ -2026,7 +1683,6 @@ Response Structure
 
 ===========================
 
-
 .. _mlflowMlflowServicedeleteTraceTag:
 
 Delete Trace Tag
@@ -2060,7 +1716,6 @@ Response Structure
 
 ===========================
 
-
 .. _mlflowMlflowServicelinkTracesToRun:
 
 Link Traces To Run
@@ -2092,9 +1747,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicecalculateTraceFilterCorrelation:
 
@@ -2135,15 +1788,10 @@ Response Structure
 | total_count   | ``INT32``  | Total traces in the experiments.   |
 +---------------+------------+------------------------------------+
 
-
 ===========================
-
-
-
 
 Assessments
 ===========
-
 
 .. _mlflowMlflowServicecreateAssessment:
 
@@ -2176,9 +1824,7 @@ Response Structure
 | assessment | ``assessments.Assessment`` | The created assessment. |
 +------------+----------------------------+-------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServiceGetAssessment:
 
@@ -2212,7 +1858,6 @@ Response Structure
 | assessment | ``assessments.Assessment`` | The requested assessment. |
 +------------+----------------------------+---------------------------+
 
-
 .. _mlflowMlflowServiceupdateAssessment:
 
 Update Assessment
@@ -2245,9 +1890,7 @@ Response Structure
 | assessment | ``assessments.Assessment`` | The updated assessment. |
 +------------+----------------------------+-------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteAssessment:
 
@@ -2280,12 +1923,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
-
-
-
 
 EvaluationDataset
 =================
@@ -2328,9 +1966,7 @@ Response Structure
 | dataset    | ``datasets.Dataset`` | Created dataset. |
 +------------+----------------------+------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicegetDataset:
 
@@ -2365,9 +2001,7 @@ Response Structure
 | next_page_token | ``STRING``           | Token for the next page of records. |
 +-----------------+----------------------+-------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteDataset:
 
@@ -2399,9 +2033,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicesearchEvaluationDatasets:
 
@@ -2439,9 +2071,7 @@ Response Structure
 | next_page_token | ``STRING``                       | Token for the next page of results. |
 +-----------------+----------------------------------+-------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicesetDatasetTags:
 
@@ -2475,9 +2105,7 @@ Response Structure
 | dataset    | ``datasets.Dataset`` | Updated dataset. |
 +------------+----------------------+------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteDatasetTag:
 
@@ -2510,9 +2138,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServiceupsertDatasetRecords:
 
@@ -2548,9 +2174,7 @@ Response Structure
 | updated_count  | ``INT32`` | Number of records updated.  |
 +----------------+-----------+-----------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicegetDatasetExperimentIds:
 
@@ -2583,11 +2207,7 @@ Response Structure
 | experiment_ids | An array of ``STRING`` | Experiment IDs associated with the dataset. |
 +----------------+------------------------+---------------------------------------------+
 
-
 ===========================
-
-
-
 
 .. _mlflowMlflowServicegetDatasetRecords:
 
@@ -2620,10 +2240,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
-
 
 Scorer
 ======
@@ -2666,9 +2283,7 @@ Response Structure
 | creation_time     | ``INT64``  | Creation time in ms since epoch.   |
 +-------------------+------------+------------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicegetScorer:
 
@@ -2703,9 +2318,7 @@ Response Structure
 | scorer     | ``Scorer`` | The scorer entity. |
 +------------+------------+--------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicedeleteScorer:
 
@@ -2739,9 +2352,7 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicelistScorers:
 
@@ -2774,9 +2385,7 @@ Response Structure
 | scorers    | An array of ``Scorer`` | Latest version per scorer name. |
 +------------+------------------------+---------------------------------+
 
-
 ===========================
-
 
 .. _mlflowMlflowServicelistScorerVersions:
 
@@ -2810,10 +2419,7 @@ Response Structure
 | scorers    | An array of ``Scorer`` | All versions of the scorer. |
 +------------+------------------------+-----------------------------+
 
-
 ===========================
-
-
 
 RegisteredModel
 ===============
@@ -2823,7 +2429,6 @@ RegisteredModel
 Create RegisteredModel
 ----------------------
 
-
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
 +=========================================+=============+
@@ -2832,17 +2437,10 @@ Create RegisteredModel
 
 Throws ``RESOURCE_ALREADY_EXISTS`` if a registered model with the given name exists.
 
-
-
 .. _mlflowCreateRegisteredModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+---------------------------------------------+--------------------------------------------+
 | Field Name  |                    Type                     |                Description                 |
@@ -2855,15 +2453,11 @@ Request Structure
 +-------------+---------------------------------------------+--------------------------------------------+
 | description | ``STRING``                                  | Optional description for registered model. |
 +-------------+---------------------------------------------+--------------------------------------------+
+
 .. _mlflowCreateRegisteredModelResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------------+------------------------------+-------------+
 |    Field Name    |             Type             | Description |
@@ -2873,13 +2467,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicegetRegisteredModel:
 
 Get RegisteredModel
 -------------------
-
 
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
@@ -2887,19 +2478,10 @@ Get RegisteredModel
 | ``2.0/mlflow/registered-models/get`` | ``GET``     |
 +--------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowGetRegisteredModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------------------+
 | Field Name |    Type    |               Description                |
@@ -2908,15 +2490,11 @@ Request Structure
 |            |            | This field is required.                  |
 |            |            |                                          |
 +------------+------------+------------------------------------------+
+
 .. _mlflowGetRegisteredModelResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------------+------------------------------+-------------+
 |    Field Name    |             Type             | Description |
@@ -2926,13 +2504,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicerenameRegisteredModel:
 
 Rename RegisteredModel
 ----------------------
-
 
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
@@ -2940,19 +2515,10 @@ Rename RegisteredModel
 | ``2.0/mlflow/registered-models/rename`` | ``POST``    |
 +-----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowRenameRegisteredModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+--------------------------------------------------------------+
 | Field Name |    Type    |                         Description                          |
@@ -2963,15 +2529,11 @@ Request Structure
 +------------+------------+--------------------------------------------------------------+
 | new_name   | ``STRING`` | If provided, updates the name for this ``registered_model``. |
 +------------+------------+--------------------------------------------------------------+
+
 .. _mlflowRenameRegisteredModelResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------------+------------------------------+-------------+
 |    Field Name    |             Type             | Description |
@@ -2981,13 +2543,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServiceupdateRegisteredModel:
 
 Update RegisteredModel
 ----------------------
-
 
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
@@ -2995,19 +2554,10 @@ Update RegisteredModel
 | ``2.0/mlflow/registered-models/update`` | ``PATCH``   |
 +-----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowUpdateRegisteredModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------+---------------------------------------------------------------------+
 | Field Name  |    Type    |                             Description                             |
@@ -3018,15 +2568,11 @@ Request Structure
 +-------------+------------+---------------------------------------------------------------------+
 | description | ``STRING`` | If provided, updates the description for this ``registered_model``. |
 +-------------+------------+---------------------------------------------------------------------+
+
 .. _mlflowUpdateRegisteredModelResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------------+------------------------------+-------------+
 |    Field Name    |             Type             | Description |
@@ -3036,13 +2582,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicedeleteRegisteredModel:
 
 Delete RegisteredModel
 ----------------------
-
 
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
@@ -3050,19 +2593,10 @@ Delete RegisteredModel
 | ``2.0/mlflow/registered-models/delete`` | ``DELETE``  |
 +-----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowDeleteRegisteredModel:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------------------+
 | Field Name |    Type    |               Description                |
@@ -3074,10 +2608,7 @@ Request Structure
 
 ===========================
 
-
 .. (Search RegisteredModels moved above to Search section)
-
-
 
 .. _mlflowModelRegistryServicegetLatestVersions:
 
@@ -3092,19 +2623,10 @@ Get Latest ModelVersions
 | ``2.0/mlflow/registered-models/get-latest-versions`` | ``GET``     |
 +------------------------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowGetLatestVersions:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------------------+------------------------------------------+
 | Field Name |          Type          |               Description                |
@@ -3115,15 +2637,11 @@ Request Structure
 +------------+------------------------+------------------------------------------+
 | stages     | An array of ``STRING`` | List of stages.                          |
 +------------+------------------------+------------------------------------------+
+
 .. _mlflowGetLatestVersionsResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +----------------+---------------------------------------+--------------------------------------------------------------------------------------------------+
 |   Field Name   |                 Type                  |                                           Description                                            |
@@ -3134,13 +2652,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicesearchRegisteredModels:
 
 Search RegisteredModels
 -----------------------
-
 
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
@@ -3148,19 +2663,10 @@ Search RegisteredModels
 | ``2.0/mlflow/registered-models/search`` | ``GET``     |
 +-----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowSearchRegisteredModels:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------------------+--------------------------------------------------------------------------------------------+
 | Field Name  |          Type          |                                        Description                                         |
@@ -3177,15 +2683,11 @@ Request Structure
 +-------------+------------------------+--------------------------------------------------------------------------------------------+
 | page_token  | ``STRING``             | Pagination token to go to the next page based on a previous search query.                  |
 +-------------+------------------------+--------------------------------------------------------------------------------------------+
+
 .. _mlflowSearchRegisteredModelsResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------------+------------------------------------------+------------------------------------------------------+
 |    Field Name     |                   Type                   |                     Description                      |
@@ -3197,13 +2699,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicesetRegisteredModelTag:
 
 Set Registered Model Tag
 ------------------------
-
 
 +------------------------------------------+-------------+
 | Endpoint                                 | HTTP Method |
@@ -3211,19 +2710,10 @@ Set Registered Model Tag
 | ``2.0/mlflow/registered-models/set-tag`` | ``POST``    |
 +------------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowSetRegisteredModelTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                               Description                                                |
@@ -3245,13 +2735,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicedeleteRegisteredModelTag:
 
 Delete Registered Model Tag
 ---------------------------
-
 
 +---------------------------------------------+-------------+
 | Endpoint                                    | HTTP Method |
@@ -3259,19 +2746,10 @@ Delete Registered Model Tag
 | ``2.0/mlflow/registered-models/delete-tag`` | ``DELETE``  |
 +---------------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowDeleteRegisteredModelTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+-------------------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                                    Description                                                    |
@@ -3287,13 +2765,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicedeleteRegisteredModelAlias:
 
 Delete Registered Model Alias
 -----------------------------
-
 
 +----------------------------------------+-------------+
 | Endpoint                               | HTTP Method |
@@ -3301,19 +2776,10 @@ Delete Registered Model Alias
 | ``2.0/mlflow/registered-models/alias`` | ``DELETE``  |
 +----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowDeleteRegisteredModelAlias:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+---------------------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                                     Description                                                     |
@@ -3329,13 +2795,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicegetModelVersionByAlias:
 
 Get Model Version by Alias
 --------------------------
-
 
 +----------------------------------------+-------------+
 | Endpoint                               | HTTP Method |
@@ -3343,19 +2806,10 @@ Get Model Version by Alias
 | ``2.0/mlflow/registered-models/alias`` | ``GET``     |
 +----------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowGetModelVersionByAlias:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+-----------------------------------------------+
 | Field Name |    Type    |                  Description                  |
@@ -3368,15 +2822,11 @@ Request Structure
 |            |            | This field is required.                       |
 |            |            |                                               |
 +------------+------------+-----------------------------------------------+
+
 .. _mlflowGetModelVersionByAliasResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------+-------------+
 |  Field Name   |           Type            | Description |
@@ -3386,13 +2836,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicesetRegisteredModelAlias:
 
 Set Registered Model Alias
 --------------------------
-
 
 +----------------------------------------+-------------+
 | Endpoint                               | HTTP Method |
@@ -3400,21 +2847,10 @@ Set Registered Model Alias
 | ``2.0/mlflow/registered-models/alias`` | ``POST``    |
 +----------------------------------------+-------------+
 
-
-
-
-
-
-
 .. _mlflowSetRegisteredModelAlias:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+---------------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                                  Description                                                  |
@@ -3439,8 +2875,6 @@ Request Structure
 Data Structures
 ---------------
 
-
-
 ModelVersion
 ============
 .. _mlflowModelRegistryServicecreateModelVersion:
@@ -3448,26 +2882,16 @@ ModelVersion
 Create ModelVersion
 -------------------
 
-
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
 +======================================+=============+
 | ``2.0/mlflow/model-versions/create`` | ``POST``    |
 +--------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowCreateModelVersion:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------------------------------------+----------------------------------------------------------------------------------------+
 | Field Name  |                   Type                   |                                      Description                                       |
@@ -3490,15 +2914,11 @@ Request Structure
 +-------------+------------------------------------------+----------------------------------------------------------------------------------------+
 | description | ``STRING``                               | Optional description for model version.                                                |
 +-------------+------------------------------------------+----------------------------------------------------------------------------------------+
+
 .. _mlflowCreateModelVersionResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------+-----------------------------------------------------------------+
 |  Field Name   |           Type            |                           Description                           |
@@ -3508,13 +2928,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicegetModelVersion:
 
 Get ModelVersion
 ----------------
-
 
 +-----------------------------------+-------------+
 | Endpoint                          | HTTP Method |
@@ -3522,19 +2939,10 @@ Get ModelVersion
 | ``2.0/mlflow/model-versions/get`` | ``GET``     |
 +-----------------------------------+-------------+
 
-
-
-
-
 .. _mlflowGetModelVersion:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------+
 | Field Name |    Type    |         Description          |
@@ -3547,15 +2955,11 @@ Request Structure
 |            |            | This field is required.      |
 |            |            |                              |
 +------------+------------+------------------------------+
+
 .. _mlflowGetModelVersionResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------+-------------+
 |  Field Name   |           Type            | Description |
@@ -3565,13 +2969,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServiceupdateModelVersion:
 
 Update ModelVersion
 -------------------
-
 
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
@@ -3579,19 +2980,10 @@ Update ModelVersion
 | ``2.0/mlflow/model-versions/update`` | ``PATCH``   |
 +--------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowUpdateModelVersion:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------+---------------------------------------------------------------------+
 | Field Name  |    Type    |                             Description                             |
@@ -3606,15 +2998,11 @@ Request Structure
 +-------------+------------+---------------------------------------------------------------------+
 | description | ``STRING`` | If provided, updates the description for this ``registered_model``. |
 +-------------+------------+---------------------------------------------------------------------+
+
 .. _mlflowUpdateModelVersionResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------+-----------------------------------------------------------------+
 |  Field Name   |           Type            |                           Description                           |
@@ -3624,13 +3012,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicedeleteModelVersion:
 
 Delete ModelVersion
 -------------------
-
 
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
@@ -3638,19 +3023,10 @@ Delete ModelVersion
 | ``2.0/mlflow/model-versions/delete`` | ``DELETE``  |
 +--------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowDeleteModelVersion:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------+
 | Field Name |    Type    |         Description          |
@@ -3666,13 +3042,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicesearchModelVersions:
 
 Search ModelVersions
 --------------------
-
 
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
@@ -3680,19 +3053,10 @@ Search ModelVersions
 | ``2.0/mlflow/model-versions/search`` | ``GET``     |
 +--------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowSearchModelVersions:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-------------+------------------------+----------------------------------------------------------------------------------------------+
 | Field Name  |          Type          |                                         Description                                          |
@@ -3710,15 +3074,11 @@ Request Structure
 +-------------+------------------------+----------------------------------------------------------------------------------------------+
 | page_token  | ``STRING``             | Pagination token to go to next page based on previous search query.                          |
 +-------------+------------------------+----------------------------------------------------------------------------------------------+
+
 .. _mlflowSearchModelVersionsResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +-----------------+---------------------------------------+----------------------------------------------------------------------------+
 |   Field Name    |                 Type                  |                                Description                                 |
@@ -3730,13 +3090,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicegetModelVersionDownloadUri:
 
 Get Download URI For ModelVersion Artifacts
 -------------------------------------------
-
 
 +------------------------------------------------+-------------+
 | Endpoint                                       | HTTP Method |
@@ -3744,19 +3101,10 @@ Get Download URI For ModelVersion Artifacts
 | ``2.0/mlflow/model-versions/get-download-uri`` | ``GET``     |
 +------------------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowGetModelVersionDownloadUri:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+------------------------------+
 | Field Name |    Type    |         Description          |
@@ -3769,15 +3117,12 @@ Request Structure
 |            |            | This field is required.      |
 |            |            |                              |
 +------------+------------+------------------------------+
+
+
 .. _mlflowGetModelVersionDownloadUriResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +--------------+------------+-------------------------------------------------------------------------+
 |  Field Name  |    Type    |                               Description                               |
@@ -3786,8 +3131,6 @@ Response Structure
 +--------------+------------+-------------------------------------------------------------------------+
 
 ===========================
-
-
 
 .. _mlflowModelRegistryServicetransitionModelVersionStage:
 
@@ -3802,19 +3145,10 @@ Transition ModelVersion Stage
 | ``2.0/mlflow/model-versions/transition-stage`` | ``POST``    |
 +------------------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowTransitionModelVersionStage:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------------------+------------+-------------------------------------------------------------------------------------------+
 |        Field Name         |    Type    |                                        Description                                        |
@@ -3838,15 +3172,11 @@ Request Structure
 |                           |            | This field is required.                                                                   |
 |                           |            |                                                                                           |
 +---------------------------+------------+-------------------------------------------------------------------------------------------+
+
 .. _mlflowTransitionModelVersionStageResponse:
 
 Response Structure
 ~~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +---------------+---------------------------+-----------------------+
 |  Field Name   |           Type            |      Description      |
@@ -3856,13 +3186,10 @@ Response Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicesetModelVersionTag:
 
 Set Model Version Tag
 ---------------------
-
 
 +---------------------------------------+-------------+
 | Endpoint                              | HTTP Method |
@@ -3870,19 +3197,10 @@ Set Model Version Tag
 | ``2.0/mlflow/model-versions/set-tag`` | ``POST``    |
 +---------------------------------------+-------------+
 
-
-
-
-
 .. _mlflowSetModelVersionTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+----------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                               Description                                                |
@@ -3908,13 +3226,10 @@ Request Structure
 
 ===========================
 
-
-
 .. _mlflowModelRegistryServicedeleteModelVersionTag:
 
 Delete Model Version Tag
 ------------------------
-
 
 +------------------------------------------+-------------+
 | Endpoint                                 | HTTP Method |
@@ -3922,21 +3237,10 @@ Delete Model Version Tag
 | ``2.0/mlflow/model-versions/delete-tag`` | ``DELETE``  |
 +------------------------------------------+-------------+
 
-
-
-
-
-
-
 .. _mlflowDeleteModelVersionTag:
 
 Request Structure
 ~~~~~~~~~~~~~~~~~
-
-
-
-
-
 
 +------------+------------+-------------------------------------------------------------------------------------------------------------------+
 | Field Name |    Type    |                                                    Description                                                    |
@@ -3954,9 +3258,7 @@ Request Structure
 |            |            |                                                                                                                   |
 +------------+------------+-------------------------------------------------------------------------------------------------------------------+
 
-
 ===========================
-
 
 Types
 =====
@@ -3966,10 +3268,7 @@ Types
 Experiment
 ----------
 
-
-
 Experiment
-
 
 +-------------------+----------------------------------------+--------------------------------------------------------------------+
 |    Field Name     |                  Type                  |                            Description                             |
@@ -3995,10 +3294,7 @@ Experiment
 ExperimentTag
 -------------
 
-
-
 Tag for an experiment.
-
 
 +------------+------------+----------------+
 | Field Name |    Type    |  Description   |
@@ -4012,7 +3308,6 @@ Tag for an experiment.
 
 ViewType
 --------
-
 
 View type for ListExperiments query.
 
@@ -4030,10 +3325,7 @@ View type for ListExperiments query.
 Run
 ---
 
-
-
 A single run.
-
 
 +------------+------------------------+---------------+
 | Field Name |          Type          |  Description  |
@@ -4050,10 +3342,7 @@ A single run.
 RunInfo
 -------
 
-
-
 Metadata of a single run.
-
 
 +-----------------+------------------------+----------------------------------------------------------------------------------+
 |   Field Name    |          Type          |                                   Description                                    |
@@ -4090,10 +3379,7 @@ Metadata of a single run.
 RunData
 -------
 
-
-
 Run data (metrics, params, and tags).
-
 
 +------------+---------------------------------+--------------------------------------+
 | Field Name |              Type               |             Description              |
@@ -4110,10 +3396,7 @@ Run data (metrics, params, and tags).
 Param
 -----
 
-
-
 Param associated with a run.
-
 
 +------------+------------+-----------------------------------+
 | Field Name |    Type    |            Description            |
@@ -4128,10 +3411,7 @@ Param associated with a run.
 Metric
 ------
 
-
-
 Metric associated with a run, represented as a key-value pair.
-
 
 +------------+------------+--------------------------------------------------+
 | Field Name |    Type    |                   Description                    |
@@ -4150,10 +3430,7 @@ Metric associated with a run, represented as a key-value pair.
 RunTag
 ------
 
-
-
 Tag for a run.
-
 
 +------------+------------+----------------+
 | Field Name |    Type    |  Description   |
@@ -4167,7 +3444,6 @@ Tag for a run.
 
 RunStatus
 ---------
-
 
 Status of a run.
 
@@ -4190,13 +3466,10 @@ Status of a run.
 RunInputs
 ---------
 
-
-
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
 Run inputs.
-
 
 +----------------+---------------------------------------+----------------------------+
 |   Field Name   |                 Type                  |        Description         |
@@ -4209,14 +3482,11 @@ Run inputs.
 Dataset
 -------
 
-
-
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
 Dataset. Represents a reference to data used for training, testing, or evaluation during
 the model development process.
-
 
 +-------------+------------+----------------------------------------------------------------------------------------------+
 | Field Name  |    Type    |                                         Description                                          |
@@ -4252,13 +3522,10 @@ the model development process.
 DatasetInput
 ------------
 
-
-
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
 DatasetInput. Represents a dataset and input tags.
-
 
 +------------+-----------------------------------+----------------------------------------------------------------------------------+
 | Field Name |               Type                |                                   Description                                    |
@@ -4275,13 +3542,10 @@ DatasetInput. Represents a dataset and input tags.
 InputTag
 --------
 
-
-
 .. note::
     Experimental: This API may change or be removed in a future release without warning.
 
 Tag for an input.
-
 
 +------------+------------+-------------------------+
 | Field Name |    Type    |       Description       |
@@ -4300,11 +3564,6 @@ Tag for an input.
 FileInfo
 --------
 
-
-
-
-
-
 +------------+------------+---------------------------------------------------+
 | Field Name |    Type    |                    Description                    |
 +============+============+===================================================+
@@ -4319,11 +3578,6 @@ FileInfo
 
 RegisteredModel
 ---------------
-
-
-
-
-
 
 +------------------------+-----------------------------------------------+----------------------------------------------------------------------------------+
 |       Field Name       |                     Type                      |                                   Description                                    |
@@ -4352,10 +3606,7 @@ RegisteredModel
 RegisteredModelAlias
 --------------------
 
-
-
 Alias for a registered model
-
 
 +------------+------------+----------------------------------------------------+
 | Field Name |    Type    |                    Description                     |
@@ -4370,10 +3621,7 @@ Alias for a registered model
 RegisteredModelTag
 ------------------
 
-
-
 Tag for a registered model
-
 
 +------------+------------+----------------+
 | Field Name |    Type    |  Description   |
@@ -4387,11 +3635,6 @@ Tag for a registered model
 
 ModelVersion
 ------------
-
-
-
-
-
 
 +------------------------+------------------------------------------+----------------------------------------------------------------------------------------------------------------+
 |       Field Name       |                   Type                   |                                                  Description                                                   |
@@ -4432,10 +3675,7 @@ ModelVersion
 ModelVersionTag
 ---------------
 
-
-
 Tag for a model version.
-
 
 +------------+------------+----------------+
 | Field Name |    Type    |  Description   |
@@ -4444,13 +3684,11 @@ Tag for a model version.
 +------------+------------+----------------+
 | value      | ``STRING`` | The tag value. |
 +------------+------------+----------------+
+
 .. _mlflowModelVersionStatus:
 
 ModelVersionStatus
 ------------------
-
-
-
 
 +----------------------+-----------------------------------------------------------------------------------------+
 |         Name         |                                       Description                                       |
@@ -4461,4 +3699,3 @@ ModelVersionStatus
 +----------------------+-----------------------------------------------------------------------------------------+
 | READY                | Model version is ready for use.                                                         |
 +----------------------+-----------------------------------------------------------------------------------------+
-
