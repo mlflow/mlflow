@@ -488,6 +488,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
         from skops.io.exceptions import UntrustedTypesFoundException
+
         try:
             return skops.io.load(path, trusted=skops_trusted_types)
         except UntrustedTypesFoundException as e:
@@ -496,7 +497,7 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
                 "if you are sure loading these types are safe, "
                 "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
                 "to the list of trusted types. "
-                f"Root error: {str(e)}"
+                f"Root error: {e!s}"
             )
     else:
         with open(path, "rb") as f:
@@ -644,6 +645,7 @@ def _save_model(sk_model, output_path, serialization_format):
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_SKOPS:
             import skops.io
+
             skops.io.dump(sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_PICKLE:
             _dump_model(pickle, sk_model, out)

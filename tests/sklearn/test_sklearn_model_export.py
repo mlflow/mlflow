@@ -96,7 +96,10 @@ def sklearn_knn_model(iris_df):
     return ModelWithData(model=knn_model, inference_data=X)
 
 
-sklearn_knn_model_skops_trusted_types = ['sklearn.metrics._dist_metrics.EuclideanDistance64', 'sklearn.neighbors._kd_tree.KDTree']
+sklearn_knn_model_skops_trusted_types = [
+    "sklearn.metrics._dist_metrics.EuclideanDistance64",
+    "sklearn.neighbors._kd_tree.KDTree",
+]
 
 
 @pytest.fixture(scope="module")
@@ -140,12 +143,15 @@ def sklearn_custom_env(tmp_path):
 
 @pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
 def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
-    from mlflow.utils.requirements_utils import _parse_requirements
-    import skops
     import cloudpickle
+    import skops
+
+    from mlflow.utils.requirements_utils import _parse_requirements
 
     sk_model = sklearn_logreg_model.model
-    mlflow.sklearn.save_model(sk_model=sk_model, path=model_path, serialization_format=serialization_format)
+    mlflow.sklearn.save_model(
+        sk_model=sk_model, path=model_path, serialization_format=serialization_format
+    )
     reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
     reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
 
@@ -163,7 +169,7 @@ def test_model_save_load(sklearn_logreg_model, model_path, serialization_format)
     logged_reqs = [
         req.req_str
         for req in _parse_requirements(
-            os.path.join(model_path, 'requirements.txt'), is_constraint=False
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
         )
     ]
     if serialization_format != mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE:
@@ -244,7 +250,8 @@ def test_signature_and_examples_are_saved_correctly(sklearn_knn_model, iris_sign
 
 def test_model_load_from_remote_uri_succeeds(sklearn_knn_model, model_path, mock_s3_bucket):
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model, path=model_path,
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
         skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
@@ -586,7 +593,8 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
         model_info = mlflow.sklearn.log_model(sklearn_knn_model.model, name="model")
 
     _assert_pip_requirements(
-        model_info.model_uri, mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos")
+        model_info.model_uri,
+        mlflow.sklearn.get_default_pip_requirements(serialization_format="skpos"),
     )
 
 
@@ -728,7 +736,9 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     artifact_path = "model"
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            model, name=artifact_path, input_example=inference_dataframe,
+            model,
+            name=artifact_path,
+            input_example=inference_dataframe,
             skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
@@ -834,7 +844,9 @@ def test_log_model_with_code_paths(sklearn_knn_model):
         mock.patch("mlflow.sklearn._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name=artifact_path, code_paths=[__file__],
+            sklearn_knn_model.model,
+            name=artifact_path,
+            code_paths=[__file__],
             skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.sklearn.FLAVOR_NAME)
@@ -872,7 +884,9 @@ def test_virtualenv_subfield_points_to_correct_path(sklearn_logreg_model, model_
 
 def test_model_save_load_with_metadata(sklearn_knn_model, model_path):
     mlflow.sklearn.save_model(
-        sklearn_knn_model.model, path=model_path, metadata={"metadata_key": "metadata_value"},
+        sklearn_knn_model.model,
+        path=model_path,
+        metadata={"metadata_key": "metadata_value"},
         skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
@@ -947,7 +961,9 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
     pipeline = make_pipeline(knn_model)
 
     mlflow.sklearn.save_model(
-        sk_model=pipeline, path=model_path, pyfunc_predict_fn="predict_proba",
+        sk_model=pipeline,
+        path=model_path,
+        pyfunc_predict_fn="predict_proba",
         skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
     reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
@@ -961,7 +977,9 @@ def test_pipeline_predict_proba(sklearn_knn_model, model_path):
 def test_get_raw_model(sklearn_knn_model):
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model.model, name="model", input_example=sklearn_knn_model.inference_data,
+            sklearn_knn_model.model,
+            name="model",
+            input_example=sklearn_knn_model.inference_data,
             skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
     pyfunc_model = pyfunc.load_model(model_info.model_uri)
