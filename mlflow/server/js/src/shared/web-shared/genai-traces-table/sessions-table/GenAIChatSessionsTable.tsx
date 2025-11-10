@@ -18,14 +18,14 @@ import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
 import type { SessionTableRow } from './types';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
-import { Link } from '../utils/RoutingUtils';
+import { Link, useLocation } from '../utils/RoutingUtils';
 import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
 import { SessionTableColumn } from './types';
 import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
+import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
+import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
+import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
 
-// TODO: add following columns:
-// 1. token counts
-// 2. number of contained traces
 const columns: SessionTableColumn[] = [
   {
     id: 'sessionId',
@@ -57,6 +57,22 @@ const columns: SessionTableColumn[] = [
     enableSorting: true,
   },
   {
+    id: 'tokens',
+    header: 'Tokens',
+    accessorKey: 'tokens',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
+  },
+  {
+    id: 'turns',
+    header: 'Turns',
+    accessorKey: 'turns',
+    defaultVisibility: false,
+    enableSorting: true,
+    cell: SessionNumericCellRenderer,
+  },
+  {
     id: 'source',
     header: 'Source',
     cell: SessionSourceCellRenderer,
@@ -71,8 +87,15 @@ interface ExperimentEvaluationDatasetsTableRowProps {
 const ExperimentChatSessionsTableRow: React.FC<React.PropsWithChildren<ExperimentEvaluationDatasetsTableRowProps>> =
   React.memo(
     ({ row }) => {
+      const { search } = useLocation();
+
       return (
-        <Link to={MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId)}>
+        <Link
+          to={{
+            pathname: MlflowUtils.getExperimentChatSessionPageRoute(row.original.experimentId, row.original.sessionId),
+            search,
+          }}
+        >
           <TableRow key={row.id} className="eval-datasets-table-row">
             {row.getVisibleCells().map((cell) => (
               <TableCell
@@ -107,11 +130,9 @@ export const GenAIChatSessionsTable = ({
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
   const [sorting, setSorting] = useState<SortingState>([{ id: 'sessionStartTime', desc: true }]);
-  const [columnVisibility, setColumnVisibility] = useState<Record<string, boolean>>(() => {
-    return columns.reduce((acc, column) => {
-      acc[column.id] = column.defaultVisibility;
-      return acc;
-    }, {} as Record<string, boolean>);
+  const { columnVisibility, setColumnVisibility } = useSessionsTableColumnVisibility({
+    experimentId,
+    columns,
   });
 
   const table = useReactTable<SessionTableRow>({
@@ -141,7 +162,16 @@ export const GenAIChatSessionsTable = ({
   }, [columnSizeInfo, table, columnVisibility]);
 
   return (
-    <div css={{ flex: 1, minHeight: 0, position: 'relative', marginTop: theme.spacing.sm }}>
+    <div
+      css={{
+        display: 'flex',
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        position: 'relative',
+        marginTop: theme.spacing.sm,
+      }}
+    >
       <GenAIChatSessionsToolbar
         columns={columns}
         columnVisibility={columnVisibility}
@@ -149,17 +179,7 @@ export const GenAIChatSessionsTable = ({
       />
       <Table
         style={{ ...columnSizeVars }}
-        css={{ height: '100%' }}
-        empty={
-          !isLoading && sessionTableRows.length === 0 ? (
-            <Empty
-              description={intl.formatMessage({
-                defaultMessage: 'No chat sessions found',
-                description: 'Empty state for the chat sessions page',
-              })}
-            />
-          ) : undefined
-        }
+        empty={!isLoading && sessionTableRows.length === 0 ? <GenAIChatSessionsEmptyState /> : undefined}
         scrollable
       >
         <TableRow isHeader>

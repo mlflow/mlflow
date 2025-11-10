@@ -63,8 +63,11 @@ import {
   normalizeDspyChatOutput,
   normalizeVercelAIChatInput,
   normalizeVercelAIChatOutput,
+  isOtelGenAIChatMessage,
+  normalizeOtelGenAIChatMessage,
 } from './chat-utils';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { TOKEN_USAGE_METADATA_KEY } from './constants';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
@@ -878,6 +881,12 @@ export const isRawModelTraceChatMessage = (message: any): message is RawModelTra
     }
   }
 
+  if (message.parts && isNil(message.content)) {
+    // This is OpenTelemetry GenAI semantic conventions. We parse it separately.
+    // https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-input-messages.json
+    return false;
+  }
+
   if (message.type === 'reasoning') {
     return true;
   }
@@ -997,6 +1006,11 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         if (chatMessages) return chatMessages;
         break;
     }
+
+    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
+      return compact(input.map(normalizeOtelGenAIChatMessage));
+    }
+
     return null;
   } catch (e) {
     return null;
@@ -1182,4 +1196,18 @@ export const createTraceV4LongIdentifier = (modelTraceInfo: ModelTraceInfoV3) =>
   }
 
   return `trace:/${serializedLocation}/${modelTraceInfo.trace_id}`;
+};
+
+export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
+  const tokenUsage = traceInfo.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+  if (!tokenUsage) {
+    return null;
+  }
+
+  try {
+    const parsedTokenUsage = JSON.parse(tokenUsage);
+    return parsedTokenUsage?.total_tokens ?? null;
+  } catch {
+    return null;
+  }
 };
