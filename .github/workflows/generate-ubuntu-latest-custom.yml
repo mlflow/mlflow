@@ -1,4 +1,4 @@
-name: Generate Custom Ubuntu Latest Snapshot
+name: Generate Custom Ubuntu Latest Image
 
 on:
   push:
