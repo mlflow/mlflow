@@ -2072,13 +2072,19 @@ class SqlSecret(Base):
     Format: prefix (3-4 chars) + "..." + suffix (last 4 chars), e.g., "sk-...xyz123".
     Helps users identify shared secrets without exposing the full value.
     """
+    provider = Column(String(64), nullable=True)
+    """
+    LLM provider identifier: `String` (limit 64 characters). Optional.
+    E.g., "anthropic", "openai", "cohere". Used for gateway model metadata.
+    """
+    model = Column(String(256), nullable=True)
+    """
+    LLM model identifier: `String` (limit 256 characters). Optional.
+    E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo". Used for gateway model metadata.
+    """
     is_shared = Column(Boolean, nullable=False, default=False)
     """
     Shared flag: `Boolean`. True if secret can be reused across resources, False for private.
-    """
-    state = Column(String(36), nullable=False, default="ACTIVE")
-    """
-    Secret state: `String` (limit 36 characters). Can be ACTIVE, REVOKED, or ROTATED.
     """
     created_by = Column(String(255), nullable=True)
     """
@@ -2100,11 +2106,10 @@ class SqlSecret(Base):
     __table_args__ = (
         PrimaryKeyConstraint("secret_id", name="secrets_pk"),
         Index("index_secrets_is_shared_secret_name", "is_shared", "secret_name"),
-        Index("index_secrets_state", "state"),
     )
 
     def __repr__(self):
-        return f"<SqlSecret ({self.secret_id}, {self.secret_name}, {self.state})>"
+        return f"<SqlSecret ({self.secret_id}, {self.secret_name})>"
 
 
 class SqlSecretBinding(Base):
