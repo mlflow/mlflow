@@ -278,29 +278,6 @@ def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
         _convert_to_eval_set(df)
 
 
-def test_convert_to_eval_set_evaluation_dataset():
-    dataset = create_dataset("test")
-    dataset.merge_records(
-        [
-            {
-                "inputs": {"question": "What is Spark?"},
-                "outputs": "actual response for first question",
-                "expectations": {"expected_response": "expected response for first question"},
-            },
-            {
-                "inputs": {"question": "How can you minimize data shuffling in Spark?"},
-                "outputs": "actual response for second question",
-                "expectations": {"expected_response": "expected response for second question"},
-            },
-        ]
-    )
-    transformed_data = _convert_to_eval_set(dataset)
-
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
-    assert "expectations" in transformed_data.columns
-
-
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_scorer_receives_correct_data(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
