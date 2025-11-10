@@ -302,7 +302,9 @@ def log_feedback(
                 trace_id="tr-1234567890abcdef",
                 name="relevance",
                 value=0.9,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"
+                ),
                 rationale="Response directly addresses the user's question",
             )
 
@@ -370,7 +372,9 @@ def override_feedback(
                 trace_id="tr-1234567890abcdef",
                 name="relevance",
                 value=0.6,
-                source=AssessmentSource(source_type=AssessmentSourceType.LLM, source_id="gpt-4"),
+                source=AssessmentSource(
+                    source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4"
+                ),
                 rationale="Response partially addresses the question",
             )
 

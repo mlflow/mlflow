@@ -19,6 +19,7 @@ from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 from mlflow.pyfunc.model import ResponsesAgent, ResponsesAgentRequest, ResponsesAgentResponse
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.events import (
+    AiCommandRunEvent,
     AlignJudgeEvent,
     AutologgingEvent,
     CreateDatasetEvent,
@@ -34,6 +35,7 @@ from mlflow.telemetry.events import (
     GetLoggedModelEvent,
     GitModelVersioningEvent,
     InvokeCustomJudgeModelEvent,
+    LoadPromptEvent,
     LogAssessmentEvent,
     LogBatchEvent,
     LogDatasetEvent,
@@ -434,7 +436,7 @@ def test_create_dataset(mock_requests, mock_telemetry_client: TelemetryClient):
 
 
 def test_merge_records(mock_requests, mock_telemetry_client: TelemetryClient):
-    with mock.patch("mlflow.entities.evaluation_dataset._get_store") as mock_store:
+    with mock.patch("mlflow.tracking._tracking_service.utils._get_store") as mock_store:
         mock_store_instance = mock.MagicMock()
         mock_store.return_value = mock_store_instance
         mock_store_instance.get_dataset.return_value = mock.MagicMock(dataset_id="test-id")
@@ -666,6 +668,24 @@ def test_mcp_run(mock_requests, mock_telemetry_client: TelemetryClient):
     validate_telemetry_record(mock_telemetry_client, mock_requests, McpRunEvent.name)
 
 
+def test_ai_command_run(mock_requests, mock_telemetry_client: TelemetryClient):
+    from mlflow.ai_commands import commands
+
+    runner = CliRunner(catch_exceptions=False)
+    # Test CLI context
+    with mock.patch("mlflow.ai_commands.get_command", return_value="---\ntest\n---\nTest command"):
+        result = runner.invoke(commands, ["run", "test_command"])
+        assert result.exit_code == 0
+
+    mock_telemetry_client.flush()
+    validate_telemetry_record(
+        mock_telemetry_client,
+        mock_requests,
+        AiCommandRunEvent.name,
+        {"command_key": "test_command", "context": "cli"},
+    )
+
+
 def test_git_model_versioning(mock_requests, mock_telemetry_client):
     from mlflow.genai import enable_git_model_versioning
 
@@ -732,14 +752,18 @@ def test_invoke_custom_judge_model(
         else:
             with (
                 mock.patch(
-                    "mlflow.genai.judges.utils._invoke_litellm_and_handle_tools",
-                    return_value=mock_response,
+                    "mlflow.genai.judges.utils.invocation_utils._invoke_litellm_and_handle_tools",
+                    return_value=(mock_response, 10),
                 ),
-                mock.patch("mlflow.genai.judges.utils._invoke_databricks_model") as mock_databricks,
+                mock.patch(
+                    "mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter._invoke_databricks_serving_endpoint"
+                ) as mock_databricks,
             ):
                 # For databricks provider, mock the databricks model invocation
                 if expected_provider in ["databricks", "endpoints"]:
-                    from mlflow.genai.judges.utils import InvokeDatabricksModelOutput
+                    from mlflow.genai.judges.adapters.databricks_serving_endpoint_adapter import (
+                        InvokeDatabricksModelOutput,
+                    )
 
                     mock_databricks.return_value = InvokeDatabricksModelOutput(
                         response=mock_response,
@@ -768,6 +792,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": "openai"}
     validate_telemetry_record(
@@ -777,6 +802,7 @@ def test_make_judge(mock_requests, mock_telemetry_client: TelemetryClient):
     make_judge(
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
+        feedback_value_type=str,
     )
     expected_params = {"model_provider": None}
     validate_telemetry_record(
@@ -789,6 +815,7 @@ def test_align_judge(mock_requests, mock_telemetry_client: TelemetryClient):
         name="test_judge",
         instructions="Evaluate the {{ inputs }} and {{ outputs }}",
         model="openai:/gpt-4",
+        feedback_value_type=str,
     )
 
     traces = [
@@ -824,3 +851,39 @@ def test_autologging(mock_requests, mock_telemetry_client: TelemetryClient):
         assert json.dumps({"flavor": "all", "log_traces": True, "disable": False}) in params
     finally:
         mlflow.autolog(disable=True)
+
+
+def test_load_prompt(mock_requests, mock_telemetry_client: TelemetryClient):
+    # Register a prompt first
+    prompt = mlflow.genai.register_prompt(
+        name="test_prompt",
+        template="Hello {{name}}",
+    )
+    mock_telemetry_client.flush()
+
+    # Set an alias for testing
+    mlflow.genai.set_prompt_alias(name="test_prompt", version=prompt.version, alias="production")
+
+    # Test load_prompt with version (no alias)
+    mlflow.genai.load_prompt(name_or_uri="test_prompt", version=prompt.version)
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+    )
+
+    # Test load_prompt with URI and version (no alias)
+    mlflow.genai.load_prompt(name_or_uri=f"prompts:/test_prompt/{prompt.version}")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": False}
+    )
+
+    # Test load_prompt with alias
+    mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@production")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+    )
+
+    # Test load_prompt with @latest (special alias)
+    mlflow.genai.load_prompt(name_or_uri="prompts:/test_prompt@latest")
+    validate_telemetry_record(
+        mock_telemetry_client, mock_requests, LoadPromptEvent.name, {"uses_alias": True}
+    )

@@ -14,6 +14,7 @@ from copy import deepcopy
 from typing import TYPE_CHECKING, Any, Generator, Literal, Optional, Union, overload
 
 import mlflow
+from mlflow.entities import Dataset as DatasetEntity
 from mlflow.entities import (
     DatasetInput,
     Experiment,
@@ -416,7 +417,7 @@ def start_run(
         # Use previous `end_time` because a value is required for `update_run_info`.
         end_time = active_run_obj.info.end_time
         _get_store().update_run_info(
-            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=None
+            existing_run_id, run_status=RunStatus.RUNNING, end_time=end_time, run_name=run_name
         )
         tags = tags or {}
         if description:
@@ -930,7 +931,7 @@ def log_metric(
     timestamp: int | None = None,
     run_id: str | None = None,
     model_id: str | None = None,
-    dataset: Optional["Dataset"] = None,
+    dataset: Union["Dataset", DatasetEntity] | None = None,
 ) -> RunOperations | None:
     """
     Log a metric under the current run. If no run is active, this method will create
@@ -1057,7 +1058,11 @@ def _log_inputs_for_metrics_if_necessary(
                 None,
             )
             if matching_dataset is not None:
-                datasets_to_log.append(DatasetInput(matching_dataset._to_mlflow_entity(), tags=[]))
+                if isinstance(matching_dataset, DatasetEntity):
+                    dataset_entity = matching_dataset
+                else:
+                    dataset_entity = matching_dataset._to_mlflow_entity()
+                datasets_to_log.append(DatasetInput(dataset_entity, tags=[]))
     if models_to_log or datasets_to_log:
         client.log_inputs(run.info.run_id, models=models_to_log, datasets=datasets_to_log)
         # update in-memory run inputs to avoid duplicate logging
@@ -1081,7 +1086,7 @@ def log_metrics(
     run_id: str | None = None,
     timestamp: int | None = None,
     model_id: str | None = None,
-    dataset: Optional["Dataset"] = None,
+    dataset: Union["Dataset", DatasetEntity] | None = None,
 ) -> RunOperations | None:
     """
     Log multiple metrics for the current run. If no run is active, this method will create a new

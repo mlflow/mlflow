@@ -295,7 +295,7 @@ def test_expectation_proto_dict_conversion(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 @pytest.mark.parametrize(
@@ -320,7 +320,7 @@ def test_expectation_value_serialization(value):
 
     expectation_dict = expectation.to_dictionary()
     result = ExpectationValue.from_dictionary(expectation_dict)
-    assert result.value == result.value
+    assert result.value == expectation.value
 
 
 def test_expectation_invalid_values():
@@ -356,13 +356,13 @@ def test_feedback_value_proto_dict_conversion(value, error):
     assert isinstance(proto, ProtoFeedback)
 
     result = FeedbackValue.from_proto(proto)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
     feedback_dict = feedback.to_dictionary()
     result = FeedbackValue.from_dictionary(feedback_dict)
-    assert result.value == result.value
-    assert result.error == result.error
+    assert result.value == feedback.value
+    assert result.error == feedback.error
 
 
 @pytest.mark.parametrize("stack_trace_length", [500, 2000])

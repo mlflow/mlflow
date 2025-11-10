@@ -6,7 +6,6 @@ import "scalapb/scalapb.proto";
 import "databricks.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/field_mask.proto";
-import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
 import "assessments.proto";
 import "datasets.proto";
@@ -584,6 +583,20 @@ service MlflowService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get TraceInfo v3",
+    };
+  }
+
+  // Get trace with spans for given trace id.
+  // This API is for OSS MLflow only for traces in v3.
+  rpc getTrace (GetTrace) returns (GetTrace.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/get"
+        since {major: 3, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Trace v3",
     };
   }
 
@@ -2145,11 +2158,26 @@ message BatchGetTraces {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the traces to fetch. Must be provided.
-  repeated string trace_ids = 1 [(validate_required) = true];
+  repeated string trace_ids = 1;
 
   message Response {
     // The fetched trace information.
     repeated Trace traces = 1;
+  }
+}
+
+message GetTrace {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace to fetch. Must be provided.
+  optional string trace_id = 1 [(validate_required) = true];
+
+  // Whether to allow partial traces. Default to True.
+  optional bool allow_partial = 2 [default = true];;
+
+  message Response {
+    // The fetched trace including spans.
+    optional Trace trace = 1;
   }
 }
 

@@ -34,6 +34,7 @@ quality_judge = make_judge(
     name="response_quality",
     instructions=("Evaluate if {{ outputs }} is high quality for {{ inputs }}."),
     model="anthropic:/claude-opus-4-1-20250805",
+    feedback_value_type=str,
 )
 ```
 
@@ -61,6 +62,7 @@ quality_judge_v2 = make_judge(
         "for the question in {{ inputs }}."
     ),
     model="anthropic:/claude-3.5-sonnet-20241022",  # Updated model
+    feedback_value_type=str,
 )
 
 # Register the updated judge

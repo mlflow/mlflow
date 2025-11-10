@@ -675,6 +675,40 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         this command. Otherwise, the ``gc`` command will not be able to resolve
         artifact URIs and will not be able to delete the associated artifacts.
 
+    **What gets deleted:**
+
+    This command permanently removes:
+
+    - **Run metadata**: Parameters, metrics, tags, and all other run information from the
+      backend store
+    - **Artifacts**: All files stored in the run's artifact location (models, plots, data
+      files, etc.)
+    - **Experiment metadata**: When deleting experiments, removes the experiment record and
+      all associated data
+
+    .. note::
+
+        This command only considers lifecycle stage and the specified deletion criteria.
+        It does **not** check for pinned runs, registered models, or tags. Pinning is a
+        UI-only feature that has no effect on garbage collection. Runs must be in the
+        `deleted` lifecycle stage before they can be permanently deleted.
+
+    **Examples:**
+
+    .. code-block:: bash
+
+        # Delete all runs that have been in the deleted state for more than 30 days
+        mlflow gc --older-than 30d
+
+        # Delete specific runs by ID (they must be in deleted state)
+        mlflow gc --run-ids 'run1,run2,run3'
+
+        # Delete all runs in specific experiments (experiments must be in deleted state)
+        mlflow gc --experiment-ids 'exp1,exp2'
+
+        # Combine criteria: delete runs older than 7 days in specific experiments
+        mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
+
     """
     from mlflow.utils.time import get_current_time_millis
 

@@ -20,6 +20,7 @@ import logging
 import os
 import pathlib
 import shutil
+import warnings
 from typing import Any
 
 import pandas as pd
@@ -71,6 +72,12 @@ _FLAVOR_KEY = "flavors"
 _SPARK_MODEL_INDICATOR = "fit_with_spark"
 
 _logger = logging.getLogger(__name__)
+
+warnings.warn(
+    "diviner flavor is deprecated and will be removed in a future release",
+    FutureWarning,
+    stacklevel=2,
+)
 
 
 def get_default_pip_requirements():

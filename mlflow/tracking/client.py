@@ -755,15 +755,9 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-
+        prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
         try:
-            if parsed_name_or_uri.startswith("prompts:/"):
-                name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
-            else:
-                name = parsed_name_or_uri
-                version_or_alias = parsed_version
-
+            name, version_or_alias = self.parse_prompt_uri(prompt_uri)
             registry_client = self._get_registry_client()
             if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
                 return registry_client.get_prompt_version_by_alias(name, version_or_alias)
@@ -961,7 +955,6 @@ class MlflowClient:
         # with a Run is expected to be small.
         return [model_version_to_prompt_version(mv) for mv in mvs]
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def set_prompt_alias(self, name: str, alias: str, version: int) -> None:
@@ -976,7 +969,6 @@ class MlflowClient:
         self._validate_prompt(name, version)
         self._get_registry_client().set_prompt_alias(name, alias, version)
 
-    @experimental(version="2.22.0")
     @require_prompt_registry
     @translate_prompt_exception
     def delete_prompt_alias(self, name: str, alias: str) -> None:
@@ -4154,7 +4146,11 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -4205,7 +4201,11 @@ class MlflowClient:
             name: name2
             tags: {}
         """
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -5057,7 +5057,11 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Setting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -5148,7 +5152,11 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        self._raise_if_prompt(name)
+        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
+        # privilege on the model to check if it's a prompt. Deleting tags should only require
+        # `APPLY TAG` privilege.
+        if not is_databricks_unity_catalog_uri(self._registry_uri):
+            self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "

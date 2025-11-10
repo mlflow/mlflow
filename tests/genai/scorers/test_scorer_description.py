@@ -1,9 +1,17 @@
+from unittest.mock import patch
+
 import pytest
 
 from mlflow.genai import scorer
 from mlflow.genai.judges import make_judge
 from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.scorers import RelevanceToQuery
+
+
+@pytest.fixture(autouse=True)
+def mock_databricks_runtime():
+    with patch("mlflow.genai.scorers.base.is_in_databricks_runtime", return_value=True):
+        yield
 
 
 def test_decorator_scorer_with_description():
@@ -43,9 +51,12 @@ def test_builtin_scorer_with_description():
 
 
 def test_builtin_scorer_without_description():
+    # Built-in scorers now have default descriptions for improved discoverability
     scorer_instance = RelevanceToQuery()
 
-    assert scorer_instance.description is None
+    assert scorer_instance.description is not None
+    assert isinstance(scorer_instance.description, str)
+    assert len(scorer_instance.description) > 0
 
 
 @pytest.mark.parametrize(
@@ -62,6 +73,7 @@ def test_make_judge_with_description(name: str, description: str | None):
         instructions="Evaluate if {{ outputs }} is good quality",
         model="openai:/gpt-4",
         description=description,
+        feedback_value_type=str,
     )
 
     assert judge.name == name
@@ -123,18 +135,20 @@ def test_scorer_deserialization_with_description():
 
 
 def test_backward_compatibility_scorer_without_description():
-    # Test decorator scorer
+    # Test decorator scorer - custom scorers still default to None
     @scorer
     def old_scorer(outputs) -> bool:
         return True
 
     assert old_scorer.description is None
 
-    # Test builtin scorer
+    # Test builtin scorer - built-in scorers now have default descriptions
     builtin = RelevanceToQuery()
-    assert builtin.description is None
+    assert builtin.description is not None
+    assert isinstance(builtin.description, str)
+    assert len(builtin.description) > 0
 
-    # Test InstructionsJudge
+    # Test InstructionsJudge - custom judges still default to None
     judge = InstructionsJudge(
         name="old_judge",
         instructions="Evaluate {{ outputs }}",

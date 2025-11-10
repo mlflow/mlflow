@@ -468,12 +468,10 @@ mlflow.entities.Span.from_otel_proto
 mlflow.entities.Span.get_attribute
 mlflow.entities.Span.to_dict
 mlflow.entities.Span.to_otel_proto
-mlflow.entities.Span.to_proto
 mlflow.entities.SpanEvent
 mlflow.entities.SpanEvent.from_exception
 mlflow.entities.SpanEvent.json
 mlflow.entities.SpanEvent.to_otel_proto
-mlflow.entities.SpanEvent.to_proto
 mlflow.entities.SpanStatus
 mlflow.entities.SpanStatusCode
 mlflow.entities.SpanStatusCode.from_otel_proto_status_code_name
@@ -482,6 +480,7 @@ mlflow.entities.SpanType
 mlflow.entities.Trace
 mlflow.entities.Trace.from_dict
 mlflow.entities.Trace.from_json
+mlflow.entities.Trace.from_proto
 mlflow.entities.Trace.pandas_dataframe_columns
 mlflow.entities.Trace.search_assessments
 mlflow.entities.Trace.search_spans
@@ -709,6 +708,16 @@ mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
 mlflow.genai.Scorer.update
 mlflow.genai.ScorerScheduleConfig
+mlflow.genai.agent_server.AgentServer
+mlflow.genai.agent_server.AgentServer.run
+mlflow.genai.agent_server.get_invoke_function
+mlflow.genai.agent_server.get_request_headers
+mlflow.genai.agent_server.get_stream_function
+mlflow.genai.agent_server.invoke
+mlflow.genai.agent_server.server.AgentServer
+mlflow.genai.agent_server.set_request_headers
+mlflow.genai.agent_server.setup_mlflow_git_based_version_tracking
+mlflow.genai.agent_server.stream
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset

@@ -15,19 +15,24 @@ concurrency:
 
 jobs:
   precheck:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
-      issues: write
       pull-requests: write
     timeout-minutes: 5
     if: >
       (github.event_name == 'pull_request' &&
        github.event.pull_request.head.repo.full_name == github.repository &&
-       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association))
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
+        (github.event.pull_request.user.login == 'Copilot' && github.event.pull_request.user.type == 'Bot')
+       ))
       ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request &&
-       contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) &&
+       (
+        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.issue.author_association) ||
+        (github.event.issue.user.login == 'Copilot' && github.event.issue.user.type == 'Bot')
+       ) &&
        contains(fromJson('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
        startsWith(github.event.comment.body, '/resolve'))
     outputs:
@@ -49,7 +54,7 @@ jobs:
 
             let message;
             if (isAllowed) {
-              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+              const workflowUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}?pr=${context.issue.number}`;
               message = `🚀 [Resolve workflow started](${workflowUrl})`;
             } else {
               message = `⚠️ Only repository maintainers and collaborators are allowed to trigger this workflow. Your association: ${authorAssociation}`;
@@ -98,11 +103,8 @@ jobs:
     needs: precheck
     runs-on: ubuntu-latest
     permissions:
-      issues: read
       pull-requests: read
     timeout-minutes: 30
-    outputs:
-      claude_output: ${{ steps.claude-fix.outputs.output }}
     steps:
       - uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         id: app-token
@@ -145,7 +147,7 @@ jobs:
           # Safe construction using arrays - PROMPT is passed as separate argument to prevent shell injection
           ARGS=("/resolve")
           [ -n "$PROMPT" ] && ARGS+=("$PROMPT")
-          timeout 10m claude --model claude-haiku-4-5 --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
+          timeout 10m claude --print --verbose --output-format json "${ARGS[@]}" > "$OUTPUT_FILE" || true
 
           # Display output in workflow logs (pretty print if valid JSON)
           echo "=== Claude Output ==="
@@ -156,11 +158,13 @@ jobs:
           fi
           echo "===================="
 
-          # Save output for later use
-          OUTPUT=$(cat "$OUTPUT_FILE")
-          echo "output<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+      - name: Upload Claude output
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: claude-output
+          path: /tmp/output.json
+          if-no-files-found: ignore
 
       - name: Push changes
         env:
@@ -180,20 +184,27 @@ jobs:
       always() &&
       !contains(needs.*.result, 'cancelled') &&
       !contains(needs.*.result, 'skipped')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     permissions:
-      issues: write
       pull-requests: write
     timeout-minutes: 5
     steps:
+      - name: Download Claude output
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: claude-output
+          path: /tmp
+        continue-on-error: true
+
       - name: Update original comment with result
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           COMMENT_ID: ${{ needs.precheck.outputs.comment_id }}
           RESOLVE_JOB_STATUS: ${{ needs.resolve.result }}
-          CLAUDE_OUTPUT: ${{ needs.resolve.outputs.claude_output }}
         with:
           script: |
+            const fs = require('fs');
+
             const resolveJobStatus = process.env.RESOLVE_JOB_STATUS;
             const statusMessage = resolveJobStatus !== 'success'
               ? `⚠️ Workflow encountered an error.`
@@ -201,8 +212,18 @@ jobs:
 
             let resultMessage = statusMessage;
 
+            // Read Claude output from file instead of environment variable
+            const outputPath = '/tmp/output.json';
+            let claudeOutput = '';
+            try {
+              if (fs.existsSync(outputPath)) {
+                claudeOutput = fs.readFileSync(outputPath, 'utf8');
+              }
+            } catch (e) {
+              console.log('Failed to read Claude output file:', e);
+            }
+
             // Extract and display Claude's result and raw output
-            const claudeOutput = process.env.CLAUDE_OUTPUT || '';
             if (claudeOutput) {
               try {
                 const events = JSON.parse(claudeOutput);

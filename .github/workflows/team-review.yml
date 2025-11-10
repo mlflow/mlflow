@@ -7,7 +7,7 @@ on:
 
 jobs:
   review:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     # Our GitHub Plan doesn't support team pull request reviewers. Use the `team-review` label to trigger this workflow.
     if: ${{ github.event.label.name == 'team-review' }}
     timeout-minutes: 5

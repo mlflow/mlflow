@@ -78,6 +78,7 @@ export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
 export const MLFLOW_LINKED_PROMPTS_TAG = 'mlflow.linkedPrompts';
 export const MLFLOW_LOGGED_MODEL_USER_TAG = 'mlflow.user';
+export const MLFLOW_TRACES_TAB_LABELING_SCHEMAS_TAG = 'mlflow.tracesTabLabelingSchemas';
 export const EXPERIMENT_PAGE_FEEDBACK_URL = 'https://github.com/mlflow/mlflow/issues/6348';
 
 export const MLFLOW_RUN_TYPE_TAG = 'mlflow.runType';
@@ -147,6 +148,8 @@ export enum ExperimentPageTabName {
   LabelingSessions = 'labeling-sessions',
   LabelingSchemas = 'label-schemas',
   Prompts = 'prompts',
+  ChatSessions = 'chat-sessions',
+  SingleChatSession = 'single-chat-session',
 }
 
 export const getMlflow3DocsLink = () => {
