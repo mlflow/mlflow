@@ -100,7 +100,7 @@ Delete a tag from a trace.
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
 +=========================================+=============+
-| ``3.0/mlflow/traces/{trace_id}/tags`` | ``DELETE``  |
+| ``3.0/mlflow/traces/{trace_id}/tags``   | ``DELETE``  |
 +-----------------------------------------+-------------+
 
 Request Structure
