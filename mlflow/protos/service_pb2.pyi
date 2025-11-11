@@ -1613,6 +1613,184 @@ class Scorer(_message.Message):
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
+class Secret(_message.Message):
+    __slots__ = ("secret_id", "secret_name", "masked_value", "is_shared", "created_at", "last_updated_at", "created_by", "last_updated_by", "binding_count", "provider", "model")
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    MASKED_VALUE_FIELD_NUMBER: _ClassVar[int]
+    IS_SHARED_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    BINDING_COUNT_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    secret_name: str
+    masked_value: str
+    is_shared: bool
+    created_at: int
+    last_updated_at: int
+    created_by: str
+    last_updated_by: str
+    binding_count: int
+    provider: str
+    model: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., is_shared: bool = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., binding_count: _Optional[int] = ..., provider: _Optional[str] = ..., model: _Optional[str] = ...) -> None: ...
+
+class SecretBinding(_message.Message):
+    __slots__ = ("binding_id", "secret_id", "resource_type", "resource_id", "field_name", "created_at", "last_updated_at", "created_by", "last_updated_by")
+    BINDING_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    binding_id: str
+    secret_id: str
+    resource_type: str
+    resource_id: str
+    field_name: str
+    created_at: int
+    last_updated_at: int
+    created_by: str
+    last_updated_by: str
+    def __init__(self, binding_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., field_name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ...) -> None: ...
+
+class SecretWithBinding(_message.Message):
+    __slots__ = ("secret", "binding")
+    SECRET_FIELD_NUMBER: _ClassVar[int]
+    BINDING_FIELD_NUMBER: _ClassVar[int]
+    secret: Secret
+    binding: SecretBinding
+    def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., binding: _Optional[_Union[SecretBinding, _Mapping]] = ...) -> None: ...
+
+class CreateAndBindSecret(_message.Message):
+    __slots__ = ("secret_name", "secret_value", "resource_type", "resource_id", "field_name", "is_shared", "created_by", "provider", "model")
+    class Response(_message.Message):
+        __slots__ = ("secret", "binding")
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        BINDING_FIELD_NUMBER: _ClassVar[int]
+        secret: Secret
+        binding: SecretBinding
+        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., binding: _Optional[_Union[SecretBinding, _Mapping]] = ...) -> None: ...
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_NAME_FIELD_NUMBER: _ClassVar[int]
+    IS_SHARED_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODEL_FIELD_NUMBER: _ClassVar[int]
+    secret_name: str
+    secret_value: str
+    resource_type: str
+    resource_id: str
+    field_name: str
+    is_shared: bool
+    created_by: str
+    provider: str
+    model: str
+    def __init__(self, secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., field_name: _Optional[str] = ..., is_shared: bool = ..., created_by: _Optional[str] = ..., provider: _Optional[str] = ..., model: _Optional[str] = ...) -> None: ...
+
+class GetSecretInfo(_message.Message):
+    __slots__ = ("secret_id",)
+    class Response(_message.Message):
+        __slots__ = ("secret",)
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        secret: Secret
+        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    def __init__(self, secret_id: _Optional[str] = ...) -> None: ...
+
+class UpdateSecret(_message.Message):
+    __slots__ = ("secret_id", "secret_value", "updated_by")
+    class Response(_message.Message):
+        __slots__ = ("secret",)
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        secret: Secret
+        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    secret_value: str
+    updated_by: str
+    def __init__(self, secret_id: _Optional[str] = ..., secret_value: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+
+class DeleteSecret(_message.Message):
+    __slots__ = ("secret_id",)
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    def __init__(self, secret_id: _Optional[str] = ...) -> None: ...
+
+class BindSecret(_message.Message):
+    __slots__ = ("secret_id", "resource_type", "resource_id", "field_name", "created_by")
+    class Response(_message.Message):
+        __slots__ = ("binding",)
+        BINDING_FIELD_NUMBER: _ClassVar[int]
+        binding: SecretBinding
+        def __init__(self, binding: _Optional[_Union[SecretBinding, _Mapping]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_NAME_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    resource_type: str
+    resource_id: str
+    field_name: str
+    created_by: str
+    def __init__(self, secret_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., field_name: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
+
+class UnbindSecret(_message.Message):
+    __slots__ = ("resource_type", "resource_id", "field_name")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    FIELD_NAME_FIELD_NUMBER: _ClassVar[int]
+    resource_type: str
+    resource_id: str
+    field_name: str
+    def __init__(self, resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ..., field_name: _Optional[str] = ...) -> None: ...
+
+class ListSecrets(_message.Message):
+    __slots__ = ("is_shared",)
+    class Response(_message.Message):
+        __slots__ = ("secrets",)
+        SECRETS_FIELD_NUMBER: _ClassVar[int]
+        secrets: _containers.RepeatedCompositeFieldContainer[Secret]
+        def __init__(self, secrets: _Optional[_Iterable[_Union[Secret, _Mapping]]] = ...) -> None: ...
+    IS_SHARED_FIELD_NUMBER: _ClassVar[int]
+    is_shared: bool
+    def __init__(self, is_shared: bool = ...) -> None: ...
+
+class ListSecretBindings(_message.Message):
+    __slots__ = ("secret_id", "resource_type", "resource_id")
+    class Response(_message.Message):
+        __slots__ = ("bindings",)
+        BINDINGS_FIELD_NUMBER: _ClassVar[int]
+        bindings: _containers.RepeatedCompositeFieldContainer[SecretBinding]
+        def __init__(self, bindings: _Optional[_Iterable[_Union[SecretBinding, _Mapping]]] = ...) -> None: ...
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
+    secret_id: str
+    resource_type: str
+    resource_id: str
+    def __init__(self, secret_id: _Optional[str] = ..., resource_type: _Optional[str] = ..., resource_id: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...
