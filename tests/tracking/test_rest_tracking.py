@@ -3687,7 +3687,9 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
     assert response.status_code != 200
 
 
-def test_add_dataset_to_experiments_rest_tracking(mlflow_client):
+def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("dataset_exp_1")
     exp2 = mlflow_client.create_experiment("dataset_exp_2")
     exp3 = mlflow_client.create_experiment("dataset_exp_3")
@@ -3718,7 +3720,9 @@ def test_add_dataset_to_experiments_rest_tracking(mlflow_client):
     assert exp3 in retrieved.experiment_ids
 
 
-def test_remove_dataset_from_experiments_rest_tracking(mlflow_client):
+def test_remove_dataset_from_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("dataset_remove_exp_1")
     exp2 = mlflow_client.create_experiment("dataset_remove_exp_2")
     exp3 = mlflow_client.create_experiment("dataset_remove_exp_3")
@@ -3755,7 +3759,9 @@ def test_remove_dataset_from_experiments_rest_tracking(mlflow_client):
     assert len(retrieved.experiment_ids) == 0
 
 
-def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client):
+def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exps = [mlflow_client.create_experiment(f"bulk_add_exp_{i}") for i in range(5)]
 
     dataset = create_dataset(
@@ -3774,23 +3780,27 @@ def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client):
         assert exp in updated_dataset.experiment_ids
 
 
-def test_dataset_experiment_association_error_cases_rest_tracking(mlflow_client):
+def test_dataset_experiment_association_error_cases_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("error_test_exp")
 
-    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST"):
+    with pytest.raises(MlflowException, match="not found"):
         add_dataset_to_experiments(
             dataset_id="d-nonexistent1234567890abcdef1234",
             experiment_ids=[exp1],
         )
 
-    with pytest.raises(MlflowException, match="RESOURCE_DOES_NOT_EXIST"):
+    with pytest.raises(MlflowException, match="not found"):
         remove_dataset_from_experiments(
             dataset_id="d-nonexistent1234567890abcdef1234",
             experiment_ids=[exp1],
         )
 
 
-def test_idempotent_add_experiments_rest_tracking(mlflow_client):
+def test_idempotent_add_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("idempotent_test_exp_1")
     exp2 = mlflow_client.create_experiment("idempotent_test_exp_2")
 
@@ -3812,7 +3822,9 @@ def test_idempotent_add_experiments_rest_tracking(mlflow_client):
     assert exp2 in updated_dataset.experiment_ids
 
 
-def test_idempotent_remove_experiments_rest_tracking(mlflow_client):
+def test_idempotent_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("remove_idempotent_test_exp_1")
     exp2 = mlflow_client.create_experiment("remove_idempotent_test_exp_2")
 
@@ -3833,7 +3845,9 @@ def test_idempotent_remove_experiments_rest_tracking(mlflow_client):
     assert exp1 in updated_dataset.experiment_ids
 
 
-def test_client_api_add_remove_experiments_rest_tracking(mlflow_client):
+def test_client_api_add_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
     exp1 = mlflow_client.create_experiment("client_api_exp_1")
     exp2 = mlflow_client.create_experiment("client_api_exp_2")
     exp3 = mlflow_client.create_experiment("client_api_exp_3")
