@@ -20,10 +20,10 @@ import "opentelemetry/proto/common/v1/common.proto";
 import "opentelemetry/proto/resource/v1/resource.proto";
 
 option csharp_namespace = "OpenTelemetry.Proto.Trace.V1";
-option go_package = "go.opentelemetry.io/proto/otlp/trace/v1";
 option java_multiple_files = true;
-option java_outer_classname = "TraceProto";
 option java_package = "io.opentelemetry.proto.trace.v1";
+option java_outer_classname = "TraceProto";
+option go_package = "go.opentelemetry.io/proto/otlp/trace/v1";
 
 // TracesData represents the traces data that can be stored in a persistent storage,
 // OR can be embedded by other protocols that transfer OTLP traces data but do
@@ -313,13 +313,13 @@ message Status {
   // https://github.com/open-telemetry/opentelemetry-specification/blob/main/specification/trace/api.md#set-status
   enum StatusCode {
     // The default status.
-    STATUS_CODE_UNSET = 0;
-    // The Span has been validated by an Application developer or Operator to
+    STATUS_CODE_UNSET               = 0;
+    // The Span has been validated by an Application developer or Operator to 
     // have completed successfully.
-    STATUS_CODE_OK = 1;
+    STATUS_CODE_OK                  = 1;
     // The Span contains an error.
-    STATUS_CODE_ERROR = 2;
-  }
+    STATUS_CODE_ERROR               = 2;
+  };
 
   // The status code.
   StatusCode code = 3;

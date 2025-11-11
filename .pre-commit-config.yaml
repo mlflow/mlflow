@@ -125,7 +125,7 @@ repos:
 
       - id: buf
         name: buf
-        entry: bin/buf format -w --exit-code .
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
         files: '\.proto$'
         language: system
         stages: [pre-commit]
