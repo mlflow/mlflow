@@ -274,7 +274,6 @@ def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
         name="quality_judge",
         instructions="Evaluate {{ outputs }}",
         description="Evaluates response quality",
-        feedback_value_type=str,
     )
     judge1.register(experiment_id=experiment)
 
@@ -282,14 +281,12 @@ def test_list_scorers_with_descriptions(runner: CliRunner, experiment: str):
         name="safety_judge",
         instructions="Check {{ outputs }}",
         description="Checks for safety issues",
-        feedback_value_type=str,
     )
     judge2.register(experiment_id=experiment)
 
     judge3 = make_judge(
         name="no_desc_judge",
         instructions="Evaluate {{ outputs }}",
-        feedback_value_type=str,
     )
     judge3.register(experiment_id=experiment)
 

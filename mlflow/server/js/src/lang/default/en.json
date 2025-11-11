@@ -175,10 +175,6 @@
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
-  "/m44jJ": {
-    "defaultMessage": "View docs",
-    "description": "Text for docs link button on experiment view page header"
-  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -278,10 +274,6 @@
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
-  },
-  "128VYg": {
-    "defaultMessage": "User",
-    "description": "Label for the user id section"
   },
   "13vJft": {
     "defaultMessage": "View Examples",
@@ -881,6 +873,10 @@
   "7FvLl2": {
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
+  },
+  "7HLhyL": {
+    "defaultMessage": "Column",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -1565,10 +1561,6 @@
   "E9fsRD": {
     "defaultMessage": "Show span tree",
     "description": "Tooltip for a button that show the span tree view of the trace UI."
-  },
-  "EAf6xM": {
-    "defaultMessage": "Session",
-    "description": "Label preceding a chat session ID"
   },
   "EBwDIg": {
     "defaultMessage": "Delete",
@@ -2482,10 +2474,6 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
-  "OUPWd8": {
-    "defaultMessage": "View chat session",
-    "description": "Tooltip for the session id tag"
-  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -2505,10 +2493,6 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
-  },
-  "OlytgO": {
-    "defaultMessage": "Field",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -2669,10 +2653,6 @@
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
   },
-  "Qsifda": {
-    "defaultMessage": "Group traces from the same chat session together",
-    "description": "Empty state title for the chat sessions table"
-  },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab text for parallel coordinates plot on the model comparison page"
@@ -2704,10 +2684,6 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
-  },
-  "RWVGkL": {
-    "defaultMessage": "Columns",
-    "description": "Columns label for the chat sessions table column selector"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
@@ -3256,10 +3232,6 @@
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
   },
-  "XIWwOm": {
-    "defaultMessage": "Session ID",
-    "description": "Label for the session id section"
-  },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
@@ -3602,10 +3574,6 @@
   "aaVp/T": {
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
-  },
-  "adVHxN": {
-    "defaultMessage": "Outputs",
-    "description": "Section title for the outputs of a single chat turn"
   },
   "akmaST": {
     "defaultMessage": "Irrelevant",
@@ -4271,6 +4239,10 @@
     "defaultMessage": "Model, input data or prompt have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
   },
+  "gdCdji": {
+    "defaultMessage": "No chat sessions found",
+    "description": "Empty state for the chat sessions page"
+  },
   "gdK07H": {
     "defaultMessage": "Bar chart",
     "description": "Experiment tracking > runs charts > add chart menu > bar chart"
@@ -4306,10 +4278,6 @@
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
-  },
-  "h2Ejm7": {
-    "defaultMessage": "Learn more",
-    "description": "Link to the documentation page for user and session tracking"
   },
   "h2SXjO": {
     "defaultMessage": "Key",
@@ -4358,10 +4326,6 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
-  },
-  "hkXDZn": {
-    "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
-    "description": "Empty state description for the chat sessions table"
   },
   "hlpNRa": {
     "defaultMessage": "No prompts found",
@@ -4926,10 +4890,6 @@
   "nIk08y": {
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
-  },
-  "nJxDSh": {
-    "defaultMessage": "Inputs",
-    "description": "Section title for the inputs of a single chat turn"
   },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
@@ -6054,10 +6014,6 @@
   "zNWzj6": {
     "defaultMessage": "Search traces by request",
     "description": "Placeholder text for the search input in the trace results table"
-  },
-  "zRKlAL": {
-    "defaultMessage": "Metadata",
-    "description": "Label for the metadata section"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",

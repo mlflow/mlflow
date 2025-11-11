@@ -12,20 +12,18 @@ import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet'
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 
-export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
+const MAX_VISIBLE_MESSAGES = 3;
 
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
   renderMode,
   chatMessageFormat,
-  maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
-  maxVisibleMessages?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
@@ -53,9 +51,9 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
-    const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
+    const shouldTruncateMessages = chatMessages.length > MAX_VISIBLE_MESSAGES;
     const visibleMessages =
-      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-maxVisibleMessages);
+      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-MAX_VISIBLE_MESSAGES);
     const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - visibleMessages.length : 0;
 
     return (

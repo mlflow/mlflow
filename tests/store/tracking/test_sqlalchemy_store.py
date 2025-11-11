@@ -11138,7 +11138,14 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.entities import EvaluationDataset
 """
 
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
 
 
 def test_plugin_entrypoint_registration_does_not_fail():
@@ -11160,7 +11167,14 @@ class CustomTrackingStore(SqlAlchemyStore):
 
 """
 
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
 
 
 def test_plugin_can_create_dataset_without_name_error():
@@ -11191,7 +11205,14 @@ with tempfile.TemporaryDirectory() as tmpdir:
     assert dataset.name == "test_dataset"
 """
 
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
+    result = subprocess.run(
+        [sys.executable, "-c", code],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+
+    assert result.returncode == 0
 
 
 def test_evaluation_dataset_not_in_entities_all():

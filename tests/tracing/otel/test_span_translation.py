@@ -13,7 +13,6 @@ from mlflow.tracing.otel.translation import (
 )
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
-from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 
@@ -34,13 +33,6 @@ from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
         (TraceloopTranslator, "task", SpanType.TASK),
         (TraceloopTranslator, "agent", SpanType.AGENT),
         (TraceloopTranslator, "tool", SpanType.TOOL),
-        (GenAiTranslator, "chat", SpanType.CHAT_MODEL),
-        (GenAiTranslator, "create_agent", SpanType.AGENT),
-        (GenAiTranslator, "embeddings", SpanType.EMBEDDING),
-        (GenAiTranslator, "execute_tool", SpanType.TOOL),
-        (GenAiTranslator, "generate_content", SpanType.LLM),
-        (GenAiTranslator, "invoke_agent", SpanType.AGENT),
-        (GenAiTranslator, "text_completion", SpanType.LLM),
     ],
 )
 def test_translate_span_type_from_otel(
@@ -133,7 +125,7 @@ def test_translate_token_usage_from_otel(translator: OtelSchemaTranslator, total
             translator.OUTPUT_TOKEN_KEY: 50,
         }
     }
-    if total_token_exists and translator.TOTAL_TOKEN_KEY:
+    if total_token_exists:
         span_dict["attributes"][translator.TOTAL_TOKEN_KEY] = 150
 
     span.to_dict.return_value = span_dict
@@ -191,8 +183,7 @@ def test_translate_token_usage_edge_cases(
 
 
 @pytest.mark.parametrize(
-    "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator],
+    "translator", [OpenInferenceTranslator, GenAiTranslator, TraceloopTranslator]
 )
 @pytest.mark.parametrize(
     "input_value",
@@ -204,76 +195,27 @@ def test_translate_inputs_for_spans(
 ):
     span = mock.Mock(spec=Span)
     span.parent_id = parent_id
-    for input_key in translator.INPUT_VALUE_KEYS:
-        span_dict = {"attributes": {input_key: json.dumps(input_value)}}
-        span.to_dict.return_value = span_dict
-
-        result = translate_span_when_storing(span)
-
-        assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
-
-
-@pytest.mark.parametrize(
-    "input_key",
-    [
-        "traceloop.entity.input",
-        "gen_ai.prompt.0.content",
-        "gen_ai.prompt.1.content",
-        "gen_ai.completion.0.tool_calls.0.arguments",
-        "gen_ai.completion.1.tool_calls.1.arguments",
-    ],
-)
-@pytest.mark.parametrize(
-    "input_value",
-    ["test input", {"query": "test"}, 123],
-)
-def test_translate_inputs_for_spans_traceloop(input_key: str, input_value: Any):
-    span = mock.Mock(spec=Span)
-    span.parent_id = "parent_123"
-    span_dict = {"attributes": {input_key: json.dumps(input_value)}}
+    span_dict = {"attributes": {translator.INPUT_VALUE_KEY: json.dumps(input_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
+
     assert result["attributes"][SpanAttributeKey.INPUTS] == json.dumps(input_value)
 
 
 @pytest.mark.parametrize(
-    "translator",
-    [OpenInferenceTranslator, GenAiTranslator, GoogleADKTranslator],
+    "translator", [OpenInferenceTranslator, GenAiTranslator, TraceloopTranslator]
 )
 @pytest.mark.parametrize("parent_id", [None, "parent_123"])
 def test_translate_outputs_for_spans(parent_id: str | None, translator: OtelSchemaTranslator):
     output_value = "test output"
     span = mock.Mock(spec=Span)
     span.parent_id = parent_id
-    for output_key in translator.OUTPUT_VALUE_KEYS:
-        span_dict = {"attributes": {output_key: json.dumps(output_value)}}
-        span.to_dict.return_value = span_dict
-
-        result = translate_span_when_storing(span)
-
-        assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
-
-
-@pytest.mark.parametrize(
-    "output_key",
-    [
-        "traceloop.entity.output",
-        "gen_ai.completion.0.content",
-        "gen_ai.completion.1.content",
-    ],
-)
-@pytest.mark.parametrize(
-    "output_value",
-    ["test input", {"query": "test"}, 123],
-)
-def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: Any):
-    span = mock.Mock(spec=Span)
-    span.parent_id = "parent_123"
-    span_dict = {"attributes": {output_key: json.dumps(output_value)}}
+    span_dict = {"attributes": {translator.OUTPUT_VALUE_KEY: json.dumps(output_value)}}
     span.to_dict.return_value = span_dict
 
     result = translate_span_when_storing(span)
+
     assert result["attributes"][SpanAttributeKey.OUTPUTS] == json.dumps(output_value)
 
 
@@ -288,8 +230,8 @@ def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: An
         (
             "parent_123",
             {
-                OpenInferenceTranslator.INPUT_VALUE_KEYS[0]: json.dumps("test input"),
-                OpenInferenceTranslator.OUTPUT_VALUE_KEYS[0]: json.dumps("test output"),
+                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("test input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("test output"),
             },
             "test input",
             "test output",
@@ -299,8 +241,8 @@ def test_translate_outputs_for_spans_traceloop(output_key: str, output_value: An
             {
                 SpanAttributeKey.INPUTS: json.dumps("existing input"),
                 SpanAttributeKey.OUTPUTS: json.dumps("existing output"),
-                OpenInferenceTranslator.INPUT_VALUE_KEYS[0]: json.dumps("new input"),
-                OpenInferenceTranslator.OUTPUT_VALUE_KEYS[0]: json.dumps("new output"),
+                OpenInferenceTranslator.INPUT_VALUE_KEY: json.dumps("new input"),
+                OpenInferenceTranslator.OUTPUT_VALUE_KEY: json.dumps("new output"),
             },
             "existing input",
             "existing output",

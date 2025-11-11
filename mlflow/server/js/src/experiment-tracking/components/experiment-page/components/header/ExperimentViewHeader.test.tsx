@@ -77,6 +77,10 @@ describe('ExperimentViewHeader', () => {
       expect(tooltip).toHaveTextContent('Artifact Location: file:/tmp/mlruns');
     });
 
+    it('renders breadcrumb navigation', () => {
+      expect(screen.getByText('Experiments')).toBeInTheDocument();
+    });
+
     it('displays share and management buttons', () => {
       expect(screen.getByRole('button', { name: /share/i })).toBeInTheDocument();
       expect(screen.getByTestId('overflow-menu-trigger')).toBeInTheDocument();

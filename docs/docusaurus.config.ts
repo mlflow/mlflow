@@ -54,7 +54,7 @@ const config: Config = {
     },
   ],
 
-  themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
+  themes: ['@docusaurus/theme-mermaid'],
   markdown: {
     mermaid: true,
   },
@@ -219,19 +219,6 @@ const config: Config = {
 
   plugins: [
     tailwindPlugin,
-    [
-      '@signalwire/docusaurus-plugin-llms-txt',
-      {
-        ui: {
-          copyPageContent: {
-            buttonLabel: 'Copy Page',
-            display: {
-              docs: true,
-            },
-          },
-        },
-      },
-    ],
     // Classic ML docs plugin
     [
       '@docusaurus/plugin-content-docs',
@@ -392,16 +379,8 @@ const config: Config = {
             from: ['/tracing/api'],
           },
           {
-            to: '/genai/tracing/search-traces',
+            to: '/genai/tracing/observe-with-traces/ui',
             from: ['/tracing/ui'],
-          },
-          {
-            to: '/genai/tracing/search-traces',
-            from: [
-              '/genai/tracing/observe-with-traces',
-              '/genai/tracing/observe-with-traces/index',
-              '/genai/tracing/observe-with-traces/query-via-sdk',
-            ],
           },
           {
             to: '/genai/tracing/integrations',

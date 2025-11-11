@@ -55,11 +55,7 @@ def test_emit_custom_metric_event():
         is_correct,
         IsEmpty(),
         not_empty,
-        make_judge(
-            name="is_kind",
-            instructions="The answer must be kind. {{ outputs }}",
-            feedback_value_type=str,
-        ),
+        make_judge(name="is_kind", instructions="The answer must be kind. {{ outputs }}"),
     ]
     with (
         mock.patch("mlflow.genai.evaluation.telemetry.is_databricks_uri", return_value=True),

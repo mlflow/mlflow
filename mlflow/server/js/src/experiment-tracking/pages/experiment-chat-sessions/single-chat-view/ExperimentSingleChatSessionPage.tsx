@@ -10,7 +10,7 @@ import {
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -42,7 +42,6 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const { experimentId, sessionId } = useParams();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<ModelTrace | null>(null);
-  const chatRefs = useRef<{ [traceId: string]: HTMLDivElement }>({});
 
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
@@ -102,14 +101,12 @@ const ExperimentSingleChatSessionPageImpl = () => {
             selectedTurnIndex={selectedTurnIndex}
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
           />
           <ExperimentSingleChatConversation
             traces={traces ?? []}
             selectedTurnIndex={selectedTurnIndex}
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
-            chatRefs={chatRefs}
           />
         </div>
       )}

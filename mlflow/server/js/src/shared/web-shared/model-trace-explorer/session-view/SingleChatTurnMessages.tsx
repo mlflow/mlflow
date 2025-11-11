@@ -2,9 +2,8 @@ import { useDesignSystemTheme } from '@databricks/design-system';
 
 import type { ModelTrace } from '../ModelTrace.types';
 import { parseModelTraceToTree, createListFromObject } from '../ModelTraceExplorer.utils';
+import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
 import { ModelTraceExplorerChatMessage } from '../right-pane/ModelTraceExplorerChatMessage';
-import { ModelTraceExplorerSummarySection } from '../summary-view/ModelTraceExplorerSummarySection';
-import { FormattedMessage } from 'react-intl';
 
 export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();
@@ -38,13 +37,15 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
     );
   }
 
-  // reverse to show the first param before the cutoff
-  const inputList = createListFromObject(rootSpan.inputs)
-    .filter((item) => item.value !== 'null')
-    .reverse();
-  const outputList = createListFromObject(rootSpan.outputs)
-    .filter((item) => item.value !== 'null')
-    .reverse();
+  // take the first input and output. maybe in the future this can be
+  // expandable, but for now the user can simply click on the trace to
+  // view the full input and output.
+  const inputList = createListFromObject(rootSpan.inputs);
+  const outputList = createListFromObject(rootSpan.outputs);
+
+  // try to get the first nonnull if possible
+  const input = inputList.find((item) => item.value !== null) ?? inputList[0];
+  const output = outputList.find((item) => item.value !== null) ?? outputList[0];
 
   return (
     <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
@@ -58,18 +59,10 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
-        <ModelTraceExplorerSummarySection
-          title={
-            <FormattedMessage
-              defaultMessage="Inputs"
-              description="Section title for the inputs of a single chat turn"
-            />
-          }
-          data={inputList}
+        <ModelTraceExplorerFieldRenderer
+          title={input?.key ?? 'input'}
+          data={input?.value ?? 'null'}
           renderMode="default"
-          sectionKey="summary-inputs"
-          maxVisibleItems={1}
-          maxVisibleChatMessages={1}
         />
       </div>
       <div
@@ -82,18 +75,10 @@ export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
           backgroundColor: theme.colors.backgroundPrimary,
         }}
       >
-        <ModelTraceExplorerSummarySection
-          title={
-            <FormattedMessage
-              defaultMessage="Outputs"
-              description="Section title for the outputs of a single chat turn"
-            />
-          }
-          data={outputList}
+        <ModelTraceExplorerFieldRenderer
+          title={output?.key ?? 'output'}
+          data={output?.value ?? 'null'}
           renderMode="default"
-          sectionKey="summary-outputs"
-          maxVisibleItems={1}
-          maxVisibleChatMessages={1}
         />
       </div>
     </div>

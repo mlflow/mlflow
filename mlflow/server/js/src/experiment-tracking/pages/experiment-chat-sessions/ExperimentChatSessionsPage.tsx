@@ -6,7 +6,11 @@ import { TracesV3Toolbar } from '../../components/experiment-page/components/tra
 import invariant from 'invariant';
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import { useMemo, useState } from 'react';
-import { CUSTOM_METADATA_COLUMN_ID, GenAIChatSessionsTable } from '@databricks/web-shared/genai-traces-table';
+import {
+  CUSTOM_METADATA_COLUMN_ID,
+  GenAIChatSessionsTable,
+  HiddenFilterOperator,
+} from '@databricks/web-shared/genai-traces-table';
 import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
 import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import {
@@ -67,7 +71,7 @@ const ExperimentChatSessionsPageImpl = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
+    <div css={{ display: 'flex', flexDirection: 'column' }}>
       <TracesV3Toolbar
         // prettier-ignore
         viewState="sessions"

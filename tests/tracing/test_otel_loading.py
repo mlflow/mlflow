@@ -491,8 +491,8 @@ def test_span_inputs_outputs_translation(
     )
 
     with tracer.start_as_current_span("llm-call") as span:
-        span.set_attribute(translator.INPUT_VALUE_KEYS[0], "Hello, world!")
-        span.set_attribute(translator.OUTPUT_VALUE_KEYS[0], "Bye!")
+        span.set_attribute(translator.INPUT_VALUE_KEY, "Hello, world!")
+        span.set_attribute(translator.OUTPUT_VALUE_KEY, "Bye!")
 
     if is_async:
         _flush_async_logging()

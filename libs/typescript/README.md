@@ -156,7 +156,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of your applicat
 
 MLflow's tracing capabilities provide deep insights into what happens beneath the abstractions of your application, helping you precisely identify where issues occur.
 
-[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces/ui)
+[Learn more →](https://mlflow.org/docs/latest/genai/tracing/observe-with-traces)
 
 </td>
 <td width="40%">

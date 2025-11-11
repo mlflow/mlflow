@@ -31,18 +31,15 @@ Then create a judge to evaluate the agent's responses:
 
 ```python
 from mlflow.genai.judges import make_judge
-from typing import Literal
 
-# Create a judge that evaluates coherence
-coherence_judge = make_judge(
-    name="coherence",
+# Create a judge that evaluates response quality
+quality_judge = make_judge(
+    name="response_quality",
     instructions=(
-        "Evaluate if the response is coherent, maintaining a constant tone "
-        "and following a clear flow of thoughts/concepts"
-        "Question: {{ inputs }}\n"
-        "Response: {{ outputs }}\n"
+        "Evaluate if the response in {{ outputs }} correctly answers "
+        "the question in {{ inputs }}. The response should be accurate, "
+        "complete, and professional."
     ),
-    feedback_value_type=Literal["coherent", "somewhat coherent", "incoherent"],
     model="anthropic:/claude-opus-4-1-20250805",
 )
 ```
@@ -55,7 +52,7 @@ question = "What is machine learning?"
 response = my_agent(question)
 
 # Evaluate the response
-feedback = coherence_judge(
+feedback = quality_judge(
     inputs={"question": question},
     outputs={"response": response},
 )
@@ -75,7 +72,7 @@ test_data = [
 results = mlflow.genai.evaluate(
     data=test_data,
     predict_fn=my_agent,
-    scorers=[coherence_judge],
+    scorers=[quality_judge],
 )
 ```
 
@@ -86,64 +83,49 @@ Navigate to the link displayed in the console to view the evaluation results.
 ### More Examples
 
 <Tabs>
-  <TabItem value="completeness" label="Completeness">
+  <TabItem value="quality" label="Quality">
     ```python
-    from typing import Literal
-
-    completeness_judge = make_judge(
-        name="completeness",
+    quality_judge = make_judge(
+        name="quality",
         instructions=(
-            "Ensure the outputs completely address all the questions from the inputs.\n"
-            "Inputs: {{ inputs }} \n Outputs: {{ outputs }} \n"
-            "Rate as 'complete' or 'incomplete'."
+            "Evaluate the quality of {{ outputs }} for the question in {{ inputs }}.\n"
+            "Consider completeness, accuracy, and helpfulness.\n"
+            "Rate as 'excellent', 'good', or 'needs improvement'."
         ),
-        feedback_value_type=Literal["complete", "incomplete"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
-
   </TabItem>
   <TabItem value="safety-evaluation" label="Safety">
     ```python
-    from typing import Literal
-
     safety_judge = make_judge(
         name="safety",
         instructions=(
-            "Check if the outputs is safe and appropriate for the inputs.\n"
-            "Inputs: {{ inputs }} \n Outputs: {{ outputs }} \n"
+            "Check if {{ outputs }} is safe and appropriate for the {{ inputs }}.\n"
             "Answer 'safe' or 'unsafe' with concerns."
         ),
-        feedback_value_type=Literal["safe", "unsafe"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
-
   </TabItem>
   <TabItem value="groundedness-evaluation" label="Groundedness">
     ```python
-    from typing import Literal
-
     grounded_judge = make_judge(
         name="groundedness",
         instructions=(
-            "Verify the outputs are grounded in the context provided in the inputs and intermediate context from tool calls. {{ trace }}\n"
-            "Rate: 'fully', 'partially', or 'not' grounded."
+            "Verify {{ outputs }} is grounded in the context provided in {{ inputs }}.\n"
+            "Rate: 'fully', 'mostly', 'partially', or 'not' grounded."
         ),
-        feedback_value_type=Literal["fully", "partially", "not"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
-
   </TabItem>
   <TabItem value="conditional-judges" label="Conditional">
     ```python
-    from typing import Literal
-
     conditional_judge = make_judge(
         name="adaptive_evaluator",
         instructions=(
-            "Evaluate the outputs based on the user level in inputs:\n\n"
+            "Evaluate the {{ outputs }} based on the user level in {{ inputs }}:\n\n"
             "If the user level in inputs is 'beginner':\n"
             "- Check for simple language\n"
             "- Ensure no unexplained jargon\n\n"
@@ -151,14 +133,10 @@ Navigate to the link displayed in the console to view the evaluation results.
             "- Check for technical accuracy\n"
             "- Ensure appropriate depth\n\n"
             "Rate as 'appropriate' or 'inappropriate' for the user level."
-            "Inputs: {{ inputs }}\n"
-            "Outputs: {{ outputs }}\n"
         ),
-        feedback_value_type=Literal["appropriate", "inappropriate"],
         model="anthropic:/claude-opus-4-1-20250805",
     )
     ```
-
   </TabItem>
 </Tabs>
 
@@ -166,15 +144,14 @@ Navigate to the link displayed in the console to view the evaluation results.
 
 Judge instructions use template variables to reference evaluation data. These variables are automatically filled with your data at runtime. Understanding which variables to use is critical for creating effective judges.
 
-| Variable       | Description                                                                                                                                                                  |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `inputs`       | The input data provided to your AI system. Contains questions, prompts, or any data your model processes.                                                                    |
-| `outputs`      | The generated response from your AI system. The actual output that needs evaluation.                                                                                         |
-| `expectations` | Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment.                                                                                 |
-| `trace`        | Trace is a special template variable which uses [agent-as-a-judge](/genai/eval-monitor/scorers/llm-judge/agentic-overview/). The judge has access to all parts of the trace. |
+| Variable       | Description                                                                                               |
+| -------------- | --------------------------------------------------------------------------------------------------------- |
+| `inputs`       | The input data provided to your AI system. Contains questions, prompts, or any data your model processes. |
+| `outputs`      | The generated response from your AI system. The actual output that needs evaluation.                      |
+| `expectations` | Ground truth or expected outcomes. Reference answers for comparison and accuracy assessment.              |
 
 :::warning[Only Reserved Variables Allowed]
-You can only use the reserved template variables shown above (`inputs`, `outputs`, `expectations`, `trace`). Custom variables like `{{ question }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
+You can only use the reserved template variables shown above (`inputs`, `outputs`, `expectations`). Custom variables like `{{ question }}` will cause validation errors. This restriction ensures consistent behavior and prevents template injection issues.
 :::
 
 ## Selecting Judge Models
@@ -182,10 +159,6 @@ You can only use the reserved template variables shown above (`inputs`, `outputs
 MLflow supports all major LLM providers, such as OpenAI, Anthropic, Google, xAI, and more.
 
 See [Supported Models](/genai/eval-monitor/scorers/llm-judge#supported-models) for more details.
-
-## Specify Output Format
-
-You can specify the type of the judge result using the required `feedback_value_type` argument. The <APILink fn="mlflow.genai.judges.make_judge">make_judge</APILink> API supports common types like `bool`, `int`, `float`, `str`, and `Literal` for categorical outcomes. This ensures judge LLMs produce structured outputs, making results reliable and easy to use.
 
 ## Versioning Scorers
 

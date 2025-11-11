@@ -805,11 +805,6 @@ In headlines Docusaurus adds this for us. */
   margin-bottom: 1.5rem;
 }
 
-.theme-code-block {
-  max-width: 100%;
-  min-width: 0;
-}
-
 /* Inline code */
 :not(pre) > code {
   border-radius: 4px;

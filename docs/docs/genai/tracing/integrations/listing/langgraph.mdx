@@ -8,7 +8,6 @@ import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import TabsWrapper from "@site/src/components/TabsWrapper";
 
 # Tracing LangGraph🦜🕸️
 
@@ -18,35 +17,12 @@ import TabsWrapper from "@site/src/components/TabsWrapper";
 
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for LangGraph, as a extension of its LangChain integration. By enabling auto-tracing for LangChain by calling the <APILink fn="mlflow.langchain.autolog" /> function, MLflow will
 automatically capture the graph execution into a trace and log it to the active MLflow Experiment.
-In TypeScript, you can pass the MLflow LangChain callback to the `callbacks` option.
-
-<TabsWrapper>
-<Tabs>
-  <TabItem value="python" label="Python" default>
 
 ```python
 import mlflow
 
 mlflow.langchain.autolog()
 ```
-
-  </TabItem>
-  <TabItem value="typescript" label="JS / TS">
-
-```typescript
-import { MlflowCallback } from "mlflow-langchain";
-
-const tracer = new MlflowCallback();
-
-await agent.invoke(
-  { messages: [{ role: "user", content: "What is MLflow?" }] },
-  { callbacks: [tracer] }
-);
-```
-
-  </TabItem>
-</Tabs>
-</TabsWrapper>
 
 :::tip
 
@@ -210,22 +186,6 @@ def code_check(state: GraphState):
 This way, the span for the `check_code` node will have child spans, which record whether the each validation fails or not, with their exception details.
 
 ![LangGraph Child Span](/images/llms/tracing/langgraph-child-span.png)
-
-### Thread ID Tracking
-
-Since MLflow 3.6, MLflow will automatically record the thread (session) ID for the trace and let you view a group of traces as a session in the UI. To enable this feature, you need to pass the `thread_id` in the config when invoking the graph.
-
-```python
-graph.invoke(inputs, {"configurable": {"thread_id": "1"}})
-```
-
-The thread ID will be recorded in the trace metadata and displayed in the MLflow Trace UI.
-
-![LangGraph Thread ID](/images/llms/tracing/langgraph-thread-id.png)
-
-By navigating to the Session tab on the side bar, you can view all the traces in the session.
-
-![LangGraph Session Page](/images/llms/tracing/langgraph-session-page.png)
 
 ### Disable auto-tracing
 

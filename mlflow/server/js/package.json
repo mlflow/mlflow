@@ -80,7 +80,7 @@
     "react-redux": "^7.2.5",
     "react-resizable": "^3.0.4",
     "react-router": "^6.4.0",
-    "react-router-dom": "^6.4.3",
+    "react-router-dom": "^6.4.0",
     "react-syntax-highlighter": "^15.4.5",
     "react-treebeard": "2.1.0",
     "react-vega": "^7.6.0",

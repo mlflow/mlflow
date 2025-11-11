@@ -1186,12 +1186,12 @@ def test_resolve_scorer_fields_partial_extraction(mock_judge_with_inputs_outputs
 @pytest.mark.parametrize(
     ("needs_inputs", "needs_outputs", "expected_in_content", "not_expected_in_content"),
     [
-        (True, False, ['"inputs": The initial user request/question'], ["outputs"]),
-        (False, True, ['"outputs": The final system response'], ["inputs"]),
+        (True, False, ["inputs: The initial user request/question"], ["outputs"]),
+        (False, True, ["outputs: The final system response"], ["inputs"]),
         (
             True,
             True,
-            ['"inputs": The initial user request/question', '"outputs": The final system response'],
+            ["inputs: The initial user request/question", "outputs: The final system response"],
             [],
         ),
     ],
@@ -1221,22 +1221,19 @@ def test_construct_field_extraction_config_messages(
             True,
             False,
             {"inputs": True, "outputs": False},
-            {"inputs": 'The user\'s original request (field name must be exactly "inputs")'},
+            {"inputs": "The user's original request"},
         ),
         (
             False,
             True,
             {"inputs": False, "outputs": True},
-            {"outputs": 'The system\'s final response (field name must be exactly "outputs")'},
+            {"outputs": "The system's final response"},
         ),
         (
             True,
             True,
             {"inputs": True, "outputs": True},
-            {
-                "inputs": 'The user\'s original request (field name must be exactly "inputs")',
-                "outputs": 'The system\'s final response (field name must be exactly "outputs")',
-            },
+            {"inputs": "The user's original request", "outputs": "The system's final response"},
         ),
     ],
 )
@@ -1264,14 +1261,8 @@ def test_construct_field_extraction_config_structure():
 
     assert config.messages[0].content.startswith("Extract the following fields from the trace.")
     assert "Use the provided tools to examine the trace's spans" in config.messages[0].content
-    assert (
-        "IMPORTANT: Return the result as JSON with the EXACT field names"
-        in config.messages[0].content
-    )
-    expected_user_message = (
-        "Use the tools to find the required fields, then return them as JSON "
-        "with the exact field names specified."
-    )
+    assert "Return the result as JSON." in config.messages[0].content
+    expected_user_message = "Use the tools to find the required fields, then return them as JSON."
     assert config.messages[1].content == expected_user_message
 
 

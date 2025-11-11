@@ -4146,11 +4146,7 @@ class MlflowClient:
             name: SocialMediaTextAnalyzer
             tags: {'nlp.framework1': 'Spark NLP', 'nlp.framework2': 'VADER'}
         """
-        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
-        # privilege on the model to check if it's a prompt. Setting tags should only require
-        # `APPLY TAG` privilege.
-        if not is_databricks_unity_catalog_uri(self._registry_uri):
-            self._raise_if_prompt(name)
+        self._raise_if_prompt(name)
         self._get_registry_client().set_registered_model_tag(name, key, value)
 
     def delete_registered_model_tag(self, name: str, key: str) -> None:
@@ -4201,11 +4197,7 @@ class MlflowClient:
             name: name2
             tags: {}
         """
-        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
-        # privilege on the model to check if it's a prompt. Deleting tags should only require
-        # `APPLY TAG` privilege.
-        if not is_databricks_unity_catalog_uri(self._registry_uri):
-            self._raise_if_prompt(name)
+        self._raise_if_prompt(name)
         self._get_registry_client().delete_registered_model_tag(name, key)
 
     # Model Version Methods
@@ -5057,11 +5049,7 @@ class MlflowClient:
             Tags: {'t': '1', 't1': '1'}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
-        # privilege on the model to check if it's a prompt. Setting tags should only require
-        # `APPLY TAG` privilege.
-        if not is_databricks_unity_catalog_uri(self._registry_uri):
-            self._raise_if_prompt(name)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `set_model_version_tag` API is deprecated. "
@@ -5152,11 +5140,7 @@ class MlflowClient:
             Tags: {}
         """
         _validate_model_version_or_stage_exists(version, stage)
-        # Skip `_raise_if_prompt` validation for Unity Catalog because it requires `EXECUTE`
-        # privilege on the model to check if it's a prompt. Deleting tags should only require
-        # `APPLY TAG` privilege.
-        if not is_databricks_unity_catalog_uri(self._registry_uri):
-            self._raise_if_prompt(name)
+        self._raise_if_prompt(name)
         if stage:
             warnings.warn(
                 "The `stage` parameter of the `delete_model_version_tag` API is deprecated. "

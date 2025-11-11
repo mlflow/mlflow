@@ -271,19 +271,12 @@ class Scorer(BaseModel):
                     f"{'; '.join(errors)}"
                 )
 
-            feedback_value_type = str  # default to str
-            if "feedback_value_type" in data and data["feedback_value_type"] is not None:
-                feedback_value_type = InstructionsJudge._deserialize_feedback_value_type(
-                    data["feedback_value_type"]
-                )
-
             try:
                 return InstructionsJudge(
                     name=serialized.name,
                     description=serialized.description,
                     instructions=data["instructions"],
                     model=data["model"],
-                    feedback_value_type=feedback_value_type,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:

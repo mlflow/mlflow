@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from pydantic import BaseModel, Field
 
 from mlflow.entities.trace import Trace
-from mlflow.genai.judges.constants import _RATIONALE_FIELD_DESCRIPTION, _RESULT_FIELD_DESCRIPTION
 from mlflow.genai.judges.utils import get_default_optimizer
 from mlflow.genai.scorers.base import Scorer, ScorerKind
 from mlflow.telemetry.events import AlignJudgeEvent
@@ -46,7 +44,6 @@ class JudgeField(BaseModel):
 
     name: str = Field(..., description="Name of the field")
     description: str = Field(..., description="Description of what the field represents")
-    value_type: Any = Field(default=str, description="Type of the field's value")
 
 
 @experimental(version="3.4.0")
@@ -88,12 +85,8 @@ class Judge(Scorer):
             List of JudgeField objects defining the standard output fields.
         """
         return [
-            JudgeField(name="result", description=_RESULT_FIELD_DESCRIPTION, value_type=str),
-            JudgeField(
-                name="rationale",
-                description=_RATIONALE_FIELD_DESCRIPTION,
-                value_type=str,
-            ),
+            JudgeField(name="result", description="The evaluation rating/result"),
+            JudgeField(name="rationale", description="Detailed explanation for the evaluation"),
         ]
 
     @experimental(version="3.4.0")

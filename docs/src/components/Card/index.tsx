@@ -14,17 +14,13 @@ export const CardGroup = ({ children, isSmall, cols, noGap }): JSX.Element => (
   </div>
 );
 
-export const Card = ({ children, link = '', style = undefined }): JSX.Element => {
+export const Card = ({ children, link = '' }): JSX.Element => {
   if (!link) {
-    return (
-      <div className={clsx(styles.Card, styles.CardBordered)} style={style}>
-        {children}
-      </div>
-    );
+    return <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>;
   }
 
   return (
-    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} style={style} to={link}>
+    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} to={link}>
       {children}
     </Link>
   );
@@ -69,15 +65,21 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
   </Card>
 );
 
-export const SmallLogoCard = ({ children, link }) => {
-  return (
-    <Link className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)} to={link}>
+export const SmallLogoCard = ({ children, link }) => (
+  <div className={clsx(styles.Card, styles.CardBordered, styles.SmallLogoCardRounded)}>
+    {link ? (
+      <Link className={clsx(styles.Link)} to={link}>
+        <div className={styles.SmallLogoCardContent}>
+          <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
+        </div>
+      </Link>
+    ) : (
       <div className={styles.SmallLogoCardContent}>
         <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
       </div>
-    </Link>
-  );
-};
+    )}
+  </div>
+);
 
 const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
 

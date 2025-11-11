@@ -67,12 +67,11 @@ async def test_langgraph_tracing_prebuilt(is_async):
     mlflow.langchain.autolog()
 
     input_example = {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
-    config = {"configurable": {"thread_id": "1"}}
 
     if is_async:
-        await graph.ainvoke(input_example, config)
+        await graph.ainvoke(input_example)
     else:
-        graph.invoke(input_example, config)
+        graph.invoke(input_example)
 
     traces = get_traces()
     assert len(traces) == 1
@@ -109,9 +108,6 @@ async def test_langgraph_tracing_prebuilt(is_async):
         TokenUsageKey.OUTPUT_TOKENS: 30,
         TokenUsageKey.TOTAL_TOKENS: 45,
     }
-
-    # Thread ID should be recoded in the trace metadata
-    assert traces[0].info.trace_metadata[TraceMetadataKey.TRACE_SESSION] == "1"
 
 
 @skip_when_testing_trace_sdk

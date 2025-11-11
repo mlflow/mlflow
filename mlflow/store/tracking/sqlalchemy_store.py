@@ -3481,24 +3481,19 @@ class SqlAlchemyStore(AbstractStore):
             Dictionary of update attributes
         """
         update_dict = {}
-        try:
-            if sql_trace_info.request_preview is None and (
-                trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
-            ):
-                update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
-                    trace_inputs,
-                    role="user",
-                )
+        if sql_trace_info.request_preview is None and (
+            trace_inputs := span_dict.get("attributes", {}).get(SpanAttributeKey.INPUTS)
+        ):
+            update_dict[SqlTraceInfo.request_preview] = _get_truncated_preview(
+                trace_inputs, role="user"
+            )
 
-            if sql_trace_info.response_preview is None and (
-                trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
-            ):
-                update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
-                    trace_outputs,
-                    role="assistant",
-                )
-        except Exception:
-            _logger.debug(f"Failed to update trace info attributes: {span_dict}", exc_info=True)
+        if sql_trace_info.response_preview is None and (
+            trace_outputs := span_dict.get("attributes", {}).get(SpanAttributeKey.OUTPUTS)
+        ):
+            update_dict[SqlTraceInfo.response_preview] = _get_truncated_preview(
+                trace_outputs, role="assistant"
+            )
 
         return update_dict
 

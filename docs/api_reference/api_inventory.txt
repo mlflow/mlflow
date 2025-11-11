@@ -708,16 +708,6 @@ mlflow.genai.Scorer.start
 mlflow.genai.Scorer.stop
 mlflow.genai.Scorer.update
 mlflow.genai.ScorerScheduleConfig
-mlflow.genai.agent_server.AgentServer
-mlflow.genai.agent_server.AgentServer.run
-mlflow.genai.agent_server.get_invoke_function
-mlflow.genai.agent_server.get_request_headers
-mlflow.genai.agent_server.get_stream_function
-mlflow.genai.agent_server.invoke
-mlflow.genai.agent_server.server.AgentServer
-mlflow.genai.agent_server.set_request_headers
-mlflow.genai.agent_server.setup_mlflow_git_based_version_tracking
-mlflow.genai.agent_server.stream
 mlflow.genai.create_dataset
 mlflow.genai.create_labeling_session
 mlflow.genai.datasets.EvaluationDataset

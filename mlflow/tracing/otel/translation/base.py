@@ -25,8 +25,8 @@ class OtelSchemaTranslator:
     INPUT_TOKEN_KEY: str | None = None
     OUTPUT_TOKEN_KEY: str | None = None
     TOTAL_TOKEN_KEY: str | None = None
-    INPUT_VALUE_KEYS: list[str] | None = None
-    OUTPUT_VALUE_KEYS: list[str] | None = None
+    INPUT_VALUE_KEY: str | None = None
+    OUTPUT_VALUE_KEY: str | None = None
 
     def translate_span_type(self, attributes: dict[str, Any]) -> str | None:
         """
@@ -105,7 +105,8 @@ class OtelSchemaTranslator:
         Returns:
             Input value or None if not found
         """
-        return self.get_attribute_value(attributes, self.INPUT_VALUE_KEYS)
+        if self.INPUT_VALUE_KEY:
+            return attributes.get(self.INPUT_VALUE_KEY)
 
     def get_output_value(self, attributes: dict[str, Any]) -> Any:
         """
@@ -117,55 +118,5 @@ class OtelSchemaTranslator:
         Returns:
             Output value or None if not found
         """
-        return self.get_attribute_value(attributes, self.OUTPUT_VALUE_KEYS)
-
-    def get_attribute_value(
-        self, attributes: dict[str, Any], keys_to_check: list[str] | None = None
-    ) -> Any:
-        """
-        Get attribute value from OTEL attributes by checking whether
-        the keys in keys_to_check are present in the attributes.
-        Always use this function to get the existing attribute value in the OTel Span.
-
-        Args:
-            attributes: Dictionary of span attributes
-            keys_to_check: List of attribute keys to check
-
-        Returns:
-            Attribute value or None if not found
-        """
-        if keys_to_check:
-            for key in keys_to_check:
-                if value := self._get_and_check_attribute_value(attributes, key):
-                    return value
-
-    def _get_and_check_attribute_value(self, attributes: dict[str, Any], key: str) -> Any:
-        """
-        Get attribute value from OTEL attributes by checking whether the value is valid or not.
-        This avoids fetching the value if it's empty dictionary or null.
-
-        Args:
-            attributes: Dictionary of span attributes
-            key: Attribute key
-
-        Returns:
-            Attribute value or None if not found
-        """
-        value = attributes.get(key)
-        if isinstance(value, str):
-            try:
-                result = json.loads(value)
-                if isinstance(result, str):
-                    # the span attributes may be dumped several times in different places
-                    # (e.g. Span.from_otel_proto, span.to_dict)
-                    # so we try to load it twice here to get the dumped-once value
-                    try:
-                        if json.loads(result):
-                            return result
-                        return None
-                    except json.JSONDecodeError:
-                        pass
-                return value if result else None
-            except json.JSONDecodeError:
-                pass  # Use the string value as-is
-        return value
+        if self.OUTPUT_VALUE_KEY:
+            return attributes.get(self.OUTPUT_VALUE_KEY)

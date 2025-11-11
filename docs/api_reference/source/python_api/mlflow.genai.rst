@@ -31,8 +31,3 @@ mlflow.genai
     :members:
     :undoc-members:
     :show-inheritance:
-
-.. automodule:: mlflow.genai.agent_server
-    :members:
-    :undoc-members:
-    :show-inheritance:

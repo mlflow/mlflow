@@ -87,32 +87,20 @@ def _construct_field_extraction_config(
     schema_fields = {}
 
     if needs_inputs:
-        extraction_tasks.append('- "inputs": The initial user request/question')
+        extraction_tasks.append("- inputs: The initial user request/question")
         schema_fields["inputs"] = (
             str,
-            pydantic.Field(
-                description='The user\'s original request (field name must be exactly "inputs")'
-            ),
+            pydantic.Field(description="The user's original request"),
         )
 
     if needs_outputs:
-        extraction_tasks.append('- "outputs": The final system response')
+        extraction_tasks.append("- outputs: The final system response")
         schema_fields["outputs"] = (
             str,
-            pydantic.Field(
-                description='The system\'s final response (field name must be exactly "outputs")'
-            ),
+            pydantic.Field(description="The system's final response"),
         )
 
     schema = pydantic.create_model("ExtractionSchema", **schema_fields)
-
-    # Build example field names for the IMPORTANT message
-    example_fields = []
-    if needs_inputs:
-        example_fields.append('"inputs"')
-    if needs_outputs:
-        example_fields.append('"outputs"')
-    example_text = ", ".join(example_fields)
 
     messages = [
         ChatMessage(
@@ -121,17 +109,12 @@ def _construct_field_extraction_config(
                 "Extract the following fields from the trace.\n"
                 "Use the provided tools to examine the trace's spans to find:\n"
                 + "\n".join(extraction_tasks)
-                + "\n\nIMPORTANT: Return the result as JSON with the EXACT field names shown "
-                + f"in quotes above (e.g., {example_text}). Do not use singular forms or "
-                + "variations of these field names."
+                + "\n\nReturn the result as JSON."
             ),
         ),
         ChatMessage(
             role="user",
-            content=(
-                "Use the tools to find the required fields, then return them as JSON "
-                "with the exact field names specified."
-            ),
+            content="Use the tools to find the required fields, then return them as JSON.",
         ),
     ]
 
