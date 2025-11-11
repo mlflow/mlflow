@@ -131,6 +131,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -2949,6 +2950,32 @@ def _batch_get_traces() -> Response:
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _get_trace() -> Response:
+    """
+    A request handler for `GET /mlflow/traces/get` to get a trace with spans for given trace id.
+    """
+    request_message = _get_request_message(
+        GetTrace(),
+        schema={
+            "trace_id": [_assert_string, _assert_required],
+            "allow_partial": [_assert_bool],
+        },
+    )
+    trace_id = request_message.trace_id
+    allow_partial = request_message.allow_partial
+    trace = _get_tracking_store().get_trace(trace_id, allow_partial)
+    if trace is None:
+        raise MlflowException(
+            f"Trace with id={trace_id} not found, please check if the trace is fully exported or "
+            "the trace ID is correct.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        )
+    response_message = GetTrace.Response(trace=trace.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
@@ -4089,6 +4116,7 @@ HANDLERS = {
     DeleteTraceTagV3: _delete_trace_tag,
     LinkTracesToRun: _link_traces_to_run,
     BatchGetTraces: _batch_get_traces,
+    GetTrace: _get_trace,
     # Assessment APIs
     CreateAssessment: _create_assessment,
     GetAssessmentRequest: _get_assessment,

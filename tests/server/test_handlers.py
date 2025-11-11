@@ -46,6 +46,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     DeleteScorer,
     GetScorer,
+    GetTrace,
     ListScorers,
     ListScorerVersions,
     RegisterScorer,
@@ -93,6 +94,7 @@ from mlflow.server.handlers import (
     _get_registered_model,
     _get_request_message,
     _get_scorer,
+    _get_trace,
     _get_trace_artifact_repo,
     _list_scorer_versions,
     _list_scorers,
@@ -1993,3 +1995,118 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     # Verify response was created
     assert response is not None
     assert response.status_code == 200
+
+
+def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-123"
+
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=True)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={
+            "mlflow.spanInputs": json.dumps("inputs"),
+            "mlflow.spanOutputs": json.dumps("outputs"),
+            "mlflow.spanType": json.dumps("span_type"),
+        },
+    )
+    mock_span = Span(otel_span)
+
+    # Create mock trace to return
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    # Call the handler
+    response = _get_trace()
+
+    # Verify the store was called with the correct trace ID and allow_partial
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, True)
+
+    # Verify response was created
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+    trace = response_data["trace"]
+    assert trace["trace_info"]["trace_id"] == trace_id
+    assert len(trace["spans"]) == 1
+
+
+def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mock_tracking_store):
+    trace_id = "test-trace-456"
+
+    get_trace_proto = GetTrace(trace_id=trace_id, allow_partial=False)
+    mock_get_request_message.return_value = get_trace_proto
+
+    otel_span = OTelReadableSpan(
+        name="test",
+        context=build_otel_context(123, 234),
+        parent=None,
+        start_time=100,
+        end_time=200,
+        attributes={},
+    )
+    mock_span = Span(otel_span)
+
+    mock_trace = Trace(
+        info=TraceInfo(
+            trace_id=trace_id,
+            trace_location=EntityTraceLocation.from_experiment_id("1"),
+            request_time=1234567890,
+            execution_duration=5000,
+            state=TraceState.OK,
+        ),
+        data=TraceData(spans=[mock_span]),
+    )
+
+    mock_tracking_store.get_trace.return_value = mock_trace
+
+    # Call the handler
+    response = _get_trace()
+
+    # Verify the store was called with allow_partial=False
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, False)
+
+    # Verify response was created
+    assert response is not None
+    assert response.status_code == 200
+    response_data = json.loads(response.get_data())
+    assert "trace" in response_data
+
+
+def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_store):
+    trace_id = "non-existent-trace"
+
+    get_trace_proto = GetTrace(trace_id=trace_id)
+    mock_get_request_message.return_value = get_trace_proto
+
+    # Store returns None for non-existent trace
+    mock_tracking_store.get_trace.return_value = None
+
+    # Call the handler - should raise MlflowException
+    response = _get_trace()
+
+    # Verify the store was called
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, True)
+
+    # Verify error response for not found
+    assert response is not None
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
