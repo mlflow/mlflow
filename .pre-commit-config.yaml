@@ -125,11 +125,12 @@ repos:
 
       - id: buf-format
         name: buf-format
-        entry: bin/buf format -w --exit-code
+        entry: bin/buf format -w --exit-code .
         files: '\.proto$'
         language: system
         stages: [pre-commit]
         require_serial: true
+        pass_filenames: false
 
       - id: typos
         name: typos

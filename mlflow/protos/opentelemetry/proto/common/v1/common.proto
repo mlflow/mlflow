@@ -17,10 +17,10 @@ syntax = "proto3";
 package opentelemetry.proto.common.v1;
 
 option csharp_namespace = "OpenTelemetry.Proto.Common.V1";
-option java_multiple_files = true;
-option java_package = "io.opentelemetry.proto.common.v1";
-option java_outer_classname = "CommonProto";
 option go_package = "go.opentelemetry.io/proto/otlp/common/v1";
+option java_multiple_files = true;
+option java_outer_classname = "CommonProto";
+option java_package = "io.opentelemetry.proto.common.v1";
 
 // AnyValue is used to represent any type of attribute value. AnyValue may contain a
 // primitive value such as a string or integer or it may contain an arbitrary nested
@@ -67,7 +67,7 @@ message KeyValue {
 }
 
 // InstrumentationScope is a message representing the instrumentation scope information
-// such as the fully qualified name and version. 
+// such as the fully qualified name and version.
 message InstrumentationScope {
   // An empty instrumentation scope name means the name is unknown.
   string name = 1;
