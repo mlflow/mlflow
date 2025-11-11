@@ -223,6 +223,7 @@ The repository uses pre-commit for code quality. Install hooks with:
 
 ```bash
 uv run --only-group lint pre-commit install --install-hooks
+uv run --only-group lint pre-commit run install-bin -a -v
 ```
 
 Run pre-commit manually:
@@ -230,9 +231,6 @@ Run pre-commit manually:
 ```bash
 # Run on all files
 uv run --only-group lint pre-commit run --all-files
-
-# Run on all files, skipping hooks that require external tools
-SKIP=taplo,typos,conftest uv run --only-group lint pre-commit run --all-files
 
 # Run on specific files
 uv run --only-group lint pre-commit run --files path/to/file.py
@@ -242,22 +240,3 @@ uv run --only-group lint pre-commit run ruff --all-files
 ```
 
 This runs Ruff, typos checker, and other tools automatically before commits.
-
-**Note about external tools**: Some pre-commit hooks require external tools that aren't Python packages:
-
-- `taplo` - TOML formatter
-- `typos` - Spell checker
-- `conftest` - Policy testing tool
-
-To install these tools:
-
-```bash
-# Install all tools at once (recommended)
-uv run --only-group lint bin/install.py
-```
-
-This automatically downloads and installs the correct versions of all external tools to the `bin/` directory. The tools work on both Linux and ARM Macs.
-
-These tools are optional. Use `SKIP=taplo,typos,conftest` if they're not installed.
-
-**Note**: If the typos hook fails, you only need to fix typos in code that was changed by your PR, not pre-existing typos in the codebase.
