@@ -1,6 +1,5 @@
 """
 Install binary tools for MLflow development.
-
 """
 
 # ruff: noqa: T201
