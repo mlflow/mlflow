@@ -16,6 +16,7 @@ import inspect
 import logging
 import os
 import pickle
+import shutil
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -281,6 +282,7 @@ def save_model(
         sk_model=sk_model,
         output_path=model_data_path,
         serialization_format=serialization_format,
+        skops_trusted_types=skops_trusted_types,
     )
 
     # `PyFuncModel` only works for sklearn models that define a predict function
@@ -494,18 +496,8 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
         )
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
-        from skops.io.exceptions import UntrustedTypesFoundException
 
-        try:
-            return skops.io.load(path, trusted=skops_trusted_types)
-        except UntrustedTypesFoundException as e:
-            raise MlflowException(
-                "The saved sklearn model contains untrusted type, "
-                "if you are sure loading these types are safe, "
-                "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
-                "to the list of trusted types. "
-                f"Root error: {e!s}"
-            )
+        return skops.io.load(path, trusted=skops_trusted_types)
     else:
         with open(path, "rb") as f:
             # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
@@ -640,7 +632,7 @@ def _dump_model(pickle_lib, sk_model, out):
             raise
 
 
-def _save_model(sk_model, output_path, serialization_format):
+def _save_model(sk_model, output_path, serialization_format, skops_trusted_types):
     """
     Args:
         sk_model: The scikit-learn model to serialize.
@@ -648,13 +640,37 @@ def _save_model(sk_model, output_path, serialization_format):
         serialization_format: The format in which to serialize the model. This should be one of
             the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
             ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+        skops_trusted_types: A list of trusted types when loading model that is saved as
+            the ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS`` format.
     """
-    with open(output_path, "wb") as out:
-        if serialization_format == SERIALIZATION_FORMAT_SKOPS:
-            import skops.io
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        import skops.io
+        from skops.io.exceptions import UntrustedTypesFoundException
 
-            skops.io.dump(sk_model, out)
-        elif serialization_format == SERIALIZATION_FORMAT_PICKLE:
+        try:
+            skops.io.dump(sk_model, output_path)
+            skops.io.load(output_path, trusted=skops_trusted_types)
+        except UntrustedTypesFoundException as e:
+            shutil.rmtree(output_path, ignore_errors=True)
+            raise MlflowException(
+                "The saved sklearn model references untrusted type, "
+                "if you are sure loading these types are safe, "
+                "when calling 'log_model' or 'save_model', set 'skops_trusted_types' param "
+                "to the list of trusted types. "
+                f"Root error: {e!s}"
+            )
+        except Exception as e:
+            shutil.rmtree(output_path, ignore_errors=True)
+            raise MlflowException(
+                "The sklearn model could not be serialized using skops serialization format. "
+                "skops does not support custom functions / classes that are not defined in the "
+                "top-level. You can set 'serialization_format' param to 'cloudpickle' to address "
+                "the issue."
+            ) from e
+        return
+
+    with open(output_path, "wb") as out:
+        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
             _dump_model(pickle, sk_model, out)
         elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
             import cloudpickle
