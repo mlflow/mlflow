@@ -65,6 +65,8 @@ import {
   normalizeVercelAIChatOutput,
   isOtelGenAIChatMessage,
   normalizeOtelGenAIChatMessage,
+  normalizePydanticAIChatInput,
+  normalizePydanticAIChatOutput,
 } from './chat-utils';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
@@ -359,6 +361,12 @@ const getChatMessagesFromSpan = (
   // before the `mlflow.chat.messages` attribute was introduced
   const messagesFromInputs = normalizeConversation(inputs, messageFormat) ?? [];
   const messagesFromOutputs = normalizeConversation(outputs, messageFormat) ?? [];
+
+  // PydanticAI's new_messages() returns complete conversation including user prompt
+  if (messageFormat === 'pydantic_ai' && messagesFromOutputs.length > 0) {
+    return messagesFromInputs.length > 0 ? messagesFromInputs.concat(messagesFromOutputs) : messagesFromOutputs;
+  }
+
   // when either input or output is not chat messages, we do not set the chat message fiels.
   if (messagesFromInputs.length === 0 || messagesFromOutputs.length === 0) {
     return undefined;
@@ -944,6 +952,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  18. Bedrock outputs
  *  19. Vercel AI inputs
  *  20. Vercel AI outputs
+ *  21. PydanticAI inputs
+ *  22. PydanticAI outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -999,6 +1009,10 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
       case 'vercel_ai':
         const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
         if (vercelAIMessages) return vercelAIMessages;
+        break;
+      case 'pydantic_ai':
+        const pydanticAIMessages = normalizePydanticAIChatInput(input) ?? normalizePydanticAIChatOutput(input);
+        if (pydanticAIMessages) return pydanticAIMessages;
         break;
       default:
         // Fallback to OpenAI chat format
