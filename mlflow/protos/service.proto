@@ -1516,36 +1516,46 @@ service MlflowService {
   // Add a dataset to additional experiments
   rpc addDatasetToExperiments(AddDatasetToExperiments) returns (AddDatasetToExperiments.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/datasets/{dataset_id}/add-experiments"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/add-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Add Dataset to Experiments",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Add Dataset to Experiments"
     };
   }
 
   // Remove a dataset from experiments
   rpc removeDatasetFromExperiments(RemoveDatasetFromExperiments) returns (RemoveDatasetFromExperiments.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/datasets/{dataset_id}/remove-experiments"
-        since { major: 3, minor: 0 },
-      }],
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/remove-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
       error_codes: [
         INVALID_PARAMETER_VALUE,
         RESOURCE_DOES_NOT_EXIST,
         INTERNAL_ERROR
-      ],
-      visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "Remove Dataset from Experiments",
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Remove Dataset from Experiments"
     };
   }
 }
