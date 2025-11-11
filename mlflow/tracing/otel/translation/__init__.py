@@ -18,6 +18,7 @@ from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
+from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.utils import dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     GenAiTranslator(),
     TraceloopTranslator(),
     GoogleADKTranslator(),
+    VercelAITranslator(),
 ]
 
 
@@ -118,6 +120,12 @@ def _get_output_value(attributes: dict[str, Any]) -> Any:
     for translator in _TRANSLATORS:
         if value := translator.get_output_value(attributes):
             return value
+
+
+def _set_extra_attributes(attributes: dict[str, Any]) -> None:
+    """Set extra attributes on the span if needed."""
+    for translator in _TRANSLATORS:
+        translator.set_extra_attributes(attributes)
 
 
 def translate_span_type_from_otel(attributes: dict[str, Any]) -> str | None:
