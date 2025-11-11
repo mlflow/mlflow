@@ -12,8 +12,6 @@ class OsEnvironDeleteInTest(Rule):
     def check(node: ast.Delete, resolver: Resolver) -> bool:
         """
         Returns True if the deletion is from os.environ[...].
-
-        foo
         """
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Subscript):
             resolved = resolver.resolve(node.targets[0].value)

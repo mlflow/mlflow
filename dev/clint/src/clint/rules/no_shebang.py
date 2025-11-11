@@ -9,6 +9,7 @@ class NoShebang(Rule):
     def check(file_content: str) -> bool:
         """
         Returns True if the file contains a shebang line at the beginning.
+
         A shebang line is a line that starts with '#!' (typically #!/usr/bin/env python).
         """
         return file_content.startswith("#!")
