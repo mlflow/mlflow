@@ -3107,7 +3107,8 @@ def _delete_trace_tag(request_id):
 @_disable_if_artifacts_only
 def _delete_trace_tag_v3(trace_id):
     """
-    A request handler for `DELETE /mlflow/traces/{trace_id}/tags` to delete tags from a TraceInfo record.
+    A request handler for `DELETE /mlflow/traces/{trace_id}/tags` to delete tags
+    from a TraceInfo record.
     Identical to `_delete_trace_tag`, but with request_id renamed to with trace_id.
     """
     request_message = _get_request_message(
