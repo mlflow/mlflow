@@ -13,100 +13,278 @@ import { Activity, Users, Code, FileText, HelpCircle, Rocket, BarChart3, Target 
 Complete API reference for creating, managing, and querying evaluation datasets programmatically.
 
 :::warning[SQL Backend Required]
-Evaluation Datasets require an MLflow Tracking Server with a SQL backend (PostgreSQL, MySQL, SQLite, or MSSQL).
+Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
 This feature is **not available** with FileStore (local file system-based tracking).
 :::
 
-## Quick API Overview
+## Creating a Dataset
+
+Use <APILink fn="mlflow.genai.datasets.create_dataset" text="create_dataset()" /> to create a new evaluation dataset:
 
 ```python
-from mlflow.genai.datasets import (
-    create_dataset,  # Create new dataset
-    get_dataset,  # Retrieve by ID
-    search_datasets,  # Search and filter
-    set_dataset_tags,  # Update tags
-    delete_dataset_tag,  # Remove tags
-    delete_dataset,  # Permanent deletion
+from mlflow.genai.datasets import create_dataset
+
+# Create a new dataset
+dataset = create_dataset(
+    name="customer_support_qa",
+    experiment_id=["0"],  # Link to experiments
+    tags={"version": "1.0", "team": "ml-platform", "status": "active"},
+)
+
+print(f"Created dataset: {dataset.dataset_id}")
+```
+
+You can also use the <APILink fn="mlflow.tracking.MlflowClient" text="MlflowClient" /> API:
+
+```python
+from mlflow import MlflowClient
+
+client = MlflowClient()
+dataset = client.create_dataset(
+    name="customer_support_qa",
+    experiment_id=["0"],
+    tags={"version": "1.0"},
 )
 ```
 
-## The Active Record Pattern
+## Adding Records to a Dataset
 
-The <APILink fn="mlflow.entities.EvaluationDataset" text="EvaluationDataset" /> object follows an active record pattern. It's both a data container and provides methods to interact with the contents of the container.
-Records are added and updated by interacting with the EvaluationDataset object itself, rather than through a separate API.
-
-```python
-# Get a dataset
-dataset = get_dataset(dataset_id="d-1a2b3c4d5e6f7890abcdef1234567890")
-
-# The dataset object is "live" - it can fetch and update data
-current_record_count = len(dataset.records)  # Lazy loads if needed
-
-# Add new records directly on the object
-new_records = [
-    {
-        "inputs": {"question": "What are your business hours?"},
-        "expectations": {"mentions_hours": True, "includes_timezone": True},
-    }
-]
-dataset.merge_records(new_records)  # Updates backend immediately
-
-# Convert to DataFrame for analysis
-df = dataset.to_df()
-# Access auto-computed properties
-schema = dataset.schema  # Field structure
-profile = dataset.profile  # Dataset statistics
-```
-
-## Record Merging Mechanics
-
-The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method handles both new records and updates to existing ones. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags will be merged rather than creating a duplicate record.
+Use the <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method to add new records to your dataset. Records can be added from dictionaries, DataFrames, or traces:
 
 <TabsWrapper>
   <Tabs>
-    <TabItem value="adding" label="Adding New Records" default>
+    <TabItem value="from-dicts" label="From Dictionaries" default>
 
-When you add records for the first time, they're stored with their inputs, expectations, metadata and (optionally) outputs:
+Add records directly from Python dictionaries:
+
+```python
+# Add records with inputs and expectations
+new_records = [
+    {
+        "inputs": {"question": "What are your business hours?"},
+        "expectations": {
+            "mentions_hours": True,
+            "includes_timezone": True,
+            "accuracy": 0.95,
+        },
+    },
+    {
+        "inputs": {"question": "How do I reset my password?"},
+        "expectations": {"includes_steps": True, "helpful": True},
+    },
+]
+
+dataset.merge_records(new_records)
+print(f"Dataset now has {len(dataset.records)} records")
+```
+
+    </TabItem>
+    <TabItem value="from-traces" label="From Traces">
+
+Add records from MLflow traces:
+
+```python
+import mlflow
+
+# Search for traces to add to the dataset
+traces = mlflow.search_traces(
+    experiment_ids=["0"],
+    filter_string="attributes.name = 'chat_completion'",
+    max_results=50,
+    return_type="list",
+)
+
+# Add traces directly to the dataset
+dataset.merge_records(traces)
+```
+
+    </TabItem>
+    <TabItem value="from-dataframe" label="From DataFrame">
+
+Add records from a pandas DataFrame:
+
+```python
+import pandas as pd
+
+# Create DataFrame with structured data
+df = pd.DataFrame(
+    {
+        "inputs.question": ["What is MLflow?", "How to track experiments?"],
+        "inputs.context": ["general", "technical"],
+        "expectations.accuracy": [0.9, 0.95],
+        "expectations.relevance": [1.0, 1.0],
+        "tags.priority": ["high", "medium"],
+    }
+)
+
+dataset.merge_records(df)
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Updating Existing Records
+
+The <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merge_records()" /> method intelligently handles updates. **Records are matched based on a hash of their inputs** - if a record with identical inputs already exists, its expectations and tags are merged rather than creating a duplicate:
 
 ```python
 # Initial record
-record_v1 = {
-    "inputs": {"question": "What is MLflow?", "context": "ML platform overview"},
-    "expectations": {"accuracy": 0.8, "mentions_tracking": True},
-}
+dataset.merge_records(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"accuracy": 0.8, "mentions_tracking": True},
+        }
+    ]
+)
 
-dataset.merge_records([record_v1])
-# Creates a new record in the dataset
+# Update with same inputs but different expectations
+dataset.merge_records(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},  # Same inputs = update
+            "expectations": {
+                "accuracy": 0.95,  # Updates existing value
+                "mentions_models": True,  # Adds new expectation
+                # Note: "mentions_tracking": True is preserved
+            },
+        }
+    ]
+)
+
+# Result: One record with merged expectations
 ```
 
-    </TabItem>
-    <TabItem value="updating" label="Updating Existing Records">
+## Removing Records from a Dataset
 
-When you merge a record with identical inputs, the existing record is updated by **merging** the new expectations and tags with the existing ones:
+Use <APILink fn="mlflow.entities.EvaluationDataset.delete_records" text="delete_records()" /> to remove specific records by their IDs:
 
 ```python
-# Updated version with same inputs but enhanced expectations
-record_v2 = {
-    "inputs": {
-        "question": "What is MLflow?",  # Same question
-        "context": "ML platform overview",  # Same context
-    },
-    "expectations": {
-        "accuracy": 0.95,  # Updates existing value
-        "mentions_models": True,  # Adds new expectation
-        "clarity": 0.9  # Adds new metric
-        # Note: "mentions_tracking": True is preserved from record_v1
-    },
-    "tags": {"reviewed": "true", "reviewer": "ml_team"},
-}
+# Get the dataset
+from mlflow.genai.datasets import get_dataset
 
-dataset.merge_records([record_v2])
-# The record is updated, not duplicated
-# Final record has all expectations from both v1 and v2 merged together
+dataset = get_dataset(dataset_id="d-1a2b3c4d5e6f7890")
+
+# View current records
+print(f"Current records: {len(dataset.records)}")
+for record in dataset.records[:3]:
+    print(f"  - {record.record_id}: {record.inputs}")
+
+# Delete specific records
+record_ids_to_delete = [
+    "r-abc123def456",
+    "r-xyz789ghi012",
+]
+dataset.delete_records(record_ids_to_delete)
+
+print(f"After deletion: {len(dataset.records)} records remaining")
+```
+
+## Retrieving Datasets
+
+Retrieve existing datasets by ID or search for them:
+
+<TabsWrapper>
+  <Tabs>
+    <TabItem value="get-by-id" label="Get by ID" default>
+
+```python
+from mlflow.genai.datasets import get_dataset
+
+# Get a specific dataset by ID
+dataset = get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f")
+
+# Access dataset properties
+print(f"Name: {dataset.name}")
+print(f"Records: {len(dataset.records)}")
+print(f"Schema: {dataset.schema}")
+print(f"Tags: {dataset.tags}")
 ```
 
     </TabItem>
-    <TabItem value="uniqueness" label="Input Uniqueness">
+    <TabItem value="search" label="Search Datasets">
+
+```python
+from mlflow.genai.datasets import search_datasets
+
+# Search for datasets with filters
+datasets = search_datasets(
+    experiment_ids=["0"],
+    filter_string="tags.status = 'active' AND name LIKE '%support%'",
+    order_by=["last_update_time DESC"],
+    max_results=10,
+)
+
+for ds in datasets:
+    print(f"{ds.name} ({ds.dataset_id}): {len(ds.records)} records")
+```
+
+    </TabItem>
+
+  </Tabs>
+</TabsWrapper>
+
+## Managing Tags
+
+Add, update, or remove tags from datasets:
+
+```python
+from mlflow.genai.datasets import set_dataset_tags, delete_dataset_tag
+
+# Set or update tags
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={"status": "production", "validated": "true", "version": "2.0"},
+)
+
+# Delete a specific tag
+delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
+```
+
+## Deleting a Dataset
+
+Permanently delete a dataset and all its records:
+
+```python
+from mlflow.genai.datasets import delete_dataset
+
+# Delete the entire dataset
+delete_dataset(dataset_id="d-1a2b3c4d5e6f7890")
+```
+
+:::warning
+Dataset deletion is permanent and cannot be undone. All records will be deleted.
+:::
+
+## Working with Dataset Records
+
+The <APILink fn="mlflow.entities.EvaluationDataset" text="EvaluationDataset" /> object provides several ways to access and analyze records:
+
+```python
+# Access all records
+all_records = dataset.records
+
+# Convert to DataFrame for analysis
+df = dataset.to_df()
+print(df.head())
+
+# View dataset schema (auto-computed from records)
+print(dataset.schema)
+
+# View dataset profile (statistics)
+print(dataset.profile)
+
+# Get record count
+print(f"Total records: {len(dataset.records)}")
+```
+
+---
+
+## Advanced Topics
+
+### Understanding Input Uniqueness
 
 Records are considered unique based on their **entire inputs dictionary**. Even small differences create separate records:
 
@@ -129,17 +307,11 @@ dataset.merge_records([record_a, record_b])
 # Results in 2 separate records due to different temperature values
 ```
 
-    </TabItem>
-
-  </Tabs>
-</TabsWrapper>
-
-## Source Type Inference
+### Source Type Inference
 
 MLflow automatically assigns source types before sending records to the backend using these rules:
 
 <ConceptOverview
-  title="Source Type Behavior"
   concepts={[
     {
       title: "Automatic Inference",
@@ -156,7 +328,7 @@ MLflow automatically assigns source types before sending records to the backend 
   ]}
 />
 
-### Inference Rules
+#### Inference Rules
 
 <TabsWrapper>
   <Tabs>
@@ -166,11 +338,11 @@ Records from MLflow traces are automatically assigned the `TRACE` source type:
 
 ```python
 # When adding traces directly (automatic TRACE source)
-traces = mlflow.search_traces(locations=["0"], return_type="list")
-dataset.merge_records(traces)  # All records get TRACE source type
+traces = mlflow.search_traces(experiment_ids=["0"], return_type="list")
+dataset.merge_records(traces)
 
 # Or when using DataFrame from search_traces
-traces_df = mlflow.search_traces(locations=["0"])  # Returns DataFrame
+traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
 dataset.merge_records(
     traces_df
 )  # Automatically detects traces and assigns TRACE source
@@ -187,7 +359,7 @@ human_curated = [
     {
         "inputs": {"question": "What is MLflow?"},
         "expectations": {"answer": "MLflow is an ML platform", "quality": 0.9}
-        # Automatically inferred as HUMAN source due to expectations
+        # Automatically inferred as HUMAN source due to the presence of expectations
     }
 ]
 dataset.merge_records(human_curated)
@@ -213,7 +385,7 @@ dataset.merge_records(generated_tests)
   </Tabs>
 </TabsWrapper>
 
-### Manual Source Override
+#### Manual Source Override
 
 You can explicitly specify the source type and metadata for any record:
 
@@ -241,7 +413,7 @@ from_docs = {
 dataset.merge_records([human_curated, from_docs])
 ```
 
-### Available Source Types
+#### Available Source Types
 
 <FeatureHighlights features={[
   {
@@ -271,9 +443,9 @@ dataset.merge_records([human_curated, from_docs])
   }
 ]} />
 
-## Search Filter Reference
+### Search Filter Reference
 
-### Searchable Fields
+#### Searchable Fields
 
 | Field              | Type      | Example                               |
 | ------------------ | --------- | ------------------------------------- |
@@ -284,14 +456,14 @@ dataset.merge_records([human_curated, from_docs])
 | `created_time`     | timestamp | `created_time > 1698800000000`        |
 | `last_update_time` | timestamp | `last_update_time > 1698800000000`    |
 
-### Filter Operators
+#### Filter Operators
 
 - `=`, `!=`: Exact match
 - `LIKE`, `ILIKE`: Pattern matching with `%` wildcard (ILIKE is case-insensitive)
 - `>`, `<`, `>=`, `<=`: Numeric/timestamp comparison
 - `AND`: Combine conditions (OR is not currently supported)
 
-### Common Filter Examples
+#### Common Filter Examples
 
 <table style={{ width: "100%" }}>
   <thead>
@@ -347,80 +519,7 @@ datasets = search_datasets(
 )
 ```
 
-## Client API vs Fluent API
-
-The <APILink fn="mlflow.tracking.MlflowClient" text="MlflowClient" /> provides an object-oriented interface with the same functionality as the fluent API:
-
-<TabsWrapper>
-  <Tabs>
-    <TabItem value="create" label="Create Dataset" default>
-
-```python
-from mlflow import MlflowClient
-
-client = MlflowClient()
-
-# Create a dataset
-dataset = client.create_dataset(
-    name="customer_support_qa",
-    experiment_id=["0"],
-    tags={"version": "1.0", "team": "ml-platform"},
-)
-```
-
-    </TabItem>
-    <TabItem value="get" label="Get Dataset">
-
-```python
-# Get a dataset by ID
-dataset = client.get_dataset(dataset_id="d-7f2e3a9b8c1d4e5f6a7b8c9d0e1f2a3b")
-
-# Access properties
-print(f"Dataset: {dataset.name}")
-print(f"Records: {len(dataset.records)}")
-```
-
-    </TabItem>
-    <TabItem value="search" label="Search Datasets">
-
-```python
-# Search for datasets
-datasets = client.search_datasets(
-    experiment_ids=["0"],
-    filter_string="tags.status = 'validated'",
-    order_by=["created_time DESC"],
-    max_results=50,
-)
-
-for dataset in datasets:
-    print(f"{dataset.name}: {dataset.dataset_id}")
-```
-
-    </TabItem>
-    <TabItem value="tags" label="Manage Tags">
-
-```python
-# Set tags
-client.set_dataset_tags(
-    dataset_id=dataset.dataset_id, tags={"status": "production", "validated": "true"}
-)
-
-# Delete a tag
-client.delete_dataset_tag(dataset_id=dataset.dataset_id, key="deprecated")
-```
-
-    </TabItem>
-    <TabItem value="delete" label="Delete Dataset">
-
-```python
-# Delete a dataset
-client.delete_dataset(dataset_id=dataset.dataset_id)
-```
-
-    </TabItem>
-
-  </Tabs>
-</TabsWrapper>
+---
 
 ## Next Steps
 

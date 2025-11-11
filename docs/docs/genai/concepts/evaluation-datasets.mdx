@@ -8,7 +8,7 @@ import { Database, ChartBar, FileText, Target, Activity, Code } from "lucide-rea
 # Evaluation Dataset Concepts
 
 :::warning[SQL Backend Required]
-Evaluation Datasets require an MLflow Tracking Server with a SQL backend (PostgreSQL, MySQL, SQLite, or MSSQL).
+Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
 This feature is **not available** in FileStore (local mode) due to the relational data requirements
 for managing dataset records, associations, and schema evolution.
 :::
@@ -84,10 +84,8 @@ Each record in an evaluation dataset represents a single test case with the foll
         "answer": "The capital of France is Paris."
     },
     "expectations": {
-        "answer": "Paris",
-        "confidence": 0.95,
-        "contains_terms": ["Paris", "capital"],
-        "tone": "informative"
+        "name": "expected_answer",
+        "value": "Paris",
     },
     "source": {
         "source_type": "HUMAN",

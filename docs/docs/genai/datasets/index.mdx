@@ -17,7 +17,7 @@ import { Database, Layers, TestTube, GitBranch, Users, ChartBar, FileText, Book,
 Evaluation datasets are the foundation of systematic GenAI application testing. They provide a centralized way to manage test data, ground truth expectations, and evaluation results—enabling you to measure and improve the quality of your AI applications with confidence.
 
 :::warning[SQL Backend Required]
-Evaluation Datasets require an MLflow Tracking Server with a SQL backend (PostgreSQL, MySQL, SQLite, or MSSQL).
+Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
 This feature is **not available** in FileStore (local file system-based tracking). If you need
 a simple local configuration for MLflow, use the sqlite option when starting MLflow.
 :::
@@ -26,7 +26,7 @@ a simple local configuration for MLflow, use the sqlite option when starting MLf
 
 There are several ways to create evaluation datasets, each suited to different stages of your GenAI development process.
 
-The simplest way to create one is through MLflow's UI. Navigate to an Expeirment that you want the evaluation dataset to be associated with and you can directly create a new one by supplying a unique name.
+The simplest way to create one is through MLflow's UI. Navigate to an Experiment that you want the evaluation dataset to be associated with and you can directly create a new one by supplying a unique name.
 After adding records to it, you can view the dataset's entries in the UI.
 
 <ImageBox src="/images/eval-datasets.gif" alt="Evaluation Datasets Video" />
@@ -40,7 +40,7 @@ post-hoc evaluation with scorers. Adding these elements can be done either direc
 
 ```python
 import mlflow
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import create_dataset, set_dataset_tags
 
 # Create your evaluation dataset
 dataset = create_dataset(
@@ -49,25 +49,23 @@ dataset = create_dataset(
     tags={"team": "ml-platform", "stage": "validation"},
 )
 
+# Optionally, add additional tags to your dataset. Tags are mutable and can be used to easily search for your dataset with the search_datasets API
+set_dataset_tags(
+    dataset_id=dataset.dataset_id,
+    tags={"environment": "dev", "validation_version": "1.3"},
+)
+
 # First, retrieve traces that will become the basis of the dataset
 # Request list format to work with individual Trace objects
 traces = mlflow.search_traces(
     experiment_ids=["0"],
-    max_results=50,
+    max_results=20,
     filter_string="attributes.name = 'chat_completion'",
     return_type="list",  # Returns list[Trace] for direct manipulation
 )
 
 # Add expectations to the traces
-for trace in traces[:20]:
-    # Expectations can be structured metrics
-    mlflow.log_expectation(
-        trace_id=trace.info.trace_id,
-        name="output_quality",
-        value={"relevance": 0.95, "accuracy": 1.0, "contains_citation": True},
-    )
-
-    # They can also be specific expected text
+for trace in traces:
     mlflow.log_expectation(
         trace_id=trace.info.trace_id,
         name="expected_answer",
@@ -296,7 +294,9 @@ Evaluation datasets bridge the critical gap between trace generation and evaluat
   }
 ]} />
 
-## Core Concepts
+## Next Steps
+
+Ready to improve your GenAI testing? Start with these resources:
 
 <TilesGrid>
   <TileCard
@@ -317,22 +317,6 @@ Evaluation datasets bridge the critical gap between trace generation and evaluat
     linkText="View SDK guide →"
     containerHeight={64}
   />
-  <TileCard
-    icon={ChartBar}
-    iconSize={48}
-    title="Evaluation Integration"
-    description="Learn how to use datasets with MLflow's evaluation framework"
-    href="/genai/eval-monitor"
-    linkText="Explore evaluation →"
-    containerHeight={64}
-  />
-</TilesGrid>
-
-## Next Steps
-
-Ready to improve your GenAI testing? Start with these resources:
-
-<TilesGrid>
   <TileCard
     icon={Target}
     iconSize={48}
