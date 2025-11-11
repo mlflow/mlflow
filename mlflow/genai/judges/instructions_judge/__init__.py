@@ -35,12 +35,10 @@ from mlflow.genai.utils.trace_utils import (
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
 
-@experimental(version="3.4.0")
 class InstructionsJudge(Judge):
     """
     A judge that evaluates traces based on user-provided instructions.
