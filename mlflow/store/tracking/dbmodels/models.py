@@ -2356,7 +2356,7 @@ class SqlSecretBinding(Base):
     resource_type = Column(String(50), nullable=False)
     """
     Resource type: `String` (limit 50 characters).
-    E.g., SCORER_JOB, etc.
+    E.g., SCORER_JOB, EVALUATION_RUN, SERVING_ENDPOINT.
     """
     resource_id = Column(String(255), nullable=False)
     """
