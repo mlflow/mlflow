@@ -393,7 +393,12 @@ def test_predict_csv_format(predict_test_setup: PredictTestData) -> None:
 
 def test_predict_check_content_type(iris_data, sk_model, tmp_path):
     with mlflow.start_run():
-        mlflow.sklearn.log_model(sk_model, name="model", registered_model_name="impredicting")
+        mlflow.sklearn.log_model(
+            sk_model,
+            name="model",
+            registered_model_name="impredicting",
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
     model_registry_uri = "models:/impredicting/None"
     input_json_path = tmp_path / "input.json"
     input_csv_path = tmp_path / "input.csv"
@@ -584,7 +589,11 @@ def test_prepare_env_passes(sk_model):
 
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
-            mlflow.sklearn.log_model(sk_model, name="model")
+            mlflow.sklearn.log_model(
+                sk_model,
+                name="model",
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            )
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
         # With conda
@@ -625,7 +634,10 @@ def test_prepare_env_fails(sk_model):
     with TempDir(chdr=True):
         with mlflow.start_run() as active_run:
             mlflow.sklearn.log_model(
-                sk_model, name="model", pip_requirements=["does-not-exist-dep==abc"]
+                sk_model,
+                name="model",
+                pip_requirements=["does-not-exist-dep==abc"],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
             model_uri = f"runs:/{active_run.info.run_id}/model"
 
@@ -651,10 +663,17 @@ def test_generate_dockerfile(sk_model, enable_mlserver, tmp_path):
     with mlflow.start_run() as active_run:
         if enable_mlserver:
             mlflow.sklearn.log_model(
-                sk_model, name="model", extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT]
+                sk_model,
+                name="model",
+                extra_pip_requirements=["/opt/mlflow", PROTOBUF_REQUIREMENT],
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
             )
         else:
-            mlflow.sklearn.log_model(sk_model, name="model")
+            mlflow.sklearn.log_model(
+                sk_model,
+                name="model",
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            )
         model_uri = f"runs:/{active_run.info.run_id}/model"
     extra_args = ["--install-mlflow"]
     if enable_mlserver:
@@ -877,7 +896,10 @@ def test_change_conda_env_root_location(tmp_path, sk_model):
         env_root_path.mkdir(exist_ok=True)
 
         mlflow.sklearn.save_model(
-            sk_model, str(model_path), pip_requirements=[f"scikit-learn=={sklearn_ver}"]
+            sk_model,
+            str(model_path),
+            pip_requirements=[f"scikit-learn=={sklearn_ver}"],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
         env = get_flavor_backend(

@@ -1645,6 +1645,7 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
                 # so add MLflow as a required dependency here.
                 "mlflow",
             ],
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     model_uri = model_info.model_uri

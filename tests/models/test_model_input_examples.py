@@ -25,6 +25,8 @@ from mlflow.types.utils import TensorsNotSupportedException
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
+from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
+
 
 @pytest.fixture
 def pandas_df_with_all_types():
@@ -328,7 +330,12 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
     example = pd.DataFrame({"feature": ["value"]}) if input_is_tabular else np.array([[1]])
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(model, name=artifact_path, input_example=example)
+        model_info = mlflow.sklearn.log_model(
+            model,
+            name=artifact_path,
+            input_example=example,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == expected_signature
@@ -342,6 +349,7 @@ def test_infer_signature_from_example_can_be_disabled():
             name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -360,7 +368,12 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
 
     with mock.patch("mlflow.models.model._logger.warning") as mock_warning:
         with mlflow.start_run():
-            mlflow.sklearn.log_model(ErrorModel(), name="model", input_example=np.array([[1]]))
+            mlflow.sklearn.log_model(
+                ErrorModel(),
+                name="model",
+                input_example=np.array([[1]]),
+                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            )
         assert any(
             "Failed to validate serving input example" in call[0][0]
             for call in mock_warning.call_args_list
@@ -399,7 +412,10 @@ def test_infer_signature_on_multi_column_input_examples(input_example, iris_mode
 
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
-            iris_model, name=artifact_path, input_example=input_example
+            iris_model,
+            name=artifact_path,
+            input_example=input_example,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     mlflow_model = Model.load(model_info.model_uri)

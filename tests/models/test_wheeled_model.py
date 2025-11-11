@@ -158,6 +158,7 @@ def test_model_log_load(tmp_path, sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         model_path = _download_artifact_from_uri(model_uri, tmp_path)
         original_model_config = Model.load(os.path.join(model_path, MLMODEL_FILE_NAME)).__dict__
@@ -194,6 +195,7 @@ def test_model_save_load(tmp_path, sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
         model_path = _download_artifact_from_uri(model_uri, model_download_path)
         original_model_config = Model.load(os.path.join(model_path, MLMODEL_FILE_NAME)).__dict__
@@ -225,6 +227,7 @@ def test_logging_and_saving_wheeled_model_throws(tmp_path, sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     # Re-log with wheels
@@ -403,6 +406,7 @@ def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
             sklearn_knn_model.model,
             name="model",
             registered_model_name="sklearn_knn_model",
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     with mlflow.start_run():

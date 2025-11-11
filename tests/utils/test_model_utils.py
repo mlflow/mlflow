@@ -14,6 +14,8 @@ from mlflow.models import Model
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import env_var_tracker
 
+from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
+
 
 @pytest.fixture(scope="module")
 def sklearn_knn_model():
@@ -33,7 +35,11 @@ def model_path(tmp_path):
 def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_missing(
     model_path, sklearn_knn_model
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     # The saved model contains the "sklearn" flavor, so this call should succeed
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
@@ -45,7 +51,11 @@ def test_get_flavor_configuration_throws_exception_when_requested_flavor_is_miss
 def test_get_flavor_configuration_with_present_flavor_returns_expected_configuration(
     sklearn_knn_model, model_path
 ):
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(
         model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
@@ -62,6 +72,7 @@ def test_add_code_to_system_path(sklearn_knn_model, model_path):
             "tests/utils/test_resources/dummy_module.py",
             "tests/utils/test_resources/dummy_package",
         ],
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     sklearn_flavor_config = mlflow_model_utils._get_flavor_configuration(

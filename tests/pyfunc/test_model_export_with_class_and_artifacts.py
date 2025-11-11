@@ -296,7 +296,11 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
 
 def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=sklearn_model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -691,7 +695,11 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, main_scoped_model_cl
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=sklearn_model_path,
+        skops_version=sklearn_knn_model_skops_trusted_types,
+    )
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -743,7 +751,11 @@ def test_log_model_with_extra_pip_requirements(
 ):
     expected_mlflow_version = _mlflow_major_version_string()
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
-    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model,
+        path=sklearn_model_path,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
 
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
@@ -796,7 +808,11 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
+        sklearn_model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model,
+            name=sklearn_artifact_path,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -827,7 +843,11 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
+        sklearn_model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model,
+            name=sklearn_artifact_path,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -864,7 +884,11 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
+        sklearn_model_info = mlflow.sklearn.log_model(
+            sklearn_knn_model,
+            name=sklearn_artifact_path,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        )
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
