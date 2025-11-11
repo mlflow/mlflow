@@ -1360,3 +1360,148 @@ class AbstractStore:
             MlflowException: If scorer is not found.
         """
         raise NotImplementedError(self.__class__.__name__)
+
+    def _create_and_bind_secret(
+        self,
+        secret_name: str,
+        secret_value: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        is_shared: bool = False,
+        created_by: str | None = None,
+    ):
+        """
+        Atomically create a secret and bind it to a resource.
+
+        This operation ensures that every secret is created with at least one binding,
+        preventing orphaned secrets.
+
+        Args:
+            secret_name: Unique name for the secret.
+            secret_value: The plaintext secret value (e.g., API key) to encrypt and store.
+            resource_type: Type of resource this secret is bound to (e.g., "SCORER_JOB").
+            resource_id: ID of the resource using this secret.
+            field_name: Environment variable name for the secret (e.g., "OPENAI_API_KEY").
+            is_shared: Whether the secret can be reused across multiple resources.
+                      True: Shared secret (can be bound to multiple resources)
+                      False: Private secret (bound to single resource)
+            created_by: User ID creating the secret, or None.
+
+        Returns:
+            SecretWithBinding entity containing the created secret metadata and binding.
+            The unmasked secret value is not part of the returned entity.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _get_secret_info(self, secret_id: str):
+        """
+        Retrieve metadata for a secret by ID (does not decrypt the value).
+
+        Args:
+            secret_id: ID of the secret to retrieve.
+
+        Returns:
+            Secret entity with metadata (encrypted value not included).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _update_secret(
+        self,
+        secret_id: str,
+        secret_value: str,
+        updated_by: str | None = None,
+    ):
+        """
+        Update an existing secret's value. This API preserves the secret_id and all bindings,
+        permitting direct replacement of a secret via key rotation.
+
+        Args:
+            secret_id: ID of the secret to update.
+            secret_value: New secret value to encrypt.
+            updated_by: User ID updating the secret, or None.
+
+        Returns:
+            Updated Secret entity with new encrypted value.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _delete_secret(self, secret_id: str) -> None:
+        """
+        Permanently delete a secret and all its bindings.
+
+        Args:
+            secret_id: ID of the secret to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _bind_secret(
+        self,
+        secret_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        created_by: str | None = None,
+    ):
+        """
+        Bind an existing shared secret to a new resource field (will not work on private
+        secrets (secrets that are created with `is_shared=False`)).
+
+        A secret binding associates a secret with a particular field on a resource,
+        allowing the secret to be retrieved when accessing that resource and utilized in a
+        secure server-side process.
+
+        Args:
+            secret_id: ID of the secret to bind.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used
+                (e.g., "OPENAI_API_KEY").
+            created_by: User ID creating the binding, or None.
+
+        Returns:
+            SecretBinding entity representing the new binding.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _unbind_secret(
+        self,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+    ) -> None:
+        """
+        Remove a secret binding from a resource field. This API only removes bindings for
+        shared secrets (secrets that are created with `is_shared=False`)); private secrets
+        cannot be unbound (they can only be deleted).
+
+        Note that the secret itself is not deleted with this API, only the binding is removed.
+
+        Args:
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field to unbind.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ):
+        """
+        List secret bindings with optional filters.
+
+        This method allows querying bindings by secret_id, resource_type, and/or resource_id.
+        If no filters are provided, returns all bindings.
+
+        Args:
+            secret_id: Optional filter by secret ID.
+            resource_type: Optional filter by resource type (e.g., "SCORER_JOB").
+            resource_id: Optional filter by resource ID.
+
+        Returns:
+            List of SecretBinding entities matching the filters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
