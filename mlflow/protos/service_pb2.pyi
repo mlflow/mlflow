@@ -959,17 +959,6 @@ class SetTraceTagV3(_message.Message):
     def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
 class DeleteTraceTag(_message.Message):
-    __slots__ = ("trace_id", "key")
-    class Response(_message.Message):
-        __slots__ = ()
-        def __init__(self) -> None: ...
-    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
-    KEY_FIELD_NUMBER: _ClassVar[int]
-    trace_id: str
-    key: str
-    def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
-
-class DeleteTraceTagV3(_message.Message):
     __slots__ = ("request_id", "key")
     class Response(_message.Message):
         __slots__ = ()
@@ -979,6 +968,17 @@ class DeleteTraceTagV3(_message.Message):
     request_id: str
     key: str
     def __init__(self, request_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
+
+class DeleteTraceTagV3(_message.Message):
+    __slots__ = ("trace_id", "key")
+    class Response(_message.Message):
+        __slots__ = ()
+        def __init__(self) -> None: ...
+    TRACE_ID_FIELD_NUMBER: _ClassVar[int]
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    trace_id: str
+    key: str
+    def __init__(self, trace_id: _Optional[str] = ..., key: _Optional[str] = ...) -> None: ...
 
 class Trace(_message.Message):
     __slots__ = ("trace_info", "spans")
