@@ -198,7 +198,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - uses: ./.github/actions/setup-java
       - run: |
-          uv run --python 3.14 pytest tests/types/test_type_hints.py
+          uv run --python 3.14 --with pydantic==2.12.4 pytest tests/types/test_type_hints.py
 
   flavors:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
