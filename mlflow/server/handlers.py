@@ -3107,6 +3107,23 @@ def _delete_trace_tag(request_id):
 @_disable_if_artifacts_only
 def _delete_trace_tag_v3(trace_id):
     """
+    A request handler for `DELETE /mlflow/traces/{trace_id}/tags` to delete tags from a TraceInfo record.
+    Identical to `_delete_trace_tag`, but with request_id renamed to with trace_id.
+    """
+    request_message = _get_request_message(
+        DeleteTraceTagV3(),
+        schema={
+            "key": [_assert_string, _assert_required],
+        },
+    )
+    _get_tracking_store().delete_trace_tag(trace_id, request_message.key)
+    return _wrap_response(DeleteTraceTagV3.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_trace_tag_v3(trace_id):
+    """
     A request handler for `DELETE /mlflow/traces/{trace_id}/tags` to delete tags
     from a TraceInfo record.
     Identical to `_delete_trace_tag`, but with request_id renamed to with trace_id.
