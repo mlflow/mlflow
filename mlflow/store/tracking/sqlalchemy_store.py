@@ -3539,10 +3539,11 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
-    def get_trace(self, trace_id: str, allow_partial: bool = True) -> Trace | None:
+    def get_trace(self, trace_id: str, allow_partial: bool = False) -> Trace | None:
         if allow_partial is False:
             retry_count = 0
             while retry_count < 3:
+                # only retry if the spans are not fully exported
                 if trace := self._get_trace(trace_id, allow_partial):
                     return trace
                 time.sleep(2**retry_count)
@@ -3551,6 +3552,11 @@ class SqlAlchemyStore(AbstractStore):
         return self._get_trace(trace_id, allow_partial)
 
     def _get_trace(self, trace_id: str, allow_partial: bool) -> Trace | None:
+        """
+        Get the trace with spans for given trace id. This function should
+        only return None when the spans are not fully exported. If the trace
+        info doesn't exist, it should raise an exception.
+        """
         with self.ManagedSessionMaker() as session:
             sql_trace_info = (
                 session.query(SqlTraceInfo)

@@ -329,7 +329,7 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_trace(self, trace_id: str, allow_partial: bool = True) -> Trace | None:
+    def get_trace(self, trace_id: str, allow_partial: bool = False) -> Trace | None:
         """
         Get a trace with spans for given trace id.
 
@@ -337,7 +337,8 @@ class AbstractStore:
             trace_id: String id of the trace to fetch.
             allow_partial: Whether to allow partial traces. If True, the trace will be returned
                 even if it is not fully exported yet. If False, MLflow retries and returns
-                the trace until it is fully exported or the retry timeout is reached.
+                the trace until it is fully exported or the retry timeout is reached. Default
+                to False.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace`` or None.

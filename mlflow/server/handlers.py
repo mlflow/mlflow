@@ -3161,16 +3161,35 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
+    trace_data_in_artifact_repo = False
     try:
-        traces = _get_tracking_store().batch_get_traces([request_id], None)
-        if len(traces) != 1:
+        # allow partial so the front end can render in-progress traces
+        trace = _get_tracking_store().get_trace(request_id, allow_partial=True)
+        if trace is None:
             raise MlflowException(
-                "Failed to get trace data from tracking store. Please check the request_id."
+                f"Trace with id={request_id} not found, please check if the trace ID is correct.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        trace_data = traces[0].data.to_dict()
-    # For stores that don't support batch get traces, or if the trace data is not stored in the
-    # tracking store, we need to get the trace data from the artifact repository.
-    except (MlflowTracingException, MlflowNotImplementedException):
+        trace_data = trace.data.to_dict()
+    except MlflowNotImplementedException:
+        pass
+    except MlflowTracingException:
+        trace_data_in_artifact_repo = True
+
+    if not trace_data_in_artifact_repo:
+        try:
+            traces = _get_tracking_store().batch_get_traces([request_id], None)
+            if len(traces) != 1:
+                raise MlflowException(
+                    "Failed to get trace data from tracking store. Please check the request_id."
+                )
+            trace_data = traces[0].data.to_dict()
+        # For stores that don't support batch get traces, or if the trace data is not stored in the
+        # tracking store, we need to get the trace data from the artifact repository.
+        except (MlflowTracingException, MlflowNotImplementedException):
+            trace_data_in_artifact_repo = True
+
+    if trace_data_in_artifact_repo:
         trace_info = _get_tracking_store().get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 

@@ -1340,7 +1340,6 @@ def test_get_trace():
 
 
 def test_get_trace_with_allow_partial_false():
-    """Test get_trace REST store method with allow_partial=False"""
     # Generate a sample trace
     with mlflow.start_span(name="test_span") as span:
         span.set_inputs({"input": "value"})
