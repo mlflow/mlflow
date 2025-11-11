@@ -2797,7 +2797,8 @@ message DeleteTraceTagV3 {
   message Response {}
 
   // request_id has been retired
-  reserved 1;reserved "request_id";
+  reserved 1;
+  reserved "request_id";
 }
 
 message Trace {
