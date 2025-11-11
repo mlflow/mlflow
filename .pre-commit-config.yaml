@@ -6,7 +6,7 @@ repos:
       - id: trailing-whitespace
         files: \.(mdx|ya?ml|txt)$
       - id: end-of-file-fixer
-        files: \.(proto|txt|sh|rst)$
+        files: \.(txt|sh|rst)$
         exclude: ^examples/|^mlflow/protos/opentelemetry/
       - id: check-vcs-permalinks
         files: \.py$
@@ -122,6 +122,15 @@ repos:
         language: system
         stages: [pre-commit]
         require_serial: true
+
+      - id: buf
+        name: buf
+        entry: bin/buf format -d -w --exit-code --exclude-path mlflow/protos/opentelemetry mlflow/protos
+        files: '\.proto$'
+        language: system
+        stages: [pre-commit]
+        require_serial: true
+        pass_filenames: false
 
       - id: typos
         name: typos

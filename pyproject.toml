@@ -112,7 +112,7 @@ genai = [
   "uvicorn[standard]<1",
   "watchfiles<2",
 ]
-mcp = ["fastmcp<3,>=2.0.0"]
+mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
@@ -177,7 +177,7 @@ lint = [
   "pre-commit==4.0.1",
   "toml==0.10.2",
   "mypy==1.17.1",
-  "pydantic==2.11.7",
+  "pydantic>=2.0",
   "clint",
   "pyyaml>=6.0.2",
   "packaging>=25.0",
@@ -189,11 +189,14 @@ test = [
   "pytest-cov",
   "pytest-timeout",
   "psutil",
+  "pyspark",
+  "opentelemetry-exporter-otlp-proto-grpc",
+  "opentelemetry-exporter-otlp-proto-http",
 ]
 build = ["pip", "setuptools", "wheel", "build"]
 
 [tool.uv]
-required-version = "==0.8.18"
+required-version = "==0.9.8"
 constraint-dependencies = [
   "click!=8.3.0",
   "langchain<1.0.0",
@@ -201,6 +204,7 @@ constraint-dependencies = [
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
 ]
+exclude-dependencies = ["databricks-connect"]
 
 [tool.uv.pip]
 torch-backend = "cpu"
