@@ -88,9 +88,6 @@ def cmd_to_function_tool(cmd: click.Command) -> "FunctionTool":
 
 def register_prompts(mcp: "FastMCP") -> None:
     """Register AI commands as MCP prompts."""
-    from mlflow.telemetry.events import AiCommandRunEvent
-    from mlflow.telemetry.track import _record_event
-
     for command in list_commands():
         # Convert slash-separated keys to underscores for MCP names
         mcp_name = command["key"].replace("/", "_")
@@ -100,7 +97,6 @@ def register_prompts(mcp: "FastMCP") -> None:
             @mcp.prompt(name=mcp_name, description=command["description"])
             def ai_command_prompt() -> str:
                 """Execute an MLflow AI command prompt."""
-                _record_event(AiCommandRunEvent, {"command_key": cmd_key, "context": "mcp"})
                 return get_command_body(cmd_key)
 
             return ai_command_prompt
