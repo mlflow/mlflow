@@ -13,7 +13,7 @@ import uvicorn
 from fastapi import FastAPI
 
 import mlflow
-from mlflow.server import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
+from mlflow.server.constants import ARTIFACT_ROOT_ENV_VAR, BACKEND_STORE_URI_ENV_VAR
 
 from tests.helper_functions import LOCALHOST, get_safe_port
 

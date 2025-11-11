@@ -22,6 +22,9 @@ from mlflow.entities import (
     Run,
     RunInfo,
     ScorerVersion,
+    Secret,
+    SecretBinding,
+    SecretWithBinding,
     ViewType,
 )
 
@@ -47,7 +50,9 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
+    BindSecret,
     CalculateTraceFilterCorrelation,
+    CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -62,6 +67,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
@@ -77,11 +83,14 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -109,9 +118,11 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
+    UnbindSecret,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -1274,6 +1285,236 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
         )
+
+    ############################################################################################
+    # Secrets Management APIs
+    ############################################################################################
+
+    def _create_and_bind_secret(
+        self,
+        secret_name: str,
+        secret_value: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        is_shared: bool = False,
+        created_by: str | None = None,
+        provider: str | None = None,
+        model: str | None = None,
+    ) -> SecretWithBinding:
+        """
+        Atomically create a secret and bind it to a resource.
+
+        Args:
+            secret_name: Unique name for the secret.
+            secret_value: The secret value (e.g., API key).
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: ID of the resource using this secret.
+            field_name: Environment variable name for the secret.
+            is_shared: Whether the secret can be reused across resources.
+            created_by: User ID creating the secret.
+            provider: LLM provider identifier (e.g., "anthropic", "openai").
+            model: LLM model identifier (e.g., "claude-3-5-sonnet-20241022").
+
+        Returns:
+            SecretWithBinding entity containing the created secret and binding.
+        """
+        req_body = message_to_json(
+            CreateAndBindSecret(
+                secret_name=secret_name,
+                secret_value=secret_value,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                is_shared=is_shared,
+                created_by=created_by,
+                provider=provider,
+                model=model,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateAndBindSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/create-and-bind",
+        )
+        secret = Secret.from_proto(response_proto.secret)
+        binding = SecretBinding.from_proto(response_proto.binding)
+        return SecretWithBinding(secret=secret, binding=binding)
+
+    def _get_secret_info(self, secret_id: str) -> Secret:
+        """
+        Get metadata for a secret.
+
+        Args:
+            secret_id: ID of the secret to retrieve.
+
+        Returns:
+            Secret entity with metadata (excludes the actual secret value).
+        """
+        req_body = message_to_json(GetSecretInfo(secret_id=secret_id))
+        response_proto = self._call_endpoint(
+            GetSecretInfo,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/get-info",
+        )
+        return Secret.from_proto(response_proto.secret)
+
+    def _update_secret(
+        self,
+        secret_id: str,
+        secret_value: str,
+        updated_by: str | None = None,
+    ) -> Secret:
+        """
+        Update the value of an existing secret.
+
+        Args:
+            secret_id: ID of the secret to update.
+            secret_value: New secret value.
+            updated_by: User ID updating the secret.
+
+        Returns:
+            Updated Secret entity.
+        """
+        req_body = message_to_json(
+            UpdateSecret(
+                secret_id=secret_id,
+                secret_value=secret_value,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/update",
+        )
+        return Secret.from_proto(response_proto.secret)
+
+    def _delete_secret(self, secret_id: str) -> None:
+        """
+        Delete a secret and all its bindings.
+
+        Args:
+            secret_id: ID of the secret to delete.
+        """
+        req_body = message_to_json(DeleteSecret(secret_id=secret_id))
+        self._call_endpoint(
+            DeleteSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/delete",
+        )
+
+    def _bind_secret(
+        self,
+        secret_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        created_by: str | None = None,
+    ) -> SecretBinding:
+        """
+        Bind an existing shared secret to an additional resource.
+
+        Args:
+            secret_id: ID of the shared secret to bind.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: ID of the resource to bind to.
+            field_name: Environment variable name for the secret.
+            created_by: User ID creating the binding.
+
+        Returns:
+            SecretBinding entity representing the new binding.
+        """
+        req_body = message_to_json(
+            BindSecret(
+                secret_id=secret_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            BindSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/bind",
+        )
+        return SecretBinding.from_proto(response_proto.binding)
+
+    def _unbind_secret(
+        self,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+    ) -> None:
+        """
+        Remove a secret binding from a resource.
+
+        Args:
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: ID of the resource.
+            field_name: Environment variable name of the binding to remove.
+        """
+        req_body = message_to_json(
+            UnbindSecret(
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+            )
+        )
+        self._call_endpoint(
+            UnbindSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/unbind",
+        )
+
+    def _list_secrets(self, is_shared: bool | None = None) -> list[Secret]:
+        """
+        List all secrets with optional filtering and binding counts.
+
+        Args:
+            is_shared: Optional filter for secret sharing status:
+                - True: Return only shared secrets (can be bound to multiple resources)
+                - False: Return only private secrets (single resource binding)
+                - None: Return all secrets (default)
+
+        Returns:
+            List of Secret entities with binding_count populated.
+        """
+        req_body = message_to_json(ListSecrets(is_shared=is_shared))
+        response_proto = self._call_endpoint(ListSecrets, req_body)
+        return [Secret.from_proto(secret) for secret in response_proto.secrets]
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[SecretBinding]:
+        """
+        List secret bindings filtered by optional criteria.
+
+        Args:
+            secret_id: Filter by secret ID.
+            resource_type: Filter by resource type.
+            resource_id: Filter by resource ID.
+
+        Returns:
+            List of SecretBinding entities matching the filters.
+        """
+        req_body = message_to_json(
+            ListSecretBindings(
+                secret_id=secret_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListSecretBindings,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/list-bindings",
+        )
+        return [SecretBinding.from_proto(b) for b in response_proto.bindings]
 
     ############################################################################################
     # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.

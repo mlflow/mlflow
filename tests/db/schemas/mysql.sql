@@ -84,6 +84,24 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE secrets (
+	secret_id VARCHAR(36) NOT NULL,
+	secret_name VARCHAR(255) NOT NULL,
+	encrypted_value BLOB NOT NULL,
+	wrapped_dek BLOB NOT NULL,
+	kek_version INTEGER NOT NULL,
+	masked_value VARCHAR(100) NOT NULL,
+	provider VARCHAR(64),
+	model VARCHAR(256),
+	is_shared TINYINT NOT NULL,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	PRIMARY KEY (secret_id)
+)
+
+
 CREATE TABLE webhooks (
 	webhook_id VARCHAR(256) NOT NULL,
 	name VARCHAR(256) NOT NULL,
@@ -234,6 +252,21 @@ CREATE TABLE scorers (
 	scorer_id VARCHAR(36) NOT NULL,
 	PRIMARY KEY (scorer_id),
 	CONSTRAINT fk_scorers_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE secrets_bindings (
+	binding_id VARCHAR(36) NOT NULL,
+	secret_id VARCHAR(36) NOT NULL,
+	resource_type VARCHAR(50) NOT NULL,
+	resource_id VARCHAR(255) NOT NULL,
+	field_name VARCHAR(255) NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	PRIMARY KEY (binding_id),
+	CONSTRAINT fk_secrets_bindings_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE
 )
 
 

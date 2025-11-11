@@ -16,3 +16,7 @@ CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/p
 GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
 UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
 DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
+CREATE_SECRET_PERMISSION = _get_rest_path("/mlflow/secrets/permissions/create")
+GET_SECRET_PERMISSION = _get_rest_path("/mlflow/secrets/permissions/get")
+UPDATE_SECRET_PERMISSION = _get_rest_path("/mlflow/secrets/permissions/update")
+DELETE_SECRET_PERMISSION = _get_rest_path("/mlflow/secrets/permissions/delete")

@@ -3806,3 +3806,95 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
     # Verify the spans were returned (indicates successful logging)
     assert len(result_spans) == 1
     assert result_spans[0].name == f"test-rest-store-span-{use_async}"
+
+
+@pytest.fixture
+def mlflow_client_with_secrets(store_type: str, tmp_path: Path, cached_db: Path, monkeypatch):
+    if store_type != "sqlalchemy":
+        pytest.skip("Secrets are only supported with sqlalchemy backend")
+
+    monkeypatch.setenv("MLFLOW_SECRETS_KEK_PASSPHRASE", "test-e2e-passphrase-32chars-min")
+
+    db_path = tmp_path / "mlflow.db"
+    shutil.copy(cached_db, db_path)
+    backend_uri = f"sqlite:///{db_path}"
+
+    handlers._tracking_store = None
+    handlers._model_registry_store = None
+    initialize_backend_stores(backend_uri, default_artifact_root=tmp_path.as_uri())
+
+    with ServerThread(app, get_safe_port()) as url:
+        yield MlflowClient(url)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_secrets_end_to_end(mlflow_client_with_secrets, store_type):
+    if store_type == "file":
+        pytest.skip("Secrets are only supported with sqlalchemy backend")
+
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    result = store._create_and_bind_secret(
+        secret_name="openai_key",
+        secret_value="sk-test-12345",
+        resource_type="SCORER_JOB",
+        resource_id="job-1",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+        provider="openai",
+        model="gpt-4-turbo",
+    )
+
+    assert result.secret.secret_name == "openai_key"
+    assert result.secret.is_shared is True
+    assert result.secret.provider == "openai"
+    assert result.secret.model == "gpt-4-turbo"
+    assert result.binding.resource_type == "SCORER_JOB"
+    assert result.binding.resource_id == "job-1"
+    assert result.binding.field_name == "OPENAI_API_KEY"
+
+    secret = store._get_secret_info(result.secret.secret_id)
+    assert secret.secret_name == "openai_key"
+    assert secret.is_shared is True
+    assert secret.provider == "openai"
+    assert secret.model == "gpt-4-turbo"
+
+    updated_secret = store._update_secret(result.secret.secret_id, "sk-test-updated")
+    assert updated_secret.secret_id == result.secret.secret_id
+
+    binding = store._bind_secret(
+        secret_id=result.secret.secret_id,
+        resource_type="SCORER_JOB",
+        resource_id="job-2",
+        field_name="OPENAI_API_KEY",
+    )
+    assert binding.secret_id == result.secret.secret_id
+    assert binding.resource_id == "job-2"
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 2
+
+    # SECURITY NOTE: _get_secrets_for_resource() is intentionally NOT exposed via REST API
+    # as it returns decrypted secrets. We access the backend store directly here ONLY for
+    # testing to verify encryption/decryption works correctly. In production, this method
+    # is only called server-side to inject secrets into job environments.
+    backend_store = handlers._get_tracking_store()
+    decrypted_secrets_job1 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-1")
+    assert decrypted_secrets_job1["OPENAI_API_KEY"] == "sk-test-updated"
+
+    decrypted_secrets_job2 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-2")
+    assert decrypted_secrets_job2["OPENAI_API_KEY"] == "sk-test-updated"
+
+    store._unbind_secret(
+        resource_type="SCORER_JOB",
+        resource_id="job-2",
+        field_name="OPENAI_API_KEY",
+    )
+
+    bindings_after_unbind = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings_after_unbind) == 1
+
+    decrypted_secrets_job2_after = backend_store._get_secrets_for_resource("SCORER_JOB", "job-2")
+    assert len(decrypted_secrets_job2_after) == 0
+
+    store._delete_secret(result.secret.secret_id)
