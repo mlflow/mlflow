@@ -19,11 +19,23 @@ _FINAL_ANSWER_KEYWORD = "Final Answer:"
 
 _LLM_ANSWER = "What about Tokyo?"
 
+_IS_CREWAI_V1 = Version(crewai.__version__) >= Version("1.0.0")
 
 
-@pytest.fixture()
+@pytest.fixture
 def set_api_key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "000")
+
+
+def llm():
+    # NB: CrewAI >= 1.0.0 introduced native LLM connectors that doesn't rely on LiteLLM. To use
+    # consistent mock between 1.x and 0.x, we opt-in to use LiteLLM for 1.x.
+    if _IS_CREWAI_V1:
+        from crewai import LLM
+
+        return LLM(model="openai/gpt-4o-mini", is_litellm=True)
+    else:
+        return "openai/gpt-4o-mini"
 
 
 def create_sample_llm_response(content):
@@ -136,6 +148,7 @@ def simple_agent_1(set_api_key):
         goal=_AGENT_1_GOAL,
         backstory=_AGENT_1_BACKSTORY,
         tools=[],
+        llm=llm(),
     )
 
 
@@ -150,6 +163,7 @@ def simple_agent_2(set_api_key):
         backstory="""A knowledgeable local guide with extensive information
         about the city, it's attractions and customs""",
         tools=[],
+        llm=llm(),
     )
 
 
@@ -168,6 +182,7 @@ def tool_agent_1(set_api_key):
         goal=_AGENT_1_GOAL,
         backstory=_AGENT_1_BACKSTORY,
         tools=[SampleTool()],
+        llm=llm(),
     )
 
 
@@ -651,7 +666,7 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert len(traces[0].data.spans) == 9
+    assert len(traces[0].data.spans) == 10 if _IS_CREWAI_V1 else 9
     # Crew
     span_0 = traces[0].data.spans[0]
     assert span_0.name == "Crew.kickoff"
