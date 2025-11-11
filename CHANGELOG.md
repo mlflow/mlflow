@@ -1,5 +1,105 @@
 # CHANGELOG
 
+## 3.6.0 (2025-11-11)
+
+MLflow 3.6.0 includes several major features and improvements
+
+Breaking changes:
+
+- [Tracing] Support using OpenTelemetry and MLflow SDK together for constructing a single trace. (#18540, @B-Step62)
+- [] Deprecate promptflow flavor (#18597, @copilot-swe-agent)
+- [] Deprecate pmdarima and diviner flavors (#18577, @copilot-swe-agent)
+- [] Drop span name deduplication (#18531, @serena-ruan)
+- [] add scorer_id to return objects (#18231, @BenWilson2)
+
+Features:
+
+- [Evaluation] Support structured outputs in make_judge (#18529, @TomeHirata)
+- [Tracing] Add documentation for new tracing integrations (Otel) (#18691, @B-Step62)
+- [Evaluation] Agent-as-a-judge support for default Databricks endpoint (#18709, @smoorjani)
+- [UI] UI: Support filtering by span content / type / name (#18683, @dbczumar)
+- [Tracing] Display trace metadata (#18609, @B-Step62)
+- [Tracing] Support automatically tracking session ID for LangGraph (#18608, @B-Step62)
+- [Tracing / Tracking] Add RLIKE operator support for trace search (#18591, @serena-ruan)
+- [Scoring] Introduce Agent Server (#18596, @bbqiu)
+- [] Attributes translation for OTel clients (#18532, @serena-ruan)
+- [UI] Add chat sessions tab (#18594, @daniellok-db)
+- [UI] Child Parent Link (#17248, @joelrobin18)
+- [Tracing] [Vercel #3] Implement auto-tracing logic for Vercel AI SDK (#18402, @B-Step62)
+- [Models] Support Langchain 1.x (#18490, @BenWilson2)
+- [Evaluation] Frontend adjustments for handle judge traces (#18485, @B-Step62)
+- [] Record judge traces (#18484, @B-Step62)
+- [Model Registry / Tracking] Add deprecation warnings for filesystem backends (#18524, @harupy)
+- [Model Registry] Allow for skipping pip installation while packing environment for model serving (#18448, @juntai-zheng)
+- [Docs / UI] Add Sticky Header to CodeBlock in MLflow/DOCS  Code Examples (#18508, @PavithraNelluri)
+- [Tracing] Anthropic Typescript SDK (#18189, @joelrobin18)
+- [Evaluation] [ML-57683] Add `search_traces` tool for agentic judge (#18228, @dbrx-euirim)
+- [Evaluation] Record and render LLM judge cost (#18481, @B-Step62)
+- [Tracing] Support search by span details for traces in OSS MLflow server (#17918, @serena-ruan)
+- [Tracking] Make Pytorch lightning autologging support logging model signature (#18510, @WeichenXu123)
+- [] Bump pydantic minimum version to 2.0.0 in skinny and tracing requirements (#18138, @copilot-swe-agent)
+- [Tracing] Minor clean up for the trace summary view (#18436, @B-Step62)
+- [Evaluation] Add support for profile usage in Databricks Agents dataset API operat… (#18431, @BenWilson2)
+- [Evaluation] Add description property to Scorer interface (#18383, @alkispoly-db)
+- [Tracking] Make `mlflow.pytorch` pyfunc loader supporting pytorch forecasting model (#18428, @WeichenXu123)
+- [Models] Use UBJSON format as default for XGBoost models (#18420, @harupy)
+- [] Add configuration option for long-running deployments client requests (#18363, @BenWilson2)
+- [Tracking] Add support for using the same DB for tracking and auth (#18384, @BenWilson2)
+- [Build / Docs / Tracing] Move fastmcp to optional mcp extra (#18422, @harupy)
+- [] AI-gateway revamp: Make Openai provider supporting streamed function calling response (#18367, @WeichenXu123)
+- [] AI-gateway revamp: Make Gemini provider supporting function calling (#18328, @WeichenXu123)
+- [Evaluation] Add mlflow scorers register-llm-judge CLI command (#18330, @alkispoly-db)
+- [] AI-gateway revamp: Make anthropic provider supporting function calling (#18294, @WeichenXu123)
+- [Evaluation] Allow passing empty scorer list for manual result comparison (#18265, @B-Step62)
+- [Build / Evaluation] Add CLI command to list registered scorers by experiment (#18255, @alkispoly-db)
+- [Evaluation / Tracing] Log assessments to DSPy eval traces (#18136, @B-Step62)
+- [Evaluation / Tracing] Add mlflow traces eval CLI command (#18069, @alkispoly-db)
+- [] AI-gateway revamp: Add traffic route to multiple endpoints (#18064, @WeichenXu123)
+- [Evaluation / Tracing / Tracking] Job backend: Support creating virtual python environment for job execution (#18111, @WeichenXu123)
+
+Bug fixes:
+
+- [Model Registry] Skip `_raise_if_prompt` for Unity Catalog tag operations (#18707, @harupy)
+- [Tracing] Fix async generator handling in LlamaIndex tracer (#18504, @serena-ruan)
+- [Model Registry / Models / Scoring] Fix `mlflow.spark.load_model` to handle Unity Catalog Volumes paths correctly (#18672, @harupy)
+- [Tracking] Fix `log_metric` to accept `mlflow.entities.Dataset` (#18585, @harupy)
+- [Evaluation] Fix plugin incompatibility with circular import (#18599, @BenWilson2)
+- [Tracing] Paginate `delete_traces` calls to Databricks MLflow server (#18563, @dbrx-euirim)
+- [Artifacts] Fix handling of `pathlib.Path` in `validation.py` (#16660, @benglewis)
+- [Tracking] Enhance SqlAlchemyStore to include model outputs in run search results (#18568, @TomeHirata)
+- [Prompts] Fix typo in gepa version (#18423, @TomeHirata)
+- [Tracking] Add validation checks for search runs (#18487, @BenWilson2)
+- [Tracking] Fix: Update run to use the new run name when resuming an existing run (#18511, @WeichenXu123)
+- [UI] Fix search filter for metrics/params with spaces in names (#18503, @serena-ruan)
+- [Evaluation] Remove the ability to register or load custom scorers (#18493, @BenWilson2)
+- [UI] Fix assessment editing UI resetting field values when selecting name (#18474, @serena-ruan)
+- [Evaluation] Add specificity to the system prompt for metrics (#18460, @BenWilson2)
+- [Evaluation] [Eval #2] Support evaluating traces and linking to run in OSS (#18415, @B-Step62)
+- [Tracking] Disable autologging for pytorch forecasting model predict method (#18444, @WeichenXu123)
+- [Evaluation / Tracing] Reuse traces in genai.evaluate when endpoint uses dual-write mode (#18403, @harupy)
+- [UI] Remove X-Frame-Options for notebook trace renderer (#18446, @TomeHirata)
+- [Evaluation] Adjust util for remote tracking server declaration (#18411, @BenWilson2)
+- [Evaluation / UI] Fix evaluation runs table link to point to traces tab instead of overview (#18332, @ritoban23)
+- [Models] fix-streaming (#18337, @BenWilson2)
+- [Evaluation / Tracing / Tracking] Job backend: Fix job store sql engine race condition (#18233, @WeichenXu123)
+- [Evaluation] Add atomicity to job_start API  (#18226, @BenWilson2)
+- [Evaluation / Tracking] Job backend: Eager launch huey consumer to prevent Huey race condition (#18220, @WeichenXu123)
+
+Documentation updates:
+
+- [Tracing] Add FireworksAI to Model Providers Tracing Integrations (#18678, @RobertoBarrosoLuque)
+- [Docs] Add basic doc for Otel support (#18623, @B-Step62)
+- [Docs] clarify datasets package requirement (#18610, @BenWilson2)
+- [Evaluation] Deprecate v2 eval (#18470, @B-Step62)
+- [Docs / UI] Add Sticky Header to CodeBlock in MLflow/DOCS  Code Examples (#18508, @PavithraNelluri)
+- [Docs] [Doc; 1/N] Clean up getting started for classical ML/DL (#18379, @B-Step62)
+- [Docs] AI-gateway-revamp: Update doc (#18397, @WeichenXu123)
+- [Docs] Fix documentation: update deprecated pandas fillna usage in classic-ml tutorial (#17927, @Kalindu-C)
+
+Small bug fixes and documentation updates:
+
+#18595, @danielseong1; #18622, #18723, #18459, @smoorjani; #18643, @dbczumar; #18731, #18667, #18666, #18728, #18692, #18705, #18690, #18654, #18590, #18429, #18530, #18416, #18401, #18400, #18465, #18453, #18414, #18421, @B-Step62; #18687, #18661, #18665, #18537, #18641, #18631, #18629, #18605, #18426, #18603, #18526, #18587, #18583, #18564, #18536, #18544, #18567, #18565, #18533, #18535, #18501, #18498, #18368, #18357, #18471, #18476, #18356, #18214, #17975, @serena-ruan; #18725, @bbqiu; #18714, #18708, #18679, #18681, #18660, #18659, #18664, #18658, #18689, #18657, #18656, #18627, #18626, #18625, #18424, #18028, @daniellok-db; #18726, @alkispoly-db; #18702, #18513, #18461, #18430, #18336, @BenWilson2; #18579, #18578, #18569, @TomeHirata; #18677, @nicklamiller; #18676, #18663, #18600, #18604, #18602, #18566, #18549, #18538, #18517, #15849, #18492, #18468, #18475, #18469, #18467, #18452, #18449, #18450, #18447, #18442, #18327, #18395, #18418, #18350, #18278, #18242, #18234, #18203, #18175, #18210, @harupy; #18601, #18649, #18616, #18615, #18607, #18598, #18588, #18586, #18584, #18572, #18580, #18571, #18554, #18553, #18552, #18551, #18548, #18546, #18528, #18527, #18525, #18521, #18520, #18515, #18519, #18518, #18506, #18507, #18505, #18502, #18495, #18494, #18472, #18463, #18464, #18462, #18443, #18440, #18399, #18394, #18393, #18392, #18390, #18389, #18380, #18376, #18378, #18377, #18366, #18362, #18361, #18343, #18340, #18318, #18311, #18307, #18269, #18268, #18261, #18260, #18259, #18258, #18257, #18256, #18253, #18254, #18252, #18250, #18243, #18238, #18213, #18206, #18198, #18184, #18179, @copilot-swe-agent; #18575, @dbrx-euirim; #18570, #18116, #18360, #18351, @WeichenXu123; #18488, @raymondzhou-db; #18334, @NJAHNAVI2907
+
 ## 3.6.0 (2025-11-07)
 
 MLflow 3.6.0 includes several major features and improvements for AI Observability, Experiment UI, Agent Evaluation and Deployment.
