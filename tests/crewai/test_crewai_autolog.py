@@ -20,6 +20,12 @@ _FINAL_ANSWER_KEYWORD = "Final Answer:"
 _LLM_ANSWER = "What about Tokyo?"
 
 
+
+@pytest.fixture()
+def set_api_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "000")
+
+
 def create_sample_llm_response(content):
     from litellm import ModelResponse
 
@@ -124,7 +130,7 @@ _AGENT_1_BACKSTORY = "An expert in analyzing travel data to pick ideal destinati
 
 
 @pytest.fixture
-def simple_agent_1():
+def simple_agent_1(set_api_key):
     return Agent(
         role="City Selection Expert",
         goal=_AGENT_1_GOAL,
@@ -137,7 +143,7 @@ _AGENT_2_GOAL = "Provide the BEST insights about the selected city"
 
 
 @pytest.fixture
-def simple_agent_2():
+def simple_agent_2(set_api_key):
     return Agent(
         role="Local Expert at this city",
         goal=_AGENT_2_GOAL,
@@ -156,7 +162,7 @@ class SampleTool(BaseTool):
 
 
 @pytest.fixture
-def tool_agent_1():
+def tool_agent_1(set_api_key):
     return Agent(
         role="City Selection Expert",
         goal=_AGENT_1_GOAL,
@@ -627,7 +633,6 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
     reason=("Memory feature in the current style is not available before 0.83.0"),
 )
 def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
-    monkeypatch.setenv("OPENAI_API_KEY", "000")
     crew = Crew(
         agents=[
             simple_agent_1,
@@ -762,7 +767,6 @@ def test_memory(simple_agent_1, task_1, monkeypatch, autolog):
     reason=("Knowledge feature in the current style is available only with 0.83.0"),
 )
 def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
-    monkeypatch.setenv("OPENAI_API_KEY", "000")
     from crewai.knowledge.source.string_knowledge_source import StringKnowledgeSource
 
     content = "Users name is John"
