@@ -334,7 +334,7 @@ def test_infer_signature_with_input_example(input_is_tabular, output_shape, expe
             model,
             name=artifact_path,
             input_example=example,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            skops_trusted_types=["tests.models.test_model_input_examples.DummySklearnModel"],
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -349,7 +349,7 @@ def test_infer_signature_from_example_can_be_disabled():
             name=artifact_path,
             input_example=np.array([[1]]),
             signature=False,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+            skops_trusted_types=["tests.models.test_model_input_examples.DummySklearnModel"],
         )
 
     mlflow_model = Model.load(model_info.model_uri)
@@ -372,7 +372,7 @@ def test_infer_signature_raises_if_predict_on_input_example_fails(monkeypatch):
                 ErrorModel(),
                 name="model",
                 input_example=np.array([[1]]),
-                skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+                serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
             )
         assert any(
             "Failed to validate serving input example" in call[0][0]
