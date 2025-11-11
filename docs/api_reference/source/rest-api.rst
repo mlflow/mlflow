@@ -65,7 +65,7 @@ Set a tag on a trace. Tags are mutable and can be updated.
 +---------------------------------------+-------------+
 | Endpoint                              | HTTP Method |
 +=======================================+=============+
-| ``2.0/mlflow/traces/{trace_id}/tags`` | ``PATCH``   |
+| ``3.0/mlflow/traces/{trace_id}/tags`` | ``PATCH``   |
 +---------------------------------------+-------------+
 
 Request Structure
@@ -100,7 +100,7 @@ Delete a tag from a trace.
 +-----------------------------------------+-------------+
 | Endpoint                                | HTTP Method |
 +=========================================+=============+
-| ``2.0/mlflow/traces/{request_id}/tags`` | ``DELETE``  |
+| ``3.0/mlflow/traces/{trace_id}/tags`` | ``DELETE``  |
 +-----------------------------------------+-------------+
 
 Request Structure
@@ -121,39 +121,6 @@ Response Structure
 +============+======+=============+
 +------------+------+-------------+
 
-===========================
-
-
-.. _mlflowMlflowServicedeleteTraceTag:
-
-Delete Trace Tag
-================
-
-Delete a tag from a trace.
-
-+---------------------------------------+-------------+
-| Endpoint                              | HTTP Method |
-+=======================================+=============+
-| ``2.0/mlflow/traces/{trace_id}/tags`` | ``DELETE``  |
-+---------------------------------------+-------------+
-
-Request Structure
------------------
-
-+------------+------------+--------------------------------------------+
-| Field Name | Type       | Description                                |
-+============+============+============================================+
-| trace_id   | ``STRING`` | Trace ID (path parameter).                 |
-| key        | ``STRING`` | Tag key to delete. This field is required. |
-+------------+------------+--------------------------------------------+
-
-Response Structure
-------------------
-
-+------------+------+-------------+
-| Field Name | Type | Description |
-+============+======+=============+
-+------------+------+-------------+
 
 ===========================
 
@@ -277,7 +244,7 @@ Get a trace and its spans by trace ID.
 +----------------------------------+-------------+
 | Endpoint                         | HTTP Method |
 +==================================+=============+
-| ``2.0/mlflow/traces/{trace_id}`` | ``GET``     |
+| ``3.0/mlflow/traces/{trace_id}`` | ``GET``     |
 +----------------------------------+-------------+
 
 Request Structure
@@ -312,7 +279,7 @@ Fetch multiple traces by their IDs.
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
 +================================+=============+
-| ``2.0/mlflow/traces/batchGet`` | ``POST``    |
+| ``3.0/mlflow/traces/batchGet`` | ``POST``    |
 +--------------------------------+-------------+
 
 Request Structure
@@ -347,7 +314,7 @@ Search traces across experiments with filtering, ordering, and pagination.
 +------------------------------+-------------+
 | Endpoint                     | HTTP Method |
 +==============================+=============+
-| ``2.0/mlflow/traces/search`` | ``POST``    |
+| ``3.0/mlflow/traces/search`` | ``POST``    |
 +------------------------------+-------------+
 
 Request Structure
@@ -387,7 +354,7 @@ Create a new trace with metadata and spans.
 +-----------------------+-------------+
 | Endpoint              | HTTP Method |
 +=======================+=============+
-| ``2.0/mlflow/traces`` | ``POST``    |
+| ``3.0/mlflow/traces`` | ``POST``    |
 +-----------------------+-------------+
 
 Request Structure
@@ -457,7 +424,7 @@ Delete traces by time window and count, or by specifying trace IDs.
 +-------------------------------------+-------------+
 | Endpoint                            | HTTP Method |
 +=====================================+=============+
-| ``2.0/mlflow/traces/delete-traces`` | ``POST``    |
+| ``3.0/mlflow/traces/delete-traces`` | ``POST``    |
 +-------------------------------------+-------------+
 
 Request Structure
@@ -495,7 +462,7 @@ Compute the correlation (NPMI) between two trace filter conditions, optionally c
 +----------------------------------------------------+-------------+
 | Endpoint                                           | HTTP Method |
 +====================================================+=============+
-| ``2.0/mlflow/traces/calculate-filter-correlation`` | ``POST``    |
+| ``3.0/mlflow/traces/calculate-filter-correlation`` | ``POST``    |
 +----------------------------------------------------+-------------+
 
 Request Structure
@@ -869,7 +836,7 @@ Get an assessment associated with a trace.
 +--------------------------------------------------------------+-------------+
 | Endpoint                                                     | HTTP Method |
 +==============================================================+=============+
-| ``2.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``GET``     |
+| ``3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``GET``     |
 +--------------------------------------------------------------+-------------+
 
 Request Structure
@@ -897,15 +864,15 @@ Response Structure
 
 .. _mlflowMlflowServicecreateAssessment:
 
-Create An Assessment Of A Trace Or A Span Within The Trace
-==========================================================
+Create Assessment
+=================
 
 Create an assessment associated with a trace or one of its spans.
 
 +---------------------------------------------------------+-------------+
 | Endpoint                                                | HTTP Method |
 +=========================================================+=============+
-| ``2.0/mlflow/traces/{assessment.trace_id}/assessments`` | ``POST``    |
+| ``3.0/mlflow/traces/{assessment.trace_id}/assessments`` | ``POST``    |
 +---------------------------------------------------------+-------------+
 
 Request Structure
@@ -932,15 +899,15 @@ Response Structure
 
 .. _mlflowMlflowServiceupdateAssessment:
 
-Update An Existing Assessment On A Trace.
-=========================================
+Update Assessment
+=================
 
 Update fields of an existing assessment.
 
 +--------------------------------------------------------------+-------------+
 | Endpoint                                                     | HTTP Method |
 +==============================================================+=============+
-| ``2.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``PATCH``   |
+| ``3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``PATCH``   |
 +--------------------------------------------------------------+-------------+
 
 Request Structure
@@ -976,7 +943,7 @@ Delete an assessment.
 +--------------------------------------------------------------+-------------+
 | Endpoint                                                     | HTTP Method |
 +==============================================================+=============+
-| ``2.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``DELETE``  |
+| ``3.0/mlflow/traces/{trace_id}/assessments/{assessment_id}`` | ``DELETE``  |
 +--------------------------------------------------------------+-------------+
 
 Request Structure
@@ -1011,7 +978,7 @@ Create an evaluation dataset and optionally associate it with experiments.
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
 +================================+=============+
-| ``2.0/mlflow/datasets/create`` | ``POST``    |
+| ``3.0/mlflow/datasets/create`` | ``POST``    |
 +--------------------------------+-------------+
 
 Request Structure
@@ -1053,7 +1020,7 @@ Get an evaluation dataset by ID.
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
 +======================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}`` | ``GET``     |
+| ``3.0/mlflow/datasets/{dataset_id}`` | ``GET``     |
 +--------------------------------------+-------------+
 
 Request Structure
@@ -1090,7 +1057,7 @@ Delete an evaluation dataset by ID.
 +--------------------------------------+-------------+
 | Endpoint                             | HTTP Method |
 +======================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}`` | ``DELETE``  |
+| ``3.0/mlflow/datasets/{dataset_id}`` | ``DELETE``  |
 +--------------------------------------+-------------+
 
 Request Structure
@@ -1124,7 +1091,7 @@ Search evaluation datasets with filtering, ordering, and pagination.
 +--------------------------------+-------------+
 | Endpoint                       | HTTP Method |
 +================================+=============+
-| ``2.0/mlflow/datasets/search`` | ``POST``    |
+| ``3.0/mlflow/datasets/search`` | ``POST``    |
 +--------------------------------+-------------+
 
 Request Structure
@@ -1164,7 +1131,7 @@ Set or update tags on an evaluation dataset.
 +-------------------------------------------+-------------+
 | Endpoint                                  | HTTP Method |
 +===========================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}/tags`` | ``PATCH``   |
+| ``3.0/mlflow/datasets/{dataset_id}/tags`` | ``PATCH``   |
 +-------------------------------------------+-------------+
 
 Request Structure
@@ -1200,7 +1167,7 @@ Delete a tag from an evaluation dataset.
 +-------------------------------------------------+-------------+
 | Endpoint                                        | HTTP Method |
 +=================================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}/tags/{key}`` | ``DELETE``  |
+| ``3.0/mlflow/datasets/{dataset_id}/tags/{key}`` | ``DELETE``  |
 +-------------------------------------------------+-------------+
 
 Request Structure
@@ -1235,7 +1202,7 @@ Insert or update records within an evaluation dataset.
 +----------------------------------------------+-------------+
 | Endpoint                                     | HTTP Method |
 +==============================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}/records`` | ``POST``    |
+| ``3.0/mlflow/datasets/{dataset_id}/records`` | ``POST``    |
 +----------------------------------------------+-------------+
 
 Request Structure
@@ -1273,7 +1240,7 @@ List experiment IDs associated with an evaluation dataset.
 +-----------------------------------------------------+-------------+
 | Endpoint                                            | HTTP Method |
 +=====================================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}/experiment-ids`` | ``GET``     |
+| ``3.0/mlflow/datasets/{dataset_id}/experiment-ids`` | ``GET``     |
 +-----------------------------------------------------+-------------+
 
 Request Structure
@@ -1308,7 +1275,7 @@ Register a scorer for an experiment.
 +---------------------------------+-------------+
 | Endpoint                        | HTTP Method |
 +=================================+=============+
-| ``2.0/mlflow/scorers/register`` | ``POST``    |
+| ``3.0/mlflow/scorers/register`` | ``POST``    |
 +---------------------------------+-------------+
 
 Request Structure
@@ -1350,7 +1317,7 @@ List all scorers for an experiment.
 +-----------------------------+-------------+
 | Endpoint                    | HTTP Method |
 +=============================+=============+
-| ``2.0/mlflow/scorers/list`` | ``GET``     |
+| ``3.0/mlflow/scorers/list`` | ``GET``     |
 +-----------------------------+-------------+
 
 Request Structure
@@ -1385,7 +1352,7 @@ List all versions for a specific scorer.
 +---------------------------------+-------------+
 | Endpoint                        | HTTP Method |
 +=================================+=============+
-| ``2.0/mlflow/scorers/versions`` | ``GET``     |
+| ``3.0/mlflow/scorers/versions`` | ``GET``     |
 +---------------------------------+-------------+
 
 Request Structure
@@ -1421,7 +1388,7 @@ Get a specific scorer by name and optional version.
 +----------------------------+-------------+
 | Endpoint                   | HTTP Method |
 +============================+=============+
-| ``2.0/mlflow/scorers/get`` | ``GET``     |
+| ``3.0/mlflow/scorers/get`` | ``GET``     |
 +----------------------------+-------------+
 
 Request Structure
@@ -1458,7 +1425,7 @@ Delete a scorer or a specific version.
 +-------------------------------+-------------+
 | Endpoint                      | HTTP Method |
 +===============================+=============+
-| ``2.0/mlflow/scorers/delete`` | ``DELETE``  |
+| ``3.0/mlflow/scorers/delete`` | ``DELETE``  |
 +-------------------------------+-------------+
 
 Request Structure
@@ -1494,7 +1461,7 @@ List records for an evaluation dataset with pagination.
 +----------------------------------------------+-------------+
 | Endpoint                                     | HTTP Method |
 +==============================================+=============+
-| ``2.0/mlflow/datasets/{dataset_id}/records`` | ``GET``     |
+| ``3.0/mlflow/datasets/{dataset_id}/records`` | ``GET``     |
 +----------------------------------------------+-------------+
 
 Request Structure
