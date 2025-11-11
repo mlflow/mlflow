@@ -98,7 +98,9 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
+    BindSecret,
     CalculateTraceFilterCorrelation,
+    CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
@@ -113,6 +115,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -131,6 +134,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -138,6 +142,8 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -165,9 +171,11 @@ from mlflow.protos.service_pb2 import (
     SetTraceTagV3,
     StartTrace,
     StartTraceV3,
+    UnbindSecret,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3707,6 +3715,194 @@ def _delete_scorer():
     return response
 
 
+# =============================================================================
+# Secrets Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_and_bind_secret():
+    request_message = _get_request_message(
+        CreateAndBindSecret(),
+        schema={
+            "secret_name": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+            "is_shared": [_assert_bool],
+            "created_by": [_assert_string],
+            "provider": [_assert_string],
+            "model": [_assert_string],
+        },
+    )
+
+    result = _get_tracking_store()._create_and_bind_secret(
+        secret_name=request_message.secret_name,
+        secret_value=request_message.secret_value,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+        is_shared=request_message.is_shared if request_message.HasField("is_shared") else False,
+        created_by=request_message.created_by if request_message.HasField("created_by") else None,
+        provider=request_message.provider if request_message.HasField("provider") else None,
+        model=request_message.model if request_message.HasField("model") else None,
+    )
+
+    response_message = CreateAndBindSecret.Response()
+    response_message.secret.CopyFrom(result.secret.to_proto())
+    response_message.binding.CopyFrom(result.binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secret_info():
+    request_message = _get_request_message(
+        GetSecretInfo(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+
+    secret = _get_tracking_store()._get_secret_info(secret_id=request_message.secret_id)
+
+    response_message = GetSecretInfo.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secrets():
+    request_message = _get_request_message(ListSecrets())
+
+    is_shared = request_message.is_shared if request_message.HasField("is_shared") else None
+    secrets = _get_tracking_store()._list_secrets(is_shared=is_shared)
+
+    response_message = ListSecrets.Response()
+    for secret in secrets:
+        response_message.secrets.add().CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_secret():
+    request_message = _get_request_message(
+        UpdateSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+
+    secret = _get_tracking_store()._update_secret(
+        secret_id=request_message.secret_id,
+        secret_value=request_message.secret_value,
+        updated_by=request_message.updated_by if request_message.HasField("updated_by") else None,
+    )
+
+    response_message = UpdateSecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret():
+    request_message = _get_request_message(
+        DeleteSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store()._delete_secret(secret_id=request_message.secret_id)
+
+    response_message = DeleteSecret.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _bind_secret():
+    request_message = _get_request_message(
+        BindSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+
+    binding = _get_tracking_store()._bind_secret(
+        secret_id=request_message.secret_id,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+        created_by=request_message.created_by if request_message.HasField("created_by") else None,
+    )
+
+    response_message = BindSecret.Response()
+    response_message.binding.CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _unbind_secret():
+    request_message = _get_request_message(
+        UnbindSecret(),
+        schema={
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store()._unbind_secret(
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+    )
+
+    response_message = UnbindSecret.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secret_bindings():
+    request_message = _get_request_message(
+        ListSecretBindings(),
+        schema={
+            "secret_id": [_assert_string],
+            "resource_type": [_assert_string],
+            "resource_id": [_assert_string],
+        },
+    )
+
+    bindings = _get_tracking_store()._list_secret_bindings(
+        secret_id=request_message.secret_id if request_message.HasField("secret_id") else None,
+        resource_type=request_message.resource_type
+        if request_message.HasField("resource_type")
+        else None,
+        resource_id=request_message.resource_id
+        if request_message.HasField("resource_id")
+        else None,
+    )
+
+    response_message = ListSecretBindings.Response()
+    for binding in bindings:
+        response_message.bindings.add().CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4120,4 +4316,13 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Secrets APIs
+    CreateAndBindSecret: _create_and_bind_secret,
+    GetSecretInfo: _get_secret_info,
+    ListSecrets: _list_secrets,
+    UpdateSecret: _update_secret,
+    DeleteSecret: _delete_secret,
+    BindSecret: _bind_secret,
+    UnbindSecret: _unbind_secret,
+    ListSecretBindings: _list_secret_bindings,
 }

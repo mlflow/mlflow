@@ -18,6 +18,9 @@ from mlflow.entities import (
     Metric,
     Param,
     RunTag,
+    Secret,
+    SecretBinding,
+    SecretWithBinding,
     SourceType,
     ViewType,
 )
@@ -2820,3 +2823,340 @@ def test_server_version_check_caching():
             data=mock.ANY,
             extra_headers=mock.ANY,
         )
+
+
+def test_create_and_bind_secret():
+    secret_json = {
+        "secret_id": "secret-123",
+        "secret_name": "my-openai-key",
+        "masked_value": "sk-...789",
+        "is_shared": False,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user@example.com",
+        "last_updated_by": "user@example.com",
+        "provider": "openai",
+        "model": "gpt-4-turbo",
+    }
+    binding_json = {
+        "binding_id": "binding-456",
+        "secret_id": "secret-123",
+        "resource_type": "SCORER_JOB",
+        "resource_id": "job-abc123",
+        "field_name": "OPENAI_API_KEY",
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user@example.com",
+        "last_updated_by": "user@example.com",
+    }
+    response_json = {"secret": secret_json, "binding": binding_json}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/create-and-bind")
+
+        request_json = kwargs["json"]
+        assert request_json["secret_name"] == "my-openai-key"
+        assert request_json["secret_value"] == "sk-test123456789"
+        assert request_json["resource_type"] == "SCORER_JOB"
+        assert request_json["resource_id"] == "job-abc123"
+        assert request_json["field_name"] == "OPENAI_API_KEY"
+        assert request_json["is_shared"] is False
+        assert request_json["created_by"] == "user@example.com"
+        assert request_json["provider"] == "openai"
+        assert request_json["model"] == "gpt-4-turbo"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._create_and_bind_secret(
+            secret_name="my-openai-key",
+            secret_value="sk-test123456789",
+            resource_type="SCORER_JOB",
+            resource_id="job-abc123",
+            field_name="OPENAI_API_KEY",
+            is_shared=False,
+            created_by="user@example.com",
+            provider="openai",
+            model="gpt-4-turbo",
+        )
+
+        assert isinstance(result, SecretWithBinding)
+        assert isinstance(result.secret, Secret)
+        assert isinstance(result.binding, SecretBinding)
+
+        assert result.secret.secret_id == "secret-123"
+        assert result.secret.secret_name == "my-openai-key"
+        assert result.secret.masked_value == "sk-...789"
+        assert result.secret.is_shared is False
+        assert result.secret.created_by == "user@example.com"
+        assert result.secret.provider == "openai"
+        assert result.secret.model == "gpt-4-turbo"
+
+        assert result.binding.binding_id == "binding-456"
+        assert result.binding.secret_id == "secret-123"
+        assert result.binding.resource_type == "SCORER_JOB"
+        assert result.binding.resource_id == "job-abc123"
+        assert result.binding.field_name == "OPENAI_API_KEY"
+        assert result.binding.created_by == "user@example.com"
+
+
+def test_get_secret_info():
+    secret_json = {
+        "secret_id": "secret-123",
+        "secret_name": "my-openai-key",
+        "masked_value": "sk-...789",
+        "is_shared": True,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user@example.com",
+        "last_updated_by": "user@example.com",
+    }
+    response_json = {"secret": secret_json}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("GET", "https://test-host/api/3.0/mlflow/secrets/get-info")
+        request_params = kwargs["params"]
+        assert request_params["secret_id"] == "secret-123"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._get_secret_info(secret_id="secret-123")
+
+        assert isinstance(result, Secret)
+        assert result.secret_id == "secret-123"
+        assert result.secret_name == "my-openai-key"
+
+
+def test_update_secret():
+    secret_json = {
+        "secret_id": "secret-123",
+        "secret_name": "my-openai-key",
+        "masked_value": "sk-...lue",
+        "is_shared": True,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890999",
+        "created_by": "user@example.com",
+        "last_updated_by": "admin@example.com",
+    }
+    response_json = {"secret": secret_json}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/update")
+        request_json = kwargs["json"]
+        assert request_json["secret_id"] == "secret-123"
+        assert request_json["secret_value"] == "sk-new-key-value"
+        assert request_json["updated_by"] == "admin@example.com"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._update_secret(
+            secret_id="secret-123",
+            secret_value="sk-new-key-value",
+            updated_by="admin@example.com",
+        )
+
+        assert isinstance(result, Secret)
+        assert result.secret_id == "secret-123"
+
+
+def test_delete_secret():
+    response_json = {}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("DELETE", "https://test-host/api/3.0/mlflow/secrets/delete")
+        request_json = kwargs["json"]
+        assert request_json["secret_id"] == "secret-123"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._delete_secret(secret_id="secret-123")
+
+        assert result is None
+
+
+def test_bind_secret():
+    binding_json = {
+        "binding_id": "binding-new",
+        "secret_id": "secret-123",
+        "resource_type": "SCORER_JOB",
+        "resource_id": "job-new",
+        "field_name": "OPENAI_API_KEY",
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user@example.com",
+        "last_updated_by": "user@example.com",
+    }
+    response_json = {"binding": binding_json}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/bind")
+        request_json = kwargs["json"]
+        assert request_json["secret_id"] == "secret-123"
+        assert request_json["resource_type"] == "SCORER_JOB"
+        assert request_json["resource_id"] == "job-new"
+        assert request_json["field_name"] == "OPENAI_API_KEY"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._bind_secret(
+            secret_id="secret-123",
+            resource_type="SCORER_JOB",
+            resource_id="job-new",
+            field_name="OPENAI_API_KEY",
+            created_by="user@example.com",
+        )
+
+        assert isinstance(result, SecretBinding)
+        assert result.binding_id == "binding-new"
+        assert result.secret_id == "secret-123"
+
+
+def test_unbind_secret():
+    response_json = {}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/unbind")
+        request_json = kwargs["json"]
+        assert request_json["resource_type"] == "SCORER_JOB"
+        assert request_json["resource_id"] == "job-123"
+        assert request_json["field_name"] == "OPENAI_API_KEY"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._unbind_secret(
+            resource_type="SCORER_JOB",
+            resource_id="job-123",
+            field_name="OPENAI_API_KEY",
+        )
+
+        assert result is None
+
+
+def test_list_secret_bindings():
+    binding1_json = {
+        "binding_id": "binding-1",
+        "secret_id": "secret-123",
+        "resource_type": "SCORER_JOB",
+        "resource_id": "job-abc",
+        "field_name": "OPENAI_API_KEY",
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+    }
+    binding2_json = {
+        "binding_id": "binding-2",
+        "secret_id": "secret-123",
+        "resource_type": "SCORER_JOB",
+        "resource_id": "job-abc",
+        "field_name": "ANTHROPIC_API_KEY",
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+    }
+    response_json = {"bindings": [binding1_json, binding2_json]}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("GET", "https://test-host/api/3.0/mlflow/secrets/list-bindings")
+        request_params = kwargs["params"]
+        assert request_params["secret_id"] == "secret-123"
+        assert request_params["resource_type"] == "SCORER_JOB"
+        assert request_params["resource_id"] == "job-abc"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._list_secret_bindings(
+            secret_id="secret-123",
+            resource_type="SCORER_JOB",
+            resource_id="job-abc",
+        )
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert all(isinstance(b, SecretBinding) for b in result)
+
+
+def test_list_secrets():
+    secret1_json = {
+        "secret_id": "secret-123",
+        "secret_name": "openai-key",
+        "masked_value": "sk-...xyz",
+        "is_shared": True,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user1",
+        "binding_count": 5,
+    }
+    secret2_json = {
+        "secret_id": "secret-456",
+        "secret_name": "anthropic-key",
+        "masked_value": "sk-...abc",
+        "is_shared": False,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "user1",
+        "binding_count": 1,
+    }
+    response_json = {"secrets": [secret1_json, secret2_json]}
+
+    def mock_request(*args, **kwargs):
+        assert args == ("GET", "https://test-host/api/2.0/mlflow/secrets/list")
+        if "params" in kwargs:
+            request_params = kwargs["params"]
+            if "is_shared" in request_params:
+                assert request_params["is_shared"] in [True, False]
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps(response_json)
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+
+        result = store._list_secrets()
+        assert len(result) == 2
+        assert result[0].secret_id == "secret-123"
+        assert result[0].secret_name == "openai-key"
+        assert result[0].is_shared is True
+        assert result[0].binding_count == 5
+        assert result[1].secret_id == "secret-456"
+        assert result[1].is_shared is False
+        assert result[1].binding_count == 1
+
+        result_shared = store._list_secrets(is_shared=True)
+        assert len(result_shared) == 2
+
+        result_private = store._list_secrets(is_shared=False)
+        assert len(result_private) == 2
