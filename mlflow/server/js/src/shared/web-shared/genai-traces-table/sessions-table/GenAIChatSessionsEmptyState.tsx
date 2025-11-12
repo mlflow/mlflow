@@ -3,8 +3,8 @@ import { FormattedMessage } from '@databricks/i18n';
 import { CodeSnippet, SnippetCopyAction } from '@databricks/web-shared/snippet';
 
 const EXAMPLE_CODE = `import mlflow
-@mlflow.trace
 
+@mlflow.trace
 def chat_completion(message: str, user_id: str, session_id: str):
     # Set these metadata keys to associate the trace to a user and session
     mlflow.update_current_trace(
@@ -13,6 +13,7 @@ def chat_completion(message: str, user_id: str, session_id: str):
             "mlflow.trace.session": session_id,
         }
     )
+
     # Replace with your chat logic
     return "Your response here"
 
