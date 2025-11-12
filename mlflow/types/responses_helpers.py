@@ -238,7 +238,7 @@ class ReasoningParams(BaseModel):
 
     @model_validator(mode="after")
     def check_generate_summary(self) -> "ReasoningParams":
-        if self.generate_summary and self.generate_summary not in {"concise","detailed"}:
+        if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
             warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
