@@ -214,11 +214,11 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             result = json.loads(value)
             if isinstance(result, str):
                 try:
-                    # If the original value is a string, dict, or list, we store it as
+                    # If the original value is a string or dict, we store it as
                     # a JSON-encoded string.  For other types, we store the original value directly.
                     # This is to avoid the case where the value might be "1" (a string)
                     # which could be interpreted as an int accidentally.
-                    if isinstance(json.loads(result), (str, dict, list)):
+                    if isinstance(json.loads(result), (str, dict)):
                         updated_attributes[key] = result
                         continue
                 except json.JSONDecodeError:
