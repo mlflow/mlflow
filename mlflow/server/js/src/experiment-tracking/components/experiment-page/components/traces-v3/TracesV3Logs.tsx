@@ -2,6 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { isEmpty as isEmptyFn } from 'lodash';
 import { Empty, ParagraphSkeleton, DangerIcon } from '@databricks/design-system';
 import type { TracesTableColumn, TraceActions, GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
+import { shouldUseTracesV4API, useUnifiedTraceTagsModal } from '@databricks/web-shared/model-trace-explorer';
 import {
   EXECUTION_DURATION_COLUMN_ID,
   GenAiTracesMarkdownConverterProvider,
@@ -35,7 +36,6 @@ import { useQueryClient } from '@databricks/web-shared/query-client';
 import { useSetInitialTimeFilter } from './hooks/useSetInitialTimeFilter';
 import { checkColumnContents } from './utils/columnUtils';
 import { useExportTracesToDatasetModal } from '@mlflow/mlflow/src/experiment-tracking/pages/experiment-evaluation-datasets/hooks/useExportTracesToDatasetModal';
-import { useUnifiedTraceTagsModal } from '@mlflow/mlflow/src/shared/web-shared/model-trace-explorer';
 
 const ContextProviders = ({
   children,
@@ -173,6 +173,13 @@ const TracesV3LogsImpl = React.memo(
       existingTagKeys: getTracesTagKeys(traceInfos || []),
     });
 
+    // Unified version of trace tag editing modal using shared components
+    const { showTagAssignmentModal: showEditTagsModalForTraceUnified, TagAssignmentModal: EditTagsModalUnified } =
+      useUnifiedTraceTagsModal({
+        componentIdPrefix: 'mlflow.experiment-traces',
+        onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
+      });
+
     const { showExportTracesToDatasetsModal, setShowExportTracesToDatasetsModal, renderExportTracesToDatasetsModal } =
       useExportTracesToDatasetModal({
         experimentId,
@@ -189,26 +196,27 @@ const TracesV3LogsImpl = React.memo(
           setShowExportTracesToDatasetsModal,
           renderExportTracesToDatasetsModal,
         },
-        editTags: {
-          showEditTagsModalForTrace,
-          EditTagsModal,
-        },
+        // Enable unified tags modal if V4 APIs is enabled
+        editTags: shouldUseTracesV4API()
+          ? {
+              showEditTagsModalForTrace: showEditTagsModalForTraceUnified,
+              EditTagsModal: EditTagsModalUnified,
+            }
+          : {
+              showEditTagsModalForTrace,
+              EditTagsModal,
+            },
       };
     }, [
       showExportTracesToDatasetsModal,
       setShowExportTracesToDatasetsModal,
       renderExportTracesToDatasetsModal,
+      showEditTagsModalForTraceUnified,
+      EditTagsModalUnified,
       showEditTagsModalForTrace,
       EditTagsModal,
       deleteTracesMutation,
     ]);
-
-    // Unified version of trace tag editing modal using shared components
-    const { showTagAssignmentModal: showEditTagsModalForTraceUnified, TagAssignmentModal: EditTagsModalUnified } =
-      useUnifiedTraceTagsModal({
-        componentIdPrefix: 'mlflow.experiment-traces',
-        onSuccess: () => invalidateMlflowSearchTracesCache({ queryClient }),
-      });
 
     const countInfo = useMemo(() => {
       return {
