@@ -606,7 +606,7 @@ langchain:
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -648,7 +648,7 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "openai",
