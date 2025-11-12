@@ -2365,6 +2365,7 @@ def test_add_dataset_to_experiments():
         mock_call.assert_called_once_with(
             AddDatasetToExperiments,
             message_to_json(req),
+            endpoint="/api/3.0/mlflow/datasets/d-1234567890abcdef1234567890abcdef/add-experiments",
         )
 
 
@@ -2401,6 +2402,7 @@ def test_remove_dataset_from_experiments():
         mock_call.assert_called_once_with(
             RemoveDatasetFromExperiments,
             message_to_json(req),
+            endpoint="/api/3.0/mlflow/datasets/d-1234567890abcdef1234567890abcdef/remove-experiments",
         )
 
 
