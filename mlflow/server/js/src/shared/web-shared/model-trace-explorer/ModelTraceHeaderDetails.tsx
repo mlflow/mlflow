@@ -12,7 +12,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
 
-import { MLFLOW_TRACE_TOKEN_USAGE_KEY, type ModelTrace, type ModelTraceInfoV3 } from './ModelTrace.types';
+import { type ModelTrace, type ModelTraceInfoV3 } from './ModelTrace.types';
 import { createTraceV4LongIdentifier, doesTraceSupportV4API, isV3ModelTraceInfo } from './ModelTraceExplorer.utils';
 import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { useModelTraceExplorerViewState } from './ModelTraceExplorerViewStateContext';
@@ -20,7 +20,7 @@ import { ModelTraceHeaderMetadataPill } from './ModelTraceHeaderMetadataPill';
 import { ModelTraceHeaderSessionIdTag } from './ModelTraceHeaderSessionIdTag';
 import { useParams } from './RoutingUtils';
 import { isUserFacingTag, parseJSONSafe, truncateToFirstLineWithMaxLength } from './TagUtils';
-import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY } from './constants';
+import { SESSION_ID_METADATA_KEY, MLFLOW_TRACE_USER_KEY, TOKEN_USAGE_METADATA_KEY } from './constants';
 import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
@@ -42,7 +42,7 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
 
   const tokenUsage = useMemo(() => {
     const tokenUsage = parseJSONSafe(
-      (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[MLFLOW_TRACE_TOKEN_USAGE_KEY] ?? '{}',
+      (modelTraceInfo as ModelTraceInfoV3)?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY] ?? '{}',
     );
     return tokenUsage;
   }, [modelTraceInfo]);
