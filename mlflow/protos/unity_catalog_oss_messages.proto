@@ -2,14 +2,12 @@ syntax = "proto2";
 
 package mlflow.unitycatalog;
 
-import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option java_package = "com.databricks.api.proto.managedcatalog";
+option (scalapb.options) = {flat_package: true};
 
 // Registered Model Management API
 message RegisteredModelInfo {
@@ -73,7 +71,6 @@ message DeleteRegisteredModel {
 }
 
 message GetRegisteredModel {
-
   // Required. Full name of the Model.
   optional string full_name = 1 [(validate_required) = true];
 
@@ -83,7 +80,6 @@ message GetRegisteredModel {
 }
 
 message UpdateRegisteredModel {
-
   // Required. Full name of the Model.
   optional string full_name = 1;
 
@@ -99,7 +95,6 @@ message UpdateRegisteredModel {
 }
 
 message ListRegisteredModels {
-
   // Optional. Name of parent catalog for models of interest.
   optional string catalog_name = 1;
   // Optional. Parent schema of models.
@@ -122,7 +117,6 @@ message ListRegisteredModels {
 }
 
 message ModelVersionInfo {
-
   // [Create:REQ Update:IGN] Name of parent model, relative to parent Schema.
   optional string model_name = 1;
   // [Create:REQ Update:IGN] Name of parent Catalog.
@@ -164,7 +158,6 @@ message ModelVersionInfo {
 }
 
 message CreateModelVersion {
-
   // Name of Model, relative to parent Schema.
   optional string model_name = 1;
   // Name of parent Catalog.
@@ -186,7 +179,6 @@ message CreateModelVersion {
 }
 
 message DeleteModelVersion {
-  
   // Required. Full name of the parent registered model (from URL).
   optional string full_name = 1;
 
@@ -197,7 +189,6 @@ message DeleteModelVersion {
 }
 
 message FinalizeModelVersion {
-
   // Required. Full name of the parent registered model (from URL).
   optional string full_name = 1;
 
@@ -210,7 +201,6 @@ message FinalizeModelVersion {
 }
 
 message GetModelVersion {
-
   // Required. Full name of the parent registered model (from URL)..
   optional string full_name = 1;
 
@@ -223,7 +213,6 @@ message GetModelVersion {
 }
 
 message UpdateModelVersion {
-
   // Required. Full name of the parent registered model (from URL).
   optional string full_name = 1;
 
@@ -239,7 +228,6 @@ message UpdateModelVersion {
 }
 
 message ListModelVersions {
-
   // Required. Full name of the parent registered model (from URL).
   optional string full_name = 1;
 
@@ -267,14 +255,13 @@ enum ModelVersionStatus {
   READY = 3;
 }
 
-// Credentials Related Protos 
+// Credentials Related Protos
 
 message TemporaryCredentials {
-
   optional AwsCredentials aws_temp_credentials = 2;
   optional AzureUserDelegationSAS azure_user_delegation_sas = 3;
   optional GcpOauthToken gcp_oauth_token = 4;
-  
+
   // Server time when the credential will expire, in epoch milliseconds.
   // The API client is advised to cache the credential given this expiration time.
   optional int64 expiration_time = 1;
@@ -307,7 +294,6 @@ message GcpOauthToken {
 }
 
 message GenerateTemporaryModelVersionCredential {
-
   // Required. Name of parent catalog for model version of interest.
   optional string catalog_name = 1;
   // Required. Name of parent schema of model version.
