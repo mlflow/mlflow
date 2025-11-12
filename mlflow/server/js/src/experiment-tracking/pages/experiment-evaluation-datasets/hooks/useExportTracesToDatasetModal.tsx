@@ -11,12 +11,7 @@ export const useExportTracesToDatasetModal = ({ experimentId }: { experimentId: 
       onSuccess,
     }: {
       selectedTraceInfos: ModelTraceInfoV3[];
-      onSuccess?: (args: {
-        experimentId: string;
-        datasetId: string;
-        datasetName: string;
-        count: number;
-      }) => void;
+      onSuccess?: (args: { experimentId: string; datasetId: string; datasetName: string; count: number }) => void;
     }) => (
       <ExportTracesToDatasetModal
         experimentId={experimentId}

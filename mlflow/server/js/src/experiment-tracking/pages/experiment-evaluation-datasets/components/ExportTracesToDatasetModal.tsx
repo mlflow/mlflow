@@ -43,12 +43,7 @@ export const ExportTracesToDatasetModal = ({
   visible: boolean;
   setVisible: (visible: boolean) => void;
   selectedTraceInfos: ModelTrace['info'][];
-  onSuccess?: (args: {
-    experimentId: string;
-    datasetId: string;
-    datasetName: string;
-    count: number;
-  }) => void;
+  onSuccess?: (args: { experimentId: string; datasetId: string; datasetName: string; count: number }) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [searchFilter, setSearchFilter] = useState('');
