@@ -648,7 +648,7 @@ def _create_secret(
     auth,
     is_shared=False,
     provider=None,
-    model=None,
+    model_name=None,
 ):
     payload = {
         "secret_name": secret_name,
@@ -660,8 +660,8 @@ def _create_secret(
     }
     if provider is not None:
         payload["provider"] = provider
-    if model is not None:
-        payload["model"] = model
+    if model_name is not None:
+        payload["model_name"] = model_name
 
     response = requests.post(
         f"{base_uri}/api/3.0/mlflow/secrets/create-and-bind",
@@ -817,6 +817,7 @@ def test_create_secret_auto_grant(client, monkeypatch):
             f"job-{experiment_id}",
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
         )
 
     response = requests.get(
@@ -846,6 +847,7 @@ def test_secret_permissions_read(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
             is_shared=True,
         )
         _send_rest_tracking_post_request(
@@ -907,6 +909,7 @@ def test_secret_permissions_edit(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
             is_shared=True,
         )
         _send_rest_tracking_post_request(
@@ -968,6 +971,7 @@ def test_secret_permissions_manage(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
             is_shared=True,
         )
         _send_rest_tracking_post_request(
@@ -1029,6 +1033,7 @@ def test_secret_permission_boundaries(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
             is_shared=True,
         )
         _send_rest_tracking_post_request(
@@ -1090,6 +1095,7 @@ def test_secret_permission_management(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+        model_name="gpt-4",
         )
 
         _send_rest_tracking_post_request(
@@ -1282,6 +1288,7 @@ def test_admin_bypass_secrets(client, monkeypatch):
             job_id,
             "TEST_API_KEY",
             (username1, password1),
+            model_name="gpt-4",
             is_shared=True,
         )
 
@@ -1344,9 +1351,9 @@ def test_list_secrets(client, monkeypatch):
                 job_id,
                 "TEST_API_KEY",
                 (username1, password1),
+                model_name="gpt-4",
                 is_shared=(i % 2 == 0),
                 provider="openai" if i % 3 == 0 else None,
-                model="gpt-4" if i % 3 == 0 else None,
             )
             secret_ids.append(secret_id)
             _send_rest_tracking_post_request(
