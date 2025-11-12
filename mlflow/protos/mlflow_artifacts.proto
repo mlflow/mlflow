@@ -8,98 +8,130 @@ syntax = "proto2";
 
 package mlflow.artifacts;
 
-import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
 option java_package = "org.mlflow.api.proto";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 service MlflowArtifactsService {
-
-  rpc downloadArtifact (DownloadArtifact) returns (DownloadArtifact.Response) {
+  rpc downloadArtifact(DownloadArtifact) returns (DownloadArtifact.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Download Artifact",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Download Artifact"
     };
   }
 
-  rpc uploadArtifact (UploadArtifact) returns (UploadArtifact.Response) {
+  rpc uploadArtifact(UploadArtifact) returns (UploadArtifact.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "PUT",
-        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Upload Artifact",
+      endpoints: [
+        {
+          method: "PUT"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Upload Artifact"
     };
   }
 
-  rpc listArtifacts (ListArtifacts) returns (ListArtifacts.Response) {
+  rpc listArtifacts(ListArtifacts) returns (ListArtifacts.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow-artifacts/artifacts",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Artifacts",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow-artifacts/artifacts"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Artifacts"
     };
   }
 
-  rpc deleteArtifact (DeleteArtifact) returns (DeleteArtifact.Response) {
+  rpc deleteArtifact(DeleteArtifact) returns (DeleteArtifact.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow-artifacts/artifacts/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Artifacts",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow-artifacts/artifacts/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Artifacts"
     };
   }
 
-  rpc createMultipartUpload (CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
+  rpc createMultipartUpload(CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow-artifacts/mpu/create/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Create an Artifact Multipart Upload",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/create/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create an Artifact Multipart Upload"
     };
   }
 
-  rpc completeMultipartUpload (CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
+  rpc completeMultipartUpload(CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow-artifacts/mpu/complete/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Complete an Artifact Multipart Upload",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/complete/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Complete an Artifact Multipart Upload"
     };
   }
 
-  rpc abortMultipartUpload (AbortMultipartUpload) returns (AbortMultipartUpload.Response) {
+  rpc abortMultipartUpload(AbortMultipartUpload) returns (AbortMultipartUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow-artifacts/mpu/abort/<path:artifact_path>",
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Abort an Artifact Multipart Upload",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow-artifacts/mpu/abort/<path:artifact_path>"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Abort an Artifact Multipart Upload"
     };
   }
 }
