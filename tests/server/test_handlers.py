@@ -56,6 +56,8 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetTraceTag,
+    SetTraceTagV3,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -115,6 +117,8 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_trace_tag,
+    _set_trace_tag_v3,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
@@ -2030,12 +2034,11 @@ def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_sto
     the _delete_trace_tag_v3 handler is called and invokes store.delete_trace_tag().
     This is similar to v2 but uses the v3 proto message and route parameter naming.
     """
-    from mlflow.protos.service_pb2 import DeleteTraceTagV3
 
     trace_id = "tr-v3-456"
     tag_key = "tk"
 
-    # Create the request message (v3 version)
+    # Create the request message with V3
     request_msg = DeleteTraceTagV3(key=tag_key)
     mock_get_request_message.return_value = request_msg
 
@@ -2055,7 +2058,7 @@ def test_delete_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_stor
     
     This test ensures:
     1. DELETE /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
-    2. DELETE /api/2.0/mlflow/traces/{trace_id}/tags routes to v3 handler
+    2. DELETE /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
     
     Both handlers call store.delete_trace_tag() but route parameter naming differs.
     """
@@ -2078,6 +2081,92 @@ def test_delete_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_stor
     response_v3 = mlflow_app_client.delete(
         f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
         data=json.dumps({"key": tag_key}),
+        content_type="application/json",
+    )
+    assert response_v3.status_code == 200
+
+
+def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 set_trace_tag handler with request_id parameter.
+    
+    Verifies that when the Flask route uses request_id path parameter,
+    the _set_trace_tag handler is called and invokes store.set_trace_tag().
+    """
+    trace_id = "tr-test-v2-123"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message
+    request_msg = SetTraceTag(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _set_trace_tag(request_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 set_trace_tag handler with trace_id parameter.
+    
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _set_trace_tag_v3 handler is called and invokes store.set_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+    trace_id = "tr-test-v3-456"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message (v3 version)
+    request_msg = SetTraceTagV3(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _set_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Note: Both handlers call the same store method
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_store):
+    """Test Flask routes different paths to different handlers.
+    
+    This test ensures:
+    1. PATCH /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
+    2. PATCH /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
+    
+    Both handlers call store.set_trace_tag() but route parameter naming differs.
+    """
+    request_id_v2 = "tr-v2-789"
+    trace_id_v3 = "tr-v3-012"
+    tag_key = "test_key"
+    tag_value = "test_value"
+
+    # Mock the store to verify it's called
+    mock_tracking_store.set_trace_tag = mock.MagicMock(return_value=None)
+
+    # Test v2 endpoint with request_id
+    response_v2 = mlflow_app_client.patch(
+        f"/api/2.0/mlflow/traces/{request_id_v2}/tags",
+        data=json.dumps({"key": tag_key, "value": tag_value}),
+        content_type="application/json",
+    )
+    assert response_v2.status_code == 200
+
+    # Test v3 endpoint with trace_id
+    response_v3 = mlflow_app_client.patch(
+        f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
+        data=json.dumps({"key": tag_key, "value": tag_value}),
         content_type="application/json",
     )
     assert response_v3.status_code == 200
