@@ -95,9 +95,7 @@ class Content(BaseModel):
         elif self.type == "refusal":
             ResponseOutputRefusal(**self.model_dump())
         else:
-            raise ValueError(
-                f"Invalid content type: {self.type} for {self.__class__.__name__}"
-            )
+            raise ValueError(f"Invalid content type: {self.type} for {self.__class__.__name__}")
         return self
 
 
@@ -240,10 +238,7 @@ class ReasoningParams(BaseModel):
 
     @model_validator(mode="after")
     def check_generate_summary(self) -> "ReasoningParams":
-        if self.generate_summary and self.generate_summary not in {
-            "concise",
-            "detailed",
-        }:
+        if self.generate_summary and self.generate_summary not in {"concise","detailed"}:
             warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
@@ -276,9 +271,7 @@ class Truncation(BaseModel):
     @model_validator(mode="after")
     def check_truncation(self) -> "Truncation":
         if self.truncation and self.truncation not in {"auto", "disabled"}:
-            warnings.warn(
-                f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'."
-            )
+            warnings.warn(f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'.")
         return self
 
 
