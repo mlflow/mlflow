@@ -9,10 +9,10 @@ from dev.update_mlflow_versions import (
     get_current_py_version,
     replace_java,
     replace_java_pom_xml,
-    replace_js,
     replace_pyproject_toml,
     replace_python,
     replace_r,
+    replace_ts,
 )
 
 # { filename: expected lines changed }
@@ -36,10 +36,13 @@ _JAVA_XML_FILES = {
     },
 }
 
-_JS_FILES = {
+_TS_FILES = {
     "mlflow/server/js/src/common/constants.tsx": {
         12: "export const Version = '{new_version}';",
-    }
+    },
+    "docs/src/constants.ts": {
+        1: "export const Version = '{new_version}';",
+    },
 }
 
 _PYTHON_FILES = {
@@ -113,7 +116,7 @@ def copy_and_run_change_func(monkeypatch, tmp_path, paths_to_copy, replace_func,
             _NEW_PY_VERSION + "rc1",
             _NEW_PY_VERSION + "-SNAPSHOT",
         ),
-        (replace_js, _JS_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
+        (replace_ts, _TS_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
         (replace_python, _PYTHON_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
         (replace_pyproject_toml, _PYPROJECT_TOML_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
         (replace_r, _R_FILES, _NEW_PY_VERSION, _NEW_PY_VERSION),
