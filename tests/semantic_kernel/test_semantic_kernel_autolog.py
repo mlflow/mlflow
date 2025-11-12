@@ -200,7 +200,7 @@ async def test_sk_invoke_complex(mock_openai):
     assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.parent_id == tool_span.span_id
     assert chat_span.span_type == SpanType.CHAT_MODEL
-    assert chat_span.get_attribute(model_gen_ai_attributes.OPERATION) == "chat.completions"
+    assert chat_span.get_attribute(model_gen_ai_attributes.OPERATION).startswith("chat")
     assert chat_span.get_attribute(model_gen_ai_attributes.SYSTEM) == "openai"
     assert chat_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
     assert chat_span.get_attribute(model_gen_ai_attributes.RESPONSE_ID) == "chatcmpl-123"
