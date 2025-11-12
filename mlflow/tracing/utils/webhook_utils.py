@@ -1,31 +1,25 @@
-import time
-import requests
-from mlflow.tracking import MlflowClient
+"""
+Webhook utility module for MLflow tracing.
+
+Currently, webhook triggering for tracing events is **not implemented client-side**.
+This file defines a stub function to preserve interface compatibility for future backend integration.
+"""
+
+import logging
+
+_logger = logging.getLogger(__name__)
 
 def fire_tracing_webhook(event_type: str, trace, metadata: dict | None = None):
     """
-    Send tracing-related webhook events to registered URLs.
-    Uses existing MLflow webhooks if configured via MlflowClient().
+    Stub for future backend-triggered tracing webhooks.
+
+    Args:
+        event_type (str): The type of tracing event (e.g., latency, error).
+        trace: The trace object containing trace details.
+        metadata (dict | None): Optional metadata related to the event.
     """
-    client = MlflowClient()
-    webhooks = client.list_webhooks()
-
-    for hook in webhooks:
-        if hook.event != event_type:
-            continue
-
-        payload = {
-            "event_type": event_type,
-            "trace_id": getattr(trace, "id", None),
-            "timestamp": time.time(),
-            "metadata": metadata or {},
-        }
-
-        headers = {}
-        if getattr(hook, "http_headers", None):
-            headers.update(hook.http_headers)
-
-        try:
-            requests.post(hook.url, json=payload, headers=headers, timeout=5)
-        except Exception as e:
-            print(f"[TracingWebhook] Failed to send to {hook.url}: {e}")
+    _logger.debug(
+        f"[TracingWebhook] Event '{event_type}' requested for trace {getattr(trace, 'id', None)}, "
+        "but client-side webhook triggering is disabled. "
+        "This will be handled by the backend in future versions."
+    )

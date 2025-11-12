@@ -176,34 +176,37 @@ class InMemoryTraceManager:
         """
         Pop trace data for the given OpenTelemetry trace ID and
         return it as a ManagerTrace wrapper containing the trace and prompts.
-        Also triggers TRACE_LATENCY_EXCEEDED webhook if latency exceeds threshold.
+        If latency exceeds the configured threshold, the backend may trigger a user-defined webhook event such as `trace_latency_exceeded`.
         """
-        import os
-        from mlflow.tracing.utils.webhook_utils import fire_tracing_webhook
-        from mlflow.entities.webhook import WebhookEvent
-        
-        LATENCY_THRESHOLD_MS = int(os.getenv("MLFLOW_TRACE_LATENCY_THRESHOLD_MS", 2000))
-
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
-            internal_trace = self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            internal_trace = (
+                self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            )
             if internal_trace is None:
                 return None
-            
+
             start_time = getattr(internal_trace.info, "start_time", None)
             end_time = getattr(internal_trace.info, "end_time", None)
-            if start_time is not None and end_time is not None:
+
+            if start_time and end_time:
                 latency_ms = (end_time - start_time) * 1000
-                if latency_ms > LATENCY_THRESHOLD_MS:
-                    fire_tracing_webhook(
-                        WebhookEvent.TRACE_LATENCY_EXCEEDED,
-                        internal_trace,
-                        {"latency_ms": latency_ms}
-                    )
+
+                _logger.info(
+                    f"[TracingWebhook] Would trigger 'trace_latency_exceeded' for trace {internal_trace.info.trace_id} with latency {latency_ms}ms"
+                )
 
             return ManagerTrace(
-                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+                trace=internal_trace.to_mlflow_trace(),
+                prompts=internal_trace.prompts,
             )
+
+    def _trigger_trace_webhook(
+        self, event_name: str, trace, metadata: dict | None = None
+    ):
+        _logger.info(
+            f"Webhook event '{event_name}' would be triggered for trace {getattr(trace, 'id', None)} with metadata {metadata}"
+        )
 
     def _check_timeout_update(self):
         """

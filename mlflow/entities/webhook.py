@@ -143,8 +143,12 @@ class WebhookEvent:
     Represents a webhook event with a resource and action.
     """
     
-    TRACE_ERROR = "TRACE_ERROR"
-    TRACE_LATENCY_EXCEEDED = "TRACE_LATENCY_EXCEEDED"
+    # ---------------------------------------------------------------------
+    # Deprecated tracing event constants
+    # These were previously used by tracing webhook triggers.
+    # ---------------------------------------------------------------------
+    TRACE_ERROR = "TRACE_ERROR"  # Deprecated
+    TRACE_LATENCY_EXCEEDED = "TRACE_LATENCY_EXCEEDED"  # Deprecated
 
     def __init__(
         self,
