@@ -1013,7 +1013,6 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         break;
       case 'vercel_ai':
         const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
-        console.log(vercelAIMessages);
         if (vercelAIMessages) return vercelAIMessages;
         break;
       default:
