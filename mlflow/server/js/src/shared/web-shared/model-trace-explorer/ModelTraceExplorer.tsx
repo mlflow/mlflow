@@ -16,10 +16,11 @@ import {
   useModelTraceExplorerViewState,
 } from './ModelTraceExplorerViewStateContext';
 import { useGetModelTraceInfoV3 } from './hooks/useGetModelTraceInfoV3';
-import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
 import { ModelTraceHeaderDetails } from './ModelTraceHeaderDetails';
+import { ModelTraceExplorerSummaryView } from './summary-view/ModelTraceExplorerSummaryView';
+import { ModelTraceExplorerComparisonLayout } from './ModelTraceExplorerComparisonLayout';
 
-const ModelTraceExplorerContent = ({
+export const ModelTraceExplorerContent = ({
   modelTrace,
   className,
   selectedSpanId,
@@ -49,50 +50,49 @@ const ModelTraceExplorerContent = ({
         overflow: 'hidden',
       }}
     >
-      <div css={{ paddingLeft: theme.spacing.md, paddingBottom: theme.spacing.sm }}>
-        <ModelTraceHeaderDetails modelTrace={modelTrace} />
-      </div>
-      <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
-        <Tabs.Trigger value="summary">
-          <FormattedMessage
-            defaultMessage="Summary"
-            description="Label for the summary view tab in the model trace explorer"
+      <ModelTraceExplorerComparisonLayout header={<ModelTraceHeaderDetails modelTrace={modelTrace} />}>
+        <Tabs.List css={{ paddingLeft: theme.spacing.md, flexShrink: 0 }}>
+          <Tabs.Trigger value="summary">
+            <FormattedMessage
+              defaultMessage="Summary"
+              description="Label for the summary view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+          <Tabs.Trigger value="detail">
+            <FormattedMessage
+              defaultMessage="Details & Timeline"
+              description="Label for the details & timeline view tab in the model trace explorer"
+            />
+          </Tabs.Trigger>
+        </Tabs.List>
+        <Tabs.Content
+          value="summary"
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
+        </Tabs.Content>
+        <Tabs.Content
+          value="detail"
+          css={{
+            display: 'flex',
+            flexDirection: 'column',
+            flex: 1,
+            minHeight: 0,
+          }}
+        >
+          <ModelTraceExplorerDetailView
+            modelTrace={modelTrace}
+            className={className}
+            selectedSpanId={selectedSpanId}
+            onSelectSpan={onSelectSpan}
           />
-        </Tabs.Trigger>
-        <Tabs.Trigger value="detail">
-          <FormattedMessage
-            defaultMessage="Details & Timeline"
-            description="Label for the details & timeline view tab in the model trace explorer"
-          />
-        </Tabs.Trigger>
-      </Tabs.List>
-      <Tabs.Content
-        value="summary"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerSummaryView modelTrace={modelTrace} />
-      </Tabs.Content>
-      <Tabs.Content
-        value="detail"
-        css={{
-          display: 'flex',
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0,
-        }}
-      >
-        <ModelTraceExplorerDetailView
-          modelTrace={modelTrace}
-          className={className}
-          selectedSpanId={selectedSpanId}
-          onSelectSpan={onSelectSpan}
-        />
-      </Tabs.Content>
+        </Tabs.Content>
+      </ModelTraceExplorerComparisonLayout>
     </Tabs.Root>
   );
 };
@@ -107,12 +107,14 @@ export const ModelTraceExplorerImpl = ({
   initialActiveView,
   selectedSpanId,
   onSelectSpan,
+  isInComparisonView = false,
 }: {
   modelTrace: ModelTrace;
   className?: string;
   initialActiveView?: 'summary' | 'detail';
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
+  isInComparisonView?: boolean;
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
@@ -147,6 +149,7 @@ export const ModelTraceExplorerImpl = ({
         initialActiveView={initialActiveView}
         selectedSpanIdOnRender={selectedSpanId}
         assessmentsPaneEnabled={assessmentsPaneEnabled}
+        isInComparisonView={isInComparisonView}
       >
         <ModelTraceExplorerContent
           modelTrace={modelTrace}
