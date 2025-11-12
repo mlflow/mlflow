@@ -261,11 +261,11 @@ def _get_new_expectations(eval_item: EvalItem) -> list[Expectation]:
     existing_expectations = {
         a.name for a in eval_item.trace.info.assessments if a.expectation is not None
     }
-    new_expectations = []
-    for exp in eval_item.get_expectation_assessments():
-        if exp.name not in existing_expectations:
-            new_expectations.append(exp)
-    return new_expectations
+    return [
+        exp
+        for exp in eval_item.get_expectation_assessments()
+        if exp.name not in existing_expectations
+    ]
 
 
 def _log_assessments(
