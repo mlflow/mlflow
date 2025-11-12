@@ -369,15 +369,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.0.4"
         }
     },
-    "diviner": {
-        "package_info": {
-            "pip_release": "diviner"
-        },
-        "models": {
-            "minimum": "0.1.1",
-            "maximum": "0.1.1"
-        }
-    },
     "h2o": {
         "package_info": {
             "pip_release": "h2o"

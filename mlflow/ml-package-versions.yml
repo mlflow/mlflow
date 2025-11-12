@@ -394,32 +394,6 @@ pmdarima:
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
-diviner:
-  package_info:
-    pip_release: "diviner"
-    install_dev: |
-      pip install git+https://github.com/databricks/diviner.git
-
-  models:
-    minimum: "0.1.1"
-    maximum: "0.1.1"
-    requirements:
-      # https://github.com/alan-turing-institute/sktime/issues/2898
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": [
-          "cmdstanpy!=1.0.2",
-          "holidays!=0.25",
-          "numpy<2",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
-      # Diviner <= 0.1.1 isn't compatible with pandas>=2
-      "<= 0.1.1": ["pandas<2"]
-      # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
-      "== dev": ["pandas<2"]
-    run: |
-      pytest tests/diviner/test_diviner_model_export.py
-
 h2o:
   package_info:
     pip_release: "h2o"
