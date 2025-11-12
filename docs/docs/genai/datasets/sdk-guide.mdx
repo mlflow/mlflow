@@ -58,19 +58,24 @@ Use the <APILink fn="mlflow.entities.EvaluationDataset.merge_records" text="merg
 Add records directly from Python dictionaries:
 
 ```python
-# Add records with inputs and expectations
+# Add records with inputs and expectations (ground truth)
 new_records = [
     {
         "inputs": {"question": "What are your business hours?"},
         "expectations": {
-            "mentions_hours": True,
-            "includes_timezone": True,
-            "accuracy": 0.95,
+            "expected_answer": "We're open Monday-Friday 9am-5pm EST",
+            "must_mention_hours": True,
+            "must_include_timezone": True,
         },
     },
     {
         "inputs": {"question": "How do I reset my password?"},
-        "expectations": {"includes_steps": True, "helpful": True},
+        "expectations": {
+            "expected_answer": (
+                "Click 'Forgot Password' and follow the email instructions"
+            ),
+            "must_include_steps": True,
+        },
     },
 ]
 
@@ -106,15 +111,32 @@ Add records from a pandas DataFrame:
 ```python
 import pandas as pd
 
-# Create DataFrame with structured data
+# Create DataFrame with structured data (ground truth expectations)
 df = pd.DataFrame(
-    {
-        "inputs.question": ["What is MLflow?", "How to track experiments?"],
-        "inputs.context": ["general", "technical"],
-        "expectations.accuracy": [0.9, 0.95],
-        "expectations.relevance": [1.0, 1.0],
-        "tags.priority": ["high", "medium"],
-    }
+    [
+        {
+            "inputs": {
+                "question": "What is MLflow?",
+                "context": "general",
+            },
+            "expectations": {
+                "expected_answer": "MLflow is an open-source platform for ML lifecycle",
+                "must_mention": ["tracking", "experiments"],
+            },
+            "tags": {"priority": "high"},
+        },
+        {
+            "inputs": {
+                "question": "How to track experiments?",
+                "context": "technical",
+            },
+            "expectations": {
+                "expected_answer": "Use mlflow.start_run() and mlflow.log_params()",
+                "must_mention": ["log_params", "start_run"],
+            },
+            "tags": {"priority": "medium"},
+        },
+    ]
 )
 
 dataset.merge_records(df)
@@ -135,51 +157,32 @@ dataset.merge_records(
     [
         {
             "inputs": {"question": "What is MLflow?"},
-            "expectations": {"accuracy": 0.8, "mentions_tracking": True},
+            "expectations": {
+                "expected_answer": "MLflow is a platform for ML",
+                "must_mention_tracking": True,
+            },
         }
     ]
 )
 
-# Update with same inputs but different expectations
+# Update with same inputs but enhanced expectations
 dataset.merge_records(
     [
         {
             "inputs": {"question": "What is MLflow?"},  # Same inputs = update
             "expectations": {
-                "accuracy": 0.95,  # Updates existing value
-                "mentions_models": True,  # Adds new expectation
-                # Note: "mentions_tracking": True is preserved
+                # Updates existing value
+                "expected_answer": (
+                    "MLflow is an open-source platform for managing the ML lifecycle"
+                ),
+                "must_mention_models": True,  # Adds new expectation
+                # Note: "must_mention_tracking": True is preserved
             },
         }
     ]
 )
 
 # Result: One record with merged expectations
-```
-
-## Removing Records from a Dataset
-
-Use <APILink fn="mlflow.entities.EvaluationDataset.delete_records" text="delete_records()" /> to remove specific records by their IDs:
-
-```python
-# Get the dataset
-from mlflow.genai.datasets import get_dataset
-
-dataset = get_dataset(dataset_id="d-1a2b3c4d5e6f7890")
-
-# View current records
-print(f"Current records: {len(dataset.records)}")
-for record in dataset.records[:3]:
-    print(f"  - {record.record_id}: {record.inputs}")
-
-# Delete specific records
-record_ids_to_delete = [
-    "r-abc123def456",
-    "r-xyz789ghi012",
-]
-dataset.delete_records(record_ids_to_delete)
-
-print(f"After deletion: {len(dataset.records)} records remaining")
 ```
 
 ## Retrieving Datasets
@@ -220,6 +223,8 @@ datasets = search_datasets(
 for ds in datasets:
     print(f"{ds.name} ({ds.dataset_id}): {len(ds.records)} records")
 ```
+
+See [Search Filter Reference](#search-filter-reference) for filter syntax details.
 
     </TabItem>
 
@@ -292,7 +297,7 @@ Records are considered unique based on their **entire inputs dictionary**. Even 
 # These are treated as different records due to different inputs
 record_a = {
     "inputs": {"question": "What is MLflow?", "temperature": 0.7},
-    "expectations": {"accuracy": 0.9},
+    "expectations": {"expected_answer": "MLflow is an ML platform"},
 }
 
 record_b = {
@@ -300,7 +305,7 @@ record_b = {
         "question": "What is MLflow?",
         "temperature": 0.8,
     },  # Different temperature
-    "expectations": {"accuracy": 0.9},
+    "expectations": {"expected_answer": "MLflow is an ML platform"},
 }
 
 dataset.merge_records([record_a, record_b])
@@ -343,23 +348,25 @@ dataset.merge_records(traces)
 
 # Or when using DataFrame from search_traces
 traces_df = mlflow.search_traces(experiment_ids=["0"])  # Returns DataFrame
-dataset.merge_records(
-    traces_df
-)  # Automatically detects traces and assigns TRACE source
+# Automatically detects traces and assigns TRACE source
+dataset.merge_records(traces_df)
 ```
 
     </TabItem>
     <TabItem value="human" label="HUMAN Source">
 
-Records with expectations are inferred as `HUMAN` source (subject matter expert annotations):
+Records with expectations are inferred as `HUMAN` source:
 
 ```python
 # Records with expectations indicate human review/annotation
 human_curated = [
     {
         "inputs": {"question": "What is MLflow?"},
-        "expectations": {"answer": "MLflow is an ML platform", "quality": 0.9}
-        # Automatically inferred as HUMAN source due to the presence of expectations
+        "expectations": {
+            "expected_answer": "MLflow is an open-source ML platform",
+            "must_mention": ["tracking", "models", "deployment"],
+        }
+        # Automatically inferred as HUMAN source
     }
 ]
 dataset.merge_records(human_curated)
@@ -368,15 +375,11 @@ dataset.merge_records(human_curated)
     </TabItem>
     <TabItem value="code" label="CODE Source">
 
-Records with only inputs (no expectations) are inferred as `CODE` source (programmatically generated):
+Records with only inputs (no expectations) are inferred as `CODE` source:
 
 ```python
-# Records without expectations indicate programmatic generation
-generated_tests = [
-    {"inputs": {"question": f"Test question {i}"}}
-    for i in range(100)
-    # Automatically inferred as CODE source (no expectations field)
-]
+# Records without expectations are inferred as CODE source
+generated_tests = [{"inputs": {"question": f"Test question {i}"}} for i in range(100)]
 dataset.merge_records(generated_tests)
 ```
 
@@ -393,7 +396,10 @@ You can explicitly specify the source type and metadata for any record:
 # Specify HUMAN source with metadata
 human_curated = {
     "inputs": {"question": "What are your business hours?"},
-    "expectations": {"accuracy": 1.0, "includes_timezone": True},
+    "expectations": {
+        "expected_answer": "We're open Monday-Friday 9am-5pm EST",
+        "must_include_timezone": True,
+    },
     "source": {
         "source_type": "HUMAN",
         "source_data": {"curator": "support_team", "date": "2024-11-01"},
@@ -403,7 +409,10 @@ human_curated = {
 # Specify DOCUMENT source
 from_docs = {
     "inputs": {"question": "How to install MLflow?"},
-    "expectations": {"mentions_pip": True},
+    "expectations": {
+        "expected_answer": "pip install mlflow",
+        "must_mention_pip": True,
+    },
     "source": {
         "source_type": "DOCUMENT",
         "source_data": {"document_id": "install_guide", "page": 1},
