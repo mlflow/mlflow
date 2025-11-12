@@ -985,7 +985,6 @@ const config: Config = {
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
               '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
-              '/ml/tracking/quickstart/notebooks/tracking_quickstart',
             ],
           },
           {
