@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { ModelSpanType } from './ModelTrace.types';
 import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
