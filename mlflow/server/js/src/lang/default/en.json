@@ -231,6 +231,10 @@
     "defaultMessage": "Delete logged model",
     "description": "A header of the modal used for deleting logged models"
   },
+  "0KWpQU": {
+    "defaultMessage": "Tags",
+    "description": "Label for the dataset tags pills"
+  },
   "0M7VVC": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -4390,6 +4394,10 @@
   "i+RyPC": {
     "defaultMessage": "Your request could not be fulfilled. Please try again.",
     "description": "A message shown on the experiment page if the runs request fails"
+  },
+  "i/2wuq": {
+    "defaultMessage": "ID",
+    "description": "Label for the dataset id pill"
   },
   "i/pJvo": {
     "defaultMessage": "Automatically log traces for AutoGen conversations by calling the {code} function. For example:",
