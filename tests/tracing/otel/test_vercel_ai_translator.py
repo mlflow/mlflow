@@ -53,14 +53,16 @@ from mlflow.tracing.otel.translation import translate_span_when_storing
             {
                 "ai.operationId": "ai.generateText.doGenerate",
                 "ai.prompt.messages": (
-                    '[{"role":"user","content":[{"type":"text","text":"What is the weather in SF?"}]}]'
+                    '[{"role":"user","content":[{"type":"text","text":'
+                    '"What is the weather in SF?"}]}]'
                 ),
                 "ai.prompt.tools": [
                     (
-                        '{"type":"function","name":"weather","description":"Get the weather in a location",'
-                        '"inputSchema":{"type":"object","properties":{"location":{"type":"string",'
-                        '"description":"The location to get the weather for"}},"required":["location"],'
-                        '"additionalProperties":false,"$schema":"http://json-schema.org/draft-07/schema#"}}'
+                        '{"type":"function","name":"weather","description":"Get the weather in '
+                        'a location","inputSchema":{"type":"object","properties":{"location":'
+                        '{"type":"string","description":"The location to get the weather for"}},'
+                        '"required":["location"],"additionalProperties":false,"$schema":'
+                        '"http://json-schema.org/draft-07/schema#"}}'
                     )
                 ],
                 "ai.prompt.toolChoice": '{"type":"auto"}',
@@ -114,11 +116,13 @@ from mlflow.tracing.otel.translation import translate_span_when_storing
             {
                 "ai.operationId": "ai.generateText.doGenerate",
                 "ai.prompt.messages": (
-                    '[{"role":"user","content":[{"type":"text","text":"What is the weather in San Francisco?"}]},'
+                    '[{"role":"user","content":[{"type":"text",'
+                    '"text":"What is the weather in San Francisco?"}]},'
                     '{"role":"assistant","content":[{"type":"tool-call","toolCallId":"call_123",'
                     '"toolName":"weather","input":{"location":"San Francisco"}}]},'
                     '{"role":"tool","content":[{"type":"tool-result","toolCallId":"call_123",'
-                    '"toolName":"weather","output":{"type":"json","value":{"location":"San Francisco","temperature":76}}}]}]'
+                    '"toolName":"weather","output":{"type":"json",'
+                    '"value":{"location":"San Francisco","temperature":76}}}]}]'
                 ),
                 "ai.prompt.toolChoice": '{"type":"auto"}',
                 "ai.response.text": "The current temperature in San Francisco is 76°F.",
