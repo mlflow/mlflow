@@ -449,15 +449,6 @@ _ML_PACKAGE_VERSIONS = {
             "minimum": "5.1.8",
             "maximum": "6.1.1"
         }
-    },
-    "promptflow": {
-        "package_info": {
-            "pip_release": "promptflow"
-        },
-        "models": {
-            "minimum": "1.3.0",
-            "maximum": "1.18.1"
-        }
     }
 }
 

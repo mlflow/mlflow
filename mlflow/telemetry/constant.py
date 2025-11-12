@@ -39,7 +39,6 @@ GENAI_MODULES = {
     "mistralai",
     "openai",
     "pinecone",
-    "promptflow",
     "pydantic_ai",
     "qdrant",
     "ragas",

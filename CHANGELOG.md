@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## Unreleased
+
+Breaking changes:
+
+- Remove deprecated `promptflow` flavor
+
 ## 3.6.0 (2025-11-07)
 
 MLflow 3.6.0 includes several major features and improvements for AI Observability, Experiment UI, Agent Evaluation and Deployment.
