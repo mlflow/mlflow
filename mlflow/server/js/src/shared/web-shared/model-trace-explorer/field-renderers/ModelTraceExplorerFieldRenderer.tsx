@@ -11,9 +11,6 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
-import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
-
-export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 

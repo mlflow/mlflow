@@ -92,7 +92,6 @@ const TracesV3LogsImpl = React.memo(
       totalCount,
       evaluatedTraces,
       isLoading: isMetadataLoading,
-      evaluatedTraces,
       error: metadataError,
       isEmpty,
       tableFilterOptions,
@@ -100,7 +99,6 @@ const TracesV3LogsImpl = React.memo(
       locations: traceSearchLocations,
       timeRange,
       filterByLoggedModelId: loggedModelId,
-      locations: traceSearchLocations,
       disabled: isQueryDisabled,
     });
 

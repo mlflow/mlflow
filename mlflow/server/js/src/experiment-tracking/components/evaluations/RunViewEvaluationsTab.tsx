@@ -71,22 +71,6 @@ const ContextProviders = ({
   );
 };
 
-const ContextProviders = ({
-  children,
-  makeHtmlFromMarkdown,
-  experimentId,
-}: {
-  makeHtmlFromMarkdown: (markdown?: string) => string;
-  experimentId?: string;
-  children: React.ReactNode;
-}) => {
-  return (
-    <GenAiTracesMarkdownConverterProvider makeHtml={makeHtmlFromMarkdown}>
-      {children}
-    </GenAiTracesMarkdownConverterProvider>
-  );
-};
-
 const RunViewEvaluationsTabInner = ({
   experimentId,
   runUuid,

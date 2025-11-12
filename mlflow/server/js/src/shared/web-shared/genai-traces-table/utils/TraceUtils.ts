@@ -24,10 +24,6 @@ import type {
   RunEvaluationTracesDataEntry,
   RunEvaluationTracesRetrievalChunk,
 } from '../types';
-import {
-  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
-  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
-} from '../../model-trace-explorer/constants';
 
 // This is the key used by the eval harness to record
 // which chunk a given retrieval assessment corresponds to.
