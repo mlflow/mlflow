@@ -6,7 +6,6 @@ import pytest
 from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation import translate_span_when_storing
-from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 
 
 @pytest.mark.parametrize(
@@ -38,7 +37,9 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
                 "ai.response.model": "gpt-4-turbo-2024-04-09",
             },
             {
-                "messages": [{"role":"user","content":[{"type":"text","text":"Why is the sky blue?"}]}]
+                "messages": [
+                    {"role": "user", "content": [{"type": "text", "text": "Why is the sky blue?"}]}
+                ]
             },
             {
                 "text": "Because of the scattering of light by the atmosphere.",
@@ -70,7 +71,12 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
                 "ai.response.finishReason": "tool-calls",
             },
             {
-                "messages": [{"role":"user","content":[{"type":"text","text":"What is the weather in SF?"}]}],
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [{"type": "text", "text": "What is the weather in SF?"}],
+                    }
+                ],
                 "tools": [
                     {
                         "type": "function",
@@ -101,7 +107,7 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
                     }
                 ],
                 "finishReason": "tool-calls",
-            }
+            },
         ),
         # 4. generateText with tool call results
         (
@@ -121,36 +127,41 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
             {
                 "messages": [
                     {
-                        "role":"user",
-                        "content":[{"type":"text","text":"What is the weather in San Francisco?"}]
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": "What is the weather in San Francisco?"}
+                        ],
                     },
                     {
-                        "role":"assistant",
-                        "content":[
+                        "role": "assistant",
+                        "content": [
                             {
-                                "type":"tool-call",
-                                "toolCallId":"call_123",
-                                "toolName":"weather",
-                                "input":{"location":"San Francisco"},
+                                "type": "tool-call",
+                                "toolCallId": "call_123",
+                                "toolName": "weather",
+                                "input": {"location": "San Francisco"},
                             }
-                        ]
+                        ],
                     },
                     {
-                        "role":"tool",
-                        "content":[
+                        "role": "tool",
+                        "content": [
                             {
-                                "type":"tool-result",
-                                "toolCallId":"call_123",
-                                "toolName":"weather",
-                                "output":{"type":"json","value":{"location":"San Francisco","temperature":76}},
+                                "type": "tool-result",
+                                "toolCallId": "call_123",
+                                "toolName": "weather",
+                                "output": {
+                                    "type": "json",
+                                    "value": {"location": "San Francisco", "temperature": 76},
+                                },
                             }
-                        ]
-                    }
+                        ],
+                    },
                 ],
-                "toolChoice": {"type": "auto"}
+                "toolChoice": {"type": "auto"},
             },
             {
-                "text":"The current temperature in San Francisco is 76°F.",
+                "text": "The current temperature in San Francisco is 76°F.",
                 "finishReason": "stop",
             },
         ),
@@ -162,14 +173,14 @@ from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
                 "ai.toolCall.result": '{"location":"San Francisco","temperature":76}',
             },
             {
-                "location":"San Francisco",
+                "location": "San Francisco",
             },
             {
-                "location":"San Francisco",
-                "temperature":76,
+                "location": "San Francisco",
+                "temperature": 76,
             },
         ),
-    ]
+    ],
 )
 def test_parse_vercel_ai_generate_text(attributes, expected_inputs, expected_outputs):
     span = mock.Mock(spec=Span)

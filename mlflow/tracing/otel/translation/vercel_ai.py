@@ -2,12 +2,12 @@ import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 
 
 class VercelAITranslator(OtelSchemaTranslator):
     """Translator for Vercel AI SDK spans."""
+
     # https://ai-sdk.dev/docs/ai-sdk-core/telemetry#collected-data
     INPUT_VALUE_KEYS = [
         # generateText
@@ -61,15 +61,15 @@ class VercelAITranslator(OtelSchemaTranslator):
             return json.dumps(outputs) if outputs else None
         return super().get_output_value(attributes)
 
-
-    def _unpack_attributes_with_prefix(self, attributes: dict[str, Any], prefix: str) -> dict[str, Any]:
+    def _unpack_attributes_with_prefix(
+        self, attributes: dict[str, Any], prefix: str
+    ) -> dict[str, Any]:
         result = {}
         for key, value in attributes.items():
             if key.startswith(prefix):
-                suffix = key[len(prefix):]
+                suffix = key[len(prefix) :]
                 result[suffix] = self._safe_load_json(value)
         return result
-
 
     def _safe_load_json(self, value: Any, max_depth: int = 2) -> Any | None:
         if not isinstance(value, str):
