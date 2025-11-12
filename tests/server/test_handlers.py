@@ -50,6 +50,8 @@ from mlflow.protos.service_pb2 import (
     CalculateTraceFilterCorrelation,
     CreateExperiment,
     DeleteScorer,
+    DeleteTraceTag,
+    DeleteTraceTagV3,
     GetScorer,
     GetTrace,
     ListScorers,
@@ -60,6 +62,8 @@ from mlflow.protos.service_pb2 import (
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetTraceTag,
+    SetTraceTagV3,
     TraceLocation,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -88,6 +92,8 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _delete_trace_tag,
+    _delete_trace_tag_v3,
     _deprecated_search_traces_v2,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
@@ -118,6 +124,8 @@ from mlflow.server.handlers import (
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_trace_tag,
+    _set_trace_tag_v3,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
@@ -384,8 +392,8 @@ def test_log_batch_api_req(mock_get_request_json):
     json_response = json.loads(response.get_data())
     assert json_response["error_code"] == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     assert (
-        f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes"
-        in json_response["message"]
+            f"Batched logging API requests must be at most {MAX_BATCH_LOG_REQUEST_SIZE} bytes"
+            in json_response["message"]
     )
 
 
@@ -961,7 +969,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         response = _create_experiment()
         json_response = json.loads(response.get_data())
         assert (
-            json_response["message"] == "'artifact_location' URL can't include fragments or params."
+                json_response["message"] == "'artifact_location' URL can't include fragments or params."
         )
 
     # Test if source is a local filesystem path, `_validate_source` validates that the run
@@ -973,12 +981,12 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         ).info.artifact_uri = f"http://host/{run_id}/artifacts/abc"
 
         with pytest.raises(
-            MlflowException,
-            match=(
-                "the run_id request parameter has to be specified and the local "
-                "path has to be contained within the artifact directory of the "
-                "run specified by the run_id"
-            ),
+                MlflowException,
+                match=(
+                        "the run_id request parameter has to be specified and the local "
+                        "path has to be contained within the artifact directory of the "
+                        "run specified by the run_id"
+                ),
         ):
             _validate_source_run("/local/path/xyz", run_id)
 
@@ -989,15 +997,15 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
         ("file:///0/traces/123", LocalArtifactRepository, "file:///0/traces/123"),
         ("s3://bucket/0/traces/123", S3ArtifactRepository, "s3://bucket/0/traces/123"),
         (
-            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
-            AzureBlobArtifactRepository,
-            "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+                "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
+                AzureBlobArtifactRepository,
+                "wasbs://container@account.blob.core.windows.net/bucket/1/traces/123",
         ),
         # Proxy URI must be resolved to the actual storage URI
         (
-            "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
-            S3ArtifactRepository,
-            "s3://bucket/2/traces/123",
+                "https://127.0.0.1/api/2.0/mlflow-artifacts/artifacts/2/traces/123",
+                S3ArtifactRepository,
+                "s3://bucket/2/traces/123",
         ),
         ("mlflow-artifacts:/1/traces/123", S3ArtifactRepository, "s3://bucket/1/traces/123"),
     ],
@@ -1063,12 +1071,12 @@ def test_create_evaluation_dataset(mock_tracking_store, mock_evaluation_dataset)
     mock_tracking_store.create_dataset.return_value = mock_evaluation_dataset
 
     with app.test_request_context(
-        method="POST",
-        json={
-            "name": "test_dataset",
-            "experiment_ids": ["0", "1"],
-            "tags": json.dumps({"env": "test"}),
-        },
+            method="POST",
+            json={
+                "name": "test_dataset",
+                "experiment_ids": ["0", "1"],
+                "tags": json.dumps({"env": "test"}),
+            },
     ):
         _create_dataset_handler()
 
@@ -1114,14 +1122,14 @@ def test_search_datasets(mock_tracking_store):
     mock_tracking_store.search_datasets.return_value = paged_list
 
     with app.test_request_context(
-        method="POST",
-        json={
-            "experiment_ids": ["0", "1"],
-            "filter_string": "name = 'dataset_1'",
-            "max_results": 10,
-            "order_by": ["name DESC"],
-            "page_token": "token123",
-        },
+            method="POST",
+            json={
+                "experiment_ids": ["0", "1"],
+                "filter_string": "name = 'dataset_1'",
+                "max_results": 10,
+                "order_by": ["name DESC"],
+                "page_token": "token123",
+            },
     ):
         _search_evaluation_datasets_handler()
 
@@ -1137,10 +1145,10 @@ def test_search_datasets(mock_tracking_store):
 def test_set_dataset_tags(mock_tracking_store):
     dataset_id = "d-1234567890abcdef1234567890abcdef"
     with app.test_request_context(
-        method="POST",
-        json={
-            "tags": json.dumps({"env": "production", "version": "2.0"}),
-        },
+            method="POST",
+            json={
+                "tags": json.dumps({"env": "production", "version": "2.0"}),
+            },
     ):
         _set_dataset_tags_handler(dataset_id)
 
@@ -1175,10 +1183,10 @@ def test_upsert_dataset_records(mock_tracking_store):
     ]
 
     with app.test_request_context(
-        method="POST",
-        json={
-            "records": json.dumps(records),
-        },
+            method="POST",
+            json={
+                "records": json.dumps(records),
+            },
     ):
         resp = _upsert_dataset_records_handler(dataset_id)
 
@@ -1249,11 +1257,11 @@ def test_get_dataset_records(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (records[:2], "token_page2")
 
     with app.test_request_context(
-        method="GET",
-        json={
-            "max_results": 2,
-            "page_token": None,
-        },
+            method="GET",
+            json={
+                "max_results": 2,
+                "page_token": None,
+            },
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1269,11 +1277,11 @@ def test_get_dataset_records(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (records[2:], None)
 
     with app.test_request_context(
-        method="GET",
-        json={
-            "max_results": 2,
-            "page_token": "token_page2",
-        },
+            method="GET",
+            json={
+                "max_results": 2,
+                "page_token": "token_page2",
+            },
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1325,8 +1333,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[:20], "token_20")
 
     with app.test_request_context(
-        method="GET",
-        json={"max_results": 20},
+            method="GET",
+            json={"max_results": 20},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1343,8 +1351,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[20:40], "token_40")
 
     with app.test_request_context(
-        method="GET",
-        json={"max_results": 20, "page_token": "token_20"},
+            method="GET",
+            json={"max_results": 20, "page_token": "token_20"},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1360,8 +1368,8 @@ def test_get_dataset_records_pagination(mock_tracking_store):
     mock_tracking_store._load_dataset_records.return_value = (all_records[40:], None)
 
     with app.test_request_context(
-        method="GET",
-        json={"max_results": 20, "page_token": "token_40"},
+            method="GET",
+            json={"max_results": 20, "page_token": "token_40"},
     ):
         resp = _get_dataset_records_handler(dataset_id)
 
@@ -1640,7 +1648,7 @@ def test_calculate_trace_filter_correlation(mock_get_request_message, mock_track
 
 
 def test_calculate_trace_filter_correlation_without_base_filter(
-    mock_get_request_message, mock_tracking_store
+        mock_get_request_message, mock_tracking_store
 ):
     experiment_ids = ["123"]
     filter_string1 = "span.type = 'LLM'"
@@ -1682,7 +1690,7 @@ def test_calculate_trace_filter_correlation_without_base_filter(
 
 
 def test_calculate_trace_filter_correlation_with_nan_npmi(
-    mock_get_request_message, mock_tracking_store
+        mock_get_request_message, mock_tracking_store
 ):
     experiment_ids = ["123"]
     filter_string1 = "span.type = 'LLM'"
@@ -1791,7 +1799,7 @@ def test_search_experiments_empty_page_token(mock_get_request_message, mock_trac
 
 
 def test_search_registered_models_empty_page_token(
-    mock_get_request_message, mock_model_registry_store
+        mock_get_request_message, mock_model_registry_store
 ):
     """Test that _search_registered_models converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
@@ -1814,7 +1822,7 @@ def test_search_registered_models_empty_page_token(
 
 
 def test_search_model_versions_empty_page_token(
-    mock_get_request_message, mock_model_registry_store
+        mock_get_request_message, mock_model_registry_store
 ):
     """Test that _search_model_versions converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
@@ -1862,7 +1870,7 @@ def test_search_traces_v3_empty_page_token(mock_get_request_message, mock_tracki
 
 
 def test_deprecated_search_traces_v2_empty_page_token(
-    mock_get_request_message, mock_tracking_store
+        mock_get_request_message, mock_tracking_store
 ):
     """Test that _deprecated_search_traces_v2 converts empty page_token to None."""
     # Create proto without setting page_token - it defaults to empty string
@@ -2309,3 +2317,172 @@ def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_stor
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+=======
+def test_delete_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 delete_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _delete_trace_tag handler is called and invokes store.delete_trace_tag().
+    """
+
+    request_id = "tr-123v2"
+    tag_key = "tk"
+
+    # Create the request message
+    request_msg = DeleteTraceTag(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _delete_trace_tag(request_id=request_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(request_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_delete_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 delete_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _delete_trace_tag_v3 handler is called and invokes store.delete_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+
+    trace_id = "tr-v3-456"
+    tag_key = "tk"
+
+    # Create the request message with V3
+    request_msg = DeleteTraceTagV3(key=tag_key)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _delete_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Both v2 and v3 call the same store method
+    mock_tracking_store.delete_trace_tag.assert_called_once_with(trace_id, tag_key)
+
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_delete_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_store):
+    """Test Flask routes different paths to different handlers.
+
+    This test ensures:
+    1. DELETE /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
+    2. DELETE /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
+
+    Both handlers call store.delete_trace_tag() but route parameter naming differs.
+    """
+    request_id_v2 = "tr-v2-789"
+    trace_id_v3 = "tr-v3-012"
+    tag_key = "test_key"
+
+    # Mock the store to verify it's called
+    mock_tracking_store.delete_trace_tag = mock.MagicMock(return_value=None)
+
+    # Test v2 endpoint with request_id
+    response_v2 = mlflow_app_client.delete(
+        f"/api/2.0/mlflow/traces/{request_id_v2}/tags",
+        data=json.dumps({"key": tag_key}),
+        content_type="application/json",
+    )
+    assert response_v2.status_code == 200
+
+    # Test v3 endpoint with trace_id
+    response_v3 = mlflow_app_client.delete(
+        f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
+        data=json.dumps({"key": tag_key}),
+        content_type="application/json",
+    )
+    assert response_v3.status_code == 200
+
+
+def test_set_trace_tag_v2_handler(mock_get_request_message, mock_tracking_store):
+    """Test v2 set_trace_tag handler with request_id parameter.
+
+    Verifies that when the Flask route uses request_id path parameter,
+    the _set_trace_tag handler is called and invokes store.set_trace_tag().
+    """
+    trace_id = "tr-test-v2-123"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message
+    request_msg = SetTraceTag(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v2 handler with request_id parameter
+    response = _set_trace_tag(request_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_v3_handler(mock_get_request_message, mock_tracking_store):
+    """Test v3 set_trace_tag handler with trace_id parameter.
+
+    Verifies that when the Flask route uses trace_id path parameter,
+    the _set_trace_tag_v3 handler is called and invokes store.set_trace_tag().
+    This is similar to v2 but uses the v3 proto message and route parameter naming.
+    """
+    trace_id = "tr-test-v3-456"
+    tag_key = "tk"
+    tag_value = "tv"
+
+    # Create the request message (v3 version)
+    request_msg = SetTraceTagV3(key=tag_key, value=tag_value)
+    mock_get_request_message.return_value = request_msg
+
+    # Call the v3 handler with trace_id parameter
+    response = _set_trace_tag_v3(trace_id=trace_id)
+
+    # Verify the store method was called with correct parameters
+    # Note: Both handlers call the same store method
+    mock_tracking_store.set_trace_tag.assert_called_once_with(trace_id, tag_key, tag_value)
+
+    # Verify response was created (200 status)
+    assert response is not None
+    assert response.status_code == 200
+
+
+def test_set_trace_tag_handlers_routing(mlflow_app_client, mock_tracking_store):
+    """Test Flask routes different paths to different handlers.
+
+    This test ensures:
+    1. PATCH /api/2.0/mlflow/traces/{request_id}/tags routes to v2 handler
+    2. PATCH /api/3.0/mlflow/traces/{trace_id}/tags routes to v3 handler
+
+    Both handlers call store.set_trace_tag() but route parameter naming differs.
+    """
+    request_id_v2 = "tr-v2-789"
+    trace_id_v3 = "tr-v3-012"
+    tag_key = "test_key"
+    tag_value = "test_value"
+
+    # Mock the store to verify it's called
+    mock_tracking_store.set_trace_tag = mock.MagicMock(return_value=None)
+
+    # Test v2 endpoint with request_id
+    response_v2 = mlflow_app_client.patch(
+        f"/api/2.0/mlflow/traces/{request_id_v2}/tags",
+        data=json.dumps({"key": tag_key, "value": tag_value}),
+        content_type="application/json",
+    )
+    assert response_v2.status_code == 200
+
+    # Test v3 endpoint with trace_id
+    response_v3 = mlflow_app_client.patch(
+        f"/api/3.0/mlflow/traces/{trace_id_v3}/tags",
+        data=json.dumps({"key": tag_key, "value": tag_value}),
+        content_type="application/json",
+    )
+    assert response_v3.status_code == 200
+>>>>>>> aabfcc8b8 (Add missing _delete_trace_tag_v3 api)
