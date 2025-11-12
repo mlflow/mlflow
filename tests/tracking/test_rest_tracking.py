@@ -58,6 +58,11 @@ from mlflow.environment_variables import (
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
 )
 from mlflow.exceptions import MlflowException, RestException
+from mlflow.genai.datasets import (
+    add_dataset_to_experiments,
+    create_dataset,
+    remove_dataset_from_experiments,
+)
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server import handlers
@@ -3680,6 +3685,195 @@ def test_evaluation_dataset_upsert_records(mlflow_client, store_type):
         json={"records": json.dumps(initial_records)},
     )
     assert response.status_code != 200
+
+
+def test_add_dataset_to_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_exp_3")
+
+    dataset = create_dataset(
+        name="test_multi_exp_dataset",
+        experiment_id=[exp1],
+        tags={"test": "multi_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+    assert exp1 in dataset.experiment_ids
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 3
+    assert exp1 in retrieved.experiment_ids
+    assert exp2 in retrieved.experiment_ids
+    assert exp3 in retrieved.experiment_ids
+
+
+def test_remove_dataset_from_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("dataset_remove_exp_1")
+    exp2 = mlflow_client.create_experiment("dataset_remove_exp_2")
+    exp3 = mlflow_client.create_experiment("dataset_remove_exp_3")
+
+    dataset = create_dataset(
+        name="test_remove_exp_dataset",
+        experiment_id=[exp1, exp2, exp3],
+        tags={"test": "remove_exp"},
+    )
+
+    assert len(dataset.experiment_ids) == 3
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 2
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 0
+
+    retrieved = mlflow_client.get_dataset(dataset.dataset_id)
+    assert len(retrieved.experiment_ids) == 0
+
+
+def test_add_multiple_experiments_at_once_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exps = [mlflow_client.create_experiment(f"bulk_add_exp_{i}") for i in range(5)]
+
+    dataset = create_dataset(
+        name="test_bulk_add_dataset",
+        experiment_id=[exps[0]],
+        tags={"test": "bulk_add"},
+    )
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=exps[1:],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 5
+    for exp in exps:
+        assert exp in updated_dataset.experiment_ids
+
+
+def test_dataset_experiment_association_error_cases_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("error_test_exp")
+
+    with pytest.raises(MlflowException, match="not found"):
+        add_dataset_to_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+    with pytest.raises(MlflowException, match="not found"):
+        remove_dataset_from_experiments(
+            dataset_id="d-nonexistent1234567890abcdef1234",
+            experiment_ids=[exp1],
+        )
+
+
+def test_idempotent_add_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_idempotent_dataset",
+        experiment_id=[exp1, exp2],
+        tags={"test": "idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 2
+
+    updated_dataset = add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp1],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 in updated_dataset.experiment_ids
+
+
+def test_idempotent_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("remove_idempotent_test_exp_1")
+    exp2 = mlflow_client.create_experiment("remove_idempotent_test_exp_2")
+
+    dataset = create_dataset(
+        name="test_remove_idempotent_dataset",
+        experiment_id=[exp1],
+        tags={"test": "remove_idempotent"},
+    )
+
+    assert len(dataset.experiment_ids) == 1
+
+    updated_dataset = remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 1
+    assert exp1 in updated_dataset.experiment_ids
+
+
+def test_client_api_add_remove_experiments_rest_tracking(mlflow_client, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support dataset operations")
+    exp1 = mlflow_client.create_experiment("client_api_exp_1")
+    exp2 = mlflow_client.create_experiment("client_api_exp_2")
+    exp3 = mlflow_client.create_experiment("client_api_exp_3")
+
+    dataset = mlflow_client.create_dataset(
+        name="test_client_api_dataset",
+        experiment_id=[exp1],
+        tags={"test": "client_api"},
+    )
+
+    updated_dataset = mlflow_client.add_dataset_to_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2, exp3],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 3
+
+    updated_dataset = mlflow_client.remove_dataset_from_experiments(
+        dataset_id=dataset.dataset_id,
+        experiment_ids=[exp2],
+    )
+
+    assert len(updated_dataset.experiment_ids) == 2
+    assert exp1 in updated_dataset.experiment_ids
+    assert exp2 not in updated_dataset.experiment_ids
+    assert exp3 in updated_dataset.experiment_ids
 
 
 def test_scorer_CRUD(mlflow_client, store_type):
