@@ -139,7 +139,7 @@ class ResponseReasoningItem(Status):
     type: str = "reasoning"
 
 
-class McpApprovalRequest(BaseModel):
+class McpApprovalRequest(Status):
     id: str
     arguments: str
     name: str
@@ -147,7 +147,7 @@ class McpApprovalRequest(BaseModel):
     type: str = "mcp_approval_request"
 
 
-class McpApprovalResponse(BaseModel):
+class McpApprovalResponse(Status):
     approval_request_id: str
     approve: bool
     type: str = "mcp_approval_response"
