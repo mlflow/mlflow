@@ -9,7 +9,6 @@ import { useMemo, useState } from 'react';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   GenAIChatSessionsTable,
-  HiddenFilterOperator,
   createTraceLocationForExperiment,
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
