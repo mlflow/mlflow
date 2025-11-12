@@ -95,7 +95,7 @@ export const PromptVersionsTable = ({
   }, [mode, intl]);
 
   const table = useReactTable(
-    'mlflow/web/js/src/experiment-tracking/pages/prompts/components/PromptVersionsTable.tsx',
+    'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptVersionsTable.tsx',
     {
       data: promptVersions ?? [],
       getRowId: (row) => row.version,

@@ -119,7 +119,7 @@ export const ExperimentListTable = ({
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
 
-  const table = useReactTable('mlflow/web/js/src/experiment-tracking/components/ExperimentListTable.tsx', {
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/components/ExperimentListTable.tsx', {
     data: experiments ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
