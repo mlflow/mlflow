@@ -182,7 +182,7 @@ describe('PromptsPage', () => {
       name: 'prompt8',
       description: 'commit message',
     });
-    expect(payload.tags).toEqual(
+    expect((payload as any).tags).toEqual(
       expect.arrayContaining([
         { key: 'mlflow.prompt.is_prompt', value: 'true' },
         { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },

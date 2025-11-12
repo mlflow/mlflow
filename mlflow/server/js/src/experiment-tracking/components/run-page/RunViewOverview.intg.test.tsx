@@ -112,7 +112,7 @@ describe('RunViewOverview integration', () => {
     jest.mocked(useGetRunQuery).mockReset();
   });
 
-  const onRunDataUpdated = jest.fn();
+  const onRunDataUpdated = jest.fn<() => void>();
   const renderComponent = ({
     tags = {},
     runInfo,

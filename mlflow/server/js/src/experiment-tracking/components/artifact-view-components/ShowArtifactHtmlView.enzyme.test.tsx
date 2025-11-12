@@ -59,7 +59,6 @@ describe('ShowArtifactHtmlView', () => {
     });
   });
 
-  // @ts-expect-error Parameter 'done' implicitly has an 'any' type
   test('should render html content in IFrame', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');

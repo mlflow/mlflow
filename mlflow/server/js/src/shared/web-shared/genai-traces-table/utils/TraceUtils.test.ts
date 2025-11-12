@@ -305,7 +305,7 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
 
     // String should be parsed, non-strings should be preserved
-    expect(result[0].targets.mixedArray).toEqual([{ key: 'val' }, true, 42, { obj: 'value' }]);
+    expect(result[0].targets['mixedArray']).toEqual([{ key: 'val' }, true, 42, { obj: 'value' }]);
   });
 
   it('should handle expectation assessment with boolean value', () => {
@@ -343,7 +343,7 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
 
     // Boolean should be preserved
-    expect(result[0].targets.booleanValue).toBe(true);
+    expect(result[0].targets['booleanValue']).toBe(true);
   });
 
   it('should handle expectation assessment with numeric value', () => {
@@ -381,7 +381,7 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
 
     // Number should be preserved
-    expect(result[0].targets.numericValue).toBe(3.14);
+    expect(result[0].targets['numericValue']).toBe(3.14);
   });
 });
 
