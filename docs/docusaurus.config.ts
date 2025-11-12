@@ -892,6 +892,66 @@ const config: Config = {
             from: ['/getting-started/quickstart-2'],
           },
           {
+            to: '/ml/getting-started/logging-first-model',
+            from: ['/getting-started/logging-first-model'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/notebooks',
+            from: ['/getting-started/logging-first-model/notebooks'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/notebooks/logging-first-model',
+            from: ['/getting-started/logging-first-model/notebooks/logging-first-model'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step1-tracking-server',
+            from: ['/getting-started/logging-first-model/step1-tracking-server'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step2-mlflow-client',
+            from: ['/getting-started/logging-first-model/step2-mlflow-client'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step3-create-experiment',
+            from: ['/getting-started/logging-first-model/step3-create-experiment'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step4-experiment-search',
+            from: ['/getting-started/logging-first-model/step4-experiment-search'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step5-synthetic-data',
+            from: ['/getting-started/logging-first-model/step5-synthetic-data'],
+          },
+          {
+            to: '/ml/getting-started/logging-first-model/step6-logging-a-run',
+            from: ['/getting-started/logging-first-model/step6-logging-a-run'],
+          },
+          {
+            to: '/ml/getting-started/registering-first-model',
+            from: ['/getting-started/registering-first-model'],
+          },
+          {
+            to: '/ml/getting-started/registering-first-model/step1-register-model',
+            from: ['/getting-started/registering-first-model/step1-register-model'],
+          },
+          {
+            to: '/ml/getting-started/registering-first-model/step2-explore-registered-model',
+            from: ['/getting-started/registering-first-model/step2-explore-registered-model'],
+          },
+          {
+            to: '/ml/getting-started/registering-first-model/step3-load-model',
+            from: ['/getting-started/registering-first-model/step3-load-model'],
+          },
+          {
+            to: '/ml/getting-started/running-notebooks',
+            from: ['/getting-started/running-notebooks'],
+          },
+          {
+            to: '/ml/getting-started/tracking-server-overview',
+            from: ['/getting-started/tracking-server-overview'],
+          },
+          {
             to: '/ml/getting-started',
             from: [
               '/getting-started/logging-first-model',
@@ -972,8 +1032,11 @@ const config: Config = {
               '/getting-started/intro-quickstart',
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
-              '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
             ],
+          },
+          {
+            to: '/ml/tracking/quickstart/notebooks/tracking_quickstart',
+            from: ['/getting-started/intro-quickstart/notebooks/tracking_quickstart'],
           },
           {
             to: '/ml/tracking/system-metrics',
