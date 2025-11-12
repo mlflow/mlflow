@@ -120,18 +120,6 @@ Dataset schemas automatically evolve as you add records with new fields. The `sc
 
 When new fields are introduced in subsequent records, they're automatically incorporated into the schema. Existing records without those fields are handled gracefully during evaluation and analysis.
 
-## Source Types
-
-Source types track the provenance of each record, enabling analysis of performance by data origin:
-
-- **TRACE**: Records from production traces (automatically assigned)
-- **HUMAN**: Subject matter expert annotations (inferred when expectations are present)
-- **CODE**: Programmatically generated test cases (inferred for records without expectations)
-- **DOCUMENT**: Test cases extracted from documentation (must be explicitly specified)
-- **UNSPECIFIED**: Legacy or imported data without known origin
-
-Source types are automatically inferred based on record characteristics but can be explicitly overridden when needed. See the [SDK Guide](/genai/datasets/sdk-guide#source-type-inference) for detailed inference rules.
-
 ## Next Steps
 
 <TilesGrid>

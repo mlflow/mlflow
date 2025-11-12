@@ -193,6 +193,35 @@ dataset.merge_records(df)
 </Tabs>
 </TabsWrapper>
 
+## Understanding Source Types
+
+Every record in an evaluation dataset has a **source type** that tracks its provenance. This enables you to analyze model performance by data origin and understand which types of test data are most valuable.
+
+<FeatureHighlights features={[
+  {
+    icon: Activity,
+    title: "TRACE",
+    description: "Records from production traces - automatically assigned when adding traces via mlflow.search_traces()"
+  },
+  {
+    icon: Users,
+    title: "HUMAN",
+    description: "Subject matter expert annotations - automatically inferred for records with expectations (ground truth)"
+  },
+  {
+    icon: Code,
+    title: "CODE",
+    description: "Programmatically generated test cases - automatically inferred for records without expectations"
+  },
+  {
+    icon: FileText,
+    title: "DOCUMENT",
+    description: "Test cases extracted from documentation or specs - must be explicitly specified with source metadata"
+  }
+]} />
+
+Source types are automatically inferred based on record characteristics but can be explicitly overridden when needed. See the [SDK Guide](/genai/datasets/sdk-guide#source-type-inference) for detailed inference rules and examples.
+
 ## Why Evaluation Datasets?
 
 <FeatureHighlights features={[
