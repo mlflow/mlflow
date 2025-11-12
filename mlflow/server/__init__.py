@@ -136,6 +136,16 @@ def serve_gateway_proxy():
     return gateway_proxy_handler()
 
 
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/gateway/providers"), methods=["GET"])
+def serve_list_gateway_providers():
+    return handlers._list_gateway_providers()
+
+
+@app.route(_add_static_prefix("/ajax-api/3.0/mlflow/gateway/fetch-models"), methods=["POST"])
+def serve_fetch_provider_models():
+    return handlers._fetch_provider_models()
+
+
 @app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
 def serve_upload_artifact():
     return upload_artifact_handler()

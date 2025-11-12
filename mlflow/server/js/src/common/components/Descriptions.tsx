@@ -72,8 +72,9 @@ const styles = {
   descriptionItem: (span: number) => ({
     display: 'flex',
     gridColumn: `span ${span}`,
+    alignItems: 'baseline',
   }),
   colon: {
-    margin: '0 8px 0 0',
+    margin: '0 8px 0 4px',
   },
 };

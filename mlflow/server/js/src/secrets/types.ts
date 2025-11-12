@@ -13,6 +13,8 @@ export interface Secret {
   created_by?: string;
   last_updated_by?: string;
   binding_count?: number;
+  provider?: string;
+  model?: string;
 }
 
 export interface SecretBinding {
@@ -33,6 +35,8 @@ export interface CreateSecretRequest {
   resource_id: string;
   is_shared?: boolean;
   created_by?: string;
+  provider?: string;
+  model?: string;
 }
 
 export interface CreateSecretResponse {
@@ -44,6 +48,8 @@ export interface UpdateSecretRequest {
   secret_id: string;
   secret_value: string;
   updated_by?: string;
+  provider?: string;
+  model?: string;
 }
 
 export interface DeleteSecretRequest {

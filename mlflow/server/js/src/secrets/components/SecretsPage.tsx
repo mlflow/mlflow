@@ -19,7 +19,8 @@ import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/Scro
 import { useListSecrets } from '../hooks/useListSecrets';
 import { SecretsTable } from './SecretsTable';
 import { CreateSecretModal } from './CreateSecretModal';
-import { UpdateSecretModal } from './UpdateSecretModal';
+import { UpdateApiKeyModal } from './UpdateApiKeyModal';
+import { UpdateModelModal } from './UpdateModelModal';
 import { DeleteSecretModal } from './DeleteSecretModal';
 import { SecretDetailDrawer } from './SecretDetailDrawer';
 import type { Secret } from '../types';
@@ -32,7 +33,8 @@ export default function SecretsPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [showUpdateApiKeyModal, setShowUpdateApiKeyModal] = useState(false);
+  const [showUpdateModelModal, setShowUpdateModelModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
@@ -50,9 +52,15 @@ export default function SecretsPage() {
     setShowDetailModal(true);
   }, []);
 
-  const handleUpdateSecret = useCallback((secret: Secret) => {
+  const handleUpdateApiKey = useCallback((secret: Secret) => {
     setSelectedSecret(secret);
-    setShowUpdateModal(true);
+    setShowUpdateApiKeyModal(true);
+    setShowDetailModal(false);
+  }, []);
+
+  const handleUpdateModel = useCallback((secret: Secret) => {
+    setSelectedSecret(secret);
+    setShowUpdateModelModal(true);
     setShowDetailModal(false);
   }, []);
 
@@ -96,11 +104,11 @@ export default function SecretsPage() {
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
-        title={<FormattedMessage defaultMessage="Secrets" description="Header title for the secrets management page" />}
+        title={<FormattedMessage defaultMessage="Gateway" description="Header title for the gateway management page" />}
         breadcrumbs={[]}
         buttons={
           <Button componentId="mlflow.secrets.create_secret_button" type="primary" onClick={handleCreateSecret}>
-            <FormattedMessage defaultMessage="Create Secret" description="Create secret button label" />
+            <FormattedMessage defaultMessage="Add Model" description="Add model button label" />
           </Button>
         }
       />
@@ -163,7 +171,8 @@ export default function SecretsPage() {
           loading={isLoading}
           error={error ?? undefined}
           onSecretClicked={handleSecretClicked}
-          onUpdateSecret={handleUpdateSecret}
+          onUpdateSecret={handleUpdateApiKey}
+          onUpdateModel={handleUpdateModel}
           onDeleteSecret={handleDeleteSecret}
           sorting={sorting}
           setSorting={setSorting}
@@ -173,11 +182,20 @@ export default function SecretsPage() {
       </div>
 
       <CreateSecretModal visible={showCreateModal} onCancel={() => setShowCreateModal(false)} />
-      <UpdateSecretModal
+      <UpdateApiKeyModal
         secret={selectedSecret}
-        visible={showUpdateModal}
+        visible={showUpdateApiKeyModal}
         onCancel={() => {
-          setShowUpdateModal(false);
+          setShowUpdateApiKeyModal(false);
+          setSelectedSecret(null);
+        }}
+        onSuccess={handleUpdateSuccess}
+      />
+      <UpdateModelModal
+        secret={selectedSecret}
+        visible={showUpdateModelModal}
+        onCancel={() => {
+          setShowUpdateModelModal(false);
           setSelectedSecret(null);
         }}
         onSuccess={handleUpdateSuccess}
@@ -197,7 +215,8 @@ export default function SecretsPage() {
           setShowDetailModal(false);
           setSelectedSecret(null);
         }}
-        onUpdate={handleUpdateSecret}
+        onUpdateApiKey={handleUpdateApiKey}
+        onUpdateModel={handleUpdateModel}
         onDelete={handleDeleteSecret}
       />
 

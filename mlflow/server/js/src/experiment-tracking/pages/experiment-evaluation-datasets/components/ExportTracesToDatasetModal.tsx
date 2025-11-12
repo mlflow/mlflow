@@ -141,7 +141,7 @@ export const ExportTracesToDatasetModal = ({
         </div>
         <Table
           scrollable
-          onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
+          onScroll={(e: React.UIEvent<HTMLDivElement>) => fetchMoreOnBottomReached(e.currentTarget as HTMLDivElement)}
           someRowsSelected={table.getIsSomeRowsSelected() || table.getIsAllRowsSelected()}
           empty={
             !isLoadingDatasets &&

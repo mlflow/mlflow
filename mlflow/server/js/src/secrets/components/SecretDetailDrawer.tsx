@@ -12,7 +12,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCallback, useState } from 'react';
 import type { Secret } from '../types';
-import { SecretBindingsList } from './SecretBindingsList';
+import { BindingsTable } from './BindingsTable';
 import { useUnbindSecretMutation } from '../hooks/useUnbindSecretMutation';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { Descriptions } from '@mlflow/mlflow/src/common/components/Descriptions';
@@ -22,11 +22,12 @@ export interface SecretDetailDrawerProps {
   secret: Secret | null;
   open: boolean;
   onClose: () => void;
-  onUpdate?: (secret: Secret) => void;
+  onUpdateApiKey?: (secret: Secret) => void;
+  onUpdateModel?: (secret: Secret) => void;
   onDelete?: (secret: Secret) => void;
 }
 
-export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }: SecretDetailDrawerProps) => {
+export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUpdateModel, onDelete }: SecretDetailDrawerProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [unbindingBinding, setUnbindingBinding] = useState<SecretBinding | null>(null);
@@ -72,7 +73,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
               <LightningIcon css={{ fontSize: 18 }} />
             </div>
             <FormattedMessage
-              defaultMessage="Secret Details"
+              defaultMessage="Model Details"
               description="Secret detail drawer > drawer title"
             />
           </div>
@@ -116,17 +117,29 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
             </div>
 
             {/* Action buttons */}
-            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <div css={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
               <Button
-                componentId="mlflow.secrets.detail_drawer.update_button"
+                componentId="mlflow.secrets.detail_drawer.update_api_key_button"
                 icon={<PencilIcon />}
                 onClick={() => {
-                  onUpdate?.(secret);
+                  onUpdateApiKey?.(secret);
                 }}
               >
                 <FormattedMessage
-                  defaultMessage="Update Secret"
-                  description="Secret detail drawer > update button"
+                  defaultMessage="Update API Key"
+                  description="Secret detail drawer > update API key button"
+                />
+              </Button>
+              <Button
+                componentId="mlflow.secrets.detail_drawer.update_model_button"
+                icon={<PencilIcon />}
+                onClick={() => {
+                  onUpdateModel?.(secret);
+                }}
+              >
+                <FormattedMessage
+                  defaultMessage="Update Model"
+                  description="Secret detail drawer > update model button"
                 />
               </Button>
               <Button
@@ -138,7 +151,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
                 }}
               >
                 <FormattedMessage
-                  defaultMessage="Delete Secret"
+                  defaultMessage="Delete"
                   description="Secret detail drawer > delete button"
                 />
               </Button>
@@ -146,7 +159,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
 
             {/* Metadata section */}
             <div>
-              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.md }}>
+              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.lg }}>
                 <FormattedMessage
                   defaultMessage="Metadata"
                   description="Secret detail drawer > metadata section title"
@@ -190,19 +203,19 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
 
             {/* Bindings section */}
             <div>
-              <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
+              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.md }}>
                 <FormattedMessage
                   defaultMessage="Bindings"
                   description="Secret detail drawer > bindings section title"
                 />
               </Typography.Title>
-              <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
+              <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.md }}>
                 <FormattedMessage
                   defaultMessage="These resources are currently using this secret and will have access to its value through the specified environment variable."
                   description="Secret detail drawer > bindings description"
                 />
               </Typography.Text>
-              <SecretBindingsList
+              <BindingsTable
                 secretId={secret.secret_id}
                 variant="default"
                 isSharedSecret={secret.is_shared}

@@ -14,6 +14,8 @@ export const getColumnSizeClassName = (id: string) => `--col-${id}-size`;
 
 export enum SecretsTableColumns {
   secretName = 'secret_name',
+  provider = 'provider',
+  model = 'model',
   maskedValue = 'masked_value',
   isShared = 'is_shared',
   owner = 'owner',
@@ -26,6 +28,14 @@ export const SecretsTableColumnLabels: Record<SecretsTableColumns, MessageDescri
   [SecretsTableColumns.secretName]: defineMessage({
     defaultMessage: 'Name',
     description: 'Secrets table > secret name column header',
+  }),
+  [SecretsTableColumns.provider]: defineMessage({
+    defaultMessage: 'Provider',
+    description: 'Secrets table > provider column header',
+  }),
+  [SecretsTableColumns.model]: defineMessage({
+    defaultMessage: 'Model',
+    description: 'Secrets table > model column header',
   }),
   [SecretsTableColumns.maskedValue]: defineMessage({
     defaultMessage: 'Masked Value',
