@@ -28,8 +28,12 @@ def github_api_request(url: str, accept: str) -> str:
 
 
 def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
-    url = f"https://api.github.com/repos/{owner}/{repo}/pulls/{pull_number}"
-    return github_api_request(url, "application/vnd.github.v3.diff")
+    # Use the .diff URL instead of the API to avoid the 300 file limit
+    # See: https://github.com/mlflow/mlflow/issues/XXXXX
+    url = f"https://github.com/{owner}/{repo}/pull/{pull_number}.diff"
+    request = urllib.request.Request(url)
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read().decode("utf-8")
 
 
 def get_pr_labels(owner: str, repo: str, pull_number: int) -> list[str]:
