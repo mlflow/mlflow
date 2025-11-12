@@ -12,6 +12,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
@@ -135,6 +136,13 @@ def sample_spark_data_with_string_columns(sample_pd_data, spark):
     return spark.createDataFrame(df)
 
 
+@pytest.fixture
+def sample_evaluation_dataset(sample_dict_data_single):
+    dataset = create_dataset("test")
+    dataset.merge_records(sample_dict_data_single)
+    return dataset
+
+
 _ALL_DATA_FIXTURES = [
     "sample_dict_data_single",
     "sample_dict_data_multiple",
@@ -142,6 +150,7 @@ _ALL_DATA_FIXTURES = [
     "sample_pd_data",
     "sample_spark_data",
     "sample_spark_data_with_string_columns",
+    "sample_evaluation_dataset",
 ]
 
 

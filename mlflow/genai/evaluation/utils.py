@@ -64,13 +64,15 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 
     if isinstance(data, list):
-        # validate that every item in the list is a dict and has inputs as key
-        for item in data:
-            if not isinstance(item, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must be a dictionary."
-                )
-        df = pd.DataFrame(data)
+        if all(isinstance(item, Trace) for item in data):
+            data = traces_to_df(data)
+        else:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise MlflowException.invalid_parameter_value(
+                        "Every item in the list must be a dictionary."
+                    )
+            df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
         df = data.copy()
@@ -118,15 +120,6 @@ def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
         expectations, which is same as the schema that mlflow.genai.evaluate() expects.
         Therefore, we can simply pass through expectations column.
     """
-    from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
-    from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
-
-    if isinstance(data, (EvaluationDataset, EntityEvaluationDataset)):
-        return data.to_df()
-
-    if isinstance(data, list) and all(isinstance(item, Trace) for item in data):
-        data = traces_to_df(data)
-
     column_mapping = {
         "inputs": "request",
         "outputs": "response",
