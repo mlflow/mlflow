@@ -95,7 +95,9 @@ class Content(BaseModel):
         elif self.type == "refusal":
             ResponseOutputRefusal(**self.model_dump())
         else:
-            raise ValueError(f"Invalid content type: {self.type} for {self.__class__.__name__}")
+            raise ValueError(
+                f"Invalid content type: {self.type} for {self.__class__.__name__}"
+            )
         return self
 
 
@@ -139,6 +141,22 @@ class ResponseReasoningItem(Status):
     type: str = "reasoning"
 
 
+class McpApprovalRequest(BaseModel):
+    id: str
+    arguments: str
+    name: str
+    server_label: str
+    type: str = "mcp_approval_request"
+
+
+class McpApprovalResponse(BaseModel):
+    approval_request_id: str
+    approve: bool
+    type: str = "mcp_approval_response"
+    id: str | None = None
+    reason: str | None = None
+
+
 class OutputItem(BaseModel):
     model_config = ConfigDict(extra="allow")
     type: str
@@ -153,6 +171,10 @@ class OutputItem(BaseModel):
             ResponseReasoningItem(**self.model_dump())
         elif self.type == "function_call_output":
             FunctionCallOutput(**self.model_dump())
+        elif self.type == "mcp_approval_request":
+            McpApprovalRequest(**self.model_dump())
+        elif self.type == "mcp_approval_response":
+            McpApprovalResponse(**self.model_dump())
         elif self.type not in {
             "file_search_call",
             "computer_call",
@@ -218,7 +240,10 @@ class ReasoningParams(BaseModel):
 
     @model_validator(mode="after")
     def check_generate_summary(self) -> "ReasoningParams":
-        if self.generate_summary and self.generate_summary not in {"concise", "detailed"}:
+        if self.generate_summary and self.generate_summary not in {
+            "concise",
+            "detailed",
+        }:
             warnings.warn(f"Invalid generate_summary: {self.generate_summary}")
         return self
 
@@ -251,7 +276,9 @@ class Truncation(BaseModel):
     @model_validator(mode="after")
     def check_truncation(self) -> "Truncation":
         if self.truncation and self.truncation not in {"auto", "disabled"}:
-            warnings.warn(f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'.")
+            warnings.warn(
+                f"Invalid truncation: {self.truncation}. Must be 'auto' or 'disabled'."
+            )
         return self
 
 
