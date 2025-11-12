@@ -1,5 +1,6 @@
 import inspect
 import logging
+from dataclasses import asdict
 from typing import Any
 
 import mlflow
@@ -144,14 +145,9 @@ def _serialize_output(result: Any) -> Any:
     if hasattr(result, "new_messages") and callable(result.new_messages):
         try:
             new_messages = result.new_messages()
-            serialized_messages = [
-                msg.__dict__ if hasattr(msg, "__dict__") else msg for msg in new_messages
-            ]
-            serialized_result = result.__dict__ if hasattr(result, "__dict__") else result
-
-            if isinstance(serialized_result, dict):
-                serialized_result["_new_messages_serialized"] = serialized_messages
-
+            serialized_messages = [asdict(msg) for msg in new_messages]
+            serialized_result = asdict(result)
+            serialized_result["_new_messages_serialized"] = serialized_messages
             return serialized_result
         except Exception as e:
             _logger.debug(f"Failed to serialize new_messages: {e}")
