@@ -29,7 +29,8 @@ def github_api_request(url: str, accept: str) -> str:
 
 def get_diff_from_github_api(owner: str, repo: str, pull_number: int) -> str:
     # Use the .diff URL instead of the API to avoid the 300 file limit
-    # See: https://github.com/mlflow/mlflow/issues/XXXXX
+    # The API returns 406 for PRs with >300 files:
+    # curl -H "Accept: application/vnd.github.v3.diff" https://api.github.com/repos/mlflow/mlflow/pulls/18795
     url = f"https://github.com/{owner}/{repo}/pull/{pull_number}.diff"
     request = urllib.request.Request(url)
     with urllib.request.urlopen(request, timeout=30) as response:
