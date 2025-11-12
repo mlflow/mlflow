@@ -26,14 +26,14 @@ print(trace.info.trace_metadata)
 
 These standard tags are automatically captured by MLflow based on your execution environment:
 
-|Metadata Field              | Description                                                                                                             | Automatic Setting Logic                                                                                                                                                                                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mlflow.source.name`        | The entry point or script that generated the trace.                                                                     | Automatically populated with the filename for Python scripts, notebook name for Databricks/Jupyter notebooks.                                                                                                                                                                                     |
-| `mlflow.source.git.commit`  | Git commit hash.                                                                                                        | If run from a Git repository, the commit hash is automatically detected and populated.                                                                                                                                                                                                            |
-| `mlflow.source.git.branch`  | Git branch.                                                                                                             | If run from a Git repository, the current branch name is automatically detected and populated.                                                                                                                                                                                                    |
- | `mlflow.source.git.repoURL` | Git repo URL.                                                                                                           | If run from a Git repository, the repository URL is automatically detected and populated.                                                                                                                                                                                                         |
-| `mlflow.source.type`        | Captures the execution environment.                                                                                     | Automatically set to `NOTEBOOK` if running in Jupyter or Databricks notebook, `LOCAL` if running a local Python script, else `UNKNOWN` (automatically detected). <br/><br/>_In your deployed app, we suggest updating this variable based on the environment e.g., `PRODUCTION`, `STAGING`, etc._ |
-| `mlflow.sourceRun`        | The run ID of the source run that generated the trace.                                                                     | Automatically populated with the run ID of the source run that generated the trace.                                                                                                                                                                                     |
+| Metadata Field              | Description                                            | Automatic Setting Logic                                                                                                                                                                                                                                                                           |
+| --------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `mlflow.source.name`        | The entry point or script that generated the trace.    | Automatically populated with the filename for Python scripts, notebook name for Databricks/Jupyter notebooks.                                                                                                                                                                                     |
+| `mlflow.source.git.commit`  | Git commit hash.                                       | If run from a Git repository, the commit hash is automatically detected and populated.                                                                                                                                                                                                            |
+| `mlflow.source.git.branch`  | Git branch.                                            | If run from a Git repository, the current branch name is automatically detected and populated.                                                                                                                                                                                                    |
+| `mlflow.source.git.repoURL` | Git repo URL.                                          | If run from a Git repository, the repository URL is automatically detected and populated.                                                                                                                                                                                                         |
+| `mlflow.source.type`        | Captures the execution environment.                    | Automatically set to `NOTEBOOK` if running in Jupyter or Databricks notebook, `LOCAL` if running a local Python script, else `UNKNOWN` (automatically detected). <br/><br/>_In your deployed app, we suggest updating this variable based on the environment e.g., `PRODUCTION`, `STAGING`, etc._ |
+| `mlflow.sourceRun`          | The run ID of the source run that generated the trace. | Automatically populated with the run ID of the source run that generated the trace.                                                                                                                                                                                                               |
 
 :::note
 
@@ -42,12 +42,13 @@ There are other trace metadata fields set by MLflow, such as `mlflow.trace.sizeB
 :::
 
 ### Reserved Standard Metadata
+
 Some standard metadata fields have special meaning but must be set manually:
 
-|Metadata Field              | Description                                                                                                             | Automatic Setting Logic                                                                                                                                                                                                                                                                           |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `mlflow.trace.session`      | Groups traces from multi-turn conversations or user sessions together                                                                     | Automatically populated with the session ID of the user session that generated the trace.                                                                                                                                                                                     |
-| `mlflow.trace.user`         | Associates traces with specific users for user-centric analysis                                                                     | Automatically populated with the user ID of the user that generated the trace.                                                                                                                                                                                     |
+| Metadata Field         | Description                                                           | Automatic Setting Logic                                                                   |
+| ---------------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `mlflow.trace.session` | Groups traces from multi-turn conversations or user sessions together | Automatically populated with the session ID of the user session that generated the trace. |
+| `mlflow.trace.user`    | Associates traces with specific users for user-centric analysis       | Automatically populated with the user ID of the user that generated the trace.            |
 
 See the [Setting Metadata](#setting-metadata) section for more details on how to set these metadata from your application.
 
@@ -58,7 +59,7 @@ You can define custom metadata or override the automatically populated metadata 
 - `app_version`: e.g., `"1.0.0"` (from `APP_VERSION` environment variable)
 - `deployment_id`: e.g., `"deploy-abc-123"` (from `DEPLOYMENT_ID` environment variable)
 - `region`: e.g., `"us-east-1"` (from `REGION` environment variable)
-- *(Other custom tags like feature flags can also be added)*
+- _(Other custom tags like feature flags can also be added)_
 
 ## Setting Metadata
 
@@ -136,7 +137,6 @@ def handle_chat(request: Request, chat_request: ChatRequest):
 #      -d '{"message": "What is my account balance?"}'
 ```
 
-
 ## Querying and Analyzing Context Data
 
 ### Using the MLflow UI
@@ -145,6 +145,6 @@ In the MLflow UI (Traces Tab) and the <APILink fn="mlflow.search_traces" /> API,
 
 - `metadata.environment = 'production'`
 - `metadata.app_version = '2.1.0'`
-- ```metadata.`mlflow.trace.session` = 'session-abc-456'```
+- ``metadata.`mlflow.trace.session` = 'session-abc-456'``
 
 View the full list of supported filter syntax in the [Search Traces](/genai/tracing/search-traces) guide.

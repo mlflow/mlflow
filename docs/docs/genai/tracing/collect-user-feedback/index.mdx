@@ -34,6 +34,7 @@ print(f"✓ Feedback recorded: {'👍' if is_helpful else '👎'}")
 
 If you have an `Feedback` object already (e.g., a response from LLM-as-a-Judge), you can log it
 directly using the <APILink fn="mlflow.log_assessment" /> API. This is equivalent to using the
+
 <APILink fn="mlflow.log_feedback" /> API with unpacked fields.
 
 ```python
@@ -63,21 +64,21 @@ mlflow.log_assessment(trace_id="<your trace id>", assessment=feedback)
 
 MLflow feedback supports various formats to match your application's needs:
 
-| Feedback Type   | Description                              | Example Use Cases                   |
-| --------------- | ---------------------------------------- | ----------------------------------- |
-| **Boolean**     | Simple `True`/`False` feedback           | Thumbs up/down, correct/incorrect   |
-| **Numeric**     | Integer or float ratings                 | 1-5 star ratings, confidence scores |
-| **Text**        | Free-form text feedback                 | Detailed quality breakdowns         |
+| Feedback Type | Description                    | Example Use Cases                   |
+| ------------- | ------------------------------ | ----------------------------------- |
+| **Boolean**   | Simple `True`/`False` feedback | Thumbs up/down, correct/incorrect   |
+| **Numeric**   | Integer or float ratings       | 1-5 star ratings, confidence scores |
+| **Text**      | Free-form text feedback        | Detailed quality breakdowns         |
 
 ## Supported Feedback Sources
 
 The `source` field of the feedback provides information about where the feedback came from.
 
-| Source Type   | Description                              | Example Use Cases                   |
-| --------------- | ---------------------------------------- | ----------------------------------- |
-| **HUMAN**     | Human feedback                           | User thumbs up/down, correct/incorrect   |
-| **LLM_JUDGE**     | LLM-based feedback                       | Score traces with an LLM-based judge   |
-| **CODE**     | Programmatic feedback                    | Score traces with a programmatic checker   |
+| Source Type   | Description           | Example Use Cases                        |
+| ------------- | --------------------- | ---------------------------------------- |
+| **HUMAN**     | Human feedback        | User thumbs up/down, correct/incorrect   |
+| **LLM_JUDGE** | LLM-based feedback    | Score traces with an LLM-based judge     |
+| **CODE**      | Programmatic feedback | Score traces with a programmatic checker |
 
 ## Next Steps
 
