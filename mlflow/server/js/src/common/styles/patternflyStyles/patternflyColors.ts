@@ -37,8 +37,8 @@ export const darkColorList: Record<string, string> = {
     textValidationDanger: '#ffffff',
     
     // Background colors
-    backgroundPrimary: 'rgb(31, 31, 31)',
-    backgroundSecondary: 'rgb(31, 31, 31)',
+    backgroundPrimary: '#151515',
+    backgroundSecondary: '#151515',
     backgroundDanger: 'rgb(31, 31, 31)',
     
     borderDanger: '#f0561d',
@@ -83,8 +83,8 @@ export const lightColorList: Record<string, string> = {
     textValidationDanger: '#151515',
     
     // Background colors
-    backgroundPrimary: 'rgb(255, 255, 255)',
-    backgroundSecondary: 'rgb(255, 255, 255)',
+    backgroundPrimary: '#f2f2f2',
+    backgroundSecondary: '#f2f2f2',
     backgroundDanger: 'rgb(255, 255, 255)',
     
     borderDanger: '#b1380b',
