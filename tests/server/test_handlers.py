@@ -2041,7 +2041,7 @@ def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
     response = _get_trace()
 
     # Verify the store was called with the correct trace ID and allow_partial
-    mock_tracking_store.get_trace.assert_called_once_with(trace_id, True)
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
 
     # Verify response was created
     assert response is not None
@@ -2086,7 +2086,7 @@ def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mo
     response = _get_trace()
 
     # Verify the store was called with allow_partial=False
-    mock_tracking_store.get_trace.assert_called_once_with(trace_id, False)
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
 
     # Verify response was created
     assert response is not None
@@ -2111,7 +2111,7 @@ def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_sto
     response = _get_trace()
 
     # Verify the store was called
-    mock_tracking_store.get_trace.assert_called_once_with(trace_id, False)
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
 
     # Verify error response for not found
     assert response is not None

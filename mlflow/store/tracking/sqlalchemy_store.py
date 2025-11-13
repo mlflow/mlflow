@@ -3539,15 +3539,13 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
-    def get_trace(self, trace_id: str, allow_partial: bool = False) -> Trace | None:
-        if allow_partial is False:
-            retry_count = 0
-            while retry_count < 3:
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace | None:
+        if not allow_partial:
+            for retry_count in range(3):
                 # only retry if the spans are not fully exported
                 if trace := self._get_trace(trace_id, allow_partial):
                     return trace
                 time.sleep(2**retry_count)
-                retry_count += 1
             return None
         return self._get_trace(trace_id, allow_partial)
 

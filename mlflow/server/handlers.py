@@ -2970,7 +2970,7 @@ def _get_trace() -> Response:
         raise MlflowException.invalid_parameter_value(
             f"Invalid allow_partial value: {allow_partial}, must be a boolean.",
         )
-    trace = _get_tracking_store().get_trace(trace_id, allow_partial)
+    trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
     return _wrap_response(response_message)
 
@@ -3177,8 +3177,7 @@ def get_trace_artifact_handler():
             traces = _get_tracking_store().batch_get_traces([request_id], None)
             if len(traces) != 1:
                 raise MlflowException(
-                    f"Trace with id={request_id} not found, please check if the "
-                    "trace ID is correct.",
+                    f"Trace with id={request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             trace_data = traces[0].data.to_dict()
