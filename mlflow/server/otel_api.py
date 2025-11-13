@@ -129,7 +129,8 @@ async def export_traces(
                 store.log_spans(x_mlflow_experiment_id, trace_spans)
                 for span in trace_spans:
                     if span.parent_id is None:
-                        # Only add when we find a root span (OTEL traces have exactly one root span)
+                        # Only add when we find a root span
+                        # (OTEL traces typically have one root span)
                         trace_ids.add(trace_id)
                         break
             except NotImplementedError:
