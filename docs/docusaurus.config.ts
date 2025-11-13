@@ -1065,6 +1065,11 @@ const config: Config = {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
           },
+          // Redirect removed XGBoost quickstart to consolidated guide
+          {
+            to: '/ml/traditional-ml/xgboost/guide',
+            from: ['/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
+          },
         ],
       },
     ],
