@@ -5,13 +5,6 @@ from typing import Any
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
 
 
-class OtelTraceSource(str, Enum):
-    """Source of an OpenTelemetry trace received by the MLflow server."""
-
-    MLFLOW = "MLFLOW"
-    UNKNOWN = "UNKNOWN"
-
-
 class Event:
     name: str
 
@@ -328,6 +321,13 @@ class AlignJudgeEvent(Event):
 
 class AutologgingEvent(Event):
     name: str = "autologging"
+
+
+class OtelTraceSource(str, Enum):
+    """Source of an OpenTelemetry trace received by the MLflow server."""
+
+    MLFLOW = "MLFLOW"
+    UNKNOWN = "UNKNOWN"
 
 
 class OtelTraceReceivedEvent(Event):
