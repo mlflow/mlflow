@@ -19,9 +19,8 @@ module.exports = async ({ github, context, core }) => {
     ({ state, user: { login } }) => state === "APPROVED" && maintainers.includes(login)
   );
   if (!maintainerApproved) {
-    const message = `This PR requires an approval from at least one of the core maintainers: ${maintainers.join(
-      ", "
-    )}.`;
+    const maintainerList = maintainers.join(", ");
+    const message = `This PR requires an approval from at least one of the core maintainers: ${maintainerList}.`;
     core.setFailed(message);
   }
 };
