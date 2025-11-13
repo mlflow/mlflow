@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.telemetry.events import OtelRootSpanIngestEvent
+from mlflow.telemetry.events import OtelTraceReceivedEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
@@ -152,10 +152,11 @@ async def export_traces(
         # Emit telemetry event for each root span ingested
         for trace_id in root_spans_by_trace_id:
             _record_event(
-                OtelRootSpanIngestEvent,
+                OtelTraceReceivedEvent,
                 {
                     "trace_id": trace_id,
                     "experiment_id": x_mlflow_experiment_id,
+                    "span_count": len(spans_by_trace_id[trace_id]),
                 },
             )
 

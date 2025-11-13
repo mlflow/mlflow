@@ -322,12 +322,13 @@ class AutologgingEvent(Event):
     name: str = "autologging"
 
 
-class OtelRootSpanIngestEvent(Event):
-    name: str = "otel_root_span_ingest"
+class OtelTraceReceivedEvent(Event):
+    name: str = "otel_trace_received"
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
             "trace_id": arguments.get("trace_id"),
             "experiment_id": arguments.get("experiment_id"),
+            "span_count": arguments.get("span_count"),
         }
