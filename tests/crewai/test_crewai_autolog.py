@@ -22,7 +22,7 @@ _LLM_ANSWER = "What about Tokyo?"
 _IS_CREWAI_V1 = Version(crewai.__version__).major >= 1
 
 
-@pytest.fixture
+@pytest.fixture(autouse=True)
 def set_api_key(monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "000")
 
@@ -130,7 +130,7 @@ _AGENT_1_BACKSTORY = "An expert in analyzing travel data to pick ideal destinati
 
 
 @pytest.fixture
-def simple_agent_1(set_api_key):
+def simple_agent_1():
     return Agent(
         role="City Selection Expert",
         goal=_AGENT_1_GOAL,
@@ -144,7 +144,7 @@ _AGENT_2_GOAL = "Provide the BEST insights about the selected city"
 
 
 @pytest.fixture
-def simple_agent_2(set_api_key):
+def simple_agent_2():
     return Agent(
         role="Local Expert at this city",
         goal=_AGENT_2_GOAL,
@@ -164,7 +164,7 @@ class SampleTool(BaseTool):
 
 
 @pytest.fixture
-def tool_agent_1(set_api_key):
+def tool_agent_1():
     return Agent(
         role="City Selection Expert",
         goal=_AGENT_1_GOAL,
@@ -206,6 +206,11 @@ def task_2(simple_agent_2):
         agent=simple_agent_2,
         expected_output="Comprehensive city guide",
     )
+
+
+@pytest.fixture
+def set_api_key(monkeypatch):
+    monkeypatch.setenv("OPENAI_API_KEY", "000")
 
 
 def global_autolog():
