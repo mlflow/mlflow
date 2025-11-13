@@ -35,7 +35,6 @@ def get_otlp_exporter() -> SpanExporter:
     """
     endpoint = _get_otlp_endpoint()
     protocol = _get_otlp_protocol()
-
     if protocol == "grpc":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
