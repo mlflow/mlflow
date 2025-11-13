@@ -662,9 +662,7 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
             record = mock_client.add_record.call_args[0][0]
             assert record.event_name == OtelTraceReceivedEvent.name
             assert record.params["span_count"] >= 1
-            assert record.params["from_mlflow_client"] is True, (
-                "from_mlflow_client should be True when using standard @mlflow.trace"
-            )
+            assert record.params["from_mlflow_client"] is True
 
     # Test Case 2: Direct protobuf request without MLflow client headers
     # Create a request with a root span and 2 child spans
