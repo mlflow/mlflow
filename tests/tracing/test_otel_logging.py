@@ -669,45 +669,43 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
     experiment_id = experiment.experiment_id
 
+    trace_id = bytes.fromhex("0000000000000100" + "0" * 16)
+
     request = ExportTraceServiceRequest()
-    trace_id_hex = "0000000000000100" + "0" * 16
-
-    root_span = OTelProtoSpan()
-    root_span.trace_id = bytes.fromhex(trace_id_hex)
-    root_span.span_id = bytes.fromhex("00000001" + "0" * 8)
-    root_span.name = "root-span"
-    root_span.start_time_unix_nano = 1000000000
-    root_span.end_time_unix_nano = 2000000000
-
-    child_span_1 = OTelProtoSpan()
-    child_span_1.trace_id = bytes.fromhex(trace_id_hex)
-    child_span_1.span_id = bytes.fromhex("00000002" + "0" * 8)
-    child_span_1.parent_span_id = bytes.fromhex("00000001" + "0" * 8)
-    child_span_1.name = "child-span-1"
-    child_span_1.start_time_unix_nano = 1100000000
-    child_span_1.end_time_unix_nano = 1500000000
-
-    child_span_2 = OTelProtoSpan()
-    child_span_2.trace_id = bytes.fromhex(trace_id_hex)
-    child_span_2.span_id = bytes.fromhex("00000003" + "0" * 8)
-    child_span_2.parent_span_id = bytes.fromhex("00000001" + "0" * 8)
-    child_span_2.name = "child-span-2"
-    child_span_2.start_time_unix_nano = 1600000000
-    child_span_2.end_time_unix_nano = 1900000000
-
-    scope = InstrumentationScope()
-    scope.name = "telemetry-test-scope"
-
-    scope_spans = ScopeSpans()
-    scope_spans.scope.CopyFrom(scope)
-    scope_spans.spans.extend([root_span, child_span_1, child_span_2])
-
-    resource = Resource()
-    resource_spans = ResourceSpans()
-    resource_spans.resource.CopyFrom(resource)
-    resource_spans.scope_spans.append(scope_spans)
-
-    request.resource_spans.append(resource_spans)
+    request.resource_spans.append(
+        ResourceSpans(
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="telemetry-test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=bytes.fromhex("00000001" + "0" * 8),
+                            name="root-span",
+                            start_time_unix_nano=1000000000,
+                            end_time_unix_nano=2000000000,
+                        ),
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=bytes.fromhex("00000002" + "0" * 8),
+                            parent_span_id=bytes.fromhex("00000001" + "0" * 8),
+                            name="child-span-1",
+                            start_time_unix_nano=1100000000,
+                            end_time_unix_nano=1500000000,
+                        ),
+                        OTelProtoSpan(
+                            trace_id=trace_id,
+                            span_id=bytes.fromhex("00000003" + "0" * 8),
+                            parent_span_id=bytes.fromhex("00000001" + "0" * 8),
+                            name="child-span-2",
+                            start_time_unix_nano=1600000000,
+                            end_time_unix_nano=1900000000,
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
 
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
