@@ -7,6 +7,7 @@ import logging
 import os
 import shutil
 import types
+import warnings
 from functools import lru_cache
 from importlib.util import find_spec
 from typing import Any, Callable, NamedTuple
@@ -16,6 +17,8 @@ import yaml
 from packaging.version import Version
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION
+from mlflow.exceptions import MlflowException
 from mlflow.models.utils import _validate_and_get_model_code_path
 from mlflow.utils.class_utils import _get_class_from_string
 
@@ -292,6 +295,22 @@ def _agent_executor_contains_unsupported_llm(lc_model, _SUPPORTED_LLMS):
 def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
     if isinstance(lc_model, str):
         return _validate_and_get_model_code_path(lc_model, temp_dir)
+
+    if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+        raise MlflowException(
+            "Unsafe pickler deserialization for langchain model is disallowed by default. "
+            "Please set 'lc_model' parameter to a file path containing the LangChain model code, "
+            "or set environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
+            "to allow unsafe pickler."
+        )
+
+    warnings.warn(
+        "Saving langchain model by pickler is deprecated and will be removed in a future "
+        "version. Please set 'lc_model' parameter to a file path containing the LangChain model "
+        "code when saving the langchain model.",
+        FutureWarning,
+        stacklevel=2,
+    )
 
     if not isinstance(lc_model, supported_lc_types()):
         raise mlflow.MlflowException.invalid_parameter_value(

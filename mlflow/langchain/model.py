@@ -26,6 +26,7 @@ from packaging.version import Version
 import mlflow
 from mlflow import pyfunc
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.environment_variables import MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.langchain.constants import FLAVOR_NAME
 from mlflow.langchain.databricks_dependencies import _detect_databricks_dependencies
@@ -878,6 +879,12 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
             # after loading the mode to avoid the schema being used in the next model loading
             _clear_dependencies_schemas()
     else:
+        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Unsafe pickle deserialization is disallowed by default, but this model is saved "
+                "as pickle format. To address this issue, you need to set environment variable "
+                "to 'true', or save the langchain model as 'model from code' artifacts."
+            )
         model = _load_model(local_model_path, flavor_conf)
     # set active model after model loading since experiment ID might be set
     # in the model loading process
