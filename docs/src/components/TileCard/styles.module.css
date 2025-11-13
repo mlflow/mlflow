@@ -101,12 +101,6 @@
   background: transparent;
 }
 
-/* Keras logo - may have dark elements */
-[data-theme='dark'] .tileCard[href*='keras'] .tileImage {
-  filter: invert(1) hue-rotate(180deg);
-  background: transparent;
-}
-
 /* Sentence Transformers logo */
 [data-theme='dark'] .tileCard[href*='sentence-transformers'] .tileImage {
   filter: brightness(1.5);
