@@ -3,13 +3,13 @@ export const darkColorList: Record<string, string> = {
     actionPrimaryBackgroundDefault: 'rgb(185, 218, 252)',
     actionPrimaryBackgroundHover: 'rgb(224, 240, 255)',
     actionPrimaryBackgroundPress: 'rgb(224, 240, 255)',
-    actionPrimaryTextDefault: 'rgb(31, 31, 31)',
-    actionPrimaryIcon: 'rgb(31, 31, 31)',
+    actionPrimaryTextDefault: 'rgb(255, 255, 255)',
+    actionPrimaryIcon: 'rgb(255, 255, 255)',
     
     // On-brand colors (for content on branded backgrounds)
-    actionDefaultTextDefault: 'rgb(31, 31, 31)',
-    actionDefaultTextHover: 'rgb(31, 31, 31)',
-    actionDefaultTextPress: 'rgb(31, 31, 31)',
+    actionDefaultTextDefault: 'rgb(255, 255, 255)',
+    actionDefaultTextHover: 'rgb(255, 255, 255)',
+    actionDefaultTextPress: 'rgb(255, 255, 255)',
     
     // Danger colors
     actionDangerDefaultBackgroundDefault: 'rgb(31, 31, 31)',
@@ -49,13 +49,13 @@ export const lightColorList: Record<string, string> = {
     actionPrimaryBackgroundDefault: 'rgb(0, 102, 204)',
     actionPrimaryBackgroundHover: 'rgb(0, 77, 153)',
     actionPrimaryBackgroundPress: 'rgb(0, 77, 153)',
-    actionPrimaryTextDefault: 'rgb(255, 255, 255)',
-    actionPrimaryIcon: 'rgb(255, 255, 255)',
+    actionPrimaryTextDefault: 'rgb(31, 31, 31)',
+    actionPrimaryIcon: 'rgb(31, 31, 31)',
     
     // On-brand colors (for content on branded backgrounds)
-    actionDefaultTextDefault: 'rgb(255, 255, 255)',
-    actionDefaultTextHover: 'rgb(255, 255, 255)',
-    actionDefaultTextPress: 'rgb(255, 255, 255)',
+    actionDefaultTextDefault: 'rgb(31, 31, 31)',
+    actionDefaultTextHover: 'rgb(31, 31, 31)',
+    actionDefaultTextPress: 'rgb(31, 31, 31)',
     
     // Danger colors
     actionDangerDefaultBackgroundDefault: 'rgb(255, 255, 255)',
