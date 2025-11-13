@@ -1,4 +1,5 @@
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import SecretRouteTag as ProtoSecretRouteTag
 
 
 class EndpointTag(_MlflowObject):
@@ -22,3 +23,10 @@ class EndpointTag(_MlflowObject):
     def value(self):
         """String value of the tag."""
         return self._value
+
+    def to_proto(self):
+        return ProtoSecretRouteTag(key=self.key, value=self.value)
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(key=proto.key, value=proto.value)

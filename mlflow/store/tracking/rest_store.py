@@ -22,6 +22,14 @@ from mlflow.entities import (
     Run,
     RunInfo,
     ScorerVersion,
+    Secret,
+    SecretBinding,
+    SecretBindingListItem,
+    SecretRoute,
+    SecretRouteListItem,
+    SecretRouteTag,
+    SecretTag,
+    SecretWithRouteAndBinding,
     ViewType,
 )
 
@@ -47,11 +55,14 @@ from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
+    BindSecretRoute,
     CalculateTraceFilterCorrelation,
+    CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
     CreateLoggedModel,
+    CreateRouteAndBind,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
@@ -62,6 +73,11 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
+    DeleteSecretBinding,
+    DeleteSecretRoute,
+    DeleteSecretRouteTag,
+    DeleteSecretTag,
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
@@ -77,11 +93,15 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
+    ListSecretRoutes,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -103,15 +123,19 @@ from mlflow.protos.service_pb2 import (
     SetDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
+    SetSecretRouteTag,
+    SetSecretTag,
     SetTag,
     SetTraceTag,
     StartTrace,
     StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
+    UnbindSecret,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -1273,6 +1297,448 @@ class RestStore(AbstractStore):
             DeleteScorer,
             req_body,
             endpoint="/api/3.0/mlflow/scorers/delete",
+        )
+
+    ############################################################################################
+    # Secrets Management APIs
+    ############################################################################################
+
+    def _create_and_bind_secret(
+        self,
+        secret_name: str,
+        secret_value: str | dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
+        is_shared: bool = False,
+        created_by: str | None = None,
+        provider: str | None = None,
+        auth_config: dict[str, Any] | None = None,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+    ) -> SecretWithRouteAndBinding:
+        """
+        Atomically create a secret and bind it to a resource.
+
+        Args:
+            secret_name: Unique name for the secret.
+            secret_value: Secret value to encrypt. Can be:
+                - String: API key/token for simple providers (OpenAI, Anthropic)
+                - Dict: JSON credentials for complex providers (Vertex AI service account)
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: ID of the resource using this secret.
+            field_name: Environment variable name for the secret.
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
+            is_shared: Whether the secret can be reused across resources.
+            created_by: User ID creating the secret.
+            provider: LLM provider identifier (e.g., "anthropic", "openai").
+            auth_config: Optional provider-specific authentication configuration.
+            route_name: Optional display name for the route.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
+
+        Returns:
+            SecretWithRouteAndBinding entity containing the created secret, route, and binding.
+        """
+        if isinstance(secret_value, dict):
+            secret_value_str = json.dumps(secret_value)
+        else:
+            secret_value_str = secret_value
+
+        auth_config_str = None
+        if auth_config is not None:
+            auth_config_str = json.dumps(auth_config)
+
+        route_tags_str = None
+        if route_tags is not None:
+            route_tags_str = json.dumps(route_tags)
+
+        req_body = message_to_json(
+            CreateAndBindSecret(
+                secret_name=secret_name,
+                secret_value=secret_value_str,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                is_shared=is_shared,
+                created_by=created_by,
+                provider=provider,
+                auth_config=auth_config_str,
+                model_name=model_name,
+                route_name=route_name,
+                route_description=route_description,
+                route_tags=route_tags_str,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateAndBindSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/create-and-bind",
+        )
+        secret = Secret.from_proto(response_proto.secret)
+        route = SecretRoute.from_proto(response_proto.route)
+        binding = SecretBinding.from_proto(response_proto.binding)
+        return SecretWithRouteAndBinding(secret=secret, route=route, binding=binding)
+
+    def _create_route_and_bind(
+        self,
+        secret_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+        created_by: str | None = None,
+    ) -> SecretWithRouteAndBinding:
+        """
+        Create a new route and binding for an existing secret.
+
+        This enables reusing a single API key (secret) across multiple model configurations.
+
+        Args:
+            secret_id: ID of the existing secret to use.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: ID of the resource using this route.
+            field_name: Environment variable name for the secret.
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
+            route_name: Optional display name for the route.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
+            created_by: User ID creating the route and binding.
+
+        Returns:
+            SecretWithRouteAndBinding entity containing the secret, new route, and new binding.
+        """
+        route_tags_str = None
+        if route_tags is not None:
+            route_tags_str = json.dumps(route_tags)
+
+        req_body = message_to_json(
+            CreateRouteAndBind(
+                secret_id=secret_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                model_name=model_name,
+                route_name=route_name,
+                route_description=route_description,
+                route_tags=route_tags_str,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateRouteAndBind,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/create-route-and-bind",
+        )
+        secret = Secret.from_proto(response_proto.secret)
+        route = SecretRoute.from_proto(response_proto.route)
+        binding = SecretBinding.from_proto(response_proto.binding)
+        return SecretWithRouteAndBinding(secret=secret, route=route, binding=binding)
+
+    def _get_secret_info(self, secret_id: str) -> Secret:
+        """
+        Get metadata for a secret.
+
+        Args:
+            secret_id: ID of the secret to retrieve.
+
+        Returns:
+            Secret entity with metadata (excludes the actual secret value).
+        """
+        req_body = message_to_json(GetSecretInfo(secret_id=secret_id))
+        response_proto = self._call_endpoint(
+            GetSecretInfo,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/get-info",
+        )
+        return Secret.from_proto(response_proto.secret)
+
+    def _update_secret(
+        self,
+        secret_id: str,
+        secret_value: str | dict[str, Any],
+        updated_by: str | None = None,
+        auth_config: dict[str, Any] | None = None,
+    ) -> Secret:
+        """
+        Update the value of an existing secret.
+
+        Args:
+            secret_id: ID of the secret to update.
+            secret_value: New secret value. Can be:
+                - String: API key/token for simple providers
+                - Dict: JSON credentials for complex providers (e.g., Vertex AI)
+            updated_by: User ID updating the secret.
+            auth_config: Optional updated provider-specific authentication configuration.
+                If provided, replaces the existing auth_config. If None, auth_config is unchanged.
+
+        Returns:
+            Updated Secret entity.
+        """
+        if isinstance(secret_value, dict):
+            secret_value_str = json.dumps(secret_value)
+        else:
+            secret_value_str = secret_value
+
+        auth_config_str = None
+        if auth_config is not None:
+            auth_config_str = json.dumps(auth_config)
+
+        req_body = message_to_json(
+            UpdateSecret(
+                secret_id=secret_id,
+                secret_value=secret_value_str,
+                updated_by=updated_by,
+                auth_config=auth_config_str,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/update",
+        )
+        return Secret.from_proto(response_proto.secret)
+
+    def _delete_secret(self, secret_id: str) -> None:
+        """
+        Delete a secret and all its bindings.
+
+        Args:
+            secret_id: ID of the secret to delete.
+        """
+        req_body = message_to_json(DeleteSecret(secret_id=secret_id))
+        self._call_endpoint(
+            DeleteSecret,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/delete",
+        )
+
+    def _list_secrets(self, is_shared: bool | None = None) -> list[Secret]:
+        """
+        List all secrets with optional filtering and binding counts.
+
+        Args:
+            is_shared: Optional filter for secret sharing status:
+                - True: Return only shared secrets (can be bound to multiple resources)
+                - False: Return only private secrets (single resource binding)
+                - None: Return all secrets (default)
+
+        Returns:
+            List of Secret entities with binding_count populated.
+        """
+        req_body = message_to_json(ListSecrets(is_shared=is_shared))
+        response_proto = self._call_endpoint(ListSecrets, req_body)
+        return [Secret.from_proto(secret) for secret in response_proto.secrets]
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+        route_id: str | None = None,
+    ) -> list[SecretBindingListItem]:
+        """
+        List secret bindings filtered by optional criteria.
+
+        Args:
+            secret_id: Filter by secret ID.
+            resource_type: Filter by resource type.
+            resource_id: Filter by resource ID.
+            route_id: Filter by route ID.
+
+        Returns:
+            List of SecretBindingListItem entities matching the filters.
+        """
+        req_body = message_to_json(
+            ListSecretBindings(
+                secret_id=secret_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                route_id=route_id,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListSecretBindings,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/list-bindings",
+        )
+        return [SecretBindingListItem.from_proto(b) for b in response_proto.bindings]
+
+    def _list_secret_routes(
+        self,
+        secret_id: str | None = None,
+        provider: str | None = None,
+    ) -> list[SecretRouteListItem]:
+        """
+        List secret routes filtered by optional criteria.
+
+        Args:
+            secret_id: Filter by secret ID.
+            provider: Filter by provider.
+
+        Returns:
+            List of SecretRouteListItem entities matching the filters.
+        """
+        req_body = message_to_json(
+            ListSecretRoutes(
+                secret_id=secret_id,
+                provider=provider,
+            )
+        )
+        response_proto = self._call_endpoint(
+            ListSecretRoutes,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/list-routes",
+        )
+        return [SecretRouteListItem.from_proto(r) for r in response_proto.routes]
+
+    def _delete_secret_route(self, route_id: str) -> None:
+        """
+        Delete a secret route.
+
+        Args:
+            route_id: ID of the route to delete.
+        """
+        req_body = message_to_json(DeleteSecretRoute(route_id=route_id))
+        self._call_endpoint(
+            DeleteSecretRoute,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/routes/delete",
+        )
+
+    def _bind_secret_route(
+        self,
+        route_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+    ) -> SecretBinding:
+        """
+        Bind a secret route to a resource.
+
+        Args:
+            route_id: ID of the route to bind.
+            resource_type: Type of resource to bind to.
+            resource_id: ID of the resource to bind to.
+            field_name: Environment variable name for the binding.
+
+        Returns:
+            The created SecretBinding entity.
+        """
+        req_body = message_to_json(
+            BindSecretRoute(
+                route_id=route_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+            )
+        )
+        response_proto = self._call_endpoint(
+            BindSecretRoute,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/bind-route",
+        )
+        return SecretBinding.from_proto(response_proto.binding)
+
+    def _delete_secret_binding(self, binding_id: str) -> None:
+        """
+        Delete a secret binding.
+
+        Args:
+            binding_id: ID of the binding to delete.
+        """
+        req_body = message_to_json(DeleteSecretBinding(binding_id=binding_id))
+        self._call_endpoint(
+            DeleteSecretBinding,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/bindings/delete",
+        )
+
+    def set_secret_tag(self, secret_id: str, tag: SecretTag) -> None:
+        """
+        Set a tag on a secret.
+
+        Args:
+            secret_id: ID of the secret.
+            tag: SecretTag to set.
+        """
+        req_body = message_to_json(
+            SetSecretTag(
+                secret_id=secret_id,
+                key=tag.key,
+                value=tag.value,
+            )
+        )
+        self._call_endpoint(
+            SetSecretTag,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/set-tag",
+        )
+
+    def delete_secret_tag(self, secret_id: str, key: str) -> None:
+        """
+        Delete a tag from a secret.
+
+        Args:
+            secret_id: ID of the secret.
+            key: Tag key to delete.
+        """
+        req_body = message_to_json(
+            DeleteSecretTag(
+                secret_id=secret_id,
+                key=key,
+            )
+        )
+        self._call_endpoint(
+            DeleteSecretTag,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/delete-tag",
+        )
+
+    def set_secret_route_tag(self, route_id: str, tag: SecretRouteTag) -> None:
+        """
+        Set a tag on a secret route.
+
+        Args:
+            route_id: ID of the route.
+            tag: SecretRouteTag to set.
+        """
+        req_body = message_to_json(
+            SetSecretRouteTag(
+                route_id=route_id,
+                key=tag.key,
+                value=tag.value,
+            )
+        )
+        self._call_endpoint(
+            SetSecretRouteTag,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/routes/set-tag",
+        )
+
+    def delete_secret_route_tag(self, route_id: str, key: str) -> None:
+        """
+        Delete a tag from a secret route.
+
+        Args:
+            route_id: ID of the route.
+            key: Tag key to delete.
+        """
+        req_body = message_to_json(
+            DeleteSecretRouteTag(
+                route_id=route_id,
+                key=key,
+            )
+        )
+        self._call_endpoint(
+            DeleteSecretRouteTag,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/routes/delete-tag",
         )
 
     ############################################################################################

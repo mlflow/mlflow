@@ -1558,6 +1558,190 @@ service MlflowService {
       rpc_doc_title: "Remove Dataset from Experiments"
     };
   }
+
+  // Atomically create a secret and bind it to a resource.
+  // This ensures every secret has at least one binding and prevents orphaned secrets.
+  //
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if a secret with the given name already exists.
+  // Throws ``INVALID_PARAMETER_VALUE`` if the resource_type or field_name are invalid.
+  rpc createAndBindSecret (CreateAndBindSecret) returns (CreateAndBindSecret.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/secrets/create-and-bind"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Create and Bind Secret",
+    };
+  }
+
+  // Create a new route and binding for an existing secret.
+  //
+  // This enables reusing a single API key (secret) across multiple model configurations.
+  // For example, one OpenAI API key can be used with multiple routes for different models.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
+  // Throws ``INVALID_PARAMETER_VALUE`` if the secret is not shared.
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
+  rpc createRouteAndBind (CreateRouteAndBind) returns (CreateRouteAndBind.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/secrets/create-route-and-bind"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Create Route and Bind",
+    };
+  }
+
+  // Get secret metadata by ID (does not return the encrypted value).
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
+  rpc getSecretInfo (GetSecretInfo) returns (GetSecretInfo.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/secrets/get-info"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Get Secret Info",
+    };
+  }
+
+  // Update an existing secret's value (key rotation).
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
+  rpc updateSecret (UpdateSecret) returns (UpdateSecret.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/secrets/update"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Update Secret",
+    };
+  }
+
+  // Delete a secret and all its bindings.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
+  rpc deleteSecret (DeleteSecret) returns (DeleteSecret.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/secrets/delete"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Secret",
+    };
+  }
+
+  // Remove a secret binding from a resource.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the binding does not exist.
+  // Throws ``INVALID_PARAMETER_VALUE`` if trying to unbind a private secret or the last binding.
+  rpc unbindSecret (UnbindSecret) returns (UnbindSecret.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/secrets/unbind"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Unbind Secret",
+    };
+  }
+
+  // List all secrets with optional filtering.
+  rpc listSecrets (ListSecrets) returns (ListSecrets.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/secrets/list"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Secrets",
+    };
+  }
+
+  // List secret bindings with optional filters.
+  rpc listSecretBindings (ListSecretBindings) returns (ListSecretBindings.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/secrets/list-bindings"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Secret Bindings",
+    };
+  }
+
+  // List secret routes with optional filters.
+  rpc listSecretRoutes (ListSecretRoutes) returns (ListSecretRoutes.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/secrets/list-routes"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "List Secret Routes",
+    };
+  }
+
+  // Delete a secret route.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
+  // Throws ``INVALID_STATE`` if the route has active bindings.
+  rpc deleteSecretRoute (DeleteSecretRoute) returns (DeleteSecretRoute.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/secrets/routes/delete"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Secret Route",
+    };
+  }
+
+  // Bind a secret route to a resource.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
+  rpc bindSecretRoute (BindSecretRoute) returns (BindSecretRoute.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/secrets/bind-route"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Bind Secret Route",
+    };
+  }
+
+  // Delete a secret binding.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the binding does not exist.
+  rpc deleteSecretBinding (DeleteSecretBinding) returns (DeleteSecretBinding.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/secrets/bindings/delete"
+        since { major: 3, minor: 0 },
+      }],
+      visibility: PUBLIC,
+      rpc_doc_title: "Delete Secret Binding",
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -3571,4 +3755,424 @@ message Scorer {
   optional int64 creation_time = 5;
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
+}
+
+// ========== Secrets Management APIs ==========
+
+// Secret entity representing a secret in the database.
+message Secret {
+  // Unique identifier for the secret (UUID).
+  optional string secret_id = 1;
+  // Name of the secret.
+  optional string secret_name = 2;
+  // Masked value for display purposes (e.g., "sk-...xyz123").
+  // This is NOT the actual secret value.
+  optional string masked_value = 3;
+  // Whether this secret can be shared across resources.
+  optional bool is_shared = 4;
+  // Creation timestamp in milliseconds since UNIX epoch.
+  optional int64 created_at = 5;
+  // Last update timestamp in milliseconds since UNIX epoch.
+  optional int64 last_updated_at = 6;
+  // User ID who created the secret.
+  optional string created_by = 7;
+  // User ID who last updated the secret.
+  optional string last_updated_by = 8;
+  // Number of resource bindings for this secret (only populated in list responses).
+  // For private secrets (is_shared=false), this will always be 1.
+  // For shared secrets (is_shared=true), this reflects the actual count.
+  optional int32 binding_count = 9;
+  // LLM provider identifier (e.g., "anthropic", "openai", "cohere").
+  // Used for gateway model metadata.
+  optional string provider = 10;
+  // LLM model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo").
+  // Used for gateway model metadata.
+  optional string model = 11;
+}
+
+// Secret route entity representing a route configuration for an LLM provider.
+message SecretRoute {
+  // Unique identifier for the route (UUID).
+  optional string route_id = 1;
+  // Secret ID this route uses.
+  optional string secret_id = 2;
+  // Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo").
+  optional string model_name = 3;
+  // Creation timestamp in milliseconds since UNIX epoch.
+  optional int64 created_at = 4;
+  // Last update timestamp in milliseconds since UNIX epoch.
+  optional int64 last_updated_at = 5;
+  // Optional display name for the route.
+  optional string name = 6;
+  // Optional description for the route.
+  optional string description = 7;
+  // User ID who created the route.
+  optional string created_by = 8;
+  // User ID who last updated the route.
+  optional string last_updated_by = 9;
+  // Route tags.
+  repeated SecretRouteTag tags = 10;
+  // Display fields populated by list operations (from joined secret table)
+  optional string secret_name = 11;
+  optional string provider = 12;
+}
+
+// Tag for a secret.
+message SecretTag {
+  // Tag key (e.g., "environment", "team", "cost-center").
+  optional string key = 1;
+  // Tag value.
+  optional string value = 2;
+}
+
+// Tag for a secret route.
+message SecretRouteTag {
+  // Tag key (e.g., "deployment", "model_version", "region").
+  optional string key = 1;
+  // Tag value.
+  optional string value = 2;
+}
+
+// Secret binding entity representing a binding between a route and a resource.
+message SecretBinding {
+  // Unique identifier for the binding (UUID).
+  optional string binding_id = 1;
+  // Route ID this binding references.
+  optional string route_id = 2;
+  // Type of resource (e.g., "SCORER_JOB", "GLOBAL").
+  optional string resource_type = 3;
+  // ID of the resource using this secret.
+  optional string resource_id = 4;
+  // Environment variable name for the secret (e.g., "OPENAI_API_KEY").
+  optional string field_name = 5;
+  // Creation timestamp in milliseconds since UNIX epoch.
+  optional int64 created_at = 6;
+  // Last update timestamp in milliseconds since UNIX epoch.
+  optional int64 last_updated_at = 7;
+  // User ID who created the binding.
+  optional string created_by = 8;
+  // User ID who last updated the binding.
+  optional string last_updated_by = 9;
+  // Display fields populated by list operations (from joined secret and route tables)
+  optional string secret_id = 10;
+  optional string secret_name = 11;
+  optional string route_name = 12;
+  optional string provider = 13;
+}
+
+// Result of atomically creating a secret with its initial binding.
+// DEPRECATED: Use SecretWithRouteAndBinding instead.
+message SecretWithBinding {
+  // The created secret metadata.
+  optional Secret secret = 1;
+  // The initial binding for the secret.
+  optional SecretBinding binding = 2;
+}
+
+// Result of atomically creating a gateway asset (secret + route + binding).
+message SecretWithRouteAndBinding {
+  // The created secret metadata.
+  optional Secret secret = 1;
+  // The created route configuration.
+  optional SecretRoute route = 2;
+  // The initial binding for the route.
+  optional SecretBinding binding = 3;
+}
+
+// Atomically create a secret and bind it to a resource.
+// This ensures every secret always has at least one binding.
+message CreateAndBindSecret {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Name of the secret.
+  optional string secret_name = 1;
+  // Plaintext secret value - will be encrypted server-side before storage.
+  // Can be a string (API key) or JSON-encoded dict (service account credentials).
+  // WARNING: This value is transmitted over the wire and MUST use HTTPS.
+  optional string secret_value = 2;
+  // Type of resource (e.g., "SCORER_JOB").
+  optional string resource_type = 3;
+  // ID of the resource.
+  optional string resource_id = 4;
+  // Environment variable name (e.g., "OPENAI_API_KEY").
+  optional string field_name = 5;
+  // Whether this secret can be shared across resources.
+  optional bool is_shared = 6 [default = false];
+  // User ID creating the secret.
+  optional string created_by = 7;
+  // LLM provider identifier (e.g., "anthropic", "openai", "cohere").
+  optional string provider = 8;
+  // Optional provider-specific authentication configuration (JSON-encoded).
+  // Used for additional configuration beyond the primary credential:
+  // - Azure OpenAI: {"azure_endpoint": "...", "api_version": "..."}
+  // - AWS Bedrock: {"aws_access_key_id": "...", "region": "..."}
+  // - Vertex AI: {"project_id": "...", "location": "..."}
+  optional string auth_config = 9;
+  // Model identifier for the route (e.g., "gpt-4-turbo", "claude-3-5-sonnet-20241022").
+  // Required.
+  optional string model_name = 10;
+  // Optional display name for the route. If not provided, model_name is used.
+  optional string route_name = 11;
+  // Optional description for the route.
+  optional string route_description = 12;
+  // Optional route tags (JSON-encoded array of {"key": "...", "value": "..."} objects).
+  optional string route_tags = 13;
+
+  message Response {
+    // The created secret metadata.
+    optional Secret secret = 1;
+    // The created route configuration.
+    optional SecretRoute route = 2;
+    // The initial binding for the route.
+    optional SecretBinding binding = 3;
+  }
+}
+
+// Create a new route and binding for an existing secret.
+message CreateRouteAndBind {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the existing secret to use.
+  optional string secret_id = 1;
+  // Type of resource (e.g., "SCORER_JOB").
+  optional string resource_type = 2;
+  // ID of the resource.
+  optional string resource_id = 3;
+  // Environment variable name (e.g., "OPENAI_API_KEY").
+  optional string field_name = 4;
+  // Model identifier for the route (e.g., "gpt-4-turbo", "claude-3-5-sonnet-20241022").
+  // Required.
+  optional string model_name = 5;
+  // Optional display name for the route. If not provided, model_name is used.
+  optional string route_name = 6;
+  // Optional description for the route.
+  optional string route_description = 7;
+  // Optional route tags (JSON-encoded array of {"key": "...", "value": "..."} objects).
+  optional string route_tags = 8;
+  // User ID creating the route and binding.
+  optional string created_by = 9;
+
+  message Response {
+    // The existing secret metadata.
+    optional Secret secret = 1;
+    // The created route configuration.
+    optional SecretRoute route = 2;
+    // The created binding for the route.
+    optional SecretBinding binding = 3;
+  }
+}
+
+// Get secret metadata by ID (does not return encrypted value).
+message GetSecretInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the secret to retrieve.
+  optional string secret_id = 1;
+
+  message Response {
+    // The secret metadata.
+    optional Secret secret = 1;
+  }
+}
+
+// Update an existing secret's value (key rotation).
+message UpdateSecret {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the secret to update.
+  optional string secret_id = 1;
+  // New plaintext secret value - will be encrypted server-side before storage.
+  // Can be a string (API key) or JSON-encoded dict (service account credentials).
+  // WARNING: This value is transmitted over the wire and MUST use HTTPS.
+  optional string secret_value = 2;
+  // User ID updating the secret.
+  optional string updated_by = 3;
+  // Optional updated provider-specific authentication configuration (JSON-encoded).
+  // If provided, replaces the existing auth_config. If not provided, auth_config is unchanged.
+  optional string auth_config = 4;
+
+  message Response {
+    // The updated secret metadata.
+    optional Secret secret = 1;
+  }
+}
+
+// Delete a secret and all its bindings.
+message DeleteSecret {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the secret to delete.
+  optional string secret_id = 1;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Remove a secret binding from a resource.
+message UnbindSecret {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Type of resource (e.g., "SCORER_JOB").
+  optional string resource_type = 1;
+  // ID of the resource.
+  optional string resource_id = 2;
+  // Environment variable name to unbind.
+  optional string field_name = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// List all secrets with optional filtering.
+// Returns lightweight secret metadata with binding counts for UI display.
+message ListSecrets {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Optional filter by is_shared status.
+  // If true, return only shared secrets.
+  // If false, return only private secrets.
+  // If not provided, return all secrets.
+  optional bool is_shared = 1;
+
+  message Response {
+    // List of secrets with binding counts populated.
+    repeated Secret secrets = 1;
+  }
+}
+
+// List secret bindings with optional filters.
+message ListSecretBindings {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Optional filter by secret ID.
+  optional string secret_id = 1;
+  // Optional filter by resource type.
+  optional string resource_type = 2;
+  // Optional filter by resource ID.
+  optional string resource_id = 3;
+  // Optional filter by route ID.
+  optional string route_id = 4;
+
+  message Response {
+    // List of bindings matching the filters.
+    repeated SecretBinding bindings = 1;
+  }
+}
+
+// List secret routes.
+message ListSecretRoutes {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Optional filter by secret ID.
+  optional string secret_id = 1;
+  // Optional filter by provider.
+  optional string provider = 2;
+
+  message Response {
+    // List of routes matching the filters.
+    repeated SecretRoute routes = 1;
+  }
+}
+
+// Delete a secret route.
+message DeleteSecretRoute {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the route to delete.
+  optional string route_id = 1;
+
+  message Response {
+  }
+}
+
+// Bind a secret route to a resource.
+message BindSecretRoute {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the route to bind.
+  optional string route_id = 1;
+  // Type of resource to bind to.
+  optional string resource_type = 2;
+  // ID of the resource to bind to.
+  optional string resource_id = 3;
+  // Environment variable name for the binding.
+  optional string field_name = 4;
+
+  message Response {
+    // The created binding.
+    optional SecretBinding binding = 1;
+  }
+}
+
+// Delete a secret binding.
+message DeleteSecretBinding {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the binding to delete.
+  optional string binding_id = 1;
+
+  message Response {
+  }
+}
+
+// Set a tag on a secret.
+message SetSecretTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the secret.
+  optional string secret_id = 1;
+  // Tag key.
+  optional string key = 2;
+  // Tag value.
+  optional string value = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Delete a tag from a secret.
+message DeleteSecretTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the secret.
+  optional string secret_id = 1;
+  // Tag key to delete.
+  optional string key = 2;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Set a tag on a secret route.
+message SetSecretRouteTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the route.
+  optional string route_id = 1;
+  // Tag key.
+  optional string key = 2;
+  // Tag value.
+  optional string value = 3;
+
+  message Response {
+    // Empty response.
+  }
+}
+
+// Delete a tag from a secret route.
+message DeleteSecretRouteTag {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the route.
+  optional string route_id = 1;
+  // Tag key to delete.
+  optional string key = 2;
+
+  message Response {
+    // Empty response.
+  }
 }

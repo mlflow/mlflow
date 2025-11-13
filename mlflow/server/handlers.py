@@ -98,11 +98,14 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
+    BindSecretRoute,
     CalculateTraceFilterCorrelation,
+    CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
     CreateLoggedModel,
+    CreateRouteAndBind,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
@@ -113,6 +116,11 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModelTag,
     DeleteRun,
     DeleteScorer,
+    DeleteSecret,
+    DeleteSecretBinding,
+    DeleteSecretRoute,
+    DeleteSecretRouteTag,
+    DeleteSecretTag,
     DeleteTag,
     DeleteTraces,
     DeleteTracesV3,
@@ -131,6 +139,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistoryBulkInterval,
     GetRun,
     GetScorer,
+    GetSecretInfo,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -138,6 +147,9 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
+    ListSecretRoutes,
+    ListSecrets,
     LogBatch,
     LogInputs,
     LogLoggedModelParamsRequest,
@@ -160,6 +172,8 @@ from mlflow.protos.service_pb2 import (
     SetDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
+    SetSecretRouteTag,
+    SetSecretTag,
     SetTag,
     SetTraceTag,
     SetTraceTagV3,
@@ -168,6 +182,7 @@ from mlflow.protos.service_pb2 import (
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
+    UpdateSecret,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3707,6 +3722,416 @@ def _delete_scorer():
     return response
 
 
+# =============================================================================
+# Secrets Management Handlers
+# =============================================================================
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_and_bind_secret():
+    request_message = _get_request_message(
+        CreateAndBindSecret(),
+        schema={
+            "secret_name": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+            "model_name": [_assert_required, _assert_string],
+            "is_shared": [_assert_bool],
+            "created_by": [_assert_string],
+            "provider": [_assert_string],
+            "auth_config": [_assert_string],
+            "route_name": [_assert_string],
+            "route_description": [_assert_string],
+            "route_tags": [_assert_string],
+        },
+    )
+
+    secret_value = request_message.secret_value
+    try:
+        secret_value = json.loads(secret_value)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    auth_config = None
+    if request_message.HasField("auth_config"):
+        try:
+            auth_config = json.loads(request_message.auth_config)
+        except (json.JSONDecodeError, TypeError):
+            raise MlflowException(
+                "auth_config must be a valid JSON object",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    route_tags = None
+    if request_message.HasField("route_tags"):
+        try:
+            route_tags = json.loads(request_message.route_tags)
+        except (json.JSONDecodeError, TypeError):
+            raise MlflowException(
+                "route_tags must be a valid JSON array",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    result = _get_tracking_store()._create_and_bind_secret(
+        secret_name=request_message.secret_name,
+        secret_value=secret_value,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+        model_name=request_message.model_name,
+        is_shared=request_message.is_shared if request_message.HasField("is_shared") else False,
+        created_by=request_message.created_by if request_message.HasField("created_by") else None,
+        provider=request_message.provider if request_message.HasField("provider") else None,
+        auth_config=auth_config,
+        route_name=request_message.route_name if request_message.HasField("route_name") else None,
+        route_description=request_message.route_description
+        if request_message.HasField("route_description")
+        else None,
+        route_tags=route_tags,
+    )
+
+    response_message = CreateAndBindSecret.Response()
+    response_message.secret.CopyFrom(result.secret.to_proto())
+    response_message.route.CopyFrom(result.route.to_proto())
+    response_message.binding.CopyFrom(result.binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_route_and_bind():
+    request_message = _get_request_message(
+        CreateRouteAndBind(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+            "model_name": [_assert_required, _assert_string],
+            "route_name": [_assert_string],
+            "route_description": [_assert_string],
+            "route_tags": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+
+    route_tags = None
+    if request_message.HasField("route_tags"):
+        try:
+            route_tags = json.loads(request_message.route_tags)
+        except (json.JSONDecodeError, TypeError):
+            raise MlflowException(
+                "route_tags must be a valid JSON array",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    result = _get_tracking_store()._create_route_and_bind(
+        secret_id=request_message.secret_id,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+        model_name=request_message.model_name,
+        route_name=request_message.route_name if request_message.HasField("route_name") else None,
+        route_description=request_message.route_description
+        if request_message.HasField("route_description")
+        else None,
+        route_tags=route_tags,
+        created_by=request_message.created_by if request_message.HasField("created_by") else None,
+    )
+
+    response_message = CreateRouteAndBind.Response()
+    response_message.secret.CopyFrom(result.secret.to_proto())
+    response_message.route.CopyFrom(result.route.to_proto())
+    response_message.binding.CopyFrom(result.binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_secret_info():
+    request_message = _get_request_message(
+        GetSecretInfo(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+
+    secret = _get_tracking_store()._get_secret_info(secret_id=request_message.secret_id)
+
+    response_message = GetSecretInfo.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secrets():
+    request_message = _get_request_message(ListSecrets())
+
+    is_shared = request_message.is_shared if request_message.HasField("is_shared") else None
+    secrets = _get_tracking_store()._list_secrets(is_shared=is_shared)
+
+    response_message = ListSecrets.Response()
+    for secret in secrets:
+        response_message.secrets.add().CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_secret():
+    request_message = _get_request_message(
+        UpdateSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "secret_value": [_assert_required, _assert_string],
+            "updated_by": [_assert_string],
+            "auth_config": [_assert_string],
+        },
+    )
+
+    secret_value = request_message.secret_value
+    try:
+        secret_value = json.loads(secret_value)
+    except (json.JSONDecodeError, TypeError):
+        pass
+
+    auth_config = None
+    if request_message.HasField("auth_config"):
+        try:
+            auth_config = json.loads(request_message.auth_config)
+        except (json.JSONDecodeError, TypeError):
+            raise MlflowException(
+                "auth_config must be a valid JSON object",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    secret = _get_tracking_store()._update_secret(
+        secret_id=request_message.secret_id,
+        secret_value=secret_value,
+        updated_by=request_message.updated_by if request_message.HasField("updated_by") else None,
+        auth_config=auth_config,
+    )
+
+    response_message = UpdateSecret.Response()
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret():
+    request_message = _get_request_message(
+        DeleteSecret(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store()._delete_secret(secret_id=request_message.secret_id)
+
+    response_message = DeleteSecret.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secret_bindings():
+    request_message = _get_request_message(
+        ListSecretBindings(),
+        schema={
+            "secret_id": [_assert_string],
+            "resource_type": [_assert_string],
+            "resource_id": [_assert_string],
+            "route_id": [_assert_string],
+        },
+    )
+
+    bindings = _get_tracking_store()._list_secret_bindings(
+        secret_id=request_message.secret_id if request_message.HasField("secret_id") else None,
+        resource_type=request_message.resource_type
+        if request_message.HasField("resource_type")
+        else None,
+        resource_id=request_message.resource_id
+        if request_message.HasField("resource_id")
+        else None,
+        route_id=request_message.route_id if request_message.HasField("route_id") else None,
+    )
+
+    response_message = ListSecretBindings.Response()
+    for binding in bindings:
+        response_message.bindings.add().CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_secret_tag():
+    request_message = _get_request_message(
+        SetSecretTag(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_string],
+        },
+    )
+
+    from mlflow.entities import SecretTag
+
+    _get_tracking_store().set_secret_tag(
+        secret_id=request_message.secret_id,
+        tag=SecretTag(key=request_message.key, value=request_message.value),
+    )
+
+    response_message = SetSecretTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret_tag():
+    request_message = _get_request_message(
+        DeleteSecretTag(),
+        schema={
+            "secret_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store().delete_secret_tag(
+        secret_id=request_message.secret_id,
+        key=request_message.key,
+    )
+
+    response_message = DeleteSecretTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _set_secret_route_tag():
+    request_message = _get_request_message(
+        SetSecretRouteTag(),
+        schema={
+            "route_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+            "value": [_assert_required, _assert_string],
+        },
+    )
+
+    from mlflow.entities import SecretRouteTag
+
+    _get_tracking_store().set_secret_route_tag(
+        route_id=request_message.route_id,
+        tag=SecretRouteTag(key=request_message.key, value=request_message.value),
+    )
+
+    response_message = SetSecretRouteTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret_route_tag():
+    request_message = _get_request_message(
+        DeleteSecretRouteTag(),
+        schema={
+            "route_id": [_assert_required, _assert_string],
+            "key": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store().delete_secret_route_tag(
+        route_id=request_message.route_id,
+        key=request_message.key,
+    )
+
+    response_message = DeleteSecretRouteTag.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_secret_routes():
+    request_message = _get_request_message(
+        ListSecretRoutes(),
+        schema={
+            "secret_id": [_assert_string],
+            "provider": [_assert_string],
+        },
+    )
+
+    routes = _get_tracking_store()._list_secret_routes(
+        secret_id=request_message.secret_id if request_message.HasField("secret_id") else None,
+        provider=request_message.provider if request_message.HasField("provider") else None,
+    )
+
+    response_message = ListSecretRoutes.Response()
+    for route in routes:
+        response_message.routes.add().CopyFrom(route.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret_route():
+    request_message = _get_request_message(
+        DeleteSecretRoute(),
+        schema={
+            "route_id": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store()._delete_secret_route(route_id=request_message.route_id)
+
+    response_message = DeleteSecretRoute.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _bind_secret_route():
+    request_message = _get_request_message(
+        BindSecretRoute(),
+        schema={
+            "route_id": [_assert_required, _assert_string],
+            "resource_type": [_assert_required, _assert_string],
+            "resource_id": [_assert_required, _assert_string],
+            "field_name": [_assert_required, _assert_string],
+        },
+    )
+
+    binding = _get_tracking_store()._bind_secret_route(
+        route_id=request_message.route_id,
+        resource_type=request_message.resource_type,
+        resource_id=request_message.resource_id,
+        field_name=request_message.field_name,
+    )
+
+    response_message = BindSecretRoute.Response()
+    response_message.binding.CopyFrom(binding.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_secret_binding():
+    request_message = _get_request_message(
+        DeleteSecretBinding(),
+        schema={
+            "binding_id": [_assert_required, _assert_string],
+        },
+    )
+
+    _get_tracking_store()._delete_secret_binding(binding_id=request_message.binding_id)
+
+    response_message = DeleteSecretBinding.Response()
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4118,4 +4543,20 @@ HANDLERS = {
     ListScorerVersions: _list_scorer_versions,
     GetScorer: _get_scorer,
     DeleteScorer: _delete_scorer,
+    # Secrets APIs
+    CreateAndBindSecret: _create_and_bind_secret,
+    CreateRouteAndBind: _create_route_and_bind,
+    GetSecretInfo: _get_secret_info,
+    ListSecrets: _list_secrets,
+    UpdateSecret: _update_secret,
+    DeleteSecret: _delete_secret,
+    ListSecretBindings: _list_secret_bindings,
+    ListSecretRoutes: _list_secret_routes,
+    DeleteSecretRoute: _delete_secret_route,
+    BindSecretRoute: _bind_secret_route,
+    DeleteSecretBinding: _delete_secret_binding,
+    SetSecretTag: _set_secret_tag,
+    DeleteSecretTag: _delete_secret_tag,
+    SetSecretRouteTag: _set_secret_route_tag,
+    DeleteSecretRouteTag: _delete_secret_route_tag,
 }

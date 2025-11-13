@@ -6,7 +6,19 @@ import pytest
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
-from mlflow.entities import ScorerVersion, Span, Trace, TraceData, TraceInfo, TraceState, ViewType
+from mlflow.entities import (
+    ScorerVersion,
+    Secret,
+    SecretBinding,
+    SecretRoute,
+    SecretWithRouteAndBinding,
+    Span,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceState,
+    ViewType,
+)
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -42,12 +54,17 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     BatchGetTraces,
+    BindSecret,
     CalculateTraceFilterCorrelation,
+    CreateAndBindSecret,
     CreateExperiment,
     DeleteScorer,
+    DeleteSecret,
     GetScorer,
+    GetSecretInfo,
     ListScorers,
     ListScorerVersions,
+    ListSecretBindings,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -55,6 +72,8 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     TraceLocation,
+    UnbindSecret,
+    UpdateSecret,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
 from mlflow.server import (
@@ -67,8 +86,10 @@ from mlflow.server.handlers import (
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
+    _bind_secret,
     _calculate_trace_filter_correlation,
     _convert_path_parameter_to_flask_format,
+    _create_and_bind_secret,
     _create_dataset_handler,
     _create_experiment,
     _create_model_version,
@@ -82,6 +103,7 @@ from mlflow.server.handlers import (
     _delete_registered_model_alias,
     _delete_registered_model_tag,
     _delete_scorer,
+    _delete_secret,
     _deprecated_search_traces_v2,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
@@ -93,9 +115,11 @@ from mlflow.server.handlers import (
     _get_registered_model,
     _get_request_message,
     _get_scorer,
+    _get_secret_info,
     _get_trace_artifact_repo,
     _list_scorer_versions,
     _list_scorers,
+    _list_secret_bindings,
     _list_webhooks,
     _log_batch,
     _register_scorer,
@@ -112,8 +136,10 @@ from mlflow.server.handlers import (
     _set_registered_model_alias,
     _set_registered_model_tag,
     _transition_stage,
+    _unbind_secret,
     _update_model_version,
     _update_registered_model,
+    _update_secret,
     _upsert_dataset_records_handler,
     _validate_source_run,
     catch_mlflow_exception,
@@ -1993,3 +2019,275 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     # Verify response was created
     assert response is not None
     assert response.status_code == 200
+
+
+def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = CreateAndBindSecret(
+        secret_name="my-openai-key",
+        secret_value="sk-test123456789",
+        resource_type="SCORER_JOB",
+        resource_id="job-abc123",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4-turbo",
+        route_name="Production GPT-4",
+        is_shared=False,
+        created_by="user@example.com",
+        provider="openai",
+    )
+
+    secret = Secret(
+        secret_id="secret-123",
+        secret_name="my-openai-key",
+        masked_value="sk-...789",
+        is_shared=False,
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="user@example.com",
+        last_updated_by="user@example.com",
+        provider="openai",
+    )
+    route = SecretRoute(
+        route_id="route-789",
+        secret_id="secret-123",
+        model_name="gpt-4-turbo",
+        name="Production GPT-4",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="user@example.com",
+        last_updated_by="user@example.com",
+    )
+    binding = SecretBinding(
+        binding_id="binding-456",
+        route_id="route-789",
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-abc123",
+        field_name="OPENAI_API_KEY",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="user@example.com",
+        last_updated_by="user@example.com",
+    )
+    result = SecretWithRouteAndBinding(secret=secret, route=route, binding=binding)
+
+    mock_tracking_store._create_and_bind_secret.return_value = result
+
+    resp = _create_and_bind_secret()
+
+    mock_tracking_store._create_and_bind_secret.assert_called_once_with(
+        secret_name="my-openai-key",
+        secret_value="sk-test123456789",
+        resource_type="SCORER_JOB",
+        resource_id="job-abc123",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4-turbo",
+        is_shared=False,
+        created_by="user@example.com",
+        provider="openai",
+        auth_config=None,
+        route_name="Production GPT-4",
+        route_description=None,
+        route_tags=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert "secret" in response_data
+    assert "route" in response_data
+    assert "binding" in response_data
+    assert response_data["secret"]["secret_id"] == "secret-123"
+    assert response_data["secret"]["provider"] == "openai"
+    assert response_data["route"]["route_id"] == "route-789"
+    assert response_data["route"]["model_name"] == "gpt-4-turbo"
+    assert response_data["route"]["name"] == "Production GPT-4"
+    assert response_data["binding"]["binding_id"] == "binding-456"
+    assert response_data["binding"]["route_id"] == "route-789"
+
+
+def test_get_secret_info(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = GetSecretInfo(secret_id="secret-123")
+
+    secret = Secret(
+        secret_id="secret-123",
+        secret_name="my-openai-key",
+        masked_value="sk-...789",
+        is_shared=True,
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+    )
+
+    mock_tracking_store._get_secret_info.return_value = secret
+
+    resp = _get_secret_info()
+
+    mock_tracking_store._get_secret_info.assert_called_once_with(secret_id="secret-123")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["secret"]["secret_id"] == "secret-123"
+
+
+def test_update_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = UpdateSecret(
+        secret_id="secret-123",
+        secret_value="sk-new-key-value",
+        updated_by="admin@example.com",
+    )
+
+    secret = Secret(
+        secret_id="secret-123",
+        secret_name="my-openai-key",
+        masked_value="sk-...lue",
+        is_shared=True,
+        created_at=1234567890000,
+        last_updated_at=1234567890999,
+        created_by="user@example.com",
+        last_updated_by="admin@example.com",
+    )
+
+    mock_tracking_store._update_secret.return_value = secret
+
+    resp = _update_secret()
+
+    mock_tracking_store._update_secret.assert_called_once_with(
+        secret_id="secret-123",
+        secret_value="sk-new-key-value",
+        updated_by="admin@example.com",
+        auth_config=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["secret"]["secret_id"] == "secret-123"
+
+
+def test_delete_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = DeleteSecret(secret_id="secret-123")
+
+    mock_tracking_store._delete_secret.return_value = None
+
+    resp = _delete_secret()
+
+    mock_tracking_store._delete_secret.assert_called_once_with(secret_id="secret-123")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_bind_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = BindSecret(
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-new",
+        field_name="OPENAI_API_KEY",
+        created_by="user@example.com",
+    )
+
+    secret = Secret(
+        secret_id="secret-123",
+        secret_name="my-openai-key",
+        masked_value="sk-...xyz",
+        is_shared=True,
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+    )
+
+    route = SecretRoute(
+        route_id="route-123",
+        secret_id="secret-123",
+        model_name="gpt-4",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+    )
+
+    binding = SecretBinding(
+        binding_id="binding-new",
+        route_id="route-123",
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-new",
+        field_name="OPENAI_API_KEY",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="user@example.com",
+        last_updated_by="user@example.com",
+    )
+
+    result = SecretWithRouteAndBinding(secret=secret, route=route, binding=binding)
+
+    mock_tracking_store._bind_secret.return_value = result
+
+    resp = _bind_secret()
+
+    mock_tracking_store._bind_secret.assert_called_once_with(
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-new",
+        field_name="OPENAI_API_KEY",
+        created_by="user@example.com",
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["binding"]["binding_id"] == "binding-new"
+
+
+def test_unbind_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = UnbindSecret(
+        resource_type="SCORER_JOB",
+        resource_id="job-123",
+        field_name="OPENAI_API_KEY",
+    )
+
+    mock_tracking_store._unbind_secret.return_value = None
+
+    resp = _unbind_secret()
+
+    mock_tracking_store._unbind_secret.assert_called_once_with(
+        resource_type="SCORER_JOB",
+        resource_id="job-123",
+        field_name="OPENAI_API_KEY",
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = ListSecretBindings(
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-abc",
+    )
+
+    bindings = [
+        SecretBinding(
+            binding_id="binding-1",
+            route_id="route-1",
+            secret_id="secret-123",
+            resource_type="SCORER_JOB",
+            resource_id="job-abc",
+            field_name="OPENAI_API_KEY",
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+        SecretBinding(
+            binding_id="binding-2",
+            route_id="route-2",
+            secret_id="secret-123",
+            resource_type="SCORER_JOB",
+            resource_id="job-abc",
+            field_name="ANTHROPIC_API_KEY",
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+    ]
+
+    mock_tracking_store._list_secret_bindings.return_value = bindings
+
+    resp = _list_secret_bindings()
+
+    mock_tracking_store._list_secret_bindings.assert_called_once_with(
+        secret_id="secret-123",
+        resource_type="SCORER_JOB",
+        resource_id="job-abc",
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["bindings"]) == 2
