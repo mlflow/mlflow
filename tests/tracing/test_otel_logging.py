@@ -639,7 +639,6 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
     mlflow.set_tracking_uri(mlflow_server)
     mlflow.set_experiment("otel-telemetry-mlflow-client-test")
 
-    # Mock telemetry client to capture events
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
         mock_get_client.return_value = mock_client
@@ -651,10 +650,8 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
         result = test_function()
         assert result == "test result"
 
-        # Give time for async processing
         time.sleep(1)
 
-        # Verify telemetry shows source=MLFLOW
         if mock_client.add_record.called:
             record = mock_client.add_record.call_args[0][0]
             assert record.event_name == OtelTraceReceivedEvent.name
@@ -672,11 +669,9 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
     experiment_id = experiment.experiment_id
 
-    # Create a request with a root span and 2 child spans
     request = ExportTraceServiceRequest()
     trace_id_hex = "0000000000000100" + "0" * 16
 
-    # Root span (no parent_span_id)
     root_span = OTelProtoSpan()
     root_span.trace_id = bytes.fromhex(trace_id_hex)
     root_span.span_id = bytes.fromhex("00000001" + "0" * 8)
@@ -684,7 +679,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     root_span.start_time_unix_nano = 1000000000
     root_span.end_time_unix_nano = 2000000000
 
-    # Child span 1
     child_span_1 = OTelProtoSpan()
     child_span_1.trace_id = bytes.fromhex(trace_id_hex)
     child_span_1.span_id = bytes.fromhex("00000002" + "0" * 8)
@@ -693,7 +687,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     child_span_1.start_time_unix_nano = 1100000000
     child_span_1.end_time_unix_nano = 1500000000
 
-    # Child span 2
     child_span_2 = OTelProtoSpan()
     child_span_2.trace_id = bytes.fromhex(trace_id_hex)
     child_span_2.span_id = bytes.fromhex("00000003" + "0" * 8)
@@ -716,12 +709,10 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
     request.resource_spans.append(resource_spans)
 
-    # Mock telemetry client to capture events
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
         mock_get_client.return_value = mock_client
 
-        # Send the request WITHOUT MLflow client headers
         response = requests.post(
             f"{mlflow_server}/v1/traces",
             data=request.SerializeToString(),
@@ -734,7 +725,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
         assert response.status_code == 200
 
-        # Verify telemetry event was emitted
         mock_client.add_record.assert_called_once()
         record = mock_client.add_record.call_args[0][0]
 
