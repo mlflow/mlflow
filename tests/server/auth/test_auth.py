@@ -770,7 +770,7 @@ def test_scorer_read_permission(client, monkeypatch):
 
     _send_rest_tracking_post_request(
         client.tracking_uri,
-        "/api/2.0/mlflow/scorers/permissions/create",
+        "/api/3.0/mlflow/scorers/permissions/create",
         json_payload={
             "experiment_id": experiment_id,
             "scorer_name": scorer_name,

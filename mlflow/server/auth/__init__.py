@@ -295,7 +295,7 @@ def _get_permission_from_registered_model_name() -> Permission:
     )
 
 
-def _get_permission_from_scorer_id() -> Permission:
+def _get_permission_from_scorer_name() -> Permission:
     experiment_id = _get_request_param("experiment_id")
     name = _get_request_param("name")
     username = authenticate_request().username
@@ -398,19 +398,19 @@ def validate_can_manage_registered_model():
 
 # Scorers
 def validate_can_read_scorer():
-    return _get_permission_from_scorer_id().can_read
+    return _get_permission_from_scorer_name().can_read
 
 
 def validate_can_update_scorer():
-    return _get_permission_from_scorer_id().can_update
+    return _get_permission_from_scorer_name().can_update
 
 
 def validate_can_delete_scorer():
-    return _get_permission_from_scorer_id().can_delete
+    return _get_permission_from_scorer_name().can_delete
 
 
 def validate_can_manage_scorer():
-    return _get_permission_from_scorer_id().can_manage
+    return _get_permission_from_scorer_name().can_manage
 
 
 def validate_can_manage_scorer_permission():
