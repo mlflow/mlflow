@@ -190,30 +190,31 @@ def test_evaluate_traces_integration():
         """Simple scorer that always returns 1.0"""
         return 1.0
 
-    with mock.patch("mlflow.cli.eval.resolve_scorers", return_value=[simple_scorer]):
+    with mock.patch(
+        "mlflow.cli.eval.resolve_scorers", return_value=[simple_scorer]
+    ) as mock_resolve:
         evaluate_traces(
             experiment_id=experiment_id,
             trace_ids=",".join(trace_ids),
             scorers="simple_scorer",  # This will be intercepted by our mock
             output_format="table",
         )
+        mock_resolve.assert_called_once()
 
     # Verify that the evaluation results are correct
     # Get the traces and check that assessments were added
     traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
-    assert len(traces) == 3, f"Expected 3 traces, got {len(traces)}"
+    assert len(traces) == 3
 
     # Verify each trace has the assessment
     for trace in traces:
         assessments = trace.info.assessments
-        assert len(assessments) > 0, f"Trace {trace.info.trace_id} has no assessments"
+        assert len(assessments) > 0
 
         # Find the simple_scorer assessment
         scorer_assessments = [a for a in assessments if a.name == "simple_scorer"]
-        assert len(scorer_assessments) == 1, (
-            f"Expected 1 simple_scorer assessment, got {len(scorer_assessments)}"
-        )
+        assert len(scorer_assessments) == 1
 
         # Verify the assessment value
         assessment = scorer_assessments[0]
-        assert assessment.value == 1.0, f"Expected value 1.0, got {assessment.value}"
+        assert assessment.value == 1.0
