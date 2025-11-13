@@ -37,12 +37,12 @@ const getDefaultSplitRatio = (): number => {
 };
 
 export const ModelTraceExplorerDetailView = ({
-  modelTrace,
+  modelTraceInfo,
   className,
   selectedSpanId,
   onSelectSpan,
 }: {
-  modelTrace: ModelTrace;
+  modelTraceInfo: ModelTrace['info'];
   className?: string;
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
@@ -81,7 +81,7 @@ export const ModelTraceExplorerDetailView = ({
     setSelectedNode,
     setActiveTab,
     setExpandedKeys,
-    modelTraceInfo: modelTrace?.info,
+    modelTraceInfo,
   });
 
   const onSelectNode = (node?: ModelTraceSpanNode) => {

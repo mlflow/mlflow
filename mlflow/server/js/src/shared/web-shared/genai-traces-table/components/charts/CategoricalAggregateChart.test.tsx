@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
@@ -49,9 +50,12 @@ const mockTheme = {
 
 const mockIntl = {
   formatMessage: jest.fn((message, values) => {
+    // @ts-expect-error 'message' is of type 'unknown'
     if (message.defaultMessage === '+{count} more') {
+      // @ts-expect-error 'values' is of type 'unknown'
       return `+${values.count} more`;
     }
+    // @ts-expect-error 'message' is of type 'unknown'
     return message.defaultMessage || '';
   }),
 } as any;

@@ -1,6 +1,11 @@
-import { render, screen, within, waitForElementToBeRemoved } from '@testing-library/react';
+/* eslint-disable @typescript-eslint/no-unused-vars */
+/* eslint-disable import/no-duplicates */
+import { jest, beforeAll, afterAll, describe, it, expect } from '@jest/globals';
+import { render, screen, within, waitForElementToBeRemoved, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { cloneDeep } from 'lodash';
+import { rest } from 'msw';
+import { setupServer } from 'msw/node';
 
 import { DesignSystemProvider } from '@databricks/design-system';
 import { IntlProvider } from '@databricks/i18n';
@@ -26,8 +31,12 @@ jest.setTimeout(30000);
 // mock the scrollIntoView function to prevent errors
 window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
-jest.mock('./hooks/useGetModelTraceInfoV3', () => ({
-  useGetModelTraceInfoV3: jest.fn().mockReturnValue({
+jest.mock('./FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('./FeatureUtils')>('./FeatureUtils'),
+  shouldEnableTracesTabLabelingSchemas: jest.fn().mockReturnValue(false),
+}));
+jest.mock('./hooks/useGetModelTraceInfo', () => ({
+  useGetModelTraceInfo: jest.fn().mockReturnValue({
     refetch: jest.fn(),
   }),
 }));

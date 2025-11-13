@@ -1502,6 +1502,10 @@
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
   },
+  "D99bil": {
+    "defaultMessage": "An error occurred while rendering chat sessions.",
+    "description": "Description for default error message in the MLflow experiment chat sessions page"
+  },
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
@@ -1702,6 +1706,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
   },
+  "Fhrgrc": {
+    "defaultMessage": "Versions",
+    "description": "Label for the versions section in the MLflow experiment navbar"
+  },
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
@@ -1709,6 +1717,10 @@
   "FmKAee": {
     "defaultMessage": "Observability",
     "description": "Label for the observability section in the MLflow experiment navbar"
+  },
+  "FmyBAE": {
+    "defaultMessage": "Dataset used",
+    "description": "Run page > Overview > Run datasets section label"
   },
   "FnG9dP": {
     "defaultMessage": "Execution time",
@@ -1829,6 +1841,10 @@
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
+  },
+  "HLbyGb": {
+    "defaultMessage": "Show more",
+    "description": "Button text to show more description text for the entity"
   },
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
@@ -1977,10 +1993,6 @@
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
-  },
-  "Isaf66": {
-    "defaultMessage": "Details",
-    "description": "Run page > Overview > Details section title"
   },
   "Isig6r": {
     "defaultMessage": "Error loading shared view state: share key is invalid",
@@ -2205,6 +2217,10 @@
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
+  },
+  "LKH6uO": {
+    "defaultMessage": "Not registered",
+    "description": "Tag for not registered model on the logged model details page"
   },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -2446,6 +2462,10 @@
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
   },
+  "NyzPHY": {
+    "defaultMessage": "Expand description",
+    "description": "Aria label for button that expands a collapsed long description"
+  },
   "NzRvyj": {
     "defaultMessage": "Table settings",
     "description": "Run view > artifact view > logged table > table settings tooltip"
@@ -2541,6 +2561,10 @@
   "PKYh23": {
     "defaultMessage": "Additional runs",
     "description": "Experiment page > grouped runs table > label for group with additional, ungrouped runs"
+  },
+  "PKwacx": {
+    "defaultMessage": "No assessments available",
+    "description": "Message shown when there are no assessments to display in simplified view"
   },
   "PNfcez": {
     "defaultMessage": "Add row",
@@ -2645,6 +2669,10 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
+  "QXLV8h": {
+    "defaultMessage": "Error",
+    "description": "Title for error fallback component in the MLflow experiment chat sessions page"
+  },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
@@ -2748,6 +2776,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S3YY1P": {
+    "defaultMessage": "Span: {spanName}",
+    "description": "Label for the span name in assessment metadata"
   },
   "S5QeiE": {
     "defaultMessage": "Retry",
@@ -3244,6 +3276,10 @@
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
   },
+  "XBPcbA": {
+    "defaultMessage": "Show less",
+    "description": "Button text to show less description text for the entity"
+  },
   "XBtNVo": {
     "defaultMessage": "Experiments",
     "description": "Breadcrumb nav item to link to the list of experiments page"
@@ -3495,6 +3531,10 @@
     "defaultMessage": "Please use controls on the left to select images to be compared",
     "description": "Description for the empty state when user did not configure any images for preview yet"
   },
+  "Zpp8Ty": {
+    "defaultMessage": "Model registered",
+    "description": "Run page > Overview > Model registered section label"
+  },
   "ZqGzZd": {
     "defaultMessage": "Compare",
     "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
@@ -3643,6 +3683,10 @@
     "defaultMessage": "Add/edit alias for prompt version {version}",
     "description": "Title for the edit aliases modal on the registered prompt details page"
   },
+  "b1yfI9": {
+    "defaultMessage": "Run details",
+    "description": "Run page > Overview > Run details section heading"
+  },
   "b7OpMB": {
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
@@ -3654,10 +3698,6 @@
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
-  },
-  "bJpL0f": {
-    "defaultMessage": "An error occurred while rendering chat sessions.",
-    "description": "Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
   },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
@@ -3699,6 +3739,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "bdVsGZ": {
+    "defaultMessage": "Collapse description",
+    "description": "Aria label for button that collapses a long description"
+  },
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
@@ -3722,6 +3766,10 @@
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "by+x8N": {
+    "defaultMessage": "Type",
+    "description": "Run page > Overview > Experiment ID section label"
   },
   "bz4brG": {
     "defaultMessage": "Fail",
@@ -4602,10 +4650,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k4uWRg": {
-    "defaultMessage": "Versions",
-    "description": "Label for the prompts & versions section in the MLflow experiment navbar"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",
@@ -5702,6 +5746,10 @@
   "vlxeiA": {
     "defaultMessage": "Confirm",
     "description": "OK button text for confirmation pop-up to delete a tag from table\n                     in MLflow"
+  },
+  "vmiE+n": {
+    "defaultMessage": "Add description",
+    "description": "Run page > Overview > Description section > Add description button"
   },
   "vwDBPr": {
     "defaultMessage": "The run containing the dataset could not be found.",

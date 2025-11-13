@@ -9,7 +9,7 @@ import {
   SearchIcon,
   Spinner,
   Tag,
-  LegacyTooltip,
+  Tooltip,
   XCircleFillIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -20,7 +20,6 @@ import type { RunsGroupByConfig } from '../../utils/experimentPage.group-row-uti
 import { createRunsGroupByKey, isGroupedBy, normalizeRunsGroupByKey } from '../../utils/experimentPage.group-row-utils';
 import type { ExperimentRunsSelectorResult } from '../../utils/experimentRuns.selector';
 import { RunGroupingAggregateFunction, RunGroupingMode } from '../../utils/experimentPage.row-types';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../common/utils/FeatureUtils';
 
 export interface ExperimentViewRunsGroupBySelectorProps {
   runsData: ExperimentRunsSelectorResult;
@@ -124,7 +123,7 @@ const GroupBySelectorBody = ({
   // Autofocus won't work everywhere so let's focus input everytime the dropdown is opened
   useEffect(() => {
     requestAnimationFrame(() => {
-      inputElementRef.current.focus();
+      inputElementRef.current?.focus();
     });
   }, []);
 
@@ -201,9 +200,10 @@ const GroupBySelectorBody = ({
           }}
         />
         <DropdownMenu.Root>
-          <LegacyTooltip
-            placement="right"
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.runs-group-selector.aggregation"
+            side="right"
+            content={
               <FormattedMessage
                 {...messages.aggregationTooltip}
                 values={{
@@ -220,22 +220,18 @@ const GroupBySelectorBody = ({
                 aria-label="Change aggregation function"
               />
             </DropdownMenu.Trigger>
-          </LegacyTooltip>
+          </Tooltip>
           <DropdownMenu.Content align="start" side="right">
-            {shouldEnableToggleIndividualRunsInGroups() && (
-              <>
-                <DropdownMenu.CheckboxItem
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_233"
-                  disabled={!groupByKeys.length}
-                  checked={useGroupedValuesInCharts}
-                  onCheckedChange={onUseGroupedValuesInChartsChange}
-                >
-                  <DropdownMenu.ItemIndicator />
-                  Use grouping from the runs table in charts
-                </DropdownMenu.CheckboxItem>
-                <DropdownMenu.Separator />
-              </>
-            )}
+            <DropdownMenu.CheckboxItem
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_233"
+              disabled={!groupByKeys.length}
+              checked={useGroupedValuesInCharts}
+              onCheckedChange={onUseGroupedValuesInChartsChange}
+            >
+              <DropdownMenu.ItemIndicator />
+              Use grouping from the runs table in charts
+            </DropdownMenu.CheckboxItem>
+            <DropdownMenu.Separator />
             <DropdownMenu.RadioGroup
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsgroupbyselector.tsx_244"
               value={aggregateFunction}

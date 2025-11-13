@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { ModelsIcon, Overflow, Tag, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { ModelsIcon, Overflow, Tag, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import { ModelRegistryRoutes } from '../../../../../../model-registry/routes';
 import Routes from '../../../../../routes';
@@ -82,15 +82,22 @@ const ModelLink = ({
     }
     if (registeredModelName) {
       return (
-        <LegacyTooltip title={tooltipBody} placement="topLeft">
-          <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
-          <Tag
-            componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
-            css={{ marginRight: 0, verticalAlign: 'middle' }}
-          >
-            v{registeredModelVersion}
-          </Tag>
-        </LegacyTooltip>
+        <Tooltip
+          componentId="mlflow.experiment-tracking.models-cell.model-link"
+          content={tooltipBody}
+          side="top"
+          align="start"
+        >
+          <span>
+            <span css={{ verticalAlign: 'middle' }}>{registeredModelName}</span>{' '}
+            <Tag
+              componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_cells_modelscellrenderer.tsx_49"
+              css={{ marginRight: 0, verticalAlign: 'middle' }}
+            >
+              v{registeredModelVersion}
+            </Tag>
+          </span>
+        </Tooltip>
       );
     }
 

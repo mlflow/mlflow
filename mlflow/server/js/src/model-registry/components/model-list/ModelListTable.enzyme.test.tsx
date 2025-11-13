@@ -1,9 +1,11 @@
+import { jest, describe, beforeEach, it, expect, test } from '@jest/globals';
 import { MemoryRouter } from '../../../common/utils/RoutingUtils';
 import { getTableRowByCellText, getTableRows } from '@databricks/design-system/test-utils/enzyme';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { renderWithIntl, act, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { ModelListTableProps } from './ModelListTable';
 import { ModelListTable } from './ModelListTable';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 import { Stages } from '../../constants';
 import Utils from '../../../common/utils/Utils';
@@ -63,7 +65,9 @@ describe('ModelListTable', () => {
   const createComponentWrapper = (moreProps: Partial<ModelListTableProps> = {}) => {
     return mountWithIntl(
       <MemoryRouter>
-        <ModelListTable {...minimalProps} {...moreProps} />
+        <DesignSystemProvider>
+          <ModelListTable {...minimalProps} {...moreProps} />
+        </DesignSystemProvider>
       </MemoryRouter>,
     );
   };
@@ -167,8 +171,10 @@ describe('ModelListTable', () => {
     jest.mocked(shouldShowModelsNextUI).mockImplementation(() => true);
     const TestComponent = withNextModelsUIContext(() => (
       <MemoryRouter>
-        <ModelListTable {...minimalProps} />
-        <ModelsNextUIToggleSwitch />
+        <DesignSystemProvider>
+          <ModelListTable {...minimalProps} />
+          <ModelsNextUIToggleSwitch />
+        </DesignSystemProvider>
       </MemoryRouter>
     ));
     renderWithIntl(<TestComponent />);

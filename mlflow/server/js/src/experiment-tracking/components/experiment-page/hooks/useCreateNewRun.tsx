@@ -21,6 +21,13 @@ export const CreateNewRunContextProvider = ({
   visibleRuns: RunRowType[];
   refreshRuns: (() => Promise<never[]>) | (() => Promise<any> | null) | (() => void);
 }) => {
+  if (!shouldEnablePromptLab()) {
+    return <>{children}</>;
+  }
+  /**
+   * Feature flag evaluation is static in the session, so it's safe to call hooks conditionally
+   */
+  /* eslint-disable react-hooks/rules-of-hooks */
   const [isOpen, setIsOpen] = useState(false);
   const [runBeingDuplicated, setRunBeingDuplicated] = useState<RunRowType | null>(null);
 
@@ -37,15 +44,13 @@ export const CreateNewRunContextProvider = ({
   return (
     <CreateNewRunContext.Provider value={contextValue}>
       {children}
-      {shouldEnablePromptLab() && (
-        <EvaluationCreatePromptRunModal
-          visibleRuns={visibleRuns}
-          isOpen={isOpen}
-          closeModal={() => setIsOpen(false)}
-          runBeingDuplicated={runBeingDuplicated}
-          refreshRuns={refreshRuns}
-        />
-      )}
+      <EvaluationCreatePromptRunModal
+        visibleRuns={visibleRuns}
+        isOpen={isOpen}
+        closeModal={() => setIsOpen(false)}
+        runBeingDuplicated={runBeingDuplicated}
+        refreshRuns={refreshRuns}
+      />
     </CreateNewRunContext.Provider>
   );
 };

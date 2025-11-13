@@ -1,3 +1,4 @@
+import { describe, beforeEach, afterEach, jest, test, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -66,7 +67,7 @@ describe('useGetTrace', () => {
   });
 
   test('should be disabled when traceId is not provided', () => {
-    const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
+    const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(mockTrace);
     const { result } = renderHook(() => useGetTrace(mockGetTrace, undefined), { wrapper });
 
     // Query should be disabled when both requestId and traceId are nil
@@ -77,7 +78,7 @@ describe('useGetTrace', () => {
   });
 
   test('should fetch trace when getTrace and traceId are provided', async () => {
-    const mockGetTrace = jest.fn().mockResolvedValue(mockTrace);
+    const mockGetTrace = jest.fn<GetTraceFunction>().mockResolvedValue(mockTrace);
     const { result } = renderHook(() => useGetTrace(mockGetTrace, demoTraceInfo), { wrapper });
 
     await waitFor(() => {

@@ -1,7 +1,8 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
-import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
+import { QueryClient, QueryClientProvider, type UseMutateAsyncFunction } from '@databricks/web-shared/query-client';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { ApolloProvider, ApolloClient, InMemoryCache } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 
@@ -69,6 +70,8 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
       isLoading: true,
       error: null,
       isEmpty: false,
+      evaluatedTraces: [],
+      otherEvaluatedTraces: [],
     }),
     useSelectedColumns: jest
       .fn()
@@ -76,7 +79,7 @@ jest.mock('@databricks/web-shared/genai-traces-table', () => {
     useFilters: jest.fn().mockReturnValue([[], jest.fn()]),
     useTableSort: jest.fn().mockReturnValue([undefined, jest.fn()]),
     getEvalTabTotalTracesLimit: jest.fn().mockReturnValue(100),
-    invalidateMlflowSearchTracesCache: jest.fn().mockResolvedValue(undefined),
+    invalidateMlflowSearchTracesCache: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
     getTracesTagKeys: jest.fn().mockReturnValue([]),
   };
 });
@@ -91,7 +94,9 @@ jest.mock('@mlflow/mlflow/src/experiment-tracking/sdk/MlflowService', () => ({
 
 // Mock hooks
 jest.mock('../../../evaluations/hooks/useDeleteTraces', () => ({
-  useDeleteTracesMutation: jest.fn().mockReturnValue({ mutateAsync: jest.fn().mockResolvedValue(undefined) }),
+  useDeleteTracesMutation: jest
+    .fn()
+    .mockReturnValue({ mutateAsync: jest.fn<() => Promise<void>>().mockResolvedValue(undefined) }),
 }));
 
 jest.mock('../../../traces/hooks/useEditExperimentTraceTags', () => ({

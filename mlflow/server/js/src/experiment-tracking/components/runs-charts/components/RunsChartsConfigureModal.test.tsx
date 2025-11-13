@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import { RunsChartsConfigureModal } from './RunsChartsConfigureModal';
 import type { RunsChartsLineCardConfig } from '../runs-charts.types';

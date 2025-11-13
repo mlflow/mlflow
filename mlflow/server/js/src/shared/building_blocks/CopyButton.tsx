@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Button, type ButtonProps, LegacyTooltip } from '@databricks/design-system';
+import { Button, type ButtonProps, Tooltip } from '@databricks/design-system';
 
 interface CopyButtonProps extends Partial<ButtonProps> {
   copyText: string;
@@ -24,13 +24,12 @@ export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonP
   };
 
   return (
-    <LegacyTooltip
-      title={
+    <Tooltip
+      content={
         <FormattedMessage defaultMessage="Copied" description="Tooltip text shown when copy operation completes" />
       }
-      dangerouslySetAntdProps={{
-        visible: showTooltip,
-      }}
+      open={showTooltip}
+      componentId="mlflow.shared.copy_button.tooltip"
     >
       <Button
         componentId={componentId ?? 'mlflow.shared.copy_button'}
@@ -44,6 +43,6 @@ export const CopyButton = ({ copyText, showLabel = true, componentId, ...buttonP
         }
         {...buttonProps}
       />
-    </LegacyTooltip>
+    </Tooltip>
   );
 };

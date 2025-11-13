@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderWithIntl, screen, waitFor } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { RunPage } from './run-page/RunPage';
 import thunk from 'redux-thunk';
@@ -11,9 +12,11 @@ import userEvent from '@testing-library/user-event';
 import { RoutePaths } from '../routes';
 import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
+  // @ts-expect-error 'props' is of type 'unknown'
   RunViewMetricCharts: jest.fn((props) => <div>{props.mode} metric charts</div>),
 }));
 jest.mock('./run-page/RunViewOverview', () => ({
@@ -43,10 +46,12 @@ describe('RunView navigation integration test', () => {
     const renderResult = renderWithIntl(
       <Provider store={mockStore(mockState)}>
         <QueryClientProvider client={queryClient}>
-          <TestRouter
-            initialEntries={[createMLflowRoutePath(initialRoute)]}
-            routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
-          />
+          <DesignSystemProvider>
+            <TestRouter
+              initialEntries={[createMLflowRoutePath(initialRoute)]}
+              routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
+            />
+          </DesignSystemProvider>
         </QueryClientProvider>
       </Provider>,
     );

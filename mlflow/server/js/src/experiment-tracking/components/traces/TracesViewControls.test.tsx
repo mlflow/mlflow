@@ -1,3 +1,4 @@
+import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { renderWithIntl, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewControls } from './TracesViewControls';

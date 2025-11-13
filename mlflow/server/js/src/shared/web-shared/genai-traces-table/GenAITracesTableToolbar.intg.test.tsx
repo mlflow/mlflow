@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import { render, screen, fireEvent } from '@testing-library/react';
 import type { ComponentProps } from 'react';
 
@@ -77,7 +78,7 @@ describe('GenAITracesTableToolbar - integration test', () => {
           renderExportTracesToDatasetsModal: jest.fn(),
         },
         deleteTracesAction: {
-          deleteTraces: jest.fn().mockResolvedValue(undefined),
+          deleteTraces: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
         },
         editTags: {
           showEditTagsModalForTrace: jest.fn(),
@@ -225,7 +226,7 @@ describe('GenAITracesTableToolbar - integration test', () => {
         renderExportTracesToDatasetsModal: jest.fn(),
       },
       deleteTracesAction: {
-        deleteTraces: jest.fn().mockResolvedValue(undefined),
+        deleteTraces: jest.fn<() => Promise<void>>().mockResolvedValue(undefined),
       },
       editTags: {
         showEditTagsModalForTrace: jest.fn(),

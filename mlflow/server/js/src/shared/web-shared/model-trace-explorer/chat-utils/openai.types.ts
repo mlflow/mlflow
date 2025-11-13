@@ -84,7 +84,12 @@ export type OpenAIResponsesOutputItem =
   | OpenAIResponsesImageGenerationCall
   | OpenAIResponsesFunctionCallOutput;
 
-export type OpenAIResponsesStreamingOutputChunk = {
+export type OpenAIResponsesStreamingOutputDelta = {
+  type: 'response.output_text.delta';
+  delta: string;
+};
+
+export type OpenAIResponsesStreamingOutputDone = {
   type: 'response.output_item.done';
   role: 'assistant';
   item: OpenAIResponsesOutputItem;

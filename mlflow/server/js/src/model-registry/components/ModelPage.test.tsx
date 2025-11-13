@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, jest, beforeEach, test, expect } from '@jest/globals';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -24,6 +25,7 @@ describe('ModelPage', () => {
   beforeEach(() => {
     jest.resetAllMocks();
     minimalProps = {
+      // @ts-expect-error Argument of type '{}' is not assignable to parameter of type 'never'
       searchModelVersionsApi: jest.fn().mockResolvedValue({}),
       getRegisteredModelDetailsApi: jest.fn(),
       navigate,

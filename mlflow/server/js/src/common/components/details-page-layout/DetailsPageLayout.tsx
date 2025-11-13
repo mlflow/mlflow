@@ -10,11 +10,13 @@ export const DetailsPageLayout = ({
   className,
   secondarySections = [],
   usingSidebarLayout,
+  sidebarSize = 'lg',
 }: {
   children: ReactNode;
   className?: string;
   secondarySections?: AsideSections;
   usingSidebarLayout?: boolean;
+  sidebarSize?: 'sm' | 'lg';
 }) => {
   if (usingSidebarLayout) {
     return (
@@ -23,7 +25,7 @@ export const DetailsPageLayout = ({
         <OverviewLayout
           asideSections={secondarySections}
           isTabLayout
-          sidebarSize="lg"
+          sidebarSize={sidebarSize}
           verticalStackOrder="aside-first"
         >
           {children}

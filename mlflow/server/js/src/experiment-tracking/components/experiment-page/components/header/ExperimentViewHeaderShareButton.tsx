@@ -19,7 +19,7 @@ export const ExperimentViewHeaderShareButton = ({
   searchFacetsState?: ExperimentPageSearchFacetsState;
   uiState?: ExperimentPageUIState;
   experimentIds?: string[];
-  type?: 'primary' | 'tertiary';
+  type?: 'primary' | 'link' | 'tertiary';
 }) => {
   const [showGetLinkModal, setShowGetLinkModal] = useState(false);
 

@@ -2,15 +2,18 @@ import type { Assessment } from '../ModelTrace.types';
 import { useDesignSystemTheme, Typography, SparkleIcon, UserIcon, CodeIcon } from '@databricks/design-system';
 
 export const getAssessmentValue = (assessment: Assessment) => {
-  if ('feedback' in assessment) {
+  if ('feedback' in assessment && assessment.feedback) {
     return assessment.feedback.value;
   }
 
-  if ('value' in assessment.expectation) {
-    return assessment.expectation.value;
+  if ('expectation' in assessment) {
+    if (assessment.expectation && 'value' in assessment.expectation) {
+      return assessment.expectation.value;
+    }
+    return assessment.expectation.serialized_value.value;
   }
 
-  return assessment.expectation.serialized_value.value;
+  return undefined;
 };
 
 export const getSourceIcon = (source: Assessment['source']) => {

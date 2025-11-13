@@ -1,6 +1,7 @@
-import { type QueryFunctionContext, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { type QueryFunctionContext, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../types';
 import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { useCallback } from 'react';
 
 type UseGetLoggedModelQueryResponseType = {
   model: LoggedModelProto;
@@ -46,6 +47,17 @@ export const useGetLoggedModelQuery = ({
     refetch,
     error,
   } as const;
+};
+
+/**
+ * Lazy query function to retrieve logged model from API based on its ID
+ */
+export const useGetLoggedModelLazyQuery = () => {
+  const client = useQueryClient();
+  return useCallback(
+    (modelId: string) => client.ensureQueryData({ queryKey: getQueryKey(modelId), queryFn }),
+    [client],
+  );
 };
 
 /**

@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, beforeEach, test, expect } from '@jest/globals';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import type { ExperimentViewRunsProps } from './ExperimentViewRuns';
@@ -53,7 +54,7 @@ const mockTagKeys = Object.keys(EXPERIMENT_RUNS_MOCK_STORE.entities.tagsByRunUui
 describe('ExperimentViewRuns', () => {
   const server = setupServer();
 
-  const loadMoreRunsMockFn = jest.fn();
+  const loadMoreRunsMockFn = jest.fn<ExperimentViewRunsProps['loadMoreRuns']>();
 
   beforeAll(() => {
     jest.setSystemTime(new Date(2022, 0, 1));

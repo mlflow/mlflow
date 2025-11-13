@@ -5,7 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React from 'react';
+import { test, expect } from '@jest/globals';
 
 import MlflowUtils from './MlflowUtils';
 
@@ -25,54 +25,58 @@ test('renderNotebookSource', () => {
   const queryParams = '?o=123456789';
 
   expect(MlflowUtils.renderNotebookSource(null, null, null, null, sourceName, null)).toEqual('iris_feature');
-  expect(MlflowUtils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toEqual(
-    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}`} target="_top">
-      iris_feature
-    </a>,
-  );
-  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toEqual(
-    <a title={sourceName} href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}`} target="_top">
-      iris_feature
-    </a>,
-  );
-  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null)).toEqual(
+  expect(MlflowUtils.renderNotebookSource(null, notebookId, null, null, sourceName, null)).toMatchInlineSnapshot(`
     <a
-      title={sourceName}
-      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      href="http://localhost/#notebook/12345678"
+      onClick={[Function]}
       target="_top"
+      title="/Users/test/iris_feature"
     >
       iris_feature
-    </a>,
-  );
-  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toEqual(
+    </a>
+  `);
+  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, null, sourceName, null)).toMatchInlineSnapshot(`
     <a
-      title={MlflowUtils.getDefaultNotebookRevisionName(notebookId, revisionId)}
-      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      href="http://localhost/#notebook/12345678/revision/987654"
+      onClick={[Function]}
       target="_top"
-    >
-      {MlflowUtils.getDefaultNotebookRevisionName(notebookId, revisionId)}
-    </a>,
-  );
-  expect(
-    MlflowUtils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null, nameOverride),
-  ).toEqual(
-    <a
-      title={sourceName}
-      href={`http://localhost/#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target="_top"
-    >
-      {nameOverride}
-    </a>,
-  );
-  expect(MlflowUtils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null)).toEqual(
-    <a
-      title={sourceName}
-      href={`http://localhost/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
-      target="_top"
+      title="/Users/test/iris_feature"
     >
       iris_feature
-    </a>,
-  );
+    </a>
+  `);
+  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, runUuid, null, null)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#notebook/12345678/revision/987654/mlflow/run/1133557799"
+      onClick={[Function]}
+      target="_top"
+      title="revision 987654 of notebook 12345678"
+    >
+      revision 987654 of notebook 12345678
+    </a>
+  `);
+  expect(MlflowUtils.renderNotebookSource(null, notebookId, revisionId, runUuid, sourceName, null, nameOverride))
+    .toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#notebook/12345678/revision/987654/mlflow/run/1133557799"
+      onClick={[Function]}
+      target="_top"
+      title="/Users/test/iris_feature"
+    >
+      some feature
+    </a>
+  `);
+  expect(MlflowUtils.renderNotebookSource(queryParams, notebookId, revisionId, runUuid, sourceName, null))
+    .toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/?o=123456789#notebook/12345678/revision/987654/mlflow/run/1133557799"
+      onClick={[Function]}
+      target="_top"
+      title="/Users/test/iris_feature"
+    >
+      iris_feature
+    </a>
+  `);
   expect(
     MlflowUtils.renderNotebookSource(
       queryParams,
@@ -84,15 +88,16 @@ test('renderNotebookSource', () => {
       'http://databricks',
       null,
     ),
-  ).toEqual(
+  ).toMatchInlineSnapshot(`
     <a
-      title={sourceName}
-      href={`http://databricks/${queryParams}#notebook/${notebookId}/revision/${revisionId}/mlflow/run/${runUuid}`}
+      href="http://databricks/?o=123456789#notebook/12345678/revision/987654/mlflow/run/1133557799"
+      onClick={[Function]}
       target="_top"
+      title="/Users/test/iris_feature"
     >
       iris_feature
-    </a>,
-  );
+    </a>
+  `);
 });
 
 test('renderJobSource', () => {
@@ -103,48 +108,79 @@ test('renderJobSource', () => {
   const queryParams = '?o=123456789';
 
   expect(MlflowUtils.renderJobSource(null, null, null, jobName, null)).toEqual(jobName);
-  expect(MlflowUtils.renderJobSource(null, jobId, null, jobName, null)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}`} target="_top">
-      {jobName}
-    </a>,
-  );
-  expect(MlflowUtils.renderJobSource(null, jobId, null, null, null)).toEqual(
-    <a title={`job ${jobId}`} href={`http://localhost/#job/${jobId}`} target="_top">
-      {`job ${jobId}`}
-    </a>,
-  );
-  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
-      {jobName}
-    </a>,
-  );
-  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, null, null)).toEqual(
+  expect(MlflowUtils.renderJobSource(null, jobId, null, jobName, null)).toMatchInlineSnapshot(`
     <a
-      title={MlflowUtils.getDefaultJobRunName(jobId, jobRunId)}
-      href={`http://localhost/#job/${jobId}/run/${jobRunId}`}
+      href="http://localhost/#job/123456"
+      onClick={[Function]}
       target="_top"
+      title="job xxx"
     >
-      {MlflowUtils.getDefaultJobRunName(jobId, jobRunId)}
-    </a>,
-  );
-  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toEqual(
-    <a title={jobName} href={`http://localhost/#job/${jobId}/run/${jobRunId}`} target="_top">
-      {nameOverride}
-    </a>,
-  );
-  expect(MlflowUtils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toEqual(
-    <a title={jobName} href={`http://localhost/${queryParams}#job/${jobId}/run/${jobRunId}`} target="_top">
-      {jobName}
-    </a>,
-  );
+      job xxx
+    </a>
+  `);
+  expect(MlflowUtils.renderJobSource(null, jobId, null, null, null)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#job/123456"
+      onClick={[Function]}
+      target="_top"
+      title="job 123456"
+    >
+      job 123456
+    </a>
+  `);
+  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#job/123456/run/98765"
+      onClick={[Function]}
+      target="_top"
+      title="job xxx"
+    >
+      job xxx
+    </a>
+  `);
+  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, null, null)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#job/123456/run/98765"
+      onClick={[Function]}
+      target="_top"
+      title="run 98765 of job 123456"
+    >
+      run 98765 of job 123456
+    </a>
+  `);
+  expect(MlflowUtils.renderJobSource(null, jobId, jobRunId, jobName, null, nameOverride)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#job/123456/run/98765"
+      onClick={[Function]}
+      target="_top"
+      title="job xxx"
+    >
+      random text
+    </a>
+  `);
+  expect(MlflowUtils.renderJobSource(queryParams, jobId, jobRunId, jobName, null)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/?o=123456789#job/123456/run/98765"
+      onClick={[Function]}
+      target="_top"
+      title="job xxx"
+    >
+      job xxx
+    </a>
+  `);
   expect(
     // @ts-expect-error TS(2345): Argument of type '"https://databricks"' is not ass... Remove this comment to see the full error message
-    MlflowUtils.renderJobSource(queryParams, jobId, jobRunId, jobName, 'https://databricks', null),
-  ).toEqual(
-    <a title={jobName} href={`https://databricks/${queryParams}#job/${jobId}/run/${jobRunId}`} target="_top">
-      {jobName}
-    </a>,
-  );
+    MlflowUtils.renderJobSource('?o=123456789', jobId, jobRunId, jobName, 'https://databricks', null),
+  ).toMatchInlineSnapshot(`
+    <a
+      href="https://databricks/?o=123456789#job/123456/run/98765"
+      onClick={[Function]}
+      target="_top"
+      title="job xxx"
+    >
+      job xxx
+    </a>
+  `);
 });
 
 test('formatSource & renderSource', () => {
@@ -191,11 +227,15 @@ test('formatSource & renderSource', () => {
   };
   expect(MlflowUtils.formatSource(github_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
-  expect(MlflowUtils.renderSource(github_url)).toEqual(
-    <a href="https://github.com/mlflow/mlflow-apps" target="_top">
+  expect(MlflowUtils.renderSource(github_url)).toMatchInlineSnapshot(`
+    <a
+      href="https://github.com/mlflow/mlflow-apps"
+      onClick={[Function]}
+      target="_top"
+    >
       mlflow-apps:entry
-    </a>,
-  );
+    </a>
+  `);
 
   const gitlab_url = {
     'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git' },
@@ -204,11 +244,15 @@ test('formatSource & renderSource', () => {
   };
   expect(MlflowUtils.formatSource(gitlab_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
-  expect(MlflowUtils.renderSource(gitlab_url)).toEqual(
-    <a href="https://gitlab.com/mlflow/mlflow-apps" target="_top">
+  expect(MlflowUtils.renderSource(gitlab_url)).toMatchInlineSnapshot(`
+    <a
+      href="https://gitlab.com/mlflow/mlflow-apps"
+      onClick={[Function]}
+      target="_top"
+    >
       mlflow-apps:entry
-    </a>,
-  );
+    </a>
+  `);
 
   const gitlab_long_url = {
     'mlflow.source.name': { value: 'git@gitlab.com:mlflow/mlflow-apps.git#tmp' },
@@ -217,11 +261,15 @@ test('formatSource & renderSource', () => {
   };
   expect(MlflowUtils.formatSource(gitlab_long_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
-  expect(MlflowUtils.renderSource(gitlab_long_url)).toEqual(
-    <a href="https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp" target="_top">
+  expect(MlflowUtils.renderSource(gitlab_long_url)).toMatchInlineSnapshot(`
+    <a
+      href="https://gitlab.com/mlflow/mlflow-apps/-/tree/master/tmp"
+      onClick={[Function]}
+      target="_top"
+    >
       mlflow-apps:entry
-    </a>,
-  );
+    </a>
+  `);
 
   const bitbucket_url = {
     'mlflow.source.name': { value: 'git@bitbucket.org:mlflow/mlflow-apps.git' },
@@ -230,11 +278,15 @@ test('formatSource & renderSource', () => {
   };
   expect(MlflowUtils.formatSource(bitbucket_url)).toEqual('mlflow-apps:entry');
   // @ts-expect-error TS(2554): Expected 3 arguments, but got 1.
-  expect(MlflowUtils.renderSource(bitbucket_url)).toEqual(
-    <a href="https://bitbucket.org/mlflow/mlflow-apps" target="_top">
+  expect(MlflowUtils.renderSource(bitbucket_url)).toMatchInlineSnapshot(`
+    <a
+      href="https://bitbucket.org/mlflow/mlflow-apps"
+      onClick={[Function]}
+      target="_top"
+    >
       mlflow-apps:entry
-    </a>,
-  );
+    </a>
+  `);
 });
 
 test('setQueryParams', () => {
@@ -469,11 +521,16 @@ test('renderSourceFromMetadata', () => {
       'mlflow.databricks.workspaceID': '0',
     },
   };
-  expect(MlflowUtils.renderSourceFromMetadata(notebookSource)).toEqual(
-    <a title="notebook.py" href="http://localhost/#notebook/123456/revision/987654" target="_top">
+  expect(MlflowUtils.renderSourceFromMetadata(notebookSource)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#notebook/123456/revision/987654"
+      onClick={[Function]}
+      target="_top"
+      title="notebook.py"
+    >
       notebook.py
-    </a>,
-  );
+    </a>
+  `);
 
   // Test job source
   const jobSource: any = {
@@ -485,11 +542,16 @@ test('renderSourceFromMetadata', () => {
       'mlflow.databricks.workspaceID': '0',
     },
   };
-  expect(MlflowUtils.renderSourceFromMetadata(jobSource)).toEqual(
-    <a title="job.py" href="http://localhost/#job/123456/run/987654" target="_top">
+  expect(MlflowUtils.renderSourceFromMetadata(jobSource)).toMatchInlineSnapshot(`
+    <a
+      href="http://localhost/#job/123456/run/987654"
+      onClick={[Function]}
+      target="_top"
+      title="job.py"
+    >
       job.py
-    </a>,
-  );
+    </a>
+  `);
 
   // Test source with no type
   const noTypeSource: any = {

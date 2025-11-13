@@ -6,7 +6,7 @@ import {
   PlayIcon,
   StopIcon,
   TableSkeleton,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   WarningIcon,
   useDesignSystemTheme,
@@ -81,7 +81,10 @@ export const EvaluationCreatePromptRunOutput = ({
   return (
     <>
       <div css={{ marginBottom: theme.spacing.md }}>
-        <LegacyTooltip title={evaluateButtonTooltip}>
+        <Tooltip
+          componentId="mlflow.experiment-tracking.evaluation-prompt-output.evaluate"
+          content={evaluateButtonTooltip}
+        >
           <Button
             componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_85"
             data-testid="button-evaluate"
@@ -95,7 +98,7 @@ export const EvaluationCreatePromptRunOutput = ({
               description='Experiment page > new run modal > "evaluate" button label'
             />
           </Button>
-        </LegacyTooltip>
+        </Tooltip>
         {isEvaluating && (
           <Button
             componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationcreatepromptrunoutput.tsx_99"
@@ -117,16 +120,19 @@ export const EvaluationCreatePromptRunOutput = ({
           description="Experiment page > new run modal > evaluation output field label"
         />
         {isOutputDirty && (
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.evaluation-prompt-output.add"
+            content={
               <FormattedMessage
                 defaultMessage="Model, input data or prompt have changed since last evaluation of the output"
                 description="Experiment page > new run modal > dirty output (out of sync with new data)"
               />
             }
           >
-            <WarningIcon css={{ marginLeft: theme.spacing.xs }} />
-          </LegacyTooltip>
+            <span>
+              <WarningIcon css={{ marginLeft: theme.spacing.xs }} />
+            </span>
+          </Tooltip>
         )}
       </FormUI.Label>
       <FormUI.Hint>

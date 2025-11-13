@@ -74,13 +74,20 @@ const ExperimentLoggedModelDetailsPageImpl = () => {
       return null;
     }
 
+    const experiment = experimentData;
+
     if (tabName === 'traces') {
-      return <ExperimentLoggedModelDetailsTraces loggedModel={loggedModel} />;
+      return (
+        <ExperimentLoggedModelDetailsTraces
+          loggedModel={loggedModel}
+          experimentTags={experiment?.tags ?? []}
+          isLoadingExperiment={experimentLoading}
+        />
+      );
     } else if (tabName === 'artifacts') {
       return <ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />;
     }
 
-    const experiment = experimentData;
     const experimentKind = getExperimentKindFromTags(experiment?.tags);
 
     return (

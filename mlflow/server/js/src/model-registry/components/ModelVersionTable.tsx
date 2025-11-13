@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   PlusIcon,
@@ -6,13 +7,13 @@ import {
   TableHeader,
   TableRow,
   TableRowSelectCell,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
   TableSkeletonRows,
 } from '@databricks/design-system';
 import type { ColumnDef, RowSelectionState, SortingState, ColumnSort } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import type { ModelEntity, ModelVersionInfoEntity, ModelAliasMap } from '../../experiment-tracking/types';
 import type { KeyValueEntity } from '../../common/types';
 import { useEffect, useMemo, useState } from 'react';
@@ -171,9 +172,14 @@ export const ModelVersionTable = ({
         cell: ({ row: { original } }) => {
           const { status, status_message } = original || {};
           return (
-            <LegacyTooltip title={status_message || modelVersionStatusIconTooltips[status]}>
-              <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
-            </LegacyTooltip>
+            <Tooltip
+              componentId="mlflow.model-registry.model-view.model-versions.version-status.tooltip"
+              content={status_message || modelVersionStatusIconTooltips[status]}
+            >
+              <span>
+                <Typography.Text>{ModelVersionStatusIcons[status]}</Typography.Text>
+              </span>
+            </Tooltip>
           );
         },
       },
@@ -311,19 +317,22 @@ export const ModelVersionTable = ({
     }
   };
 
-  const table = useReactTable<ModelVersionInfoEntity>({
-    data: versions || [],
-    columns: tableColumns,
-    state: {
-      rowSelection,
-      sorting,
+  const table = useReactTable<ModelVersionInfoEntity>(
+    'mlflow/web/js/src/model-registry/components/ModelVersionTable.tsx',
+    {
+      data: versions || [],
+      columns: tableColumns,
+      state: {
+        rowSelection,
+        sorting,
+      },
+      getCoreRowModel: getCoreRowModel(),
+      getSortedRowModel: getSortedRowModel(),
+      getRowId: ({ version }) => version,
+      onRowSelectionChange: setRowSelection,
+      onSortingChange: setSorting,
     },
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getRowId: ({ version }) => version,
-    onRowSelectionChange: setRowSelection,
-    onSortingChange: setSorting,
-  });
+  );
 
   const isEmpty = () => table.getRowModel().rows.length === 0;
 

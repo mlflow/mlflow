@@ -7,8 +7,9 @@ import {
   DialogComboboxTrigger,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { SessionTableColumn } from './types';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
+
+import type { SessionTableColumn } from './types';
 
 export const GenAIChatSessionsToolbar = ({
   columns,

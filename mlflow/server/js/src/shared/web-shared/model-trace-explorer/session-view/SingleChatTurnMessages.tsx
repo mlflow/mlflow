@@ -1,10 +1,10 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import type { ModelTrace } from '../ModelTrace.types';
 import { parseModelTraceToTree, createListFromObject } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerChatMessage } from '../right-pane/ModelTraceExplorerChatMessage';
 import { ModelTraceExplorerSummarySection } from '../summary-view/ModelTraceExplorerSummarySection';
-import { FormattedMessage } from 'react-intl';
 
 export const SingleChatTurnMessages = ({ trace }: { trace: ModelTrace }) => {
   const { theme } = useDesignSystemTheme();

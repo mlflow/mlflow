@@ -23,3 +23,7 @@ export const shouldUseTracesV4API = () => {
 export const shouldEnableTracesTabLabelingSchemas = () => {
   return false;
 };
+
+export const shouldEnableChatSessionsTab = () => {
+  return false;
+};

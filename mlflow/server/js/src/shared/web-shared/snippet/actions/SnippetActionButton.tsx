@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import React from 'react';
 
 import type { ButtonProps } from '@databricks/design-system';
-import { Button, LegacyTooltip } from '@databricks/design-system';
+import { Button, Tooltip } from '@databricks/design-system';
 
 type SnippetActionButtonProps = Pick<ButtonProps, 'icon' | 'onClick' | 'href' | 'rel' | 'target'> & {
   tooltipMessage: NonNullable<ReactNode>;
@@ -14,12 +14,12 @@ export default function SnippetActionButton({ tooltipMessage, ...buttonProps }: 
     zIndex: 1, // required for action buttons to be visible and float
   });
   return (
-    <LegacyTooltip title={tooltipMessage}>
+    <Tooltip content={tooltipMessage} componentId="codegen_web-shared_src_snippet_actions_snippetactionbutton.tsx_26">
       <Button
         componentId="codegen_web-shared_src_snippet_actions_snippetactionbutton.tsx_33"
         {...buttonProps}
         css={style}
       />
-    </LegacyTooltip>
+    </Tooltip>
   );
 }

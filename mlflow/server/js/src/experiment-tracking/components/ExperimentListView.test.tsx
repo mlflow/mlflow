@@ -1,3 +1,4 @@
+import { jest, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 import { screen, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
@@ -31,6 +32,7 @@ const mountComponent = (props: any) => {
     hasPreviousPage: false,
     onNextPage: jest.fn(),
     onPreviousPage: jest.fn(),
+    // @ts-expect-error Type 'Mock<UnknownFunction>' is not assignable to parameter
     refetch: jest.fn(),
     pageSizeSelect: {
       options: [10],

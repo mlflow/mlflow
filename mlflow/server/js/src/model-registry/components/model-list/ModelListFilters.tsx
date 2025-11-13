@@ -1,5 +1,4 @@
 import {
-  LegacyTooltip,
   TableFilterLayout,
   Button,
   TableFilterInput,

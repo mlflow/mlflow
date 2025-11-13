@@ -1,9 +1,10 @@
+import { describe, jest, beforeEach, it, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 import { useBrowserKeyShortcutListener } from './useBrowserKeyShortcutListener';
 import userEvent from '@testing-library/user-event';
 
 describe('useBrowserKeyShortcutListener', () => {
-  const callback = jest.fn();
+  const callback = jest.fn<() => void>();
 
   beforeEach(() => {
     callback.mockClear();

@@ -537,7 +537,6 @@ export const EvaluationsReviewAssessments = ({
           assessmentInfos={assessmentInfos}
         />
       )}
-
       {containsAssessments && !alwaysExpanded && (
         <>
           <Spacer size="sm" />

@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
+
 import { useLocalStorage } from '@databricks/web-shared/hooks';
-import { useMemo, useState } from 'react';
-import { SessionTableColumn } from '../types';
+
+import type { SessionTableColumn } from '../types';
 
 const LOCAL_STORAGE_KEY = 'experiment-chat-sessions-table-column-visibility';
 const LOCAL_STORAGE_VERSION = 1;

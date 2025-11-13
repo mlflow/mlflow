@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import {
   DangerIcon,
   Drawer,
@@ -16,9 +17,11 @@ import {
   ModelTraceExplorer,
   ModelTraceExplorerSkeleton,
 } from '@databricks/web-shared/model-trace-explorer';
-import { useMemo } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useExperimentTraceInfo } from './hooks/useExperimentTraceInfo';
+const ContextProviders = ({ children, experimentId }: { children: React.ReactNode; experimentId?: string }) => {
+  return <>{children}</>;
+};
 
 export const TraceDataDrawer = ({
   requestId,
@@ -168,11 +171,13 @@ export const TraceDataDrawer = ({
           // This is required for mousewheel scrolling within `Drawer`
           onWheel={(e) => e.stopPropagation()}
         >
-          <ModelTraceExplorer
-            modelTrace={combinedModelTrace}
-            selectedSpanId={selectedSpanId}
-            onSelectSpan={onSelectSpan}
-          />
+          <ContextProviders experimentId={traceInfoToUse?.experiment_id}>
+            <ModelTraceExplorer
+              modelTrace={combinedModelTrace}
+              selectedSpanId={selectedSpanId}
+              onSelectSpan={onSelectSpan}
+            />
+          </ContextProviders>
         </div>
       );
     }

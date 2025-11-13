@@ -6,11 +6,14 @@ import type {
   ExpectationAssessment,
   FeedbackAssessment,
   ModelTrace,
-  ModelTraceInfo,
   ModelTraceInfoV3,
   RetrieverDocument,
 } from '@databricks/web-shared/model-trace-explorer';
 
+import {
+  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
+  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
+} from '../../model-trace-explorer/constants';
 import { stringifyValue } from '../components/GenAiEvaluationTracesReview.utils';
 import { KnownEvaluationResultAssessmentName } from '../enum';
 import { CUSTOM_METADATA_COLUMN_ID, TAGS_COLUMN_ID } from '../hooks/useTableColumns';
@@ -21,10 +24,6 @@ import type {
   RunEvaluationTracesDataEntry,
   RunEvaluationTracesRetrievalChunk,
 } from '../types';
-import {
-  MLFLOW_ASSESSMENT_SOURCE_RUN_ID,
-  MLFLOW_TRACE_SOURCE_SCORER_NAME_TAG,
-} from '../../model-trace-explorer/constants';
 
 // This is the key used by the eval harness to record
 // which chunk a given retrieval assessment corresponds to.
@@ -153,14 +152,15 @@ function processExpectationAssessment(assessment: ExpectationAssessment, targets
   const assessmentName = assessment.assessment_name;
   const assessmentValue = getAssessmentValue(assessment);
 
-  if (Array.isArray(assessmentValue) && assessmentValue.length > 0) {
-    targets[assessmentName] = assessmentValue.map((val) => {
-      return safelyParseValue(val);
-    });
+  if (Array.isArray(assessmentValue)) {
+    // Parse string elements if possible, otherwise keep original values (booleans, numbers, objects, etc.)
+    targets[assessmentName] = assessmentValue.map((val) => (typeof val === 'string' ? safelyParseValue(val) : val));
   } else if (typeof assessmentValue === 'string') {
+    // Parse JSON-encoded strings like "true", "42", "{...}", etc.
     targets[assessmentName] = safelyParseValue(assessmentValue);
   } else {
-    targets[assessmentName] = [];
+    // Preserve non-string primitives and objects (boolean, number, null, plain objects)
+    targets[assessmentName] = assessmentValue;
   }
 }
 

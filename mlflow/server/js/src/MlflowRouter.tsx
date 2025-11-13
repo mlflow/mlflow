@@ -118,16 +118,15 @@ export const MlflowRouter = ({
   );
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
-    () => {
-      return createHashRouter([
+    () =>
+      createHashRouter([
         {
           path: '/',
           element: <MlflowRootRoute isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} useChildRoutesOutlet />,
           children: routes,
         },
-      ]);
-    },
-    [routes, isDarkTheme, setIsDarkTheme] /* eslint-disable-line react-hooks/exhaustive-deps */,
+      ]),
+    [routes, isDarkTheme, setIsDarkTheme],
   );
 
   if (hashRouter) {

@@ -1,5 +1,6 @@
-import { ColumnDef, Row } from '@tanstack/react-table';
-import { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { ColumnDef } from '@tanstack/react-table';
+
+import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 export type SessionTableRow = {
   sessionId: string;

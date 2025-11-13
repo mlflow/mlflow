@@ -1,9 +1,9 @@
+import { isNil } from 'lodash';
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 
 import type { ModelTrace, ModelTraceExplorerTab, ModelTraceSpanNode } from './ModelTrace.types';
 import { getDefaultActiveTab, parseModelTraceToTree, searchTreeBySpanId } from './ModelTraceExplorer.utils';
 import { getTimelineTreeNodesMap } from './timeline-tree/TimelineTree.utils';
-import { isNil } from 'lodash';
 
 export type ModelTraceExplorerViewState = {
   rootNode: ModelTraceSpanNode | null;
@@ -18,6 +18,7 @@ export type ModelTraceExplorerViewState = {
   setShowTimelineTreeGantt: (show: boolean) => void;
   assessmentsPaneExpanded: boolean;
   setAssessmentsPaneExpanded: (expanded: boolean) => void;
+  isTraceInitialLoading?: boolean;
   assessmentsPaneEnabled: boolean;
 };
 
@@ -34,6 +35,7 @@ export const ModelTraceExplorerViewStateContext = createContext<ModelTraceExplor
   setShowTimelineTreeGantt: () => {},
   assessmentsPaneExpanded: false,
   setAssessmentsPaneExpanded: () => {},
+  isTraceInitialLoading: false,
   assessmentsPaneEnabled: true,
 });
 
@@ -49,6 +51,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   // the trace doesn't exist in the backend
   // (i.e. if the traceinfo fetch fails)
   assessmentsPaneEnabled,
+  initialAssessmentsPaneCollapsed,
+  isTraceInitialLoading = false,
   children,
 }: {
   modelTrace: ModelTrace;
@@ -56,6 +60,8 @@ export const ModelTraceExplorerViewStateProvider = ({
   selectedSpanIdOnRender?: string;
   children: React.ReactNode;
   assessmentsPaneEnabled: boolean;
+  initialAssessmentsPaneCollapsed?: boolean;
+  isTraceInitialLoading?: boolean;
 }) => {
   const rootNode = useMemo(() => parseModelTraceToTree(modelTrace), [modelTrace]);
   const nodeMap = useMemo(() => (rootNode ? getTimelineTreeNodesMap([rootNode]) : {}), [rootNode]);
@@ -71,7 +77,14 @@ export const ModelTraceExplorerViewStateProvider = ({
   const defaultActiveTab = getDefaultActiveTab(selectedNode);
   const [activeTab, setActiveTab] = useState<ModelTraceExplorerTab>(defaultActiveTab);
   const [showTimelineTreeGantt, setShowTimelineTreeGantt] = useState(false);
-  const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(hasAssessments);
+  const [assessmentsPaneExpanded, setAssessmentsPaneExpanded] = useState(
+    !initialAssessmentsPaneCollapsed && hasAssessments,
+  );
+
+  useEffect(() => {
+    const defaultActiveTab = getDefaultActiveTab(selectedNode);
+    setActiveTab(defaultActiveTab);
+  }, [selectedNode]);
 
   useEffect(() => {
     const defaultActiveTab = getDefaultActiveTab(selectedNode);
@@ -93,6 +106,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
+      isTraceInitialLoading,
     }),
     [
       activeView,
@@ -105,6 +119,7 @@ export const ModelTraceExplorerViewStateProvider = ({
       assessmentsPaneExpanded,
       setAssessmentsPaneExpanded,
       assessmentsPaneEnabled,
+      isTraceInitialLoading,
     ],
   );
 

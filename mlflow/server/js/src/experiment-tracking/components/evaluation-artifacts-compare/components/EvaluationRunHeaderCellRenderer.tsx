@@ -4,9 +4,9 @@ import {
   OverflowIcon,
   PlayIcon,
   StopIcon,
-  LegacyTooltip,
   VisibleIcon,
   useDesignSystemTheme,
+  Tooltip,
 } from '@databricks/design-system';
 import { Link } from '../../../../common/utils/RoutingUtils';
 import ExperimentRoutes from '../../../routes';
@@ -19,7 +19,6 @@ import { usePromptEngineeringContext } from '../contexts/PromptEngineeringContex
 import { FormattedMessage, useIntl } from 'react-intl';
 import React, { useMemo } from 'react';
 import { EvaluationTableHeader } from './EvaluationTableHeader';
-import { useCreateNewRun } from '../../experiment-page/hooks/useCreateNewRun';
 import { canEvaluateOnRun } from '../../prompt-engineering/PromptEngineering.utils';
 import { useGetExperimentRunColor } from '../../experiment-page/hooks/useExperimentRunColor';
 import { RunColorPill } from '../../experiment-page/components/RunColorPill';
@@ -113,7 +112,7 @@ export const EvaluationRunHeaderCellRenderer = ({
         {shouldEnablePromptLab() && canEvaluateInRunColumn(run) && (
           <>
             <div css={{ flexBasis: theme.spacing.sm }} />
-            <LegacyTooltip title={evaluateAllTooltipContent}>
+            <Tooltip componentId="mlflow.run.artifact_view.evaluate_all.tooltip" content={evaluateAllTooltipContent}>
               <Button
                 componentId="codegen_mlflow_app_src_experiment-tracking_components_evaluation-artifacts-compare_components_evaluationrunheadercellrenderer.tsx_118"
                 disabled={!evaluateAllButtonEnabled}
@@ -133,7 +132,7 @@ export const EvaluationRunHeaderCellRenderer = ({
                   />
                 )}
               </Button>
-            </LegacyTooltip>
+            </Tooltip>
           </>
         )}
         <div css={{ flexBasis: theme.spacing.sm }} />

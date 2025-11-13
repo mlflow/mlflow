@@ -652,7 +652,7 @@ const AssessmentsFilterSelector = React.memo(
             updateAssessmentFilter(assessmentName, value, run);
           }}
           size="middle"
-          componentId={`mlflow.evaluations_review.table_ui.filter_control_${assessmentName}`}
+          componentId="mlflow.evaluations_review.table_ui.filter_control"
         >
           <SegmentedControlButton value={ANY_VALUE}>
             <div

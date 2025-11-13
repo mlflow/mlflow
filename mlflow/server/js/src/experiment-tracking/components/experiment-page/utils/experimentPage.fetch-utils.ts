@@ -196,14 +196,11 @@ export const fetchModelVersionsForRuns = (
   );
 
   const promises = chunk(runsWithLogModelHistory, MAX_RUNS_IN_SEARCH_MODEL_VERSIONS_FILTER).map((runsChunk) => {
-    // eslint-disable-next-line prefer-const
-    let maxResults = undefined;
     const action = actionCreator(
       {
         run_id: runsChunk.map((run) => run.info.run_id),
       },
       getUUID(),
-      maxResults,
     );
     return dispatch(action);
   });

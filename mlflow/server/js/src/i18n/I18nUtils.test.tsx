@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, afterEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { createIntl } from 'react-intl';
 import { I18nUtils, useI18nInit } from './I18nUtils';
@@ -152,7 +153,7 @@ describe('I18nUtils', () => {
       const errorThrown = new Error('failing translation load');
 
       const originalI18nUtils = { ...I18nUtils };
-      I18nUtils.initI18n = jest.fn().mockRejectedValue(errorThrown);
+      I18nUtils.initI18n = jest.fn<typeof I18nUtils.initI18n>().mockRejectedValue(errorThrown);
 
       const { result } = renderHook(() => useI18nInit());
 

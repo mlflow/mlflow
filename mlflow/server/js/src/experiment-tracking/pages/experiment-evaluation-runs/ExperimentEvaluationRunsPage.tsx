@@ -1,5 +1,5 @@
 import invariant from 'invariant';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Global } from '@emotion/react';
 import { useExperimentEvaluationRunsData } from '../../components/experiment-page/hooks/useExperimentEvaluationRunsData';
 import { ExperimentEvaluationRunsPageWrapper } from './ExperimentEvaluationRunsPageWrapper';
@@ -50,6 +50,7 @@ const ExperimentEvaluationRunsPageImpl = () => {
   const [selectedColumns, setSelectedColumns] = useState<{ [key: string]: boolean }>(
     EVAL_RUNS_TABLE_BASE_SELECTION_STATE,
   );
+
   const [groupBy, setGroupBy] = useState<RunsGroupByConfig | null>(null);
   const { viewMode, setViewMode } = useExperimentEvaluationRunsPageMode();
 
@@ -64,6 +65,8 @@ const ExperimentEvaluationRunsPageImpl = () => {
     isLoading,
     isFetching,
     error,
+    fetchNextPage,
+    hasNextPage,
     refetch,
   } = useExperimentEvaluationRunsData({
     experimentId,
@@ -149,6 +152,25 @@ const ExperimentEvaluationRunsPageImpl = () => {
     );
   };
 
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const offsetFromBottomToFetchMore = 100;
+  const fetchMoreOnBottomReached = useCallback(
+    (containerRefElement?: HTMLDivElement | null) => {
+      if (containerRefElement) {
+        const { scrollHeight, scrollTop, clientHeight } = containerRefElement;
+        if (scrollHeight - scrollTop - clientHeight < offsetFromBottomToFetchMore && !isFetching && hasNextPage) {
+          fetchNextPage();
+        }
+      }
+    },
+    [fetchNextPage, isFetching, hasNextPage],
+  );
+
+  // a check on mount and after a fetch to see if the table is already scrolled to the bottom and immediately needs to fetch more data
+  useEffect(() => {
+    fetchMoreOnBottomReached(tableContainerRef.current);
+  }, [fetchMoreOnBottomReached]);
+
   return (
     <ExperimentEvaluationRunsRowVisibilityProvider>
       <div css={{ display: 'flex', flexDirection: 'row', flex: 1, minHeight: '0px' }}>
@@ -214,11 +236,14 @@ const ExperimentEvaluationRunsPageImpl = () => {
                 setSelectedRunUuid(runUuid);
               }}
               isLoading={isLoading}
+              hasNextPage={hasNextPage ?? false}
               rowSelection={rowSelection}
               setRowSelection={setRowSelection}
               setSelectedDatasetWithRun={setSelectedDatasetWithRun}
               setIsDrawerOpen={setIsDrawerOpen}
               viewMode={viewMode}
+              onScroll={(e) => fetchMoreOnBottomReached(e.currentTarget)}
+              ref={tableContainerRef}
             />
           </div>
         </ResizableBox>

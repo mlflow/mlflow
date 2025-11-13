@@ -1,3 +1,4 @@
+import { describe, test, expect } from '@jest/globals';
 import type { RunsChartsRunData } from '../components/RunsCharts.common';
 import type { ParallelCoordinateDataEntry } from './parallelCoordinatesPlot.utils';
 import { PARALLEL_CHART_MAX_NUMBER_STRINGS } from './parallelCoordinatesPlot.utils';

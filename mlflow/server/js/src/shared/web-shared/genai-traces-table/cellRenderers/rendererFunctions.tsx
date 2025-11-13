@@ -10,6 +10,7 @@ import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-expl
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
 import { StatusCellRenderer } from './StatusRenderer';
@@ -655,7 +656,7 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, value)}>
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -672,7 +673,7 @@ export const traceInfoCellRenderer = (
                   {value}
                 </span>
               </Tag>
-            </Link>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -680,7 +681,7 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Link to={MlflowUtils.getExperimentChatSessionPageRoute(experimentId, otherValue)}>
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId}>
               <Tag
                 css={{ width: 'fit-content', maxWidth: '100%' }}
                 componentId="mlflow.genai-traces-table.session"
@@ -697,7 +698,7 @@ export const traceInfoCellRenderer = (
                   {otherValue}
                 </span>
               </Tag>
-            </Link>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           ))

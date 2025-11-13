@@ -1,6 +1,10 @@
+import { describe, it, expect, jest } from '@jest/globals';
 import { renderHook, render, screen, waitFor } from '@testing-library/react';
 import type { LoggedModelProto, LoggedModelMetricProto } from '../../../types';
-import { useExperimentLoggedModelListPageTableColumns } from './useExperimentLoggedModelListPageTableColumns';
+import {
+  useExperimentLoggedModelListPageTableColumns,
+  parseLoggedModelMetricOrderByColumnId,
+} from './useExperimentLoggedModelListPageTableColumns';
 import { IntlProvider } from 'react-intl';
 import type { ColDef, ColGroupDef } from '@ag-grid-community/core';
 import React from 'react';
@@ -175,6 +179,7 @@ describe('useExperimentLoggedModelListPageTableColumns', () => {
         </div>,
         {
           wrapper: ({ children }) => (
+            // @ts-expect-error Type 'unknown' is not assignable to type 'Promise<void>'
             <ExperimentLoggedModelOpenDatasetDetailsContext.Provider value={{ onDatasetClicked }}>
               <IntlProvider locale="en">{children}</IntlProvider>
             </ExperimentLoggedModelOpenDatasetDetailsContext.Provider>
@@ -202,6 +207,138 @@ describe('useExperimentLoggedModelListPageTableColumns', () => {
           datasetName: 'dataset-1',
           datasetDigest: '123',
           runId: '123',
+        });
+      });
+    });
+  });
+
+  describe('parseLoggedModelMetricOrderByColumnId', () => {
+    describe('with dataset names containing dots', () => {
+      it('should correctly parse dataset names with single dot', () => {
+        const columnId = 'metrics.{"metricKey":"accuracy","datasetName":"dataset.v1","datasetDigest":"abc123"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'accuracy',
+          datasetName: 'dataset.v1',
+          datasetDigest: 'abc123',
+        });
+      });
+
+      it('should correctly parse dataset names with multiple dots', () => {
+        const columnId =
+          'metrics.{"metricKey":"f1_score","datasetName":"my.dataset.v2.final","datasetDigest":"xyz789"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'f1_score',
+          datasetName: 'my.dataset.v2.final',
+          datasetDigest: 'xyz789',
+        });
+      });
+
+      it('should correctly parse dataset names with dots at start and end', () => {
+        const columnId = 'metrics.{"metricKey":"precision","datasetName":".dataset.name.","datasetDigest":"digest456"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'precision',
+          datasetName: '.dataset.name.',
+          datasetDigest: 'digest456',
+        });
+      });
+
+      it('should correctly parse dataset names with consecutive dots', () => {
+        const columnId = 'metrics.{"metricKey":"recall","datasetName":"dataset..name","datasetDigest":"hash999"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'recall',
+          datasetName: 'dataset..name',
+          datasetDigest: 'hash999',
+        });
+      });
+    });
+
+    describe('with metric keys containing dots', () => {
+      it('should correctly parse metric keys with dots', () => {
+        const columnId =
+          'metrics.{"metricKey":"metrics.accuracy.train","datasetName":"training_set","datasetDigest":"abc123"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'metrics.accuracy.train',
+          datasetName: 'training_set',
+          datasetDigest: 'abc123',
+        });
+      });
+
+      it('should correctly parse metric keys with dots and no dataset', () => {
+        const columnId = 'metrics.{"metricKey":"eval.metrics.f1"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'eval.metrics.f1',
+          datasetName: undefined,
+          datasetDigest: undefined,
+        });
+      });
+    });
+
+    describe('with ungrouped metrics', () => {
+      it('should correctly parse ungrouped metrics without dataset', () => {
+        const columnId = 'metrics.{"metricKey":"loss"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: 'loss',
+          datasetName: undefined,
+          datasetDigest: undefined,
+        });
+      });
+    });
+
+    describe('with non-metric column IDs', () => {
+      it('should return fallback for column ID without prefix', () => {
+        const columnId = 'created_time';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: columnId,
+          datasetName: undefined,
+          datasetDigest: undefined,
+        });
+      });
+
+      it('should return fallback for invalid JSON', () => {
+        const columnId = 'metrics.not-valid-json';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: columnId,
+          datasetName: undefined,
+          datasetDigest: undefined,
+        });
+      });
+
+      it('should return fallback for JSON missing metricKey', () => {
+        const columnId = 'metrics.{"datasetName":"dataset","datasetDigest":"digest"}';
+
+        const result = parseLoggedModelMetricOrderByColumnId(columnId);
+
+        expect(result).toEqual({
+          metricKey: columnId,
+          datasetName: undefined,
+          datasetDigest: undefined,
         });
       });
     });

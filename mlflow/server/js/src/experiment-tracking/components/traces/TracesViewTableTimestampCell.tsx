@@ -1,7 +1,7 @@
 import type { CellContext, ColumnDefTemplate } from '@tanstack/react-table';
 import React from 'react';
 import type { ModelTraceInfoWithRunName } from './hooks/useExperimentTraces';
-import { LegacyTooltip } from '@databricks/design-system';
+import { Tooltip } from '@databricks/design-system';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 export const TracesViewTableTimestampCell: ColumnDefTemplate<CellContext<ModelTraceInfoWithRunName, unknown>> =
@@ -11,14 +11,15 @@ export const TracesViewTableTimestampCell: ColumnDefTemplate<CellContext<ModelTr
         return null;
       }
       return (
-        <LegacyTooltip
-          title={new Date(original.timestamp_ms).toLocaleString(navigator.language, {
+        <Tooltip
+          componentId="mlflow.experiment-tracking.traces-timestamp.display"
+          content={new Date(original.timestamp_ms).toLocaleString(navigator.language, {
             timeZoneName: 'short',
           })}
-          placement="right"
+          side="right"
         >
           <span>{Utils.timeSinceStr(original.timestamp_ms)}</span>
-        </LegacyTooltip>
+        </Tooltip>
       );
     },
     () => true,

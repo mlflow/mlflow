@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect, it } from '@jest/globals';
 import React from 'react';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactPageImpl, ConnectedArtifactPage } from './ArtifactPage';
@@ -179,7 +180,7 @@ describe('ArtifactPage', () => {
   });
   test('should not report multiple errors', () => {
     jest.useFakeTimers();
-    Utils.isModelRegistryEnabled = jest.fn().mockReturnValue(true);
+    Utils.isModelRegistryEnabled = jest.fn<() => boolean>().mockReturnValue(true);
     Utils.logErrorAndNotifyUser = jest.fn();
     expect(Utils.logErrorAndNotifyUser).toHaveBeenCalledTimes(0);
     const props = {

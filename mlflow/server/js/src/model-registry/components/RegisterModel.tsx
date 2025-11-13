@@ -8,7 +8,7 @@
 import React from 'react';
 import { identity, isUndefined, debounce } from 'lodash';
 import type { ButtonProps } from '@databricks/design-system';
-import { Button, Modal, Spacer, LegacyTooltip, Typography, ModalProps } from '@databricks/design-system';
+import { Button, Modal, Spacer, Typography } from '@databricks/design-system';
 import { FormattedMessage, injectIntl, type IntlShape } from 'react-intl';
 import {
   CREATE_NEW_MODEL_OPTION_VALUE,
@@ -45,10 +45,6 @@ type RegisterModelImplProps = {
    * Type of button to display ("primary", "link", etc.)
    */
   buttonType?: ButtonProps['type'];
-  /**
-   * Tooltip to display on hover
-   */
-  tooltip?: React.ReactNode;
   /**
    * Whether to show the button. If set to true, only modal will be used and button will not be shown.
    */
@@ -240,21 +236,19 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
     return (
       <div className="register-model-btn-wrapper">
         {showButton && (
-          <LegacyTooltip title={this.props.tooltip || null} placement="left">
-            <Button
-              componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
-              className="register-model-btn"
-              type={buttonType}
-              onClick={this.showRegisterModal}
-              disabled={disableButton}
-              htmlType="button"
-            >
-              <FormattedMessage
-                defaultMessage="Register model"
-                description="Button text to register the model for deployment"
-              />
-            </Button>
-          </LegacyTooltip>
+          <Button
+            componentId="codegen_mlflow_app_src_model-registry_components_registermodel.tsx_261"
+            className="register-model-btn"
+            type={buttonType}
+            onClick={this.showRegisterModal}
+            disabled={disableButton}
+            htmlType="button"
+          >
+            <FormattedMessage
+              defaultMessage="Register model"
+              description="Button text to register the model for deployment"
+            />
+          </Button>
         )}
         <Modal
           title={this.props.intl.formatMessage({

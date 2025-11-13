@@ -10,9 +10,28 @@ import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelBu
 import type { UseGetRunQueryResponseExperiment, UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
 import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { ExperimentKind } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { Button, Icon, useDesignSystemTheme } from '@databricks/design-system';
+import { RunIcon } from './assets/RunIcon';
 import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { EXPERIMENT_KIND_TAG_KEY } from '../../utils/ExperimentKindUtils';
 import { useMemo } from 'react';
+const RunViewHeaderIcon = () => {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <div
+      css={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: theme.colors.backgroundSecondary,
+        padding: 6,
+        borderRadius: theme.spacing.lg,
+      }}
+    >
+      <Icon component={RunIcon} css={{ display: 'flex', color: theme.colors.textSecondary }} />
+    </div>
+  );
+};
 
 /**
  * Run details page header component, common for all page view modes
@@ -46,6 +65,8 @@ export const RunViewHeader = ({
   registeredModelVersionSummaries: RunPageModelVersionSummary[];
   isLoading?: boolean;
 }) => {
+  const { theme } = useDesignSystemTheme();
+
   const shouldRouteToEvaluations = useMemo(() => {
     const isGenAIExperiment =
       experiment.tags?.find((tag) => tag.key === EXPERIMENT_KIND_TAG_KEY)?.value === ExperimentKind.GENAI_DEVELOPMENT;
@@ -111,7 +132,12 @@ export const RunViewHeader = ({
   return (
     <div css={{ flexShrink: 0 }}>
       <PageHeader
-        title={<span data-testid="runs-header">{runDisplayName}</span>}
+        title={
+          <span css={{ display: 'inline-flex', alignItems: 'center', gap: theme.spacing.sm }}>
+            <RunViewHeaderIcon />
+            <span data-testid="runs-header">{runDisplayName}</span>
+          </span>
+        }
         breadcrumbs={breadcrumbs}
         /* prettier-ignore */
       >
@@ -140,7 +166,7 @@ export const RunViewHeader = ({
 
         {renderRegisterModelButton()}
       </PageHeader>
-      <RunViewModeSwitch />
+      <RunViewModeSwitch runTags={runTags} />
     </div>
   );
 };

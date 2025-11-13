@@ -1,6 +1,7 @@
 /* eslint-disable no-template-curly-in-string */
 // Disabled because of the following lint error: Unexpected template string expression
 
+import { describe, it, expect } from '@jest/globals';
 import { renderHook } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useChartExpressionParser, parseVariablesAndReplaceWithIndex } from './useChartExpressionParser';
 

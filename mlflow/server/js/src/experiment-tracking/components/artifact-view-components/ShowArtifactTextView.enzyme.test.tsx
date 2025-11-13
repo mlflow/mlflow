@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, jest, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow, mount } from 'enzyme';
 import ShowArtifactTextView, { prettifyArtifactText } from './ShowArtifactTextView';

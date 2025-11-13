@@ -14,10 +14,12 @@ export const AssessmentItemHeader = ({
   renderConnector = true,
   assessment,
   setIsEditing,
+  hideOverflowMenu = false,
 }: {
   renderConnector?: boolean;
   assessment: Assessment;
   setIsEditing?: (isEditing: boolean) => void;
+  hideOverflowMenu?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -73,11 +75,13 @@ export const AssessmentItemHeader = ({
             {timeSinceStr(new Date(assessment.last_update_time))}
           </Typography.Text>
         )}
-        <AssessmentActionsOverflowMenu
-          assessment={assessment}
-          setIsEditing={setIsEditing}
-          setShowDeleteModal={setShowDeleteModal}
-        />
+        {!hideOverflowMenu && (
+          <AssessmentActionsOverflowMenu
+            assessment={assessment}
+            setIsEditing={setIsEditing}
+            setShowDeleteModal={setShowDeleteModal}
+          />
+        )}
         <AssessmentDeleteModal
           assessment={assessment}
           isModalVisible={showDeleteModal}

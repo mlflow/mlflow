@@ -2,6 +2,7 @@ import { every, isBoolean, isNumber, isString } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
@@ -10,7 +11,6 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
-import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 
 export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 

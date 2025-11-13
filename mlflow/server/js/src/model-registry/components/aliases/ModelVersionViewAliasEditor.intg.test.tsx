@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import userEvent from '@testing-library/user-event';
 
 import { ModelVersionViewAliasEditor } from './ModelVersionViewAliasEditor';

@@ -163,6 +163,7 @@ export const GenAiEvaluationTracesReviewModal = React.memo(
             },
           }}
           footer={null} // Hide the footer
+          useLegacyModal
         >
           {currentTraceQueryResult.isFetching && (
             <GenericSkeleton

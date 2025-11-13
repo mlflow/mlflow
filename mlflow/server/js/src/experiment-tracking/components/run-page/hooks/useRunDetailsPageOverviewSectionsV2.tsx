@@ -105,7 +105,7 @@ export const useRunDetailsPageOverviewSectionsV2 = ({
           defaultMessage: 'Status',
           description: 'Run page > Overview > Run status section label',
         })}
-        value={<RunViewStatusBox status={runInfo.status} />}
+        value={<RunViewStatusBox status={runInfo.status} useSpinner />}
       />
 
       <KeyValueProperty

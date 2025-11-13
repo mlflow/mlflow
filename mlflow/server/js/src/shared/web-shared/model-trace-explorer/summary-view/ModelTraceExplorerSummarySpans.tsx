@@ -4,22 +4,22 @@ import { SegmentedControlButton, SegmentedControlGroup, useDesignSystemTheme } f
 import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerSummaryIntermediateNode } from './ModelTraceExplorerSummaryIntermediateNode';
+import { ModelTraceExplorerSummarySection } from './ModelTraceExplorerSummarySection';
 import { ModelTraceExplorerSummaryViewExceptionsSection } from './ModelTraceExplorerSummaryViewExceptionsSection';
 import type { ModelTraceExplorerRenderMode, ModelTraceSpanNode } from '../ModelTrace.types';
 import { createListFromObject, getSpanExceptionEvents } from '../ModelTraceExplorer.utils';
-import { ModelTraceExplorerCollapsibleSection } from '../ModelTraceExplorerCollapsibleSection';
 import { AssessmentPaneToggle } from '../assessments-pane/AssessmentPaneToggle';
-import { ModelTraceExplorerFieldRenderer } from '../field-renderers/ModelTraceExplorerFieldRenderer';
-import { ModelTraceExplorerSummarySection } from './ModelTraceExplorerSummarySection';
 
 export const SUMMARY_SPANS_MIN_WIDTH = 400;
 
 export const ModelTraceExplorerSummarySpans = ({
   rootNode,
   intermediateNodes,
+  hideRenderModeSelector = false,
 }: {
   rootNode: ModelTraceSpanNode;
   intermediateNodes: ModelTraceSpanNode[];
+  hideRenderModeSelector?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [renderMode, setRenderMode] = useState<ModelTraceExplorerRenderMode>('default');
@@ -47,31 +47,35 @@ export const ModelTraceExplorerSummarySpans = ({
         minWidth: SUMMARY_SPANS_MIN_WIDTH,
       }}
     >
-      <div css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}>
-        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-          <SegmentedControlGroup
-            name="render-mode"
-            componentId="shared.model-trace-explorer.summary-view.render-mode"
-            value={renderMode}
-            size="small"
-            onChange={(event) => setRenderMode(event.target.value)}
-          >
-            <SegmentedControlButton value="default">
-              <FormattedMessage
-                defaultMessage="Default"
-                description="Label for the default render mode selector in the model trace explorer summary view"
-              />
-            </SegmentedControlButton>
-            <SegmentedControlButton value="json">
-              <FormattedMessage
-                defaultMessage="JSON"
-                description="Label for the JSON render mode selector in the model trace explorer summary view"
-              />
-            </SegmentedControlButton>
-          </SegmentedControlGroup>
-          <AssessmentPaneToggle />
+      {!hideRenderModeSelector && (
+        <div
+          css={{ display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', marginBottom: theme.spacing.sm }}
+        >
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <SegmentedControlGroup
+              name="render-mode"
+              componentId="shared.model-trace-explorer.summary-view.render-mode"
+              value={renderMode}
+              size="small"
+              onChange={(event) => setRenderMode(event.target.value)}
+            >
+              <SegmentedControlButton value="default">
+                <FormattedMessage
+                  defaultMessage="Default"
+                  description="Label for the default render mode selector in the model trace explorer summary view"
+                />
+              </SegmentedControlButton>
+              <SegmentedControlButton value="json">
+                <FormattedMessage
+                  defaultMessage="JSON"
+                  description="Label for the JSON render mode selector in the model trace explorer summary view"
+                />
+              </SegmentedControlButton>
+            </SegmentedControlGroup>
+            <AssessmentPaneToggle />
+          </div>
         </div>
-      </div>
+      )}
       {hasExceptions && <ModelTraceExplorerSummaryViewExceptionsSection node={rootNode} />}
       <ModelTraceExplorerSummarySection
         title={
@@ -100,7 +104,7 @@ export const ModelTraceExplorerSummarySpans = ({
         sectionKey="summary-outputs"
         data={outputList}
         renderMode={renderMode}
-        chatMessageFormat={chatMessageFormat}
+        chatMessageFormat={chatMessageFormat ?? 'openai'}
       />
     </div>
   );

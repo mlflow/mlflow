@@ -133,7 +133,7 @@ export const getExperimentPageSideNavSectionLabel = (
       return (
         <FormattedMessage
           defaultMessage="Versions"
-          description="Label for the prompts & versions section in the MLflow experiment navbar"
+          description="Label for the versions section in the MLflow experiment navbar"
         />
       );
     default:

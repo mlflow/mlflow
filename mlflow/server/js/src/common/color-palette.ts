@@ -25,7 +25,7 @@ export const RUNS_COLOR_PALETTE = [
 
   '#115026', // Green 700
   '#277c43', // Green 600
-  '#3caa60', // Green 500
+  '#3ba65e', // Green 500
   '#8ddda8', // Green 400
 
   '#9e102c', // Red 700

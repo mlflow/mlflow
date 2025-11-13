@@ -66,13 +66,19 @@ import {
   isOtelGenAIChatMessage,
   normalizeOtelGenAIChatMessage,
 } from './chat-utils';
-import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
+import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
 import { TOKEN_USAGE_METADATA_KEY } from './constants';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
+  return;
+};
+
+export const displaySuccessNotification = (successMessage: string) => {
+  // TODO: display success notification in OSS
   return;
 };
 
@@ -463,9 +469,9 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
+  // v3 span ids are base64 encoded
   // only attempt decoding if the id length is less than 16 chars
   if (isV3Span && spanId.length < 16) {
-    // v3 span ids are base64 encoded
     try {
       return base64ToHex(spanId);
     } catch (e) {
@@ -484,6 +490,10 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
+  if (!info) {
+    return false;
+  }
+
   return 'trace_location' in info;
 }
 
@@ -531,7 +541,10 @@ export function getModelTraceSize(trace: ModelTrace): number | null {
 
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
   const traceId = getModelTraceId(trace);
-  const spans = trace.trace_data?.spans ?? trace.data.spans;
+  const rawSpans = trace.trace_data?.spans ?? trace.data.spans;
+
+  // Normalize span attributes to the common format (K/V list to map).
+  const spans = rawSpans.map(convertOtelAttributesToMap);
   const spanMap: { [span_id: string]: ModelTraceSpan } = {};
   const relationMap: { [span_id: string]: string[] } = {};
 
@@ -920,7 +933,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized
+ * Attempt to normalize a conversation, return null in case the format is unrecognized.
+ * Defaults to checking OpenAI format if not provided, as it is a common case.
  *
  * Supported formats:
  *   1. Langchain chat inputs
@@ -969,7 +983,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
           normalizeOpenAIChatInput(input) ??
           normalizeOpenAIChatResponse(input) ??
           normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input);
+          normalizeOpenAIResponsesInput(input) ??
+          normalizeOpenAIResponsesStreamingOutput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':

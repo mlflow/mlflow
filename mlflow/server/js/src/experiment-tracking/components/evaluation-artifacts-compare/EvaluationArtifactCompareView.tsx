@@ -13,7 +13,7 @@ import {
   LegacySkeleton,
   Spinner,
   ToggleButton,
-  LegacyTooltip,
+  Tooltip,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -394,16 +394,19 @@ const EvaluationArtifactCompareViewImpl = ({
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.experiment-tracking.evaluation-artifact-compare.run-header"
+            content={
               <FormattedMessage
                 defaultMessage="Using the list of logged table artifacts, select at least one to start comparing results."
                 description="Experiment page > artifact compare view > table select dropdown tooltip"
               />
             }
           >
-            <InfoSmallIcon />
-          </LegacyTooltip>
+            <span>
+              <InfoSmallIcon />
+            </span>
+          </Tooltip>
         </div>
         {isLoading ? (
           <LegacySkeleton />

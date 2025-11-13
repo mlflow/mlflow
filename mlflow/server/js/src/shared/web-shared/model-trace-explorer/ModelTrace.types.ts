@@ -433,6 +433,10 @@ export interface ExpectationSerializedValue {
 
 export type Expectation = ExpectationValue | ExpectationSerializedValue;
 
+export interface AssessmentMetadata {
+  span_name?: string;
+}
+
 // should be aligned with `mlflow/api/proto/service.proto`
 export interface AssessmentBase {
   assessment_id: string;
