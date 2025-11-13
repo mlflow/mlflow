@@ -122,12 +122,6 @@ def _get_output_value(attributes: dict[str, Any]) -> Any:
             return value
 
 
-def _set_extra_attributes(attributes: dict[str, Any]) -> None:
-    """Set extra attributes on the span if needed."""
-    for translator in _TRANSLATORS:
-        translator.set_extra_attributes(attributes)
-
-
 def translate_span_type_from_otel(attributes: dict[str, Any]) -> str | None:
     """
     Translate OTEL span kind attributes to MLflow span type.
