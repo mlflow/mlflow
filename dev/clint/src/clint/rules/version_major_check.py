@@ -38,13 +38,10 @@ class MajorVersionCheck(Rule):
         ):
             return False
 
-        if (
-            len(comparator.args) == 1
-            and isinstance(comparator.args[0], ast.Constant)
-            and isinstance(comparator.args[0].value, str)
-        ):
-            version_str = comparator.args[0].value
-            return MajorVersionCheck._is_major_only_version(version_str)
+        match comparator.args:
+            case [arg] if isinstance(arg, ast.Constant) and isinstance(arg.value, str):
+                version_str = arg.value
+                return MajorVersionCheck._is_major_only_version(version_str)
 
         return False
 
