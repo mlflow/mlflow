@@ -1011,6 +1011,11 @@ const config: Config = {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
           },
+          // Redirect consolidated sparkml guide to index
+          {
+            to: '/ml/traditional-ml/sparkml',
+            from: ['/ml/traditional-ml/sparkml/guide'],
+          },
           {
             to: '/ml/traditional-ml/tutorials/creating-custom-pyfunc',
             from: ['/traditional-ml/creating-custom-pyfunc'],
