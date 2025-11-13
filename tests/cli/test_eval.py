@@ -187,8 +187,13 @@ def test_evaluate_traces_integration():
     # Define a simple code-based scorer inline
     @scorer
     def simple_scorer(outputs):
-        """Simple scorer that always returns 1.0"""
-        return 1.0
+        """Extract the digit from the output string and return it as the score"""
+        import re
+
+        match = re.search(r"\d+", outputs)
+        if match:
+            return float(match.group())
+        return 0.0
 
     with mock.patch(
         "mlflow.cli.eval.resolve_scorers", return_value=[simple_scorer]
@@ -201,20 +206,20 @@ def test_evaluate_traces_integration():
         )
         mock_resolve.assert_called_once()
 
-    # Verify that the evaluation results are correct
-    # Get the traces and check that assessments were added
+    # Verify that the evaluation results are as expected
     traces = mlflow.search_traces(locations=[experiment_id], return_type="list")
     assert len(traces) == 3
 
-    # Verify each trace has the assessment
-    for trace in traces:
+    # Sort traces by their outputs to get consistent ordering
+    traces = sorted(traces, key=lambda t: t.data.spans[0].outputs)
+
+    for i, trace in enumerate(traces):
         assessments = trace.info.assessments
         assert len(assessments) > 0
 
-        # Find the simple_scorer assessment
         scorer_assessments = [a for a in assessments if a.name == "simple_scorer"]
         assert len(scorer_assessments) == 1
 
-        # Verify the assessment value
         assessment = scorer_assessments[0]
-        assert assessment.value == 1.0
+        # Each trace should have a score equal to its index (0, 1, 2)
+        assert assessment.value == float(i)
