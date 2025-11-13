@@ -326,7 +326,7 @@ class AutologgingEvent(Event):
 class OtelTraceSource(str, Enum):
     """Source of an OpenTelemetry trace received by the MLflow server."""
 
-    MLFLOW = "MLFLOW"
+    MLFLOW_CLIENT = "MLFLOW_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 

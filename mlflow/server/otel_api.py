@@ -163,7 +163,9 @@ async def export_traces(
         is_mlflow_client = (
             user_agent and user_agent.startswith(_MLFLOW_CLIENT_USER_AGENT_PREFIX)
         ) or x_mlflow_client_version is not None
-        trace_source = OtelTraceSource.MLFLOW if is_mlflow_client else OtelTraceSource.UNKNOWN
+        trace_source = (
+            OtelTraceSource.MLFLOW_CLIENT if is_mlflow_client else OtelTraceSource.UNKNOWN
+        )
 
         for _ in root_trace_ids:
             _record_event(
