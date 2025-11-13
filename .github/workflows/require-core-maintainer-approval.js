@@ -1,17 +1,19 @@
-const CORE_MAINTAINERS = new Set([
-  "B-Step62",
-  "BenWilson2",
-  "daniellok-db",
-  "dbczumar",
-  "gabrielfu",
-  "harupy",
-  "serena-ruan",
-  "TomeHirata",
-  "WeichenXu123",
-  "xq-yin",
-]);
-
 module.exports = async ({ github, context, core }) => {
+  // Fetch all collaborators with admin or maintain role
+  const collaborators = await github.paginate(github.rest.repos.listCollaborators, {
+    owner: context.repo.owner,
+    repo: context.repo.repo,
+  });
+
+  // Filter to keep only admin and maintain roles
+  const coreMaintainers = collaborators
+    .filter(({ role_name }) => role_name === "admin" || role_name === "maintain")
+    .map(({ login }) => login);
+
+  console.log("Core maintainers (admin or maintain role):", coreMaintainers);
+
+  const CORE_MAINTAINERS = new Set(coreMaintainers);
+
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
     repo: context.repo.repo,
