@@ -17,7 +17,7 @@ This guide shows how to use <APILink fn="mlflow.genai.optimize_prompts" /> with 
 ## Prerequisites
 
 ```bash
-pip install openai-agents mlflow gepa
+pip install openai-agents mlflow gepa nest_asyncio
 ```
 
 Set your OpenAI API key:
@@ -42,11 +42,12 @@ Here's a complete example of optimizing a question-answering agent:
 ```python
 import asyncio
 import mlflow
+from typing import Any
 from agents import Agent, Runner
 from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.scorers import scorer
 
-# Inside notebooks
+# If you're inside notebooks
 import nest_asyncio
 
 nest_asyncio.apply()
@@ -112,7 +113,7 @@ train_data = [
 
 # Step 4: Prepare scorer
 @scorer
-def exact_match(outputs, expectations):
+def exact_match(outputs: str, expectations: dict[str, Any]) -> bool:
     return outputs == expectations["expected_response"]
 
 
