@@ -101,6 +101,65 @@ with mlflow.start_run():
     mlflow.pytorch.log_model(model, name="model")
 ```
 
+## System Metrics Tracking
+
+Track hardware resource utilization during training to monitor GPU usage, memory consumption, and system performance:
+
+```python
+import mlflow
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
+
+# Create data and model
+X = torch.randn(1000, 784)
+y = torch.randint(0, 10, (1000,))
+train_loader = DataLoader(TensorDataset(X, y), batch_size=32, shuffle=True)
+
+model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.CrossEntropyLoss()
+
+# Enable system metrics logging
+mlflow.enable_system_metrics_logging()
+
+with mlflow.start_run():
+    mlflow.log_params({"learning_rate": 0.001, "batch_size": 32, "epochs": 10})
+
+    # Training loop - system metrics logged automatically
+    for epoch in range(10):
+        for data, target in train_loader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+        mlflow.log_metric("loss", loss.item(), step=epoch)
+
+    mlflow.pytorch.log_model(model, name="model")
+```
+
+System metrics logging automatically captures:
+
+- **GPU Metrics**: Utilization percentage, memory usage, temperature, and power consumption
+- **CPU Metrics**: Utilization percentage and memory usage
+- **Disk I/O**: Read/write throughput and utilization
+- **Network I/O**: Network traffic statistics
+
+For PyTorch training, monitoring GPU metrics is especially valuable for:
+
+- Identifying GPU underutilization that may indicate data loading bottlenecks
+- Detecting memory issues before out-of-memory errors occur
+- Optimizing batch sizes based on GPU memory usage
+- Comparing resource efficiency across different model architectures
+
+:::tip Advanced Configuration
+
+You can customize system metrics collection frequency and behavior. See the **[System Metrics documentation](/ml/tracking/system-metrics)** for detailed configuration options.
+
+:::
+
 ## Model Logging with Signatures
 
 Log PyTorch models with input/output signatures for better model understanding:
@@ -155,8 +214,46 @@ Track hyperparameter tuning experiments with MLflow:
 ```python
 import mlflow
 import optuna
+import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+# Create synthetic dataset for demonstration
+input_size = 784  # e.g., flattened 28x28 images
+output_size = 10  # e.g., 10 classes
+
+X_train = torch.randn(1000, input_size)
+y_train = torch.randint(0, output_size, (1000,))
+X_val = torch.randn(200, input_size)
+y_val = torch.randint(0, output_size, (200,))
+
+train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=32, shuffle=True)
+val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=32)
+
+
+def train_and_evaluate(model, optimizer, train_loader, val_loader, epochs=5):
+    """Simple training loop for demonstration."""
+    criterion = nn.CrossEntropyLoss()
+
+    for epoch in range(epochs):
+        model.train()
+        for data, target in train_loader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+    # Validation
+    model.eval()
+    val_loss = 0
+    with torch.no_grad():
+        for data, target in val_loader:
+            output = model(data)
+            val_loss += criterion(output, target).item()
+
+    return val_loss / len(val_loader)
 
 
 def objective(trial):
@@ -206,14 +303,23 @@ with mlflow.start_run(run_name="PyTorch HPO"):
 Register PyTorch models for version control and deployment:
 
 ```python
+import mlflow
+import torch.nn as nn
 from mlflow import MlflowClient
 
 client = MlflowClient()
 
 with mlflow.start_run():
-    # Train and log model
-    model = train_model()
+    # Create a simple model for demonstration
+    model = nn.Sequential(
+        nn.Conv2d(3, 32, 3),
+        nn.ReLU(),
+        nn.MaxPool2d(2),
+        nn.Flatten(),
+        nn.Linear(32 * 15 * 15, 10),
+    )
 
+    # Log model to registry
     model_info = mlflow.pytorch.log_model(
         model, name="pytorch_model", registered_model_name="ImageClassifier"
     )
@@ -237,7 +343,37 @@ Track distributed PyTorch training experiments:
 
 ```python
 import mlflow
+import torch
+import torch.nn as nn
 import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, TensorDataset
+
+# Create synthetic dataset
+X_train = torch.randn(1000, 784)
+y_train = torch.randint(0, 10, (1000,))
+train_dataset = TensorDataset(X_train, y_train)
+
+# Simple model
+model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
+
+
+def train_epoch(model, train_loader):
+    """Simple training epoch for demonstration."""
+    model.train()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    total_loss = 0
+
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+
+    return total_loss / len(train_loader)
 
 
 def train_distributed():
@@ -245,14 +381,27 @@ def train_distributed():
     dist.init_process_group(backend="nccl")
     rank = dist.get_rank()
 
+    # Wrap model with DDP
+    model_ddp = DDP(model.to(rank), device_ids=[rank])
+
+    # Create distributed sampler
+    from torch.utils.data.distributed import DistributedSampler
+
+    sampler = DistributedSampler(
+        train_dataset, num_replicas=dist.get_world_size(), rank=rank
+    )
+    train_loader = DataLoader(train_dataset, batch_size=32, sampler=sampler)
+
     # Only log from rank 0
     if rank == 0:
         mlflow.start_run()
         mlflow.log_params({"world_size": dist.get_world_size(), "backend": "nccl"})
 
     # Training loop
+    epochs = 10
     for epoch in range(epochs):
-        train_loss = train_epoch(model, train_loader)
+        sampler.set_epoch(epoch)  # Shuffle data differently each epoch
+        train_loss = train_epoch(model_ddp, train_loader)
 
         # Log metrics from rank 0 only
         if rank == 0:

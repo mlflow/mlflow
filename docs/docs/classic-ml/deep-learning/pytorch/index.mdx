@@ -4,6 +4,7 @@ sidebar_label: Pytorch
 ---
 
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
@@ -15,6 +16,8 @@ import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
 **PyTorch** is an open-source deep learning framework developed by Meta's AI Research lab. It provides dynamic computation graphs and a Pythonic API for building neural networks, making it popular for both research and production deep learning applications.
 
 MLflow's PyTorch integration provides experiment tracking, model versioning, and deployment capabilities for deep learning workflows.
+
+<ImageBox src="/images/deep-learning/dl-training-ui.gif" alt="Deep Learning Training" />
 
 ## Why MLflow + PyTorch?
 
@@ -43,9 +46,7 @@ MLflow's PyTorch integration provides experiment tracking, model versioning, and
   ]}
 />
 
-## Key Features
-
-### Autologging
+## Getting Started
 
 Enable comprehensive experiment tracking with one line of code:
 
@@ -53,63 +54,32 @@ Enable comprehensive experiment tracking with one line of code:
 import mlflow
 import torch
 import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
 # Enable autologging
 mlflow.pytorch.autolog()
 
+# Create synthetic data
+X = torch.randn(1000, 784)
+y = torch.randint(0, 10, (1000,))
+train_loader = DataLoader(TensorDataset(X, y), batch_size=32, shuffle=True)
+
 # Your existing PyTorch code works unchanged
 model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
-
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.CrossEntropyLoss()
 
 # Training loop - metrics, parameters, and models logged automatically
-for epoch in range(num_epochs):
-    # ... your training code
-    pass
+for epoch in range(10):
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
 ```
 
 Autologging captures training metrics, model parameters, optimizer configuration, and model checkpoints automatically.
-
-### Manual Logging
-
-For fine-grained control, use MLflow's manual logging APIs:
-
-```python
-import mlflow
-
-with mlflow.start_run():
-    # Log hyperparameters
-    mlflow.log_params({"learning_rate": 0.001, "batch_size": 32, "epochs": 100})
-
-    # Training loop
-    for epoch in range(epochs):
-        loss = train_epoch(model, dataloader)
-        mlflow.log_metric("loss", loss, step=epoch)
-
-    # Log model
-    mlflow.pytorch.log_model(model, name="my_model")
-```
-
-### Model Registry Integration
-
-Version and deploy PyTorch models using MLflow's model registry:
-
-```python
-# Log model with registry
-model_info = mlflow.pytorch.log_model(
-    model, name="pytorch_classifier", registered_model_name="ImageClassifier"
-)
-
-# Transition to production
-from mlflow import MlflowClient
-
-client = MlflowClient()
-client.transition_model_version_stage(
-    name="ImageClassifier",
-    version=model_info.registered_model_version,
-    stage="Production",
-)
-```
 
 ## Learn More
 
