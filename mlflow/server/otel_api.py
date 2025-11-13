@@ -164,7 +164,6 @@ async def export_traces(
             _record_event(
                 OtelTraceReceivedEvent,
                 {
-                    "span_count": len(spans_by_trace_id[trace_id]),
                     "source": trace_source,
                 },
             )

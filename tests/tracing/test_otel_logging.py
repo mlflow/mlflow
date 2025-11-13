@@ -30,6 +30,8 @@ from mlflow.server import handlers
 from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.telemetry.client import TelemetryClient
+from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -634,9 +636,6 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
     Uses @mlflow.trace with standard MLflow client configuration, which automatically sends
     User-Agent and X-MLflow-Client-Version headers to identify traces from MLflow client.
     """
-    from mlflow.telemetry.client import TelemetryClient
-    from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
-
     mlflow.set_tracking_uri(mlflow_server)
     mlflow.set_experiment("otel-telemetry-mlflow-client-test")
 
@@ -659,7 +658,6 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
         if mock_client.add_record.called:
             record = mock_client.add_record.call_args[0][0]
             assert record.event_name == OtelTraceReceivedEvent.name
-            assert record.params["span_count"] >= 1
             assert record.params["source"] == OtelTraceSource.MLFLOW.value
 
 
@@ -670,9 +668,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     Sends a direct protobuf request without MLflow client headers to simulate an external
     OpenTelemetry client (not MLflow client).
     """
-    from mlflow.telemetry.client import TelemetryClient
-    from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
-
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
     experiment_id = experiment.experiment_id
@@ -745,6 +740,4 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
         assert record.event_name == OtelTraceReceivedEvent.name
         assert record.status.value == "success"
-        assert record.params["span_count"] == 3  # Root span + 2 child spans
-        # No MLflow client headers were sent, so source should be UNKNOWN
         assert record.params["source"] == OtelTraceSource.UNKNOWN.value

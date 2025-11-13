@@ -337,6 +337,5 @@ class OtelTraceReceivedEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         source = arguments.get("source")
         return {
-            "span_count": arguments.get("span_count"),
             "source": source.value if isinstance(source, OtelTraceSource) else source,
         }
