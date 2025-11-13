@@ -21,6 +21,24 @@ from mlflow.utils.autologging_utils.logging_and_warnings import (
 from mlflow.utils.mlflow_tags import MLFLOW_AUTOLOGGING
 
 _AUTOLOGGING_PATCHES = {}
+_AUTOLOGGING_CLEANUP_CALLBACKS = {}
+
+
+def register_cleanup_callback(autologging_integration, callback):
+    """
+    Registers a cleanup callback function for an autologging integration.
+    The callback will be invoked when revert_patches() is called for the integration.
+
+    This is useful for integrations that need custom cleanup logic beyond patch
+    reversion, such as uninstrumenting OpenTelemetry instrumentation.
+
+    Args:
+        autologging_integration: The name of the autologging integration.
+        callback: A callable that performs cleanup. Should take no arguments.
+    """
+    if autologging_integration not in _AUTOLOGGING_CLEANUP_CALLBACKS:
+        _AUTOLOGGING_CLEANUP_CALLBACKS[autologging_integration] = []
+    _AUTOLOGGING_CLEANUP_CALLBACKS[autologging_integration].append(callback)
 
 
 # Function attribute used for testing purposes to verify that a given function
@@ -718,6 +736,15 @@ def revert_patches(autologging_integration):
         gorilla.revert(patch)
 
     _AUTOLOGGING_PATCHES.pop(autologging_integration, None)
+
+    # Call any registered cleanup callbacks (e.g., for OTel uninstrumentation)
+    for callback in _AUTOLOGGING_CLEANUP_CALLBACKS.get(autologging_integration, []):
+        try:
+            callback()
+        except Exception as e:
+            _logger.warning(f"Error calling cleanup callback for {autologging_integration}: {e}")
+
+    _AUTOLOGGING_CLEANUP_CALLBACKS.pop(autologging_integration, None)
 
 
 # Represents an active autologging session using two fields:

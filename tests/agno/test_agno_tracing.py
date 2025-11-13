@@ -1,11 +1,14 @@
+import sys
 from unittest.mock import MagicMock, patch
 
+import agno
 import pytest
 from agno.agent import Agent
 from agno.exceptions import ModelProviderError
 from agno.models.anthropic import Claude
 from agno.tools.function import Function, FunctionCall
 from anthropic.types import Message, TextBlock, Usage
+from packaging.version import Version
 
 import mlflow
 import mlflow.agno
@@ -14,6 +17,14 @@ from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import TokenUsageKey
 
 from tests.tracing.helper import get_traces, purge_traces
+
+AGNO_VERSION = Version(getattr(agno, "__version__", "1.0.0"))
+IS_AGNO_V2 = AGNO_VERSION >= Version("2.0.0")
+
+
+# Helper to get the autolog module
+def get_autolog_module():
+    return sys.modules["mlflow.agno.autolog"]
 
 
 def _create_message(content):
@@ -38,6 +49,7 @@ def simple_agent():
     )
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 def test_run_simple_autolog(simple_agent):
     mlflow.agno.autolog()
 
@@ -75,6 +87,7 @@ def test_run_simple_autolog(simple_agent):
     assert get_traces() == []
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 def test_run_failure_tracing(simple_agent):
     mlflow.agno.autolog()
 
@@ -94,6 +107,7 @@ def test_run_failure_tracing(simple_agent):
     assert spans[1].status.description == "ModelProviderError: bang"
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 @pytest.mark.asyncio
 async def test_arun_simple_autolog(simple_agent):
     mlflow.agno.autolog()
@@ -129,6 +143,7 @@ async def test_arun_simple_autolog(simple_agent):
     assert spans[1].outputs["content"][0]["text"] == "Paris"
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 async def test_failure_tracing(simple_agent, is_async):
@@ -154,6 +169,7 @@ async def test_failure_tracing(simple_agent, is_async):
     assert spans[1].status.description == "ModelProviderError: bang"
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 def test_function_execute_tracing():
     def dummy(x):
         return x + 1
@@ -174,6 +190,7 @@ def test_function_execute_tracing():
     assert span.outputs["result"] == 2
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 @pytest.mark.asyncio
 async def test_function_aexecute_tracing():
     async def dummy(x):
@@ -195,6 +212,7 @@ async def test_function_aexecute_tracing():
     assert span.outputs["result"] == 2
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 def test_function_execute_failure_tracing():
     from agno.exceptions import AgentRunException
 
@@ -216,6 +234,7 @@ def test_function_execute_failure_tracing():
     assert span.outputs is None
 
 
+@pytest.mark.skipif(IS_AGNO_V2, reason="Test uses V1 patching behavior")
 @pytest.mark.asyncio
 @pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
 async def test_agno_and_anthropic_autolog_single_trace(simple_agent, is_async):

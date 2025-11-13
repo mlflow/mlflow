@@ -33,6 +33,7 @@ from mlflow.utils.autologging_utils.safety import (  # noqa: F401
     exception_safe_function_for_class,
     is_testing,
     picklable_exception_safe_function,
+    register_cleanup_callback,
     revert_patches,
     safe_patch,
     update_wrapper_extended,

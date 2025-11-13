@@ -1,7 +1,13 @@
 import inspect
 import logging
 
-from mlflow.agno.autolog import patched_async_class_call, patched_class_call
+from mlflow.agno.autolog import (
+    _is_agno_v2,
+    _setup_otel_instrumentation,
+    _uninstrument_otel,
+    patched_async_class_call,
+    patched_class_call,
+)
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.annotations import experimental
@@ -17,11 +23,27 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
     """
     Enables (or disables) and configures autologging from Agno to MLflow.
 
+    For Agno V2 (>= 2.0.0), this uses OpenTelemetry instrumentation via OpenInference.
+
     Args:
         log_traces: If ``True``, traces are logged for Agno Agents.
         disable: If ``True``, disables Agno autologging.
         silent: If ``True``, suppresses all MLflow event logs and warnings.
     """
+    # Check if Agno V2 is installed
+    if _is_agno_v2():
+        _logger.info("Detected Agno V2, using OpenTelemetry instrumentation")
+        if disable or not log_traces:
+            _uninstrument_otel()
+        else:
+            _setup_otel_instrumentation()
+        _record_event(
+            AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
+        )
+        return
+
+    # For Agno V1, use the existing patching method
+    _logger.info("Detected Agno V1")
     from mlflow.agno.utils import discover_storage_backends, find_model_subclasses
 
     class_map = {
