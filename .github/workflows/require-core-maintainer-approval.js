@@ -1,32 +1,27 @@
-module.exports = async ({ github, context, core }) => {
-  // Fetch all collaborators with admin or maintain role
+async function getMaintainers({ github, context }) {
   const collaborators = await github.paginate(github.rest.repos.listCollaborators, {
     owner: context.repo.owner,
     repo: context.repo.repo,
   });
-
-  // Filter to keep only admin and maintain roles
-  const coreMaintainers = collaborators
-    .filter(({ role_name }) => role_name === "admin" || role_name === "maintain")
+  return collaborators
+    .filter(({ role_name }) => ["admin", "maintain"].includes(role_name))
     .map(({ login }) => login);
+}
 
-  console.log("Core maintainers (admin or maintain role):", coreMaintainers);
-
-  const CORE_MAINTAINERS = new Set(coreMaintainers);
-
+module.exports = async ({ github, context, core }) => {
+  const maintainers = await getMaintainers({ github, context });
   const reviews = await github.paginate(github.rest.pulls.listReviews, {
     owner: context.repo.owner,
     repo: context.repo.repo,
     pull_number: context.issue.number,
   });
   const maintainerApproved = reviews.some(
-    ({ state, user: { login } }) => state === "APPROVED" && CORE_MAINTAINERS.has(login)
+    ({ state, user: { login } }) => state === "APPROVED" && maintainers.includes(login)
   );
   if (!maintainerApproved) {
-    const maintainerList = Array.from(CORE_MAINTAINERS)
-      .map((maintainer) => `${maintainer}`)
-      .join(", ");
-    const message = `This PR requires an approval from at least one of core maintainers: ${maintainerList}.`;
+    const message = `This PR requires an approval from at least one of the core maintainers: ${maintainers.join(
+      ", "
+    )}.`;
     core.setFailed(message);
   }
 };
