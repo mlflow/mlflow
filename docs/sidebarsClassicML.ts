@@ -197,19 +197,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/sparkml/index',
               label: 'SparkML',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sparkml/guide/index',
-                  label: 'SparkML within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sparkml/index',
-              },
             },
             {
               type: 'category',
