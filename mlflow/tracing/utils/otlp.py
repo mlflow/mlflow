@@ -32,9 +32,18 @@ def should_export_otlp_metrics() -> bool:
 def get_otlp_exporter() -> SpanExporter:
     """
     Get the OTLP exporter based on the configured protocol.
+
+    The exporter includes MLflow request headers (User-Agent and X-MLflow-Client-Version)
+    to identify traces from the MLflow client.
     """
+    from mlflow.tracking.request_header.registry import resolve_request_headers
+
     endpoint = _get_otlp_endpoint()
     protocol = _get_otlp_protocol()
+
+    # Get MLflow request headers to identify traces from MLflow client
+    headers = resolve_request_headers()
+
     if protocol == "grpc":
         try:
             from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -45,7 +54,7 @@ def get_otlp_exporter() -> SpanExporter:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        return OTLPSpanExporter(endpoint=endpoint, headers=headers)
     elif protocol == "http/protobuf":
         try:
             from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -56,7 +65,7 @@ def get_otlp_exporter() -> SpanExporter:
                 error_code=RESOURCE_DOES_NOT_EXIST,
             ) from e
 
-        return OTLPSpanExporter(endpoint=endpoint)
+        return OTLPSpanExporter(endpoint=endpoint, headers=headers)
     else:
         raise MlflowException.invalid_parameter_value(
             f"Unsupported OTLP protocol '{protocol}' is configured. Please set "

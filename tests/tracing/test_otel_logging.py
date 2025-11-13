@@ -707,3 +707,138 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
         assert record.event_name == OtelTraceReceivedEvent.name
         assert record.status.value == "success"
         assert record.params["span_count"] == 3  # Root span + 2 child spans
+        # No MLflow client headers were sent, so from_mlflow_client should be False
+        assert record.params["from_mlflow_client"] is False
+
+
+def test_otel_trace_received_with_mlflow_client_headers(mlflow_server: str):
+    """
+    Test that OtelTraceReceivedEvent correctly identifies traces from MLflow client
+    via User-Agent and X-MLflow-Client-Version headers.
+    """
+    from mlflow.telemetry.client import TelemetryClient
+    from mlflow.telemetry.events import OtelTraceReceivedEvent
+
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-client-header-test")
+    experiment_id = experiment.experiment_id
+
+    # Create a simple request with a single span
+    request = ExportTraceServiceRequest()
+    trace_id_hex = "0000000000000200" + "0" * 16
+
+    root_span = OTelProtoSpan()
+    root_span.trace_id = bytes.fromhex(trace_id_hex)
+    root_span.span_id = bytes.fromhex("00000001" + "0" * 8)
+    root_span.name = "mlflow-client-span"
+    root_span.start_time_unix_nano = 1000000000
+    root_span.end_time_unix_nano = 2000000000
+
+    scope = InstrumentationScope()
+    scope.name = "client-test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.append(root_span)
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request.resource_spans.append(resource_spans)
+
+    # Test 1: Request with User-Agent header
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+                "User-Agent": "mlflow-python-client/2.10.0",
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.params["from_mlflow_client"] is True
+        assert record.params["span_count"] == 1
+
+    # Test 2: Request with X-MLflow-Client-Version header
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+                "X-MLflow-Client-Version": "2.10.0",
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.params["from_mlflow_client"] is True
+        assert record.params["span_count"] == 1
+
+    # Test 3: Request with both headers
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+                "User-Agent": "mlflow-python-client/2.10.0",
+                "X-MLflow-Client-Version": "2.10.0",
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.params["from_mlflow_client"] is True
+
+    # Test 4: Request with non-MLflow User-Agent
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+                "User-Agent": "other-client/1.0.0",
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.params["from_mlflow_client"] is False

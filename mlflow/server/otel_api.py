@@ -47,6 +47,8 @@ async def export_traces(
     response: Response,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
     content_type: str = Header(None),
+    user_agent: str | None = Header(None, alias="User-Agent"),
+    x_mlflow_client_version: str | None = Header(None, alias="X-MLflow-Client-Version"),
 ) -> OTelExportTraceServiceResponse:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
@@ -59,6 +61,8 @@ async def export_traces(
         response: FastAPI Response object for setting headers
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
+        user_agent: User-Agent header from the request (used to identify MLflow client)
+        x_mlflow_client_version: X-MLflow-Client-Version header (used to identify MLflow client)
 
     Returns:
         OTel ExportTraceServiceResponse indicating success
@@ -149,12 +153,18 @@ async def export_traces(
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
+        # Determine if traces are from MLflow client based on headers
+        is_mlflow_client = (
+            user_agent and user_agent.startswith("mlflow-python-client/")
+        ) or x_mlflow_client_version is not None
+
         # Emit telemetry event for each root span ingested
         for trace_id in root_spans_by_trace_id:
             _record_event(
                 OtelTraceReceivedEvent,
                 {
                     "span_count": len(spans_by_trace_id[trace_id]),
+                    "from_mlflow_client": is_mlflow_client,
                 },
             )
 

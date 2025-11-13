@@ -329,4 +329,5 @@ class OtelTraceReceivedEvent(Event):
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
             "span_count": arguments.get("span_count"),
+            "from_mlflow_client": arguments.get("from_mlflow_client"),
         }
