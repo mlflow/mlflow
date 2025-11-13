@@ -248,9 +248,7 @@ def evaluate(
     builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
-    # "request" column must exist after conversion
-    input_key = "inputs" if is_managed_dataset else "request"
-    sample_input = df.iloc[0][input_key]
+    sample_input = df.iloc[0][InputDatasetColumn.INPUTS]
 
     # Only check 'inputs' column when it is not derived from the trace object
     if "trace" not in df.columns and not isinstance(sample_input, dict):
@@ -287,15 +285,6 @@ def _run_harness(data, scorers, predict_fn, model_id):
         mlflow_dataset = data
         df = data.to_df()
     else:
-        # Rename 'request' / 'response' column back to 'inputs' / 'outputs'.
-        # This is a temporary hack to avoid branching _convert_to_eval_set()
-        # into OSS and DBX implementation.
-        data = data.rename(
-            columns={
-                "request": InputDatasetColumn.INPUTS,
-                "response": InputDatasetColumn.OUTPUTS,
-            }
-        )
         # Use default name for evaluation dataset when converting from DataFrame
         mlflow_dataset = mlflow.data.from_pandas(df=data, name="dataset")
         df = data
