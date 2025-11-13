@@ -162,11 +162,6 @@ const sidebarsClassicML: SidebarsConfig = {
               items: [
                 {
                   type: 'doc',
-                  id: 'traditional-ml/sklearn/quickstart/quickstart-sklearn-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
                   id: 'traditional-ml/sklearn/guide/index',
                   label: 'Scikit Learn within MLflow',
                 },

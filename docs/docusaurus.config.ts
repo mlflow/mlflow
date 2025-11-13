@@ -1065,6 +1065,11 @@ const config: Config = {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
           },
+          // Redirect removed sklearn quickstart to consolidated guide
+          {
+            to: '/ml/traditional-ml/sklearn/guide',
+            from: ['/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
         ],
       },
     ],
