@@ -22,7 +22,6 @@ AGNO_VERSION = Version(getattr(agno, "__version__", "1.0.0"))
 IS_AGNO_V2 = AGNO_VERSION >= Version("2.0.0")
 
 
-# Helper to get the autolog module
 def get_autolog_module():
     return sys.modules["mlflow.agno.autolog"]
 
@@ -75,7 +74,6 @@ def test_run_simple_autolog(simple_agent):
     assert spans[0].outputs["content"] == "Paris"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].name == "Claude.invoke"
-    # Agno add system message to the input messages, so validate the last message
     assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
     assert spans[1].outputs["content"][0]["text"] == "Paris"
 
@@ -138,7 +136,6 @@ async def test_arun_simple_autolog(simple_agent):
     assert spans[0].outputs["content"] == "Paris"
     assert spans[1].span_type == SpanType.LLM
     assert spans[1].name == "Claude.ainvoke"
-    # Agno add system message to the input messages, so validate the last message
     assert spans[1].inputs["messages"][-1]["content"] == "Capital of France?"
     assert spans[1].outputs["content"][0]["text"] == "Paris"
 
@@ -257,3 +254,98 @@ async def test_agno_and_anthropic_autolog_single_trace(simple_agent, is_async):
     assert spans[1].name == "Claude.ainvoke" if is_async else "Claude.invoke"
     assert spans[2].span_type == SpanType.CHAT_MODEL
     assert spans[2].name == "AsyncMessages.create" if is_async else "Messages.create"
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+def test_v2_autolog_setup_teardown():
+    autolog_module = get_autolog_module()
+    original_setup = autolog_module._otel_instrumentation_setup
+    original_instrumentor = autolog_module._agno_instrumentor
+
+    try:
+        autolog_module._otel_instrumentation_setup = False
+        autolog_module._agno_instrumentor = None
+
+        with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
+            mlflow.agno.autolog(log_traces=True)
+            assert autolog_module._otel_instrumentation_setup is True
+            assert autolog_module._agno_instrumentor is not None
+
+            mlflow.agno.autolog(log_traces=False)
+            assert autolog_module._otel_instrumentation_setup is False
+    finally:
+        autolog_module._otel_instrumentation_setup = original_setup
+        autolog_module._agno_instrumentor = original_instrumentor
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+@pytest.mark.asyncio
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+async def test_v2_creates_otel_spans(simple_agent, is_async):
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+
+    memory_exporter = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(memory_exporter))
+    trace.set_tracer_provider(tracer_provider)
+
+    try:
+        with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
+            mlflow.agno.autolog(log_traces=True)
+
+            mock_client = MagicMock()
+            if is_async:
+
+                async def _mock_create(*args, **kwargs):
+                    return _create_message("Paris")
+
+                mock_client.messages.create.side_effect = _mock_create
+            else:
+                mock_client.messages.create.return_value = _create_message("Paris")
+
+            mock_method = "get_async_client" if is_async else "get_client"
+            with patch.object(Claude, mock_method, return_value=mock_client):
+                if is_async:
+                    resp = await simple_agent.arun("Capital of France?")
+                else:
+                    resp = simple_agent.run("Capital of France?")
+
+            assert resp.content == "Paris"
+            spans = memory_exporter.get_finished_spans()
+            assert len(spans) > 0
+    finally:
+        mlflow.agno.autolog(disable=True)
+
+
+@pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
+def test_v2_failure_creates_error_spans(simple_agent):
+    from opentelemetry import trace
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+    from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
+    from opentelemetry.trace import StatusCode
+
+    memory_exporter = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(memory_exporter))
+    trace.set_tracer_provider(tracer_provider)
+
+    try:
+        with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
+            mlflow.agno.autolog(log_traces=True)
+
+            mock_client = MagicMock()
+            mock_client.messages.create.side_effect = RuntimeError("bang")
+            with patch.object(Claude, "get_client", return_value=mock_client):
+                with pytest.raises(ModelProviderError, match="bang"):
+                    simple_agent.run("fail")
+
+            spans = memory_exporter.get_finished_spans()
+            assert len(spans) > 0
+            error_spans = [s for s in spans if s.status.status_code == StatusCode.ERROR]
+            assert len(error_spans) > 0
+    finally:
+        mlflow.agno.autolog(disable=True)
