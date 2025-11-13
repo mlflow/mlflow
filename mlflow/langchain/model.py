@@ -148,17 +148,18 @@ def save_model(
     Save a LangChain model to a path on the local file system.
 
     Args:
-        lc_model: A LangChain model, which could be a
-            `Chain <https://python.langchain.com/docs/modules/chains/>`_,
-            `Agent <https://python.langchain.com/docs/modules/agents/>`_,
-            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_,
-            or `RunnableSequence <https://python.langchain.com/docs/modules/chains/foundational/sequential_chains#using-lcel>`_,
-            or a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
+        lc_model: A LangChain model, which could be
+            a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
             for the above types. When using model as path, make sure to set the model
             by using :func:`mlflow.models.set_model()`.
+            If environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' is enabled,
+            it could also be
+            `Chain <https://python.langchain.com/docs/modules/chains/>`_,
+            `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
+            `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
 
-            .. Note:: Experimental: Using model as path may change or be removed in a future
-                        release without warning.
+            .. Note:: Besides model as path, other type values for 'lc_model' param are deprecated
+                      and will be removed in future versions.
         path: Local path where the serialized model (as YAML) is to be saved.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
@@ -448,16 +449,18 @@ def log_model(
     Log a LangChain model as an MLflow artifact for the current run.
 
     Args:
-        lc_model: A LangChain model, which could be a
+        lc_model: A LangChain model, which could be
+            a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
+            for the above types. When using model as path, make sure to set the model
+            by using :func:`mlflow.models.set_model()`.
+            If environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' is enabled,
+            it could also be
             `Chain <https://python.langchain.com/docs/modules/chains/>`_,
             `Agent <https://python.langchain.com/docs/modules/agents/>`_, or
             `retriever <https://python.langchain.com/docs/modules/data_connection/retrievers/>`_
-            or a path containing the `LangChain model code <https://github.com/mlflow/mlflow/blob/master/examples/langchain/chain_as_code_driver.py>`
-            for the above types. When using model as path, make sure to set the model
-            by using :func:`mlflow.models.set_model()`.
 
-            .. Note:: Experimental: Using model as path may change or be removed in a future
-                                    release without warning.
+            .. Note:: Besides model as path, other type values for 'lc_model' param are deprecated
+                      and will be removed in future versions.
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
