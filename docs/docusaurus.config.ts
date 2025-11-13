@@ -995,6 +995,11 @@ const config: Config = {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
           },
+          // Redirect consolidated prophet guide to index
+          {
+            to: '/ml/traditional-ml/prophet',
+            from: ['/ml/traditional-ml/prophet/guide'],
+          },
           {
             to: '/ml/traditional-ml/tutorials/creating-custom-pyfunc',
             from: ['/traditional-ml/creating-custom-pyfunc'],

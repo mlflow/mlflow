@@ -212,19 +212,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/prophet/index',
               label: 'Prophet',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/prophet/guide/index',
-                  label: 'Prophet within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/prophet/index',
-              },
             },
           ],
           link: {
