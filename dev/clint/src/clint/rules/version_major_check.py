@@ -8,7 +8,7 @@ if TYPE_CHECKING:
     from clint.resolver import Resolver
 
 
-class VersionMajorCheck(Rule):
+class MajorVersionCheck(Rule):
     def _message(self) -> str:
         return (
             "Use `.major` field for major version comparisons instead of full version strings. "
@@ -27,14 +27,14 @@ class VersionMajorCheck(Rule):
 
         if not (
             isinstance(node.left, ast.Call)
-            and VersionMajorCheck._is_version_call(node.left, resolver)
+            and MajorVersionCheck._is_version_call(node.left, resolver)
         ):
             return False
 
         comparator = node.comparators[0]
         if not (
             isinstance(comparator, ast.Call)
-            and VersionMajorCheck._is_version_call(comparator, resolver)
+            and MajorVersionCheck._is_version_call(comparator, resolver)
         ):
             return False
 
@@ -44,7 +44,7 @@ class VersionMajorCheck(Rule):
             and isinstance(comparator.args[0].value, str)
         ):
             version_str = comparator.args[0].value
-            return VersionMajorCheck._is_major_only_version(version_str)
+            return MajorVersionCheck._is_major_only_version(version_str)
 
         return False
 
