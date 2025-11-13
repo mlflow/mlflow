@@ -7,20 +7,20 @@
 	.st1{fill:url(#SVGID_3_);}
 	.st2{clip-path:url(#SVGID_5_);}
 	.st3{fill:url(#SVGID_6_);}
-	.st4{fill:#425066;}
+	.st4{fill:#FFFFFF;}
 </style>
 <g>
 	<g>
 		<g>
 			<defs>
-				<polygon id="SVGID_1_" points="73.5,85.6 51,72.8 51,125.4 60,120.2 60,105.4 66.8,109.3 66.7,99.2 60,95.3 60,89.4 73.5,97.3 
+				<polygon id="SVGID_1_" points="73.5,85.6 51,72.8 51,125.4 60,120.2 60,105.4 66.8,109.3 66.7,99.2 60,95.3 60,89.4 73.5,97.3
 									"/>
 			</defs>
 			<clipPath id="SVGID_2_">
 				<use xlink:href="#SVGID_1_"  style="overflow:visible;"/>
 			</clipPath>
 			<g class="st0">
-				
+
 					<linearGradient id="SVGID_3_" gradientUnits="userSpaceOnUse" x1="24.4" y1="-201.05" x2="79.6" y2="-201.05" gradientTransform="matrix(1 0 0 -1 0 -102)">
 					<stop  offset="0" style="stop-color:#FF6F00"/>
 					<stop  offset="1" style="stop-color:#FFA800"/>
@@ -40,7 +40,7 @@
 				<use xlink:href="#SVGID_4_"  style="overflow:visible;"/>
 			</clipPath>
 			<g class="st2">
-				
+
 					<linearGradient id="SVGID_6_" gradientUnits="userSpaceOnUse" x1="24.1" y1="-201.05" x2="79.3" y2="-201.05" gradientTransform="matrix(1 0 0 -1 0 -102)">
 					<stop  offset="0" style="stop-color:#FF6F00"/>
 					<stop  offset="1" style="stop-color:#FFA800"/>
