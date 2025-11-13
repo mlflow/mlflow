@@ -54,9 +54,9 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
     <ThemeProvider isDarkTheme={isDarkTheme}>
       <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
         <MLflowImagePreviewContainer.Provider value={{ getImagePreviewPopupContainer }}>
-        <EmotionThemeProvider theme={(baseTheme) => PATTERN_FLY_TOKEN_TRANSLATION(baseTheme)}>
-          {children}
-          <div ref={modalContainerElement} />
+          <EmotionThemeProvider theme={(baseTheme) => PATTERN_FLY_TOKEN_TRANSLATION(baseTheme, isDarkTheme)}>
+            {children}
+            <div ref={modalContainerElement} />
           </EmotionThemeProvider>
         </MLflowImagePreviewContainer.Provider>
       </DesignSystemProvider>
