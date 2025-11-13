@@ -123,13 +123,14 @@ async def export_traces(
         # for SQLite backends and can actually degrade performance due to write contention.
         # Sequential logging is simpler and faster for typical use cases.
         errors = {}
-        root_trace_ids = set()
+        trace_ids = set()
         for trace_id, trace_spans in spans_by_trace_id.items():
             try:
                 store.log_spans(x_mlflow_experiment_id, trace_spans)
                 for span in trace_spans:
                     if span.parent_id is None:
-                        root_trace_ids.add(trace_id)
+                        # Only add when we find a root span (OTEL traces have exactly one root span)
+                        trace_ids.add(trace_id)
                         break
             except NotImplementedError:
                 store_name = store.__class__.__name__
@@ -157,7 +158,7 @@ async def export_traces(
             else TraceSource.UNKNOWN
         )
 
-        for _ in root_trace_ids:
+        for _ in trace_ids:
             _record_event(
                 TraceReceivedByServerEvent,
                 {
