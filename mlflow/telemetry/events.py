@@ -323,19 +323,19 @@ class AutologgingEvent(Event):
     name: str = "autologging"
 
 
-class OtelTraceSource(str, Enum):
-    """Source of an OpenTelemetry trace received by the MLflow server."""
+class TraceSource(str, Enum):
+    """Source of a trace received by the MLflow server."""
 
     MLFLOW_CLIENT = "MLFLOW_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 
-class OtelTraceReceivedEvent(Event):
-    name: str = "otel_trace_received"
+class TraceReceivedByServerEvent(Event):
+    name: str = "trace_received_by_server"
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         source = arguments.get("source")
         return {
-            "source": source.value if isinstance(source, OtelTraceSource) else source,
+            "source": source.value if isinstance(source, TraceSource) else source,
         }

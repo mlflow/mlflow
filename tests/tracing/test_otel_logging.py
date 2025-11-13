@@ -31,7 +31,7 @@ from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import TelemetryClient
-from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
+from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -631,7 +631,7 @@ def test_error_logging_spans(mlflow_server: str):
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
     """
-    Test OtelTraceReceivedEvent telemetry shows source=MLFLOW_CLIENT for standard client.
+    Test TraceReceivedByServerEvent telemetry shows source=MLFLOW_CLIENT for standard client.
 
     Uses @mlflow.trace with standard MLflow client configuration, which automatically sends
     User-Agent and X-MLflow-Client-Version headers to identify traces from MLflow client.
@@ -654,13 +654,13 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
 
         if mock_client.add_record.called:
             record = mock_client.add_record.call_args[0][0]
-            assert record.event_name == OtelTraceReceivedEvent.name
-            assert record.params["source"] == OtelTraceSource.MLFLOW_CLIENT.value
+            assert record.event_name == TraceReceivedByServerEvent.name
+            assert record.params["source"] == TraceSource.MLFLOW_CLIENT.value
 
 
 def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     """
-    Test OtelTraceReceivedEvent telemetry shows source=UNKNOWN for external clients.
+    Test TraceReceivedByServerEvent telemetry shows source=UNKNOWN for external clients.
 
     Sends a direct protobuf request without MLflow client headers to simulate an external
     OpenTelemetry client (not MLflow client).
@@ -726,6 +726,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         mock_client.add_record.assert_called_once()
         record = mock_client.add_record.call_args[0][0]
 
-        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.event_name == TraceReceivedByServerEvent.name
         assert record.status.value == "success"
-        assert record.params["source"] == OtelTraceSource.UNKNOWN.value
+        assert record.params["source"] == TraceSource.UNKNOWN.value

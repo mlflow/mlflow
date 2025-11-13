@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
+from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -163,13 +163,11 @@ async def export_traces(
         is_mlflow_client = (
             user_agent and user_agent.startswith(_MLFLOW_CLIENT_USER_AGENT_PREFIX)
         ) or x_mlflow_client_version is not None
-        trace_source = (
-            OtelTraceSource.MLFLOW_CLIENT if is_mlflow_client else OtelTraceSource.UNKNOWN
-        )
+        trace_source = TraceSource.MLFLOW_CLIENT if is_mlflow_client else TraceSource.UNKNOWN
 
         for _ in root_trace_ids:
             _record_event(
-                OtelTraceReceivedEvent,
+                TraceReceivedByServerEvent,
                 {
                     "source": trace_source,
                 },
