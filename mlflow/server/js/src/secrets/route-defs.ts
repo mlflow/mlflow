@@ -5,8 +5,8 @@ export const getSecretsRouteDefs = () => {
   return [
     {
       path: SECRETS_BASE_ROUTE,
-      element: createLazyRouteElement(() => import('./components/SecretsPage')),
-      pageId: 'mlflow.secrets',
+      element: createLazyRouteElement(() => import('./components/RoutesPage')),
+      pageId: 'mlflow.routes',
     },
   ];
 };

@@ -12,45 +12,43 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCallback, useState } from 'react';
 import type { Secret } from '../types';
-import { BindingsTable } from './BindingsTable';
+import { SecretBindingsList } from './SecretBindingsList';
 import { useUnbindSecretMutation } from '../hooks/useUnbindSecretMutation';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { Descriptions } from '@mlflow/mlflow/src/common/components/Descriptions';
-import type { SecretBinding } from '../types';
 
 export interface SecretDetailDrawerProps {
   secret: Secret | null;
   open: boolean;
   onClose: () => void;
-  onUpdateApiKey?: (secret: Secret) => void;
-  onUpdateModel?: (secret: Secret) => void;
+  onUpdate?: (secret: Secret) => void;
   onDelete?: (secret: Secret) => void;
 }
 
-export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUpdateModel, onDelete }: SecretDetailDrawerProps) => {
+export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }: SecretDetailDrawerProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const [unbindingBinding, setUnbindingBinding] = useState<SecretBinding | null>(null);
+  const [unbindingId, setUnbindingId] = useState<string | null>(null);
 
   const { unbindSecret, isLoading: isUnbinding } = useUnbindSecretMutation({
     onSuccess: () => {
-      setUnbindingBinding(null);
+      setUnbindingId(null);
     },
     onError: (error: Error) => {
       console.error('Failed to unbind secret:', error);
-      setUnbindingBinding(null);
+      setUnbindingId(null);
     },
   });
 
-  const handleUnbind = useCallback((binding: SecretBinding) => {
-    setUnbindingBinding(binding);
+  const handleUnbind = useCallback((bindingId: string) => {
+    setUnbindingId(bindingId);
   }, []);
 
   const confirmUnbind = useCallback(() => {
-    if (unbindingBinding) {
-      unbindSecret(unbindingBinding);
+    if (unbindingId) {
+      unbindSecret({ binding_id: unbindingId });
     }
-  }, [unbindingBinding, unbindSecret]);
+  }, [unbindingId, unbindSecret]);
 
   return (
     <Drawer.Root modal open={open} onOpenChange={onClose}>
@@ -73,7 +71,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
               <LightningIcon css={{ fontSize: 18 }} />
             </div>
             <FormattedMessage
-              defaultMessage="Model Details"
+              defaultMessage="Secret Details"
               description="Secret detail drawer > drawer title"
             />
           </div>
@@ -117,29 +115,17 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
             </div>
 
             {/* Action buttons */}
-            <div css={{ display: 'flex', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
+            <div css={{ display: 'flex', gap: theme.spacing.sm }}>
               <Button
-                componentId="mlflow.secrets.detail_drawer.update_api_key_button"
+                componentId="mlflow.secrets.detail_drawer.update_button"
                 icon={<PencilIcon />}
                 onClick={() => {
-                  onUpdateApiKey?.(secret);
+                  onUpdate?.(secret);
                 }}
               >
                 <FormattedMessage
-                  defaultMessage="Update API Key"
-                  description="Secret detail drawer > update API key button"
-                />
-              </Button>
-              <Button
-                componentId="mlflow.secrets.detail_drawer.update_model_button"
-                icon={<PencilIcon />}
-                onClick={() => {
-                  onUpdateModel?.(secret);
-                }}
-              >
-                <FormattedMessage
-                  defaultMessage="Update Model"
-                  description="Secret detail drawer > update model button"
+                  defaultMessage="Update Secret"
+                  description="Secret detail drawer > update button"
                 />
               </Button>
               <Button
@@ -151,7 +137,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
                 }}
               >
                 <FormattedMessage
-                  defaultMessage="Delete"
+                  defaultMessage="Delete Secret"
                   description="Secret detail drawer > delete button"
                 />
               </Button>
@@ -159,7 +145,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
 
             {/* Metadata section */}
             <div>
-              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.lg }}>
+              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.md }}>
                 <FormattedMessage
                   defaultMessage="Metadata"
                   description="Secret detail drawer > metadata section title"
@@ -203,19 +189,19 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
 
             {/* Bindings section */}
             <div>
-              <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.md }}>
+              <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
                 <FormattedMessage
                   defaultMessage="Bindings"
                   description="Secret detail drawer > bindings section title"
                 />
               </Typography.Title>
-              <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.md }}>
+              <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.sm }}>
                 <FormattedMessage
                   defaultMessage="These resources are currently using this secret and will have access to its value through the specified environment variable."
                   description="Secret detail drawer > bindings description"
                 />
               </Typography.Text>
-              <BindingsTable
+              <SecretBindingsList
                 secretId={secret.secret_id}
                 variant="default"
                 isSharedSecret={secret.is_shared}
@@ -227,8 +213,8 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdateApiKey, onUp
 
         <DangerModal
           componentId="mlflow.secrets.detail_drawer.unbind_modal"
-          visible={!!unbindingBinding}
-          onCancel={() => setUnbindingBinding(null)}
+          visible={!!unbindingId}
+          onCancel={() => setUnbindingId(null)}
           okText={intl.formatMessage({
             defaultMessage: 'Unbind',
             description: 'Unbind confirmation modal > unbind button text',

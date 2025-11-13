@@ -3,9 +3,9 @@ import {
   Button,
   DropdownMenu,
   HomeIcon,
-  KeyIcon,
   ModelsIcon,
   PlusIcon,
+  ShareIcon,
   TextBoxIcon,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -114,12 +114,12 @@ export function MlflowSidebar() {
       },
     },
     {
-      key: 'secrets',
-      icon: <KeyIcon />,
+      key: 'gateway',
+      icon: <ShareIcon />,
       linkProps: {
         to: SECRETS_BASE_ROUTE,
         isActive: isSecretsActive,
-        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway tab" />,
+        children: <FormattedMessage defaultMessage="Gateway" description="Sidebar link for gateway/routes tab" />,
       },
     },
   ];

@@ -9,7 +9,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCallback, useState } from 'react';
 import type { Secret } from '../types';
 import { useDeleteSecretMutation } from '../hooks/useDeleteSecretMutation';
-import { BindingsTable } from './BindingsTable';
+import { SecretBindingsList } from './SecretBindingsList';
 
 export interface DeleteSecretModalProps {
   secret: Secret | null;
@@ -45,13 +45,6 @@ export const DeleteSecretModal = ({ secret, visible, onCancel }: DeleteSecretMod
 
   const isDeleteDisabled = !secret || confirmationText !== secret.secret_name;
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !isDeleteDisabled && !isLoading) {
-      e.preventDefault();
-      handleDelete();
-    }
-  }, [isDeleteDisabled, isLoading, handleDelete]);
-
   if (!secret) return null;
 
   return (
@@ -85,7 +78,7 @@ export const DeleteSecretModal = ({ secret, visible, onCancel }: DeleteSecretMod
           />
         </Typography.Text>
 
-        <BindingsTable secretId={secret.secret_id} variant="warning" isSharedSecret={secret.is_shared} />
+        <SecretBindingsList secretId={secret.secret_id} variant="warning" isSharedSecret={secret.is_shared} />
 
         <div>
           <FormUI.Label htmlFor="delete-secret-confirmation-input">
@@ -101,7 +94,6 @@ export const DeleteSecretModal = ({ secret, visible, onCancel }: DeleteSecretMod
             value={confirmationText}
             onChange={(e) => setConfirmationText(e.target.value)}
             autoComplete="off"
-            onKeyDown={handleKeyDown}
           />
         </div>
       </div>

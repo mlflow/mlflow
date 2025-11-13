@@ -37,7 +37,6 @@ export interface SecretsTableProps {
   error?: Error;
   onSecretClicked?: (secret: Secret) => void;
   onUpdateSecret?: (secret: Secret) => void;
-  onUpdateModel?: (secret: Secret) => void;
   onDeleteSecret?: (secret: Secret) => void;
   sorting: SortingState;
   setSorting: React.Dispatch<React.SetStateAction<SortingState>>;
@@ -68,14 +67,6 @@ const SecretNameCell: SecretsColumnDef['cell'] = ({
       {original.secret_name}
     </Typography.Link>
   );
-};
-
-const ProviderCell: SecretsColumnDef['cell'] = ({ row: { original } }) => {
-  return <Typography.Text ellipsis>{original.provider || '-'}</Typography.Text>;
-};
-
-const ModelCell: SecretsColumnDef['cell'] = ({ row: { original } }) => {
-  return <Typography.Text ellipsis>{original.model || '-'}</Typography.Text>;
 };
 
 const MaskedValueCell: SecretsColumnDef['cell'] = ({ row: { original } }) => {
@@ -114,7 +105,6 @@ export const SecretsTable = React.memo(
     error,
     onSecretClicked,
     onUpdateSecret,
-    onUpdateModel,
     onDeleteSecret,
     sorting,
     setSorting,
@@ -147,24 +137,6 @@ export const SecretsTable = React.memo(
           accessorFn: (data) => data.secret_name,
           cell: SecretNameCell,
           meta: { styles: { minWidth: 200 } },
-        },
-        {
-          header: intl.formatMessage(SecretsTableColumnLabels[SecretsTableColumns.provider]),
-          enableSorting: true,
-          enableResizing: true,
-          id: SecretsTableColumns.provider,
-          accessorFn: (data) => data.provider,
-          cell: ProviderCell,
-          meta: { styles: { minWidth: 120, maxWidth: 150 } },
-        },
-        {
-          header: intl.formatMessage(SecretsTableColumnLabels[SecretsTableColumns.model]),
-          enableSorting: true,
-          enableResizing: true,
-          id: SecretsTableColumns.model,
-          accessorFn: (data) => data.model,
-          cell: ModelCell,
-          meta: { styles: { minWidth: 150 } },
         },
         {
           header: intl.formatMessage(SecretsTableColumnLabels[SecretsTableColumns.maskedValue]),
@@ -427,27 +399,15 @@ export const SecretsTable = React.memo(
                       </DropdownMenu.Trigger>
                       <DropdownMenu.Content align="end">
                         <DropdownMenu.Item
-                          componentId="mlflow.secrets.update_api_key"
+                          componentId="mlflow.secrets.update_secret"
                           onClick={() => onUpdateSecret?.(row.original)}
                         >
                           <DropdownMenu.IconWrapper>
                             <PencilIcon />
                           </DropdownMenu.IconWrapper>
                           <FormattedMessage
-                            defaultMessage="Update API key"
-                            description="Secrets table > update API key action"
-                          />
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          componentId="mlflow.secrets.update_model"
-                          onClick={() => onUpdateModel?.(row.original)}
-                        >
-                          <DropdownMenu.IconWrapper>
-                            <PencilIcon />
-                          </DropdownMenu.IconWrapper>
-                          <FormattedMessage
-                            defaultMessage="Update model"
-                            description="Secrets table > update model action"
+                            defaultMessage="Update secret value"
+                            description="Secrets table > update secret action"
                           />
                         </DropdownMenu.Item>
                         <DropdownMenu.Item
@@ -458,7 +418,7 @@ export const SecretsTable = React.memo(
                             <TrashIcon />
                           </DropdownMenu.IconWrapper>
                           <FormattedMessage
-                            defaultMessage="Delete"
+                            defaultMessage="Delete secret"
                             description="Secrets table > delete secret action"
                           />
                         </DropdownMenu.Item>

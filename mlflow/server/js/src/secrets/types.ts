@@ -13,8 +13,6 @@ export interface Secret {
   created_by?: string;
   last_updated_by?: string;
   binding_count?: number;
-  provider?: string;
-  model?: string;
 }
 
 export interface SecretBinding {
@@ -35,8 +33,6 @@ export interface CreateSecretRequest {
   resource_id: string;
   is_shared?: boolean;
   created_by?: string;
-  provider?: string;
-  model?: string;
 }
 
 export interface CreateSecretResponse {
@@ -48,8 +44,6 @@ export interface UpdateSecretRequest {
   secret_id: string;
   secret_value: string;
   updated_by?: string;
-  provider?: string;
-  model?: string;
 }
 
 export interface DeleteSecretRequest {
@@ -67,9 +61,7 @@ export interface BindSecretRequest {
 }
 
 export interface UnbindSecretRequest {
-  resource_type: string;
-  resource_id: string;
-  field_name: string;
+  binding_id: string;
 }
 
 export interface ListBindingsRequest {
@@ -78,4 +70,53 @@ export interface ListBindingsRequest {
 
 export interface ListBindingsResponse {
   bindings: SecretBinding[];
+}
+
+// Route types for route-centric architecture
+export interface Route {
+  route_id: string;
+  secret_id: string;
+  secret_name?: string; // Name of the secret/API key being used
+  model_name: string;
+  name?: string;
+  description?: string;
+  provider: string;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string;
+  last_updated_by?: string;
+  binding_count?: number;
+  tags?: Array<{ key: string; value: string }> | Record<string, string>;
+}
+
+export interface CreateRouteRequest {
+  // For "Add Route" flow (use existing secret - calls create-route-and-bind)
+  secret_id?: string;
+
+  // For "Create Route" flow (create new secret - calls create-and-bind)
+  secret_name?: string;
+  secret_value?: string;
+  provider?: string;
+  is_shared?: boolean;
+  auth_config?: string; // JSON stringified object
+
+  // Common fields for both flows
+  model_name: string;
+  route_name?: string;
+  route_description?: string;
+  route_tags?: string; // JSON stringified array
+  resource_type: string;
+  resource_id: string;
+  field_name: string;
+  created_by?: string;
+}
+
+export interface CreateRouteResponse {
+  secret?: Secret; // Present if new secret was created
+  route: Route;
+  binding: SecretBinding;
+}
+
+export interface ListRoutesResponse {
+  routes: Route[];
 }
