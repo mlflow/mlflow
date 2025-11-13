@@ -12,7 +12,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
   <img src={useBaseUrl("/images/logos/openai-agent-logo.png")} alt="OpenAI Agent Logo" style={{width: 300, objectFit: 'contain'}} />
 </p>
 
-This guide shows how to use <APILink fn="mlflow.genai.optimize_prompts" /> with the [OpenAI Agent framework](https://github.com/openai/openai-agents-python) to automatically improve your agent's prompts.
+This guide demonstrates how to leverage <APILink fn="mlflow.genai.optimize_prompts" /> alongside the [OpenAI Agent framework](https://github.com/openai/openai-agents-python) to enhance your agent's prompts automatically. The <APILink fn="mlflow.genai.optimize_prompts" /> API is framework-agnostic, enabling you to perform end-to-end prompt optimization of your agents from any framework using state-of-the-art techniques. For more information about the API, please visit [Optimize Prompts](/genai/prompt-registry/optimize-prompts).
 
 ## Prerequisites
 
@@ -47,10 +47,9 @@ from agents import Agent, Runner
 from mlflow.genai.optimize import GepaPromptOptimizer
 from mlflow.genai.scorers import scorer
 
-# If you're inside notebooks
-import nest_asyncio
-
-nest_asyncio.apply()
+# If you're inside notebooks, please uncomment the following lines.
+# import nest_asyncio
+# nest_asyncio.apply()
 
 # Step 1: Register your initial prompt
 system_prompt = mlflow.genai.register_prompt(
@@ -87,7 +86,7 @@ def predict_fn(context: str, question: str) -> str:
     user_message = user_prompt.format(context=context, question=question)
 
     # Run the agent
-    result = asyncio.run(Runner.run(agent, user_message))
+    result = Runner.run_sync(agent, user_message)
     return result.final_output
 
 
@@ -130,8 +129,12 @@ result = mlflow.genai.optimize_prompts(
 )
 
 # Step 6: Use the optimized prompt
-optimized_prompt = result.optimized_prompts[0]
-print(f"Optimized prompt URI: {optimized_prompt.uri}")
-```
+optimized_system_prompt = result.optimized_prompts[0]
+print(f"Optimized system prompt URI: {optimized_system_prompt.uri}")
 
-For the details of the <APILink fn="mlflow.genai.optimize_prompts" /> API, please visit [Optimize Prompts](/genai/prompt-registry/optimize-prompts).
+# Since your agent already use @latest, it will automatically use the optimized prompts.
+predict_fn(
+    context="MLflow is an open-source platform for managing the machine learning lifecycle, providing tools to streamline the development, training, and deployment of models",
+    question="What is MLflow",
+)
+```
