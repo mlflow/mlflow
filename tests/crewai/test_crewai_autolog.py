@@ -19,7 +19,7 @@ _FINAL_ANSWER_KEYWORD = "Final Answer:"
 
 _LLM_ANSWER = "What about Tokyo?"
 
-_IS_CREWAI_V1 = Version(crewai.__version__) >= Version("1.0.0")
+_IS_CREWAI_V1 = Version(crewai.__version__).major >= 1
 
 
 @pytest.fixture
@@ -28,7 +28,7 @@ def set_api_key(monkeypatch):
 
 
 def llm():
-    # NB: CrewAI >= 1.0.0 introduced native LLM connectors that doesn't rely on LiteLLM. To use
+    # NB: CrewAI >= 1.0.0 introduced native LLM connectors that don't rely on LiteLLM. To use
     # consistent mock between 1.x and 0.x, we opt-in to use LiteLLM for 1.x.
     if _IS_CREWAI_V1:
         from crewai import LLM
