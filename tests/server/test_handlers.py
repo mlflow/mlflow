@@ -16,7 +16,12 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.trace_location import TraceLocation as EntityTraceLocation
 from mlflow.exceptions import MlflowException, MlflowNotImplementedException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -2097,7 +2102,10 @@ def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_sto
     mock_get_request_message.return_value = get_trace_proto
 
     # Store returns None for non-existent trace
-    mock_tracking_store.get_trace.return_value = None
+    mock_tracking_store.get_trace.side_effect = MlflowException(
+        f"Trace with ID {trace_id} is not found.",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
 
     # Call the handler - should raise MlflowException
     response = _get_trace()
@@ -2168,8 +2176,10 @@ def test_get_trace_artifact_handler_missing_request_id(mock_tracking_store):
 
 def test_get_trace_artifact_handler_trace_not_found(mock_tracking_store):
     trace_id = "non-existent-trace"
-    mock_tracking_store.get_trace.return_value = None
-    mock_tracking_store.batch_get_traces.return_value = []
+    mock_tracking_store.get_trace.side_effect = MlflowException(
+        f"Trace with ID {trace_id} is not found.",
+        error_code=RESOURCE_DOES_NOT_EXIST,
+    )
 
     with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
         response = get_trace_artifact_handler()
@@ -2180,7 +2190,7 @@ def test_get_trace_artifact_handler_trace_not_found(mock_tracking_store):
     response_data = json.loads(response.get_data())
     assert "error_code" in response_data
     assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
-    assert f"Trace with id={trace_id} not found" in response_data["message"]
+    assert f"Trace with ID {trace_id} is not found" in response_data["message"]
 
 
 def test_get_trace_artifact_handler_fallback_to_batch_get_traces(mock_tracking_store):
@@ -2227,6 +2237,31 @@ def test_get_trace_artifact_handler_fallback_to_batch_get_traces(mock_tracking_s
     assert response is not None
     assert response.status_code == 200
     assert response.headers["Content-Disposition"] == "attachment; filename=traces.json"
+
+
+def test_get_trace_artifact_handler_batch_get_traces_not_found(mock_tracking_store):
+    trace_id = "non-existent-batch-trace"
+
+    # Simulate get_trace not being implemented
+    mock_tracking_store.get_trace.side_effect = MlflowNotImplementedException(
+        "get_trace is not implemented"
+    )
+    # batch_get_traces returns empty list (trace not found)
+    mock_tracking_store.batch_get_traces.return_value = []
+
+    with app.test_request_context(method="GET", query_string={"request_id": trace_id}):
+        response = get_trace_artifact_handler()
+
+    # Verify both methods were called
+    mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
+    mock_tracking_store.batch_get_traces.assert_called_once_with([trace_id], None)
+
+    # Verify 404 response
+    assert response.status_code == 404
+    response_data = json.loads(response.get_data())
+    assert "error_code" in response_data
+    assert response_data["error_code"] == "RESOURCE_DOES_NOT_EXIST"
+    assert f"Trace with id={trace_id} not found" in response_data["message"]
 
 
 def test_get_trace_artifact_handler_fallback_to_artifact_repo(mock_tracking_store):

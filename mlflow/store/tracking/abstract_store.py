@@ -329,7 +329,7 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def get_trace(self, trace_id: str, allow_partial: bool = False) -> Trace | None:
+    def get_trace(self, trace_id: str, allow_partial: bool = False) -> Trace:
         """
         Get a trace with spans for given trace id.
 
@@ -341,7 +341,7 @@ class AbstractStore:
                 to False.
 
         Returns:
-            The fetched Trace object, of type ``mlflow.entities.Trace`` or None.
+            The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
         raise MlflowNotImplementedException()
 

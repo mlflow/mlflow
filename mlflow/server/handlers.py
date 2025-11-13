@@ -2958,18 +2958,19 @@ def _get_trace() -> Response:
         GetTrace(),
         schema={
             "trace_id": [_assert_string, _assert_required],
-            "allow_partial": [_assert_bool],
         },
     )
     trace_id = request_message.trace_id
-    allow_partial = request_message.allow_partial
-    trace = _get_tracking_store().get_trace(trace_id, allow_partial)
-    if trace is None:
-        raise MlflowException(
-            f"Trace with id={trace_id} not found, please check if the trace is fully exported or "
-            "the trace ID is correct.",
-            error_code=RESOURCE_DOES_NOT_EXIST,
+    allow_partial = (
+        request_message.allow_partial if request_message.HasField("allow_partial") else False
+    )
+    if isinstance(allow_partial, str):
+        allow_partial = allow_partial.lower() == "true"
+    if not isinstance(allow_partial, bool):
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid allow_partial value: {allow_partial}, must be a boolean.",
         )
+    trace = _get_tracking_store().get_trace(trace_id, allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
     return _wrap_response(response_message)
 
@@ -3165,11 +3166,6 @@ def get_trace_artifact_handler():
     try:
         # allow partial so the front end can render in-progress traces
         trace = _get_tracking_store().get_trace(request_id, allow_partial=True)
-        if trace is None:
-            raise MlflowException(
-                f"Trace with id={request_id} not found, please check if the trace ID is correct.",
-                error_code=RESOURCE_DOES_NOT_EXIST,
-            )
         trace_data = trace.data.to_dict()
     except MlflowNotImplementedException:
         pass
@@ -3181,7 +3177,9 @@ def get_trace_artifact_handler():
             traces = _get_tracking_store().batch_get_traces([request_id], None)
             if len(traces) != 1:
                 raise MlflowException(
-                    "Failed to get trace data from tracking store. Please check the request_id."
+                    f"Trace with id={request_id} not found, please check if the "
+                    "trace ID is correct.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             trace_data = traces[0].data.to_dict()
         # For stores that don't support batch get traces, or if the trace data is not stored in the
