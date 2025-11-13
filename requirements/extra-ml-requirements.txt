@@ -66,8 +66,6 @@ llama_index
 llama-index-agent-openai
 # Required by mlflow.langchain
 langchain
-# Required by mlflow.promptflow
-promptflow
 # Required by mlflow.sentence_transformers
 sentence-transformers
 # Required by mlflow.anthropic

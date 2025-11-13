@@ -1085,11 +1085,6 @@ mlflow.projects.SubmittedRun.get_status
 mlflow.projects.SubmittedRun.wait
 mlflow.projects.run
 mlflow.projects.submitted_run.SubmittedRun
-mlflow.promptflow.get_default_conda_env
-mlflow.promptflow.get_default_pip_requirements
-mlflow.promptflow.load_model
-mlflow.promptflow.log_model
-mlflow.promptflow.save_model
 mlflow.prophet.get_default_conda_env
 mlflow.prophet.get_default_pip_requirements
 mlflow.prophet.load_model
