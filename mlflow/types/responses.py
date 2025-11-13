@@ -338,6 +338,31 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
                 "tool_call_id": message["call_id"],
             }
         ]
+    elif msg_type == "mcp_approval_request":
+        return [
+            {
+                "role": "tool",
+                "content": "mcp approval request",
+                "tool_calls": [
+                    {
+                        "id": message["id"],
+                        "type": "function",
+                        "function": {
+                            "arguments": message.get("arguments") or "{}",
+                            "name": message["name"],
+                        },
+                    }
+                ]
+            }
+        ]
+    elif msg_type == "mcp_approval_response":
+        return [
+            {
+                "role": "tool",
+                "content": message["approve"],
+                "tool_call_id": message["approval_request_id"],
+            }
+        ]
     compatible_keys = ["role", "content", "name", "tool_calls", "tool_call_id"]
     filtered = {k: v for k, v in message.items() if k in compatible_keys}
     return [filtered] if filtered else []
