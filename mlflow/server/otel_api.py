@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.telemetry.events import OtelTraceReceivedEvent
+from mlflow.telemetry.events import OtelTraceReceivedEvent, OtelTraceSource
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
@@ -153,10 +153,11 @@ async def export_traces(
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
-        # Determine if traces are from MLflow client based on headers
+        # Determine trace source based on headers
         is_mlflow_client = (
             user_agent and user_agent.startswith("mlflow-python-client/")
         ) or x_mlflow_client_version is not None
+        trace_source = OtelTraceSource.MLFLOW if is_mlflow_client else OtelTraceSource.UNKNOWN
 
         # Emit telemetry event for each root span ingested
         for trace_id in root_spans_by_trace_id:
@@ -164,7 +165,7 @@ async def export_traces(
                 OtelTraceReceivedEvent,
                 {
                     "span_count": len(spans_by_trace_id[trace_id]),
-                    "from_mlflow_client": is_mlflow_client,
+                    "source": trace_source,
                 },
             )
 

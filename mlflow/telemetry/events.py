@@ -1,7 +1,15 @@
 import sys
+from enum import Enum
 from typing import Any
 
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
+
+
+class OtelTraceSource(str, Enum):
+    """Source of an OpenTelemetry trace received by the MLflow server."""
+
+    MLFLOW = "MLFLOW"
+    UNKNOWN = "UNKNOWN"
 
 
 class Event:
@@ -327,7 +335,8 @@ class OtelTraceReceivedEvent(Event):
 
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        source = arguments.get("source")
         return {
             "span_count": arguments.get("span_count"),
-            "from_mlflow_client": arguments.get("from_mlflow_client"),
+            "source": source.value if isinstance(source, OtelTraceSource) else source,
         }
