@@ -20,6 +20,8 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
+from mlflow.telemetry.events import OtelRootSpanIngestEvent
+from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 
 # Create FastAPI router for OTel endpoints
@@ -118,9 +120,15 @@ async def export_traces(
         # for SQLite backends and can actually degrade performance due to write contention.
         # Sequential logging is simpler and faster for typical use cases.
         errors = {}
+        root_spans_by_trace_id = {}
         for trace_id, trace_spans in spans_by_trace_id.items():
             try:
                 store.log_spans(x_mlflow_experiment_id, trace_spans)
+                # Track root spans (spans with no parent_id) for telemetry
+                for span in trace_spans:
+                    if span.parent_id is None:
+                        root_spans_by_trace_id[trace_id] = span
+                        break
             except NotImplementedError:
                 store_name = store.__class__.__name__
                 raise HTTPException(
@@ -139,6 +147,16 @@ async def export_traces(
             raise HTTPException(
                 status_code=422,
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
+            )
+
+        # Emit telemetry event for each root span ingested
+        for trace_id in root_spans_by_trace_id:
+            _record_event(
+                OtelRootSpanIngestEvent,
+                {
+                    "trace_id": trace_id,
+                    "experiment_id": x_mlflow_experiment_id,
+                },
             )
 
     return OTelExportTraceServiceResponse()

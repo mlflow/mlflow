@@ -320,3 +320,14 @@ class AlignJudgeEvent(Event):
 
 class AutologgingEvent(Event):
     name: str = "autologging"
+
+
+class OtelRootSpanIngestEvent(Event):
+    name: str = "otel_root_span_ingest"
+
+    @classmethod
+    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
+        return {
+            "trace_id": arguments.get("trace_id"),
+            "experiment_id": arguments.get("experiment_id"),
+        }
