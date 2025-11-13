@@ -431,6 +431,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION,
     MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_ENFORCE_STDIN_SCORING_SERVER_FOR_SPARK_UDF,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
@@ -2889,10 +2890,13 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` configuration to which to add the
             **python_function** flavor.
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            A file path to the PythonModel
+            which defines the model from code artifact rather than serializing the model object,
+            or if you enable environment variable config
+            'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION', python_model can also be an instance
+            of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            CloudPickle library.
             Any dependencies of the class should be included in one of the
             following locations:
 
@@ -3035,6 +3039,16 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
+    if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+        if not isinstance(python_model, (Path, str)):
+            raise MlflowException(
+                "Unsafe pickler deserialization for custom python model is disallowed by default. "
+                "Please set 'python_model' parameter to a file path to the PythonModel which "
+                "defines the model from code artifact to avoid using unsafe pickler, or set "
+                "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
+                "to allow unsafe pickler."
+            )
+
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
     _validate_and_prepare_target_save_path(path)
@@ -3424,10 +3438,13 @@ def log_model(
         infer_code_paths: {{ infer_code_paths }}
         conda_env: {{ conda_env }}
         python_model:
-            An instance of a subclass of :class:`~PythonModel` or a callable object with a single
+            A file path to the PythonModel
+            which defines the model from code artifact rather than serializing the model object,
+            or if you enable environment variable config
+            'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION', python_model can also be an instance
+            of a subclass of :class:`~PythonModel` or a callable object with a single
             argument (see the examples below). The passed-in object is serialized using the
-            CloudPickle library. The python_model can also be a file path to the PythonModel
-            which defines the model from code artifact rather than serializing the model object.
+            CloudPickle library.
             Any dependencies of the class should be included in one of the
             following locations:
 

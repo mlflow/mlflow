@@ -21,7 +21,10 @@ import yaml
 import mlflow.pyfunc
 import mlflow.utils
 from mlflow.entities.span import SpanType
-from mlflow.environment_variables import MLFLOW_LOG_MODEL_COMPRESSION
+from mlflow.environment_variables import (
+    MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION,
+    MLFLOW_LOG_MODEL_COMPRESSION,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME, MODEL_CODE_PATH
@@ -1256,6 +1259,13 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
         if callable(python_model):
             python_model = _FunctionPythonModel(python_model, signature=signature)
     else:
+        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Unsafe pickle deserialization is disallowed by default, but this model is saved "
+                "as pickle format. To address this issue, you need to set environment variable "
+                "to 'true', or save the model as 'model from code' artifacts."
+            )
+
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:
             mlflow.pyfunc._logger.warning(
