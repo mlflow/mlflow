@@ -4,14 +4,11 @@ package mlflow.managedcatalog;
 
 import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option java_package = "com.databricks.api.proto.managedcatalog";
+option (scalapb.options) = {flat_package: true};
 
 message TableInfo {
-
   // Output-only fields (modified to include only what mlflow needs):
 
   // [Create,Update:IGN BROWSABLE] Full name of Table, in form of <catalog_name>.<schema_name>.<table_name>

@@ -1,8 +1,11 @@
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
+import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
@@ -10,7 +13,7 @@ import {
 import { useParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import invariant from 'invariant';
 import { useGetExperimentQuery } from '../../../hooks/useExperimentQuery';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { TracesV3Toolbar } from '../../../components/experiment-page/components/traces-v3/TracesV3Toolbar';
 import type { ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import {
@@ -42,6 +45,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
   const { experimentId, sessionId } = useParams();
   const [selectedTurnIndex, setSelectedTurnIndex] = useState<number | null>(null);
   const [selectedTrace, setSelectedTrace] = useState<ModelTrace | null>(null);
+  const chatRefs = useRef<{ [traceId: string]: HTMLDivElement }>({});
 
   invariant(experimentId, 'Experiment ID must be defined');
   invariant(sessionId, 'Session ID must be defined');
@@ -101,12 +105,14 @@ const ExperimentSingleChatSessionPageImpl = () => {
             selectedTurnIndex={selectedTurnIndex}
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
+            chatRefs={chatRefs}
           />
           <ExperimentSingleChatConversation
             traces={traces ?? []}
             selectedTurnIndex={selectedTurnIndex}
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
+            chatRefs={chatRefs}
           />
         </div>
       )}
@@ -119,7 +125,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         }}
       >
         <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-data-drawer"
+          componentId="mlflow.experiment.chat-session.trace-drawer"
           title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
           width="90vw"
           expandContentToFullHeight

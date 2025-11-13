@@ -563,7 +563,7 @@ class ModelRegistryClient:
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.

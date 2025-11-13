@@ -3936,44 +3936,42 @@ def _get_dataset_experiment_ids_handler(dataset_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _add_dataset_to_experiments_handler():
+def _add_dataset_to_experiments_handler(dataset_id):
     request_message = _get_request_message(
         AddDatasetToExperiments(),
         schema={
-            "dataset_id": [_assert_string],
             "experiment_ids": [_assert_array],
         },
     )
 
     dataset = _get_tracking_store().add_dataset_to_experiments(
-        dataset_id=request_message.dataset_id,
+        dataset_id=dataset_id,
         experiment_ids=request_message.experiment_ids,
     )
 
     response_message = AddDatasetToExperiments.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
-    return response_message
+    return _wrap_response(response_message)
 
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _remove_dataset_from_experiments_handler():
+def _remove_dataset_from_experiments_handler(dataset_id):
     request_message = _get_request_message(
         RemoveDatasetFromExperiments(),
         schema={
-            "dataset_id": [_assert_string],
             "experiment_ids": [_assert_array],
         },
     )
 
     dataset = _get_tracking_store().remove_dataset_from_experiments(
-        dataset_id=request_message.dataset_id,
+        dataset_id=dataset_id,
         experiment_ids=request_message.experiment_ids,
     )
 
     response_message = RemoveDatasetFromExperiments.Response()
     response_message.dataset.CopyFrom(dataset.to_proto())
-    return response_message
+    return _wrap_response(response_message)
 
 
 def _get_dataset_records_handler(dataset_id):

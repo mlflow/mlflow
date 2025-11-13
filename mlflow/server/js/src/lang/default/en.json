@@ -175,6 +175,10 @@
     "defaultMessage": "Key",
     "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
+  "/m44jJ": {
+    "defaultMessage": "View docs",
+    "description": "Text for docs link button on experiment view page header"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -274,6 +278,10 @@
   "1/M8+x": {
     "defaultMessage": "X-axis:",
     "description": "Label text for x-axis in scatter plot comparison in MLflow"
+  },
+  "128VYg": {
+    "defaultMessage": "User",
+    "description": "Label for the user id section"
   },
   "13vJft": {
     "defaultMessage": "View Examples",
@@ -873,10 +881,6 @@
   "7FvLl2": {
     "defaultMessage": "Ignore outliers",
     "description": "Runs charts > line chart > ignore outliers > label"
-  },
-  "7HLhyL": {
-    "defaultMessage": "Column",
-    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "7KKvmS": {
     "defaultMessage": "Created by",
@@ -1498,6 +1502,10 @@
     "defaultMessage": "Automatically log traces for LiteLLM API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the LiteLLM package using MLflow autologging. This message is followed by a code example."
   },
+  "D99bil": {
+    "defaultMessage": "An error occurred while rendering chat sessions.",
+    "description": "Description for default error message in the MLflow experiment chat sessions page"
+  },
   "DCkSC3": {
     "defaultMessage": "Promote",
     "description": "Confirmation text to promote the model"
@@ -1561,6 +1569,10 @@
   "E9fsRD": {
     "defaultMessage": "Show span tree",
     "description": "Tooltip for a button that show the span tree view of the trace UI."
+  },
+  "EAf6xM": {
+    "defaultMessage": "Session",
+    "description": "Label preceding a chat session ID"
   },
   "EBwDIg": {
     "defaultMessage": "Delete",
@@ -1694,6 +1706,10 @@
     "defaultMessage": "GenAI apps & agents",
     "description": "A short label for custom experiments focused on generative AI app and agent development"
   },
+  "Fhrgrc": {
+    "defaultMessage": "Versions",
+    "description": "Label for the versions section in the MLflow experiment navbar"
+  },
   "FiKsFK": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
@@ -1701,6 +1717,10 @@
   "FmKAee": {
     "defaultMessage": "Observability",
     "description": "Label for the observability section in the MLflow experiment navbar"
+  },
+  "FmyBAE": {
+    "defaultMessage": "Dataset used",
+    "description": "Run page > Overview > Run datasets section label"
   },
   "FnG9dP": {
     "defaultMessage": "Execution time",
@@ -1821,6 +1841,10 @@
   "HGG+BI": {
     "defaultMessage": "Y-axis Log Scale:",
     "description": "Label for the radio button to toggle the Log scale on the Y-axis of the metric graph for the experiment"
+  },
+  "HLbyGb": {
+    "defaultMessage": "Show more",
+    "description": "Button text to show more description text for the entity"
   },
   "HNLDYl": {
     "defaultMessage": "Failed to set tag. Error: {userVisibleError}",
@@ -1969,10 +1993,6 @@
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
-  },
-  "Isaf66": {
-    "defaultMessage": "Details",
-    "description": "Run page > Overview > Details section title"
   },
   "Isig6r": {
     "defaultMessage": "Error loading shared view state: share key is invalid",
@@ -2197,6 +2217,10 @@
   "LKAZ2n": {
     "defaultMessage": "Disable grouped runs to compare",
     "description": "Experiment tracking > components > runs-charts > RunsChartsConfigureDifferenceCharts > disable grouped runs info message"
+  },
+  "LKH6uO": {
+    "defaultMessage": "Not registered",
+    "description": "Tag for not registered model on the logged model details page"
   },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
@@ -2438,6 +2462,10 @@
     "defaultMessage": "Amount of time that has passed since the first metric value was logged",
     "description": "A tooltip line chart configuration for the step function of relative time"
   },
+  "NyzPHY": {
+    "defaultMessage": "Expand description",
+    "description": "Aria label for button that expands a collapsed long description"
+  },
   "NzRvyj": {
     "defaultMessage": "Table settings",
     "description": "Run view > artifact view > logged table > table settings tooltip"
@@ -2474,6 +2502,10 @@
     "defaultMessage": "Value",
     "description": "Add new key-value tag modal > Value input label"
   },
+  "OUPWd8": {
+    "defaultMessage": "View chat session",
+    "description": "Tooltip for the session id tag"
+  },
   "OWfx/j": {
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
@@ -2493,6 +2525,10 @@
   "Oj2ENw": {
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
+  },
+  "OlytgO": {
+    "defaultMessage": "Field",
+    "description": "Label for the column field in the GenAI Traces Table Filter form"
   },
   "On3g1B": {
     "defaultMessage": "Running",
@@ -2525,6 +2561,10 @@
   "PKYh23": {
     "defaultMessage": "Additional runs",
     "description": "Experiment page > grouped runs table > label for group with additional, ungrouped runs"
+  },
+  "PKwacx": {
+    "defaultMessage": "No assessments available",
+    "description": "Message shown when there are no assessments to display in simplified view"
   },
   "PNfcez": {
     "defaultMessage": "Add row",
@@ -2629,6 +2669,10 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
+  "QXLV8h": {
+    "defaultMessage": "Error",
+    "description": "Title for error fallback component in the MLflow experiment chat sessions page"
+  },
   "QcEYpD": {
     "defaultMessage": "Add to evaluation dataset",
     "description": "Add traces to evaluation dataset action"
@@ -2652,6 +2696,10 @@
   "Qsgg+9": {
     "defaultMessage": "Experiment Name:",
     "description": "Row title for the experiment IDs of runs on the experiment compare runs page"
+  },
+  "Qsifda": {
+    "defaultMessage": "Group traces from the same chat session together",
+    "description": "Empty state title for the chat sessions table"
   },
   "QuU1sl": {
     "defaultMessage": "Parallel Coordinates Plot",
@@ -2684,6 +2732,10 @@
   "RUw2fH": {
     "defaultMessage": "Create a model",
     "description": "Create button to register a new model"
+  },
+  "RWVGkL": {
+    "defaultMessage": "Columns",
+    "description": "Columns label for the chat sessions table column selector"
   },
   "RXL0a5": {
     "defaultMessage": "All {groupLabel}",
@@ -2724,6 +2776,10 @@
   "RzZVxC": {
     "defaultMessage": "An error occurred while rendering this component.",
     "description": "Description of error fallback component"
+  },
+  "S3YY1P": {
+    "defaultMessage": "Span: {spanName}",
+    "description": "Label for the span name in assessment metadata"
   },
   "S5QeiE": {
     "defaultMessage": "Retry",
@@ -3220,6 +3276,10 @@
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
   },
+  "XBPcbA": {
+    "defaultMessage": "Show less",
+    "description": "Button text to show less description text for the entity"
+  },
   "XBtNVo": {
     "defaultMessage": "Experiments",
     "description": "Breadcrumb nav item to link to the list of experiments page"
@@ -3231,6 +3291,10 @@
   "XG8dcL": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
+  },
+  "XIWwOm": {
+    "defaultMessage": "Session ID",
+    "description": "Label for the session id section"
   },
   "XLSmZx": {
     "defaultMessage": "Create prompt version",
@@ -3467,6 +3531,10 @@
     "defaultMessage": "Please use controls on the left to select images to be compared",
     "description": "Description for the empty state when user did not configure any images for preview yet"
   },
+  "Zpp8Ty": {
+    "defaultMessage": "Model registered",
+    "description": "Run page > Overview > Model registered section label"
+  },
   "ZqGzZd": {
     "defaultMessage": "Compare",
     "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
@@ -3575,6 +3643,10 @@
     "defaultMessage": "No results",
     "description": "Experiment page > group by runs control > no results after filtering by search query"
   },
+  "adVHxN": {
+    "defaultMessage": "Outputs",
+    "description": "Section title for the outputs of a single chat turn"
+  },
   "akmaST": {
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
@@ -3611,6 +3683,10 @@
     "defaultMessage": "Add/edit alias for prompt version {version}",
     "description": "Title for the edit aliases modal on the registered prompt details page"
   },
+  "b1yfI9": {
+    "defaultMessage": "Run details",
+    "description": "Run page > Overview > Run details section heading"
+  },
   "b7OpMB": {
     "defaultMessage": "Data Type",
     "description": "Field label for assessment data type in an edit form"
@@ -3622,10 +3698,6 @@
   "bHuphj": {
     "defaultMessage": "See the documents below to learn how to customize this model and deploy it for batch or real-time scoring using the pyfunc model flavor.",
     "description": "Subtext heading for a list of documents that describe how to customize the model using the mlflow.pyfunc module"
-  },
-  "bJpL0f": {
-    "defaultMessage": "An error occurred while rendering chat sessions.",
-    "description": "Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
   },
   "bKSd3c": {
     "defaultMessage": "An unknown error occurred.",
@@ -3667,6 +3739,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "bdVsGZ": {
+    "defaultMessage": "Collapse description",
+    "description": "Aria label for button that collapses a long description"
+  },
   "bi26D5": {
     "defaultMessage": "Run ID:",
     "description": "Text for run ID header in the main table in the model comparison page"
@@ -3690,6 +3766,10 @@
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "by+x8N": {
+    "defaultMessage": "Type",
+    "description": "Run page > Overview > Experiment ID section label"
   },
   "bz4brG": {
     "defaultMessage": "Fail",
@@ -4239,10 +4319,6 @@
     "defaultMessage": "Model, input data or prompt have changed since last evaluation of the output",
     "description": "Experiment page > new run modal > dirty output (out of sync with new data)"
   },
-  "gdCdji": {
-    "defaultMessage": "No chat sessions found",
-    "description": "Empty state for the chat sessions page"
-  },
   "gdK07H": {
     "defaultMessage": "Bar chart",
     "description": "Experiment tracking > runs charts > add chart menu > bar chart"
@@ -4278,6 +4354,10 @@
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
     "description": "Description of how to log traces for the DSPy package using MLflow autologging. This message is followed by a code example."
+  },
+  "h2Ejm7": {
+    "defaultMessage": "Learn more",
+    "description": "Link to the documentation page for user and session tracking"
   },
   "h2SXjO": {
     "defaultMessage": "Key",
@@ -4326,6 +4406,10 @@
   "hcDB9U": {
     "defaultMessage": "+∞",
     "description": "Label displaying positive infinity symbol displayed on a plot UI element"
+  },
+  "hkXDZn": {
+    "defaultMessage": "MLflow allows you associate traces with users and chat sessions. This is useful for analyzing multi-turn conversations, enabling you to inspect what happened at each step. Copy the code snippet below to generate a sample trace, or visit the documentation for a more in-depth example.",
+    "description": "Empty state description for the chat sessions table"
   },
   "hlpNRa": {
     "defaultMessage": "No prompts found",
@@ -4566,10 +4650,6 @@
   "k0m460": {
     "defaultMessage": "Failed to load child runs",
     "description": "Run page > Overview > Child runs error"
-  },
-  "k4uWRg": {
-    "defaultMessage": "Versions",
-    "description": "Label for the prompts & versions section in the MLflow experiment navbar"
   },
   "kA+QJr": {
     "defaultMessage": "Overview",
@@ -4890,6 +4970,10 @@
   "nIk08y": {
     "defaultMessage": "Trace view",
     "description": "Tooltip for traces preview mode toggle in evaluation runs table controls"
+  },
+  "nJxDSh": {
+    "defaultMessage": "Inputs",
+    "description": "Section title for the inputs of a single chat turn"
   },
   "nNIors": {
     "defaultMessage": "Error when fetching related runs data: {error}",
@@ -5663,6 +5747,10 @@
     "defaultMessage": "Confirm",
     "description": "OK button text for confirmation pop-up to delete a tag from table\n                     in MLflow"
   },
+  "vmiE+n": {
+    "defaultMessage": "Add description",
+    "description": "Run page > Overview > Description section > Add description button"
+  },
   "vwDBPr": {
     "defaultMessage": "The run containing the dataset could not be found.",
     "description": "Error message displayed when the run for the dataset is not found"
@@ -6014,6 +6102,10 @@
   "zNWzj6": {
     "defaultMessage": "Search traces by request",
     "description": "Placeholder text for the search input in the trace results table"
+  },
+  "zRKlAL": {
+    "defaultMessage": "Metadata",
+    "description": "Label for the metadata section"
   },
   "zWGmon": {
     "defaultMessage": "Positive infinity ({metricKey})",

@@ -54,7 +54,7 @@ const config: Config = {
     },
   ],
 
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ['@docusaurus/theme-mermaid', '@signalwire/docusaurus-theme-llms-txt'],
   markdown: {
     mermaid: true,
   },
@@ -219,6 +219,19 @@ const config: Config = {
 
   plugins: [
     tailwindPlugin,
+    [
+      '@signalwire/docusaurus-plugin-llms-txt',
+      {
+        ui: {
+          copyPageContent: {
+            buttonLabel: 'Copy Page',
+            display: {
+              docs: true,
+            },
+          },
+        },
+      },
+    ],
     // Classic ML docs plugin
     [
       '@docusaurus/plugin-content-docs',
@@ -379,8 +392,16 @@ const config: Config = {
             from: ['/tracing/api'],
           },
           {
-            to: '/genai/tracing/observe-with-traces/ui',
+            to: '/genai/tracing/search-traces',
             from: ['/tracing/ui'],
+          },
+          {
+            to: '/genai/tracing/search-traces',
+            from: [
+              '/genai/tracing/observe-with-traces',
+              '/genai/tracing/observe-with-traces/index',
+              '/genai/tracing/observe-with-traces/query-via-sdk',
+            ],
           },
           {
             to: '/genai/tracing/integrations',
@@ -891,6 +912,21 @@ const config: Config = {
               '/getting-started/tracking-server-overview/notebooks',
               '/getting-started/tracking-server-overview/notebooks/tracking-server-overview',
               '/getting-started/tracking-server-overview/step1-tracking-server',
+              // /ml redirects
+              '/ml/getting-started/logging-first-model',
+              '/ml/getting-started/logging-first-model/notebooks',
+              '/ml/getting-started/logging-first-model/notebooks/logging-first-model',
+              '/ml/getting-started/logging-first-model/step1-tracking-server',
+              '/ml/getting-started/logging-first-model/step2-mlflow-client',
+              '/ml/getting-started/logging-first-model/step3-create-experiment',
+              '/ml/getting-started/logging-first-model/step4-experiment-search',
+              '/ml/getting-started/logging-first-model/step5-synthetic-data',
+              '/ml/getting-started/logging-first-model/step6-logging-a-run',
+              '/ml/getting-started/registering-first-model',
+              '/ml/getting-started/registering-first-model/step1-register-model',
+              '/ml/getting-started/registering-first-model/step2-explore-registered-model',
+              '/ml/getting-started/registering-first-model/step3-load-model',
+              '/ml/getting-started/tracking-server-overview',
             ],
           },
           {
@@ -952,6 +988,7 @@ const config: Config = {
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
               '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
+              '/ml/tracking/quickstart/notebooks/tracking_quickstart',
             ],
           },
           {

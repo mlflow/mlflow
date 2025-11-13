@@ -142,7 +142,7 @@ with mlflow.start_run():
     lr.fit(X_train, y_train)
 
     # Log the model
-    mlflow.sklearn.log_model(sk_model=lr, name="iris_model")
+    model_info = mlflow.sklearn.log_model(sk_model=lr, name="iris_model")
 
     # Predict on the test set, compute and log the loss metric
     y_pred = lr.predict(X_test)

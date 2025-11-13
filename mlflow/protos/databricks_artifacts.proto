@@ -2,132 +2,173 @@ syntax = "proto2";
 
 package mlflow;
 
-import "scalapb/scalapb.proto";
 import "databricks.proto";
+import "scalapb/scalapb.proto";
 
-option java_package = "com.databricks.api.proto.mlflow";
 option java_generate_equals_and_hash = true;
+option java_package = "com.databricks.api.proto.mlflow";
 option py_generic_services = true;
-option (scalapb.options) = {
-  flat_package: true,
-};
+option (scalapb.options) = {flat_package: true};
 
 service DatabricksMlflowArtifactsService {
-
   // Fetch credentials to read from the specified MLflow artifact location
   //
   // Note: Even if no artifacts exist at the specified artifact location, this API will
   // still provide read credentials as long as the format of the location is valid.
   // Callers must subsequently check for the existence of the artifacts using the appropriate
   // cloud storage APIs (as determined by the `ArtifactCredentialType` property of the response)
-  rpc getCredentialsForRead (GetCredentialsForRead) returns (GetCredentialsForRead.Response) {
+  rpc getCredentialsForRead(GetCredentialsForRead) returns (GetCredentialsForRead.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/artifacts/credentials-for-read"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/credentials-for-read"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   // Fetch credentials to write to the specified MLflow artifact location
-  rpc getCredentialsForWrite (GetCredentialsForWrite) returns (GetCredentialsForWrite.Response) {
+  rpc getCredentialsForWrite(GetCredentialsForWrite) returns (GetCredentialsForWrite.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/artifacts/credentials-for-write"
-        since { major: 2, minor: 0 },
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/credentials-for-write"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   // Initiate a multipart upload and return presinged URLs for uploading parts and aborting the
   // initiated multipart upload.
-  rpc createMultipartUpload (CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
+  rpc createMultipartUpload(CreateMultipartUpload) returns (CreateMultipartUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/artifacts/create-multipart-upload"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/create-multipart-upload"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   // Complete a multipart upload
-  rpc completeMultipartUpload (CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
+  rpc completeMultipartUpload(CompleteMultipartUpload) returns (CompleteMultipartUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/artifacts/complete-multipart-upload"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/artifacts/complete-multipart-upload"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
   // Get a presigned URL to upload a part. Used when we need to retry failed part uploads.
-  rpc getPresignedUploadPartUrl (GetPresignedUploadPartUrl) returns (GetPresignedUploadPartUrl.Response) {
+  rpc getPresignedUploadPartUrl(GetPresignedUploadPartUrl) returns (GetPresignedUploadPartUrl.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/artifacts/get-presigned-upload-part-url"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/artifacts/get-presigned-upload-part-url"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
-  rpc getCredentialsForTraceDataDownload (GetCredentialsForTraceDataDownload) returns (GetCredentialsForTraceDataDownload.Response) {
+  rpc getCredentialsForTraceDataDownload(GetCredentialsForTraceDataDownload) returns (GetCredentialsForTraceDataDownload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{request_id}/credentials-for-data-download"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{request_id}/credentials-for-data-download"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
-  rpc getCredentialsForTraceDataUpload (GetCredentialsForTraceDataUpload) returns (GetCredentialsForTraceDataUpload.Response) {
+  rpc getCredentialsForTraceDataUpload(GetCredentialsForTraceDataUpload) returns (GetCredentialsForTraceDataUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/traces/{request_id}/credentials-for-data-upload"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/traces/{request_id}/credentials-for-data-upload"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
-  rpc getCredentialsForLoggedModelUpload (GetCredentialsForLoggedModelUpload) returns (GetCredentialsForLoggedModelUpload.Response) {
+  rpc getCredentialsForLoggedModelUpload(GetCredentialsForLoggedModelUpload) returns (GetCredentialsForLoggedModelUpload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-upload"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-upload"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 
-  rpc getCredentialsForLoggedModelDownload (GetCredentialsForLoggedModelDownload) returns (GetCredentialsForLoggedModelDownload.Response) {
+  rpc getCredentialsForLoggedModelDownload(GetCredentialsForLoggedModelDownload) returns (GetCredentialsForLoggedModelDownload.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-download"
-        since {major: 2, minor: 0},
-      }],
-      visibility: PUBLIC_UNDOCUMENTED,
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/logged-models/{model_id}/artifacts/credentials-for-download"
+          since: {
+            major: 2
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
     };
   }
 }
 
 // The type of a given artifact access credential
 enum ArtifactCredentialType {
-
   // The credential is an Azure Shared Access Signature URI. For more information, see
   // https://docs.microsoft.com/en-us/azure/storage/common/storage-sas-overview
   AZURE_SAS_URI = 1;
@@ -149,7 +190,6 @@ enum ArtifactCredentialType {
 }
 
 message ArtifactCredentialInfo {
-
   // The ID of the MLflow Run containing the artifact that can be accessed
   // with the credential
   optional string run_id = 1;
@@ -162,13 +202,11 @@ message ArtifactCredentialInfo {
   optional string signed_uri = 3;
 
   message HttpHeader {
-
     // The HTTP header name
     optional string name = 1;
 
     // The HTTP header value
     optional string value = 2;
-
   }
 
   // A collection of HTTP headers that should be specified when uploading to
@@ -178,7 +216,6 @@ message ArtifactCredentialInfo {
   // The type of the signed credential URI (e.g., an AWS presigned URL
   // or an Azure Shared Access Signature URI)
   optional ArtifactCredentialType type = 5;
-
 }
 
 // Credentials returned by GetCredentialsForLoggedModelUpload and GetCredentialsForLoggedModelDownload for
@@ -206,7 +243,6 @@ message GetCredentialsForRead {
   optional string page_token = 3;
 
   message Response {
-
     // Credentials for reading from the specified artifact locations
     repeated ArtifactCredentialInfo credential_infos = 2;
 
@@ -215,7 +251,6 @@ message GetCredentialsForRead {
 
     // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
     reserved 1;
-
   }
 }
 
@@ -233,7 +268,6 @@ message GetCredentialsForWrite {
   optional string page_token = 3;
 
   message Response {
-
     // Credentials for writing to the specified artifact locations
     repeated ArtifactCredentialInfo credential_infos = 2;
 
@@ -242,7 +276,6 @@ message GetCredentialsForWrite {
 
     // Older versions of the MLflow client use this field to retrieve credentials via point fetches.
     reserved 1;
-
   }
 }
 
@@ -256,7 +289,7 @@ message CreateMultipartUpload {
   optional string path = 2;
 
   // Number of file parts (chunks of data) to upload in the initiated multipart upload
-  optional int64 num_parts = 3  [(validate_required) = true];
+  optional int64 num_parts = 3 [(validate_required) = true];
 
   message Response {
     // ID identifying the initiated multipart upload

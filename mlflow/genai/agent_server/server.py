@@ -28,10 +28,12 @@ _invoke_function: Callable[..., Any] | None = None
 _stream_function: Callable[..., Any] | None = None
 
 
+@experimental(version="3.6.0")
 def get_invoke_function():
     return _invoke_function
 
 
+@experimental(version="3.6.0")
 def get_stream_function():
     return _stream_function
 
@@ -86,6 +88,8 @@ class AgentServer:
 
         If ``None``, no input/output validation and streaming tracing aggregation will be done.
         Default to ``None``.
+
+    See https://mlflow.org/docs/latest/genai/serving/agent-server for more information.
     """
 
     def __init__(self, agent_type: AgentType | None = None):
@@ -181,7 +185,7 @@ class AgentServer:
 
             raise HTTPException(status_code=500, detail=str(e))
 
-    async def generate(
+    async def _generate(
         self,
         func: Callable[..., Any],
         request: dict[str, Any],
@@ -237,11 +241,11 @@ class AgentServer:
         if _stream_function is None:
             raise HTTPException(status_code=500, detail="No stream function registered")
         return StreamingResponse(
-            self.generate(_stream_function, request), media_type="text/event-stream"
+            self._generate(_stream_function, request), media_type="text/event-stream"
         )
 
     @staticmethod
-    def parse_server_args():
+    def _parse_server_args():
         """Parse command line arguments for the agent server"""
         parser = argparse.ArgumentParser(description="Start the agent server")
         parser.add_argument(
@@ -266,7 +270,7 @@ class AgentServer:
         host: str = "0.0.0.0",
     ) -> None:
         """Run the agent server with command line argument parsing."""
-        args = self.parse_server_args()
+        args = self._parse_server_args()
         uvicorn.run(
             app_import_string, host=host, port=args.port, workers=args.workers, reload=args.reload
         )

@@ -9,19 +9,16 @@ import { useMemo, useState } from 'react';
 import {
   CUSTOM_METADATA_COLUMN_ID,
   GenAIChatSessionsTable,
-  HiddenFilterOperator,
-} from '@databricks/web-shared/genai-traces-table';
-import { MonitoringConfigProvider, useMonitoringConfig } from '../../hooks/useMonitoringConfig';
-import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
-import {
   createTraceLocationForExperiment,
   createTraceLocationForUCSchema,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
+import { useMonitoringConfig } from '../../hooks/useMonitoringConfig';
+import { getAbsoluteStartEndTime, useMonitoringFilters } from '../../hooks/useMonitoringFilters';
 import { SESSION_ID_METADATA_KEY, shouldUseTracesV4API } from '@databricks/web-shared/model-trace-explorer';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { getChatSessionsFilter } from './utils';
-import { ErrorBoundary } from 'react-error-boundary';
+import { ExperimentChatSessionsPageWrapper } from './ExperimentChatSessionsPageWrapper';
 
 const ExperimentChatSessionsPageImpl = () => {
   const { experimentId } = useParams();
@@ -56,7 +53,11 @@ const ExperimentChatSessionsPageImpl = () => {
 
   const filters = useMemo(() => getChatSessionsFilter({ sessionId: null }), []);
 
-  const { data: traces, isLoading } = useSearchMlflowTraces({
+  const {
+    data: traces,
+    isLoading,
+    isFetching,
+  } = useSearchMlflowTraces({
     locations: traceSearchLocations,
     timeRange,
     filters,
@@ -71,30 +72,21 @@ const ExperimentChatSessionsPageImpl = () => {
   }
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column' }}>
+    <div css={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       <TracesV3Toolbar
         // prettier-ignore
         viewState="sessions"
       />
-      <GenAIChatSessionsTable experimentId={experimentId} traces={traces ?? []} isLoading={isLoading} />
+      <GenAIChatSessionsTable experimentId={experimentId} traces={traces ?? []} isLoading={isLoading || isFetching} />
     </div>
   );
 };
 
 const ExperimentChatSessionsPage = () => {
   return (
-    <ErrorBoundary
-      fallback={
-        <FormattedMessage
-          defaultMessage="An error occurred while rendering chat sessions."
-          description="Generic error message for uncaught errors when rendering chat session in MLflow experiment page"
-        />
-      }
-    >
-      <MonitoringConfigProvider>
-        <ExperimentChatSessionsPageImpl />
-      </MonitoringConfigProvider>
-    </ErrorBoundary>
+    <ExperimentChatSessionsPageWrapper>
+      <ExperimentChatSessionsPageImpl />
+    </ExperimentChatSessionsPageWrapper>
   );
 };
 

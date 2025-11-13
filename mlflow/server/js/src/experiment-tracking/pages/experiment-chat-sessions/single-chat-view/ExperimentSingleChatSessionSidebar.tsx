@@ -1,18 +1,33 @@
 import { ChainIcon, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { getModelTraceId, type ModelTrace, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import type { MutableRefObject } from 'react';
+import { useCallback } from 'react';
 
 export const ExperimentSingleChatSessionSidebar = ({
   traces,
   selectedTurnIndex,
   setSelectedTurnIndex,
   setSelectedTrace,
+  chatRefs,
 }: {
   traces: ModelTrace[];
   selectedTurnIndex: number | null;
   setSelectedTurnIndex: (turnIndex: number | null) => void;
   setSelectedTrace: (trace: ModelTrace) => void;
+  chatRefs: MutableRefObject<{ [traceId: string]: HTMLDivElement }>;
 }) => {
   const { theme } = useDesignSystemTheme();
+
+  const scrollToTrace = useCallback(
+    (trace: ModelTrace) => {
+      const traceId = getModelTraceId(trace);
+      if (chatRefs.current[traceId]) {
+        chatRefs.current[traceId].scrollIntoView({ behavior: 'smooth' });
+      }
+    },
+    [chatRefs],
+  );
+
   if (!traces) {
     return null;
   }
@@ -43,7 +58,7 @@ export const ExperimentSingleChatSessionSidebar = ({
             cursor: 'pointer',
           }}
           onMouseEnter={() => setSelectedTurnIndex(index)}
-          onClick={() => setSelectedTrace(trace)}
+          onClick={() => scrollToTrace(trace)}
         >
           <div
             css={{

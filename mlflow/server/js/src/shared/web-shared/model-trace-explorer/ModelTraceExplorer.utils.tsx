@@ -61,13 +61,24 @@ import {
   normalizeLlamaIndexChatResponse,
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
+  normalizeVercelAIChatInput,
+  normalizeVercelAIChatOutput,
+  isOtelGenAIChatMessage,
+  normalizeOtelGenAIChatMessage,
 } from './chat-utils';
+import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
+import { TOKEN_USAGE_METADATA_KEY } from './constants';
 import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
+  return;
+};
+
+export const displaySuccessNotification = (successMessage: string) => {
+  // TODO: display success notification in OSS
   return;
 };
 
@@ -458,9 +469,9 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
+  // v3 span ids are base64 encoded
   // only attempt decoding if the id length is less than 16 chars
   if (isV3Span && spanId.length < 16) {
-    // v3 span ids are base64 encoded
     try {
       return base64ToHex(spanId);
     } catch (e) {
@@ -479,6 +490,10 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
+  if (!info) {
+    return false;
+  }
+
   return 'trace_location' in info;
 }
 
@@ -526,7 +541,10 @@ export function getModelTraceSize(trace: ModelTrace): number | null {
 
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
   const traceId = getModelTraceId(trace);
-  const spans = trace.trace_data?.spans ?? trace.data.spans;
+  const rawSpans = trace.trace_data?.spans ?? trace.data.spans;
+
+  // Normalize span attributes to the common format (K/V list to map).
+  const spans = rawSpans.map(convertOtelAttributesToMap);
   const spanMap: { [span_id: string]: ModelTraceSpan } = {};
   const relationMap: { [span_id: string]: string[] } = {};
 
@@ -876,6 +894,12 @@ export const isRawModelTraceChatMessage = (message: any): message is RawModelTra
     }
   }
 
+  if (message.parts && isNil(message.content)) {
+    // This is OpenTelemetry GenAI semantic conventions. We parse it separately.
+    // https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-input-messages.json
+    return false;
+  }
+
   if (message.type === 'reasoning') {
     return true;
   }
@@ -909,7 +933,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized
+ * Attempt to normalize a conversation, return null in case the format is unrecognized.
+ * Defaults to checking OpenAI format if not provided, as it is a common case.
  *
  * Supported formats:
  *   1. Langchain chat inputs
@@ -931,6 +956,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  16. Autogen outputs
  *  17. Bedrock inputs
  *  18. Bedrock outputs
+ *  19. Vercel AI inputs
+ *  20. Vercel AI outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -956,7 +983,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
           normalizeOpenAIChatInput(input) ??
           normalizeOpenAIChatResponse(input) ??
           normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input);
+          normalizeOpenAIResponsesInput(input) ??
+          normalizeOpenAIResponsesStreamingOutput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
@@ -983,12 +1011,21 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
         if (bedrockMessages) return bedrockMessages;
         break;
+      case 'vercel_ai':
+        const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
+        if (vercelAIMessages) return vercelAIMessages;
+        break;
       default:
         // Fallback to OpenAI chat format
         const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
         if (chatMessages) return chatMessages;
         break;
     }
+
+    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
+      return compact(input.map(normalizeOtelGenAIChatMessage));
+    }
+
     return null;
   } catch (e) {
     return null;
@@ -1174,4 +1211,18 @@ export const createTraceV4LongIdentifier = (modelTraceInfo: ModelTraceInfoV3) =>
   }
 
   return `trace:/${serializedLocation}/${modelTraceInfo.trace_id}`;
+};
+
+export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
+  const tokenUsage = traceInfo.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+  if (!tokenUsage) {
+    return null;
+  }
+
+  try {
+    const parsedTokenUsage = JSON.parse(tokenUsage);
+    return parsedTokenUsage?.total_tokens ?? null;
+  } catch {
+    return null;
+  }
 };

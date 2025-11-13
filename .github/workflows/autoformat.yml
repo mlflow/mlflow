@@ -11,7 +11,7 @@ defaults:
 
 jobs:
   check-comment:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     if: ${{ github.event.issue.pull_request && startsWith(github.event.comment.body, '/autoformat') }}
     permissions:
@@ -172,7 +172,7 @@ jobs:
           path: ${{ github.run_id }}.diff
 
   push:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 5
     needs: [check-comment, format]
     if: ${{ needs.format.outputs.reformatted == 'true' }}
@@ -229,7 +229,7 @@ jobs:
           git push
 
   update-status:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     needs: [check-comment, format, push]
     if: always() && needs.check-comment.outputs.should_autoformat == 'true'
