@@ -15,10 +15,10 @@ export const darkColorList: Record<string, string> = {
     actionDangerDefaultBackgroundDefault: 'rgb(31, 31, 31)',
     actionDangerDefaultBackgroundHover: 'rgb(31, 31, 31)',
     actionDangerDefaultBackgroundPress: 'rgb(31, 31, 31)',
-    actionDangerDefaultBorderDefault: 'rgb(240, 86, 29)',
-    actionDangerDefaultBorderHover: 'rgb(244, 120, 74)',
-    actionDangerDefaultBorderPress: 'rgb(244, 120, 74)',
-    actionDangerDefaultTextDefault: 'rgb(248, 155, 120)',
+    actionDangerDefaultBorderDefault: '#f0561d',
+    actionDangerDefaultBorderHover: '#f0561d',
+    actionDangerDefaultBorderPress: '#f0561d',
+    actionDangerDefaultTextDefault: '#ffffff',
     actionDangerPrimaryText: 'rgb(31, 31, 31)',
     
     // Success colors  
@@ -34,14 +34,14 @@ export const darkColorList: Record<string, string> = {
     // Text colors
     textPrimary: 'rgb(255, 255, 255)', // Regular text in dark mode
     textSecondary: 'rgb(255, 255, 255)', // Subtle text
-    textValidationDanger: 'rgb(248, 155, 120)',
+    textValidationDanger: '#ffffff',
     
     // Background colors
     backgroundPrimary: 'rgb(31, 31, 31)',
     backgroundSecondary: 'rgb(31, 31, 31)',
     backgroundDanger: 'rgb(31, 31, 31)',
     
-    borderDanger: 'rgb(240, 86, 29)',
+    borderDanger: '#f0561d',
 }
 
 export const lightColorList: Record<string, string> = {
@@ -61,11 +61,11 @@ export const lightColorList: Record<string, string> = {
     actionDangerDefaultBackgroundDefault: 'rgb(255, 255, 255)',
     actionDangerDefaultBackgroundHover: 'rgb(255, 255, 255)',
     actionDangerDefaultBackgroundPress: 'rgb(255, 255, 255)',
-    actionDangerDefaultBorderDefault: 'rgb(177, 56, 11)',
-    actionDangerDefaultBorderHover: 'rgb(115, 31, 0)',
-    actionDangerDefaultBorderPress: 'rgb(115, 31, 0)',
+    actionDangerDefaultBorderDefault: '#b1380b',
+    actionDangerDefaultBorderHover: '#b1380b',
+    actionDangerDefaultBorderPress: '#b1380b',
     actionDangerDefaultTextDefault: 'rgb(177, 56, 11)',
-    actionDangerPrimaryText: 'rgb(255, 255, 255)',
+    actionDangerPrimaryText: '#151515',
     
     // Success colors
     textValidationSuccess: 'rgb(32, 77, 0)',
@@ -80,12 +80,12 @@ export const lightColorList: Record<string, string> = {
     // Text colors
     textPrimary: 'rgb(31, 31, 31)', // Regular text in light mode
     textSecondary: 'rgb(31, 31, 31)', // Subtle text
-    textValidationDanger: 'rgb(177, 56, 11)',
+    textValidationDanger: '#151515',
     
     // Background colors
     backgroundPrimary: 'rgb(255, 255, 255)',
     backgroundSecondary: 'rgb(255, 255, 255)',
     backgroundDanger: 'rgb(255, 255, 255)',
     
-    borderDanger: 'rgb(177, 56, 11)',
+    borderDanger: '#b1380b',
 }
