@@ -629,7 +629,10 @@ def test_error_logging_spans(mlflow_server: str):
 
 def test_otel_trace_received_telemetry_event(mlflow_server: str):
     """
-    Test that OtelTraceReceivedEvent telemetry is emitted when traces are ingested.
+    Test that OtelTraceReceivedEvent telemetry is emitted and from_mlflow_client is detected.
+
+    Test case 1: Standard MLflow client using @mlflow.trace -> from_mlflow_client=True
+    Test case 2: Direct protobuf request without headers -> from_mlflow_client=False
     """
     from mlflow.telemetry.client import TelemetryClient
     from mlflow.telemetry.events import OtelTraceReceivedEvent
@@ -638,6 +641,32 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
     experiment = mlflow.set_experiment("otel-telemetry-test")
     experiment_id = experiment.experiment_id
 
+    # Test Case 1: Standard MLflow client with @mlflow.trace
+    # This should send User-Agent and X-MLflow-Client-Version headers
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        @mlflow.trace
+        def test_function():
+            return "test result"
+
+        result = test_function()
+        assert result == "test result"
+
+        # Give time for async processing
+        time.sleep(1)
+
+        # Verify telemetry shows from_mlflow_client=True
+        if mock_client.add_record.called:
+            record = mock_client.add_record.call_args[0][0]
+            assert record.event_name == OtelTraceReceivedEvent.name
+            assert record.params["span_count"] >= 1
+            assert record.params["from_mlflow_client"] is True, (
+                "from_mlflow_client should be True when using standard @mlflow.trace"
+            )
+
+    # Test Case 2: Direct protobuf request without MLflow client headers
     # Create a request with a root span and 2 child spans
     request = ExportTraceServiceRequest()
     trace_id_hex = "0000000000000100" + "0" * 16
@@ -687,7 +716,7 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
         mock_client = mock.MagicMock(spec=TelemetryClient)
         mock_get_client.return_value = mock_client
 
-        # Send the request
+        # Send the request WITHOUT MLflow client headers
         response = requests.post(
             f"{mlflow_server}/v1/traces",
             data=request.SerializeToString(),
@@ -709,46 +738,3 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
         assert record.params["span_count"] == 3  # Root span + 2 child spans
         # No MLflow client headers were sent, so from_mlflow_client should be False
         assert record.params["from_mlflow_client"] is False
-
-
-def test_mlflow_client_sends_headers_to_otel_endpoint(mlflow_server: str, monkeypatch):
-    """
-    Test that standard MLflow client sends headers and telemetry identifies from_mlflow_client.
-
-    This is a TRUE END-TO-END test - we use MLflow's standard tracing API (NO OTLP export config)
-    and verify that when spans are sent to the server's OTEL endpoint, the headers are present.
-    """
-    from mlflow.telemetry.client import TelemetryClient
-    from mlflow.telemetry.events import OtelTraceReceivedEvent
-
-    # Use STANDARD MLflow client configuration (no OTLP export)
-    # Just point to the MLflow server which has the OTEL endpoint
-    mlflow.set_tracking_uri(mlflow_server)
-    mlflow.set_experiment("standard-mlflow-client-test")
-
-    # Mock telemetry client to capture events
-    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
-        mock_client = mock.MagicMock(spec=TelemetryClient)
-        mock_get_client.return_value = mock_client
-
-        # Use standard MLflow tracing API - NO special OTLP configuration
-        @mlflow.trace
-        def test_function():
-            return "test result"
-
-        result = test_function()
-        assert result == "test result"
-
-        # Give time for async processing
-        time.sleep(1)
-
-        # Verify telemetry event was emitted with from_mlflow_client=True
-        # This proves the standard MLflow client sends headers when using the OTEL endpoint
-        if mock_client.add_record.called:
-            record = mock_client.add_record.call_args[0][0]
-            assert record.event_name == OtelTraceReceivedEvent.name
-            assert record.params["span_count"] >= 1
-            # CRITICAL: This should be True because standard MLflow client includes headers
-            assert record.params["from_mlflow_client"] is True, (
-                "from_mlflow_client should be True when using standard @mlflow.trace"
-            )
