@@ -1,5 +1,5 @@
 import React, { useCallback, useRef } from 'react';
-import { DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
+import { DesignSystemEventProvider, DesignSystemProvider, DesignSystemThemeProvider } from '@databricks/design-system';
 import { ColorsPaletteDatalist } from './ColorsPaletteDatalist';
 
 const isInsideShadowDOM = (element: HTMLDivElement | null): boolean =>
@@ -46,15 +46,21 @@ export const DesignSystemContainer = (props: DesignSystemContainerProps) => {
     return document.body;
   }, []);
 
+  const logObservabilityEvent = useCallback((event: any) => {
+    console.log('Observability event:', event);
+  }, []);
+
   return (
-    <ThemeProvider isDarkTheme={isDarkTheme}>
-      <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
-        <MLflowImagePreviewContainer.Provider value={{ getImagePreviewPopupContainer }}>
-          {children}
-          <div ref={modalContainerElement} />
-        </MLflowImagePreviewContainer.Provider>
-      </DesignSystemProvider>
-      <ColorsPaletteDatalist />
-    </ThemeProvider>
+    <DesignSystemEventProvider callback={logObservabilityEvent}>
+      <ThemeProvider isDarkTheme={isDarkTheme}>
+        <DesignSystemProvider getPopupContainer={getPopupContainer} {...props}>
+          <MLflowImagePreviewContainer.Provider value={{ getImagePreviewPopupContainer }}>
+            {children}
+            <div ref={modalContainerElement} />
+          </MLflowImagePreviewContainer.Provider>
+        </DesignSystemProvider>
+        <ColorsPaletteDatalist />
+      </ThemeProvider>
+    </DesignSystemEventProvider>
   );
 };
