@@ -41,7 +41,6 @@ def get_otlp_exporter() -> SpanExporter:
     endpoint = _get_otlp_endpoint()
     protocol = _get_otlp_protocol()
 
-    # Get MLflow request headers to identify traces from MLflow client
     headers = resolve_request_headers()
 
     if protocol == "grpc":

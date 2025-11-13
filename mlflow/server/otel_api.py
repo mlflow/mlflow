@@ -151,7 +151,6 @@ async def export_traces(
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
-        # Determine trace source based on X-MLflow-Client-Version header
         trace_source = (
             TraceSource.MLFLOW_CLIENT
             if x_mlflow_client_version is not None
