@@ -61,11 +61,12 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
-    BindSecret,
+    BindSecretRoute,
     CreateAndBindSecret,
     CreateExperiment,
     # Routes for logged models
     CreateLoggedModel,
+    CreateRouteAndBind,
     CreateRun,
     DeleteExperiment,
     DeleteExperimentTag,
@@ -74,6 +75,8 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteScorer,
     DeleteSecret,
+    DeleteSecretBinding,
+    DeleteSecretRoute,
     DeleteTag,
     FinalizeLoggedModel,
     GetExperiment,
@@ -87,6 +90,7 @@ from mlflow.protos.service_pb2 import (
     ListScorers,
     ListScorerVersions,
     ListSecretBindings,
+    ListSecretRoutes,
     ListSecrets,
     LogBatch,
     LogLoggedModelParamsRequest,
@@ -483,6 +487,76 @@ def validate_can_update_secret_binding():
     return _get_permission_from_binding().can_update
 
 
+def _get_permission_from_route() -> Permission:
+    route_id = _get_request_param("route_id")
+    tracking_store = _get_tracking_store()
+
+    # Direct database query to get secret_id from route
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSecretRoute
+
+        route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+
+        if not route:
+            raise MlflowException(
+                f"Secret route not found for route_id='{route_id}'.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        secret_id = route.secret_id
+
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_secret_permission(secret_id, username).permission
+    )
+
+
+def validate_can_update_secret_route():
+    return _get_permission_from_route().can_update
+
+
+def validate_can_manage_secret_route():
+    return _get_permission_from_route().can_manage
+
+
+def _get_permission_from_binding_id() -> Permission:
+    binding_id = _get_request_param("binding_id")
+    tracking_store = _get_tracking_store()
+
+    # Direct database query to get route_id from binding
+    # We can't use list_secret_bindings because it may return different types depending on store
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlSecretBinding, SqlSecretRoute
+
+        binding = session.query(SqlSecretBinding).filter_by(binding_id=binding_id).first()
+
+        if not binding:
+            raise MlflowException(
+                f"Secret binding not found for binding_id='{binding_id}'.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        # Get the route to find the secret_id
+        route = session.query(SqlSecretRoute).filter_by(route_id=binding.route_id).first()
+
+        if not route:
+            raise MlflowException(
+                f"Secret route not found for route_id='{binding.route_id}'.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+
+        secret_id = route.secret_id
+
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_secret_permission(secret_id, username).permission
+    )
+
+
+def validate_can_delete_secret_binding():
+    return _get_permission_from_binding_id().can_update
+
+
 def sender_is_admin():
     """Validate if the sender is admin"""
     username = authenticate_request().username
@@ -755,10 +829,14 @@ BEFORE_REQUEST_HANDLERS = {
     # Routes for secrets
     GetSecretInfo: validate_can_read_secret,
     ListSecretBindings: validate_can_read_secret,
+    ListSecretRoutes: validate_can_read_secret,
     UpdateSecret: validate_can_manage_secret,
     DeleteSecret: validate_can_manage_secret,
-    BindSecret: validate_can_update_secret,
+    DeleteSecretRoute: validate_can_manage_secret_route,
+    BindSecretRoute: validate_can_update_secret_route,
+    DeleteSecretBinding: validate_can_delete_secret_binding,
     UnbindSecret: validate_can_update_secret_binding,
+    CreateRouteAndBind: validate_can_update_secret,
 }
 
 
