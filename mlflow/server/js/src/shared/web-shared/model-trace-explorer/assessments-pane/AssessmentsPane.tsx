@@ -1,4 +1,4 @@
-import { isNil, partition } from 'lodash';
+import { isNil, partition, uniqBy } from 'lodash';
 import { useMemo } from 'react';
 
 import { Button, CloseIcon, Tooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
@@ -8,8 +8,10 @@ import { AssessmentCreateButton } from './AssessmentCreateButton';
 import { ASSESSMENT_PANE_MIN_WIDTH } from './AssessmentsPane.utils';
 import { ExpectationItem } from './ExpectationItem';
 import { FeedbackGroup } from './FeedbackGroup';
+import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { Assessment, FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
+import { useTraceCachedActions } from '../hooks/useTraceCachedActions';
 
 type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
 
@@ -53,11 +55,24 @@ export const AssessmentsPane = ({
   traceId: string;
   activeSpanId?: string;
 }) => {
+  const reconstructAssessments = useTraceCachedActions((state) => state.reconstructAssessments);
+  const cachedActions = useTraceCachedActions((state) => state.assessmentActions[traceId]);
+
+  // Combine the initial assessments with the cached actions (additions and deletions)
+  const allAssessments = useMemo(() => {
+    // Caching actions is enabled only with Traces V4 feature
+    if (!shouldUseTracesV4API()) {
+      return assessments;
+    }
+    const reconstructed = reconstructAssessments(assessments, cachedActions);
+    return uniqBy(reconstructed, ({ assessment_id }) => assessment_id);
+  }, [assessments, reconstructAssessments, cachedActions]);
+
   const { theme } = useDesignSystemTheme();
   const { setAssessmentsPaneExpanded } = useModelTraceExplorerViewState();
   const [feedbacks, expectations] = useMemo(
-    () => partition(assessments, (assessment) => 'feedback' in assessment),
-    [assessments],
+    () => partition(allAssessments, (assessment) => 'feedback' in assessment),
+    [allAssessments],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
   const sortedExpectations = expectations.toSorted((left, right) =>

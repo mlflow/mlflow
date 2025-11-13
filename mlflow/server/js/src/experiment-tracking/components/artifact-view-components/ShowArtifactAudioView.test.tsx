@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import ShowArtifactAudioView from './ShowArtifactAudioView';
 
@@ -11,6 +12,7 @@ jest.mock('wavesurfer.js', () => {
     destroy: jest.fn(),
     on: jest.fn((event, callback) => {
       if (event === 'ready') {
+        // @ts-expect-error Argument of type 'unknown' is not assignable to parameter of type '() => void'
         setTimeout(callback, 0); // Simulate async event
       }
     }),

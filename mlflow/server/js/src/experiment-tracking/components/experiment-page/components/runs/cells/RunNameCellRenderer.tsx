@@ -8,7 +8,6 @@ import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { GroupParentCellRenderer } from './GroupParentCellRenderer';
 import invariant from 'invariant';
 import { RunColorPill } from '../../RunColorPill';
-import { shouldEnableToggleIndividualRunsInGroups } from '../../../../../../common/utils/FeatureUtils';
 import { useGetExperimentRunColor, useSaveExperimentRunColor } from '../../../hooks/useExperimentRunColor';
 import { useExperimentViewRunsTableHeaderContext } from '../ExperimentViewRunsTableHeaderContext';
 
@@ -40,12 +39,7 @@ export const RunNameCellRenderer = React.memo((props: RunNameCellRendererProps) 
   const { hasExpander, expanderOpen, childrenIds, level, belongsToGroup } = runDateAndNestInfo;
 
   const renderingAsParent = !isNaN(level) && hasExpander;
-  const hideRunColorControl = (() => {
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      return belongsToGroup && useGroupedValuesInCharts;
-    }
-    return belongsToGroup;
-  })();
+  const hideRunColorControl = belongsToGroup && useGroupedValuesInCharts;
 
   return (
     <div css={styles.cellWrapper}>

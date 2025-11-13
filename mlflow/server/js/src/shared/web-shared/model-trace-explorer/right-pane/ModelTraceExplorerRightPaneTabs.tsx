@@ -121,6 +121,13 @@ function ModelTraceExplorerRightPaneTabsImpl({
       </Tabs.Content>
     </Tabs.Root>
   );
+  const AssessmentsPaneComponent = (
+    <AssessmentsPane
+      assessments={activeSpan.assessments}
+      traceId={activeSpan.traceId}
+      activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
+    />
+  );
 
   return assessmentsPaneEnabled && assessmentsPaneExpanded ? (
     <ModelTraceExplorerResizablePane
@@ -129,13 +136,7 @@ function ModelTraceExplorerRightPaneTabsImpl({
       setPaneWidth={setPaneWidth}
       leftChild={tabContent}
       leftMinWidth={CONTENT_PANE_MIN_WIDTH}
-      rightChild={
-        <AssessmentsPane
-          assessments={activeSpan.assessments}
-          traceId={activeSpan.traceId}
-          activeSpanId={activeSpan.parentId ? String(activeSpan.key) : undefined}
-        />
-      }
+      rightChild={AssessmentsPaneComponent}
       rightMinWidth={ASSESSMENT_PANE_MIN_WIDTH}
     />
   ) : (

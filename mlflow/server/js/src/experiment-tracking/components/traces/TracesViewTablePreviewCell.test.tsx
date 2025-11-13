@@ -1,3 +1,4 @@
+import { describe, test, jest, expect } from '@jest/globals';
 import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
 import { render, screen } from '../../../common/utils/TestUtils.react18';
 import { TracesViewTableResponsePreviewCell } from './TracesViewTablePreviewCell';

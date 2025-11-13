@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { useState } from 'react';
 import { useExperimentLoggedModelListPageTableColumns } from './hooks/useExperimentLoggedModelListPageTableColumns';
 import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
@@ -101,7 +102,9 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
     );
 
     await waitFor(() => {
-      screen.getByText('Currently sorting by: metrics.["test","987654"].rmse ascending');
+      screen.getByText(
+        'Currently sorting by: metrics.{"metricKey":"rmse","datasetName":"test","datasetDigest":"987654"} ascending',
+      );
     });
 
     expect(screen.getByRole('button', { name: 'Sort: rmse' })).toBeInTheDocument();
@@ -111,7 +114,9 @@ describe('ExperimentLoggedModelListPageOrderBySelector', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Sort descending' }));
 
     await waitFor(() => {
-      screen.getByText('Currently sorting by: metrics.["test","987654"].rmse descending');
+      screen.getByText(
+        'Currently sorting by: metrics.{"metricKey":"rmse","datasetName":"test","datasetDigest":"987654"} descending',
+      );
     });
 
     // Close the dropdown

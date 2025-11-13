@@ -1,14 +1,16 @@
+import { jest, describe, beforeAll, afterAll, test, expect } from '@jest/globals';
 import { mount } from 'enzyme';
 import { EXPERIMENT_RUNS_MOCK_STORE } from '../../fixtures/experiment-runs.fixtures';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
 import { useRunsColumnDefinitions } from '../../utils/experimentPage.column-utils';
-import { ExperimentViewRunsTable, ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
+import type { ExperimentViewRunsTableProps } from './ExperimentViewRunsTable';
+import { ExperimentViewRunsTable } from './ExperimentViewRunsTable';
 import { MemoryRouter } from '../../../../../common/utils/RoutingUtils';
 import { createExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { createExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { MockedReduxStoreProvider } from '../../../../../common/utils/TestUtils';
+import { COLUMN_TYPES } from '@mlflow/mlflow/src/experiment-tracking/constants';
 import { makeCanonicalSortKey } from '../../utils/experimentPage.common-utils';
-import { COLUMN_TYPES } from '../../../../constants';
 
 /**
  * Mock all expensive utility functions
@@ -18,7 +20,6 @@ jest.mock('../../utils/experimentPage.column-utils', () => ({
     '../../utils/experimentPage.column-utils',
   ),
   useRunsColumnDefinitions: jest.fn(() => []),
-  makeCanonicalSortKey: jest.requireActual('../../utils/experimentPage.common-utils').makeCanonicalSortKey,
 }));
 
 /**
@@ -176,7 +177,7 @@ describe('ExperimentViewRunsTable', () => {
     const tagKey = 'testtag1';
     createWrapper(createLargeDatasetProps(tagKey, COLUMN_TYPES.TAGS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0];
+    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.tagKeyList).toEqual([tagKey]);
   });
 
@@ -184,7 +185,7 @@ describe('ExperimentViewRunsTable', () => {
     const metricKey = 'testmetric1';
     createWrapper(createLargeDatasetProps(metricKey, COLUMN_TYPES.METRICS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0];
+    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.metricKeyList).toEqual([metricKey]);
   });
 
@@ -192,7 +193,7 @@ describe('ExperimentViewRunsTable', () => {
     const paramKey = 'testparam1';
     createWrapper(createLargeDatasetProps(paramKey, COLUMN_TYPES.PARAMS));
 
-    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0];
+    const lastCall = (useRunsColumnDefinitions as jest.Mock).mock.calls.slice(-1)[0][0] as any;
     expect(lastCall.paramKeyList).toEqual([paramKey]);
   });
 

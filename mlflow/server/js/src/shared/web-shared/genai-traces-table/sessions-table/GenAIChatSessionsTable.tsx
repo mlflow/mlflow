@@ -1,9 +1,8 @@
 import type { Row, SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import React, { useMemo, useState } from 'react';
 
 import {
-  Empty,
   Table,
   TableCell,
   TableHeader,
@@ -11,20 +10,19 @@ import {
   TableSkeletonRows,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { useIntl } from '@databricks/i18n';
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { useReactTable_verifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 
+import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
+import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
 import { SessionIdCellRenderer } from './cell-renderers/SessionIdCellRenderer';
-import type { SessionTableRow } from './types';
+import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
+import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
+import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
+import type { SessionTableRow, SessionTableColumn } from './types';
 import { getSessionTableRows } from './utils';
 import MlflowUtils from '../utils/MlflowUtils';
 import { Link, useLocation } from '../utils/RoutingUtils';
-import { SessionSourceCellRenderer } from './cell-renderers/SessionSourceCellRenderer';
-import { SessionTableColumn } from './types';
-import { GenAIChatSessionsToolbar } from './GenAIChatSessionsToolbar';
-import { SessionNumericCellRenderer } from './cell-renderers/SessionNumericCellRenderer';
-import { GenAIChatSessionsEmptyState } from './GenAIChatSessionsEmptyState';
-import { useSessionsTableColumnVisibility } from './hooks/useSessionsTableColumnVisibility';
 
 const columns: SessionTableColumn[] = [
   {
@@ -34,7 +32,8 @@ const columns: SessionTableColumn[] = [
     cell: SessionIdCellRenderer,
     defaultVisibility: true,
     enableSorting: true,
-    sortingFn: (a, b) => a.original.sessionId.localeCompare(b.original.sessionId),
+    sortingFn: (a: Row<SessionTableRow>, b: Row<SessionTableRow>) =>
+      a.original.sessionId.localeCompare(b.original.sessionId),
   },
   {
     id: 'requestPreview',
@@ -125,7 +124,6 @@ export const GenAIChatSessionsTable = ({
   traces: ModelTraceInfoV3[];
   isLoading: boolean;
 }) => {
-  const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
   const sessionTableRows = useMemo(() => getSessionTableRows(experimentId, traces), [experimentId, traces]);
@@ -186,7 +184,7 @@ export const GenAIChatSessionsTable = ({
           {table.getLeafHeaders().map((header) => (
             <TableHeader
               key={header.id}
-              componentId={`mlflow.chat-sessions.${header.column.id}-header`}
+              componentId="mlflow.chat-sessions.table-header"
               header={header}
               column={header.column}
               sortable={header.column.getCanSort()}
