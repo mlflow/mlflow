@@ -1,3 +1,4 @@
+import re
 from unittest import mock
 
 import click
@@ -188,8 +189,6 @@ def test_evaluate_traces_integration():
     @scorer
     def simple_scorer(outputs):
         """Extract the digit from the output string and return it as the score"""
-        import re
-
         match = re.search(r"\d+", outputs)
         if match:
             return float(match.group())
