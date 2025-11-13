@@ -627,22 +627,20 @@ def test_error_logging_spans(mlflow_server: str):
     assert len(traces) == 1
 
 
-def test_otel_trace_received_telemetry_event(mlflow_server: str):
+def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
     """
-    Test that OtelTraceReceivedEvent telemetry is emitted and from_mlflow_client is detected.
+    Test OtelTraceReceivedEvent telemetry shows from_mlflow_client=True for standard client.
 
-    Test case 1: Standard MLflow client using @mlflow.trace -> from_mlflow_client=True
-    Test case 2: Direct protobuf request without headers -> from_mlflow_client=False
+    Uses @mlflow.trace with standard MLflow client configuration, which automatically sends
+    User-Agent and X-MLflow-Client-Version headers to identify traces from MLflow client.
     """
     from mlflow.telemetry.client import TelemetryClient
     from mlflow.telemetry.events import OtelTraceReceivedEvent
 
     mlflow.set_tracking_uri(mlflow_server)
-    experiment = mlflow.set_experiment("otel-telemetry-test")
-    experiment_id = experiment.experiment_id
+    mlflow.set_experiment("otel-telemetry-mlflow-client-test")
 
-    # Test Case 1: Standard MLflow client with @mlflow.trace
-    # This should send User-Agent and X-MLflow-Client-Version headers
+    # Mock telemetry client to capture events
     with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
         mock_client = mock.MagicMock(spec=TelemetryClient)
         mock_get_client.return_value = mock_client
@@ -664,7 +662,21 @@ def test_otel_trace_received_telemetry_event(mlflow_server: str):
             assert record.params["span_count"] >= 1
             assert record.params["from_mlflow_client"] is True
 
-    # Test Case 2: Direct protobuf request without MLflow client headers
+
+def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
+    """
+    Test OtelTraceReceivedEvent telemetry shows from_mlflow_client=False for external clients.
+
+    Sends a direct protobuf request without MLflow client headers to simulate an external
+    OpenTelemetry client (not MLflow client).
+    """
+    from mlflow.telemetry.client import TelemetryClient
+    from mlflow.telemetry.events import OtelTraceReceivedEvent
+
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
+    experiment_id = experiment.experiment_id
+
     # Create a request with a root span and 2 child spans
     request = ExportTraceServiceRequest()
     trace_id_hex = "0000000000000100" + "0" * 16
