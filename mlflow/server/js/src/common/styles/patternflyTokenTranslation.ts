@@ -1,7 +1,7 @@
 import { Theme } from "@emotion/react";
 import { darkColorList, lightColorList } from "./patternflyStyles/patternflyColors";
 import { patternflySpacing } from "./patternflyStyles/patternflySpacing";
-import { patternflyGeneral, getPatternflyShadowVariables } from "./patternflyStyles/patternflyGeneral";
+import { getPatternflyShadowVariables, patternflyGeneral } from "./patternflyStyles/patternflyGeneral";
 import { patternflyTypography } from "./patternflyStyles/patternflyTypography";
 import { getPatternflyShadows } from "./patternflyStyles/patternflyShadows";
 import { patternflyBorders, patternflyLegacyBorders } from "./patternflyStyles/patternflyBorders";

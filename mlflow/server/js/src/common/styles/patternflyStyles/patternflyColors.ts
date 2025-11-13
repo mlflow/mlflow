@@ -1,10 +1,10 @@
 export const darkColorList: Record<string, string> = {
     // Brand/Primary colors
-    actionPrimaryBackgroundDefault: 'rgb(185, 218, 252)',
-    actionPrimaryBackgroundHover: 'rgb(224, 240, 255)',
-    actionPrimaryBackgroundPress: 'rgb(224, 240, 255)',
-    actionPrimaryTextDefault: 'rgb(255, 255, 255)',
-    actionPrimaryIcon: 'rgb(255, 255, 255)',
+    actionPrimaryBackgroundDefault: '#92c5f9',
+    actionPrimaryBackgroundHover: '#b9dafc',
+    actionPrimaryBackgroundPress: '#b9dafc',
+    actionPrimaryTextDefault: '#1f1f1f',
+    actionPrimaryIcon: '#1f1f1f',
     
     // On-brand colors (for content on branded backgrounds)
     actionDefaultTextDefault: 'rgb(255, 255, 255)',
@@ -46,11 +46,11 @@ export const darkColorList: Record<string, string> = {
 
 export const lightColorList: Record<string, string> = {
     // Brand/Primary colors
-    actionPrimaryBackgroundDefault: 'rgb(0, 102, 204)',
-    actionPrimaryBackgroundHover: 'rgb(0, 77, 153)',
-    actionPrimaryBackgroundPress: 'rgb(0, 77, 153)',
-    actionPrimaryTextDefault: 'rgb(31, 31, 31)',
-    actionPrimaryIcon: 'rgb(31, 31, 31)',
+    actionPrimaryBackgroundDefault: '#06c',
+    actionPrimaryBackgroundHover: '#004d99',
+    actionPrimaryBackgroundPress: '#004d99',
+    actionPrimaryTextDefault: '#fff',
+    actionPrimaryIcon: '#fff',
     
     // On-brand colors (for content on branded backgrounds)
     actionDefaultTextDefault: 'rgb(31, 31, 31)',

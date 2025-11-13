@@ -10,7 +10,7 @@
 export const patternflyTypography = {
   // Font sizes
   fontSizeSm: 12,   // --pf-t--global--font--size--body--sm
-  fontSizeBase: 14, // --pf-t--global--font--size--body--default (PatternFly's base is slightly larger)
+  fontSizeBase: 13, // --pf-t--global--font--size--body--default (PatternFly's base is slightly larger)
   fontSizeMd: 14,   // same as base
   fontSizeLg: 16,   // --pf-t--global--font--size--body--lg
   fontSizeXl: 20,   // heading sizes
