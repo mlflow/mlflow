@@ -23,11 +23,7 @@ from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
-from mlflow.tracking.request_header.default_request_header_provider import (
-    _CLIENT_VERSION,
-    _MLFLOW_CLIENT_USER_AGENT_PREFIX,
-    _USER_AGENT,
-)
+from mlflow.tracking.request_header.default_request_header_provider import _CLIENT_VERSION
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
@@ -52,7 +48,6 @@ async def export_traces(
     response: Response,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
     content_type: str = Header(None),
-    user_agent: str | None = Header(None, alias=_USER_AGENT),
     x_mlflow_client_version: str | None = Header(None, alias=_CLIENT_VERSION),
 ) -> OTelExportTraceServiceResponse:
     """
@@ -66,7 +61,6 @@ async def export_traces(
         response: FastAPI Response object for setting headers
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
-        user_agent: User-Agent header from the request (used to identify MLflow client)
         x_mlflow_client_version: X-MLflow-Client-Version header (used to identify MLflow client)
 
     Returns:
@@ -157,11 +151,12 @@ async def export_traces(
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
-        # Determine trace source based on headers
-        is_mlflow_client = (
-            user_agent and user_agent.startswith(_MLFLOW_CLIENT_USER_AGENT_PREFIX)
-        ) or x_mlflow_client_version is not None
-        trace_source = TraceSource.MLFLOW_CLIENT if is_mlflow_client else TraceSource.UNKNOWN
+        # Determine trace source based on X-MLflow-Client-Version header
+        trace_source = (
+            TraceSource.MLFLOW_CLIENT
+            if x_mlflow_client_version is not None
+            else TraceSource.UNKNOWN
+        )
 
         for _ in root_trace_ids:
             _record_event(
