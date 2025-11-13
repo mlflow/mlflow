@@ -23,7 +23,10 @@ from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
-from mlflow.tracking.request_header.default_request_header_provider import _USER_AGENT
+from mlflow.tracking.request_header.default_request_header_provider import (
+    _MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX,
+    _USER_AGENT,
+)
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
@@ -155,7 +158,7 @@ async def export_traces(
 
         trace_source = (
             TraceSource.MLFLOW_PYTHON_CLIENT
-            if user_agent and user_agent.startswith("mlflow-python-client/")
+            if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX)
             else TraceSource.UNKNOWN
         )
 
