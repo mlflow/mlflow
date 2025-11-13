@@ -14,6 +14,12 @@ from mlflow.entities import (
     LoggedModelStatus,
     LoggedModelTag,
     ScorerVersion,
+    Secret,
+    SecretBinding,
+    SecretRoute,
+    SecretRouteTag,
+    SecretTag,
+    SecretWithRouteAndBinding,
     ViewType,
 )
 
@@ -1358,5 +1364,319 @@ class AbstractStore:
 
         Raises:
             MlflowException: If scorer is not found.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _create_and_bind_secret(
+        self,
+        secret_name: str,
+        secret_value: str | dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
+        is_shared: bool = False,
+        created_by: str | None = None,
+        provider: str | None = None,
+        auth_config: dict[str, Any] | None = None,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+    ) -> SecretWithRouteAndBinding:
+        """
+        Atomically create a gateway asset (secret + route + binding) in a single transaction.
+
+        This creates a complete gateway configuration:
+        1. Secret: The API key/credential (and/or auth config)
+        2. Route: The model configuration (provider + model using that secret)
+        3. Binding: The resource binding (which service uses this route)
+
+        Args:
+            secret_name: Name for the secret.
+            secret_value: Secret value to encrypt. Required. Can be:
+                - String: API key/token for simple providers (OpenAI, Anthropic)
+                - Dict: JSON credentials for complex providers (Vertex AI service account)
+            resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used.
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo",
+                "claude-3-5-sonnet-20241022"). Required.
+            is_shared: Whether the secret can be reused across multiple resources.
+            created_by: Username of the creator. Optional.
+            provider: LLM provider identifier. Optional.
+            auth_config: Optional provider-specific authentication configuration.
+            route_name: Optional display name for the route. If not provided, model_name is used.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
+
+        Returns:
+            SecretWithRouteAndBinding containing the created secret, route, and initial binding.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _create_route_and_bind(
+        self,
+        secret_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+        created_by: str | None = None,
+    ) -> SecretWithRouteAndBinding:
+        """
+        Create a new route and binding for an existing secret.
+
+        This enables reusing a single API key (secret) across multiple model configurations.
+
+        Args:
+            secret_id: ID of the existing secret to use.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used.
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
+            route_name: Optional display name for the route.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
+            created_by: Username of the creator. Optional.
+
+        Returns:
+            SecretWithRouteAndBinding containing the secret, new route, and new binding.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _get_secret_info(self, secret_id: str) -> Secret:
+        """
+        Retrieve metadata for a secret by ID (does not decrypt the value).
+
+        Args:
+            secret_id: ID of the secret to retrieve.
+
+        Returns:
+            Secret entity with metadata (encrypted value not included).
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _update_secret(
+        self,
+        secret_id: str,
+        secret_value: str | dict[str, Any],
+        updated_by: str | None = None,
+        auth_config: dict[str, Any] | None = None,
+    ) -> Secret:
+        """
+        Update an existing secret's value (key rotation).
+
+        Both the main secret value and optional auth_config can be updated independently or
+        together.
+
+        Args:
+            secret_id: ID of the secret to update.
+            secret_value: New secret value to encrypt. Required. Can be:
+                - String: API key/token for simple providers
+                - Dict: JSON credentials for complex providers (e.g., Vertex AI)
+            updated_by: Username of the updater. Optional.
+            auth_config: Optional updated provider-specific authentication configuration.
+                If provided, replaces the existing auth_config. If None, auth_config is unchanged.
+                Set to empty dict {} to clear existing auth_config.
+
+        Returns:
+            Updated Secret entity with new encrypted value.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _delete_secret(self, secret_id: str) -> None:
+        """
+        Permanently delete a secret and all its bindings (CASCADE).
+
+        Args:
+            secret_id: ID of the secret to delete.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _delete_secret_binding(
+        self,
+        binding_id: str,
+    ) -> None:
+        """
+        Delete a secret binding by its ID.
+
+        This removes the binding between a route and a resource. The route and secret
+        are not deleted, only the binding is removed.
+
+        Args:
+            binding_id: Unique identifier for the binding to delete.
+
+        Raises:
+            MlflowException: If the binding does not exist.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        route_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[SecretBinding]:
+        """
+        List secret bindings with optional filters.
+
+        Args:
+            secret_id: Optional filter by secret ID (joins through routes).
+            route_id: Optional filter by route ID.
+            resource_type: Optional filter by resource type (e.g., "GLOBAL").
+            resource_id: Optional filter by resource ID.
+
+        Returns:
+            List of SecretBinding entities matching the filters.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _get_secrets_for_resource(
+        self,
+        resource_type: str,
+        resource_id: str,
+    ) -> dict[str, str | dict[str, Any]]:
+        """
+        Retrieve and decrypt all secrets bound to a specific resource.
+
+        Args:
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+
+        Returns:
+            Dictionary mapping field names to decrypted secret values.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_secret_tag(self, secret_id: str, tag: SecretTag) -> None:
+        """
+        Set a tag for the specified secret.
+
+        Args:
+            secret_id: String ID of the secret.
+            tag: SecretTag instance to set.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_secret_tag(self, secret_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified secret.
+
+        Args:
+            secret_id: String ID of the secret.
+            key: String name of the tag to be deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def set_secret_route_tag(self, route_id: str, tag: SecretRouteTag) -> None:
+        """
+        Set a tag for the specified secret route.
+
+        Args:
+            route_id: String ID of the route.
+            tag: SecretRouteTag instance to set.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def delete_secret_route_tag(self, route_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified secret route.
+
+        Args:
+            route_id: String ID of the route.
+            key: String name of the tag to be deleted.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _list_secrets(
+        self,
+        is_shared: bool | None = None,
+        provider: str | None = None,
+        resource_type: str | None = None,
+    ) -> list[Secret]:
+        """
+        List all secrets with optional filtering and binding counts.
+
+        This method returns lightweight secret metadata optimized for UI display.
+
+        Args:
+            is_shared: Optional filter for secret sharing status:
+                - True: Return only shared secrets (can be bound to multiple resources)
+                - False: Return only private secrets (single resource binding)
+                - None: Return all secrets (default)
+            provider: Optional filter by LLM provider (e.g., "openai", "anthropic").
+            resource_type: Optional filter to return only secrets with bindings of this type
+                (e.g., "GLOBAL" for globally available secrets).
+
+        Returns:
+            List of Secret entities with binding_count populated from actual DB values.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _list_secret_routes(
+        self,
+        secret_id: str | None = None,
+        provider: str | None = None,
+    ) -> list[SecretRoute]:
+        """
+        List all secret routes with optional filtering.
+
+        This method returns route metadata for displaying model configurations in the UI.
+        Routes represent model configurations (e.g., which model uses which secret).
+
+        Args:
+            secret_id: Optional filter to return only routes for a specific secret.
+            provider: Optional filter by LLM provider (filters via secret's provider).
+
+        Returns:
+            List of SecretRoute entities.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _delete_secret_route(self, route_id: str) -> None:
+        """
+        Delete a secret route and its associated bindings.
+
+        This will CASCADE delete all bindings for this route. If this is the last route
+        for a secret, the secret will be orphaned and should be deleted separately.
+
+        Args:
+            route_id: ID of the route to delete.
+
+        Raises:
+            MlflowException: If route doesn't exist or is the last route for its secret.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    def _bind_secret_route(
+        self,
+        route_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        created_by: str | None = None,
+    ) -> SecretBinding:
+        """
+        Bind an existing secret route to a new resource.
+
+        This allows reusing a route (model configuration) across multiple resources
+        without creating a new route each time.
+
+        Args:
+            route_id: ID of the existing route to bind.
+            resource_type: Type of resource (e.g., "GLOBAL", "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used.
+            created_by: Username of the creator. Optional.
+
+        Returns:
+            The created SecretBinding entity.
+
+        Raises:
+            MlflowException: If route doesn't exist or binding already exists.
         """
         raise NotImplementedError(self.__class__.__name__)

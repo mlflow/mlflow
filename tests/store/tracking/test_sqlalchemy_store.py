@@ -36,6 +36,8 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SecretResourceType,
+    SecretRouteTag,
+    SecretTag,
     SourceType,
     ViewType,
     _DatasetSummary,
@@ -93,6 +95,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlSecret,
     SqlSecretBinding,
+    SqlSecretRoute,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -364,9 +367,14 @@ def create_secret(store, kek_passphrase):
             "secret_name": f"test_secret_{uuid.uuid4().hex[:8]}",
             "secret_value": "test-secret-value-default",
             "is_shared": False,
+            "resource_type": "SCORER_JOB",
+            "resource_id": f"test_resource_{uuid.uuid4().hex[:8]}",
+            "field_name": "TEST_SECRET",
+            "model_name": "gpt-4-turbo",
         }
         defaults.update(kwargs)
-        return store._create_secret(**defaults)
+        result = store._create_and_bind_secret(**defaults)
+        return result.secret
 
     return _create_secret
 
@@ -11358,25 +11366,108 @@ def test_secret_model(create_secret):
     assert secret_entity.created_by == "user@example.com"
     assert secret_entity.last_updated_by == "user@example.com"
     assert secret_entity.secret_id is not None
+    assert secret_entity.provider is None
 
 
-def test_secret_binding_model(store: SqlAlchemyStore, create_secret):
-    secret_entity = create_secret(is_shared=True)
-
-    binding_entity = store._bind_secret(
-        secret_id=secret_entity.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_123",
-        field_name="api_key",
+def test_secret_with_provider(store: SqlAlchemyStore, create_secret):
+    secret_entity = create_secret(
+        secret_name="llm_api_key",
+        secret_value="sk-anthropic-test-key",
+        provider="anthropic",
         created_by="user@example.com",
     )
 
-    assert binding_entity.secret_id == secret_entity.secret_id
-    assert binding_entity.resource_type == SecretResourceType.SCORER_JOB
-    assert binding_entity.resource_id == "job_123"
-    assert binding_entity.field_name == "api_key"
-    assert binding_entity.created_by == "user@example.com"
-    assert binding_entity.last_updated_by == "user@example.com"
+    assert secret_entity.secret_name == "llm_api_key"
+    assert secret_entity.provider == "anthropic"
+    assert secret_entity.created_by == "user@example.com"
+
+    retrieved_secret = store._get_secret_info(secret_entity.secret_id)
+    assert retrieved_secret.provider == "anthropic"
+
+
+def test_create_and_bind_secret_atomic(store: SqlAlchemyStore, kek_passphrase):
+    secret_name = "test_api_key"
+    secret_value = "sk-test-value-12345"
+    resource_type = SecretResourceType.SCORER_JOB
+    resource_id = "scorer_123"
+    field_name = "OPENAI_API_KEY"
+    created_by = "user@example.com"
+
+    result = store._create_and_bind_secret(
+        secret_name=secret_name,
+        secret_value=secret_value,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+        model_name="gpt-4-turbo",
+        is_shared=False,
+        created_by=created_by,
+    )
+
+    assert result.secret.secret_name == secret_name
+    assert result.secret.is_shared is False
+    assert result.secret.created_by == created_by
+    assert result.secret.masked_value == "sk-...2345"
+    assert not hasattr(result.secret, "secret_value")
+
+    assert result.binding.secret_id == result.secret.secret_id
+    assert result.binding.resource_type == resource_type
+    assert result.binding.resource_id == resource_id
+    assert result.binding.field_name == field_name
+    assert result.binding.created_by == created_by
+
+    retrieved_secret = store._get_secret_info(result.secret.secret_id)
+    assert retrieved_secret.secret_id == result.secret.secret_id
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 1
+    assert bindings[0].binding_id == result.binding.binding_id
+
+
+def test_create_and_bind_prevents_orphaned_secrets(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="test_secret",
+        secret_value="test_value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_id",
+        field_name="API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert len(bindings) == 1, "Secret must have at least one binding"
+
+    all_bindings = store._list_secret_bindings()
+    secret_binding_count = sum(1 for b in all_bindings if b.secret_id == result.secret.secret_id)
+    assert secret_binding_count == 1
+
+
+def test_create_and_bind_duplicate_binding_fails(store: SqlAlchemyStore, kek_passphrase):
+    resource_type = SecretResourceType.SCORER_JOB
+    resource_id = "scorer_456"
+    field_name = "ANTHROPIC_API_KEY"
+
+    store._create_and_bind_secret(
+        secret_name="first_secret",
+        secret_value="value1",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+        model_name="claude-3-5-sonnet-20241022",
+    )
+
+    with pytest.raises(
+        MlflowException, match="Binding already exists for resource_type=.*resource_id="
+    ):
+        store._create_and_bind_secret(
+            secret_name="second_secret",
+            secret_value="value2",
+            resource_type=resource_type,
+            resource_id=resource_id,
+            field_name=field_name,
+            model_name="claude-3-5-sonnet-20241022",
+        )
 
 
 def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
@@ -11386,20 +11477,21 @@ def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
         is_shared=True,
     )
 
-    store._bind_secret(
+    result = store._create_route_and_bind(
         secret_id=shared_secret.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_1",
         field_name="llm_api_key",
+        model_name="gpt-4",
     )
-    store._bind_secret(
-        secret_id=shared_secret.secret_id,
+    store._bind_secret_route(
+        route_id=result.route.route_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_2",
         field_name="llm_api_key",
     )
-    store._bind_secret(
-        secret_id=shared_secret.secret_id,
+    store._bind_secret_route(
+        route_id=result.route.route_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_3",
         field_name="llm_api_key",
@@ -11420,19 +11512,42 @@ def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
     assert secrets_retrieved_3["llm_api_key"] == "sk-test-openai-key-12345"
 
 
+def test_bind_private_secret_raises_error(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="private_key",
+        secret_value="sk-private-12345",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_1",
+        field_name="API_KEY",
+        model_name="gpt-4",
+        is_shared=False,
+    )
+
+    with pytest.raises(MlflowException, match="Cannot create route for private secret"):
+        store._create_route_and_bind(
+            secret_id=result.secret.secret_id,
+            resource_type=SecretResourceType.SCORER_JOB,
+            resource_id="scorer_2",
+            field_name="API_KEY",
+            model_name="gpt-4",
+        )
+
+
 def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(is_shared=True)
 
-    binding_1 = store._bind_secret(
+    result_1 = store._create_route_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_1",
+        model_name="gpt-4",
         field_name="api_key",
     )
-    binding_2 = store._bind_secret(
+    result_2 = store._create_route_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
+        model_name="gpt-4",
         field_name="api_key",
     )
 
@@ -11449,7 +11564,11 @@ def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
             session.query(SqlSecretBinding)
-            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
+            .filter(
+                SqlSecretBinding.binding_id.in_(
+                    [result_1.binding.binding_id, result_2.binding.binding_id]
+                )
+            )
             .all()
         )
         assert len(remaining_bindings) == 0
@@ -11461,20 +11580,22 @@ def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
 
 
 def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_secret):
-    secret_1 = create_secret(secret_name="openai_key")
-    secret_2 = create_secret(secret_name="anthropic_key")
+    secret_1 = create_secret(secret_name="openai_key", is_shared=True)
+    secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
 
-    binding_1 = store._bind_secret(
+    result_1 = store._create_route_and_bind(
         secret_id=secret_1.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_999",
+        model_name="gpt-4",
         field_name="openai_key",
     )
 
-    binding_2 = store._bind_secret(
+    result_2 = store._create_route_and_bind(
         secret_id=secret_2.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_999",
+        model_name="gpt-4",
         field_name="anthropic_key",
     )
 
@@ -11491,7 +11612,11 @@ def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
             session.query(SqlSecretBinding)
-            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
+            .filter(
+                SqlSecretBinding.binding_id.in_(
+                    [result_1.binding.binding_id, result_2.binding.binding_id]
+                )
+            )
             .all()
         )
         assert len(remaining_bindings) == 0
@@ -11540,10 +11665,11 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
     assert updated.last_updated_by == "admin"
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
+        model_name="gpt-4",
         field_name="api_key",
     )
 
@@ -11555,18 +11681,20 @@ def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret)
     secret_entity = create_secret(is_shared=True)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
+        model_name="gpt-4",
         field_name="api_key",
     )
 
     with pytest.raises(MlflowException, match="already exists"):
-        store._bind_secret(
+        store._create_route_and_bind(
             secret_id=secret_entity.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
             resource_id=job_id,
+            model_name="gpt-4",
             field_name="api_key",
         )
 
@@ -11575,12 +11703,14 @@ def test_get_encrypted_secret_by_binding(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(
         secret_name="test_encrypted_secret",
         secret_value="sk-test-api-key-value",
+        is_shared=True,
     )
 
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_999",
+        model_name="gpt-4",
         field_name="openai_key",
     )
 
@@ -11593,11 +11723,12 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "empty_job")
     assert secrets == {}
 
-    secret_1 = create_secret(secret_name="openai_key")
-    store._bind_secret(
+    secret_1 = create_secret(secret_name="openai_key", is_shared=True)
+    store._create_route_and_bind(
         secret_id=secret_1.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_1",
+        model_name="gpt-4",
         field_name="openai_key",
     )
 
@@ -11605,19 +11736,21 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     assert len(secrets) == 1
     assert "openai_key" in secrets
 
-    secret_2 = create_secret(secret_name="anthropic_key")
-    secret_3 = create_secret(secret_name="db_password")
+    secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
+    secret_3 = create_secret(secret_name="db_password", is_shared=True)
 
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_2.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
+        model_name="gpt-4",
         field_name="anthropic_key",
     )
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_3.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
+        model_name="gpt-4",
         field_name="db_password",
     )
 
@@ -11625,19 +11758,21 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     assert len(secrets) == 2
     assert set(secrets.keys()) == {"anthropic_key", "db_password"}
 
-    secret_4 = create_secret(secret_name="job4_secret")
-    secret_5 = create_secret(secret_name="job5_secret")
+    secret_4 = create_secret(secret_name="job4_secret", is_shared=True)
+    secret_5 = create_secret(secret_name="job5_secret", is_shared=True)
 
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_4.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_4",
+        model_name="gpt-4",
         field_name="api_key",
     )
-    store._bind_secret(
+    store._create_route_and_bind(
         secret_id=secret_5.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_5",
+        model_name="gpt-4",
         field_name="api_key",
     )
 
@@ -11650,59 +11785,236 @@ def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
     assert "api_key" in secrets_job5
 
 
-def test_secret_dict_value_storage(store: SqlAlchemyStore, create_secret):
-    dict_secret = create_secret(
+def test_secret_with_auth_config_simple(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
         secret_name="openai_config",
-        secret_value={"api_key": "sk-test123", "organization": "org-test"},
-    )
-    assert dict_secret.secret_id is not None
-
-    store._bind_secret(
-        secret_id=dict_secret.secret_id,
+        secret_value="sk-test123",
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_1",
         field_name="config",
+        model_name="gpt-4-turbo",
+        is_shared=True,
+        provider="openai",
+        auth_config={"organization": "org-test"},
     )
+    assert result.secret.secret_id is not None
+    assert result.secret.provider == "openai"
 
     secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    assert secrets["config"] == {"api_key": "sk-test123", "organization": "org-test"}
+    assert secrets["config"] == "sk-test123"
 
 
-def test_secret_dict_nested_structure(store: SqlAlchemyStore, create_secret):
-    nested_dict = {
-        "credentials": {"username": "admin", "password": "secret123"},
-        "endpoints": {"primary": "https://api.example.com", "backup": "https://backup.example.com"},
+def test_secret_with_auth_config_azure_openai(store: SqlAlchemyStore, kek_passphrase):
+    auth_config = {
+        "azure_endpoint": "https://my-resource.openai.azure.com",
+        "api_version": "2024-02-01",
     }
-    secret = create_secret(secret_name="nested_config", secret_value=nested_dict)
-
-    store._bind_secret(
-        secret_id=secret.secret_id,
+    result = store._create_and_bind_secret(
+        secret_name="azure_openai_key",
+        secret_value="azure-api-key-12345",
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
-        field_name="full_config",
+        field_name="azure_config",
+        model_name="gpt-4",
+        is_shared=True,
+        provider="azure_openai",
+        auth_config=auth_config,
     )
+    assert result.secret.secret_id is not None
+    assert result.secret.provider == "azure_openai"
 
     secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    assert secrets["full_config"] == nested_dict
+    assert secrets["azure_config"] == "azure-api-key-12345"
 
 
-def test_secret_dict_special_characters(store: SqlAlchemyStore, create_secret):
-    special_dict = {
-        "key": "value with spaces and symbols: @#$%",
-        "unicode": "测试数据",
-        "json_string": '{"nested": "json"}',
-    }
-    secret = create_secret(secret_name="special_chars", secret_value=special_dict)
-
-    store._bind_secret(
-        secret_id=secret.secret_id,
+def test_update_secret_with_dict_value(store: SqlAlchemyStore, kek_passphrase):
+    old_service_account = {"type": "service_account", "private_key": "old-key"}
+    result = store._create_and_bind_secret(
+        secret_name="updatable_service_account",
+        secret_value=old_service_account,
         resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_3",
-        field_name="special",
+        resource_id="job_update",
+        field_name="service_account",
+        model_name="gemini-2.5-pro",
+        is_shared=True,
+        provider="vertex_ai",
     )
 
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_3")
-    assert secrets["special"] == special_dict
+    new_service_account = {"type": "service_account", "private_key": "new-key"}
+    updated = store._update_secret(
+        secret_id=result.secret.secret_id,
+        secret_value=new_service_account,
+        updated_by="admin",
+    )
+
+    assert updated.secret_id == result.secret.secret_id
+    assert updated.last_updated_by == "admin"
+
+    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_update")
+    assert secrets["service_account"] == new_service_account
+    assert secrets["service_account"]["private_key"] == "new-key"
+
+
+def test_update_auth_config_independently(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="azure_key_for_update",
+        secret_value="azure-api-key-original",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_auth_update",
+        field_name="azure_key",
+        model_name="gpt-4",
+        is_shared=True,
+        provider="azure_openai",
+        auth_config={"azure_endpoint": "https://original.openai.azure.com"},
+    )
+
+    updated = store._update_secret(
+        secret_id=result.secret.secret_id,
+        secret_value="azure-api-key-rotated",
+        auth_config={"azure_endpoint": "https://new.openai.azure.com", "api_version": "2024-02-01"},
+        updated_by="admin",
+    )
+
+    assert updated.secret_id == result.secret.secret_id
+    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_auth_update")
+    assert secrets["azure_key"] == "azure-api-key-rotated"
+
+
+def test_clear_auth_config(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="clearable_auth_config",
+        secret_value="api-key-123",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_clear_auth",
+        field_name="api_key",
+        model_name="gpt-3.5-turbo",
+        is_shared=True,
+        auth_config={"organization": "org-123"},
+    )
+
+    updated = store._update_secret(
+        secret_id=result.secret.secret_id,
+        secret_value="api-key-123",
+        auth_config={},
+    )
+
+    assert updated.secret_id == result.secret.secret_id
+
+
+def test_create_secret_with_route_tags(store: SqlAlchemyStore, kek_passphrase):
+    route_tags = [
+        {"key": "environment", "value": "production"},
+        {"key": "team", "value": "ml-platform"},
+        {"key": "cost_center", "value": "engineering"},
+    ]
+    result = store._create_and_bind_secret(
+        secret_name="tagged_route_secret",
+        secret_value="sk-tagged-key",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_tags",
+        field_name="api_key",
+        model_name="gpt-4-turbo",
+        is_shared=True,
+        provider="openai",
+        route_name="Production GPT-4",
+        route_description="Production GPT-4 Turbo endpoint for ML scoring",
+        route_tags=route_tags,
+    )
+
+    assert result.secret.secret_id is not None
+    assert result.route.route_id is not None
+    assert result.route.model_name == "gpt-4-turbo"
+    assert result.route.name == "Production GPT-4"
+    assert result.route.description == "Production GPT-4 Turbo endpoint for ML scoring"
+    assert len(result.route.tags) == 3
+    tag_dict = {tag.key: tag.value for tag in result.route.tags}
+    assert tag_dict["environment"] == "production"
+    assert tag_dict["team"] == "ml-platform"
+    assert tag_dict["cost_center"] == "engineering"
+
+
+def test_create_route_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passphrase):
+    result1 = store._create_and_bind_secret(
+        secret_name="shared_openai_key",
+        secret_value="sk-reusable-key-12345",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4-turbo",
+        is_shared=True,
+        provider="openai",
+        route_name="GPT-4 Turbo",
+        route_description="Main production GPT-4 endpoint",
+    )
+
+    result2 = store._create_route_and_bind(
+        secret_id=result1.secret.secret_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-3.5-turbo",
+        route_name="GPT-3.5 Turbo",
+        route_description="Cost-efficient endpoint for dev",
+        route_tags=[{"key": "tier", "value": "development"}],
+    )
+
+    result3 = store._create_route_and_bind(
+        secret_id=result1.secret.secret_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_3",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4o",
+        route_name="GPT-4o",
+        route_description="Latest model for experiments",
+    )
+
+    assert result2.secret.secret_id == result1.secret.secret_id
+    assert result3.secret.secret_id == result1.secret.secret_id
+    assert result2.route.route_id != result1.route.route_id
+    assert result3.route.route_id != result1.route.route_id
+    assert result2.route.model_name == "gpt-3.5-turbo"
+    assert result3.route.model_name == "gpt-4o"
+    assert len(result2.route.tags) == 1
+    assert result2.route.tags[0].key == "tier"
+
+    secrets_job1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
+    secrets_job2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
+    secrets_job3 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_3")
+    assert secrets_job1["OPENAI_API_KEY"] == "sk-reusable-key-12345"
+    assert secrets_job2["OPENAI_API_KEY"] == "sk-reusable-key-12345"
+    assert secrets_job3["OPENAI_API_KEY"] == "sk-reusable-key-12345"
+
+
+def test_create_route_and_bind_private_secret_fails(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="private_key",
+        secret_value="sk-private-12345",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="API_KEY",
+        model_name="gpt-4",
+        is_shared=False,
+    )
+
+    with pytest.raises(MlflowException, match="Cannot create route for private secret"):
+        store._create_route_and_bind(
+            secret_id=result.secret.secret_id,
+            resource_type=SecretResourceType.SCORER_JOB,
+            resource_id="job_2",
+            field_name="API_KEY",
+            model_name="gpt-3.5-turbo",
+        )
+
+
+def test_create_route_and_bind_nonexistent_secret_fails(store: SqlAlchemyStore, kek_passphrase):
+    with pytest.raises(MlflowException, match="not found"):
+        store._create_route_and_bind(
+            secret_id="nonexistent_id",
+            resource_type=SecretResourceType.SCORER_JOB,
+            resource_id="job_1",
+            field_name="API_KEY",
+            model_name="gpt-4",
+        )
 
 
 def test_secret_delete_nonexistent_secret(store: SqlAlchemyStore):
@@ -11715,3 +12027,466 @@ def test_secret_update_nonexistent_secret(store: SqlAlchemyStore):
     fake_id = "nonexistent_secret_id_67890"
     with pytest.raises(MlflowException, match="not found"):
         store._update_secret(fake_id, "new-value")
+
+
+def test_secret_tags(store: SqlAlchemyStore, create_secret):
+    secret = create_secret(is_shared=True)
+
+    store.set_secret_tag(secret.secret_id, SecretTag("environment", "staging"))
+    retrieved = store._get_secret_info(secret.secret_id)
+    assert len(retrieved.tags) == 1
+    assert retrieved.tags[0].key == "environment"
+    assert retrieved.tags[0].value == "staging"
+
+    store.set_secret_tag(secret.secret_id, SecretTag("environment", "production"))
+    store.set_secret_tag(secret.secret_id, SecretTag("team", "ml-platform"))
+    store.set_secret_tag(secret.secret_id, SecretTag("cost-center", "12345"))
+    retrieved = store._get_secret_info(secret.secret_id)
+    assert len(retrieved.tags) == 3
+    tag_dict = {tag.key: tag.value for tag in retrieved.tags}
+    assert tag_dict["environment"] == "production"
+    assert tag_dict["team"] == "ml-platform"
+    assert tag_dict["cost-center"] == "12345"
+
+    store.delete_secret_tag(secret.secret_id, "environment")
+    retrieved = store._get_secret_info(secret.secret_id)
+    assert len(retrieved.tags) == 2
+
+    with pytest.raises(MlflowException, match="No tag with name"):
+        store.delete_secret_tag(secret.secret_id, "nonexistent_tag")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_secret_tag("nonexistent_secret_id", SecretTag("key", "value"))
+
+
+def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
+    secret = create_secret(is_shared=True)
+    bindings = store._list_secret_bindings(secret_id=secret.secret_id)
+    route_id = bindings[0].route_id
+
+    store.set_secret_route_tag(route_id, SecretRouteTag("deployment", "blue"))
+    with store.ManagedSessionMaker() as session:
+        sql_route = (
+            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+        )
+        route_entity = sql_route.to_mlflow_entity()
+        assert len(route_entity.tags) == 1
+        assert route_entity.tags[0].key == "deployment"
+        assert route_entity.tags[0].value == "blue"
+
+    store.set_secret_route_tag(route_id, SecretRouteTag("deployment", "green"))
+    store.set_secret_route_tag(route_id, SecretRouteTag("model_version", "v1.0"))
+    store.set_secret_route_tag(route_id, SecretRouteTag("region", "us-west-2"))
+    with store.ManagedSessionMaker() as session:
+        sql_route = (
+            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+        )
+        route_entity = sql_route.to_mlflow_entity()
+        assert len(route_entity.tags) == 3
+        tag_dict = {tag.key: tag.value for tag in route_entity.tags}
+        assert tag_dict["deployment"] == "green"
+        assert tag_dict["model_version"] == "v1.0"
+        assert tag_dict["region"] == "us-west-2"
+
+    store.delete_secret_route_tag(route_id, "model_version")
+    with store.ManagedSessionMaker() as session:
+        sql_route = (
+            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+        )
+        route_entity = sql_route.to_mlflow_entity()
+        assert len(route_entity.tags) == 2
+
+    with pytest.raises(MlflowException, match="No tag with name"):
+        store.delete_secret_route_tag(route_id, "nonexistent_tag")
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_secret_route_tag("nonexistent_route_id", SecretRouteTag("key", "value"))
+
+
+def test_list_secrets(store: SqlAlchemyStore, kek_passphrase):
+    secrets_before = store._list_secrets()
+    count_before = len(secrets_before)
+
+    _result1 = store._create_and_bind_secret(
+        secret_name="openai_key",
+        secret_value="sk-test",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    _result2 = store._create_and_bind_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-test",
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job1",
+        field_name="ANTHROPIC_API_KEY",
+        is_shared=False,
+    )
+
+    all_secrets = store._list_secrets()
+    assert len(all_secrets) == count_before + 2
+
+    shared_secrets = store._list_secrets(is_shared=True)
+    assert len(shared_secrets) >= 1
+    assert any(s.secret_name == "openai_key" for s in shared_secrets)
+
+    openai_secrets = store._list_secrets(provider="openai")
+    assert len(openai_secrets) == 1
+    assert openai_secrets[0].secret_name == "openai_key"
+    assert openai_secrets[0].provider == "openai"
+
+    global_secrets = store._list_secrets(resource_type=SecretResourceType.GLOBAL)
+    assert len(global_secrets) >= 1
+    assert any(s.secret_name == "openai_key" for s in global_secrets)
+
+    for secret in all_secrets:
+        assert hasattr(secret, "binding_count")
+        assert secret.binding_count is not None
+
+
+def test_list_secret_routes(store: SqlAlchemyStore, kek_passphrase):
+    result1 = store._create_and_bind_secret(
+        secret_name="openai_key",
+        secret_value="sk-test",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    _result2 = store._create_and_bind_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-test",
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+        is_shared=True,
+    )
+
+    routes_all = store._list_secret_routes()
+    assert len(routes_all) >= 2
+
+    routes_secret1 = store._list_secret_routes(secret_id=result1.secret.secret_id)
+    assert len(routes_secret1) == 1
+    assert routes_secret1[0].secret_id == result1.secret.secret_id
+    assert routes_secret1[0].model_name == "gpt-4"
+    assert routes_secret1[0].secret_name == "openai_key"
+    assert routes_secret1[0].provider == "openai"
+
+    openai_routes = store._list_secret_routes(provider="openai")
+    assert len(openai_routes) >= 1
+    assert any(r.model_name == "gpt-4" for r in openai_routes)
+
+    anthropic_routes = store._list_secret_routes(provider="anthropic")
+    assert len(anthropic_routes) >= 1
+    assert any(r.model_name == "claude-3-5-sonnet-20241022" for r in anthropic_routes)
+
+    routes_nonexistent = store._list_secret_routes(secret_id="nonexistent_secret_id")
+    assert len(routes_nonexistent) == 0
+
+
+def test_list_secret_routes_multiple_per_secret(store: SqlAlchemyStore, kek_passphrase):
+    result1 = store._create_and_bind_secret(
+        secret_name="shared_api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    _result2 = store._create_route_and_bind(
+        secret_id=result1.secret.secret_id,
+        model_name="gpt-4-turbo",
+        field_name="OPENAI_API_KEY",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+    )
+
+    routes = store._list_secret_routes(secret_id=result1.secret.secret_id)
+    assert len(routes) == 2
+
+    model_names = {r.model_name for r in routes}
+    assert model_names == {"gpt-4", "gpt-4-turbo"}
+
+    for route in routes:
+        assert route.secret_id == result1.secret.secret_id
+        assert route.created_at > 0
+        assert route.last_updated_at > 0
+
+
+def test_delete_secret_route(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="shared_api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    result2 = store._create_route_and_bind(
+        secret_id=result.secret.secret_id,
+        model_name="gpt-4-turbo",
+        field_name="OPENAI_API_KEY",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_2",
+    )
+
+    routes_before = store._list_secret_routes(secret_id=result.secret.secret_id)
+    assert len(routes_before) == 2
+
+    store._delete_secret_route(result2.route.route_id)
+
+    routes_after = store._list_secret_routes(secret_id=result.secret.secret_id)
+    assert len(routes_after) == 1
+
+    with pytest.raises(MlflowException, match="Cannot delete the last route"):
+        store._delete_secret_route(result.route.route_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store._delete_secret_route("nonexistent_route_id")
+
+
+def test_bind_secret_route(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="shared_api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    bindings_before = store._list_secret_bindings(route_id=result.route.route_id)
+    assert len(bindings_before) == 1
+
+    new_binding = store._bind_secret_route(
+        route_id=result.route.route_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_2",
+        field_name="OPENAI_API_KEY",
+        created_by="test_user",
+    )
+
+    assert new_binding.route_id == result.route.route_id
+    assert new_binding.resource_id == "workspace_2"
+    assert new_binding.created_by == "test_user"
+
+    bindings_after = store._list_secret_bindings(route_id=result.route.route_id)
+    assert len(bindings_after) == 2
+
+    with pytest.raises(MlflowException, match="Binding already exists"):
+        store._bind_secret_route(
+            route_id=result.route.route_id,
+            resource_type=SecretResourceType.GLOBAL,
+            resource_id="workspace_2",
+            field_name="OPENAI_API_KEY",
+        )
+
+    with pytest.raises(MlflowException, match="not found"):
+        store._bind_secret_route(
+            route_id="nonexistent_route_id",
+            resource_type=SecretResourceType.GLOBAL,
+            resource_id="workspace",
+            field_name="API_KEY",
+        )
+
+
+def test_list_secret_bindings_by_route_id(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="shared_api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    store._bind_secret_route(
+        route_id=result.route.route_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_2",
+        field_name="OPENAI_API_KEY",
+    )
+
+    bindings = store._list_secret_bindings(route_id=result.route.route_id)
+    assert len(bindings) == 2
+
+    for binding in bindings:
+        assert binding.route_id == result.route.route_id
+
+
+def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_passphrase):
+    openai_secrets = store._list_secrets(provider="openai", is_shared=True)
+    assert len(openai_secrets) == 0
+
+    result1 = store._create_and_bind_secret(
+        secret_name="company_openai_key",
+        secret_value="sk-test-openai-key",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    openai_secrets = store._list_secrets(provider="openai", is_shared=True)
+    assert len(openai_secrets) == 1
+    assert openai_secrets[0].secret_name == "company_openai_key"
+    assert openai_secrets[0].provider == "openai"
+
+    openai_routes = store._list_secret_routes(provider="openai")
+    assert len(openai_routes) == 1
+    assert openai_routes[0].model_name == "gpt-4"
+
+    result2 = store._create_route_and_bind(
+        secret_id=result1.secret.secret_id,
+        model_name="gpt-4-turbo",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY_TURBO",
+    )
+
+    openai_routes = store._list_secret_routes(provider="openai")
+    assert len(openai_routes) == 2
+    model_names = {r.model_name for r in openai_routes}
+    assert model_names == {"gpt-4", "gpt-4-turbo"}
+
+    job_binding = store._bind_secret_route(
+        route_id=result2.route.route_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_job_1",
+        field_name="llm_api_key",
+    )
+
+    job_secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_job_1")
+    assert job_secrets["llm_api_key"] == "sk-test-openai-key"
+
+    store._delete_secret_binding(binding_id=job_binding.binding_id)
+
+    job_secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_job_1")
+    assert "llm_api_key" not in job_secrets
+
+    store._delete_secret_route(result2.route.route_id)
+
+    openai_routes = store._list_secret_routes(provider="openai")
+    assert len(openai_routes) == 1
+    assert openai_routes[0].model_name == "gpt-4"
+
+    with pytest.raises(MlflowException, match="Cannot delete the last route"):
+        store._delete_secret_route(result1.route.route_id)
+
+    store._delete_secret(result1.secret.secret_id)
+
+    openai_secrets = store._list_secrets(provider="openai", is_shared=True)
+    assert len(openai_secrets) == 0
+
+
+def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
+    store._create_and_bind_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    store._create_and_bind_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+        is_shared=True,
+    )
+
+    store._create_and_bind_secret(
+        secret_name="gemini_key",
+        secret_value="gemini-123",
+        provider="google",
+        model_name="gemini-2.0-flash",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="GOOGLE_API_KEY",
+        is_shared=True,
+    )
+
+    openai_secrets = store._list_secrets(provider="openai")
+    assert len(openai_secrets) == 1
+    assert openai_secrets[0].secret_name == "openai_key"
+
+    anthropic_secrets = store._list_secrets(provider="anthropic")
+    assert len(anthropic_secrets) == 1
+    assert anthropic_secrets[0].secret_name == "anthropic_key"
+
+    google_secrets = store._list_secrets(provider="google")
+    assert len(google_secrets) == 1
+    assert google_secrets[0].secret_name == "gemini_key"
+
+    openai_routes = store._list_secret_routes(provider="openai")
+    assert len(openai_routes) == 1
+    assert openai_routes[0].model_name == "gpt-4"
+
+    anthropic_routes = store._list_secret_routes(provider="anthropic")
+    assert len(anthropic_routes) == 1
+    assert anthropic_routes[0].model_name == "claude-3-5-sonnet-20241022"
+
+    google_routes = store._list_secret_routes(provider="google")
+    assert len(google_routes) == 1
+    assert google_routes[0].model_name == "gemini-2.0-flash"
+
+
+def test_global_secrets_resource_type_filter(store: SqlAlchemyStore, kek_passphrase):
+    store._create_and_bind_secret(
+        secret_name="global_openai_key",
+        secret_value="sk-global-123",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        is_shared=True,
+    )
+
+    store._create_and_bind_secret(
+        secret_name="job_specific_key",
+        secret_value="sk-job-123",
+        provider="openai",
+        model_name="gpt-4",
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_1",
+        field_name="api_key",
+        is_shared=False,
+    )
+
+    global_secrets = store._list_secrets(resource_type=SecretResourceType.GLOBAL)
+    assert len(global_secrets) == 1
+    assert global_secrets[0].secret_name == "global_openai_key"
+
+    job_secrets = store._list_secrets(resource_type=SecretResourceType.SCORER_JOB)
+    assert len(job_secrets) == 1
+    assert job_secrets[0].secret_name == "job_specific_key"
+
+    all_openai = store._list_secrets(provider="openai")
+    assert len(all_openai) == 2

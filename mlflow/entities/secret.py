@@ -1,6 +1,38 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
+
+if TYPE_CHECKING:
+    from mlflow.entities.secret_binding import SecretBinding
+    from mlflow.entities.secret_route import SecretRoute
+    from mlflow.entities.secret_tag import SecretTag
+
+
+@dataclass
+class SecretWithRouteAndBinding(_MlflowObject):
+    """
+    Result of atomically creating a gateway asset (secret + route + binding).
+
+    This structure represents the complete gateway configuration:
+    - Secret: The API key/credential
+    - Route: The model configuration (provider + model using that secret)
+    - Binding: The resource binding (which service uses this route)
+
+    This ensures that secrets are always created with a route configuration
+    and an initial binding, preventing orphaned secrets or routes.
+
+    Args:
+        secret: The created Secret entity with metadata (API key).
+        route: The created SecretRoute entity (model configuration).
+        binding: The initial SecretBinding that associates the route with a resource.
+    """
+
+    secret: "Secret"
+    route: "SecretRoute"
+    binding: "SecretBinding"
 
 
 @dataclass
@@ -25,6 +57,9 @@ class Secret(_MlflowObject):
         last_updated_at: Last update timestamp in milliseconds since the UNIX epoch.
         created_by: String containing the user ID who created the secret, or None.
         last_updated_by: String containing the user ID who last updated the secret, or None.
+        provider: LLM provider identifier (e.g., "anthropic", "openai", "cohere"), or None.
+            Used for gateway model metadata.
+        tags: List of SecretTag objects associated with this secret.
     """
 
     secret_id: str
@@ -35,3 +70,5 @@ class Secret(_MlflowObject):
     last_updated_at: int
     created_by: str | None = None
     last_updated_by: str | None = None
+    provider: str | None = None
+    tags: list[SecretTag] = field(default_factory=list)

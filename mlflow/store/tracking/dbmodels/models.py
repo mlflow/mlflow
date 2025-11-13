@@ -45,6 +45,11 @@ from mlflow.entities import (
     RunInfo,
     RunStatus,
     RunTag,
+    Secret,
+    SecretBinding,
+    SecretRoute,
+    SecretRouteTag,
+    SecretTag,
     SourceType,
     TraceInfo,
     ViewType,
@@ -2133,8 +2138,6 @@ class SqlSecret(Base):
         Returns:
             mlflow.entities.secret.Secret
         """
-        from mlflow.entities.secret import Secret
-
         return Secret(
             secret_id=self.secret_id,
             secret_name=self.secret_name,
@@ -2144,6 +2147,8 @@ class SqlSecret(Base):
             created_at=self.created_at,
             last_updated_by=self.last_updated_by,
             last_updated_at=self.last_updated_at,
+            provider=self.provider,
+            tags=[t.to_mlflow_entity() for t in self.tags],
         )
 
 
@@ -2182,6 +2187,15 @@ class SqlSecretTag(Base):
 
     def __repr__(self):
         return f"<SqlSecretTag ({self.secret_id}, {self.key}, {self.value})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.secret_tag.SecretTag
+        """
+        return SecretTag(key=self.key, value=self.value)
 
 
 class SqlEndpoint(Base):
@@ -2321,6 +2335,15 @@ class SqlEndpointModel(Base):
     def __repr__(self):
         return f"<SqlEndpointModel ({self.model_id}, {self.model_name})>"
 
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.endpoint_model.EndpointModel
+        """
+        raise NotImplementedError("EndpointModel entity not yet implemented")
+
 
 class SqlEndpointTag(Base):
     """
@@ -2357,6 +2380,15 @@ class SqlEndpointTag(Base):
 
     def __repr__(self):
         return f"<SqlEndpointTag ({self.endpoint_id}, {self.key}, {self.value})>"
+
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        Returns:
+            mlflow.entities.secret_route_tag.SecretRouteTag
+        """
+        return SecretRouteTag(key=self.key, value=self.value)
 
 
 class SqlSecretBinding(Base):
@@ -2429,11 +2461,10 @@ class SqlSecretBinding(Base):
         Returns:
             mlflow.entities.secret_binding.SecretBinding
         """
-        from mlflow.entities.secret_binding import SecretBinding
-
         return SecretBinding(
             binding_id=self.binding_id,
-            secret_id=self.secret_id,
+            endpoint_id=self.endpoint_id,
+            secret_id=self.endpoint.secret_id,
             resource_type=self.resource_type,
             resource_id=self.resource_id,
             field_name=self.field_name,

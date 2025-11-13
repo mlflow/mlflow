@@ -50,13 +50,14 @@ class SecretBinding(_MlflowObject):
     """
     MLflow entity representing a Secret Binding.
 
-    Secret bindings map secrets to resources and define how the secret should be injected
-    as environment variables. This allows secrets to be reused across multiple resources
-    when marked as shared.
+    Secret bindings map routes (model configurations) to resources and define how the secret
+    should be injected as environment variables. A binding connects a specific route
+    (which combines a secret and model) to a resource that needs to use it.
 
     Args:
         binding_id: String containing binding ID (UUID).
-        secret_id: String containing the secret ID this binding references.
+        route_id: String containing the route ID this binding references.
+        secret_id: String containing the secret ID (denormalized from route for convenience).
         resource_type: String containing the type of resource this secret is bound to.
         resource_id: String containing the ID of the resource using this secret.
         field_name: String containing the environment variable name (e.g., "OPENAI_API_KEY").
@@ -67,6 +68,7 @@ class SecretBinding(_MlflowObject):
     """
 
     binding_id: str
+    route_id: str
     secret_id: str
     resource_type: str
     resource_id: str
@@ -105,3 +107,23 @@ class SecretBinding(_MlflowObject):
             created_by=proto.created_by if proto.HasField("created_by") else None,
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
         )
+
+
+@dataclass
+class SecretBindingListItem(SecretBinding):
+    """
+    SecretBinding with additional display information for list responses.
+
+    Extends SecretBinding with human-readable fields populated via JOIN
+    with secrets and routes tables. Used by list_secret_bindings() to provide
+    UI-friendly data without additional API calls.
+
+    Args:
+        secret_name: User-friendly secret name (e.g., "company_openai_key").
+        route_name: Route display name or model_name if no display name set.
+        provider: LLM provider (e.g., "openai", "anthropic", "google").
+    """
+
+    secret_name: str = ""
+    route_name: str = ""
+    provider: str = ""

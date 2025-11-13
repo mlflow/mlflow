@@ -39,6 +39,11 @@ from mlflow.entities import (
     ScorerVersion,
     Secret,
     SecretBinding,
+    SecretBindingListItem,
+    SecretRouteListItem,
+    SecretRouteTag,
+    SecretTag,
+    SecretWithRouteAndBinding,
     SourceType,
     Trace,
     TraceData,
@@ -102,6 +107,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorerVersion,
     SqlSecret,
     SqlSecretBinding,
+    SqlSecretRoute,
+    SqlSecretRouteTag,
+    SqlSecretTag,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -2335,34 +2343,68 @@ class SqlAlchemyStore(AbstractStore):
 
     # Secrets management methods
 
-    def _create_secret(
+    def _create_and_bind_secret(
         self,
         secret_name: str,
         secret_value: str | dict[str, Any],
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
         is_shared: bool = False,
         created_by: str | None = None,
-    ) -> Secret:
+        provider: str | None = None,
+        auth_config: dict[str, Any] | None = None,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+    ) -> SecretWithRouteAndBinding:
         """
-        Create a new secret with encrypted storage using envelope encryption.
+        Atomically create a gateway asset (secret + route + binding) in a single transaction.
 
-        For shared secrets, enforces uniqueness by name to ensure deterministic lookups.
-        Private (non-shared) secrets have no name restrictions.
+        This creates a complete gateway configuration:
+        1. Secret: The API key/credential (and/or auth config)
+        2. Route: The model configuration (provider + model using that secret)
+        3. Binding: The resource binding (which service uses this route)
+
+        Note that this method enforces uniqueness constraints for both shared secrets
+        (by name) and secret bindings (by resource/field combination).
+
+        Secrets cannot be created and bind in separate steps using the public API to
+        avoid having unbound secrets or routes (orphaned resources) in the backend.
 
         Args:
             secret_name: Name for the secret. Must be unique among shared secrets
                 if is_shared=True.
-            secret_value: Secret value to encrypt. Can be a string or dict with arbitrary structure.
+            secret_value: Secret value to encrypt. Required. Can be:
+                - String: API key/token for simple providers (OpenAI, Anthropic, Cohere)
+                - Dict: JSON credentials for complex providers (Vertex AI service account JSON)
+            resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used
+                (e.g., "OPENAI_API_KEY").
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo",
+                "claude-3-5-sonnet-20241022"). Required.
             is_shared: Whether the secret can be reused across multiple resources.
             created_by: Username of the creator. Optional.
+            provider: LLM provider identifier (e.g., "anthropic", "openai", "azure",
+                "bedrock", "vertex_ai", "databricks"). Optional.
+            auth_config: Optional provider-specific authentication configuration.
+                Used for additional configuration beyond the primary credential:
+                - Azure OpenAI: {"azure_endpoint": "https://...", "api_version": "2024-02-01"}
+                - AWS Bedrock: {"aws_access_key_id": "...", "region": "us-east-1"}
+                - Vertex AI: {"project_id": "my-project", "location": "us-central1"}
+                - Databricks: {"workspace_url": "https://...", "warehouse_id": "..."}
+            route_name: Optional display name for the route. If not provided, model_name is used.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
 
         Returns:
-            Secret entity with metadata (encrypted fields not exposed).
+            SecretWithRouteAndBinding containing the created secret, route, and initial binding.
+
         """
+
         with self.ManagedSessionMaker() as session:
-            # NB: Shared secrets must have unique names to ensure that a user can always
-            # retrieve the correct secret by name. For non-shared secrets, multiple secrets
-            # with the same name can exist since they are scoped to a specific resource
-            # via secret bindings.
             if is_shared:
                 existing = (
                     session.query(SqlSecret)
@@ -2380,20 +2422,46 @@ class SqlAlchemyStore(AbstractStore):
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
 
+            existing_binding = (
+                session.query(SqlSecretBinding)
+                .filter_by(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    field_name=field_name,
+                )
+                .first()
+            )
+            if existing_binding:
+                raise MlflowException(
+                    f"Binding already exists for resource_type='{resource_type}', "
+                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
             secret_id = uuid.uuid4().hex
+            binding_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
 
             masked_value = mask_secret_value(secret_value)
-            if isinstance(masked_value, dict):
-                masked_value = json.dumps(masked_value)
+
+            kek_manager = KEKManager()
 
             encrypted = encrypt_secret(
                 secret_value=secret_value,
-                kek_manager=KEKManager(),
+                kek_manager=kek_manager,
                 secret_id=secret_id,
                 secret_name=secret_name,
             )
 
-            current_time = get_current_time_millis()
+            encrypted_auth = None
+            if auth_config:
+                encrypted_auth = encrypt_secret(
+                    secret_value=auth_config,
+                    kek_manager=kek_manager,
+                    secret_id=secret_id,
+                    secret_name=f"{secret_name}_auth_config",
+                )
+
             sql_secret = SqlSecret(
                 secret_id=secret_id,
                 secret_name=secret_name,
@@ -2402,16 +2470,173 @@ class SqlAlchemyStore(AbstractStore):
                 masked_value=masked_value,
                 is_shared=is_shared,
                 kek_version=encrypted.kek_version,
+                encrypted_auth_config=encrypted_auth.encrypted_value if encrypted_auth else None,
+                wrapped_auth_config_dek=encrypted_auth.wrapped_dek if encrypted_auth else None,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
+                provider=provider,
+            )
+
+            route_id = uuid.uuid4().hex
+            sql_route = SqlSecretRoute(
+                route_id=route_id,
+                secret_id=secret_id,
+                model_name=model_name,
+                name=route_name,
+                description=route_description,
                 created_at=current_time,
                 last_updated_at=current_time,
                 created_by=created_by,
                 last_updated_by=created_by,
             )
 
+            sql_binding = SqlSecretBinding(
+                binding_id=binding_id,
+                route_id=route_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                created_by=created_by,
+                created_at=current_time,
+                last_updated_by=created_by,
+                last_updated_at=current_time,
+            )
+
             session.add(sql_secret)
+            session.add(sql_route)
+            session.add(sql_binding)
+
+            if route_tags:
+                for tag in route_tags:
+                    sql_tag = SqlSecretRouteTag(
+                        route_id=route_id,
+                        key=tag["key"],
+                        value=tag["value"],
+                    )
+                    session.add(sql_tag)
+
             session.commit()
 
-            return sql_secret.to_mlflow_entity()
+            return SecretWithRouteAndBinding(
+                secret=sql_secret.to_mlflow_entity(),
+                route=sql_route.to_mlflow_entity(),
+                binding=sql_binding.to_mlflow_entity(),
+            )
+
+    def _create_route_and_bind(
+        self,
+        secret_id: str,
+        resource_type: str,
+        resource_id: str,
+        field_name: str,
+        model_name: str,
+        route_name: str | None = None,
+        route_description: str | None = None,
+        route_tags: list[dict[str, str]] | None = None,
+        created_by: str | None = None,
+    ) -> SecretWithRouteAndBinding:
+        """
+        Create a new route and binding for an existing secret.
+
+        This enables reusing a single API key (secret) across multiple model configurations.
+
+        Args:
+            secret_id: ID of the existing secret to use.
+            resource_type: Type of resource (e.g., "SCORER_JOB").
+            resource_id: Unique identifier for the resource instance.
+            field_name: Name of the field on the resource where the secret is used.
+            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
+            route_name: Optional display name for the route.
+            route_description: Optional description for the route.
+            route_tags: Optional list of tags for the route.
+            created_by: Username of the creator. Optional.
+
+        Returns:
+            SecretWithRouteAndBinding containing the secret, new route, and new binding.
+
+        Raises:
+            MlflowException: If secret is not found, is not shared, or binding already exists.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+            if not sql_secret:
+                raise MlflowException(
+                    f"Secret with ID '{secret_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if not sql_secret.is_shared:
+                raise MlflowException(
+                    f"Cannot create route for private secret '{secret_id}'. "
+                    "Only shared secrets can have multiple routes.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            existing_binding = (
+                session.query(SqlSecretBinding)
+                .filter_by(
+                    resource_type=resource_type,
+                    resource_id=resource_id,
+                    field_name=field_name,
+                )
+                .first()
+            )
+            if existing_binding:
+                raise MlflowException(
+                    f"Binding already exists for resource_type='{resource_type}', "
+                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    error_code=RESOURCE_ALREADY_EXISTS,
+                )
+
+            current_time = get_current_time_millis()
+            route_id = uuid.uuid4().hex
+
+            sql_route = SqlSecretRoute(
+                route_id=route_id,
+                secret_id=secret_id,
+                model_name=model_name,
+                name=route_name,
+                description=route_description,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
+            )
+
+            binding_id = uuid.uuid4().hex
+            sql_binding = SqlSecretBinding(
+                binding_id=binding_id,
+                route_id=route_id,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                field_name=field_name,
+                created_by=created_by,
+                created_at=current_time,
+                last_updated_by=created_by,
+                last_updated_at=current_time,
+            )
+
+            session.add(sql_route)
+            session.add(sql_binding)
+
+            if route_tags:
+                for tag in route_tags:
+                    sql_tag = SqlSecretRouteTag(
+                        route_id=route_id,
+                        key=tag["key"],
+                        value=tag["value"],
+                    )
+                    session.add(sql_tag)
+
+            session.commit()
+
+            return SecretWithRouteAndBinding(
+                secret=sql_secret.to_mlflow_entity(),
+                route=sql_route.to_mlflow_entity(),
+                binding=sql_binding.to_mlflow_entity(),
+            )
 
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
@@ -2439,16 +2664,24 @@ class SqlAlchemyStore(AbstractStore):
         secret_id: str,
         secret_value: str | dict[str, Any],
         updated_by: str | None = None,
+        auth_config: dict[str, Any] | None = None,
     ) -> Secret:
         """
         Update an existing secret's value (key rotation).
 
         This preserves the secret_id and all bindings, allowing transparent key rotation.
+        Both the main secret value and optional auth_config can be updated independently or
+        together.
 
         Args:
             secret_id: ID of the secret to update.
-            secret_value: New secret value to encrypt.
+            secret_value: New secret value to encrypt. Required. Can be:
+                - String: API key/token for simple providers
+                - Dict: JSON credentials for complex providers (e.g., Vertex AI)
             updated_by: Username of the updater. Optional.
+            auth_config: Optional updated provider-specific authentication configuration.
+                If provided, replaces the existing auth_config. If None, auth_config is unchanged.
+                Set to empty dict {} to clear existing auth_config.
 
         Returns:
             Updated Secret entity with new encrypted value.
@@ -2463,12 +2696,12 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             masked_value = mask_secret_value(secret_value)
-            if isinstance(masked_value, dict):
-                masked_value = json.dumps(masked_value)
+
+            kek_manager = KEKManager()
 
             encrypted = encrypt_secret(
                 secret_value=secret_value,
-                kek_manager=KEKManager(),
+                kek_manager=kek_manager,
                 secret_id=sql_secret.secret_id,
                 secret_name=sql_secret.secret_name,
             )
@@ -2477,6 +2710,21 @@ class SqlAlchemyStore(AbstractStore):
             sql_secret.wrapped_dek = encrypted.wrapped_dek
             sql_secret.kek_version = encrypted.kek_version
             sql_secret.masked_value = masked_value
+
+            if auth_config is not None:
+                if auth_config:
+                    encrypted_auth = encrypt_secret(
+                        secret_value=auth_config,
+                        kek_manager=kek_manager,
+                        secret_id=sql_secret.secret_id,
+                        secret_name=f"{sql_secret.secret_name}_auth_config",
+                    )
+                    sql_secret.encrypted_auth_config = encrypted_auth.encrypted_value
+                    sql_secret.wrapped_auth_config_dek = encrypted_auth.wrapped_dek
+                else:
+                    sql_secret.encrypted_auth_config = None
+                    sql_secret.wrapped_auth_config_dek = None
+
             sql_secret.last_updated_by = updated_by
             sql_secret.last_updated_at = get_current_time_millis()
 
@@ -2504,39 +2752,176 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_secret)
             session.commit()
 
-    def _bind_secret(
+    def _list_secrets(
         self,
-        secret_id: str,
+        is_shared: bool | None = None,
+        provider: str | None = None,
+        resource_type: str | None = None,
+    ) -> list[Secret]:
+        """
+        List all secrets with optional filtering and binding counts.
+
+        This method returns lightweight secret metadata optimized for UI display.
+        The binding_count field shows the actual number of bindings from the database.
+
+        Args:
+            is_shared: Optional filter for secret sharing status.
+            provider: Optional filter by LLM provider (e.g., "openai", "anthropic").
+            resource_type: Optional filter to return only secrets with bindings of this type
+                (e.g., "GLOBAL" for globally available secrets).
+
+        Returns:
+            List of Secret entities with binding_count populated from actual DB values.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(
+                    SqlSecret, func.count(SqlSecretBinding.binding_id).label("binding_count")
+                )
+                .outerjoin(SqlSecretRoute, SqlSecret.secret_id == SqlSecretRoute.secret_id)
+                .outerjoin(SqlSecretBinding, SqlSecretRoute.route_id == SqlSecretBinding.route_id)
+                .group_by(SqlSecret.secret_id)
+            )
+
+            if is_shared is not None:
+                query = query.filter(SqlSecret.is_shared == is_shared)
+
+            if provider is not None:
+                query = query.filter(SqlSecret.provider == provider)
+
+            if resource_type is not None:
+                query = query.filter(SqlSecretBinding.resource_type == resource_type)
+
+            results = query.all()
+
+            secrets = []
+            for sql_secret, binding_count in results:
+                secret = sql_secret.to_mlflow_entity()
+                secret.binding_count = binding_count
+                secrets.append(secret)
+
+            return secrets
+
+    def _list_secret_routes(
+        self,
+        secret_id: str | None = None,
+        provider: str | None = None,
+    ) -> list[SecretRouteListItem]:
+        """
+        List all secret routes with optional filtering.
+
+        This method returns route metadata for displaying model configurations in the UI.
+        Routes represent model configurations (e.g., which model uses which secret).
+
+        Args:
+            secret_id: Optional filter to return only routes for a specific secret.
+            provider: Optional filter by LLM provider (filters via secret's provider).
+
+        Returns:
+            List of SecretRouteListItem with display fields populated via JOIN.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = session.query(SqlSecretRoute, SqlSecret.secret_name, SqlSecret.provider).join(
+                SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id
+            )
+
+            if secret_id is not None:
+                query = query.filter(SqlSecretRoute.secret_id == secret_id)
+
+            if provider is not None:
+                query = query.filter(SqlSecret.provider == provider)
+
+            results = query.all()
+            return [
+                SecretRouteListItem(
+                    route_id=route.route_id,
+                    secret_id=route.secret_id,
+                    model_name=route.model_name,
+                    created_at=route.created_at,
+                    last_updated_at=route.last_updated_at,
+                    name=route.name,
+                    description=route.description,
+                    created_by=route.created_by,
+                    last_updated_by=route.last_updated_by,
+                    tags=[t.to_mlflow_entity() for t in route.tags],
+                    secret_name=secret_name,
+                    provider=provider_value,
+                )
+                for route, secret_name, provider_value in results
+            ]
+
+    def _delete_secret_route(self, route_id: str) -> None:
+        """
+        Delete a route and its associated bindings.
+
+        This will CASCADE delete all bindings for this route. If this is the last route
+        for a secret, the caller should handle secret deletion separately.
+
+        Args:
+            route_id: ID of the route to delete.
+
+        Raises:
+            MlflowException: If route doesn't exist or is the last route for its secret.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+
+            if not sql_route:
+                raise MlflowException(
+                    f"Route with ID '{route_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            secret_id = sql_route.secret_id
+            route_count = session.query(SqlSecretRoute).filter_by(secret_id=secret_id).count()
+
+            if route_count == 1:
+                raise MlflowException(
+                    f"Cannot delete the last route for secret '{secret_id}'. "
+                    "Delete the secret instead to remove the last route.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            session.delete(sql_route)
+            session.commit()
+
+    def _bind_secret_route(
+        self,
+        route_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
         created_by: str | None = None,
     ) -> SecretBinding:
         """
-        Bind a secret to a specific resource field.
+        Bind an existing route to a new resource.
 
-        A secret binding associates a secret with a particular field on a resource,
-        allowing the secret to be retrieved when accessing that resource.
+        This allows reusing a route (model configuration) across multiple resources
+        without creating a new route each time.
 
         Args:
-            secret_id: ID of the secret to bind.
-            resource_type: Type of resource (e.g., "SCORER_JOB").
+            route_id: ID of the existing route to bind.
+            resource_type: Type of resource (e.g., "GLOBAL", "SCORER_JOB").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
             created_by: Username of the creator. Optional.
 
         Returns:
-            SecretBinding entity representing the new binding.
+            The created SecretBinding entity.
+
+        Raises:
+            MlflowException: If route doesn't exist or binding already exists.
         """
         with self.ManagedSessionMaker() as session:
-            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
-            if not sql_secret:
+            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+
+            if not sql_route:
                 raise MlflowException(
-                    f"Secret with ID '{secret_id}' not found.",
+                    f"Route with ID '{route_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            existing = (
+            existing_binding = (
                 session.query(SqlSecretBinding)
                 .filter_by(
                     resource_type=resource_type,
@@ -2545,10 +2930,11 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 .first()
             )
-            if existing:
+
+            if existing_binding:
                 raise MlflowException(
-                    f"Binding already exists for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    f"Binding already exists for resource_type={resource_type}, "
+                    f"resource_id={resource_id}, field_name={field_name}",
                     error_code=RESOURCE_ALREADY_EXISTS,
                 )
 
@@ -2557,7 +2943,7 @@ class SqlAlchemyStore(AbstractStore):
 
             sql_binding = SqlSecretBinding(
                 binding_id=binding_id,
-                secret_id=secret_id,
+                route_id=route_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 field_name=field_name,
@@ -2572,42 +2958,141 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_binding.to_mlflow_entity()
 
-    def _unbind_secret(
+    def _delete_secret_binding(
         self,
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
+        binding_id: str,
     ) -> None:
         """
-        Remove a secret binding from a resource field.
+        Delete a secret binding by its ID.
 
-        The secret itself is not deleted, only the binding is removed.
+        This removes the binding between a route and a resource. The route and secret
+        are not deleted, only the binding is removed.
 
         Args:
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: Unique identifier for the resource instance.
-            field_name: Name of the field to unbind.
+            binding_id: Unique identifier for the binding to delete.
+
+        Raises:
+            MlflowException: If the binding does not exist.
         """
         with self.ManagedSessionMaker() as session:
-            sql_binding = (
-                session.query(SqlSecretBinding)
-                .filter_by(
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    field_name=field_name,
-                )
-                .first()
-            )
+            sql_binding = session.query(SqlSecretBinding).filter_by(binding_id=binding_id).first()
 
             if not sql_binding:
                 raise MlflowException(
-                    f"Secret binding not found for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'.",
+                    f"Secret binding not found for binding_id='{binding_id}'.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
+            sql_route = (
+                session.query(SqlSecretRoute).filter_by(route_id=sql_binding.route_id).first()
+            )
+            if sql_route:
+                sql_secret = (
+                    session.query(SqlSecret).filter_by(secret_id=sql_route.secret_id).first()
+                )
+                if sql_secret:
+                    if not sql_secret.is_shared:
+                        raise MlflowException(
+                            f"Cannot unbind private secret '{sql_secret.secret_name}'. "
+                            f"Private secrets are scoped to a single resource. "
+                            f"Delete the secret entirely if it's no longer needed.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+
+                    route_ids = [
+                        r.route_id
+                        for r in session.query(SqlSecretRoute).filter_by(
+                            secret_id=sql_secret.secret_id
+                        )
+                    ]
+                    binding_count = (
+                        session.query(SqlSecretBinding)
+                        .filter(SqlSecretBinding.route_id.in_(route_ids))
+                        .count()
+                    )
+                    if binding_count == 1:
+                        raise MlflowException(
+                            f"Cannot unbind the last binding for secret "
+                            f"'{sql_secret.secret_name}'. This would create an orphaned secret. "
+                            f"Delete the secret entirely if it's no longer needed.",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+
             session.delete(sql_binding)
             session.commit()
+
+    def _list_secret_bindings(
+        self,
+        secret_id: str | None = None,
+        route_id: str | None = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
+    ) -> list[SecretBindingListItem]:
+        """
+        List secret bindings with optional filters.
+
+        This method allows querying bindings by secret_id, route_id, resource_type, and/or
+        resource_id.
+        If no filters are provided, returns all bindings.
+
+        Args:
+            secret_id: Optional filter by secret ID (joins through routes).
+            route_id: Optional filter by route ID.
+            resource_type: Optional filter by resource type (e.g., "GLOBAL").
+            resource_id: Optional filter by resource ID.
+
+        Returns:
+            List of SecretBindingListItem with display fields populated via JOIN.
+        """
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(
+                    SqlSecretBinding,
+                    SqlSecretRoute.secret_id,
+                    SqlSecret.secret_name,
+                    SqlSecretRoute.name,
+                    SqlSecretRoute.model_name,
+                    SqlSecret.provider,
+                )
+                .join(SqlSecretRoute, SqlSecretBinding.route_id == SqlSecretRoute.route_id)
+                .join(SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id)
+            )
+
+            if route_id is not None:
+                query = query.filter(SqlSecretBinding.route_id == route_id)
+            if secret_id is not None:
+                query = query.filter(SqlSecretRoute.secret_id == secret_id)
+            if resource_type is not None:
+                query = query.filter(SqlSecretBinding.resource_type == resource_type)
+            if resource_id is not None:
+                query = query.filter(SqlSecretBinding.resource_id == resource_id)
+
+            results = query.all()
+            return [
+                SecretBindingListItem(
+                    binding_id=binding.binding_id,
+                    route_id=binding.route_id,
+                    secret_id=secret_id_value,
+                    resource_type=binding.resource_type,
+                    resource_id=binding.resource_id,
+                    field_name=binding.field_name,
+                    created_at=binding.created_at,
+                    last_updated_at=binding.last_updated_at,
+                    created_by=binding.created_by,
+                    last_updated_by=binding.last_updated_by,
+                    secret_name=secret_name,
+                    route_name=route_name or model_name,
+                    provider=provider_value,
+                )
+                for (
+                    binding,
+                    secret_id_value,
+                    secret_name,
+                    route_name,
+                    model_name,
+                    provider_value,
+                ) in results
+            ]
 
     def _get_secrets_for_resource(
         self,
@@ -2630,7 +3115,8 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             results = (
                 session.query(SqlSecretBinding, SqlSecret)
-                .join(SqlSecret, SqlSecretBinding.secret_id == SqlSecret.secret_id)
+                .join(SqlSecretRoute, SqlSecretBinding.route_id == SqlSecretRoute.route_id)
+                .join(SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id)
                 .filter(
                     SqlSecretBinding.resource_type == resource_type,
                     SqlSecretBinding.resource_id == resource_id,
@@ -2659,6 +3145,110 @@ class SqlAlchemyStore(AbstractStore):
                     )
 
             return decrypted_secrets
+
+    def set_secret_tag(self, secret_id: str, tag: SecretTag) -> None:
+        """
+        Set a tag for the specified secret.
+
+        Args:
+            secret_id: String ID of the secret.
+            tag: SecretTag instance to set.
+        """
+        _validate_tag(tag.key, tag.value)
+        with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
+            secret = session.query(SqlSecret).filter(SqlSecret.secret_id == secret_id).first()
+            if secret is None:
+                raise MlflowException(
+                    f"Secret with ID '{secret_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            session.merge(SqlSecretTag(secret_id=secret_id, key=tag.key, value=tag.value))
+
+    def delete_secret_tag(self, secret_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified secret.
+
+        Args:
+            secret_id: String ID of the secret.
+            key: String name of the tag to be deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            secret = session.query(SqlSecret).filter(SqlSecret.secret_id == secret_id).first()
+            if secret is None:
+                raise MlflowException(
+                    f"Secret with ID '{secret_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            filtered_tags = (
+                session.query(SqlSecretTag).filter_by(secret_id=secret_id, key=key).all()
+            )
+            if len(filtered_tags) == 0:
+                raise MlflowException(
+                    f"No tag with name: {key} in secret with id {secret_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            elif len(filtered_tags) > 1:
+                raise MlflowException(
+                    "Bad data in database - tags for a specific secret must have "
+                    "a single unique value.",
+                    error_code=INVALID_STATE,
+                )
+            session.delete(filtered_tags[0])
+
+    def set_secret_route_tag(self, route_id: str, tag: SecretRouteTag) -> None:
+        """
+        Set a tag for the specified secret route.
+
+        Args:
+            route_id: String ID of the route.
+            tag: SecretRouteTag instance to set.
+        """
+        _validate_tag(tag.key, tag.value)
+        with self.ManagedSessionMaker() as session:
+            tag = _validate_tag(tag.key, tag.value)
+            route = (
+                session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+            )
+            if route is None:
+                raise MlflowException(
+                    f"Route with ID '{route_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            session.merge(SqlSecretRouteTag(route_id=route_id, key=tag.key, value=tag.value))
+
+    def delete_secret_route_tag(self, route_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified secret route.
+
+        Args:
+            route_id: String ID of the route.
+            key: String name of the tag to be deleted.
+        """
+        with self.ManagedSessionMaker() as session:
+            route = (
+                session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+            )
+            if route is None:
+                raise MlflowException(
+                    f"Route with ID '{route_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            filtered_tags = (
+                session.query(SqlSecretRouteTag).filter_by(route_id=route_id, key=key).all()
+            )
+            if len(filtered_tags) == 0:
+                raise MlflowException(
+                    f"No tag with name: {key} in route with id {route_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            elif len(filtered_tags) > 1:
+                raise MlflowException(
+                    "Bad data in database - tags for a specific route must have "
+                    "a single unique value.",
+                    error_code=INVALID_STATE,
+                )
+            session.delete(filtered_tags[0])
 
     def _apply_order_by_search_logged_models(
         self,
