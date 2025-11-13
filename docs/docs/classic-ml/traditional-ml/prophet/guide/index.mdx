@@ -237,7 +237,7 @@ def train_hierarchical_forecasts(data_dict):
 
                 # Cross-validation
                 cv_results = cross_validation(
-                    model, initial="365 days", horizon="180 days"
+                    model, initial="365 days", period="90 days", horizon="180 days"
                 )
                 metrics = performance_metrics(cv_results)
                 mlflow.log_metrics(metrics[["mape", "rmse"]].mean().to_dict())
@@ -260,7 +260,9 @@ for series_name, series_data in data_dict.items():
     model.fit(series_data)
 
     # Collect metrics
-    cv_results = cross_validation(model, initial="365 days", horizon="90 days")
+    cv_results = cross_validation(
+        model, initial="365 days", period="45 days", horizon="90 days"
+    )
     perf_metrics = performance_metrics(cv_results)
 
     metrics_batch[f"{series_name}_mape"] = perf_metrics["mape"].mean()
