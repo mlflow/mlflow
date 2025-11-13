@@ -195,11 +195,9 @@ def save_model(
         code_paths: {{ code_paths }}
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
-            the formats listed in
-            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``.
-            The default format is ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``
-            which guarantees security for model loading.
-            The Cloudpickle
+            the formats "skops", "cloudpickle" or "pickle".
+            The default format is "skops" which guarantees security for model loading.
+            The "cloudpickle"
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
@@ -391,11 +389,9 @@ def log_model(
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
-            the formats listed in
-            ``mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS``.
-            The default format is ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``
-            which guarantees security for model loading.
-            The Cloudpickle
+            the formats "skops", "cloudpickle" or "pickle".
+            The default format is "skops" which guarantees security for model loading.
+            The "cloudpickle"
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
