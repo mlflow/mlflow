@@ -662,7 +662,13 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
-                request_json[field.name] = flask_request.args.get(field.name)
+                value = flask_request.args.get(field.name)
+                if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
+                    if value.lower() == "true":
+                        value = True
+                    elif value.lower() == "false":
+                        value = False
+                request_json[field.name] = value
     else:
         request_json = _get_request_json(flask_request)
 

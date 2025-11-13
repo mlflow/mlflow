@@ -1613,6 +1613,16 @@ class Scorer(_message.Message):
     scorer_id: str
     def __init__(self, experiment_id: _Optional[int] = ..., scorer_name: _Optional[str] = ..., scorer_version: _Optional[int] = ..., serialized_scorer: _Optional[str] = ..., creation_time: _Optional[int] = ..., scorer_id: _Optional[str] = ...) -> None: ...
 
+class TestBooleanParams(_message.Message):
+    __slots__ = ("flag_true", "flag_false", "text_field")
+    FLAG_TRUE_FIELD_NUMBER: _ClassVar[int]
+    FLAG_FALSE_FIELD_NUMBER: _ClassVar[int]
+    TEXT_FIELD_FIELD_NUMBER: _ClassVar[int]
+    flag_true: bool
+    flag_false: bool
+    text_field: str
+    def __init__(self, flag_true: bool = ..., flag_false: bool = ..., text_field: _Optional[str] = ...) -> None: ...
+
 class MlflowService(_service.service): ...
 
 class MlflowService_Stub(MlflowService): ...

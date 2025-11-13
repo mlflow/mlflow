@@ -3572,3 +3572,11 @@ message Scorer {
   // The unique identifier for the scorer.
   optional string scorer_id = 6;
 }
+
+// Test message for boolean parameter parsing in GET requests.
+// This message is used solely for testing purposes.
+message TestBooleanParams {
+  optional bool flag_true = 1;
+  optional bool flag_false = 2;
+  optional string text_field = 3;
+}
