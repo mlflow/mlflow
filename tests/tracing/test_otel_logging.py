@@ -625,3 +625,85 @@ def test_error_logging_spans(mlflow_server: str):
     )
 
     assert len(traces) == 1
+
+
+def test_otel_trace_received_telemetry_event(mlflow_server: str):
+    """
+    Test that OtelTraceReceivedEvent telemetry is emitted when traces are ingested.
+    """
+    from mlflow.telemetry.client import TelemetryClient
+    from mlflow.telemetry.events import OtelTraceReceivedEvent
+
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-telemetry-test")
+    experiment_id = experiment.experiment_id
+
+    # Create a request with a root span and 2 child spans
+    request = ExportTraceServiceRequest()
+    trace_id_hex = "0000000000000100" + "0" * 16
+
+    # Root span (no parent_span_id)
+    root_span = OTelProtoSpan()
+    root_span.trace_id = bytes.fromhex(trace_id_hex)
+    root_span.span_id = bytes.fromhex("00000001" + "0" * 8)
+    root_span.name = "root-span"
+    root_span.start_time_unix_nano = 1000000000
+    root_span.end_time_unix_nano = 2000000000
+
+    # Child span 1
+    child_span_1 = OTelProtoSpan()
+    child_span_1.trace_id = bytes.fromhex(trace_id_hex)
+    child_span_1.span_id = bytes.fromhex("00000002" + "0" * 8)
+    child_span_1.parent_span_id = bytes.fromhex("00000001" + "0" * 8)
+    child_span_1.name = "child-span-1"
+    child_span_1.start_time_unix_nano = 1100000000
+    child_span_1.end_time_unix_nano = 1500000000
+
+    # Child span 2
+    child_span_2 = OTelProtoSpan()
+    child_span_2.trace_id = bytes.fromhex(trace_id_hex)
+    child_span_2.span_id = bytes.fromhex("00000003" + "0" * 8)
+    child_span_2.parent_span_id = bytes.fromhex("00000001" + "0" * 8)
+    child_span_2.name = "child-span-2"
+    child_span_2.start_time_unix_nano = 1600000000
+    child_span_2.end_time_unix_nano = 1900000000
+
+    scope = InstrumentationScope()
+    scope.name = "telemetry-test-scope"
+
+    scope_spans = ScopeSpans()
+    scope_spans.scope.CopyFrom(scope)
+    scope_spans.spans.extend([root_span, child_span_1, child_span_2])
+
+    resource = Resource()
+    resource_spans = ResourceSpans()
+    resource_spans.resource.CopyFrom(resource)
+    resource_spans.scope_spans.append(scope_spans)
+
+    request.resource_spans.append(resource_spans)
+
+    # Mock telemetry client to capture events
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        # Send the request
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+
+        # Verify telemetry event was emitted
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == OtelTraceReceivedEvent.name
+        assert record.status.value == "success"
+        assert record.params["span_count"] == 3  # Root span + 2 child spans
