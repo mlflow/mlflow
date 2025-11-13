@@ -5,7 +5,8 @@ async function getMaintainers({ github, context }) {
   });
   return collaborators
     .filter(({ role_name }) => ["admin", "maintain"].includes(role_name))
-    .map(({ login }) => login);
+    .map(({ login }) => login)
+    .sort();
 }
 
 module.exports = async ({ github, context, core }) => {
