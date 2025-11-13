@@ -23,7 +23,7 @@ from mlflow.server.handlers import _get_tracking_store
 from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
-from mlflow.tracking.request_header.default_request_header_provider import _CLIENT_VERSION
+from mlflow.tracking.request_header.default_request_header_provider import _USER_AGENT
 
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
@@ -48,7 +48,7 @@ async def export_traces(
     response: Response,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
     content_type: str = Header(None),
-    x_mlflow_client_version: str | None = Header(None, alias=_CLIENT_VERSION),
+    user_agent: str | None = Header(None, alias=_USER_AGENT),
 ) -> OTelExportTraceServiceResponse:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
@@ -61,7 +61,7 @@ async def export_traces(
         response: FastAPI Response object for setting headers
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
-        x_mlflow_client_version: X-MLflow-Client-Version header (used to identify MLflow client)
+        user_agent: User-Agent header (used to identify MLflow Python client)
 
     Returns:
         OTel ExportTraceServiceResponse indicating success
@@ -154,8 +154,8 @@ async def export_traces(
             )
 
         trace_source = (
-            TraceSource.MLFLOW_CLIENT
-            if x_mlflow_client_version is not None
+            TraceSource.MLFLOW_PYTHON_CLIENT
+            if user_agent and user_agent.startswith("mlflow-python-client/")
             else TraceSource.UNKNOWN
         )
 

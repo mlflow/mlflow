@@ -326,7 +326,7 @@ class AutologgingEvent(Event):
 class TraceSource(str, Enum):
     """Source of a trace received by the MLflow server."""
 
-    MLFLOW_CLIENT = "MLFLOW_CLIENT"
+    MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
     UNKNOWN = "UNKNOWN"
 
 

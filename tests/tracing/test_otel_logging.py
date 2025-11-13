@@ -631,7 +631,7 @@ def test_error_logging_spans(mlflow_server: str):
 
 def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
     """
-    Test TraceReceivedByServerEvent telemetry shows source=MLFLOW_CLIENT for standard client.
+    Test TraceReceivedByServerEvent telemetry shows source=MLFLOW_PYTHON_CLIENT for standard client.
 
     Uses @mlflow.trace with standard MLflow client configuration, which automatically sends
     User-Agent and X-MLflow-Client-Version headers to identify traces from MLflow client.
@@ -655,7 +655,7 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
         if mock_client.add_record.called:
             record = mock_client.add_record.call_args[0][0]
             assert record.event_name == TraceReceivedByServerEvent.name
-            assert record.params["source"] == TraceSource.MLFLOW_CLIENT.value
+            assert record.params["source"] == TraceSource.MLFLOW_PYTHON_CLIENT.value
 
 
 def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
