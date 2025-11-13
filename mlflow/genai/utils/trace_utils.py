@@ -283,7 +283,21 @@ def parse_inputs_to_str(value: Any) -> str:
     if isinstance(value, str):
         return value
 
+    # Handle list of messages directly (e.g., from Strands)
+    # Check if value is a list of message dictionaries with 'role' and 'content' keys
+    if isinstance(value, list) and len(value) > 0 and _is_chat_messages(value):
+        contents = [m.get(_CONTENT_KEY) for m in value]
+        if len(contents) > 1 and all(isinstance(c, str) for c in contents):
+            return json.dumps(value)
+        elif isinstance(contents[-1], str):
+            return contents[-1]
+
     value = _to_dict(value)
+
+    # Handle case where _to_dict returns a non-dict (e.g., a list that gets serialized
+    # and remains a list)
+    if not isinstance(value, dict):
+        return json.dumps(value, cls=TraceJSONEncoder)
 
     if (messages := value.get(_MESSAGES_KEY)) and len(messages) > 0:
         contents = [m.get(_CONTENT_KEY) for m in messages]
