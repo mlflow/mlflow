@@ -154,8 +154,6 @@ async def export_traces(
             _record_event(
                 OtelTraceReceivedEvent,
                 {
-                    "trace_id": trace_id,
-                    "experiment_id": x_mlflow_experiment_id,
                     "span_count": len(spans_by_trace_id[trace_id]),
                 },
             )

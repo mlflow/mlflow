@@ -328,7 +328,5 @@ class OtelTraceReceivedEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         return {
-            "trace_id": arguments.get("trace_id"),
-            "experiment_id": arguments.get("experiment_id"),
             "span_count": arguments.get("span_count"),
         }
