@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { ModelSpanType } from './ModelTrace.types';
 import type { ModelTraceChatMessage, ModelTraceSpanNode, RawModelTraceChatMessage } from './ModelTrace.types';
 import {
@@ -30,6 +31,7 @@ import {
   decodeSpanId,
   getDefaultActiveTab,
   getTotalTokens,
+  convertOtelAttributesToMap,
 } from './ModelTraceExplorer.utils';
 import { TEST_SPAN_FILTER_STATE } from './timeline-tree/TimelineTree.test-utils';
 
@@ -701,5 +703,168 @@ describe('getTotalTokens', () => {
     expect(
       getTotalTokens({ ...MOCK_TRACE_INFO_V3, trace_metadata: { 'mlflow.trace.tokenUsage': 'invalid' } }),
     ).toBeNull();
+  });
+});
+
+describe('convertOtelAttributesToMap', () => {
+  it('should return unchanged span if attributes do not use key-value array format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {
+        key1: 'value1',
+        key2: 'value2',
+      },
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is empty', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: {},
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should return unchanged span if attributes is undefined', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+    expect(result).toEqual(modelTraceSpan);
+  });
+
+  it('should convert key-value array attributes to map format', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      name: 'test_span',
+      attributes: [
+        { key: 'string_attr', value: { string_value: 'test string' } },
+        { key: 'bool_attr', value: { bool_value: true } },
+        { key: 'int_attr', value: { int_value: 42 } },
+        { key: 'double_attr', value: { double_value: 3.14 } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      name: 'test_span',
+      attributes: {
+        string_attr: 'test string',
+        bool_attr: true,
+        int_attr: 42,
+        double_attr: 3.14,
+      },
+    });
+  });
+
+  it('should convert span with key-value array attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [{ key: 'converted_attr', value: { string_value: 'converted' } }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        converted_attr: 'converted',
+      },
+    });
+  });
+
+  it('should skip attributes without key or value', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'valid_attr', value: { string_value: 'valid' } },
+        { key: '', value: { string_value: 'no key' } },
+        { key: 'no_value' },
+        { value: { string_value: 'no key prop' } },
+        { key: 'another_valid', value: { bool_value: false } },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        valid_attr: 'valid',
+        another_valid: false,
+      },
+    });
+  });
+
+  it('should handle unknown value types by returning the value as-is', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      attributes: [
+        { key: 'unknown_type', value: { custom_field: 'custom_value' } },
+        { key: 'primitive_value', value: 'direct_string' },
+      ],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      attributes: {
+        unknown_type: { custom_field: 'custom_value' },
+        primitive_value: 'direct_string',
+      },
+    });
+  });
+
+  it('should preserve other span properties unchanged', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: [{ key: 'converted', value: { string_value: 'value' } }],
+      events: [],
+      links: [],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      parent_id: 'parent',
+      name: 'span_name',
+      start_time: '2023-01-01T00:00:00Z',
+      end_time: '2023-01-01T00:01:00Z',
+      status: 'OK',
+      attributes: {
+        converted: 'value',
+      },
+      events: [],
+      links: [],
+    });
+  });
+
+  it('should handle events with attributes', () => {
+    const modelTraceSpan = {
+      span_id: '1',
+      events: [{ attributes: [{ key: 'converted', value: { string_value: 'value' } }] }],
+    } as any;
+
+    const result = convertOtelAttributesToMap(modelTraceSpan);
+
+    expect(result).toEqual({
+      span_id: '1',
+      events: [{ attributes: { converted: 'value' } }],
+    });
   });
 });

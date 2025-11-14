@@ -7,6 +7,7 @@ import {
   LegacyTooltip,
   VisibleIcon,
   Typography,
+  Tooltip,
 } from '@databricks/design-system';
 import type { Theme } from '@emotion/react';
 import { FormattedMessage } from 'react-intl';
@@ -331,8 +332,9 @@ export const RunsChartsTooltipBody = ({
 
       <div css={styles.actionsWrapper}>
         {activeRun.pinnable && onTogglePin && (
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.runs_chart.tooltip.pin_run"
+            content={
               activeRun.pinned ? (
                 <FormattedMessage
                   defaultMessage="Unpin run"
@@ -345,7 +347,7 @@ export const RunsChartsTooltipBody = ({
                 />
               )
             }
-            placement="bottom"
+            side="bottom"
           >
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_runscomparetooltipbody.tsx_282"
@@ -356,17 +358,18 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={activeRun.pinned ? <PinFillIcon /> : <PinIcon />}
             />
-          </LegacyTooltip>
+          </Tooltip>
         )}
         {onHideRun && (
-          <LegacyTooltip
-            title={
+          <Tooltip
+            componentId="mlflow.runs_chart.tooltip.hide_run"
+            content={
               <FormattedMessage
                 defaultMessage="Click to hide the run"
                 description='A tooltip for the "hide" icon button in the runs chart tooltip'
               />
             }
-            placement="bottom"
+            side="bottom"
           >
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_runs-compare_runscomparetooltipbody.tsx_302"
@@ -378,7 +381,7 @@ export const RunsChartsTooltipBody = ({
               }}
               icon={<VisibleIcon />}
             />
-          </LegacyTooltip>
+          </Tooltip>
         )}
       </div>
     </div>

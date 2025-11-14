@@ -290,11 +290,6 @@ mlflow.deployments.openai.OpenAIDeploymentClient
 mlflow.deployments.run_local
 mlflow.deployments.set_deployments_target
 mlflow.disable_system_metrics_logging
-mlflow.diviner.get_default_conda_env
-mlflow.diviner.get_default_pip_requirements
-mlflow.diviner.load_model
-mlflow.diviner.log_model
-mlflow.diviner.save_model
 mlflow.doctor
 mlflow.dspy.autolog
 mlflow.dspy.load_model

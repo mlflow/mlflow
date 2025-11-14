@@ -44,6 +44,7 @@ from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
 from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 from clint.rules.use_sys_executable import UseSysExecutable
+from clint.rules.version_major_check import MajorVersionCheck
 
 ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
 
@@ -94,4 +95,5 @@ __all__ = [
     "UnnamedThread",
     "UnparameterizedGenericType",
     "UseSysExecutable",
+    "MajorVersionCheck",
 ]

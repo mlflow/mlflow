@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.80.0",
-            "maximum": "0.203.1"
+            "maximum": "1.4.1"
         }
     },
     "agno": {
@@ -367,15 +367,6 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "2.0.4",
             "maximum": "2.0.4"
-        }
-    },
-    "diviner": {
-        "package_info": {
-            "pip_release": "diviner"
-        },
-        "models": {
-            "minimum": "0.1.1",
-            "maximum": "0.1.1"
         }
     },
     "h2o": {

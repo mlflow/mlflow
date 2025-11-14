@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { usePromptDetailsPageViewState } from './usePromptDetailsPageViewState';
 import { PromptVersionsTableMode } from '../utils';
 import type { RegisteredPromptDetailsResponse, RegisteredPromptVersion } from '../types';

@@ -1,4 +1,4 @@
-import { CheckCircleIcon, ClockIcon, XCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { CheckCircleIcon, ClockIcon, Spinner, XCircleIcon, useDesignSystemTheme } from '@databricks/design-system';
 
 const ErrorIcon = () => {
   const { theme } = useDesignSystemTheme();
@@ -10,7 +10,7 @@ const FinishedIcon = () => {
   return <CheckCircleIcon css={{ color: theme.colors.textValidationSuccess }} />;
 };
 
-export const RunStatusIcon = ({ status }: { status: string }) => {
+export const RunStatusIcon = ({ status, useSpinner }: { status: string; useSpinner?: boolean }) => {
   switch (status) {
     case 'FAILED':
     case 'KILLED':
@@ -19,7 +19,7 @@ export const RunStatusIcon = ({ status }: { status: string }) => {
       return <FinishedIcon />;
     case 'SCHEDULED':
     case 'RUNNING':
-      return <ClockIcon />; // This one is the same color as the link
+      return useSpinner ? <Spinner size="small" /> : <ClockIcon />;
     default:
       return null;
   }
