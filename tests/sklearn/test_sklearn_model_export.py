@@ -193,6 +193,7 @@ def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
         mlflow.sklearn.save_model(
             sk_model=sk_model,
             path=model_path,
+            serialization_format="skops",
         )
 
     shutil.rmtree(model_path)
