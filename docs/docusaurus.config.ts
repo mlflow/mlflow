@@ -754,12 +754,13 @@ const config: Config = {
             from: ['/deep-learning/pytorch'],
           },
           {
-            to: '/ml/deep-learning/pytorch/guide',
-            from: ['/deep-learning/pytorch/guide'],
-          },
-          {
-            to: '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
-            from: ['/deep-learning/pytorch/quickstart/pytorch_quickstart'],
+            to: '/ml/deep-learning/pytorch',
+            from: [
+              '/deep-learning/pytorch/guide',
+              '/ml/deep-learning/pytorch/guide',
+              '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+              '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
           },
           {
             to: '/ml/deep-learning/sentence-transformers',
@@ -796,11 +797,11 @@ const config: Config = {
             from: ['/deep-learning/tensorflow'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/guide',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/guide'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
           },
           {
@@ -912,6 +913,21 @@ const config: Config = {
               '/getting-started/tracking-server-overview/notebooks',
               '/getting-started/tracking-server-overview/notebooks/tracking-server-overview',
               '/getting-started/tracking-server-overview/step1-tracking-server',
+              // /ml redirects
+              '/ml/getting-started/logging-first-model',
+              '/ml/getting-started/logging-first-model/notebooks',
+              '/ml/getting-started/logging-first-model/notebooks/logging-first-model',
+              '/ml/getting-started/logging-first-model/step1-tracking-server',
+              '/ml/getting-started/logging-first-model/step2-mlflow-client',
+              '/ml/getting-started/logging-first-model/step3-create-experiment',
+              '/ml/getting-started/logging-first-model/step4-experiment-search',
+              '/ml/getting-started/logging-first-model/step5-synthetic-data',
+              '/ml/getting-started/logging-first-model/step6-logging-a-run',
+              '/ml/getting-started/registering-first-model',
+              '/ml/getting-started/registering-first-model/step1-register-model',
+              '/ml/getting-started/registering-first-model/step2-explore-registered-model',
+              '/ml/getting-started/registering-first-model/step3-load-model',
+              '/ml/getting-started/tracking-server-overview',
             ],
           },
           {
@@ -973,6 +989,7 @@ const config: Config = {
               '/getting-started/intro-quickstart/notebooks',
               '/quickstart_drilldown',
               '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
+              '/ml/tracking/quickstart/notebooks/tracking_quickstart',
             ],
           },
           {
@@ -994,6 +1011,16 @@ const config: Config = {
           {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
+          },
+          // Redirect consolidated prophet guide to index
+          {
+            to: '/ml/traditional-ml/prophet',
+            from: ['/ml/traditional-ml/prophet/guide'],
+          },
+          // Redirect consolidated sparkml guide to index
+          {
+            to: '/ml/traditional-ml/sparkml',
+            from: ['/ml/traditional-ml/sparkml/guide'],
           },
           {
             to: '/ml/traditional-ml/tutorials/creating-custom-pyfunc',

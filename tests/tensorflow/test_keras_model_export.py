@@ -58,7 +58,7 @@ def fix_random_seed():
     random.seed(SEED)
     np.random.seed(SEED)
 
-    if Version(tf.__version__) >= Version("2.0.0"):
+    if Version(tf.__version__).major >= 2:
         tf.random.set_seed(SEED)
     else:
         tf.set_random_seed(SEED)

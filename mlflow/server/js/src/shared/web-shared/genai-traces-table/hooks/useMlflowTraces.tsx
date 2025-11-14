@@ -116,7 +116,6 @@ export const useMlflowTracesTableMetadata = ({
     sqlWarehouseId,
     enabled: !disabled,
   });
-
   const filteredTraces = useMemo(() => filterTracesByAssessmentSourceRunId(traces, runUuid), [traces, runUuid]);
 
   const otherFilter = createMlflowSearchFilter(otherRunUuid, timeRange);
@@ -537,7 +536,7 @@ const useSearchMlflowTracesInner = ({
 const buildTracesFromSearchAndArtifacts = (
   artifactData: RunEvaluationTracesDataEntry[],
   searchRes: UseQueryResult<ModelTraceInfoV3[], NetworkRequestError>,
-  runUuid?: string,
+  runUuid?: string | null,
 ): {
   data: RunEvaluationTracesDataEntry[];
   shouldUseTraceV3: boolean;
@@ -770,7 +769,7 @@ export const useMlflowTraces = (
   }
 
   return {
-    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid ?? undefined),
+    ...buildTracesFromSearchAndArtifacts(artifactData || [], searchRes, runUuid),
     isLoading: isArtifactLoading || (searchRes.isLoading && isTracesCallEnabled),
     refetchMlflowTraces: searchRes.refetch,
   };

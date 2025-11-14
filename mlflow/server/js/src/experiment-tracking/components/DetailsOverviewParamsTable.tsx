@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Button,
   ChevronDownIcon,
@@ -17,7 +18,7 @@ import { throttle, values } from 'lodash';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import type { ColumnDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getExpandedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getExpandedRowModel } from '@tanstack/react-table';
 import type { Interpolation, Theme } from '@emotion/react';
 import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
 import { isUnstableNestedComponentsMigrated } from '../../common/utils/FeatureUtils';
@@ -165,7 +166,15 @@ const staticColumns: ParamsColumnDef[] = [
 /**
  * Displays filterable table with parameter key/values.
  */
-export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, KeyValueEntity> }) => {
+export const DetailsOverviewParamsTable = ({
+  params,
+  className,
+  expandToParentContainer,
+}: {
+  params: Record<string, KeyValueEntity>;
+  className?: string;
+  expandToParentContainer?: boolean;
+}) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
@@ -224,7 +233,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
     [],
   );
 
-  const table = useReactTable({
+  const table = useReactTable('mlflow/server/js/src/experiment-tracking/components/DetailsOverviewParamsTable.tsx', {
     data: paramsList,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
@@ -331,11 +340,12 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   return (
     <div
       css={{
-        flex: '0 0 auto',
+        flex: expandToParentContainer ? 1 : '0 0 auto',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
       }}
+      className={className}
     >
       <Typography.Title level={4}>
         <FormattedMessage
@@ -351,6 +361,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
           borderRadius: theme.general.borderRadiusBase,
           display: 'flex',
           flexDirection: 'column',
+          flex: expandToParentContainer ? 1 : '0 0 auto',
           overflow: 'hidden',
         }}
       >

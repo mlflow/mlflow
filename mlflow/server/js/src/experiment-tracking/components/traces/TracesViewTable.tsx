@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   CursorPagination,
   DangerIcon,
@@ -14,7 +15,7 @@ import {
   ColumnsIcon,
 } from '@databricks/design-system';
 import type { SortingState } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, getSortedRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel, getSortedRowModel } from '@tanstack/react-table';
 import React, { useMemo } from 'react';
 import { isNil, entries } from 'lodash';
 import Utils from '../../../common/utils/Utils';
@@ -393,20 +394,23 @@ export const TracesViewTable = React.memo(
       showQuickStart,
     ]);
 
-    const table = useReactTable<ModelTraceInfoWithRunName>({
-      columns,
-      data: showQuickStart ? [] : traces,
-      state: { sorting, rowSelection },
-      getCoreRowModel: getCoreRowModel(),
-      getRowId: (row, index) => row.request_id || index.toString(),
-      getSortedRowModel: getSortedRowModel(),
-      onSortingChange: setSorting,
-      onRowSelectionChange: setRowSelection,
-      enableColumnResizing: true,
-      enableRowSelection: true,
-      columnResizeMode: 'onChange',
-      meta: { baseComponentId, onTraceClicked, onTraceTagsEdit } satisfies TracesViewTableMeta,
-    });
+    const table = useReactTable<ModelTraceInfoWithRunName>(
+      'mlflow/web/js/src/experiment-tracking/components/traces/TracesViewTable.tsx',
+      {
+        columns,
+        data: showQuickStart ? [] : traces,
+        state: { sorting, rowSelection },
+        getCoreRowModel: getCoreRowModel(),
+        getRowId: (row, index) => row.request_id || index.toString(),
+        getSortedRowModel: getSortedRowModel(),
+        onSortingChange: setSorting,
+        onRowSelectionChange: setRowSelection,
+        enableColumnResizing: true,
+        enableRowSelection: true,
+        columnResizeMode: 'onChange',
+        meta: { baseComponentId, onTraceClicked, onTraceTagsEdit } satisfies TracesViewTableMeta,
+      },
+    );
 
     const getEmptyState = () => {
       if (error) {

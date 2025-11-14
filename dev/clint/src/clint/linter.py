@@ -794,6 +794,11 @@ class Linter(ast.NodeVisitor):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
+    def visit_Compare(self, node: ast.Compare) -> None:
+        if rules.MajorVersionCheck.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MajorVersionCheck())
+        self.generic_visit(node)
+
     def visit_type_annotation(self, node: ast.expr) -> None:
         visitor = TypeAnnotationVisitor(self)
         visitor.visit(node)
