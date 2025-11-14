@@ -40,6 +40,7 @@ from mlflow.entities import (
     Secret,
     SecretBinding,
     SecretBindingListItem,
+    SecretRoute,
     SecretRouteListItem,
     SecretRouteTag,
     SecretTag,
@@ -2855,6 +2856,178 @@ class SqlAlchemyStore(AbstractStore):
 
             session.delete(sql_route)
             session.commit()
+
+    def _update_secret_route(
+        self,
+        route_id: str,
+        secret_id: str,
+        updated_by: str | None = None,
+    ) -> SecretRoute:
+        """
+        Update an existing route to point to a different existing secret.
+
+        This updates the route's secret_id in-place, preserving the route_id and all bindings.
+        The target secret must already exist.
+
+        Args:
+            route_id: ID of the route to update.
+            secret_id: ID of the existing secret to associate with this route.
+            updated_by: Username of the user performing the update. Optional.
+
+        Returns:
+            The updated SecretRoute entity.
+
+        Raises:
+            MlflowException: If route or secret doesn't exist.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+
+            if not sql_route:
+                raise MlflowException(
+                    f"Route with ID '{route_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Verify the target secret exists
+            target_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+            if not target_secret:
+                raise MlflowException(
+                    f"Secret with ID '{secret_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Update the route
+            sql_route.secret_id = secret_id
+            sql_route.last_updated_at = get_current_time_millis()
+            if updated_by:
+                sql_route.last_updated_by = updated_by
+
+            session.commit()
+
+            route_entity = sql_route.to_mlflow_entity()
+
+            # Populate provider field for UI display
+            route_entity.provider = target_secret.provider
+            route_entity.secret_name = target_secret.secret_name
+
+            return route_entity
+
+    def _update_secret_route_with_new_secret(
+        self,
+        route_id: str,
+        secret_name: str,
+        secret_value: str | dict[str, Any],
+        provider: str | None = None,
+        is_shared: bool = False,
+        auth_config: str | dict[str, Any] | None = None,
+        updated_by: str | None = None,
+    ) -> tuple[Secret, SecretRoute]:
+        """
+        Update a route by creating a new secret and associating the route with it.
+
+        This creates a new secret atomically and updates the route to point to it,
+        preserving the route_id and all bindings.
+
+        Args:
+            route_id: ID of the route to update.
+            secret_name: Name for the new secret.
+            secret_value: The secret value (API key, password, etc.).
+            provider: Optional provider hint (e.g., "openai", "anthropic").
+            is_shared: Whether this secret is shared across resources.
+            auth_config: Optional authentication configuration as dict or JSON string.
+            updated_by: Username of the user performing the update.
+
+        Returns:
+            Tuple of (created Secret entity, updated SecretRoute entity).
+
+        Raises:
+            MlflowException: If route doesn't exist or secret name already exists.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+
+            if not sql_route:
+                raise MlflowException(
+                    f"Route with ID '{route_id}' not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Check if secret name already exists (for shared secrets)
+            if is_shared:
+                existing = (
+                    session.query(SqlSecret)
+                    .filter_by(
+                        secret_name=secret_name,
+                        is_shared=True,
+                    )
+                    .first()
+                )
+                if existing:
+                    raise MlflowException(
+                        f"Shared secret with name '{secret_name}' already exists. "
+                        f"Choose a different name or use the existing secret. "
+                        f"(ID: {existing.secret_id}).",
+                        error_code=RESOURCE_ALREADY_EXISTS,
+                    )
+
+            # Create the new secret
+            secret_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
+
+            masked_value = mask_secret_value(secret_value)
+            kek_manager = KEKManager()
+
+            encrypted = encrypt_secret(
+                secret_value=secret_value,
+                kek_manager=kek_manager,
+                secret_id=secret_id,
+                secret_name=secret_name,
+            )
+
+            encrypted_auth = None
+            if auth_config:
+                encrypted_auth = encrypt_secret(
+                    secret_value=auth_config,
+                    kek_manager=kek_manager,
+                    secret_id=secret_id,
+                    secret_name=f"{secret_name}_auth_config",
+                )
+
+            sql_secret = SqlSecret(
+                secret_id=secret_id,
+                secret_name=secret_name,
+                encrypted_value=encrypted.encrypted_value,
+                wrapped_dek=encrypted.wrapped_dek,
+                masked_value=masked_value,
+                is_shared=is_shared,
+                kek_version=encrypted.kek_version,
+                encrypted_auth_config=encrypted_auth.encrypted_value if encrypted_auth else None,
+                wrapped_auth_config_dek=encrypted_auth.wrapped_dek if encrypted_auth else None,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=updated_by,
+                last_updated_by=updated_by,
+                provider=provider,
+            )
+
+            # Update the route to point to the new secret
+            sql_route.secret_id = secret_id
+            sql_route.last_updated_at = current_time
+            if updated_by:
+                sql_route.last_updated_by = updated_by
+
+            session.add(sql_secret)
+            session.commit()
+
+            secret_entity = sql_secret.to_mlflow_entity()
+            route_entity = sql_route.to_mlflow_entity()
+
+            # Populate provider field for UI display
+            route_entity.provider = provider
+            route_entity.secret_name = secret_name
+
+            return secret_entity, route_entity
 
     def _bind_secret_route(
         self,

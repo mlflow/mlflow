@@ -11480,7 +11480,7 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
     assert result2.binding.field_name == field_name
 
     # Verify route names must be unique - duplicate route name should fail
-    with pytest.raises(Exception):  # Database will enforce unique constraint
+    with pytest.raises(MlflowException, match="UNIQUE constraint"):
         store._create_and_bind_secret(
             secret_name="third_secret",
             secret_value="value3",
@@ -11726,7 +11726,7 @@ def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret)
     )
 
     # Third route with duplicate route name - should fail
-    with pytest.raises(Exception):  # Database will enforce unique constraint
+    with pytest.raises(MlflowException, match="UNIQUE constraint"):
         store._create_route_and_bind(
             secret_id=secret_entity.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
@@ -12334,6 +12334,218 @@ def test_bind_secret_route(store: SqlAlchemyStore, kek_passphrase):
             resource_id="workspace",
             field_name="API_KEY",
         )
+
+
+def test_update_secret_route_to_existing_secret(store: SqlAlchemyStore, kek_passphrase):
+    result1 = store._create_and_bind_secret(
+        secret_name="api_key_1",
+        secret_value="sk-test-value-1",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    result2 = store._create_and_bind_secret(
+        secret_name="api_key_2",
+        secret_value="sk-test-value-2",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace2",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-3.5-turbo",
+        is_shared=True,
+    )
+
+    original_route_id = result1.route.route_id
+    target_secret_id = result2.secret.secret_id
+
+    bindings_before = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_before) == 1
+
+    updated_route = store._update_secret_route(
+        route_id=original_route_id,
+        secret_id=target_secret_id,
+        updated_by="test_updater",
+    )
+
+    assert updated_route.route_id == original_route_id
+    assert updated_route.secret_id == target_secret_id
+    assert updated_route.last_updated_by == "test_updater"
+    assert updated_route.last_updated_at > result1.route.created_at
+
+    bindings_after = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_after) == 1
+    assert bindings_after[0].binding_id == bindings_before[0].binding_id
+
+
+def test_update_secret_route_nonexistent_route_fails(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    with pytest.raises(MlflowException, match="Route with ID 'nonexistent' not found"):
+        store._update_secret_route(
+            route_id="nonexistent",
+            secret_id=result.secret.secret_id,
+        )
+
+
+def test_update_secret_route_nonexistent_secret_fails(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="api_key",
+        secret_value="sk-test-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    with pytest.raises(MlflowException, match="Secret with ID 'nonexistent' not found"):
+        store._update_secret_route(
+            route_id=result.route.route_id,
+            secret_id="nonexistent",
+        )
+
+
+def test_update_secret_route_with_new_secret(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="old_api_key",
+        secret_value="sk-old-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    original_route_id = result.route.route_id
+    original_secret_id = result.secret.secret_id
+
+    store._bind_secret_route(
+        route_id=original_route_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_123",
+        field_name="OPENAI_API_KEY",
+    )
+
+    bindings_before = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_before) == 2
+
+    new_secret, updated_route = store._update_secret_route_with_new_secret(
+        route_id=original_route_id,
+        secret_name="new_api_key",
+        secret_value="sk-new-value",
+        provider="openai",
+        is_shared=True,
+        updated_by="test_updater",
+    )
+
+    assert updated_route.route_id == original_route_id
+    assert updated_route.secret_id == new_secret.secret_id
+    assert updated_route.secret_id != original_secret_id
+    assert updated_route.last_updated_by == "test_updater"
+
+    assert new_secret.secret_name == "new_api_key"
+    assert new_secret.is_shared is True
+    assert new_secret.provider == "openai"
+    assert new_secret.masked_value.startswith("sk-")  # typos:disable-line
+
+    bindings_after = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_after) == 2
+    assert bindings_after[0].route_id == original_route_id
+    assert bindings_after[1].route_id == original_route_id
+
+
+def test_update_secret_route_with_new_secret_duplicate_name_fails(
+    store: SqlAlchemyStore, kek_passphrase
+):
+    store._create_and_bind_secret(
+        secret_name="existing_key",
+        secret_value="sk-existing",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    result2 = store._create_and_bind_secret(
+        secret_name="another_key",
+        secret_value="sk-another",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace2",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-3.5-turbo",
+        is_shared=True,
+    )
+
+    with pytest.raises(
+        MlflowException, match="Shared secret with name 'existing_key' already exists"
+    ):
+        store._update_secret_route_with_new_secret(
+            route_id=result2.route.route_id,
+            secret_name="existing_key",
+            secret_value="sk-new-value",
+            is_shared=True,
+        )
+
+
+def test_update_secret_route_with_new_secret_nonexistent_route_fails(
+    store: SqlAlchemyStore, kek_passphrase
+):
+    with pytest.raises(MlflowException, match="Route with ID 'nonexistent' not found"):
+        store._update_secret_route_with_new_secret(
+            route_id="nonexistent",
+            secret_name="new_key",
+            secret_value="sk-new-value",
+        )
+
+
+def test_update_secret_route_preserves_bindings(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="api_key",
+        secret_value="sk-value",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    for i in range(3):
+        store._bind_secret_route(
+            route_id=result.route.route_id,
+            resource_type=SecretResourceType.SCORER_JOB,
+            resource_id=f"job_{i}",
+            field_name="OPENAI_API_KEY",
+        )
+
+    bindings_before = store._list_secret_bindings(route_id=result.route.route_id)
+    binding_ids_before = {b.binding_id for b in bindings_before}
+    assert len(bindings_before) == 4
+
+    new_secret, updated_route = store._update_secret_route_with_new_secret(
+        route_id=result.route.route_id,
+        secret_name="new_key",
+        secret_value="sk-new",
+    )
+
+    assert updated_route.route_id == result.route.route_id
+    assert updated_route.secret_id != result.secret.secret_id
+
+    bindings_after = store._list_secret_bindings(route_id=result.route.route_id)
+    binding_ids_after = {b.binding_id for b in bindings_after}
+
+    assert len(bindings_after) == 4
+    assert binding_ids_before == binding_ids_after
 
 
 def test_list_secret_bindings_by_route_id(store: SqlAlchemyStore, kek_passphrase):
