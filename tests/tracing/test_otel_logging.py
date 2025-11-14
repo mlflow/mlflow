@@ -661,18 +661,21 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
 
 def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
     """
-    Test TraceReceivedByServerEvent telemetry shows source=UNKNOWN for external clients.
+    Test TracesReceivedByServerEvent telemetry shows source=UNKNOWN for external clients.
 
     Sends a direct protobuf request without MLflow client headers to simulate an external
-    OpenTelemetry client (not MLflow client).
+    OpenTelemetry client (not MLflow client). Tests with 2 traces to verify count field.
     """
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
     experiment_id = experiment.experiment_id
 
-    trace_id = bytes.fromhex("0000000000000100" + "0" * 16)
+    trace_id_1 = bytes.fromhex("0000000000000100" + "0" * 16)
+    trace_id_2 = bytes.fromhex("0000000000000200" + "0" * 16)
 
     request = ExportTraceServiceRequest()
+
+    # First trace with root span and child spans
     request.resource_spans.append(
         ResourceSpans(
             scope_spans=[
@@ -680,25 +683,37 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
                     scope=InstrumentationScope(name="telemetry-test-scope"),
                     spans=[
                         OTelProtoSpan(
-                            trace_id=trace_id,
+                            trace_id=trace_id_1,
                             span_id=bytes.fromhex("00000001" + "0" * 8),
-                            name="root-span",
+                            name="root-span-1",
                             start_time_unix_nano=1000000000,
                             end_time_unix_nano=2000000000,
                         ),
                         OTelProtoSpan(
-                            trace_id=trace_id,
+                            trace_id=trace_id_1,
                             span_id=bytes.fromhex("00000002" + "0" * 8),
                             parent_span_id=bytes.fromhex("00000001" + "0" * 8),
                             name="child-span-1",
                             start_time_unix_nano=1100000000,
                             end_time_unix_nano=1500000000,
                         ),
+                    ],
+                )
+            ]
+        )
+    )
+
+    # Second trace with root span
+    request.resource_spans.append(
+        ResourceSpans(
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="telemetry-test-scope"),
+                    spans=[
                         OTelProtoSpan(
-                            trace_id=trace_id,
+                            trace_id=trace_id_2,
                             span_id=bytes.fromhex("00000003" + "0" * 8),
-                            parent_span_id=bytes.fromhex("00000001" + "0" * 8),
-                            name="child-span-2",
+                            name="root-span-2",
                             start_time_unix_nano=1600000000,
                             end_time_unix_nano=1900000000,
                         ),
@@ -730,4 +745,4 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         assert record.event_name == TracesReceivedByServerEvent.name
         assert record.status.value == "success"
         assert record.params["source"] == TraceSource.UNKNOWN.value
-        assert record.params["count"] == 1
+        assert record.params["count"] == 2
