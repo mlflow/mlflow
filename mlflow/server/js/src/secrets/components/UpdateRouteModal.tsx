@@ -9,7 +9,8 @@ import {
   Input,
   Modal,
   Radio,
-  Select,
+  SimpleSelect,
+  SimpleSelectOption,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
@@ -20,6 +21,7 @@ import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
 import { useListRoutes } from '../hooks/useListRoutes';
 import { MaskedApiKeyInput } from './MaskedApiKeyInput';
+import { AuthConfigFields } from './AuthConfigFields';
 import { PROVIDERS } from './routeConstants';
 
 export interface UpdateRouteModalProps {
@@ -88,15 +90,17 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
     // If route has no provider, show all secrets
     if (!route.provider) return secrets;
 
+    const routeProvider = route.provider;
+
     return secrets.filter((secret) => {
       // Use the provider field from the backend if available
-      if (secret.provider && route.provider) {
-        return secret.provider.toLowerCase() === route.provider.toLowerCase();
+      if (secret.provider) {
+        return secret.provider.toLowerCase() === routeProvider.toLowerCase();
       }
 
       // Fallback to pattern matching on secret_name for backwards compatibility
       const secretNameLower = secret.secret_name.toLowerCase();
-      const providerLower = route.provider.toLowerCase();
+      const providerLower = routeProvider.toLowerCase();
 
       if (providerLower === 'openai') return secretNameLower.includes('openai');
       if (providerLower === 'anthropic')
@@ -247,24 +251,41 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
             </Radio.Group>
           </div>
 
+          {/* Current API Key Display */}
+          <div
+            css={{
+              padding: theme.spacing.md,
+              borderRadius: theme.borders.borderRadiusMd,
+              backgroundColor: theme.colors.backgroundSecondary,
+              border: `1px solid ${theme.colors.border}`,
+            }}
+          >
+            <Typography.Text color="secondary" size="sm" css={{ display: 'block', marginBottom: theme.spacing.xs }}>
+              <FormattedMessage defaultMessage="Current API Key:" description="Current API key label" />
+            </Typography.Text>
+            <Typography.Text css={{ fontWeight: 500 }}>
+              {secrets.find((s) => s.secret_id === route?.secret_id)?.secret_name || route?.secret_id}
+            </Typography.Text>
+          </div>
+
           {/* Existing secret selection */}
           {secretSource === 'existing' && (
             <div>
-              <FormUI.Label htmlFor="update-route-secret-select">
-                <FormattedMessage defaultMessage="API Key" description="API key select label" />
-                <span css={{ color: theme.colors.textValidationDanger }}> *</span>
-              </FormUI.Label>
               <DialogCombobox
                 componentId="mlflow.routes.update_route_modal.secret"
-                label=""
-                value={selectedSecret ? [selectedSecret.secret_name] : []}
+                label={intl.formatMessage({
+                  defaultMessage: 'Select API Key',
+                  description: 'Select API key label',
+                })}
+                value={
+                  selectedSecretId
+                    ? [compatibleSecrets.find((s) => s.secret_id === selectedSecretId)?.secret_name || '']
+                    : []
+                }
               >
                 <DialogComboboxTrigger
                   allowClear={false}
-                  placeholder={intl.formatMessage({
-                    defaultMessage: 'Select Existing Key',
-                    description: 'Secret selection placeholder',
-                  })}
+                  placeholder="Select Existing API Key"
                 />
                 <DialogComboboxContent>
                   <DialogComboboxOptionList>
@@ -278,14 +299,7 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                           setErrors((prev) => ({ ...prev, secretId: undefined }));
                         }}
                       >
-                        <div css={{ display: 'flex', flexDirection: 'column' }}>
-                          <Typography.Text>{secret.secret_name}</Typography.Text>
-                          {secret.secret_id === route.secret_id && (
-                            <Typography.Text color="secondary" size="sm">
-                              <FormattedMessage defaultMessage="(Current)" description="Current secret indicator" />
-                            </Typography.Text>
-                          )}
-                        </div>
+                        <Typography.Text>{secret.secret_name}</Typography.Text>
                       </DialogComboboxOptionListSelectItem>
                     ))}
                   </DialogComboboxOptionList>
@@ -304,23 +318,28 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                   <FormattedMessage defaultMessage="Provider" description="Provider select label" />
                   <span css={{ color: theme.colors.textValidationDanger }}> *</span>
                 </FormUI.Label>
-                <Select
+                <SimpleSelect
                   componentId="mlflow.routes.update_route_modal.provider"
                   id="update-route-provider"
+                  label=""
                   value={newSecretProvider}
-                  onChange={(value) => {
-                    setNewSecretProvider(value as string);
+                  onChange={(e) => {
+                    setNewSecretProvider(e.target.value);
                     setAuthConfig({}); // Reset auth config when provider changes
                     setErrors((prev) => ({ ...prev, provider: undefined }));
                   }}
                   validationState={errors.provider ? 'error' : undefined}
+                  placeholder={intl.formatMessage({
+                    defaultMessage: 'Select provider',
+                    description: 'Provider select placeholder',
+                  })}
                 >
                   {PROVIDERS.map((provider) => (
-                    <Select.Option key={provider.value} value={provider.value}>
+                    <SimpleSelectOption key={provider.value} value={provider.value}>
                       {provider.label}
-                    </Select.Option>
+                    </SimpleSelectOption>
                   ))}
-                </Select>
+                </SimpleSelect>
                 {errors.provider && <FormUI.Message type="error" message={errors.provider} />}
               </div>
 
@@ -368,52 +387,14 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
               </div>
 
               {/* Auth configuration fields */}
-              {selectedProviderInfo?.authConfigFields && selectedProviderInfo.authConfigFields.length > 0 && (
-                <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
-                  <Typography.Text css={{ fontWeight: 600 }}>
-                    <FormattedMessage
-                      defaultMessage="Additional Configuration"
-                      description="Auth config section title"
-                    />
-                  </Typography.Text>
-                  {selectedProviderInfo.authConfigFields.map((field) => (
-                    <div key={field.name}>
-                      <FormUI.Label htmlFor={`update-route-auth-config-${field.name}`}>
-                        {field.label}
-                        {field.required && <span css={{ color: theme.colors.textValidationDanger }}> *</span>}
-                      </FormUI.Label>
-                      {field.multiline ? (
-                        <Input.TextArea
-                          componentId={`mlflow.routes.update_route_modal.auth_config.${field.name}`}
-                          id={`update-route-auth-config-${field.name}`}
-                          placeholder={field.placeholder}
-                          value={authConfig[field.name] || ''}
-                          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-                            setAuthConfig((prev) => ({ ...prev, [field.name]: e.target.value }));
-                          }}
-                          autoSize={{ minRows: 3, maxRows: 10 }}
-                        />
-                      ) : (
-                        <Input
-                          componentId={`mlflow.routes.update_route_modal.auth_config.${field.name}`}
-                          id={`update-route-auth-config-${field.name}`}
-                          placeholder={field.placeholder}
-                          value={authConfig[field.name] || ''}
-                          onChange={(e) => {
-                            setAuthConfig((prev) => ({ ...prev, [field.name]: e.target.value }));
-                          }}
-                          type={field.sensitive ? 'password' : 'text'}
-                        />
-                      )}
-                      {field.helpText && (
-                        <Typography.Text color="secondary" size="sm">
-                          {field.helpText}
-                        </Typography.Text>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
+              <AuthConfigFields
+                fields={selectedProviderInfo?.authConfigFields || []}
+                values={authConfig}
+                onChange={(name, value) => {
+                  setAuthConfig((prev) => ({ ...prev, [name]: value }));
+                }}
+                componentIdPrefix="mlflow.routes.update_route_modal.auth_config"
+              />
             </div>
           )}
 

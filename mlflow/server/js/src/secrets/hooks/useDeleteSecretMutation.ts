@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { secretsApi } from '../api/secretsApi';
-import { LIST_SECRETS_QUERY_KEY } from '../constants';
+import { LIST_SECRETS_QUERY_KEY, LIST_ROUTES_QUERY_KEY } from '../constants';
 import type { DeleteSecretRequest } from '../types';
 
 export const useDeleteSecretMutation = ({
@@ -17,7 +17,9 @@ export const useDeleteSecretMutation = ({
       await secretsApi.deleteSecret(request);
     },
     onSuccess: () => {
+      // Invalidate both secrets and routes since delete cascades
       queryClient.invalidateQueries({ queryKey: [LIST_SECRETS_QUERY_KEY] });
+      queryClient.invalidateQueries({ queryKey: [LIST_ROUTES_QUERY_KEY] });
       onSuccess?.();
     },
     onError: (error) => {

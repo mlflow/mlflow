@@ -26,6 +26,7 @@ import { useListRoutes } from '../hooks/useListRoutes';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useCreateRoute } from '../hooks/useCreateRoute';
 import { useUpdateRoute } from '../hooks/useUpdateRoute';
+import { useDeleteRouteMutation } from '../hooks/useDeleteRouteMutation';
 import { useRoutesTagsFilter } from '../hooks/useRoutesTagsFilter';
 import { CreateRouteModal } from './CreateRouteModal';
 import { AddRouteModal } from './AddRouteModal';
@@ -45,6 +46,26 @@ export default function RoutesPage() {
   const { createRouteAsync } = useCreateRoute();
   const { updateRouteAsync } = useUpdateRoute();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useRoutesTagsFilter();
+  const { deleteRoute, isLoading: isDeleting } = useDeleteRouteMutation({
+    onSuccess: () => {
+      setIsDrawerOpen(false);
+      notification.success({
+        message: intl.formatMessage({
+          defaultMessage: 'Route deleted successfully',
+          description: 'Routes page > delete route success',
+        }),
+      });
+    },
+    onError: (error) => {
+      notification.error({
+        message: intl.formatMessage({
+          defaultMessage: 'Failed to delete route',
+          description: 'Routes page > delete route error',
+        }),
+        description: error.message,
+      });
+    },
+  });
   const [showCreateRouteModal, setShowCreateRouteModal] = useState(false);
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
   const [showUpdateRouteModal, setShowUpdateRouteModal] = useState(false);
@@ -93,7 +114,7 @@ export default function RoutesPage() {
         ? (route.name && route.name.toLowerCase().includes(searchText.toLowerCase())) ||
           route.route_id.toLowerCase().includes(searchText.toLowerCase()) ||
           route.model_name.toLowerCase().includes(searchText.toLowerCase()) ||
-          route.provider.toLowerCase().includes(searchText.toLowerCase())
+          (route.provider && route.provider.toLowerCase().includes(searchText.toLowerCase()))
         : true;
 
       const matchesTags =
@@ -303,14 +324,7 @@ export default function RoutesPage() {
   };
 
   const handleDeleteRoute = (route: Route) => {
-    // TODO: Implement delete route confirmation modal
-    setIsDrawerOpen(false);
-    notification.info({
-      message: intl.formatMessage({
-        defaultMessage: 'Delete route functionality coming soon',
-        description: 'Routes page > delete route placeholder notification',
-      }),
-    });
+    deleteRoute(route.route_id);
   };
 
   if (isLoading) {

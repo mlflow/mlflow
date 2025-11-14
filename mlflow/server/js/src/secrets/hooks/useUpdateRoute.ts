@@ -1,9 +1,7 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { routesApi } from '../api/routesApi';
 import type { UpdateRouteRequest } from '../types';
-
-const LIST_ROUTES_QUERY_KEY = 'listRoutes';
-const LIST_SECRETS_QUERY_KEY = 'listSecrets';
+import { LIST_ROUTES_QUERY_KEY, LIST_SECRETS_QUERY_KEY } from '../constants';
 
 export const useUpdateRoute = () => {
   const queryClient = useQueryClient();

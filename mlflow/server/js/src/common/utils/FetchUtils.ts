@@ -471,5 +471,15 @@ export const fetchAPI = async (url: string, method: 'POST' | 'GET' | 'PATCH' | '
       throw predefinedError;
     }
   }
+  // For DELETE requests or empty responses, don't try to parse JSON
+  if (response.status === 204 || (method === 'DELETE' && response.headers.get('content-length') === '0')) {
+    return undefined;
+  }
+  // Check if response has content before trying to parse
+  const contentType = response.headers.get('content-type');
+  if (!contentType || !contentType.includes('application/json')) {
+    const text = await response.text();
+    return text || undefined;
+  }
   return response.json();
 };

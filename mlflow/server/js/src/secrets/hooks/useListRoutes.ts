@@ -1,8 +1,7 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { routesApi } from '../api/routesApi';
 import type { ListRoutesResponse } from '../types';
-
-const LIST_ROUTES_QUERY_KEY = 'listRoutes';
+import { LIST_ROUTES_QUERY_KEY } from '../constants';
 
 export const useListRoutes = ({ enabled = true }: { enabled?: boolean } = {}) => {
   const { data, isLoading, error, refetch } = useQuery<ListRoutesResponse, Error>({
