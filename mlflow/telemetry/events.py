@@ -338,8 +338,7 @@ class TracesReceivedByServerEvent(Event):
         source = arguments.get("source")
         if "count" not in arguments:
             raise ValueError("count is required for TracesReceivedByServerEvent")
-        count = arguments["count"]
         return {
             "source": source.value if isinstance(source, TraceSource) else source,
-            "count": count,
+            "count": arguments["count"],
         }
