@@ -24,10 +24,16 @@ import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
 describe('PromptsDetailsPage', () => {
+  let user: ReturnType<typeof userEvent.setup>;
+
   const server = setupServer(
     getMockedRegisteredPromptDetailsResponse('prompt1'),
     getMockedRegisteredPromptVersionsResponse('prompt1', 2),
   );
+
+  beforeEach(() => {
+    user = userEvent.setup();
+  });
 
   beforeAll(() => {
     process.env['MLFLOW_USE_ABSOLUTE_AJAX_URLS'] = 'true';
@@ -74,14 +80,14 @@ describe('PromptsDetailsPage', () => {
       expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Preview' }));
+    await user.click(screen.getByRole('radio', { name: 'Preview' }));
 
-    await userEvent.click(screen.getByText('Version 2'));
+    await user.click(screen.getByText('Version 2'));
     expect(screen.getByText('content for prompt version 2')).toBeInTheDocument();
     expect(screen.getAllByRole('status', { name: 'alias2' })).toHaveLength(2);
     expect(screen.getByText('some commit message for version 2')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByText('Version 1'));
+    await user.click(screen.getByText('Version 1'));
     expect(screen.getByText('content of prompt version 1')).toBeInTheDocument();
     expect(screen.getAllByRole('status', { name: 'alias1' })).toHaveLength(2);
     expect(screen.getByText('some commit message for version 1')).toBeInTheDocument();
@@ -95,15 +101,15 @@ describe('PromptsDetailsPage', () => {
       expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Compare' }));
+    await user.click(screen.getByRole('radio', { name: 'Compare' }));
 
     const table = screen.getByLabelText('Prompt versions table');
 
     const rowForVersion3 = getTableRowByCellText(table, 'Version 3', { columnHeaderName: 'Version' });
     const rowForVersion2 = getTableRowByCellText(table, 'Version 2', { columnHeaderName: 'Version' });
 
-    await userEvent.click(within(rowForVersion3).getByLabelText('Select as baseline version'));
-    await userEvent.click(within(rowForVersion2).getByLabelText('Select as compared version'));
+    await user.click(within(rowForVersion3).getByLabelText('Select as baseline version'));
+    await user.click(within(rowForVersion2).getByLabelText('Select as compared version'));
 
     // Mocked data contains following content for versions:
     // Version 1: content of prompt version 1
@@ -114,7 +120,7 @@ describe('PromptsDetailsPage', () => {
     expect(document.body).toHaveTextContent(diffByWord);
 
     // Switch sides and expect the diff to change:
-    await userEvent.click(screen.getByLabelText('Switch sides'));
+    await user.click(screen.getByLabelText('Switch sides'));
     const diffByWordSwitched = [['content', 'text'], ' ', ['for', 'of'], ' prompt version ', ['2', '3']]
       .flat()
       .join('');
@@ -132,19 +138,19 @@ describe('PromptsDetailsPage', () => {
 
     expect(screen.getByLabelText('Edit tags')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByLabelText('Edit tags'));
+    await user.click(screen.getByLabelText('Edit tags'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    await userEvent.type(screen.getByRole('combobox'), 'new_tag');
-    await userEvent.click(screen.getByText('Add tag "new_tag"'));
+    await user.type(screen.getByRole('combobox'), 'new_tag');
+    await user.click(screen.getByText('Add tag "new_tag"'));
 
-    await userEvent.type(screen.getByPlaceholderText('Type a value'), 'new_value');
-    await userEvent.click(screen.getByLabelText('Add tag'));
+    await user.type(screen.getByPlaceholderText('Type a value'), 'new_value');
+    await user.click(screen.getByLabelText('Add tag'));
 
-    await userEvent.click(screen.getByText('Save tags'));
+    await user.click(screen.getByText('Save tags'));
 
     await waitFor(() => {
       expect(setTagSpy).toHaveBeenCalledWith({ key: 'new_tag', value: 'new_value', name: 'prompt1' });
@@ -161,14 +167,14 @@ describe('PromptsDetailsPage', () => {
       expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByLabelText('More actions'));
-    await userEvent.click(screen.getByText('Delete'));
+    await user.click(screen.getByLabelText('More actions'));
+    await user.click(screen.getByText('Delete'));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByText('Delete'));
+    await user.click(screen.getByText('Delete'));
 
     await waitFor(() => {
       expect(deletePromptSpy).toHaveBeenCalledWith({ name: 'prompt1' });
@@ -185,23 +191,23 @@ describe('PromptsDetailsPage', () => {
       expect(screen.getByRole('heading', { name: 'prompt1' })).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('button', { name: 'Create prompt version' }));
+    await user.click(screen.getByRole('button', { name: 'Create prompt version' }));
 
     await waitFor(() => {
       expect(screen.getByRole('dialog')).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Chat' }));
+    await user.click(screen.getByRole('radio', { name: 'Chat' }));
 
     const firstContent = document.querySelector('textarea[name="chatMessages.0.content"]') as HTMLTextAreaElement;
-    await userEvent.type(firstContent, 'Hello');
-    await userEvent.click(screen.getAllByRole('button', { name: 'Add message' })[0]);
-    await userEvent.clear(screen.getAllByPlaceholderText('role')[1]);
-    await userEvent.type(screen.getAllByPlaceholderText('role')[1], 'assistant');
+    await user.type(firstContent, 'Hello');
+    await user.click(screen.getAllByRole('button', { name: 'Add message' })[0]);
+    await user.clear(screen.getAllByPlaceholderText('role')[1]);
+    await user.type(screen.getAllByPlaceholderText('role')[1], 'assistant');
     const secondContent = document.querySelector('textarea[name="chatMessages.1.content"]') as HTMLTextAreaElement;
-    await userEvent.type(secondContent, 'Hi!');
-    await userEvent.type(screen.getByLabelText('Commit message (optional):'), 'commit message');
-    await userEvent.click(screen.getByText('Create'));
+    await user.type(secondContent, 'Hi!');
+    await user.type(screen.getByLabelText('Commit message (optional):'), 'commit message');
+    await user.click(screen.getByText('Create'));
 
     const expectedMessages = [
       { role: 'user', content: 'Hello' },
@@ -235,10 +241,10 @@ describe('PromptsDetailsPage', () => {
     expect(screen.getByText('Version 2')).toBeInTheDocument();
     expect(screen.getByText('Version 1')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Preview' }));
+    await user.click(screen.getByRole('radio', { name: 'Preview' }));
     expect(screen.queryByRole('columnheader', { name: 'Registered at' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Compare' }));
+    await user.click(screen.getByRole('radio', { name: 'Compare' }));
     expect(screen.queryByRole('columnheader', { name: 'Registered at' })).not.toBeInTheDocument();
   });
 

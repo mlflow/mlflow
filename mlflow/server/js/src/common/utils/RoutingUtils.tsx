@@ -14,7 +14,7 @@ import {
   generatePath,
   Route,
   UNSAFE_NavigationContext,
-  NavLink,
+  NavLink as NavLinkDirect,
   Outlet as OutletDirect,
   Link as LinkDirect,
   useNavigate as useNavigateDirect,
@@ -30,6 +30,7 @@ import {
   type Location,
   type NavigateFunction,
   type Params,
+  type PathMatch,
 } from 'react-router-dom';
 
 /**
@@ -37,7 +38,9 @@ import {
  */
 import { HashRouter as HashRouterV5, Link as LinkV5, NavLink as NavLinkV5 } from 'react-router-dom';
 import type { ComponentProps } from 'react';
-import React from 'react';
+import React, { useCallback } from 'react';
+
+import { prefixPathnameWithWorkspace, prefixRouteWithWorkspace } from './WorkspaceUtils';
 
 const useLocation = useLocationDirect;
 
@@ -45,13 +48,64 @@ const useSearchParams = useSearchParamsDirect;
 
 const useParams = useParamsDirect;
 
-const useNavigate = useNavigateDirect;
+type UseNavigateOptions = {
+  bypassWorkspacePrefix?: boolean;
+};
+
+const useNavigate = (options: UseNavigateOptions = { bypassWorkspacePrefix: false }): NavigateFunction => {
+  const { bypassWorkspacePrefix } = options;
+  const navigate = useNavigateDirect();
+  const wrappedNavigate = useCallback(
+    (to: To | number, options?: NavigateOptions) => {
+      if (typeof to === 'number') {
+        navigate(to);
+        return;
+      }
+      navigate(bypassWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to), options);
+    },
+    [navigate, bypassWorkspacePrefix],
+  );
+
+  return wrappedNavigate as NavigateFunction;
+};
 
 const useMatches = useMatchesDirect;
 
 const Outlet = OutletDirect;
 
-const Link = LinkDirect;
+const prefixRouteWithWorkspaceForTo = (to: To): To => {
+  if (typeof to === 'string') {
+    return prefixRouteWithWorkspace(to);
+  }
+  if (typeof to === 'object' && to !== null) {
+    const pathname = 'pathname' in to ? to.pathname : undefined;
+    if (typeof pathname === 'string') {
+      return {
+        ...to,
+        pathname: prefixPathnameWithWorkspace(pathname),
+      };
+    }
+  }
+  return to;
+};
+
+const Link = React.forwardRef<
+  HTMLAnchorElement,
+  ComponentProps<typeof LinkDirect> & { disableWorkspacePrefix?: boolean }
+>(function Link(props, ref) {
+  const { to, disableWorkspacePrefix, ...rest } = props;
+  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
+  return <LinkDirect ref={ref} to={finalTo} {...rest} />;
+});
+
+const NavLink = React.forwardRef<
+  HTMLAnchorElement,
+  ComponentProps<typeof NavLinkDirect> & { disableWorkspacePrefix?: boolean }
+>(function NavLink(props, ref) {
+  const { to, disableWorkspacePrefix, ...rest } = props;
+  const finalTo = disableWorkspacePrefix ? to : prefixRouteWithWorkspaceForTo(to);
+  return <NavLinkDirect ref={ref} to={finalTo} {...rest} />;
+});
 
 export const createMLflowRoutePath = (routePath: string) => {
   return routePath;
@@ -63,6 +117,7 @@ export {
   MemoryRouter,
   HashRouter,
   Link,
+  NavLink,
   useNavigate,
   useLocation,
   useParams,
@@ -109,4 +164,4 @@ export const usePageTitle = () => {
   return title;
 };
 
-export type { Location, NavigateFunction, Params, To, NavigateOptions };
+export type { Location, NavigateFunction, Params, To, NavigateOptions, PathMatch };

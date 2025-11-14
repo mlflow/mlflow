@@ -73,10 +73,13 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
     error: startEvaluationJobError,
   } = useMutation<StartEvaluationJobResponse, Error, StartEvaluationJobParams>({
     mutationFn: async ({ evaluateParams, traceIds }) => {
-      const responseData = await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/scorer/invoke`), 'POST', {
-        experiment_id: evaluateParams.experimentId,
-        serialized_scorer: evaluateParams.serializedScorer,
-        trace_ids: traceIds,
+      const responseData = await fetchAPI(getAjaxUrl(`ajax-api/3.0/mlflow/scorer/invoke`), {
+        method: 'POST',
+        body: {
+          experiment_id: evaluateParams.experimentId,
+          serialized_scorer: evaluateParams.serializedScorer,
+          trace_ids: traceIds,
+        },
       });
       return responseData;
     },
@@ -130,7 +133,7 @@ export const useEvaluateTracesAsync = ({ onScorerFinished }: { onScorerFinished?
     setCurrentJobsId((prevJobsId) => {
       if (prevJobsId) {
         for (const jobId of prevJobsId) {
-          fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), 'PATCH').catch(() => {
+          fetchAPI(getAjaxUrl(`ajax-api/3.0/jobs/cancel/${jobId}`), { method: 'PATCH' }).catch(() => {
             // Ignore errors - job may have already completed
           });
         }
