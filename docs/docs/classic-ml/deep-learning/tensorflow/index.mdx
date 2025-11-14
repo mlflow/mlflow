@@ -4,6 +4,7 @@ sidebar_label: TensorFlow
 ---
 
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ImageBox from "@site/src/components/ImageBox";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
@@ -16,6 +17,8 @@ import { APILink } from "@site/src/components/APILink";
 **TensorFlow** is an end-to-end open source platform for machine learning developed by Google. It provides a comprehensive ecosystem for building and deploying ML models, from research prototypes to production systems. TensorFlow's Keras API offers an intuitive interface for building neural networks while its powerful backend enables efficient computation across CPUs, GPUs, and TPUs.
 
 MLflow's TensorFlow integration provides experiment tracking, model versioning, and deployment capabilities for deep learning workflows.
+
+<ImageBox src="/images/deep-learning/tensorflow-training-ui.gif" alt="TensorFlow Training" />
 
 ## Why MLflow + TensorFlow?
 
@@ -195,28 +198,6 @@ mlflow.tensorflow.log_model(
 )
 ```
 
-### Model Signatures
-
-Add signatures for better model understanding and validation:
-
-```python
-import mlflow
-from mlflow.models import infer_signature
-import numpy as np
-
-# Sample input data
-sample_input = np.random.uniform(size=[2, 28, 28, 3])
-
-# Get predictions
-sample_output = model.predict(sample_input)
-
-# Infer signature from data
-signature = infer_signature(sample_input, sample_output)
-
-# Log model with inferred signature
-model_info = mlflow.tensorflow.log_model(model, name="model", signature=signature)
-```
-
 ## Hyperparameter Optimization
 
 Track hyperparameter tuning with MLflow:
@@ -228,40 +209,34 @@ from tensorflow import keras
 import optuna
 
 
-def create_model(trial):
-    learning_rate = trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True)
-    units = trial.suggest_int("units", 32, 512)
-    dropout = trial.suggest_float("dropout", 0.1, 0.5)
-
-    model = keras.Sequential(
-        [
-            keras.layers.Input(shape=(28, 28, 3)),
-            keras.layers.Flatten(),
-            keras.layers.Dense(units, activation="relu"),
-            keras.layers.Dropout(dropout),
-            keras.layers.Dense(10, activation="softmax"),
-        ]
-    )
-
-    model.compile(
-        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
-
-    return model
-
-
-def objective(trial):
+def objective(trial, x_train, y_train, x_val, y_val):
+    """Optuna objective for TensorFlow hyperparameter tuning."""
     with mlflow.start_run(nested=True):
+        # Define hyperparameter search space
         params = {
-            "learning_rate": trial.params["learning_rate"],
-            "units": trial.params["units"],
-            "dropout": trial.params["dropout"],
+            "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
+            "units": trial.suggest_int("units", 32, 512),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.5),
         }
-        mlflow.log_params(params)
 
-        model = create_model(trial)
+        # Create model with hyperparameters
+        model = keras.Sequential(
+            [
+                keras.layers.Input(shape=(28, 28, 3)),
+                keras.layers.Flatten(),
+                keras.layers.Dense(params["units"], activation="relu"),
+                keras.layers.Dropout(params["dropout"]),
+                keras.layers.Dense(10, activation="softmax"),
+            ]
+        )
+
+        model.compile(
+            optimizer=keras.optimizers.Adam(learning_rate=params["learning_rate"]),
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"],
+        )
+
+        # Train and evaluate
         history = model.fit(
             x_train, y_train, validation_data=(x_val, y_val), epochs=5, verbose=0
         )
@@ -269,31 +244,19 @@ def objective(trial):
         val_accuracy = max(history.history["val_accuracy"])
         mlflow.log_metric("val_accuracy", val_accuracy)
 
-        mlflow.tensorflow.log_model(model, name="model")
-
         return val_accuracy
 
 
 # Main experiment run
-with mlflow.start_run(run_name="hyperparameter_optimization"):
-    mlflow.log_params(
-        {
-            "optimization_framework": "optuna",
-            "n_trials": 20,
-            "direction": "maximize",
-            "metric": "val_accuracy",
-        }
+with mlflow.start_run(run_name="tensorflow_hyperparameter_optimization"):
+    study = optuna.create_study(direction="maximize")
+    study.optimize(
+        lambda trial: objective(trial, x_train, y_train, x_val, y_val), n_trials=20
     )
 
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=20)
-
+    # Log best parameters and results
     mlflow.log_params({f"best_{k}": v for k, v in study.best_params.items()})
     mlflow.log_metric("best_val_accuracy", study.best_value)
-
-    final_model = create_model(study.best_trial)
-    final_model.fit(x_train, y_train, epochs=10)
-    mlflow.tensorflow.log_model(final_model, name="best_model")
 ```
 
 ## Model Registry Integration
