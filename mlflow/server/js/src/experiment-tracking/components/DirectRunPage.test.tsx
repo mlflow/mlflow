@@ -9,6 +9,16 @@ import { DirectRunPage } from './DirectRunPage';
 import { useEffect } from 'react';
 import { renderWithIntl, screen, act } from '../../common/utils/TestUtils.react18';
 
+jest.mock('../../common/utils/FeatureUtils', () => {
+  const actualFeatureUtils = jest.requireActual<typeof import('../../common/utils/FeatureUtils')>(
+    '../../common/utils/FeatureUtils',
+  );
+  return {
+    ...actualFeatureUtils,
+    shouldEnableWorkspaces: () => false,
+  };
+});
+
 jest.mock('../../common/components/PageNotFoundView', () => ({
   PageNotFoundView: () => <div>Page not found</div>,
 }));
