@@ -3,199 +3,104 @@ sidebar_position: 0
 sidebar_label: Overview
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
-import { CardGroup, PageCard, SmallLogoCard } from "@site/src/components/Card";
+import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Zap, GitBranch, Gauge, Rocket, BookOpen, BarChart3, Settings, Play } from "lucide-react";
 
 # MLflow for Traditional Machine Learning
 
-**Traditional machine learning** forms the backbone of data science, powering critical applications across every industry. From fraud detection in banking to demand forecasting in retail, these proven algorithms deliver reliable, interpretable results that businesses depend on every day.
+MLflow provides comprehensive experiment tracking, model management, and deployment capabilities for traditional machine learning workflows. From scikit-learn pipelines to gradient boosting models, MLflow streamlines your path from experimentation to production.
 
-MLflow provides comprehensive support for traditional ML workflows, making it effortless to track experiments, manage models, and deploy solutions at scale. Whether you're building ensemble models, tuning hyperparameters, or deploying batch scoring pipelines, MLflow streamlines your journey from prototype to production.
+## Get Started
 
-<details>
-  <summary>Why Traditional ML Needs MLflow</summary>
+<TilesGrid>
+  <TileCard
+    icon={Play}
+    iconSize={48}
+    title="Scikit-learn Guide"
+    description="Start with scikit-learn autologging, model management, and deployment patterns."
+    href="/ml/traditional-ml/sklearn"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Zap}
+    iconSize={48}
+    title="XGBoost Guide"
+    description="Learn gradient boosting with automatic parameter and feature importance tracking."
+    href="/ml/traditional-ml/xgboost"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Spark MLlib Guide"
+    description="Scale traditional ML to big data with distributed computing."
+    href="/ml/traditional-ml/sparkml"
+    linkText="View guide →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Settings}
+    iconSize={48}
+    title="Hyperparameter Tuning"
+    description="Optimize models with GridSearchCV, RandomizedSearchCV, and Optuna integration."
+    href="/ml/getting-started/hyperparameter-tuning"
+    linkText="Start tuning →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="Model Evaluation"
+    description="Evaluate models with built-in metrics, visualizations, and custom evaluators."
+    href="/ml/evaluation"
+    linkText="Learn evaluation →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Model Deployment"
+    description="Deploy models to production with MLflow serving and cloud platforms."
+    href="/ml/deployment"
+    linkText="Deploy models →"
+    containerHeight={64}
+  />
+</TilesGrid>
 
-#### The Challenges of Traditional ML at Scale
+## Why MLflow for Traditional ML?
 
-- 🔄 **Extensive Experimentation**: Traditional ML requires systematic testing of algorithms, features, and hyperparameters to find optimal solutions
-- 📊 **Model Comparison**: Comparing performance across different algorithms and configurations becomes complex at scale
-- 🔧 **Pipeline Management**: Managing preprocessing, feature engineering, and model training workflows requires careful orchestration
-- 👥 **Team Collaboration**: Data scientists need to share experiments, models, and insights across projects
-- 🚀 **Deployment Complexity**: Moving from notebook experiments to production systems introduces operational challenges
-- 📋 **Regulatory Compliance**: Many industries require detailed model documentation and audit trails
+<ImageBox src="/images/traditional-ml-ui.gif" alt="Hyper Parameter Optimization with scikit-learn" />
 
-MLflow addresses these challenges with purpose-built tools for traditional ML workflows, providing structure and clarity throughout the entire machine learning lifecycle.
+<FeatureHighlights features={[
+  {
+    icon: Zap,
+    title: "Automatic Logging",
+    description: "Single line of code (mlflow.autolog()) captures parameters, metrics, models, and artifacts for scikit-learn, XGBoost, LightGBM, and more."
+  },
+  {
+    icon: GitBranch,
+    title: "Experiment Organization",
+    description: "Track hyperparameter searches with parent-child runs. Compare models across algorithms with visual charts and sortable tables."
+  },
+  {
+    icon: Gauge,
+    title: "Pipeline Tracking",
+    description: "Automatically log scikit-learn Pipeline components, preprocessing steps, and feature transformations with full reproducibility."
+  },
+  {
+    icon: Rocket,
+    title: "Flexible Deployment",
+    description: "Deploy models for real-time inference, batch processing, or edge deployment with Docker, Kubernetes, and cloud platform support."
+  }
+]} />
 
-</details>
-
-## Key Features for Traditional ML
-
-### 🎯 Intelligent Autologging
-
-MLflow's autologging capabilities are designed specifically for traditional ML libraries:
-
-- **One-Line Integration** for scikit-learn, XGBoost, LightGBM, and more
-- **Automatic Parameter Capture** logs all model hyperparameters without manual intervention
-- **Built-in Evaluation Metrics** automatically computes and stores relevant performance metrics
-- **Model Serialization** handles complex objects like pipelines and custom transformers seamlessly
-
-<details>
-  <summary>Advanced Autologging Features</summary>
-
-#### Beyond Basic Tracking
-
-MLflow's autologging system provides sophisticated capabilities for traditional ML:
-
-- **Pipeline Stage Tracking**: Automatically log parameters and transformations for each pipeline component
-- **Hyperparameter Search Integration**: Native support for GridSearchCV, RandomizedSearchCV, and popular optimization libraries
-- **Cross-Validation Results**: Capture detailed CV metrics and fold-by-fold performance
-- **Feature Importance**: Automatically log feature importance scores for supported models
-- **Model Signatures**: Infer and store input/output schemas for deployment validation
-- **Custom Metrics**: Seamlessly integrate domain-specific evaluation functions
-
-</details>
-
-<Tabs>
-  <TabItem default label="Experiment Comparison" value="experiment-comparison">
-    #### Compare Model Performance Across Algorithms
-
-    When building traditional ML solutions, you'll often need to test multiple algorithms to find the best approach for your specific problem. MLflow makes this comparison effortless by automatically tracking all your experiments in one place.
-
-    **Why This Matters:**
-    - **Save Time**: No more manually tracking results in spreadsheets or notebooks
-    - **Make Better Decisions**: Easily spot which algorithms perform best on your data
-    - **Avoid Mistakes**: Never lose track of promising model configurations
-    - **Share Results**: Team members can see all experiments and build on each other's work
-
-    **What You Get:**
-    - Visual charts comparing accuracy, precision, recall across all your models
-    - Sortable tables showing parameter combinations and their results
-    - Quick filtering to find models that meet specific performance criteria
-    - Export capabilities to share findings with stakeholders
-
-    Perfect for data scientists who need to systematically evaluate Random Forest vs. XGBoost vs. Logistic Regression, or compare different feature engineering approaches across the same algorithm.
-
-  </TabItem>
-
-  <TabItem label="Hyperparameter Tuning" value="hyperparameter-tuning">
-    #### Visualize Hyperparameter Search Results
-
-    Hyperparameter tuning is often the difference between a mediocre model and a great one, but managing hundreds of parameter combinations can be overwhelming. MLflow automatically organizes your tuning experiments so you can focus on insights, not bookkeeping.
-
-    **Why This Matters:**
-    - **Find Optimal Settings**: Quickly identify which parameter combinations yield the best results
-    - **Understand Patterns**: See how different parameters interact to affect model performance
-    - **Avoid Overfitting**: Track validation scores alongside training metrics to catch overfitting early
-    - **Resume Interrupted Searches**: Never lose progress if your tuning job gets interrupted
-
-    **What You Get:**
-    - Automatic logging of GridSearchCV and RandomizedSearchCV results
-    - Parent-child experiment structure showing individual parameter trials seamlessly nested for exploration
-    - Visual plots showing parameter sensitivity and interaction effects
-
-    Essential for ML practitioners using scikit-learn's built-in tuning tools or external libraries like Optuna for Bayesian optimization.
-
-  </TabItem>
-
-  <TabItem label="Model Registry" value="model-registry">
-    #### Manage Model Versions and Lifecycle
-
-    As your ML projects mature, you'll accumulate dozens of models across different experiments. Without proper organization, finding your best model or managing production deployments becomes a nightmare. The Model Registry solves this by providing a centralized catalog for all your models.
-
-    **Why This Matters:**
-    - **Never Lose Your Best Model**: Even if your laptop crashes, your models are safely stored and versioned
-    - **Control Deployments**: Promote models through staging → production with proper approvals
-    - **Enable Collaboration**: Team members can discover and build upon each other's models
-    - **Maintain Compliance**: Keep detailed records of model lineage for regulatory requirements
-
-    **What You Get:**
-    - Automatic versioning every time you save a model
-    - Stage management (Development → Staging → Production → Archived)
-    - Rich metadata including performance metrics, training datasets, and model descriptions
-    - Integration with deployment systems for seamless production updates
-
-    Critical for teams moving beyond experimental notebooks to production ML systems that need governance and reliability.
-
-  </TabItem>
-
-  <TabItem label="Pipeline Tracking" value="pipeline-tracking">
-    #### Track Complex ML Pipelines
-
-    Traditional ML rarely involves just training a model—you need preprocessing, feature engineering, validation, and often multiple modeling steps. As these pipelines grow complex, keeping track of all the moving pieces becomes essential for reproducibility and debugging.
-
-    **Why This Matters:**
-    - **Reproduce Results**: Capture every step so you can recreate successful experiments months later
-    - **Debug Issues**: When something goes wrong, know exactly which pipeline component caused the problem
-    - **Optimize Performance**: Identify bottlenecks in your data processing and modeling workflow
-    - **Scale Confidently**: Move from small experiments to production pipelines with confidence
-
-    **What You Get:**
-    - Automatic logging of scikit-learn Pipeline components and parameters
-    - Step-by-step execution tracking showing data transformations
-    - Input/output schema validation to catch data compatibility issues early
-    - Artifact storage for intermediate results and debugging information
-
-    Invaluable for data scientists working with real-world data that requires extensive cleaning, feature engineering, and validation before modeling.
-
-  </TabItem>
-</Tabs>
-
-### 🏗️ Pipeline Management
-
-Traditional ML workflows often involve complex preprocessing and feature engineering:
-
-- **End-to-End Pipeline Tracking** captures every transformation step
-- **Custom Transformer Support** works with sklearn pipelines and custom components
-- **Reproducible Workflows** guarantee identical results across different environments
-- **Pipeline Versioning** manages evolving feature engineering processes
-- **Cross-Validation Integration** tracks performance across different data splits
-- **Data Validation** ensures consistent preprocessing across training and inference
-
-<details>
-  <summary>Enterprise Pipeline Features</summary>
-
-#### Production-Ready Pipeline Management
-
-MLflow provides enterprise-grade capabilities for traditional ML pipelines:
-
-- **Schema Evolution**: Handle changes in input data schemas gracefully
-- **Batch Processing**: Support for large-scale batch inference workflows
-- **Model Monitoring**: Track data drift and model performance degradation
-- **A/B Testing**: Compare model versions in production environments
-- **Rollback Capabilities**: Quickly revert to previous model versions when issues arise
-
-</details>
-
-### 🚀 Flexible Deployment
-
-Deploy traditional ML models across various environments and use cases:
-
-- **Real-Time Inference** for low-latency prediction services
-- **Batch Processing** for large-scale scoring jobs
-- **Edge Deployment** for offline and mobile applications
-- **Containerized Serving** with Docker and Kubernetes support
-- **Cloud Integration** across AWS, Azure, and Google Cloud platforms
-- **Custom Serving Logic** for complex preprocessing and postprocessing requirements
-
-<details>
-  <summary>Advanced Deployment Options</summary>
-
-#### Beyond Basic Model Serving
-
-MLflow supports sophisticated deployment patterns for traditional ML:
-
-- **Multi-Model Endpoints**: Serve multiple models from a single endpoint with routing logic
-- **Ensemble Serving**: Deploy model ensembles with custom combination strategies
-- **Preprocessing Integration**: Include feature engineering pipelines in served models
-- **Monitoring Integration**: Connect to observability platforms for production tracking
-- **Auto-Scaling**: Handle variable loads with dynamic resource allocation
-
-</details>
-
-## Library Integrations
-
-MLflow provides native support for all major traditional ML libraries, enabling seamless integration with your existing workflows while adding powerful experiment tracking and model management capabilities.
+## Supported Libraries
 
 <CardGroup>
   <SmallLogoCard link="/ml/traditional-ml/sklearn">![scikit learn](/images/logos/scikit-learn-logo.svg)</SmallLogoCard>
@@ -207,215 +112,34 @@ MLflow provides native support for all major traditional ML libraries, enabling 
   <SmallLogoCard link="/ml/traditional-ml/prophet">![Prophet Logo](/images/logos/prophet-logo.png)</SmallLogoCard>
 </CardGroup>
 
-## Getting Started
-
-<details>
-  <summary>Quick Setup Guide</summary>
-
-### 1. Install MLflow
-
-```bash
-pip install mlflow
-```
-
-For specific integrations, install the corresponding packages:
-
-```bash
-# For scikit-learn
-pip install scikit-learn
-
-# For XGBoost
-pip install xgboost
-```
-
-### 2. Enable Autologging
-
-```python
-import mlflow
-
-# For scikit-learn
-mlflow.sklearn.autolog()
-
-# For XGBoost
-mlflow.xgboost.autolog()
-
-# For all supported frameworks
-mlflow.autolog()
-```
-
-### 3. Train Your Model Normally
-
-```python
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
-
-# Your existing training code works unchanged!
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
-
-with mlflow.start_run():
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-```
-
-### 4. View Results
-
-Open the MLflow UI to see your tracked experiments:
-
-```bash
-mlflow ui
-```
-
-</details>
-
-## Real-World Applications
-
-Traditional ML with MLflow powers critical applications across industries:
-
-- 💳 **Financial Services**: Credit scoring, fraud detection, and risk assessment models with comprehensive audit trails
-- 🏥 **Healthcare**: Clinical decision support systems with interpretable models and regulatory compliance
-- 🛒 **Retail & E-commerce**: Demand forecasting, recommendation engines, and customer segmentation analytics
-- 🏭 **Manufacturing**: Predictive maintenance, quality control, and supply chain optimization
-- 📞 **Telecommunications**: Customer churn prediction, network optimization, and service quality monitoring
-- 🚗 **Transportation**: Route optimization, demand prediction, and fleet management systems
-- 🏢 **Insurance**: Underwriting models, claims processing, and actuarial analysis
-- 🎯 **Marketing**: Customer lifetime value, campaign optimization, and market basket analysis
-
-## Advanced Topics
-
-<Tabs>
-  <TabItem value="hyperparameter" label="Hyperparameter Optimization" default>
-
-MLflow integrates seamlessly with popular hyperparameter optimization frameworks:
-
-```python
-import mlflow
-import optuna
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import cross_val_score
-
-
-def objective(trial):
-    with mlflow.start_run(nested=True):
-        # Define hyperparameter search space
-        n_estimators = trial.suggest_int("n_estimators", 10, 100)
-        max_depth = trial.suggest_int("max_depth", 1, 10)
-
-        # Train and evaluate model
-        model = RandomForestClassifier(
-            n_estimators=n_estimators, max_depth=max_depth, random_state=42
-        )
-
-        scores = cross_val_score(model, X_train, y_train, cv=5)
-        return scores.mean()
-
-
-# Run optimization study
-with mlflow.start_run():
-    study = optuna.create_study(direction="maximize")
-    study.optimize(objective, n_trials=50)
-
-    # Log best results
-    mlflow.log_params(study.best_params)
-    mlflow.log_metric("best_accuracy", study.best_value)
-```
-
-  </TabItem>
-  <TabItem value="interpretability" label="Model Interpretability">
-
-MLflow provides built-in SHAP integration for automatic model explanations:
-
-```python
-import mlflow
-
-with mlflow.start_run():
-    # Train and log model
-    model = RandomForestClassifier(n_estimators=100)
-    model.fit(X_train, y_train)
-    model_info = mlflow.sklearn.log_model(model, name="model")
-
-    # Evaluate with automatic SHAP explanations
-    result = mlflow.evaluate(
-        model_info.model_uri,
-        eval_data,
-        targets="label",
-        model_type="classifier",
-        evaluator_config={"log_explainer": True},  # Enable SHAP
-    )
-
-    # SHAP plots and explainers automatically generated
-```
-
-  </TabItem>
-</Tabs>
-
-## Tutorials and Guides
-
-<CardGroup>
-  <PageCard headerText="Hyperparameter Tuning with MLflow and Optuna" link="/ml/traditional-ml/tutorials/hyperparameter-tuning" text="Explore the integration of MLflow Tracking with Optuna for hyperparameter optimization. Learn to leverage parent-child run relationships and compare tuning experiments to maximize model performance." />
-  <PageCard headerText="Custom PyFunc Models with MLflow" link="/ml/traditional-ml/tutorials/creating-custom-pyfunc" text="Discover the power of MLflow's Custom PyFunc for creating standardized, reproducible workflows. From simple mathematical models to complex machine learning integrations, learn to build flexible model interfaces." />
-  <PageCard headerText="Multi-Model Endpoints with PyFunc" link="/ml/traditional-ml/tutorials/serving-multiple-models-with-pyfunc" text="Build sophisticated multi-model inference systems using MLflow's PyFunc framework. Learn to create low-latency endpoints serving multiple models with custom routing logic." />
-</CardGroup>
-
-## MLflow Components
-
-<Tabs>
-  <TabItem value="tracking" label="MLflow Tracking" default>
-
-Tracking is central to the MLflow ecosystem, facilitating the systematic organization of experiments and models:
-
-- **Experiments and Models**: Each experiment encapsulates a specific aspect of your research, and each experiment can house multiple models. Models document critical data like metrics, parameters, and the code state.
-- **Artifacts**: Store crucial output from experiments, be it models, visualizations, datasets, or other metadata. This repository of artifacts ensures traceability and easy access.
-- **Metrics and Parameters**: By allowing users to log parameters and metrics, MLflow makes it straightforward to compare different models, facilitating model optimization.
-- **Dependencies and Environment**: The platform automatically captures the computational environment, ensuring that experiments are reproducible across different setups.
-- **Input Examples and Model Signatures**: These features allow developers to define the expected format of the model's inputs, making validation and debugging more straightforward.
-- **UI Integration**: The integrated UI provides a visual overview of all models, enabling easy comparison and deeper insights.
-- **Search Functionality**: Efficiently sift through your experiments using MLflow's robust search functionality.
-- **APIs**: Comprehensive APIs are available, allowing users to interact with the tracking system programmatically, integrating it into existing workflows.
-
-[Learn more about MLflow Tracking →](/ml/tracking)
-
-  </TabItem>
-  <TabItem value="evaluate" label="MLflow Evaluate">
-
-Ensuring model quality is paramount:
-
-- **Auto-generated Metrics**: MLflow automatically evaluates models, providing key metrics for regression (like RMSE, MAE) and classification (such as F1-score, AUC-ROC).
-- **Visualization**: Understand your model better with automatically generated plots. For instance, MLflow can produce confusion matrices, precision-recall curves, and more for classification tasks.
-- **Extensibility**: While MLflow provides a rich set of evaluation tools out of the box, it's also designed to accommodate custom metrics and visualizations.
-
-[Learn more about MLflow Evaluate →](/ml/evaluation)
-
-  </TabItem>
-  <TabItem value="registry" label="Model Registry">
-
-This feature acts as a catalog for models:
-
-- **Versioning**: As models evolve, keeping track of versions becomes crucial. The Model Registry handles versioning, ensuring that users can revert to older versions or compare different iterations.
-- **Annotations** (`tags`): Models in the registry can be annotated with descriptions, use-cases, or other relevant metadata.
-- **Lifecycle Stages**: Track the stage of each model version, be it 'staging', 'production', or 'archived'. This ensures clarity in deployment and maintenance processes.
-
-[Learn more about Model Registry →](/ml/model-registry)
-
-  </TabItem>
-  <TabItem value="deployment" label="Deployment">
-
-MLflow simplifies the transition from development to production:
-
-- **Consistency**: By meticulously recording dependencies and the computational environment, MLflow ensures that models behave consistently across different deployment setups.
-- **Docker Support**: Facilitate deployment in containerized environments using Docker, encapsulating all dependencies and ensuring a uniform runtime environment.
-- **Scalability**: MLflow is designed to accommodate both small-scale deployments and large, distributed setups, ensuring that it scales with your needs.
-
-[Learn more about MLflow Deployment →](/ml/deployment)
-
-  </TabItem>
-</Tabs>
-
 ## Learn More
 
-Dive deeper into MLflow's capabilities for traditional machine learning:
-
-- **[Scikit-learn Guide](/ml/traditional-ml/sklearn)**: Master MLflow's integration with the most popular Python ML library
-- **[XGBoost Guide](/ml/traditional-ml/xgboost)**: Learn advanced gradient boosting workflows with automatic experiment tracking
-- **[Spark MLlib Guide](/ml/traditional-ml/sparkml)**: Scale traditional ML to big data with distributed computing support
-- **[Model Registry](/ml/model-registry)**: Implement enterprise model governance and lifecycle management
-- **[MLflow Deployments](/ml/deployment)**: Deploy traditional ML models to production environments
+<TilesGrid>
+  <TileCard
+    icon={BookOpen}
+    iconSize={48}
+    title="Model Registry"
+    description="Manage model versions, aliases, and deployment lifecycle with centralized governance."
+    href="/ml/model-registry"
+    linkText="View registry docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={BarChart3}
+    iconSize={48}
+    title="MLflow Tracking"
+    description="Track experiments, parameters, metrics, and artifacts across all ML workflows."
+    href="/ml/tracking"
+    linkText="View tracking docs →"
+    containerHeight={64}
+  />
+  <TileCard
+    icon={Rocket}
+    iconSize={48}
+    title="Custom PyFunc Models"
+    description="Create standardized, reproducible model interfaces with MLflow's PyFunc framework."
+    href="/ml/traditional-ml/tutorials/creating-custom-pyfunc"
+    linkText="View tutorial →"
+    containerHeight={64}
+  />
+</TilesGrid>

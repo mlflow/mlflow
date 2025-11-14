@@ -319,8 +319,6 @@ with mlflow.start_run():
 Log Prophet forecast components as artifacts:
 
 ```python
-import matplotlib.pyplot as plt
-
 with mlflow.start_run():
     model = Prophet()
     model.fit(df)
@@ -330,16 +328,12 @@ with mlflow.start_run():
     forecast = model.predict(future)
 
     # Log component plots
-    fig = model.plot_components(forecast)
-    plt.savefig("forecast_components.png")
-    mlflow.log_artifact("forecast_components.png")
-    plt.close()
+    fig_components = model.plot_components(forecast)
+    mlflow.log_figure(fig_components, "forecast_components.png")
 
     # Log forecast plot
-    fig = model.plot(forecast)
-    plt.savefig("forecast_plot.png")
-    mlflow.log_artifact("forecast_plot.png")
-    plt.close()
+    fig_forecast = model.plot(forecast)
+    mlflow.log_figure(fig_forecast, "forecast_plot.png")
 
     # Log model
     mlflow.prophet.log_model(pr_model=model, name="prophet_model")

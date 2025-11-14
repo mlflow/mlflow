@@ -197,19 +197,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/sparkml/index',
               label: 'SparkML',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sparkml/guide/index',
-                  label: 'SparkML within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sparkml/index',
-              },
             },
             {
               type: 'doc',
@@ -246,23 +236,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/quickstart/quickstart-pytorch-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/pytorch/index',
-              },
             },
             {
               type: 'category',

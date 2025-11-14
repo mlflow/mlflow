@@ -160,6 +160,10 @@ class Routes {
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
   }
 
+  static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
+    return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
+  }
+
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {
     return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
   }

@@ -72,37 +72,66 @@ const createDatasetHash = (datasetName?: string, datasetDigest?: string) => {
 };
 
 // Creates a metric column ID based on the metric key and optional dataset name and digest.
-// The ID format is:
-// - `metrics.<datasetHash>.<metricKey>` for metrics grouped by dataset
-// - `metrics.<metricKey>` for ungrouped metrics
-// The dataset hash is created using the dataset name and digest: [datasetName, datasetDigest]
-const createLoggedModelMetricOrderByColumnId = (metricKey: string, datasetName?: string, datasetDigest?: string) => {
-  const isUngroupedMetricColumn = !datasetName || !datasetDigest;
-  if (isUngroupedMetricColumn) {
-    return `${LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX}${metricKey}`;
+const createLoggedModelMetricOrderByColumnId = (
+  metricKey: string,
+  datasetName?: string,
+  datasetDigest?: string,
+): string => {
+  const data: {
+    metricKey: string;
+    datasetName?: string;
+    datasetDigest?: string;
+  } = { metricKey };
+
+  // Only include dataset fields if both are provided
+  if (datasetName && datasetDigest) {
+    data.datasetName = datasetName;
+    data.datasetDigest = datasetDigest;
   }
-  return `${LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX}${createDatasetHash(datasetName, datasetDigest)}.${metricKey}`;
+
+  return `${LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX}${JSON.stringify(data)}`;
 };
 
-// Parse `metrics.<datasetHash>.<metricKey>` format
-// and return dataset name, digest and metric key.
-// Make it fall back to default values on error.
+// Parse `metrics.<json>` format and return the structured data
+// Falls back to safe defaults on any parsing error
 export const parseLoggedModelMetricOrderByColumnId = (metricColumnId: string) => {
-  const match = metricColumnId.match(/metrics\.(.*?)(?:\.(.*))?$/);
+  // Default fallback values
+  const fallback = {
+    metricKey: metricColumnId,
+    datasetName: undefined,
+    datasetDigest: undefined,
+  };
+
+  // Check if it has the expected prefix
+  if (!metricColumnId.startsWith(LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX)) {
+    return fallback;
+  }
+
+  // Extract the JSON part
+  const jsonPart = metricColumnId.slice(LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX.length);
+
   try {
-    if (match) {
-      const [, datasetHashOrMetricKey, metricKey] = match;
-      if (!metricKey) {
-        return { datasetName: undefined, datasetDigest: undefined, metricKey: datasetHashOrMetricKey };
-      }
-      const [datasetName, datasetDigest] = JSON.parse(datasetHashOrMetricKey);
-      return { datasetName, datasetDigest, metricKey };
+    const parsed = JSON.parse(jsonPart) as {
+      metricKey: string;
+      datasetName?: string;
+      datasetDigest?: string;
+    };
+
+    // Validate that we have at least a metricKey
+    if (!parsed.metricKey || typeof parsed.metricKey !== 'string') {
+      throw new Error('Invalid metric column data: missing or invalid metricKey');
     }
+
+    return {
+      metricKey: parsed.metricKey,
+      datasetName: parsed.datasetName,
+      datasetDigest: parsed.datasetDigest,
+    };
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to parse metric column ID', error);
+    console.error('Failed to parse metric column ID:', error);
+    return fallback;
   }
-  return { datasetName: undefined, datasetDigest: undefined, metricKey: metricColumnId };
 };
 
 /**
