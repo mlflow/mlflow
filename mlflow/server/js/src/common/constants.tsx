@@ -37,7 +37,7 @@ export const LoggingRunsDocUrl = `${DOCS_ROOT}/tracking.html#logging-data-to-run
 
 export const onboarding = 'onboarding';
 
-export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues';
+export const SupportPageUrl = 'https://github.com/mlflow/mlflow/issues/new?template=ui_bug_report_template.yaml';
 
 export const ModelSignatureUrl = `${DOCS_ROOT}/models.html#model-signature`;
 

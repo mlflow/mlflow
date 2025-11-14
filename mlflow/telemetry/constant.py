@@ -51,7 +51,6 @@ GENAI_MODULES = {
 NON_GENAI_MODULES = {
     # Classic ML
     "catboost",
-    "diviner",
     "h2o",
     "lightgbm",
     "optuna",

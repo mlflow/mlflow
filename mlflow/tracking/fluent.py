@@ -404,7 +404,7 @@ def start_run(
             and _active_experiment_id != active_run_obj.info.experiment_id
         ):
             raise MlflowException(
-                f"Cannot start run with ID {existing_run_id} because active run ID "
+                f"Cannot start run with ID {existing_run_id} because active experiment ID "
                 "does not match environment run ID. Make sure --experiment-name "
                 "or --experiment-id matches experiment set with "
                 "set_experiment(), or just use command-line arguments"
