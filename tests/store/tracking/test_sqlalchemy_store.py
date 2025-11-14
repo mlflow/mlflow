@@ -11413,13 +11413,17 @@ def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: boo
         )
     )
 
-    trace = store.get_trace(trace_id, allow_partial=allow_partial)
     if allow_partial:
+        trace = store.get_trace(trace_id, allow_partial=allow_partial)
         assert trace is not None
         assert len(trace.data.spans) == 1
         assert trace.data.spans[0].name == "span_1"
     else:
-        assert trace is None
+        with pytest.raises(
+            MlflowException,
+            match=f"Trace with ID {trace_id} is not fully exported yet",
+        ):
+            store.get_trace(trace_id, allow_partial=allow_partial)
 
 
 @pytest.mark.parametrize("allow_partial", [True, False])

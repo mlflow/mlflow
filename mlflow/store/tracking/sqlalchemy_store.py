@@ -3545,8 +3545,13 @@ class SqlAlchemyStore(AbstractStore):
                 # only retry if the spans are not fully exported
                 if trace := self._get_trace(trace_id, allow_partial):
                     return trace
-                time.sleep(2**retry_count)
-            return None
+                elif retry_count < 2:
+                    time.sleep(2**retry_count)
+            raise MlflowException(
+                message=f"Trace with ID {trace_id} is not fully exported yet, "
+                "please try again later.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
         return self._get_trace(trace_id, allow_partial)
 
     def _get_trace(self, trace_id: str, allow_partial: bool) -> Trace | None:

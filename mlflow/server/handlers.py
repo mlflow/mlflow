@@ -663,7 +663,14 @@ def _get_request_message(request_message, flask_request=request, schema=None):
             if is_repeated:
                 request_json[field.name] = flask_request.args.getlist(field.name)
             else:
-                request_json[field.name] = flask_request.args.get(field.name)
+                value = flask_request.args.get(field.name)
+                if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
+                    if value.lower() not in ["true", "false"]:
+                        raise MlflowException.invalid_parameter_value(
+                            f"Invalid boolean value: {value}, must be a boolean.",
+                        )
+                    value = value.lower() == "true"
+                request_json[field.name] = value
     else:
         request_json = _get_request_json(flask_request)
 
@@ -2958,18 +2965,11 @@ def _get_trace() -> Response:
         GetTrace(),
         schema={
             "trace_id": [_assert_string, _assert_required],
+            "allow_partial": [_assert_bool],
         },
     )
     trace_id = request_message.trace_id
-    allow_partial = (
-        request_message.allow_partial if request_message.HasField("allow_partial") else False
-    )
-    if isinstance(allow_partial, str):
-        allow_partial = allow_partial.lower() == "true"
-    if not isinstance(allow_partial, bool):
-        raise MlflowException.invalid_parameter_value(
-            f"Invalid allow_partial value: {allow_partial}, must be a boolean.",
-        )
+    allow_partial = request_message.allow_partial
     trace = _get_tracking_store().get_trace(trace_id, allow_partial=allow_partial)
     response_message = GetTrace.Response(trace=trace.to_proto())
     return _wrap_response(response_message)
@@ -3166,25 +3166,27 @@ def get_trace_artifact_handler():
     try:
         # allow partial so the front end can render in-progress traces
         trace = _get_tracking_store().get_trace(request_id, allow_partial=True)
-        trace_data = trace.data.to_dict()
     except MlflowNotImplementedException:
         pass
     except MlflowTracingException:
         trace_data_in_artifact_repo = True
+    else:
+        trace_data = trace.data.to_dict()
 
     if not trace_data_in_artifact_repo:
         try:
             traces = _get_tracking_store().batch_get_traces([request_id], None)
+        # For stores that don't support batch get traces, or if the trace data is not stored in the
+        # tracking store, we need to get the trace data from the artifact repository.
+        except (MlflowTracingException, MlflowNotImplementedException):
+            trace_data_in_artifact_repo = True
+        else:
             if len(traces) != 1:
                 raise MlflowException(
                     f"Trace with id={request_id} not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             trace_data = traces[0].data.to_dict()
-        # For stores that don't support batch get traces, or if the trace data is not stored in the
-        # tracking store, we need to get the trace data from the artifact repository.
-        except (MlflowTracingException, MlflowNotImplementedException):
-            trace_data_in_artifact_repo = True
 
     if trace_data_in_artifact_repo:
         trace_info = _get_tracking_store().get_trace_info(request_id)
