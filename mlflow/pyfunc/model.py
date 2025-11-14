@@ -1262,9 +1262,10 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
     else:
         if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
-                "Unsafe pickle deserialization is disallowed by default, but this model is saved "
+                "Unsafe pickle deserialization is disallowed, but this model is saved "
                 "as pickle format. To address this issue, you need to set environment variable "
-                "to 'true', or save the model as 'model from code' artifacts."
+                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model as "
+                "the 'model from code' artifact."
             )
 
         warnings.warn(
