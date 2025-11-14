@@ -753,13 +753,15 @@ const config: Config = {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
-            to: '/ml/deep-learning/pytorch/guide',
-            from: ['/deep-learning/pytorch/guide'],
-          },
-          {
-            to: '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
-            from: ['/deep-learning/pytorch/quickstart/pytorch_quickstart'],
+            to: '/ml/deep-learning/pytorch',
+            from: [
+              '/deep-learning/pytorch/guide',
+              '/ml/deep-learning/pytorch/guide',
+              '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+              '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
           },
           {
             to: '/ml/deep-learning/sentence-transformers',
@@ -795,13 +797,15 @@ const config: Config = {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
-            to: '/ml/deep-learning/tensorflow/guide',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            to: '/ml/deep-learning/tensorflow',
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',

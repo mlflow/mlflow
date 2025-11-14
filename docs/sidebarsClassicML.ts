@@ -246,42 +246,14 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/quickstart/quickstart-pytorch-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/pytorch/index',
-              },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/quickstart/quickstart-tensorflow-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/tensorflow/index',
-              },
             },
             {
               type: 'category',
