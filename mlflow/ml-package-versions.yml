@@ -856,7 +856,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
-    maximum: "0.203.1"
+    maximum: "1.4.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
