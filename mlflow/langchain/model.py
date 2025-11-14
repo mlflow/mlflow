@@ -888,6 +888,13 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
                 "as pickle format. To address this issue, you need to set environment variable "
                 "to 'true', or save the langchain model as 'model from code' artifacts."
             )
+        warnings.warn(
+            "The Langchain model is saved by unsafe pickler, this saving format is deprecated, "
+            "and will be disabled  by default in future MLflow versions. Saving Langchain model as "
+            "the 'model from code' artifact is the recommended way.",
+            FutureWarning,
+            stacklevel=2,
+        )
         model = _load_model(local_model_path, flavor_conf)
     # set active model after model loading since experiment ID might be set
     # in the model loading process

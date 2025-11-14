@@ -51,7 +51,6 @@ env:
   MLFLOW_HOME: ${{ github.workspace }}
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
   PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
-  MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION: true
 
 jobs:
   set-matrix:

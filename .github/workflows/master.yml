@@ -33,7 +33,6 @@ env:
   PYTHONUTF8: "1"
   _MLFLOW_TESTING_TELEMETRY: "true"
   MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
-  MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION: "true"
 
 jobs:
   # python-skinny tests cover a subset of mlflow functionality

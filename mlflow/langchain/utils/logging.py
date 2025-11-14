@@ -305,9 +305,9 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
         )
 
     warnings.warn(
-        "Saving langchain model by pickler is deprecated and will be removed in a future "
-        "version. Please set 'lc_model' parameter to a file path containing the LangChain model "
-        "code when saving the langchain model.",
+        "Saving Langchain model by unsafe pickler is deprecated, and will be disabled "
+        "by default in future MLflow versions. Saving Langchain model as the 'model from code' "
+        "artifact is the recommended way.",
         FutureWarning,
         stacklevel=2,
     )
