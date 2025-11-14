@@ -1,1 +1,1 @@
-export const SECRETS_BASE_ROUTE = '/secrets';
+export const SECRETS_BASE_ROUTE = '/gateway';

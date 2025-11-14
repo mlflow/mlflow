@@ -2,12 +2,20 @@ import {
   Button,
   ChevronDownIcon,
   ChevronRightIcon,
+  DialogCombobox,
+  DialogComboboxContent,
+  DialogComboboxOptionList,
+  DialogComboboxOptionListSelectItem,
+  DialogComboboxTrigger,
   Drawer,
   FormUI,
   Input,
   LightningIcon,
   PencilIcon,
-  RefreshIcon,
+  Radio,
+  SimpleSelect,
+  SimpleSelectOption,
+  Spinner,
   Tag,
   TrashIcon,
   Typography,
@@ -15,46 +23,65 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useState, useMemo, useEffect } from 'react';
-// eslint-disable-next-line import/no-extraneous-dependencies
-import { notification } from 'antd';
 import type { Route } from '../types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { Descriptions } from '@mlflow/mlflow/src/common/components/Descriptions';
 import { KeyValueTag } from '@mlflow/mlflow/src/common/components/KeyValueTag';
-import { MaskedApiKeyInput } from './MaskedApiKeyInput';
 import { ProviderBadge } from './ProviderBadge';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
-import { useListRoutes } from '../hooks/useListRoutes';
-import { useUpdateSecretMutation } from '../hooks/useUpdateSecretMutation';
-import { useDeleteSecretMutation } from '../hooks/useDeleteSecretMutation';
+import { MaskedApiKeyInput } from './MaskedApiKeyInput';
+import { AuthConfigFields } from './AuthConfigFields';
+import { PROVIDERS } from './routeConstants';
 
 export interface RouteDetailDrawerProps {
   route: Route | null;
   open: boolean;
   onClose: () => void;
-  onUpdate?: (route: Route) => void;
+  onUpdate?: (
+    routeId: string,
+    updateData: {
+      secret_id?: string;
+      secret_name?: string;
+      secret_value?: string;
+      provider?: string;
+      auth_config?: string;
+    },
+  ) => void;
   onDelete?: (route: Route) => void;
 }
+
+type ManagementOperation = 'changeSecret' | 'deleteRoute' | null;
+type SecretSource = 'existing' | 'new';
 
 export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: RouteDetailDrawerProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
-  // Route management state
-  const [routeManagementExpanded, setRouteManagementExpanded] = useState(false);
+  // Management operation state
+  const [selectedOperation, setSelectedOperation] = useState<ManagementOperation>(null);
+  const [showResourceUsage, setShowResourceUsage] = useState(false);
+
+  // Delete route state
   const [routeDeleteConfirmation, setRouteDeleteConfirmation] = useState('');
 
-  // Secret management state
-  const [secretManagementExpanded, setSecretManagementExpanded] = useState(false);
-  const [managementMode, setManagementMode] = useState<'view' | 'rotate'>('view');
-  const [newSecretValue, setNewSecretValue] = useState('');
-  const [secretDeleteConfirmation, setSecretDeleteConfirmation] = useState('');
-  const [error, setError] = useState<string | undefined>(undefined);
+  // Change secret state
+  const [secretSource, setSecretSource] = useState<SecretSource>('existing');
+  const [selectedSecretId, setSelectedSecretId] = useState<string>('');
+  const [newSecretName, setNewSecretName] = useState<string>('');
+  const [newSecretValue, setNewSecretValue] = useState<string>('');
+  const [newSecretProvider, setNewSecretProvider] = useState<string>('');
+  const [authConfig, setAuthConfig] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<{
+    secretId?: string;
+    secretName?: string;
+    secretValue?: string;
+    provider?: string;
+  }>({});
+  const [isLoading, setIsLoading] = useState(false);
 
-  // Fetch data for secret management
+  // Fetch data
   const { secrets = [] } = useListSecrets({ enabled: open });
-  const { routes = [] } = useListRoutes({ enabled: open });
   const { bindings = [] } = useListBindings({
     secretId: route?.secret_id || '',
     enabled: open && !!route?.secret_id,
@@ -65,99 +92,28 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
     return secrets.find((s) => s.secret_id === route?.secret_id);
   }, [secrets, route?.secret_id]);
 
-  // Calculate impact - routes using this secret and their bindings
-  const routesUsingSecret = useMemo(() => {
-    if (!currentSecret) return [];
-    return routes.filter((r) => r.secret_id === currentSecret.secret_id);
-  }, [routes, currentSecret]);
+  // Get the binding for this specific route to show the environment variable
+  const routeBinding = useMemo(() => {
+    if (!route) return null;
+    return bindings.find((b) => b.route_id === route.route_id);
+  }, [bindings, route]);
 
-  const resourceBindings = useMemo(() => {
-    if (!currentSecret) return [];
-    // Filter out GLOBAL bindings - only show specific resource bindings
-    return bindings.filter((b) => b.secret_id === currentSecret.secret_id && b.resource_type !== 'GLOBAL');
-  }, [bindings, currentSecret]);
-
-  // Reset management sections when route changes
+  // Reset when route changes
   useEffect(() => {
-    setRouteManagementExpanded(false);
-    setRouteDeleteConfirmation('');
-    setSecretManagementExpanded(false);
-    setManagementMode('view');
-    setNewSecretValue('');
-    setSecretDeleteConfirmation('');
-    setError(undefined);
-  }, [route?.route_id]);
-
-  // Mutation hooks
-  const { updateSecret, isLoading: isUpdating } = useUpdateSecretMutation({
-    onSuccess: () => {
-      notification.success({
-        message: intl.formatMessage({
-          defaultMessage: 'Key rotated successfully',
-          description: 'Route detail drawer > rotate key success',
-        }),
-      });
-      setManagementMode('view');
+    if (route && open) {
+      setSelectedOperation(null);
+      setShowResourceUsage(false);
+      setRouteDeleteConfirmation('');
+      setSecretSource('existing');
+      setSelectedSecretId('');
+      setNewSecretName('');
       setNewSecretValue('');
-      setError(undefined);
-    },
-    onError: (error) => {
-      setError(error.message);
-    },
-  });
-
-  const { deleteSecret, isLoading: isDeleting } = useDeleteSecretMutation({
-    onSuccess: () => {
-      notification.success({
-        message: intl.formatMessage({
-          defaultMessage: 'Key deleted successfully',
-          description: 'Route detail drawer > delete key success',
-        }),
-      });
-      onClose(); // Close the drawer since the route was cascade-deleted
-    },
-    onError: (error) => {
-      setError(error.message);
-    },
-  });
-
-  const handleRotateKey = () => {
-    if (!currentSecret || !newSecretValue.trim()) {
-      setError(
-        intl.formatMessage({
-          defaultMessage: 'New API key is required',
-          description: 'Route detail drawer > rotate key validation error',
-        }),
-      );
-      return;
+      const currentSecret = secrets.find((s) => s.secret_id === route.secret_id);
+      setNewSecretProvider(route.provider || currentSecret?.provider || '');
+      setAuthConfig({});
+      setErrors({});
     }
-    setError(undefined);
-    updateSecret({
-      secret_id: currentSecret.secret_id,
-      secret_value: newSecretValue,
-    });
-  };
-
-  const handleDeleteKey = () => {
-    if (!currentSecret) return;
-    setError(undefined);
-    deleteSecret({
-      secret_id: currentSecret.secret_id,
-    });
-  };
-
-  const handleCancelManagement = () => {
-    setManagementMode('view');
-    setNewSecretValue('');
-    setSecretDeleteConfirmation('');
-    setError(undefined);
-  };
-
-  const handleDeleteRoute = () => {
-    if (!route) return;
-    onDelete?.(route);
-    setRouteDeleteConfirmation('');
-  };
+  }, [route?.route_id, open, secrets]);
 
   // Convert tags to array format
   const tagEntities = route?.tags
@@ -166,7 +122,130 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
       : Object.entries(route.tags).map(([key, value]) => ({ key, value }))
     : [];
 
+  // Format resource type for display
+  const formatResourceType = (binding: any) => {
+    if (binding.route_id) {
+      return 'Route';
+    }
+    return binding.resource_type
+      .split('_')
+      .map((word: string) => word.charAt(0) + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Get display name for resource
+  const getResourceDisplay = (binding: any) => {
+    if (binding.route_id) {
+      return binding.route_name || binding.route_id;
+    }
+    return binding.resource_id;
+  };
+
+  // Filter secrets to only show those from the same provider
+  const compatibleSecrets = useMemo(() => {
+    if (!route) return [];
+    if (!route.provider) return secrets;
+
+    const routeProvider = route.provider;
+    return secrets.filter((secret) => {
+      if (secret.provider) {
+        return secret.provider.toLowerCase() === routeProvider.toLowerCase();
+      }
+      const secretNameLower = secret.secret_name.toLowerCase();
+      const providerLower = routeProvider.toLowerCase();
+      if (providerLower === 'openai') return secretNameLower.includes('openai');
+      if (providerLower === 'anthropic')
+        return secretNameLower.includes('anthropic') || secretNameLower.includes('claude');
+      if (providerLower === 'bedrock') return secretNameLower.includes('bedrock') || secretNameLower.includes('aws');
+      if (providerLower === 'vertex_ai')
+        return (
+          secretNameLower.includes('vertex') || secretNameLower.includes('gemini') || secretNameLower.includes('google')
+        );
+      if (providerLower === 'azure') return secretNameLower.includes('azure');
+      if (providerLower === 'databricks') return secretNameLower.includes('databricks');
+      return true;
+    });
+  }, [secrets, route]);
+
+  // Get the selected provider info with auth config fields
+  const selectedProviderInfo = useMemo(() => {
+    return PROVIDERS.find((p) => p.value === newSecretProvider);
+  }, [newSecretProvider]);
+
+  // Handle change secret update
+  const handleUpdate = async () => {
+    if (!route) return;
+
+    const newErrors: { secretId?: string; secretName?: string; secretValue?: string; provider?: string } = {};
+
+    if (secretSource === 'existing') {
+      if (!selectedSecretId) {
+        newErrors.secretId = intl.formatMessage({
+          defaultMessage: 'Please select an API key',
+          description: 'Secret selection required error',
+        });
+      } else if (selectedSecretId === route.secret_id) {
+        setSelectedOperation(null);
+        return;
+      }
+    } else {
+      if (!newSecretProvider) {
+        newErrors.provider = intl.formatMessage({
+          defaultMessage: 'Provider is required',
+          description: 'Provider required error',
+        });
+      }
+      if (!newSecretName.trim()) {
+        newErrors.secretName = intl.formatMessage({
+          defaultMessage: 'Secret name is required',
+          description: 'Secret name required error',
+        });
+      }
+      if (!newSecretValue.trim()) {
+        newErrors.secretValue = intl.formatMessage({
+          defaultMessage: 'API key is required',
+          description: 'API key required error',
+        });
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      if (secretSource === 'existing') {
+        await onUpdate?.(route.route_id, { secret_id: selectedSecretId });
+      } else {
+        await onUpdate?.(route.route_id, {
+          secret_name: newSecretName,
+          secret_value: newSecretValue,
+          provider: newSecretProvider || undefined,
+          auth_config: Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined,
+        });
+      }
+      setSelectedOperation(null);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle delete route
+  const handleDelete = () => {
+    if (!route) return;
+    onDelete?.(route);
+    onClose();
+  };
+
+  const hasChanges =
+    secretSource === 'new'
+      ? newSecretName.trim().length > 0 || newSecretValue.trim().length > 0
+      : selectedSecretId !== '' && selectedSecretId !== route?.secret_id;
+
   return (
+    <>
     <Drawer.Root modal open={open} onOpenChange={onClose}>
       <Drawer.Content
         componentId="mlflow.routes.detail_drawer"
@@ -310,207 +389,25 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
                 </Descriptions>
               </div>
 
-              {/* Management Operations Header */}
+              {/* Assigned Secret section */}
               <div>
-                <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.xs }}>
+                <Typography.Title level={4} css={{ marginBottom: theme.spacing.md }}>
                   <FormattedMessage
-                    defaultMessage="Management"
-                    description="Route detail drawer > management operations section title"
+                    defaultMessage="Assigned Secret"
+                    description="Route detail drawer > assigned secret section title"
                   />
                 </Typography.Title>
-                <Typography.Text color="secondary" size="sm">
-                  <FormattedMessage
-                    defaultMessage="Update the route configuration, manage the API key, or remove the route."
-                    description="Route detail drawer > management operations description"
-                  />
-                </Typography.Text>
-              </div>
 
-              {/* Route Management section */}
-              <div>
-                <div
-                  css={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    cursor: 'pointer',
-                    padding: theme.spacing.sm,
-                    marginLeft: -theme.spacing.sm,
-                    marginRight: -theme.spacing.sm,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    '&:hover': {
-                      backgroundColor: theme.colors.backgroundSecondary,
-                    },
-                  }}
-                  onClick={() => {
-                    setRouteManagementExpanded(!routeManagementExpanded);
-                    if (!routeManagementExpanded) {
-                      setRouteDeleteConfirmation('');
-                    }
-                  }}
-                >
-                  {routeManagementExpanded ? (
-                    <ChevronDownIcon css={{ fontSize: 16 }} />
-                  ) : (
-                    <ChevronRightIcon css={{ fontSize: 16 }} />
-                  )}
-                  <Typography.Title level={4} css={{ margin: 0 }}>
-                    <FormattedMessage
-                      defaultMessage="Route Management"
-                      description="Route detail drawer > route management section title"
-                    />
-                  </Typography.Title>
-                </div>
-
-                {routeManagementExpanded && route && (
+                {currentSecret && (
                   <div
                     css={{
-                      marginTop: theme.spacing.md,
                       padding: theme.spacing.md,
                       borderRadius: theme.borders.borderRadiusMd,
                       border: `1px solid ${theme.colors.border}`,
                       backgroundColor: theme.colors.backgroundSecondary,
                     }}
                   >
-                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                      <div>
-                        <Button
-                          componentId="mlflow.routes.detail_drawer.update_route_button"
-                          icon={<PencilIcon />}
-                          onClick={() => {
-                            onUpdate?.(route);
-                          }}
-                        >
-                          <FormattedMessage
-                            defaultMessage="Update Route"
-                            description="Route detail drawer > update route button"
-                          />
-                        </Button>
-                      </div>
-
-                      <div
-                        css={{
-                          padding: theme.spacing.md,
-                          borderRadius: theme.borders.borderRadiusMd,
-                          backgroundColor: theme.colors.backgroundDanger,
-                          border: `1px solid ${theme.colors.borderDanger}`,
-                        }}
-                      >
-                        <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.sm, fontWeight: 600 }}>
-                          <FormattedMessage
-                            defaultMessage="Delete Confirmation Required"
-                            description="Route detail drawer > delete confirmation title"
-                          />
-                        </Typography.Text>
-                        <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md }} size="sm">
-                          <FormattedMessage
-                            defaultMessage="To delete this route, type its name below to confirm:"
-                            description="Route detail drawer > delete confirmation description"
-                          />
-                        </Typography.Text>
-                        <div>
-                          <FormUI.Label htmlFor="route-delete-confirmation">
-                            <FormattedMessage
-                              defaultMessage="Route Name"
-                              description="Route detail drawer > route name label"
-                            />
-                            <span css={{ color: theme.colors.textValidationDanger }}> *</span>
-                          </FormUI.Label>
-                          <Input
-                            id="route-delete-confirmation"
-                            componentId="mlflow.routes.detail_drawer.delete_confirmation_input"
-                            value={routeDeleteConfirmation}
-                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => setRouteDeleteConfirmation(e.target.value)}
-                            placeholder={route.name || route.route_id}
-                          />
-                          <Typography.Text
-                            size="sm"
-                            color="secondary"
-                            css={{ display: 'block', marginTop: theme.spacing.xs }}
-                          >
-                            <FormattedMessage
-                              defaultMessage='Enter "{name}" to enable deletion'
-                              description="Route detail drawer > delete confirmation help"
-                              values={{ name: route.name || route.route_id }}
-                            />
-                          </Typography.Text>
-                          <Button
-                            componentId="mlflow.routes.detail_drawer.delete_route_button"
-                            icon={<TrashIcon />}
-                            danger
-                            onClick={handleDeleteRoute}
-                            disabled={routeDeleteConfirmation !== (route.name || route.route_id)}
-                            css={{ marginTop: theme.spacing.md }}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Delete Route"
-                              description="Route detail drawer > delete route button"
-                            />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Secret Management section */}
-              <div>
-                <div
-                  css={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing.sm,
-                    cursor: 'pointer',
-                    padding: theme.spacing.sm,
-                    marginLeft: -theme.spacing.sm,
-                    marginRight: -theme.spacing.sm,
-                    borderRadius: theme.borders.borderRadiusMd,
-                    '&:hover': {
-                      backgroundColor: theme.colors.backgroundSecondary,
-                    },
-                  }}
-                  onClick={() => {
-                    setSecretManagementExpanded(!secretManagementExpanded);
-                    if (!secretManagementExpanded) {
-                      setManagementMode('view');
-                      setNewSecretValue('');
-                      setError(undefined);
-                    }
-                  }}
-                >
-                  {secretManagementExpanded ? (
-                    <ChevronDownIcon css={{ fontSize: 16 }} />
-                  ) : (
-                    <ChevronRightIcon css={{ fontSize: 16 }} />
-                  )}
-                  <Typography.Title level={4} css={{ margin: 0 }}>
-                    <FormattedMessage
-                      defaultMessage="Secret Management"
-                      description="Route detail drawer > secret management section title"
-                    />
-                  </Typography.Title>
-                </div>
-
-                {secretManagementExpanded && currentSecret && (
-                  <div
-                    css={{
-                      marginTop: theme.spacing.md,
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: theme.spacing.md,
-                    }}
-                  >
-                      {/* Left panel: Management UI */}
-                    <div
-                      css={{
-                        padding: theme.spacing.md,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        border: `1px solid ${theme.colors.border}`,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                      }}
-                    >
-                      {managementMode === 'view' && (
+                    {/* Secret Details */}
                       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
                         <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
                           <div>
@@ -550,365 +447,464 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
                               </div>
                             </div>
                           )}
+                          {routeBinding?.field_name && (
+                            <div>
+                              <Typography.Text color="secondary" size="sm">
+                                <FormattedMessage
+                                  defaultMessage="Environment Variable"
+                                  description="Route detail drawer > environment variable label"
+                                />
+                              </Typography.Text>
+                              <Typography.Paragraph
+                                css={{
+                                  marginTop: theme.spacing.xs,
+                                  marginBottom: 0,
+                                  fontFamily: 'monospace',
+                                  fontWeight: 500,
+                                  padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
+                                  backgroundColor: theme.colors.backgroundSecondary,
+                                  borderRadius: theme.borders.borderRadiusSm,
+                                  display: 'inline-block',
+                                }}
+                              >
+                                {routeBinding.field_name}
+                              </Typography.Paragraph>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <Button
-                            componentId="mlflow.routes.detail_drawer.rotate_key_button"
-                            icon={<RefreshIcon />}
-                            onClick={() => setManagementMode('rotate')}
-                          >
+                      </div>
+                    </div>
+                )}
+              </div>
+
+              {/* Resources Using This Secret - moved here for context */}
+              {bindings.length > 0 && (
+                <div>
+                  <div>
+                      <div
+                        css={{
+                          borderRadius: theme.borders.borderRadiusMd,
+                          border: `1px solid ${theme.colors.border}`,
+                          overflow: 'hidden',
+                        }}
+                      >
+                        <div
+                          css={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            padding: theme.spacing.sm,
+                            backgroundColor: theme.colors.backgroundSecondary,
+                            cursor: 'pointer',
+                            '&:hover': {
+                              backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                            },
+                          }}
+                          onClick={() => setShowResourceUsage(!showResourceUsage)}
+                        >
+                          {showResourceUsage ? (
+                            <ChevronDownIcon css={{ fontSize: 16, color: theme.colors.textSecondary, marginRight: theme.spacing.xs }} />
+                          ) : (
+                            <ChevronRightIcon css={{ fontSize: 16, color: theme.colors.textSecondary, marginRight: theme.spacing.xs }} />
+                          )}
+                          <Typography.Text css={{ fontWeight: 500, fontSize: theme.typography.fontSizeSm }}>
                             <FormattedMessage
-                              defaultMessage="Rotate Key"
-                              description="Route detail drawer > rotate button"
-                            />
-                          </Button>
-                          <Typography.Text
-                            color="secondary"
-                            size="sm"
-                            css={{ display: 'block', marginTop: theme.spacing.xs }}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Replace the API key value while keeping the same route configuration."
-                              description="Route detail drawer > rotate key explanation"
+                              defaultMessage="Resources Using This Secret ({count})"
+                              description="Route detail drawer > resources using secret header"
+                              values={{ count: bindings.length }}
                             />
                           </Typography.Text>
                         </div>
 
+                        {showResourceUsage && (
+                          <div css={{ padding: theme.spacing.md, backgroundColor: theme.colors.backgroundPrimary }}>
+                            {bindings.length === 0 ? (
+                              <Typography.Text color="secondary" size="sm">
+                                <FormattedMessage
+                                  defaultMessage="No other resources are using this secret"
+                                  description="Route detail drawer > no other resources"
+                                />
+                              </Typography.Text>
+                            ) : (
+                              <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                                {bindings.map((binding) => (
+                                  <div
+                                    key={binding.binding_id}
+                                    css={{
+                                      padding: theme.spacing.sm,
+                                      borderRadius: theme.borders.borderRadiusSm,
+                                      border: `1px solid ${theme.colors.border}`,
+                                      backgroundColor: binding.route_id === route.route_id
+                                        ? theme.colors.backgroundValidationWarning
+                                        : theme.colors.backgroundSecondary,
+                                    }}
+                                  >
+                                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+                                      <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+                                        <Typography.Text css={{ fontWeight: 500, fontSize: theme.typography.fontSizeSm }}>
+                                          {formatResourceType(binding)}
+                                        </Typography.Text>
+                                        {binding.route_id === route.route_id && (
+                                          <Tag componentId="mlflow.routes.detail_drawer.current_route_tag">
+                                            <Typography.Text size="sm">
+                                              <FormattedMessage
+                                                defaultMessage="This Route"
+                                                description="Route detail drawer > current route tag"
+                                              />
+                                            </Typography.Text>
+                                          </Tag>
+                                        )}
+                                      </div>
+                                      <Typography.Text
+                                        css={{
+                                          fontFamily: 'monospace',
+                                          fontSize: theme.typography.fontSizeSm,
+                                          color: theme.colors.textSecondary,
+                                        }}
+                                      >
+                                        {getResourceDisplay(binding)}
+                                      </Typography.Text>
+                                      <Typography.Text
+                                        css={{
+                                          fontFamily: 'monospace',
+                                          fontSize: theme.typography.fontSizeSm,
+                                          color: theme.colors.textSecondary,
+                                        }}
+                                      >
+                                        {binding.field_name}
+                                      </Typography.Text>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Management Operations */}
+              <div>
+                <Typography.Title level={4} css={{ margin: 0, marginBottom: theme.spacing.md }}>
+                  <FormattedMessage
+                    defaultMessage="Management"
+                    description="Route detail drawer > management section title"
+                  />
+                </Typography.Title>
+
+                {/* Button Group */}
+                <div css={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
+                  <Button
+                    componentId="mlflow.routes.detail_drawer.change_secret_toggle"
+                    icon={<PencilIcon />}
+                    type={selectedOperation === 'changeSecret' ? 'primary' : undefined}
+                    onClick={() => setSelectedOperation(selectedOperation === 'changeSecret' ? null : 'changeSecret')}
+                  >
+                    <FormattedMessage defaultMessage="Change Secret" description="Change secret button" />
+                  </Button>
+                  <Button
+                    componentId="mlflow.routes.detail_drawer.delete_route_toggle"
+                    icon={<TrashIcon />}
+                    danger
+                    type={selectedOperation === 'deleteRoute' ? 'primary' : undefined}
+                    onClick={() => setSelectedOperation(selectedOperation === 'deleteRoute' ? null : 'deleteRoute')}
+                  >
+                    <FormattedMessage defaultMessage="Delete Route" description="Delete route button" />
+                  </Button>
+                </div>
+
+                {/* Change Secret Content */}
+                {selectedOperation === 'changeSecret' && (
+                  <div
+                    css={{
+                      padding: theme.spacing.md,
+                      borderRadius: theme.borders.borderRadiusMd,
+                      border: `2px solid ${theme.colors.border}`,
+                      backgroundColor: theme.colors.backgroundPrimary,
+                    }}
+                  >
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                      {/* Secret source toggle */}
+                      <div>
+                        <FormUI.Label>
+                          <FormattedMessage defaultMessage="API Key Source" description="API key source label" />
+                        </FormUI.Label>
+                        <Radio.Group
+                          componentId="mlflow.routes.detail_drawer.secret_source"
+                          name="secret-source"
+                          value={secretSource}
+                          onChange={(e) => {
+                            setSecretSource(e.target.value as SecretSource);
+                            setErrors({});
+                          }}
+                        >
+                          <Radio value="existing">
+                            <FormattedMessage defaultMessage="Use Existing Key" description="Use existing secret option" />
+                          </Radio>
+                          <Radio value="new">
+                            <FormattedMessage defaultMessage="Create New Key" description="Create new secret option" />
+                          </Radio>
+                        </Radio.Group>
+                      </div>
+
+                      {/* Existing secret selection */}
+                      {secretSource === 'existing' && (
+                        <div>
+                          <DialogCombobox
+                            componentId="mlflow.routes.detail_drawer.secret"
+                            label={intl.formatMessage({
+                              defaultMessage: 'Select API Key',
+                              description: 'Select API key label',
+                            })}
+                            value={
+                              selectedSecretId
+                                ? [compatibleSecrets.find((s) => s.secret_id === selectedSecretId)?.secret_name || '']
+                                : []
+                            }
+                          >
+                            <DialogComboboxTrigger allowClear={false} placeholder="Select Existing API Key" />
+                            <DialogComboboxContent>
+                              <DialogComboboxOptionList>
+                                {compatibleSecrets.map((secret) => (
+                                  <DialogComboboxOptionListSelectItem
+                                    key={secret.secret_id}
+                                    checked={selectedSecretId === secret.secret_id}
+                                    value={secret.secret_name}
+                                    onChange={() => {
+                                      setSelectedSecretId(secret.secret_id);
+                                      setErrors((prev) => ({ ...prev, secretId: undefined }));
+                                    }}
+                                  >
+                                    <Typography.Text>{secret.secret_name}</Typography.Text>
+                                  </DialogComboboxOptionListSelectItem>
+                                ))}
+                              </DialogComboboxOptionList>
+                            </DialogComboboxContent>
+                          </DialogCombobox>
+                          {errors.secretId && <FormUI.Message type="error" message={errors.secretId} />}
+                        </div>
+                      )}
+
+                      {/* New secret creation */}
+                      {secretSource === 'new' && (
+                        <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                          {/* Provider selector */}
+                          <div>
+                            <FormUI.Label htmlFor="route-detail-provider">
+                              <FormattedMessage defaultMessage="Provider" description="Provider select label" />
+                              <span css={{ color: theme.colors.textValidationDanger }}> *</span>
+                            </FormUI.Label>
+                            <SimpleSelect
+                              componentId="mlflow.routes.detail_drawer.provider"
+                              id="route-detail-provider"
+                              label=""
+                              value={newSecretProvider}
+                              onChange={(e) => {
+                                setNewSecretProvider(e.target.value);
+                                setAuthConfig({});
+                                setErrors((prev) => ({ ...prev, provider: undefined }));
+                              }}
+                              validationState={errors.provider ? 'error' : undefined}
+                              placeholder={intl.formatMessage({
+                                defaultMessage: 'Select provider',
+                                description: 'Provider select placeholder',
+                              })}
+                            >
+                              {PROVIDERS.map((provider) => (
+                                <SimpleSelectOption key={provider.value} value={provider.value}>
+                                  {provider.label}
+                                </SimpleSelectOption>
+                              ))}
+                            </SimpleSelect>
+                            {errors.provider && <FormUI.Message type="error" message={errors.provider} />}
+                          </div>
+
+                          <div>
+                            <FormUI.Label htmlFor="route-detail-new-secret-name">
+                              <FormattedMessage defaultMessage="Secret Name" description="New secret name label" />
+                              <span css={{ color: theme.colors.textValidationDanger }}> *</span>
+                            </FormUI.Label>
+                            <Input
+                              componentId="mlflow.routes.detail_drawer.new_secret_name"
+                              id="route-detail-new-secret-name"
+                              placeholder={intl.formatMessage({
+                                defaultMessage: 'e.g., my-openai-key',
+                                description: 'Secret name placeholder',
+                              })}
+                              value={newSecretName}
+                              onChange={(e) => {
+                                setNewSecretName(e.target.value);
+                                setErrors((prev) => ({ ...prev, secretName: undefined }));
+                              }}
+                              validationState={errors.secretName ? 'error' : undefined}
+                            />
+                            {errors.secretName && <FormUI.Message type="error" message={errors.secretName} />}
+                          </div>
+
+                          <div>
+                            <FormUI.Label htmlFor="route-detail-new-secret-value">
+                              <FormattedMessage defaultMessage="API Key" description="New API key label" />
+                              <span css={{ color: theme.colors.textValidationDanger }}> *</span>
+                            </FormUI.Label>
+                            <MaskedApiKeyInput
+                              value={newSecretValue}
+                              onChange={(value) => {
+                                setNewSecretValue(value);
+                                setErrors((prev) => ({ ...prev, secretValue: undefined }));
+                              }}
+                              placeholder={intl.formatMessage({
+                                defaultMessage: 'Enter your API key',
+                                description: 'API key placeholder',
+                              })}
+                              id="route-detail-new-secret-value"
+                              componentId="mlflow.routes.detail_drawer.new_secret_value"
+                            />
+                            {errors.secretValue && <FormUI.Message type="error" message={errors.secretValue} />}
+                          </div>
+
+                          {/* Auth configuration fields */}
+                          <AuthConfigFields
+                            fields={selectedProviderInfo?.authConfigFields || []}
+                            values={authConfig}
+                            onChange={(name, value) => {
+                              setAuthConfig((prev) => ({ ...prev, [name]: value }));
+                            }}
+                            componentIdPrefix="mlflow.routes.detail_drawer.auth_config"
+                          />
+                        </div>
+                      )}
+
+                      {/* Action buttons */}
+                      <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginTop: theme.spacing.md }}>
+                        <Button
+                          componentId="mlflow.routes.detail_drawer.update_cancel"
+                          onClick={() => setSelectedOperation(null)}
+                        >
+                          <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+                        </Button>
+                        <Button
+                          componentId="mlflow.routes.detail_drawer.update_submit"
+                          type="primary"
+                          onClick={handleUpdate}
+                          loading={isLoading}
+                          disabled={!hasChanges}
+                        >
+                          <FormattedMessage defaultMessage="Update Route" description="Update route button" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Delete Route Content */}
+                {selectedOperation === 'deleteRoute' && (
+                  <div
+                    css={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: theme.spacing.lg,
+                      padding: theme.spacing.md,
+                      borderRadius: theme.borders.borderRadiusMd,
+                      border: `2px solid ${theme.colors.borderValidationDanger}`,
+                      backgroundColor: theme.colors.backgroundPrimary,
+                    }}
+                  >
+                    {/* Left side: Route info */}
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                      <div>
+                        <Typography.Title level={5} css={{ margin: 0, marginBottom: theme.spacing.sm }}>
+                          <FormattedMessage
+                            defaultMessage="Route Configuration"
+                            description="Route detail drawer > route configuration title"
+                          />
+                        </Typography.Title>
+                        <Typography.Text color="secondary" size="sm">
+                          <FormattedMessage
+                            defaultMessage="This route will be permanently deleted along with its configuration."
+                            description="Route detail drawer > delete route warning"
+                          />
+                        </Typography.Text>
+                      </div>
+
+                      {routeBinding && (
                         <div
                           css={{
                             padding: theme.spacing.md,
                             borderRadius: theme.borders.borderRadiusMd,
-                            backgroundColor: theme.colors.backgroundDanger,
-                            border: `1px solid ${theme.colors.borderDanger}`,
+                            border: `1px solid ${theme.colors.border}`,
+                            backgroundColor: theme.colors.backgroundSecondary,
                           }}
                         >
-                          <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.sm, fontWeight: 600 }}>
-                            <FormattedMessage
-                              defaultMessage="Delete Confirmation Required"
-                              description="Route detail drawer > delete key confirmation title"
-                            />
-                          </Typography.Text>
-                          <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.md }} size="sm">
-                            <FormattedMessage
-                              defaultMessage="This action cannot be undone and will cascade delete all routes and resource bindings using this key. Type the secret name below to confirm:"
-                              description="Route detail drawer > delete key confirmation description"
-                            />
-                          </Typography.Text>
-                          <div>
-                            <FormUI.Label htmlFor="secret-delete-confirmation">
-                              <FormattedMessage
-                                defaultMessage="Secret Name"
-                                description="Route detail drawer > secret name confirmation label"
-                              />
-                              <span css={{ color: theme.colors.textValidationDanger }}> *</span>
-                            </FormUI.Label>
-                            <Input
-                              id="secret-delete-confirmation"
-                              componentId="mlflow.routes.detail_drawer.secret_delete_confirmation_input"
-                              value={secretDeleteConfirmation}
-                              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSecretDeleteConfirmation(e.target.value)}
-                              placeholder={currentSecret?.secret_name || ''}
-                            />
-                            <Typography.Text
-                              size="sm"
-                              color="secondary"
-                              css={{ display: 'block', marginTop: theme.spacing.xs }}
-                            >
-                              <FormattedMessage
-                                defaultMessage='Enter "{name}" to enable deletion'
-                                description="Route detail drawer > secret delete confirmation help"
-                                values={{ name: currentSecret?.secret_name || '' }}
-                              />
-                            </Typography.Text>
-                            <Button
-                              componentId="mlflow.routes.detail_drawer.delete_key_button"
-                              icon={<TrashIcon />}
-                              danger
-                              onClick={handleDeleteKey}
-                              disabled={secretDeleteConfirmation !== currentSecret?.secret_name}
-                              css={{ marginTop: theme.spacing.md }}
-                            >
-                              <FormattedMessage
-                                defaultMessage="Delete Key"
-                                description="Route detail drawer > delete key button"
-                              />
-                            </Button>
+                          <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
+                            <div>
+                              <Typography.Text color="secondary" size="sm">
+                                <FormattedMessage
+                                  defaultMessage="Secret Binding"
+                                  description="Route detail drawer > secret binding label"
+                                />
+                              </Typography.Text>
+                              <Typography.Paragraph css={{ marginTop: theme.spacing.xs, marginBottom: 0, fontWeight: 500 }}>
+                                {currentSecret?.secret_name || 'Unknown'}
+                              </Typography.Paragraph>
+                            </div>
+                            <div>
+                              <Typography.Text color="secondary" size="sm">
+                                <FormattedMessage
+                                  defaultMessage="Environment Variable"
+                                  description="Route detail drawer > environment variable label"
+                                />
+                              </Typography.Text>
+                              <Typography.Paragraph
+                                css={{
+                                  marginTop: theme.spacing.xs,
+                                  marginBottom: 0,
+                                  fontFamily: 'monospace',
+                                  fontSize: theme.typography.fontSizeSm,
+                                }}
+                              >
+                                {routeBinding.field_name}
+                              </Typography.Paragraph>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-
-                    {managementMode === 'rotate' && (
-                      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                        <div>
-                          <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.sm }}>
-                            <FormattedMessage
-                              defaultMessage="Rotate Key"
-                              description="Route detail drawer > rotate key title"
-                            />
-                          </Typography.Title>
-                          <Typography.Text color="secondary" size="sm">
-                            <FormattedMessage
-                              defaultMessage="Enter a new API key value. The route will automatically use the new value."
-                              description="Route detail drawer > rotate key description"
-                            />
-                          </Typography.Text>
-                        </div>
-
-                        <div>
-                          <FormUI.Label htmlFor="new-secret-value">
-                            <FormattedMessage
-                              defaultMessage="New API Key"
-                              description="Route detail drawer > new key label"
-                            />
-                            <span css={{ color: theme.colors.textValidationDanger }}> *</span>
-                          </FormUI.Label>
-                          <MaskedApiKeyInput
-                            value={newSecretValue}
-                            onChange={setNewSecretValue}
-                            placeholder={intl.formatMessage({
-                              defaultMessage: 'Enter new API key',
-                              description: 'Route detail drawer > new key placeholder',
-                            })}
-                            id="new-secret-value"
-                            componentId="mlflow.routes.detail_drawer.new_secret_value"
-                          />
-                          {error && <FormUI.Message type="error" message={error} />}
-                        </div>
-
-                        <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-                          <Button
-                            componentId="mlflow.routes.detail_drawer.confirm_rotate_button"
-                            onClick={handleRotateKey}
-                            loading={isUpdating}
-                            disabled={!newSecretValue.trim()}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Rotate Key"
-                              description="Route detail drawer > confirm rotate button"
-                            />
-                          </Button>
-                          <Button
-                            componentId="mlflow.routes.detail_drawer.cancel_rotate_button"
-                            onClick={handleCancelManagement}
-                            disabled={isUpdating}
-                          >
-                            <FormattedMessage
-                              defaultMessage="Cancel"
-                              description="Route detail drawer > cancel button"
-                            />
-                          </Button>
-                        </div>
-                      </div>
-                    )}
+                      )}
                     </div>
 
-                    {/* Right panel: Impact Analysis */}
-                    <div
-                      css={{
-                        padding: theme.spacing.md,
-                        borderRadius: theme.borders.borderRadiusMd,
-                        border: `1px solid ${theme.colors.border}`,
-                        backgroundColor: theme.colors.backgroundSecondary,
-                      }}
-                    >
-                      <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.md }}>
-                        <FormattedMessage
-                          defaultMessage="Impact Analysis"
-                          description="Route detail drawer > impact analysis title"
+                    {/* Right side: Delete confirmation */}
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, justifyContent: 'center' }}>
+                      <div>
+                        <FormUI.Label htmlFor="delete-route-confirmation-input">
+                          <FormattedMessage
+                            defaultMessage="To confirm deletion, type the route name:"
+                            description="Route detail drawer > delete confirmation label"
+                          />
+                        </FormUI.Label>
+                        <Input
+                          componentId="mlflow.routes.detail_drawer.delete_confirmation_input"
+                          id="delete-route-confirmation-input"
+                          placeholder={route.name || route.route_id}
+                          value={routeDeleteConfirmation}
+                          onChange={(e) => setRouteDeleteConfirmation(e.target.value)}
+                          autoComplete="off"
+                          css={{ marginTop: theme.spacing.xs }}
                         />
-                      </Typography.Title>
-
-                      <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
-                        {/* Summary */}
-                        <div
-                          css={{
-                            padding: theme.spacing.sm,
-                            borderRadius: theme.borders.borderRadiusMd,
-                            backgroundColor: theme.colors.backgroundWarning,
-                            border: `1px solid ${theme.colors.borderWarning}`,
-                          }}
-                        >
-                          <Typography.Text css={{ display: 'block', fontWeight: 600 }} size="sm">
-                            <FormattedMessage
-                              defaultMessage="This key is used by:"
-                              description="Route detail drawer > impact analysis header"
-                            />
-                          </Typography.Text>
-                          <Typography.Text css={{ display: 'block', marginTop: theme.spacing.xs }} size="sm">
-                            <FormattedMessage
-                              defaultMessage="{routeCount} {routeCount, plural, one {route} other {routes}}, {bindingCount} {bindingCount, plural, one {resource binding} other {resource bindings}}"
-                              description="Route detail drawer > impact summary"
-                              values={{
-                                routeCount: routesUsingSecret.length,
-                                bindingCount: resourceBindings.length,
-                              }}
-                            />
-                          </Typography.Text>
-                        </div>
-
-                        {/* Routes List */}
-                        {routesUsingSecret.length > 0 && (
-                          <div>
-                            <Typography.Text
-                              css={{ display: 'block', marginBottom: theme.spacing.sm, fontWeight: 600 }}
-                              size="sm"
-                            >
-                              <FormattedMessage
-                                defaultMessage="Affected Routes"
-                                description="Route detail drawer > affected routes title"
-                              />
-                            </Typography.Text>
-                            <div
-                              css={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: theme.spacing.sm,
-                                maxHeight: 300,
-                                overflowY: 'auto',
-                              }}
-                            >
-                              {routesUsingSecret.map((affectedRoute) => {
-                                // Get resource bindings for this route, excluding GLOBAL bindings and self-bindings
-                                const routeBindings = bindings.filter(
-                                  (b) =>
-                                    b.route_id === affectedRoute.route_id &&
-                                    b.resource_type !== 'GLOBAL' &&
-                                    !(
-                                      b.resource_type?.toLowerCase() === 'route' &&
-                                      b.resource_id === affectedRoute.route_id
-                                    ),
-                                );
-                                return (
-                                  <div
-                                    key={affectedRoute.route_id}
-                                    css={{
-                                      padding: theme.spacing.sm,
-                                      borderRadius: theme.borders.borderRadiusMd,
-                                      border: `1px solid ${theme.colors.border}`,
-                                      backgroundColor: theme.colors.backgroundPrimary,
-                                    }}
-                                  >
-                                    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}>
-                                      {affectedRoute.route_id === route?.route_id && (
-                                        <Tag componentId="mlflow.routes.detail_drawer.current_route_tag">
-                                          <Typography.Text size="sm">
-                                            <FormattedMessage
-                                              defaultMessage="Current"
-                                              description="Route detail drawer > current route badge"
-                                            />
-                                          </Typography.Text>
-                                        </Tag>
-                                      )}
-                                      <Typography.Text css={{ fontWeight: 600 }} size="sm">
-                                        {affectedRoute.name || affectedRoute.route_id}
-                                      </Typography.Text>
-                                    </div>
-                                    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, marginBottom: theme.spacing.xs }}>
-                                      <Typography.Text color="secondary" size="sm">
-                                        <FormattedMessage
-                                          defaultMessage="Model:"
-                                          description="Route detail drawer > model label"
-                                        />
-                                      </Typography.Text>
-                                      <Typography.Text size="sm">{affectedRoute.model_name}</Typography.Text>
-                                    </div>
-                                    {routeBindings.length > 0 && (
-                                      <div>
-                                        <Typography.Text
-                                          color="secondary"
-                                          size="sm"
-                                          css={{ display: 'block', marginBottom: theme.spacing.xs }}
-                                        >
-                                          <FormattedMessage
-                                            defaultMessage="Resource Bindings ({count}):"
-                                            description="Route detail drawer > resource bindings label"
-                                            values={{ count: routeBindings.length }}
-                                          />
-                                        </Typography.Text>
-                                        <div css={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                          {routeBindings.slice(0, 3).map((binding) => (
-                                            <Typography.Text
-                                              key={binding.binding_id}
-                                              size="sm"
-                                              css={{
-                                                fontFamily: 'monospace',
-                                                fontSize: theme.typography.fontSizeSm,
-                                                color: theme.colors.textSecondary,
-                                              }}
-                                            >
-                                              {binding.resource_type}: {binding.resource_id}
-                                            </Typography.Text>
-                                          ))}
-                                          {routeBindings.length > 3 && (
-                                            <Typography.Text size="sm" color="secondary">
-                                              <FormattedMessage
-                                                defaultMessage="+ {count} more"
-                                                description="Route detail drawer > more bindings"
-                                                values={{ count: routeBindings.length - 3 }}
-                                              />
-                                            </Typography.Text>
-                                          )}
-                                        </div>
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Standalone Resource Bindings (not route bindings) */}
-                        {resourceBindings.filter((b) => !b.route_id).length > 0 && (
-                          <div>
-                            <Typography.Text
-                              css={{ display: 'block', marginBottom: theme.spacing.sm, fontWeight: 600 }}
-                              size="sm"
-                            >
-                              <FormattedMessage
-                                defaultMessage="Direct Resource Bindings"
-                                description="Route detail drawer > direct bindings title"
-                              />
-                            </Typography.Text>
-                            <div
-                              css={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                gap: 4,
-                                maxHeight: 150,
-                                overflowY: 'auto',
-                              }}
-                            >
-                              {resourceBindings
-                                .filter((b) => !b.route_id)
-                                .slice(0, 5)
-                                .map((binding) => (
-                                  <Typography.Text
-                                    key={binding.binding_id}
-                                    size="sm"
-                                    css={{
-                                      fontFamily: 'monospace',
-                                      fontSize: theme.typography.fontSizeSm,
-                                      color: theme.colors.textSecondary,
-                                    }}
-                                  >
-                                    {binding.resource_type}: {binding.resource_id}
-                                  </Typography.Text>
-                                ))}
-                              {resourceBindings.filter((b) => !b.route_id).length > 5 && (
-                                <Typography.Text size="sm" color="secondary">
-                                  <FormattedMessage
-                                    defaultMessage="+ {count} more"
-                                    description="Route detail drawer > more bindings"
-                                    values={{ count: resourceBindings.filter((b) => !b.route_id).length - 5 }}
-                                  />
-                                </Typography.Text>
-                              )}
-                            </div>
-                          </div>
-                        )}
                       </div>
+                      <Button
+                        componentId="mlflow.routes.detail_drawer.delete_button"
+                        danger
+                        icon={<TrashIcon />}
+                        disabled={routeDeleteConfirmation !== (route.name || route.route_id)}
+                        onClick={handleDelete}
+                      >
+                        <FormattedMessage defaultMessage="Delete Route" description="Route detail drawer > delete route button" />
+                      </Button>
+                      <Typography.Text color="secondary" size="sm">
+                        <FormattedMessage
+                          defaultMessage="This action cannot be undone. The secret will remain and can be reused."
+                          description="Route detail drawer > delete route note"
+                        />
+                      </Typography.Text>
                     </div>
                   </div>
                 )}
@@ -917,5 +913,6 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
           )}
       </Drawer.Content>
     </Drawer.Root>
+  </>
   );
 };

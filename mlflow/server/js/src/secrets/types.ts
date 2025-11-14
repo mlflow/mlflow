@@ -1,6 +1,7 @@
 export enum ResourceType {
   SCORER_JOB = 'SCORER_JOB',
   GLOBAL = 'GLOBAL',
+  ROUTE = 'ROUTE',
 }
 
 export interface Secret {

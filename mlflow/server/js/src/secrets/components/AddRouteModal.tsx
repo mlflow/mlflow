@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
-import { useCallback, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTagAssignmentForm } from '@databricks/web-shared/unified-tagging';
 import { useListSecrets } from '../hooks/useListSecrets';
@@ -36,6 +36,7 @@ interface FormErrors {
   secretId?: string;
   modelName?: string;
   routeName?: string;
+  envVarKey?: string;
   general?: string;
 }
 
@@ -59,6 +60,7 @@ export const AddRouteModal = ({
   const [selectedSecretId, setSelectedSecretId] = useState('');
   const [modelName, setModelName] = useState('');
   const [routeName, setRouteName] = useState('');
+  const [envVarKey, setEnvVarKey] = useState('');
   const [description, setDescription] = useState('');
   const [errors, setErrors] = useState<FormErrors>({});
   const [isLoading, setIsLoading] = useState(false);
@@ -147,11 +149,24 @@ export const AddRouteModal = ({
   const canShowModelSection = selectedSecretId !== '';
   const canShowRouteDetailsSection = canShowModelSection && modelName.trim().length > 0;
 
+  // Set default environment variable when provider changes
+  useEffect(() => {
+    if (provider) {
+      const providerInfo = PROVIDERS.find((p) => p.value === provider);
+      if (providerInfo?.default_key_name) {
+        setEnvVarKey(providerInfo.default_key_name);
+      } else {
+        setEnvVarKey('');
+      }
+    }
+  }, [provider]);
+
   const handleReset = () => {
     setProvider('');
     setSelectedSecretId('');
     setModelName('');
     setRouteName('');
+    setEnvVarKey('');
     setDescription('');
     setErrors({});
     tagsForm.reset({ tags: [{ key: '', value: '' }] });
@@ -182,6 +197,13 @@ export const AddRouteModal = ({
       });
     }
 
+    if (!envVarKey.trim()) {
+      newErrors.envVarKey = intl.formatMessage({
+        defaultMessage: 'Environment variable key is required',
+        description: 'Env var key required error',
+      });
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -190,9 +212,6 @@ export const AddRouteModal = ({
     setIsLoading(true);
 
     try {
-      // Generate unique field_name based on route name
-      const uniqueFieldName = `${routeName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_KEY`;
-
       // Get tags from form and filter out empty entries
       const tagsArray = tagsForm.getValues('tags') || [];
       const validTags = tagsArray.filter((tag) => tag.key && tag.value);
@@ -205,7 +224,7 @@ export const AddRouteModal = ({
         route_tags: validTags.length > 0 ? JSON.stringify(validTags) : undefined,
         resource_type: 'GLOBAL',
         resource_id: 'global',
-        field_name: uniqueFieldName,
+        field_name: envVarKey,
       };
 
       await onCreate?.(routeData);
@@ -489,6 +508,13 @@ export const AddRouteModal = ({
                 setErrors(rest);
               }}
               routeNameError={errors.routeName}
+              envVarKey={envVarKey}
+              onChangeEnvVarKey={(key) => {
+                setEnvVarKey(key);
+                const { envVarKey: _, ...rest } = errors;
+                setErrors(rest);
+              }}
+              envVarKeyError={errors.envVarKey}
               description={description}
               onChangeDescription={setDescription}
               tagsFieldArray={tagsFieldArray}

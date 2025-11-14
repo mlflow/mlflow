@@ -57,6 +57,7 @@ export const DeleteSecretModal = ({ secret, visible, onCancel }: DeleteSecretMod
       onOk={handleDelete}
       okButtonProps={{ loading: isLoading, disabled: isDeleteDisabled }}
       title={<FormattedMessage defaultMessage="Delete Secret" description="Delete secret modal > modal title" />}
+      size="wide"
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <Typography.Text>

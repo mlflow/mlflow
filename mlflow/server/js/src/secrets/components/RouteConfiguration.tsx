@@ -13,6 +13,9 @@ interface RouteConfigurationProps {
   routeName: string;
   onChangeRouteName: (name: string) => void;
   routeNameError?: string;
+  envVarKey?: string;
+  onChangeEnvVarKey?: (key: string) => void;
+  envVarKeyError?: string;
   description: string;
   onChangeDescription: (desc: string) => void;
   tagsFieldArray: any; // UseTagAssignmentFormReturn type from unified-tagging
@@ -23,6 +26,9 @@ export const RouteConfiguration = ({
   routeName,
   onChangeRouteName,
   routeNameError,
+  envVarKey,
+  onChangeEnvVarKey,
+  envVarKeyError,
   description,
   onChangeDescription,
   tagsFieldArray,
@@ -52,6 +58,28 @@ export const RouteConfiguration = ({
         />
         {routeNameError && <FormUI.Message type="error" message={routeNameError} />}
       </div>
+
+      {/* Environment Variable (only show if provided) */}
+      {envVarKey !== undefined && onChangeEnvVarKey && (
+        <div>
+          <FormUI.Label htmlFor="env-var-key-input">
+            <FormattedMessage defaultMessage="Environment Variable" description="Environment variable label" />
+            <span css={{ color: theme.colors.textValidationDanger }}> *</span>
+          </FormUI.Label>
+          <Input
+            componentId={`${componentIdPrefix}.env_var_key`}
+            id="env-var-key-input"
+            placeholder={intl.formatMessage({
+              defaultMessage: 'e.g., OPENAI_API_KEY',
+              description: 'Environment variable placeholder',
+            })}
+            value={envVarKey}
+            onChange={(e) => onChangeEnvVarKey(e.target.value)}
+            validationState={envVarKeyError ? 'error' : undefined}
+          />
+          {envVarKeyError && <FormUI.Message type="error" message={envVarKeyError} />}
+        </div>
+      )}
 
       {/* Description */}
       <div>

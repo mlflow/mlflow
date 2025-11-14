@@ -3,6 +3,7 @@ import {
   ChevronDownIcon,
   Empty,
   FilterIcon,
+  GearIcon,
   Header,
   Input,
   PlusIcon,
@@ -33,6 +34,7 @@ import { AddRouteModal } from './AddRouteModal';
 import { RoutesTable } from './RoutesTable';
 import { RouteDetailDrawer } from './RouteDetailDrawer';
 import { UpdateRouteModal } from './UpdateRouteModal';
+import { SecretManagementDrawer } from './SecretManagementDrawer';
 import type { Route } from '../types';
 
 const DEFAULT_HIDDEN_COLUMNS = ['tags', 'created_at', 'created_by', 'last_updated_by'];
@@ -69,6 +71,7 @@ export default function RoutesPage() {
   const [showCreateRouteModal, setShowCreateRouteModal] = useState(false);
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
   const [showUpdateRouteModal, setShowUpdateRouteModal] = useState(false);
+  const [showManagementDrawer, setShowManagementDrawer] = useState(false);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([
@@ -359,6 +362,13 @@ export default function RoutesPage() {
         breadcrumbs={[]}
         buttons={
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button
+              componentId="mlflow.routes.manage_secrets_button"
+              icon={<GearIcon />}
+              onClick={() => setShowManagementDrawer(true)}
+            >
+              <FormattedMessage defaultMessage="Manage Secrets" description="Manage secrets button label" />
+            </Button>
             <Tooltip
               componentId="mlflow.routes.add_route_button_tooltip"
               content={
@@ -506,7 +516,7 @@ export default function RoutesPage() {
         route={selectedRoute}
         open={isDrawerOpen}
         onClose={handleDrawerClose}
-        onUpdate={handleUpdateRoute}
+        onUpdate={handleUpdateRouteSubmit}
         onDelete={handleDeleteRoute}
       />
 
@@ -516,6 +526,8 @@ export default function RoutesPage() {
         onCancel={() => setShowUpdateRouteModal(false)}
         onUpdate={handleUpdateRouteSubmit}
       />
+
+      <SecretManagementDrawer open={showManagementDrawer} onClose={() => setShowManagementDrawer(false)} />
     </ScrollablePageWrapper>
   );
 }

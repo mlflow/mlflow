@@ -288,10 +288,6 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
       // Use user-provided key name or generate from provider and env var key as fallback
       const secretName = keyName.trim() || `${effectiveProvider.toLowerCase()}_${envVarKey.toLowerCase()}`;
 
-      // Generate unique field_name based on route name to avoid binding conflicts
-      // This allows multiple routes for the same provider (e.g., multiple OpenAI routes)
-      const uniqueFieldName = `${routeName.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_KEY`;
-
       // Get tags from form and filter out empty entries
       const tagsArray = tagsForm.getValues('tags') || [];
       const validTags = tagsArray.filter((tag) => tag.key && tag.value);
@@ -306,7 +302,7 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
         route_tags: validTags.length > 0 ? JSON.stringify(validTags) : undefined,
         resource_type: 'GLOBAL',
         resource_id: 'global',
-        field_name: uniqueFieldName,
+        field_name: envVarKey,
         is_shared: true,
         auth_config: Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined,
       };

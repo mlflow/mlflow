@@ -2,11 +2,6 @@ import {
   Button,
   Empty,
   Spinner,
-  Table,
-  TableCell,
-  TableHeader,
-  TableRow,
-  TableRowAction,
   Tooltip,
   TrashIcon,
   Typography,
@@ -33,12 +28,24 @@ export const SecretBindingsList = ({
   const { theme } = useDesignSystemTheme();
   const { bindings, isLoading, error } = useListBindings({ secretId });
 
-  const formatResourceType = (resourceType: string) => {
+  const formatResourceType = (binding: any) => {
+    // If this is a route binding, show "Route" regardless of the resource_type field
+    if (binding.route_id) {
+      return 'Route';
+    }
     // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
-    return resourceType
+    return binding.resource_type
       .split('_')
-      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
+      .map((word: string) => word.charAt(0) + word.slice(1).toLowerCase())
       .join(' ');
+  };
+
+  const getResourceDisplay = (binding: any) => {
+    // For route bindings, show the route name instead of resource_id
+    if (binding.route_id) {
+      return binding.route_name || binding.route_id;
+    }
+    return binding.resource_id;
   };
 
   const handleUnbind = useCallback(
@@ -95,34 +102,65 @@ export const SecretBindingsList = ({
           />
         </Typography.Text>
       )}
-      <Table scrollable>
-        <TableRow isHeader>
-          <TableHeader componentId="mlflow.secrets.bindings_list.resource_type">
+      <div
+        css={{
+          border: `1px solid ${theme.colors.border}`,
+          borderRadius: theme.borders.borderRadiusMd,
+          overflow: 'hidden',
+        }}
+      >
+        {/* Header */}
+        <div
+          css={{
+            display: 'grid',
+            gridTemplateColumns: isSharedSecret ? '150px 1fr 200px 80px' : '150px 1fr 200px',
+            backgroundColor: theme.colors.backgroundSecondary,
+            borderBottom: `1px solid ${theme.colors.border}`,
+            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            fontWeight: theme.typography.typographyBoldFontWeight,
+            fontSize: theme.typography.fontSizeSm,
+            color: theme.colors.textSecondary,
+          }}
+        >
+          <div>
             <FormattedMessage
               defaultMessage="Resource Type"
               description="Secret bindings list > resource type column header"
             />
-          </TableHeader>
-          <TableHeader componentId="mlflow.secrets.bindings_list.resource">
+          </div>
+          <div>
             <FormattedMessage defaultMessage="Resource" description="Secret bindings list > resource column header" />
-          </TableHeader>
-          <TableHeader componentId="mlflow.secrets.bindings_list.field_name">
+          </div>
+          <div>
             <FormattedMessage
               defaultMessage="Environment Variable"
               description="Secret bindings list > field name column header"
             />
-          </TableHeader>
-          {isSharedSecret && <TableHeader componentId="mlflow.secrets.bindings_list.actions" />}
-        </TableRow>
-        {bindings.map((binding) => (
-          <TableRow key={binding.binding_id}>
-            <TableCell>
-              <Typography.Text>{formatResourceType(binding.resource_type)}</Typography.Text>
-            </TableCell>
-            <TableCell>
+          </div>
+          {isSharedSecret && <div />}
+        </div>
+        {/* Rows */}
+        {bindings.map((binding, index) => (
+          <div
+            key={binding.binding_id}
+            css={{
+              display: 'grid',
+              gridTemplateColumns: isSharedSecret ? '150px 1fr 200px 80px' : '150px 1fr 200px',
+              padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+              borderBottom: index < bindings.length - 1 ? `1px solid ${theme.colors.border}` : 'none',
+              '&:hover': {
+                backgroundColor: theme.colors.backgroundSecondary,
+              },
+              alignItems: 'center',
+            }}
+          >
+            <div>
+              <Typography.Text>{formatResourceType(binding)}</Typography.Text>
+            </div>
+            <div css={{ overflow: 'hidden' }}>
               <Tooltip
                 componentId={`mlflow.secrets.bindings_list.resource_tooltip.${binding.binding_id}`}
-                content={binding.resource_id}
+                content={getResourceDisplay(binding)}
               >
                 <Typography.Text
                   ellipsis
@@ -131,11 +169,11 @@ export const SecretBindingsList = ({
                     fontSize: theme.typography.fontSizeSm,
                   }}
                 >
-                  {binding.resource_id}
+                  {getResourceDisplay(binding)}
                 </Typography.Text>
               </Tooltip>
-            </TableCell>
-            <TableCell>
+            </div>
+            <div>
               <Typography.Text
                 css={{
                   fontFamily: 'monospace',
@@ -144,9 +182,9 @@ export const SecretBindingsList = ({
               >
                 {binding.field_name}
               </Typography.Text>
-            </TableCell>
+            </div>
             {isSharedSecret && (
-              <TableRowAction>
+              <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
                 {canUnbind(binding) && (
                   <Button
                     componentId="mlflow.secrets.bindings_list.unbind_button"
@@ -160,11 +198,11 @@ export const SecretBindingsList = ({
                     css={{ padding: '4px' }}
                   />
                 )}
-              </TableRowAction>
+              </div>
             )}
-          </TableRow>
+          </div>
         ))}
-      </Table>
+      </div>
     </div>
   );
 };

@@ -5,6 +5,7 @@ import {
   DialogComboboxOptionList,
   DialogComboboxOptionListSelectItem,
   DialogComboboxTrigger,
+  GearIcon,
   Header,
   Input,
   Notification,
@@ -22,6 +23,7 @@ import { CreateSecretModal } from './CreateSecretModal';
 import { UpdateSecretModal } from './UpdateSecretModal';
 import { DeleteSecretModal } from './DeleteSecretModal';
 import { SecretDetailDrawer } from './SecretDetailDrawer';
+import { SecretManagementDrawer } from './SecretManagementDrawer';
 import type { Secret } from '../types';
 
 export default function SecretsPage() {
@@ -35,6 +37,7 @@ export default function SecretsPage() {
   const [showUpdateModal, setShowUpdateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showManagementDrawer, setShowManagementDrawer] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
   const [searchText, setSearchText] = useState('');
   const [isSharedFilter, setIsSharedFilter] = useState<'all' | 'shared' | 'private'>('all');
@@ -97,9 +100,18 @@ export default function SecretsPage() {
         title={<FormattedMessage defaultMessage="Secrets" description="Header title for the secrets management page" />}
         breadcrumbs={[]}
         buttons={
-          <Button componentId="mlflow.secrets.create_secret_button" type="primary" onClick={handleCreateSecret}>
-            <FormattedMessage defaultMessage="Create Secret" description="Create secret button label" />
-          </Button>
+          <div css={{ display: 'flex', gap: theme.spacing.sm }}>
+            <Button
+              componentId="mlflow.secrets.manage_secrets_button"
+              icon={<GearIcon />}
+              onClick={() => setShowManagementDrawer(true)}
+            >
+              <FormattedMessage defaultMessage="Manage Secrets" description="Manage secrets button label" />
+            </Button>
+            <Button componentId="mlflow.secrets.create_secret_button" type="primary" onClick={handleCreateSecret}>
+              <FormattedMessage defaultMessage="Create Secret" description="Create secret button label" />
+            </Button>
+          </div>
         }
       />
       <Spacer shrinks={false} />
@@ -225,6 +237,8 @@ export default function SecretsPage() {
           <Notification.Viewport />
         </Notification.Provider>
       )}
+
+      <SecretManagementDrawer open={showManagementDrawer} onClose={() => setShowManagementDrawer(false)} />
     </ScrollablePageWrapper>
   );
 }
