@@ -51,7 +51,11 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
         # This detects classmethods more reliably
         params = list(bound_arguments.arguments.keys())
-        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
+        if (
+            params
+            and params[0] == "cls"
+            and isinstance(bound_arguments.arguments["cls"], type)
+        ):
             del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
@@ -159,7 +163,9 @@ def get_mlflow_span_for_otel_span(span: OTelSpan) -> LiveSpan | None:
 
     trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
     mlflow_span_id = encode_span_id(span.get_span_context().span_id)
-    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
+    return InMemoryTraceManager.get_instance().get_span_from_id(
+        trace_id, mlflow_span_id
+    )
 
 
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
@@ -181,6 +187,8 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     input_tokens = 0
     output_tokens = 0
     total_tokens = 0
+    cache_creation_tokens = 0
+    cache_read_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -195,7 +203,13 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
             roots.append(span)
 
     def dfs(span: LiveSpan, ancestor_has_usage: bool) -> None:
-        nonlocal input_tokens, output_tokens, total_tokens, has_usage_data
+        nonlocal \
+            input_tokens, \
+            output_tokens, \
+            total_tokens, \
+            cache_creation_tokens, \
+            cache_read_tokens, \
+            has_usage_data
 
         usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
         span_has_usage = usage is not None
@@ -204,6 +218,10 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
+            cache_creation_tokens += usage.get(
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, 0
+            )
+            cache_read_tokens += usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS, 0)
             has_usage_data = True
 
         next_ancestor_has_usage = ancestor_has_usage or span_has_usage
@@ -217,11 +235,19 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     if not has_usage_data:
         return None
 
-    return {
+    result = {
         TokenUsageKey.INPUT_TOKENS: input_tokens,
         TokenUsageKey.OUTPUT_TOKENS: output_tokens,
         TokenUsageKey.TOTAL_TOKENS: total_tokens,
     }
+
+    # Only include cache tokens if they have non-zero values
+    if cache_creation_tokens > 0:
+        result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation_tokens
+    if cache_read_tokens > 0:
+        result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read_tokens
+
+    return result
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
@@ -242,7 +268,9 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
             return None
         return json.loads(attribute_value)
     except Exception:
-        _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
+        _logger.debug(
+            f"Failed to get attribute {key} with from span {span}.", exc_info=True
+        )
 
 
 def _try_get_prediction_context():

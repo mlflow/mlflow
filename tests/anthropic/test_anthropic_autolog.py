@@ -11,7 +11,6 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
-
 from tests.tracing.helper import get_traces
 
 DUMMY_CREATE_MESSAGE_REQUEST = {
@@ -140,7 +139,9 @@ try:
         "thinking": {"type": "enabled", "budget_tokens": 512},
     }
 
-    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE = DUMMY_CREATE_MESSAGE_RESPONSE.model_copy()
+    DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE = (
+        DUMMY_CREATE_MESSAGE_RESPONSE.model_copy()
+    )
     DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.content = [
         ThinkingBlock(
             type="thinking",
@@ -164,11 +165,15 @@ def is_async(request):
 
 def _call_anthropic(request: dict[str, Any], mock_response: Message, is_async: bool):
     if is_async:
-        with patch("anthropic._base_client.AsyncAPIClient.post", return_value=mock_response):
+        with patch(
+            "anthropic._base_client.AsyncAPIClient.post", return_value=mock_response
+        ):
             client = anthropic.AsyncAnthropic(api_key="test_key")
             return asyncio.run(client.messages.create(**request))
     else:
-        with patch("anthropic._base_client.SyncAPIClient.post", return_value=mock_response):
+        with patch(
+            "anthropic._base_client.SyncAPIClient.post", return_value=mock_response
+        ):
             client = anthropic.Anthropic(api_key="test_key")
             return client.messages.create(**request)
 
@@ -176,7 +181,9 @@ def _call_anthropic(request: dict[str, Any], mock_response: Message, is_async: b
 def test_messages_autolog(is_async):
     mlflow.anthropic.autolog()
 
-    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async
+    )
 
     traces = get_traces()
     assert len(traces) == 1
@@ -206,7 +213,9 @@ def test_messages_autolog(is_async):
     }
 
     mlflow.anthropic.autolog(disable=True)
-    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
+    _call_anthropic(
+        DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async
+    )
 
     # No new trace should be created
     traces = get_traces()
@@ -271,7 +280,9 @@ def test_messages_autolog_tool_calling(is_async):
     mlflow.anthropic.autolog()
 
     _call_anthropic(
-        DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST, DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE, is_async
+        DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST,
+        DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE,
+        is_async,
     )
 
     traces = get_traces()
@@ -282,7 +293,9 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
-    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(
+        exclude_unset=False
+    )
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -341,7 +354,9 @@ def test_messages_autolog_tool_calling(is_async):
     }
 
 
-@pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
+@pytest.mark.skipif(
+    not _is_thinking_supported, reason="Thinking block is not supported"
+)
 def test_messages_autolog_with_thinking(is_async):
     mlflow.anthropic.autolog()
 
@@ -377,3 +392,93 @@ def test_messages_autolog_with_thinking(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+
+
+def test_messages_autolog_with_cache_tokens(is_async):
+    """Test that cache tokens (cache_creation_input_tokens, cache_read_input_tokens) are properly tracked."""
+    mlflow.anthropic.autolog()
+
+    # Create a response with cache tokens
+    response_with_cache = Message(
+        id="test_id_cache",
+        content=[TextBlock(text="cached response", type="text", citations=None)],
+        model="test_model",
+        role="assistant",
+        stop_reason="end_turn",
+        stop_sequence=None,
+        type="message",
+        usage=Usage(
+            input_tokens=100,
+            output_tokens=50,
+            cache_creation_input_tokens=80,
+            cache_read_input_tokens=20,
+        ),
+    )
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, response_with_cache, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+
+    # Verify all token metrics including cache tokens are captured
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 20,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 100,
+        "output_tokens": 50,
+        "total_tokens": 150,
+        "cache_creation_input_tokens": 80,
+        "cache_read_input_tokens": 20,
+    }
+
+
+def test_messages_autolog_with_partial_cache_tokens(is_async):
+    """Test that only cache_read_input_tokens (without cache_creation_input_tokens) is properly tracked."""
+    mlflow.anthropic.autolog()
+
+    # Create a response with only cache_read_input_tokens (cache hit scenario)
+    response_with_cache_read = Message(
+        id="test_id_cache_read",
+        content=[TextBlock(text="cached response", type="text", citations=None)],
+        model="test_model",
+        role="assistant",
+        stop_reason="end_turn",
+        stop_sequence=None,
+        type="message",
+        usage=Usage(
+            input_tokens=100,
+            output_tokens=50,
+            cache_creation_input_tokens=None,
+            cache_read_input_tokens=90,
+        ),
+    )
+
+    _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, response_with_cache_read, is_async)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    # Verify cache_read_input_tokens is captured, but cache_creation_input_tokens is not included
+    usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+    assert usage["input_tokens"] == 100
+    assert usage["output_tokens"] == 50
+    assert usage["total_tokens"] == 150
+    assert usage["cache_read_input_tokens"] == 90
+    assert "cache_creation_input_tokens" not in usage
+
+    token_usage = traces[0].info.token_usage
+    assert token_usage["input_tokens"] == 100
+    assert token_usage["output_tokens"] == 50
+    assert token_usage["total_tokens"] == 150
+    assert token_usage["cache_read_input_tokens"] == 90
+    assert "cache_creation_input_tokens" not in token_usage
