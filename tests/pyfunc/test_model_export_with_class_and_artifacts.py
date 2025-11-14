@@ -73,7 +73,6 @@ from tests.helper_functions import (
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
 )
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
 from tests.tracing.helper import get_traces
 
 
@@ -168,11 +167,7 @@ def _conda_env():
 
 def test_model_save_load(sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -224,11 +219,7 @@ def test_pyfunc_model_log_load_no_active_run(sklearn_knn_model, main_scoped_mode
 def test_model_log_load(sklearn_knn_model, main_scoped_model_class, iris_data):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name=sklearn_artifact_path,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -266,11 +257,7 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
 
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name=sklearn_artifact_path,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
         sklearn_model_uri = model_info.model_uri
 
     def test_predict(sk_model, model_input):
@@ -294,15 +281,9 @@ def test_python_model_predict_compatible_without_params(sklearn_knn_model, iris_
     )
 
 
-def test_signature_and_examples_are_saved_correctly(
-    sklearn_knn_model, iris_data, main_scoped_model_class, tmp_path
-):
+def test_signature_and_examples_are_saved_correctly(iris_data, main_scoped_model_class, tmp_path):
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -322,12 +303,7 @@ def test_signature_and_examples_are_saved_correctly(
                     input_example=example,
                 )
                 mlflow_model = Model.load(path)
-                if signature is not None:
-                    assert mlflow_model.signature == signature
-                if example is not None:
-                    assert mlflow_model.signature == infer_signature(
-                        example, test_predict(sklearn_knn_model, example)
-                    )
+                assert signature == mlflow_model.signature
                 if example is None:
                     assert mlflow_model.saved_input_example_info is None
                 else:
@@ -374,11 +350,7 @@ def test_model_load_from_remote_uri_succeeds(
     artifact_repo = S3ArtifactRepository(artifact_root)
 
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     sklearn_artifact_path = "sk_model"
     artifact_repo.log_artifacts(sklearn_model_path, artifact_path=sklearn_artifact_path)
 
@@ -428,11 +400,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_main_sc
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -464,11 +432,7 @@ def test_pyfunc_model_serving_with_conda_env_activation_succeeds_with_main_scope
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -499,11 +463,7 @@ def test_pyfunc_model_serving_without_conda_env_activation_succeeds_with_module_
     sklearn_knn_model, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -536,11 +496,7 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -593,11 +549,7 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -702,11 +654,7 @@ def test_log_model_with_pip_requirements(sklearn_knn_model, main_scoped_model_cl
     expected_mlflow_version = _mlflow_major_version_string()
     python_model = main_scoped_model_class(predict_fn=None)
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
     # Path to a requirements file
     req_file = tmp_path.joinpath("requirements.txt")
     req_file.write_text("a")
@@ -758,11 +706,7 @@ def test_log_model_with_extra_pip_requirements(
 ):
     expected_mlflow_version = _mlflow_major_version_string()
     sklearn_model_path = str(tmp_path.joinpath("sklearn_model"))
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     python_model = main_scoped_model_class(predict_fn=None)
     default_reqs = mlflow.pyfunc.get_default_pip_requirements()
@@ -815,11 +759,7 @@ def test_log_model_persists_specified_conda_env_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name=sklearn_artifact_path,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -850,11 +790,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name=sklearn_artifact_path,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -891,11 +827,7 @@ def test_log_model_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     sklearn_artifact_path = "sk_model"
     with mlflow.start_run():
-        sklearn_model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name=sklearn_artifact_path,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        sklearn_model_info = mlflow.sklearn.log_model(sklearn_knn_model, name=sklearn_artifact_path)
 
     pyfunc_artifact_path = "pyfunc_model"
     with mlflow.start_run():
@@ -1169,11 +1101,7 @@ def test_save_and_load_model_with_special_chars(
     sklearn_knn_model, main_scoped_model_class, iris_data, tmp_path
 ):
     sklearn_model_path = os.path.join(tmp_path, "sklearn_  model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -1503,11 +1431,7 @@ def test_python_model_with_type_hint_errors_with_different_signature():
 
 def test_artifact_path_posix(sklearn_knn_model, main_scoped_model_class, tmp_path):
     sklearn_model_path = tmp_path.joinpath("sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2
@@ -2589,11 +2513,7 @@ def test_model_save_load_compression(
 ):
     monkeypatch.setenv(MLFLOW_LOG_MODEL_COMPRESSION.name, compression)
     sklearn_model_path = os.path.join(tmp_path, "sklearn_model")
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model,
-        path=sklearn_model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_knn_model, path=sklearn_model_path)
 
     def test_predict(sk_model, model_input):
         return sk_model.predict(model_input) * 2

@@ -35,7 +35,6 @@ from tests.helper_functions import (
     random_int,
     random_str,
 )
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
 
 if Version(keras.__version__) >= Version("2.6.0"):
     from tensorflow.keras.layers import Concatenate, Dense, Input
@@ -207,11 +206,7 @@ def model_path(tmp_path):
 def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_message(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     malformed_json_content = "this is,,,, not valid json"
     response = pyfunc_serve_and_score_model(
@@ -229,11 +224,7 @@ def test_scoring_server_responds_to_malformed_json_input_with_error_code_and_mes
 def test_scoring_server_responds_to_invalid_json_format_with_error_code_and_message(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     for not_a_dict_content in [1, "1", [1]]:
         incorrect_json_content = json.dumps(not_a_dict_content)
         response = pyfunc_serve_and_score_model(
@@ -266,11 +257,7 @@ def test_scoring_server_responds_to_invalid_json_format_with_error_code_and_mess
 def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pdf = pd.DataFrame(sklearn_model.inference_data)
     wrong_records_content = json.dumps({"dataframe_records": pdf.to_dict(orient="split")})
@@ -300,11 +287,7 @@ def test_scoring_server_responds_to_invalid_pandas_input_format_with_stacktrace_
 def test_scoring_server_responds_to_invalid_dataframe_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     invalid_dataframe_content = json.dumps(
         {"dataframe_split": {"index": [1, 2], "data": [[1], [2], [3]]}}
@@ -324,11 +307,7 @@ def test_scoring_server_responds_to_invalid_dataframe_with_stacktrace_and_error_
 def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     incompatible_df = pd.DataFrame(np.array(range(10)))
 
     response = pyfunc_serve_and_score_model(
@@ -346,11 +325,7 @@ def test_scoring_server_responds_to_incompatible_inference_dataframe_with_stackt
 def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     # Any empty string is not valid pandas CSV
     incorrect_csv_content = ""
@@ -369,11 +344,7 @@ def test_scoring_server_responds_to_invalid_csv_input_with_stacktrace_and_error_
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_records_orientation(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_record_content = json.dumps(
         {"dataframe_records": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="records")}
@@ -398,11 +369,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_re
 def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_split_orientation(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = json.dumps(
         {"dataframe_split": pd.DataFrame(sklearn_model.inference_data).to_dict(orient="split")}
@@ -428,11 +395,7 @@ def test_scoring_server_successfully_evaluates_correct_dataframes_with_pandas_sp
 def test_scoring_server_responds_to_invalid_content_type_request_with_unsupported_content_type_code(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response = pyfunc_serve_and_score_model(
@@ -446,11 +409,7 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unsupporte
 def test_scoring_server_responds_to_invalid_content_type_request_with_unrecognized_content_param(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
     pandas_split_content = pd.DataFrame(sklearn_model.inference_data).to_json(orient="split")
     response = pyfunc_serve_and_score_model(
         model_uri=os.path.abspath(model_path),
@@ -463,11 +422,7 @@ def test_scoring_server_responds_to_invalid_content_type_request_with_unrecogniz
 def test_scoring_server_successfully_evaluates_correct_tf_serving_sklearn(
     sklearn_model, model_path
 ):
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path)
 
     inp_dict = {"instances": sklearn_model.inference_data.tolist()}
     response_records_content_type = pyfunc_serve_and_score_model(
@@ -702,12 +657,7 @@ def test_serving_model_with_param_schema(sklearn_model, model_path):
         [ParamSpec("param1", DataType.datetime, np.datetime64("2023-07-01"))]
     )
     signature.params = param_schema
-    mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        signature=signature,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sk_model=sklearn_model.model, path=model_path, signature=signature)
 
     # Success if passing no parameters
     response = pyfunc_serve_and_score_model(
@@ -828,10 +778,7 @@ def test_scoring_server_client(sklearn_model, model_path):
     from mlflow.utils import find_free_port
 
     mlflow.sklearn.save_model(
-        sk_model=sklearn_model.model,
-        path=model_path,
-        metadata={"metadata_key": "value"},
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+        sk_model=sklearn_model.model, path=model_path, metadata={"metadata_key": "value"}
     )
     expected_result = sklearn_model.model.predict(sklearn_model.inference_data)
 

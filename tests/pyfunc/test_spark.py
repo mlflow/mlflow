@@ -60,7 +60,6 @@ from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
@@ -264,11 +263,7 @@ def test_spark_udf_env_manager_predict_sklearn_model(
     )
     model, inference_data = sklearn_model
 
-    mlflow.sklearn.save_model(
-        model,
-        model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(model, model_path)
     expected_pred_result = model.predict(inference_data)
 
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
@@ -839,11 +834,7 @@ def test_spark_udf_embedded_model_server_killed_when_job_canceled(
     from mlflow.models.flavor_backend_registry import get_flavor_backend
     from mlflow.pyfunc.scoring_server.client import ScoringServerClient
 
-    mlflow.sklearn.save_model(
-        sklearn_model.model,
-        model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sklearn_model.model, model_path)
 
     server_port = 51234
     timeout = 60
@@ -914,12 +905,7 @@ def test_spark_udf_datetime_with_model_schema(spark):
     timestamp_dtype = {"timestamp": "datetime64[ns]"}
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X.astype(timestamp_dtype), y)
-        model_info = mlflow.sklearn.log_model(
-            model,
-            name="model",
-            signature=signature,
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-        )
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     inference_sample = X.sample(n=10, random_state=42)
     infer_spark_df = spark.createDataFrame(inference_sample.astype(timestamp_dtype))
@@ -950,12 +936,7 @@ def test_spark_udf_string_datetime_with_model_schema(spark):
 
     with mlflow.start_run():
         signature = mlflow.models.infer_signature(X, y)
-        model_info = mlflow.sklearn.log_model(
-            model,
-            name="model",
-            signature=signature,
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-        )
+        model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     inference_sample = X.sample(n=10, random_state=42)
     infer_spark_df = spark.createDataFrame(inference_sample)
@@ -1600,11 +1581,7 @@ def test_spark_udf_env_manager_with_invalid_pythonpath(
 
     model, inference_data = sklearn_model
 
-    mlflow.sklearn.save_model(
-        model,
-        model_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(model, model_path)
     expected_pred_result = model.predict(inference_data)
 
     infer_data = pd.DataFrame(inference_data, columns=["a", "b"])
@@ -1645,7 +1622,6 @@ def test_build_model_env(spark, sklearn_model, model_path, tmp_path, monkeypatch
                 # so add MLflow as a required dependency here.
                 "mlflow",
             ],
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     model_uri = model_info.model_uri

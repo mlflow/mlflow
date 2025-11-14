@@ -28,8 +28,6 @@ from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _validate_and_prepare_target_save_path
 from mlflow.utils.proto_json_utils import dataframe_from_raw_json
 
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
-
 
 @pytest.fixture(scope="module")
 def iris_data():
@@ -478,7 +476,6 @@ def test_validate_schema(sklearn_knn_model, iris_data, tmp_path):
         sklearn_knn_model,
         sk_model_path,
         signature=signature,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     validate_schema(X, signature.inputs)
@@ -536,11 +533,7 @@ def test_save_load_input_example_with_pydantic_model(tmp_path):
 
 
 def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
-    mlflow.sklearn.save_model(
-        sklearn_knn_model,
-        tmp_path,
-        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-    )
+    mlflow.sklearn.save_model(sklearn_knn_model, tmp_path)
     info = Model.load(tmp_path).get_model_info()
     assert info.run_id is None
     assert info.artifact_path is None
@@ -548,11 +541,7 @@ def test_model_saved_by_save_model_can_be_loaded(tmp_path, sklearn_knn_model):
 
 def test_copy_metadata(mock_is_in_databricks, sklearn_knn_model):
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(
-            sklearn_knn_model,
-            name="model",
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
-        )
+        model_info = mlflow.sklearn.log_model(sklearn_knn_model, name="model")
 
     artifact_path = mlflow.artifacts.download_artifacts(model_info.model_uri)
     metadata_path = os.path.join(artifact_path, "metadata")

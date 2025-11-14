@@ -79,7 +79,7 @@ with mlflow.start_run() as run:
     )
 
     # Evaluate the candidate model
-    candidate_model_uri = mlflow.xgboost.log_model(
+    candidate_model_uri = mlflow.sklearn.log_model(
         candidate_model, name="candidate_model", signature=candidate_signature
     ).model_uri
 

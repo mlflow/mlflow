@@ -31,8 +31,6 @@ from mlflow.pyfunc import _enforce_schema, _validate_prediction_input
 from mlflow.types import DataType, Schema
 from mlflow.types.schema import Array, ColSpec, Object, Property
 
-from tests.sklearn.test_sklearn_model_export import sklearn_knn_model_skops_trusted_types
-
 
 class ModelWithData(NamedTuple):
     model: Any
@@ -66,7 +64,6 @@ def test_adding_libraries_to_model_default(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     wheeled_model_info = add_libraries_to_model(model_uri)
@@ -91,7 +88,6 @@ def test_adding_libraries_to_model_new_run(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     with mlflow.start_run():
@@ -119,7 +115,6 @@ def test_adding_libraries_to_model_run_id_passed(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     with mlflow.start_run():
@@ -148,7 +143,6 @@ def test_adding_libraries_to_model_new_model_name(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     with mlflow.start_run():
@@ -177,7 +171,6 @@ def test_adding_libraries_to_model_when_version_source_None(sklearn_knn_model):
             sklearn_knn_model.model,
             name=artifact_path,
             registered_model_name=model_name,
-            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
     model_version_without_source = ModelVersion(name=model_name, version=1, creation_timestamp=124)

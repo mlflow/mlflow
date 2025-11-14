@@ -1762,11 +1762,7 @@ def test_evaluation_works_with_model_pipelines_that_modify_input_data():
     model_pipeline.fit(X, y)
 
     with mlflow.start_run() as run:
-        pipeline_model_uri = mlflow.sklearn.log_model(
-            model_pipeline,
-            name="model",
-            serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
-        ).model_uri
+        pipeline_model_uri = mlflow.sklearn.log_model(model_pipeline, name="model").model_uri
 
         evaluation_data = pd.DataFrame(load_iris().data, columns=["0", "1", "2", "3"])
         evaluation_data["labels"] = load_iris().target

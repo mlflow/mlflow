@@ -232,11 +232,7 @@ def get_pipeline_model_uri():
     pipeline.fit(X, y)
 
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(
-            pipeline,
-            name="pipeline_model",
-            skops_trusted_types=["numpy.dtype"],
-        )
+        model_info = mlflow.sklearn.log_model(pipeline, name="pipeline_model")
         return model_info.model_uri
 
 
