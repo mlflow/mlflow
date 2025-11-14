@@ -208,11 +208,6 @@ def task_2(simple_agent_2):
     )
 
 
-@pytest.fixture
-def set_api_key(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "000")
-
-
 def global_autolog():
     if IS_TRACING_SDK_ONLY:
         pytest.skip("Global autolog is not supported in tracing SDK")
