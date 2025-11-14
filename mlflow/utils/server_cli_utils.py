@@ -7,7 +7,11 @@ for users.
 
 import click
 
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    DEFAULT_TRACKING_URI,
+)
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_local_uri
 
@@ -47,7 +51,7 @@ def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
         bool True if the default value is set.
 
     """
-    return backend_store_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    return backend_store_uri == DEFAULT_TRACKING_URI
 
 
 def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: str) -> None:

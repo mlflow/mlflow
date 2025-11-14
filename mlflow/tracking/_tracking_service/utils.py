@@ -7,7 +7,7 @@ from typing import Generator
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_TRACKING_URI
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.provider import reset
@@ -129,7 +129,7 @@ def get_tracking_uri() -> str:
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
-        return "sqlite:///mlflow.db"
+        return DEFAULT_TRACKING_URI
 
 
 def _get_file_store(store_uri, **_):

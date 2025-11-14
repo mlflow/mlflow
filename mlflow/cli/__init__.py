@@ -24,7 +24,11 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    DEFAULT_TRACKING_URI,
+)
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
 from mlflow.utils import cli_args
@@ -350,7 +354,7 @@ def _validate_static_prefix(ctx, param, value):
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=DEFAULT_TRACKING_URI,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -543,7 +547,7 @@ def server(
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        backend_store_uri = DEFAULT_TRACKING_URI
 
     # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
@@ -623,7 +627,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=DEFAULT_TRACKING_URI,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
