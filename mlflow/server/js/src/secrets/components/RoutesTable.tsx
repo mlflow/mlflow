@@ -38,12 +38,16 @@ export interface RoutesTableProps {
   setSorting: React.Dispatch<React.SetStateAction<SortingState>>;
   hiddenColumns?: string[];
   toggleHiddenColumn: (columnId: string) => void;
+  onRowClick?: (route: Route) => void;
 }
 
-const ProviderBadge = ({ provider }: { provider: string }) => {
+const ProviderBadge = ({ provider }: { provider?: string }) => {
   const { theme } = useDesignSystemTheme();
 
-  const getProviderColor = (provider: string) => {
+  const getProviderColor = (provider?: string) => {
+    if (!provider) {
+      return { bg: theme.colors.backgroundSecondary, text: theme.colors.textSecondary };
+    }
     switch (provider.toLowerCase()) {
       case 'openai':
         return { bg: '#10A37F15', text: '#10A37F' };
@@ -81,7 +85,7 @@ const ProviderBadge = ({ provider }: { provider: string }) => {
       }}
     >
       <LightningIcon css={{ fontSize: 12 }} />
-      {provider}
+      {provider || 'Unknown'}
     </div>
   );
 };
@@ -134,14 +138,12 @@ const TagsCell = ({ tags }: { tags?: Array<{ key: string; value: string }> | Rec
   // Convert tags to KeyValueEntity format
   const tagEntities = Array.isArray(tags)
     ? tags
-    : tags ? Object.entries(tags).map(([key, value]) => ({ key, value })) : [];
+    : tags
+    ? Object.entries(tags).map(([key, value]) => ({ key, value }))
+    : [];
 
   if (tagEntities.length === 0) {
-    return (
-      <Typography.Text css={{ color: theme.colors.textSecondary, fontStyle: 'italic' }}>
-        -
-      </Typography.Text>
-    );
+    return <Typography.Text css={{ color: theme.colors.textSecondary, fontStyle: 'italic' }}>-</Typography.Text>;
   }
 
   const displayTags = tagEntities.slice(0, 3);
@@ -183,7 +185,16 @@ type ColumnListItem = {
 };
 
 export const RoutesTable = React.memo(
-  ({ routes, loading, error, sorting, setSorting, hiddenColumns = [], toggleHiddenColumn }: RoutesTableProps) => {
+  ({
+    routes,
+    loading,
+    error,
+    sorting,
+    setSorting,
+    hiddenColumns = [],
+    toggleHiddenColumn,
+    onRowClick,
+  }: RoutesTableProps) => {
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
 
@@ -229,9 +240,7 @@ export const RoutesTable = React.memo(
 
             if (!description) {
               return (
-                <Typography.Text css={{ color: theme.colors.textSecondary, fontStyle: 'italic' }}>
-                  -
-                </Typography.Text>
+                <Typography.Text css={{ color: theme.colors.textSecondary, fontStyle: 'italic' }}>-</Typography.Text>
               );
             }
 
@@ -253,12 +262,7 @@ export const RoutesTable = React.memo(
           enableResizing: true,
           id: RoutesTableColumns.secretName,
           accessorFn: (data) => data.secret_name || data.secret_id,
-          cell: ({ row }) => (
-            <SecretNameCell
-              secretName={row.original.secret_name}
-              secretId={row.original.secret_id}
-            />
-          ),
+          cell: ({ row }) => <SecretNameCell secretName={row.original.secret_name} secretId={row.original.secret_id} />,
           meta: { styles: { minWidth: 180, maxWidth: 280 } },
         },
         {
@@ -457,35 +461,34 @@ export const RoutesTable = React.memo(
           {loading && <TableSkeletonRows table={table} />}
           {!loading &&
             !error &&
-            table
-              .getRowModel()
-              .rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  css={{
-                    cursor: 'pointer',
-                    '&:hover': {
-                      backgroundColor: theme.colors.actionTertiaryBackgroundHover,
-                    },
-                  }}
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const cellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
-                    return (
-                      <TableCell
-                        key={cell.id}
-                        css={(cell.column.columnDef as RoutesColumnDef).meta?.styles}
-                        style={{
-                          flex: `calc(var(${getColumnSizeClassName(cell.column.id)}) / 100)`,
-                        }}
-                      >
-                        {cellContent}
-                      </TableCell>
-                    );
-                  })}
-                  <TableRowAction />
-                </TableRow>
-              ))}
+            table.getRowModel().rows.map((row) => (
+              <TableRow
+                key={row.id}
+                onClick={() => onRowClick?.(row.original)}
+                css={{
+                  cursor: 'pointer',
+                  '&:hover': {
+                    backgroundColor: theme.colors.actionTertiaryBackgroundHover,
+                  },
+                }}
+              >
+                {row.getVisibleCells().map((cell) => {
+                  const cellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      css={(cell.column.columnDef as RoutesColumnDef).meta?.styles}
+                      style={{
+                        flex: `calc(var(${getColumnSizeClassName(cell.column.id)}) / 100)`,
+                      }}
+                    >
+                      {cellContent}
+                    </TableCell>
+                  );
+                })}
+                <TableRowAction />
+              </TableRow>
+            ))}
         </Table>
       </div>
     );

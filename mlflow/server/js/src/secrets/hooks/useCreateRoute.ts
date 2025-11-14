@@ -7,11 +7,7 @@ const LIST_ROUTES_QUERY_KEY = 'listRoutes';
 export const useCreateRoute = () => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation<
-    CreateRouteResponse,
-    Error,
-    CreateRouteRequest
-  >({
+  const { mutate, mutateAsync, isLoading, error } = useMutation<CreateRouteResponse, Error, CreateRouteRequest>({
     mutationFn: async (request: CreateRouteRequest) => {
       return await routesApi.createRoute(request);
     },

@@ -1,10 +1,4 @@
-import {
-  FormUI,
-  Input,
-  Modal,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { FormUI, Input, Modal, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useState, useCallback } from 'react';
 import type { Secret } from '../types';
@@ -85,20 +79,12 @@ export const UpdateSecretModal = ({ secret, visible, onCancel, onSuccess }: Upda
       })}
       onOk={handleUpdate}
       okButtonProps={{ loading: isLoading, disabled: !secretValue }}
-      title={
-        <FormattedMessage
-          defaultMessage="Update Secret Value"
-          description="Update secret modal > modal title"
-        />
-      }
+      title={<FormattedMessage defaultMessage="Update Secret Value" description="Update secret modal > modal title" />}
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <div>
           <FormUI.Label>
-            <FormattedMessage
-              defaultMessage="Secret Name"
-              description="Update secret modal > secret name label"
-            />
+            <FormattedMessage defaultMessage="Secret Name" description="Update secret modal > secret name label" />
           </FormUI.Label>
           <Typography.Text bold>{secret.secret_name}</Typography.Text>
         </div>

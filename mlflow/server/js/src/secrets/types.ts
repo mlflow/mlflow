@@ -13,6 +13,7 @@ export interface Secret {
   created_by?: string;
   last_updated_by?: string;
   binding_count?: number;
+  provider?: string;
 }
 
 export interface SecretBinding {
@@ -23,6 +24,12 @@ export interface SecretBinding {
   field_name: string;
   created_at: number;
   last_updated_at: number;
+  created_by?: string;
+  last_updated_by?: string;
+  route_id?: string;
+  route_name?: string;
+  secret_name?: string;
+  provider?: string;
 }
 
 export interface CreateSecretRequest {
@@ -80,7 +87,7 @@ export interface Route {
   model_name: string;
   name?: string;
   description?: string;
-  provider: string;
+  provider?: string;
   created_at: number;
   last_updated_at: number;
   created_by?: string;
@@ -115,6 +122,25 @@ export interface CreateRouteResponse {
   secret?: Secret; // Present if new secret was created
   route: Route;
   binding: SecretBinding;
+}
+
+export interface UpdateRouteRequest {
+  route_id: string;
+
+  // Option 1: Update to existing secret
+  secret_id?: string;
+
+  // Option 2: Create new secret and update route
+  secret_name?: string;
+  secret_value?: string;
+  provider?: string;
+  is_shared?: boolean;
+  auth_config?: string;
+}
+
+export interface UpdateRouteResponse {
+  route: Route;
+  secret: Secret;
 }
 
 export interface ListRoutesResponse {

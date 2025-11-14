@@ -247,10 +247,7 @@ export const SecretsTable = React.memo(
           );
         } else {
           title = (
-            <FormattedMessage
-              defaultMessage="Unable to load secrets"
-              description="Secrets table > error state title"
-            />
+            <FormattedMessage defaultMessage="Unable to load secrets" description="Secrets table > error state title" />
           );
           description = (
             <FormattedMessage
@@ -366,67 +363,65 @@ export const SecretsTable = React.memo(
           {loading && <TableSkeletonRows table={table} />}
           {!loading &&
             !error &&
-            table
-              .getRowModel()
-              .rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => {
-                    const cellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
-                    return (
-                      <TableCell
-                        key={cell.id}
-                        css={(cell.column.columnDef as SecretsColumnDef).meta?.styles}
-                        style={{
-                          flex: `calc(var(${getColumnSizeClassName(cell.column.id)}) / 100)`,
-                        }}
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => {
+                  const cellContent = flexRender(cell.column.columnDef.cell, cell.getContext());
+                  return (
+                    <TableCell
+                      key={cell.id}
+                      css={(cell.column.columnDef as SecretsColumnDef).meta?.styles}
+                      style={{
+                        flex: `calc(var(${getColumnSizeClassName(cell.column.id)}) / 100)`,
+                      }}
+                    >
+                      {cellContent}
+                    </TableCell>
+                  );
+                })}
+                <TableRowAction>
+                  <DropdownMenu.Root>
+                    <DropdownMenu.Trigger asChild>
+                      <Button
+                        componentId="mlflow.secrets.row_actions_dropdown"
+                        icon={<OverflowIcon />}
+                        size="small"
+                        aria-label={intl.formatMessage({
+                          defaultMessage: 'Row actions',
+                          description: 'Secrets table > row actions dropdown aria label',
+                        })}
+                      />
+                    </DropdownMenu.Trigger>
+                    <DropdownMenu.Content align="end">
+                      <DropdownMenu.Item
+                        componentId="mlflow.secrets.update_secret"
+                        onClick={() => onUpdateSecret?.(row.original)}
                       >
-                        {cellContent}
-                      </TableCell>
-                    );
-                  })}
-                  <TableRowAction>
-                    <DropdownMenu.Root>
-                      <DropdownMenu.Trigger asChild>
-                        <Button
-                          componentId="mlflow.secrets.row_actions_dropdown"
-                          icon={<OverflowIcon />}
-                          size="small"
-                          aria-label={intl.formatMessage({
-                            defaultMessage: 'Row actions',
-                            description: 'Secrets table > row actions dropdown aria label',
-                          })}
+                        <DropdownMenu.IconWrapper>
+                          <PencilIcon />
+                        </DropdownMenu.IconWrapper>
+                        <FormattedMessage
+                          defaultMessage="Update secret value"
+                          description="Secrets table > update secret action"
                         />
-                      </DropdownMenu.Trigger>
-                      <DropdownMenu.Content align="end">
-                        <DropdownMenu.Item
-                          componentId="mlflow.secrets.update_secret"
-                          onClick={() => onUpdateSecret?.(row.original)}
-                        >
-                          <DropdownMenu.IconWrapper>
-                            <PencilIcon />
-                          </DropdownMenu.IconWrapper>
-                          <FormattedMessage
-                            defaultMessage="Update secret value"
-                            description="Secrets table > update secret action"
-                          />
-                        </DropdownMenu.Item>
-                        <DropdownMenu.Item
-                          componentId="mlflow.secrets.delete_secret"
-                          onClick={() => onDeleteSecret?.(row.original)}
-                        >
-                          <DropdownMenu.IconWrapper>
-                            <TrashIcon />
-                          </DropdownMenu.IconWrapper>
-                          <FormattedMessage
-                            defaultMessage="Delete secret"
-                            description="Secrets table > delete secret action"
-                          />
-                        </DropdownMenu.Item>
-                      </DropdownMenu.Content>
-                    </DropdownMenu.Root>
-                  </TableRowAction>
-                </TableRow>
-              ))}
+                      </DropdownMenu.Item>
+                      <DropdownMenu.Item
+                        componentId="mlflow.secrets.delete_secret"
+                        onClick={() => onDeleteSecret?.(row.original)}
+                      >
+                        <DropdownMenu.IconWrapper>
+                          <TrashIcon />
+                        </DropdownMenu.IconWrapper>
+                        <FormattedMessage
+                          defaultMessage="Delete secret"
+                          description="Secrets table > delete secret action"
+                        />
+                      </DropdownMenu.Item>
+                    </DropdownMenu.Content>
+                  </DropdownMenu.Root>
+                </TableRowAction>
+              </TableRow>
+            ))}
         </Table>
       </div>
     );

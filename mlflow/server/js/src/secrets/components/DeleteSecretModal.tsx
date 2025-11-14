@@ -1,10 +1,4 @@
-import {
-  DangerModal,
-  FormUI,
-  Input,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { DangerModal, FormUI, Input, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCallback, useState } from 'react';
 import type { Secret } from '../types';
@@ -62,12 +56,7 @@ export const DeleteSecretModal = ({ secret, visible, onCancel }: DeleteSecretMod
       })}
       onOk={handleDelete}
       okButtonProps={{ loading: isLoading, disabled: isDeleteDisabled }}
-      title={
-        <FormattedMessage
-          defaultMessage="Delete Secret"
-          description="Delete secret modal > modal title"
-        />
-      }
+      title={<FormattedMessage defaultMessage="Delete Secret" description="Delete secret modal > modal title" />}
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
         <Typography.Text>

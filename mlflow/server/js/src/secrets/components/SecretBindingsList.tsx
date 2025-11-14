@@ -27,7 +27,7 @@ export const SecretBindingsList = ({
   secretId,
   variant = 'default',
   isSharedSecret = false,
-  onUnbind
+  onUnbind,
 }: SecretBindingsListProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -37,13 +37,16 @@ export const SecretBindingsList = ({
     // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
     return resourceType
       .split('_')
-      .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+      .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
       .join(' ');
   };
 
-  const handleUnbind = useCallback((bindingId: string) => {
-    onUnbind?.(bindingId);
-  }, [onUnbind]);
+  const handleUnbind = useCallback(
+    (bindingId: string) => {
+      onUnbind?.(bindingId);
+    },
+    [onUnbind],
+  );
 
   // Only show unbind for shared/global secrets bound to actual resources (not GLOBAL type)
   const canUnbind = (binding: any) => {
@@ -101,10 +104,7 @@ export const SecretBindingsList = ({
             />
           </TableHeader>
           <TableHeader componentId="mlflow.secrets.bindings_list.resource">
-            <FormattedMessage
-              defaultMessage="Resource"
-              description="Secret bindings list > resource column header"
-            />
+            <FormattedMessage defaultMessage="Resource" description="Secret bindings list > resource column header" />
           </TableHeader>
           <TableHeader componentId="mlflow.secrets.bindings_list.field_name">
             <FormattedMessage

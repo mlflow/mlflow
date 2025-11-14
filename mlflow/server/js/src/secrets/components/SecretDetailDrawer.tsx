@@ -70,10 +70,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
             >
               <LightningIcon css={{ fontSize: 18 }} />
             </div>
-            <FormattedMessage
-              defaultMessage="Secret Details"
-              description="Secret detail drawer > drawer title"
-            />
+            <FormattedMessage defaultMessage="Secret Details" description="Secret detail drawer > drawer title" />
           </div>
         }
       >
@@ -88,16 +85,20 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
                 border: `1px solid ${theme.colors.border}`,
               }}
             >
-              <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: theme.spacing.sm }}>
+              <div
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: theme.spacing.sm,
+                }}
+              >
                 <Typography.Title level={3} css={{ margin: 0 }}>
                   {secret.secret_name}
                 </Typography.Title>
                 {secret.is_shared && (
                   <Tag componentId="mlflow.secrets.detail_drawer.shared_tag" color="lime">
-                    <FormattedMessage
-                      defaultMessage="Shared"
-                      description="Secret detail drawer > shared tag"
-                    />
+                    <FormattedMessage defaultMessage="Shared" description="Secret detail drawer > shared tag" />
                   </Tag>
                 )}
               </div>
@@ -123,10 +124,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
                   onUpdate?.(secret);
                 }}
               >
-                <FormattedMessage
-                  defaultMessage="Update Secret"
-                  description="Secret detail drawer > update button"
-                />
+                <FormattedMessage defaultMessage="Update Secret" description="Secret detail drawer > update button" />
               </Button>
               <Button
                 componentId="mlflow.secrets.detail_drawer.delete_button"
@@ -136,10 +134,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
                   onDelete?.(secret);
                 }}
               >
-                <FormattedMessage
-                  defaultMessage="Delete Secret"
-                  description="Secret detail drawer > delete button"
-                />
+                <FormattedMessage defaultMessage="Delete Secret" description="Secret detail drawer > delete button" />
               </Button>
             </div>
 
@@ -226,10 +221,7 @@ export const SecretDetailDrawer = ({ secret, open, onClose, onUpdate, onDelete }
           onOk={confirmUnbind}
           okButtonProps={{ loading: isUnbinding }}
           title={
-            <FormattedMessage
-              defaultMessage="Unbind Secret"
-              description="Unbind confirmation modal > modal title"
-            />
+            <FormattedMessage defaultMessage="Unbind Secret" description="Unbind confirmation modal > modal title" />
           }
         >
           <Typography.Text>

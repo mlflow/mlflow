@@ -51,14 +51,16 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
       if (errorMessage.includes('FileStore') || errorMessage.includes('NotImplementedError')) {
         setErrors({
           secretValue: intl.formatMessage({
-            defaultMessage: 'Secrets are only supported with database backends (SQLite, PostgreSQL, MySQL). The current backend is using file storage.',
+            defaultMessage:
+              'Secrets are only supported with database backends (SQLite, PostgreSQL, MySQL). The current backend is using file storage.',
             description: 'Secrets not supported with FileStore error message',
           }),
         });
       } else if (errorMessage.includes('MLFLOW_SECRETS_KEK_PASSPHRASE')) {
         setErrors({
           secretValue: intl.formatMessage({
-            defaultMessage: 'Secrets storage is not configured on the tracking server. Please contact an administrator to enable secrets management.',
+            defaultMessage:
+              'Secrets storage is not configured on the tracking server. Please contact an administrator to enable secrets management.',
             description: 'Secrets KEK passphrase not configured error message',
           }),
         });
@@ -171,10 +173,7 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
             })}
             value={[scope === 'global' ? 'Global' : 'Scorer']}
           >
-            <DialogComboboxTrigger
-              allowClear={false}
-              renderDisplayedValue={(value) => value}
-            />
+            <DialogComboboxTrigger allowClear={false} renderDisplayedValue={(value) => value} />
             <DialogComboboxContent>
               <DialogComboboxOptionList>
                 <DialogComboboxOptionListSelectItem
@@ -185,10 +184,7 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
                     setErrors((prev) => ({ ...prev, scope: undefined }));
                   }}
                 >
-                  <FormattedMessage
-                    defaultMessage="Global"
-                    description="Secret scope global option"
-                  />
+                  <FormattedMessage defaultMessage="Global" description="Secret scope global option" />
                 </DialogComboboxOptionListSelectItem>
                 {/* TODO: Enable this option when implementing resource-scoped secrets for Scorers.
                      To enable: (1) remove the 'disabled' prop below, (2) update handleCreateSecret to support
@@ -202,10 +198,7 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
                   }}
                   disabled
                 >
-                  <FormattedMessage
-                    defaultMessage="Scorer (Coming Soon)"
-                    description="Secret scope scorer option"
-                  />
+                  <FormattedMessage defaultMessage="Scorer (Coming Soon)" description="Secret scope scorer option" />
                 </DialogComboboxOptionListSelectItem>
               </DialogComboboxOptionList>
             </DialogComboboxContent>
@@ -261,7 +254,10 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
         <div>
           <FormUI.Label htmlFor="env-var-key-input">
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
-              <FormattedMessage defaultMessage="Environment Variable Key" description="Environment variable key label" />
+              <FormattedMessage
+                defaultMessage="Environment Variable Key"
+                description="Environment variable key label"
+              />
               <LegacyTooltip
                 title={intl.formatMessage({
                   defaultMessage:

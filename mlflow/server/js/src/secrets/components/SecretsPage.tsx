@@ -79,9 +79,7 @@ export default function SecretsPage() {
 
   const filteredSecrets = useMemo(() => {
     return secrets.filter((secret) => {
-      const matchesSearch = searchText
-        ? secret.secret_name.toLowerCase().includes(searchText.toLowerCase())
-        : true;
+      const matchesSearch = searchText ? secret.secret_name.toLowerCase().includes(searchText.toLowerCase()) : true;
 
       const matchesSharedFilter =
         isSharedFilter === 'all' ||
@@ -150,14 +148,26 @@ export default function SecretsPage() {
                   value="private"
                   onChange={() => setIsSharedFilter('private')}
                 >
-                  <FormattedMessage defaultMessage="Private" description="Secrets page > shared filter private option" />
+                  <FormattedMessage
+                    defaultMessage="Private"
+                    description="Secrets page > shared filter private option"
+                  />
                 </DialogComboboxOptionListSelectItem>
               </DialogComboboxOptionList>
             </DialogComboboxContent>
           </DialogCombobox>
         </div>
       </div>
-      <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: theme.spacing.lg, paddingTop: 0 }}>
+      <div
+        css={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
+          padding: theme.spacing.lg,
+          paddingTop: 0,
+        }}
+      >
         <SecretsTable
           secrets={filteredSecrets}
           loading={isLoading}

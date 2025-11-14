@@ -3,6 +3,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > retrieval relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
+  "++4buE": {
+    "defaultMessage": "Route name already exists",
+    "description": "Routes page > binding conflict error title"
+  },
   "++Ydlz": {
     "defaultMessage": "Assessments",
     "description": "Label for the assessments pane"
@@ -15,6 +19,10 @@
     "defaultMessage": "Cancel",
     "description": "Button label for cancelling the creation of an assessment"
   },
+  "+4eeZU": {
+    "defaultMessage": "Resources Using This Route ({count})",
+    "description": "Resources bound to route count"
+  },
   "+Cr7Gu": {
     "defaultMessage": "Search metrics",
     "description": "Placeholder text for the search input in the logged model details metrics table"
@@ -22,6 +30,10 @@
   "+Dnww0": {
     "defaultMessage": "Rename Run",
     "description": "Modal title to rename the experiment run name"
+  },
+  "+L3+Jk": {
+    "defaultMessage": "The actual credential value (e.g., API key, password, token). This will be encrypted using envelope encryption and stored securely. Only a masked preview will be visible after creation.",
+    "description": "Secret credential tooltip"
   },
   "+LLlvi": {
     "defaultMessage": "Source Run",
@@ -54,6 +66,10 @@
   "+fb25b": {
     "defaultMessage": "Time created",
     "description": "Label for the start time select dropdown for experiment runs view"
+  },
+  "+gTAyi": {
+    "defaultMessage": "Secrets are only supported with database backends (SQLite, PostgreSQL, MySQL). The current backend is using file storage. Please configure a database backend to use secrets.",
+    "description": "Secrets table > FileStore error state description"
   },
   "+gqcru": {
     "defaultMessage": "System",
@@ -151,6 +167,14 @@
     "defaultMessage": "Show {hiddenMessageCount} more",
     "description": "Button label to expand and show hidden conversation messages in model trace explorer"
   },
+  "/dr/rW": {
+    "defaultMessage": "Create a secret to get started. Secrets can be used to securely store API keys, credentials, and other sensitive information. Use the \"Create Secret\" button above to add your first secret.",
+    "description": "Secrets table > no secrets recorded"
+  },
+  "/f9Fbj": {
+    "defaultMessage": "Create New Route",
+    "description": "Create new route button"
+  },
   "/fwKFW": {
     "defaultMessage": "No prompts created",
     "description": "A header for the empty state in the prompts table"
@@ -199,6 +223,10 @@
     "defaultMessage": "Select a framework and follow the instructions to log traces with MLflow.",
     "description": "Helper text shown at the top of the log traces drawer"
   },
+  "042Ubq": {
+    "defaultMessage": "Secrets not supported",
+    "description": "Secrets table > FileStore error state title"
+  },
   "050N3C": {
     "defaultMessage": "Evaluate and improve the quality, cost, latency of your GenAI app",
     "description": "Title of the empty state for the evaluation runs page"
@@ -206,6 +234,10 @@
   "08WP3h": {
     "defaultMessage": "Staging",
     "description": "Column title for staging phase version in the registered model page"
+  },
+  "09gdB7": {
+    "defaultMessage": "Select a new API key for this route. The route will use the selected key for authentication.",
+    "description": "Update route modal description"
   },
   "0AOcOr": {
     "defaultMessage": "Feedback",
@@ -218,6 +250,14 @@
   "0ElvS9": {
     "defaultMessage": "Y-axis:",
     "description": "Label text for y-axis in contour plot comparison in MLflow"
+  },
+  "0G5i/I": {
+    "defaultMessage": "Created By",
+    "description": "Route detail drawer > created by label"
+  },
+  "0H7DV3": {
+    "defaultMessage": "Secrets storage is not configured on the tracking server. Please contact an administrator to enable secrets management.",
+    "description": "Secrets KEK passphrase not configured error message"
   },
   "0HbGko": {
     "defaultMessage": "Model",
@@ -255,6 +295,10 @@
     "defaultMessage": "Make the line between points \"smoother\" based on Exponential Moving Average. Smoothing can be useful for displaying the overall trend when the logging frequency is high.",
     "description": "Helpful tooltip message to help with line smoothness for the metrics plot"
   },
+  "0grY1G": {
+    "defaultMessage": "Secret name is required",
+    "description": "Secret name required error"
+  },
   "0ja5l/": {
     "defaultMessage": "No tags found.",
     "description": "Text for no tags found in editable form table in MLflow"
@@ -262,6 +306,10 @@
   "0pdAuV": {
     "defaultMessage": "Active",
     "description": "Linked model dropdown option to show active experiment runs"
+  },
+  "0tNSbo": {
+    "defaultMessage": "Cancel",
+    "description": "Delete secret modal > cancel button text"
   },
   "0tU5gv": {
     "defaultMessage": "Cancel",
@@ -294,6 +342,10 @@
   "16onEc": {
     "defaultMessage": "Please add or remove one or more tags before saving",
     "description": "Key-value tag editor modal > Tag disabled message"
+  },
+  "17A3Ru": {
+    "defaultMessage": "No bindings found for this secret",
+    "description": "Bindings table > no bindings"
   },
   "17k196": {
     "defaultMessage": "Cancel",
@@ -367,6 +419,14 @@
     "defaultMessage": "added {when} by {user}",
     "description": "Evaluation review > assessments > detailed history > added history entry"
   },
+  "20oHmF": {
+    "defaultMessage": "Tags (Optional)",
+    "description": "Tags label"
+  },
+  "20v7qQ": {
+    "defaultMessage": "To confirm, type the secret name:",
+    "description": "Delete secret modal > confirmation input label"
+  },
   "25EUlg": {
     "defaultMessage": "The code snippets below demonstrate how to load the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can load the registered logged model"
@@ -435,6 +495,10 @@
     "defaultMessage": "X axis",
     "description": "Label for X axis in Contour chart configurator in compare runs chart config modal"
   },
+  "2VAIPa": {
+    "defaultMessage": "Created By",
+    "description": "Routes table > created by column header"
+  },
   "2YEXRM": {
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on the experiment view page"
@@ -479,9 +543,17 @@
     "defaultMessage": "Input",
     "description": "Evaluation review > evaluations list > input sort option label prefix"
   },
+  "2wFcmZ": {
+    "defaultMessage": "Description (optional)",
+    "description": "Route description label"
+  },
   "2zy+D5": {
     "defaultMessage": "Add new tag",
     "description": "Experiment tracking > experiment page > runs > add new tag button"
+  },
+  "32btZZ": {
+    "defaultMessage": "New Secret Value",
+    "description": "Update secret modal > new secret value label"
   },
   "36g3aR": {
     "defaultMessage": "Edit",
@@ -494,6 +566,10 @@
   "3FZ8dZ": {
     "defaultMessage": "Rename",
     "description": "Text for rename button on the experiment view page header"
+  },
+  "3PuLry": {
+    "defaultMessage": "Give this key a memorable name. If not specified, a name will be auto-generated.",
+    "description": "Key name hint"
   },
   "3QGkg9": {
     "defaultMessage": "Run evaluation"
@@ -522,9 +598,17 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more tooltip link to learn more on how to search models"
   },
+  "3fJ3Z9": {
+    "defaultMessage": "Value",
+    "description": "Tag value label"
+  },
   "3geT+I": {
     "defaultMessage": "Use the log artifact APIs to store file outputs from MLflow runs.",
     "description": "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
+  },
+  "3hgVu2": {
+    "defaultMessage": "e.g., OPENAI_API_KEY",
+    "description": "Env var placeholder"
   },
   "3yuDKB": {
     "defaultMessage": "Cancel",
@@ -550,6 +634,10 @@
     "defaultMessage": "{fieldName} are empty",
     "description": "Default text in data table where items are empty in the model\n                  comparison page"
   },
+  "47eenu": {
+    "defaultMessage": "e.g., gpt-4o, claude-sonnet-4-5-20250929",
+    "description": "Model name placeholder"
+  },
   "4AkzyD": {
     "defaultMessage": "Confirm",
     "description": "Button label to confirm the inferred experiment kind"
@@ -557,6 +645,10 @@
   "4B8k46": {
     "defaultMessage": "Value (optional)",
     "description": "Key-value tag editor modal > Value input label"
+  },
+  "4CiT8U": {
+    "defaultMessage": "Delete Route",
+    "description": "Route detail drawer > delete button"
   },
   "4GPLHq": {
     "defaultMessage": "Aliases allow you to assign a mutable, named reference to a particular prompt version.",
@@ -638,6 +730,10 @@
     "defaultMessage": "Show all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
   },
+  "5/ukKK": {
+    "defaultMessage": "These resources are currently using this secret and will have access to its value through the specified environment variable.",
+    "description": "Secret detail drawer > bindings description"
+  },
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
@@ -653,6 +749,10 @@
   "5B5dhT": {
     "defaultMessage": "Validate the model before deployment",
     "description": "Heading text for validating the model before deploying it for serving"
+  },
+  "5DClIP": {
+    "defaultMessage": "Add Route with Existing Secret",
+    "description": "Add route modal title"
   },
   "5GCYzy": {
     "defaultMessage": "Experiment Runs - Databricks",
@@ -702,6 +802,10 @@
     "defaultMessage": "Error fetching models",
     "description": "Workspace models page > Error empty state title"
   },
+  "5d4gVV": {
+    "defaultMessage": "Secret Credential",
+    "description": "Secret credential label"
+  },
   "5e1r3Y": {
     "defaultMessage": "Cancel",
     "description": "Evaluation review > assessments > cancel assessment button label"
@@ -714,6 +818,10 @@
     "defaultMessage": "Image grid",
     "description": "Experiment tracking > runs charts > add chart menu > image grid"
   },
+  "5t/in6": {
+    "defaultMessage": "Custom Provider Name",
+    "description": "Custom provider label"
+  },
   "5xPlEu": {
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
@@ -725,6 +833,14 @@
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
+  },
+  "5zec/r": {
+    "defaultMessage": "Shared",
+    "description": "Secrets table > is shared column header"
+  },
+  "6+1PDM": {
+    "defaultMessage": "These routes will continue using the current key:",
+    "description": "Routes impact description"
   },
   "60C/WF": {
     "defaultMessage": "Trace name",
@@ -741,6 +857,10 @@
   "656rRX": {
     "defaultMessage": "Go back to <link>the home page.</link>",
     "description": "Default error message for error views in MLflow"
+  },
+  "69EY3T": {
+    "defaultMessage": "Create Route",
+    "description": "Routes page > empty state create route button"
   },
   "6BRlPU": {
     "defaultMessage": "Rationale",
@@ -778,6 +898,10 @@
     "defaultMessage": "Edit description",
     "description": "Text for edit description button on experiment view page header"
   },
+  "6UEtIB": {
+    "defaultMessage": "Select columns",
+    "description": "Secrets table > column selector dropdown aria label"
+  },
   "6UqPlE": {
     "defaultMessage": "No parameters recorded",
     "description": "Run page > Overview > Parameters table > No parameters recorded"
@@ -805,6 +929,10 @@
   "6fP+8o": {
     "defaultMessage": "See more",
     "description": "A button label in a message renderer that expands truncated content when clicked."
+  },
+  "6i7kmy": {
+    "defaultMessage": "Secret / API Key",
+    "description": "Routes table > secret name column header"
   },
   "6kSKRk": {
     "defaultMessage": "Comparing {numVersions} Versions",
@@ -834,6 +962,10 @@
     "defaultMessage": "Value",
     "description": "Tag assignment modal > Value label"
   },
+  "7+SYYw": {
+    "defaultMessage": "Model name is required",
+    "description": "Model name required error"
+  },
   "7+XQ3q": {
     "defaultMessage": "Correctness",
     "description": "Evaluation results > known type of evaluation result assessment > correctness assessment. Used to indicate if the result is correct in context of LLMs evaluation. Label displayed if user provided custom value, e.g. \"Correctness: mostly yes, have gaps\""
@@ -854,6 +986,10 @@
     "defaultMessage": "Evaluate",
     "description": "Experiment page > new run modal > \"evaluate\" button label"
   },
+  "73nJa6": {
+    "defaultMessage": "Custom provider name is required",
+    "description": "Custom provider required error"
+  },
   "73ydH0": {
     "defaultMessage": "Off",
     "description": "Runs charts > line chart > ignore outliers > off setting label"
@@ -861,6 +997,10 @@
   "757GVc": {
     "defaultMessage": "Cancel",
     "description": "experiment page > description modal > cancel button"
+  },
+  "77W39O": {
+    "defaultMessage": "Last Updated",
+    "description": "Route detail drawer > last updated label"
   },
   "79dD5F": {
     "defaultMessage": "There was an error submitting your note.",
@@ -929,6 +1069,10 @@
   "7jsqqe": {
     "defaultMessage": "{timeSince, plural, =1 {1 minute} other {# minutes}} ago",
     "description": "Text for time in minutes since given date for MLflow views"
+  },
+  "7kJVfH": {
+    "defaultMessage": "Enter your API key",
+    "description": "API key placeholder"
   },
   "7kUi8J": {
     "defaultMessage": "Duration:",
@@ -1022,6 +1166,10 @@
     "defaultMessage": "Unhide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run group"
   },
+  "8HP4qI": {
+    "defaultMessage": "(Current)",
+    "description": "Current secret indicator"
+  },
   "8I9ipd": {
     "defaultMessage": "The provided value is not valid JSON",
     "description": "Error message for invalid JSON in an assessment edit form"
@@ -1045,6 +1193,14 @@
   "8YmId5": {
     "defaultMessage": "Y axis",
     "description": "Label for Y axis in Contour chart configurator in compare runs chart config modal"
+  },
+  "8b/01i": {
+    "defaultMessage": "e.g., my-openai-key",
+    "description": "Secret name placeholder"
+  },
+  "8dMmUc": {
+    "defaultMessage": "Environment Variable Key",
+    "description": "Environment variable key label"
   },
   "8f4/Zi": {
     "defaultMessage": "Search logged models using a simplified version of the SQL {whereBold} clause.",
@@ -1077,6 +1233,10 @@
   "8xzQsr": {
     "defaultMessage": "Train models",
     "description": "Home page quick action title for training models"
+  },
+  "92trnD": {
+    "defaultMessage": "Are you sure you want to unbind this secret from the resource? The resource will no longer have access to this secret.",
+    "description": "Unbind confirmation modal > confirmation message"
   },
   "93iLUV": {
     "defaultMessage": "{timeSince, plural, =1 {1 second} other {# seconds}} ago",
@@ -1118,6 +1278,10 @@
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
   },
+  "9RIXPU": {
+    "defaultMessage": "Create Route",
+    "description": "Create route button label (new secret)"
+  },
   "9TOU1G": {
     "defaultMessage": "No charts in this section",
     "description": "Runs compare page > Charts tab > No charts placeholder title"
@@ -1146,6 +1310,10 @@
     "defaultMessage": "Show change from baseline",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Show change from baseline toggle"
   },
+  "9h0064": {
+    "defaultMessage": "Key",
+    "description": "Tag key label"
+  },
   "9mAGv0": {
     "defaultMessage": "Model name",
     "description": "Text for form title on creating model in the model registry"
@@ -1154,9 +1322,21 @@
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
   },
+  "9ptMFy": {
+    "defaultMessage": "Private",
+    "description": "Secrets page > shared filter private option"
+  },
+  "9rwRjb": {
+    "defaultMessage": "Unbind Secret",
+    "description": "Unbind confirmation modal > modal title"
+  },
   "9ut1Fj": {
     "defaultMessage": "Create",
     "description": "Label for the create experiment action on the experiments list page"
+  },
+  "9vNl8R": {
+    "defaultMessage": "e.g., anthropic-general-use-dev",
+    "description": "Secret name placeholder"
   },
   "9vT4HV": {
     "defaultMessage": "Filter experiments by name",
@@ -1182,6 +1362,10 @@
     "defaultMessage": "Model ID",
     "description": "Label for the model ID of a logged model on the logged model details page"
   },
+  "A/sjGF": {
+    "defaultMessage": "Route name is required",
+    "description": "Route name required error"
+  },
   "A6c78D": {
     "defaultMessage": "Child runs loading",
     "description": "Run page > Overview > Child runs loading"
@@ -1194,6 +1378,10 @@
     "defaultMessage": "Edit tags",
     "description": "Edit tags action"
   },
+  "A9WvAs": {
+    "defaultMessage": "Update Route",
+    "description": "Route detail drawer > update button"
+  },
   "AAdQxU": {
     "defaultMessage": "Messages",
     "description": "Section header in the chat tab that displays the message history between the user and the chat model"
@@ -1201,6 +1389,10 @@
   "ACNZd9": {
     "defaultMessage": "GenAI apps & agents",
     "description": "Label for experiments automatically identified as generative AI development"
+  },
+  "ADgS/y": {
+    "defaultMessage": "Create New Route",
+    "description": "Create route modal title"
   },
   "AEzy9w": {
     "defaultMessage": "After creation, you can register logged models as new versions.&nbsp;",
@@ -1214,9 +1406,17 @@
     "defaultMessage": "Add tags",
     "description": "Tag assignment modal > Title of the add tags modal"
   },
+  "AI/Oz9": {
+    "defaultMessage": "The following resources are currently using this secret:",
+    "description": "Secret bindings list > warning message"
+  },
   "AM8DuO": {
     "defaultMessage": "Failed",
     "description": "Run page > Overview > Run status cell > Value for failed state"
+  },
+  "ANHrR/": {
+    "defaultMessage": "Unbind",
+    "description": "Secret bindings list > unbind action label"
   },
   "AOoWxS": {
     "defaultMessage": "Error",
@@ -1282,6 +1482,10 @@
     "defaultMessage": "Relevant",
     "description": "Evaluation results > chunk relevancy assessment > positive value label. Displayed if evaluation result is considered as relevant to the query."
   },
+  "B3kFjS": {
+    "defaultMessage": "sk-...",
+    "description": "API key placeholder"
+  },
   "B5K1Ix": {
     "defaultMessage": "No attributes found",
     "description": "Empty state for the attributes tab in the model trace explorer. Attributes are properties of a span that the user defines."
@@ -1321,6 +1525,14 @@
   "BOz0T2": {
     "defaultMessage": "Select metric",
     "description": "Placeholder text for a metric selector when configuring a line chart"
+  },
+  "BPYjWp": {
+    "defaultMessage": "Failed to update secret. Please try again.",
+    "description": "Update secret modal > update failed error message"
+  },
+  "BPxOco": {
+    "defaultMessage": "Secrets are only supported with database backends (SQLite, PostgreSQL, MySQL). The current backend is using file storage.",
+    "description": "Secrets not supported with FileStore error message"
   },
   "BQt0TQ": {
     "defaultMessage": "This model is also registered to the <link>model registry</link>.",
@@ -1362,6 +1574,10 @@
     "defaultMessage": "Attributes",
     "description": "Section header for the attributes in a 'group by' selector"
   },
+  "BfVwrT": {
+    "defaultMessage": "Search secrets by name",
+    "description": "Secrets page > search input placeholder"
+  },
   "BkDhmT": {
     "defaultMessage": "Chat",
     "description": "Label for the chat tab of the model trace explorer."
@@ -1385,6 +1601,10 @@
   "BwgPX0": {
     "defaultMessage": "Delete",
     "description": "Label for the delete prompt action on the registered prompt details page"
+  },
+  "BwodST": {
+    "defaultMessage": "Tag filter",
+    "description": "Button to open the tags filter popover in the routes page"
   },
   "C+nay+": {
     "defaultMessage": "Evaluation",
@@ -1457,6 +1677,10 @@
   "CevPsF": {
     "defaultMessage": "Add section above",
     "description": "Experiment page > compare runs > chart section > add section above label"
+  },
+  "CfP/xJ": {
+    "defaultMessage": "A route with this name already exists. Please select a different route name.",
+    "description": "Route name conflict error"
   },
   "Cj2i02": {
     "defaultMessage": "Error",
@@ -1546,6 +1770,10 @@
     "defaultMessage": "Filter",
     "description": "Label for the filter button in the trace explorer."
   },
+  "Dvv0OY": {
+    "defaultMessage": "Are you sure you want to delete the secret '{secretName}'? This action cannot be undone.",
+    "description": "Delete secret modal > confirmation message"
+  },
   "E4Te7L": {
     "defaultMessage": "Experiment load error: {errorMessage}",
     "description": "Error message displayed on logged models page when experiment data fails to load"
@@ -1602,6 +1830,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled metric selector when there are no selectable metrics."
   },
+  "ERC3z2": {
+    "defaultMessage": "Route added successfully",
+    "description": "Routes page > add route success notification"
+  },
   "ERWI9o": {
     "defaultMessage": "Text",
     "description": "Label for text prompt type in the prompt creation modal"
@@ -1617,6 +1849,10 @@
   "EZfSbs": {
     "defaultMessage": "No trace data available",
     "description": "Evaluation review > no trace data available"
+  },
+  "Eb/ndq": {
+    "defaultMessage": "A friendly nickname to identify this secret. Optional for resource-scoped secrets - a UUID will be auto-generated if not provided.",
+    "description": "Secret name tooltip for scoped secrets"
   },
   "EcjcgN": {
     "defaultMessage": "Metrics",
@@ -1678,6 +1914,10 @@
     "defaultMessage": "Search traces",
     "description": "Experiment page > traces view filters > filter string input placeholder"
   },
+  "FRTIx2": {
+    "defaultMessage": "Environment Variable",
+    "description": "Env var label"
+  },
   "FTx+Hi": {
     "defaultMessage": "(baseline)",
     "description": "A label displayed next to baseline version in the prompt versions comparison view"
@@ -1714,6 +1954,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the registered prompts table"
   },
+  "Fla3ZF": {
+    "defaultMessage": "Updated",
+    "description": "Secrets table > updated at column header"
+  },
   "FmKAee": {
     "defaultMessage": "Observability",
     "description": "Label for the observability section in the MLflow experiment navbar"
@@ -1733,6 +1977,10 @@
   "FpjDSq": {
     "defaultMessage": "Compare",
     "description": "Text for compare button to compare versions under details tab\n                       on the model view page"
+  },
+  "Fq4lRi": {
+    "defaultMessage": "Describe this route...",
+    "description": "Route description placeholder"
   },
   "G/zTTY": {
     "defaultMessage": "Error",
@@ -1761,6 +2009,10 @@
   "G7V4y3": {
     "defaultMessage": "Hide details",
     "description": "Evaluation review > assessments > hide details button"
+  },
+  "G954tE": {
+    "defaultMessage": "Created At",
+    "description": "Secret detail drawer > created at label"
   },
   "GAJL1v": {
     "defaultMessage": "Input and output schema for your model. <link>Learn more</link>",
@@ -1806,9 +2058,21 @@
     "defaultMessage": "Metadata:",
     "description": "A key-value pair for the metadata in the prompt details page"
   },
+  "GhMr/7": {
+    "defaultMessage": "Key Name (Optional)",
+    "description": "Key name label"
+  },
   "Gm77Ws": {
     "defaultMessage": "Loading artifact failed",
     "description": "Run page > artifact view > error state > default error message"
+  },
+  "GnVAlz": {
+    "defaultMessage": "API key is required",
+    "description": "API key required error"
+  },
+  "GppqQ/": {
+    "defaultMessage": "Create Secret",
+    "description": "Create secret button label"
   },
   "Gs+blV": {
     "defaultMessage": "Last modified",
@@ -1833,6 +2097,10 @@
   "H9MulE": {
     "defaultMessage": "Always show parents of matched spans, regardless of filter conditions",
     "description": "Tooltip for a span filter setting that enables showing parents of matched spans"
+  },
+  "HCtcN9": {
+    "defaultMessage": "{fieldLabel} is required",
+    "description": "Auth config field required error"
   },
   "HGBit9": {
     "defaultMessage": "Temperature: {temperature}",
@@ -1898,9 +2166,17 @@
     "defaultMessage": "Y-axis:",
     "description": "Label text for Y-axis in box plot comparison in MLflow"
   },
+  "HnCfJc": {
+    "defaultMessage": "Authentication failed",
+    "description": "Routes page > auth error title"
+  },
   "HnGOwk": {
     "defaultMessage": "Registered models",
     "description": "Title for the registered models section on the run details page"
+  },
+  "HoFozV": {
+    "defaultMessage": "Create",
+    "description": "Create secret button text"
   },
   "Hq/vjk": {
     "defaultMessage": "All",
@@ -1921,6 +2197,14 @@
   "HzGYm5": {
     "defaultMessage": "Aliases",
     "description": "Aliases section in the metadata on model version page"
+  },
+  "I1vzfu": {
+    "defaultMessage": "Created At",
+    "description": "Route detail drawer > created at label"
+  },
+  "I2WvST": {
+    "defaultMessage": "Environment variable key is required",
+    "description": "Env var key required error"
   },
   "IAyAgH": {
     "defaultMessage": "Move up",
@@ -1957,6 +2241,10 @@
   "IMkDgM": {
     "defaultMessage": "Experiments",
     "description": "Link label for the experiments page"
+  },
+  "IRcz4X": {
+    "defaultMessage": "Metadata",
+    "description": "Secret detail drawer > metadata section title"
   },
   "IUAmWX": {
     "defaultMessage": "No common artifacts to display.",
@@ -2010,6 +2298,10 @@
     "defaultMessage": "Filters{numFilters}",
     "description": "Evaluation review > evaluations list > filter dropdown button"
   },
+  "JATVII": {
+    "defaultMessage": "Owner",
+    "description": "Secrets table > owner column header"
+  },
   "JCboZ7": {
     "defaultMessage": "Path copied",
     "description": "Tooltip displayed after experiment path was successfully copied to clipboard"
@@ -2026,6 +2318,10 @@
     "defaultMessage": "Add",
     "description": "Model registry > model version table > metadata column > 'add' button label"
   },
+  "JHKvur": {
+    "defaultMessage": "The environment variable name that will be used to inject this secret (e.g., \"ANTHROPIC_API_KEY\", \"OPENAI_API_KEY\"). This is how your code will access the secret value.",
+    "description": "Environment variable key tooltip"
+  },
   "JJ43Fa": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in Trace Explorer UI"
@@ -2037,6 +2333,10 @@
   "JNS471": {
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
+  },
+  "JOyJJz": {
+    "defaultMessage": "Resource",
+    "description": "Bindings table > resource column header"
   },
   "JPd7WA": {
     "defaultMessage": "Key must be unique",
@@ -2061,6 +2361,10 @@
   "Jdr//R": {
     "defaultMessage": "STRING",
     "description": "Header label for string assessment type"
+  },
+  "Jhzw2n": {
+    "defaultMessage": "Please select an API key",
+    "description": "Secret selection required error"
   },
   "Jj2kRy": {
     "defaultMessage": "No details for assessment",
@@ -2094,9 +2398,17 @@
     "defaultMessage": "Hugging Face",
     "description": "Experiment dataset drawer > source type > Hugging Face source type label"
   },
+  "Jw1JJY": {
+    "defaultMessage": "Secret Name",
+    "description": "Update secret modal > secret name label"
+  },
   "Jxhb2w": {
     "defaultMessage": "We've automatically detected the experiment type to be ''{kindLabel}''. {isEditable, select, true {You can either confirm or change the type.} other {}}",
     "description": "Popover message for inferred experiment kind"
+  },
+  "Jyovmf": {
+    "defaultMessage": "Key name already exists",
+    "description": "Routes page > secret conflict error title"
   },
   "K+5g8S": {
     "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
@@ -2105,6 +2417,10 @@
   "K1JLVU": {
     "defaultMessage": "Latency",
     "description": "Label for the latency section"
+  },
+  "K1OJ4/": {
+    "defaultMessage": "Resource Type",
+    "description": "Secret bindings list > resource type column header"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -2146,6 +2462,14 @@
     "defaultMessage": "Tags",
     "description": "Header for the tags column in the registered prompts table"
   },
+  "KOYfkD": {
+    "defaultMessage": "No secrets yet",
+    "description": "Secrets table > no secrets recorded"
+  },
+  "KUL5WC": {
+    "defaultMessage": "Cancel",
+    "description": "Update secret modal > cancel button text"
+  },
   "KV3BXl": {
     "defaultMessage": "Select as baseline version",
     "description": "Label for selecting baseline prompt version in the comparison view"
@@ -2161,6 +2485,10 @@
   "Ka1jM2": {
     "defaultMessage": "Disabled",
     "description": "Runs charts > line chart > ignore outliers > disabled label"
+  },
+  "KaKroo": {
+    "defaultMessage": "Configuration",
+    "description": "Route detail drawer > configuration section title"
   },
   "Kkr/RI": {
     "defaultMessage": "Configure charts",
@@ -2222,6 +2550,10 @@
     "defaultMessage": "Not registered",
     "description": "Tag for not registered model on the logged model details page"
   },
+  "LLjCA7": {
+    "defaultMessage": "No bindings found for this secret",
+    "description": "Secret bindings list > no bindings"
+  },
   "LLm5Bo": {
     "defaultMessage": "Displaying Runs from {numExperiments} Experiments",
     "description": "Breadcrumb nav item to link to the compare-experiments page on compare runs page"
@@ -2237,6 +2569,10 @@
   "LajLDb": {
     "defaultMessage": "Move to top",
     "description": "Experiment page > compare runs tab > chart header > move to top option"
+  },
+  "LcercE": {
+    "defaultMessage": "Resource-scoped secrets are not yet supported",
+    "description": "Resource scope not supported error message"
   },
   "LhxSrc": {
     "defaultMessage": "Incorrect",
@@ -2290,6 +2626,10 @@
     "defaultMessage": "No metrics available",
     "description": "Text shown in a disabled multi-selector when there are no selectable metrics."
   },
+  "M8E0Ka": {
+    "defaultMessage": "Use Existing Key",
+    "description": "Use existing secret option"
+  },
   "M8cEQy": {
     "defaultMessage": "No",
     "description": "Label for an assessment with a 'no' value"
@@ -2322,6 +2662,10 @@
     "defaultMessage": "Create",
     "description": "Create button text for creating model in the model registry"
   },
+  "MbCH7z": {
+    "defaultMessage": "Failed to update route",
+    "description": "Routes page > update route error title"
+  },
   "Mc6Dhy": {
     "defaultMessage": "5",
     "description": "Label for 5 first runs visible in run count selector within runs compare configuration modal"
@@ -2337,6 +2681,14 @@
   "MhtxHm": {
     "defaultMessage": "You cannot evaluate this cell, this run was not created using served LLM model route",
     "description": "Experiment page > artifact compare view > text cell > run not evaluable tooltip"
+  },
+  "MkPz8G": {
+    "defaultMessage": "e.g., my-gpt4-route",
+    "description": "Route name placeholder"
+  },
+  "MmO1Pa": {
+    "defaultMessage": "A route needs to be created first",
+    "description": "Routes page > add route button disabled tooltip"
   },
   "Mn7Kss": {
     "defaultMessage": "OK",
@@ -2510,6 +2862,10 @@
     "defaultMessage": "Regression",
     "description": "Label for experiments focused on regression modeling"
   },
+  "OXjXSS": {
+    "defaultMessage": "e.g., sk-1234abcd...",
+    "description": "Secret credential placeholder"
+  },
   "OZXWas": {
     "defaultMessage": "False",
     "description": "False value in the evaluations table."
@@ -2526,6 +2882,10 @@
     "defaultMessage": "No models registered yet. <link>Learn more about registering models</link>.",
     "description": "Models table > no models present yet"
   },
+  "Ol6oRT": {
+    "defaultMessage": "Delete",
+    "description": "Delete secret modal > delete button text"
+  },
   "OlytgO": {
     "defaultMessage": "Field",
     "description": "Label for the column field in the GenAI Traces Table Filter form"
@@ -2541,6 +2901,10 @@
   "P/Uvf4": {
     "defaultMessage": "Classification",
     "description": "Label for experiments focused on classification modeling"
+  },
+  "P/eg2o": {
+    "defaultMessage": "Scope",
+    "description": "Secret scope label"
   },
   "PBeZnP": {
     "defaultMessage": "You can start logging traces to this logged model by calling {code} first:",
@@ -2589,6 +2953,10 @@
   "PSFpHG": {
     "defaultMessage": "You don't have permissions to open requested experiment.",
     "description": "A message shown on the experiment page if user has no permissions to open the experiment"
+  },
+  "PTn7zE": {
+    "defaultMessage": "Unbind",
+    "description": "Unbind confirmation modal > unbind button text"
   },
   "PUQxu5": {
     "defaultMessage": "Select baseline run"
@@ -2669,6 +3037,10 @@
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
   },
+  "QWvKUm": {
+    "defaultMessage": "No routes yet",
+    "description": "Routes page > no routes empty state title"
+  },
   "QXLV8h": {
     "defaultMessage": "Error",
     "description": "Title for error fallback component in the MLflow experiment chat sessions page"
@@ -2688,6 +3060,14 @@
   "Qi6Etm": {
     "defaultMessage": "Hide all runs",
     "description": "Menu option for revealing all hidden runs in the experiment view runs compare mode"
+  },
+  "QmvCn0": {
+    "defaultMessage": "Create New Key",
+    "description": "Create new secret option"
+  },
+  "QqUA7b": {
+    "defaultMessage": "Invalid API key. Please check your credentials and try again.",
+    "description": "Routes page > auth error description"
   },
   "QravWY": {
     "defaultMessage": "Optimize Prompt",
@@ -2713,6 +3093,14 @@
     "defaultMessage": "The requested resource was not found.",
     "description": "Resource not found (HTTP STATUS 404) generic error message"
   },
+  "R3TrL7": {
+    "defaultMessage": "Provider",
+    "description": "Provider label"
+  },
+  "R9llFV": {
+    "defaultMessage": "Additional Configuration",
+    "description": "Auth config section title"
+  },
   "RCjxf0": {
     "defaultMessage": "Compare runs",
     "description": "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > chart not configured warning > title"
@@ -2724,6 +3112,10 @@
   "RJenO+": {
     "defaultMessage": "Create prompt version",
     "description": "Label for the create prompt action on the registered prompt details page"
+  },
+  "RMaMhJ": {
+    "defaultMessage": "Update Secret Value",
+    "description": "Update secret modal > modal title"
   },
   "RUju4k": {
     "defaultMessage": "Charts",
@@ -2788,6 +3180,10 @@
   "S7ESYH": {
     "defaultMessage": "Visualizations",
     "description": "Tabs title for plots on the compare runs page"
+  },
+  "S7Fdox": {
+    "defaultMessage": "Description (Optional)",
+    "description": "Description label"
   },
   "SCYMXw": {
     "defaultMessage": "Cancel",
@@ -2881,6 +3277,10 @@
     "defaultMessage": "Page not found",
     "description": "Error message shown to the user when they arrive at a non existent URL"
   },
+  "TOoJPv": {
+    "defaultMessage": "Shared",
+    "description": "Secret detail drawer > shared tag"
+  },
   "TPspzA": {
     "defaultMessage": "Deleting the section will permanently remove it and the charts it contains. This cannot be undone.",
     "description": "Experiment page > compare runs > chart section > delete section warning message"
@@ -2920,6 +3320,10 @@
     "defaultMessage": "Traces",
     "description": "Label for the traces tab on the logged model details page"
   },
+  "TfPmOp": {
+    "defaultMessage": "API Key",
+    "description": "API key label"
+  },
   "TfuAgs": {
     "defaultMessage": "Hide group",
     "description": "A tooltip for the visibility icon button in the runs table next to the visible run group"
@@ -2956,6 +3360,10 @@
     "defaultMessage": "Custom",
     "description": "Option for the start select dropdown to filter runs with a custom time range"
   },
+  "TtuRec": {
+    "defaultMessage": "Tags (optional)",
+    "description": "Tags label"
+  },
   "TvjS47": {
     "defaultMessage": "This trace is very large, and may cause UI slowness when attempting to render. You can click the button below to attempt to display it anyway.",
     "description": "Body text explaining issues with rendering large traces."
@@ -2968,6 +3376,10 @@
     "defaultMessage": "<link>Version {versionNumber}</link>",
     "description": "Row entry for version columns in the registered model page"
   },
+  "U3an9+": {
+    "defaultMessage": "Masked Value",
+    "description": "Secrets table > masked value column header"
+  },
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
@@ -2979,6 +3391,10 @@
   "U4s/77": {
     "defaultMessage": "Show more",
     "description": "Button to expand alert description"
+  },
+  "U5YrE+": {
+    "defaultMessage": "Cancel",
+    "description": "Unbind confirmation modal > cancel button text"
   },
   "U82iv6": {
     "defaultMessage": "Registered Models",
@@ -3032,6 +3448,10 @@
     "defaultMessage": "using Prompt Engineering",
     "description": "String for creating a new run with prompt engineering modal"
   },
+  "Uokodx": {
+    "defaultMessage": "Select Provider",
+    "description": "Provider selection step title"
+  },
   "UtUq/x": {
     "defaultMessage": "Registered models",
     "description": "Header title for the registered models column in the logged model list table"
@@ -3080,6 +3500,10 @@
     "defaultMessage": "Add New Tag",
     "description": "Add new key-value tag modal > Modal title"
   },
+  "VIjsHk": {
+    "defaultMessage": "Unable to load secrets",
+    "description": "Secrets table > error state title"
+  },
   "VMVNTR": {
     "defaultMessage": "Requested experiment was not found.",
     "description": "A message shown on the experiment page if the experiment is not found"
@@ -3095,6 +3519,10 @@
   "VTePPP": {
     "defaultMessage": "Create your first experiment",
     "description": "Home page experiments empty state title"
+  },
+  "VWK4AT": {
+    "defaultMessage": "Model:",
+    "description": "Route detail drawer > model label"
   },
   "VXduJD": {
     "defaultMessage": "The provided value is not valid JSON",
@@ -3124,6 +3552,10 @@
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
   },
+  "VlC6l/": {
+    "defaultMessage": "Bindings",
+    "description": "Routes table > binding count column header"
+  },
   "Vm9CvZ": {
     "defaultMessage": "Description",
     "description": "Column title text for description in model version table"
@@ -3148,6 +3580,14 @@
     "defaultMessage": "forecasting",
     "description": "A short label for experiments focused on time series forecasting"
   },
+  "W+UAlI": {
+    "defaultMessage": "Secret Details",
+    "description": "Secret detail drawer > drawer title"
+  },
+  "W5e7iY": {
+    "defaultMessage": "Fetch models from provider",
+    "description": "Fetch models button"
+  },
   "W60/kq": {
     "defaultMessage": "regression",
     "description": "A short label for experiments focused on regression modeling"
@@ -3159,6 +3599,10 @@
   "W8bOkn": {
     "defaultMessage": "250",
     "description": "Label for 250 first runs visible in run count selector within runs compare configuration modal"
+  },
+  "WAZiwz": {
+    "defaultMessage": "Masked Value:",
+    "description": "Secret detail drawer > masked value prefix"
   },
   "WELl8J": {
     "defaultMessage": "+{count} more",
@@ -3200,6 +3644,10 @@
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
   },
+  "Wc8bzG": {
+    "defaultMessage": "Secret Name",
+    "description": "Secret name label"
+  },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
@@ -3219,6 +3667,10 @@
   "WiaEQ3": {
     "defaultMessage": "Model output",
     "description": "Evaluation review > Response section > model output > title"
+  },
+  "Wk2a0u": {
+    "defaultMessage": "Resource",
+    "description": "Secret bindings list > resource column header"
   },
   "Wm6dYs": {
     "defaultMessage": "Delete",
@@ -3264,6 +3716,14 @@
     "defaultMessage": "Failed to override assessment. Error: {error}",
     "description": "Error message when overriding an assessment fails"
   },
+  "X1xu/6": {
+    "defaultMessage": "... and {count} more",
+    "description": "More resources indicator"
+  },
+  "X37rZO": {
+    "defaultMessage": "Update secret value",
+    "description": "Secrets table > update secret action"
+  },
   "X3F7x3": {
     "defaultMessage": "No Artifacts Recorded",
     "description": "Empty state string when there are no artifacts record for the experiment"
@@ -3275,6 +3735,10 @@
   "X8OaXU": {
     "defaultMessage": "Scheduled",
     "description": "Run page > Overview > Run status cell > Value for scheduled state"
+  },
+  "XAq8iI": {
+    "defaultMessage": "Failed to load bindings",
+    "description": "Secret bindings list > error loading bindings"
   },
   "XBPcbA": {
     "defaultMessage": "Show less",
@@ -3288,9 +3752,21 @@
     "defaultMessage": "JSON",
     "description": "Label for the JSON render mode selector in the model trace explorer summary view"
   },
+  "XDr3LL": {
+    "defaultMessage": "Update",
+    "description": "Update secret modal > update button text"
+  },
+  "XF1lJG": {
+    "defaultMessage": "Route Details",
+    "description": "Route detail drawer > drawer title"
+  },
   "XG8dcL": {
     "defaultMessage": "Key is required if value is present",
     "description": "Error message for required key in trace tag assignment modal"
+  },
+  "XHYvHp": {
+    "defaultMessage": "Environment variable key is required",
+    "description": "Environment variable key required validation message"
   },
   "XIWwOm": {
     "defaultMessage": "Session ID",
@@ -3300,9 +3776,17 @@
     "defaultMessage": "Create prompt version",
     "description": "A header for the create prompt version modal in the prompt management UI"
   },
+  "XQN+1J": {
+    "defaultMessage": "e.g., openai_production_key",
+    "description": "Key name placeholder"
+  },
   "XX8+x1": {
     "defaultMessage": "View prompt template",
     "description": "Experiment page > artifact compare view > run column header prompt metadata > \"view prompt template\" button label"
+  },
+  "XZFX57": {
+    "defaultMessage": "Resource Type",
+    "description": "Bindings table > resource type column header"
   },
   "XaC3qF": {
     "defaultMessage": "Can't load run details",
@@ -3311,6 +3795,10 @@
   "XaD7FM": {
     "defaultMessage": "Select parameters/metrics to plot.",
     "description": "Text to show when x or y axis is not selected on box plot"
+  },
+  "XhELJh": {
+    "defaultMessage": "Description",
+    "description": "Routes table > description column header"
   },
   "XkpMf+": {
     "defaultMessage": "baseline run"
@@ -3371,6 +3859,10 @@
     "defaultMessage": "Metric",
     "description": "Column title for the column displaying the metric names for a run"
   },
+  "YNgDoN": {
+    "defaultMessage": "Created By",
+    "description": "Secret detail drawer > created by label"
+  },
   "YOp3/x": {
     "defaultMessage": "Unavailable when runs are grouped",
     "description": "Experiment page > view mode switch > evaluation mode disabled tooltip"
@@ -3402,6 +3894,10 @@
   "Yd5ANL": {
     "defaultMessage": "PASS",
     "description": "Header label for pass/fail assessment type for the pass rate"
+  },
+  "YdkEOd": {
+    "defaultMessage": "API Key",
+    "description": "New API key label"
   },
   "Yhydp3": {
     "defaultMessage": "Relevance",
@@ -3511,9 +4007,17 @@
     "defaultMessage": "Chart name",
     "description": "Runs charts > components > config > RunsChartsConfigureDifferenceChart > Chart name config section"
   },
+  "ZlY/OI": {
+    "defaultMessage": "Failed to create secret. Please try again.",
+    "description": "Secret creation failed error message"
+  },
   "ZlokCq": {
     "defaultMessage": "Cancel",
     "description": "A label for the cancel button in the delete prompt modal"
+  },
+  "ZmP2CH": {
+    "defaultMessage": "Delete Secret",
+    "description": "Delete secret modal > modal title"
   },
   "ZoBXpz": {
     "defaultMessage": "Model attributes",
@@ -3562,6 +4066,10 @@
   "ZwAzmu": {
     "defaultMessage": "Create Model",
     "description": "Create button to register a new model"
+  },
+  "ZwL3Tk": {
+    "defaultMessage": "API Key Source",
+    "description": "API key source label"
   },
   "a02Pn6": {
     "defaultMessage": "Step",
@@ -3651,6 +4159,10 @@
     "defaultMessage": "Irrelevant",
     "description": "Evaluation results > retrieval relevancy assessment > negative value label. Displayed if evaluation result is considered as irrelevant to the query."
   },
+  "anNfXl": {
+    "defaultMessage": "Failed to load bindings",
+    "description": "Bindings table > error loading bindings"
+  },
   "aqMseN": {
     "defaultMessage": "Manage prompt updates and collaborate across teams.",
     "description": "Home page quick action description for registering prompts"
@@ -3658,6 +4170,10 @@
   "arFT1W": {
     "defaultMessage": "Tags",
     "description": "Title for the tags section on the run details page"
+  },
+  "argd9V": {
+    "defaultMessage": "Key must be unique",
+    "description": "Error message for unique key"
   },
   "atcZM5": {
     "defaultMessage": "Status",
@@ -3711,6 +4227,14 @@
     "defaultMessage": "Logged from",
     "description": "Header title for the 'Logged from' column in the logged model list table"
   },
+  "bOWwZJ": {
+    "defaultMessage": "Update Route API Key",
+    "description": "Update route modal title"
+  },
+  "bQDjx5": {
+    "defaultMessage": "Environment Variable",
+    "description": "Secret bindings list > field name column header"
+  },
   "bQSJKh": {
     "defaultMessage": "Permission denied for {modelName} version {version}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on model version detail page"
@@ -3739,6 +4263,10 @@
     "defaultMessage": "Ungrouped",
     "description": "Label for the group of logged models that are not grouped by any source run"
   },
+  "ban8lF": {
+    "defaultMessage": "Secrets",
+    "description": "Header title for the secrets management page"
+  },
   "bdVsGZ": {
     "defaultMessage": "Collapse description",
     "description": "Aria label for button that collapses a long description"
@@ -3763,9 +4291,17 @@
     "defaultMessage": "Latest version",
     "description": "Header for the latest version column in the registered prompts table"
   },
+  "bnEu2x": {
+    "defaultMessage": "Name",
+    "description": "Routes table > name column header"
+  },
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "brWpnq": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel create secret button text"
   },
   "by+x8N": {
     "defaultMessage": "Type",
@@ -3819,6 +4355,10 @@
     "defaultMessage": "Maximum number of language tokens returned from evaluation.",
     "description": "Experiment page > prompt lab > max tokens parameter help text"
   },
+  "cHAwfX": {
+    "defaultMessage": "Secrets storage is not configured on the tracking server. Please contact an administrator to enable secrets management.",
+    "description": "Secrets table > KEK passphrase error state description"
+  },
   "cHgTsd": {
     "defaultMessage": "Add filter",
     "description": "Button label for adding a filter in the GenAI Traces Table filter form"
@@ -3859,6 +4399,14 @@
     "defaultMessage": "Copy artifact location",
     "description": "Copy tooltip to copy experiment artifact location from experiment runs table header"
   },
+  "ca1QP4": {
+    "defaultMessage": "... and {count} more",
+    "description": "More routes indicator"
+  },
+  "clwmwr": {
+    "defaultMessage": "Gateway",
+    "description": "Sidebar link for gateway/routes tab"
+  },
   "cmYzGP": {
     "defaultMessage": "Dismiss",
     "description": "A label for the button to dismiss the modal with the usage example of the prompt"
@@ -3891,6 +4439,14 @@
     "defaultMessage": "Attributes",
     "description": "Experiment page > group by runs control > attributes section label"
   },
+  "cyG5S+": {
+    "defaultMessage": "Secret is required",
+    "description": "Secret required error"
+  },
+  "cz6+rY": {
+    "defaultMessage": "Bindings",
+    "description": "Secrets table > binding count column header"
+  },
   "d00egE": {
     "defaultMessage": "No span with type RETRIEVER found in trace.",
     "description": "GenAi Traces Table > Modal > Message displayed when no retrievals are found"
@@ -3915,6 +4471,10 @@
     "defaultMessage": "Source run",
     "description": "Label for the source run name of a logged model on the logged model details page"
   },
+  "d9hOnE": {
+    "defaultMessage": "A friendly nickname to identify this secret (e.g., \"anthropic-general-use-dev\", \"openai-prod-key\"). Required for global secrets.",
+    "description": "Secret name tooltip for global secrets"
+  },
   "dHAuWp": {
     "defaultMessage": "You need to provide a prompt template",
     "description": "Experiment page > new run modal > invalid state - no prompt template provided"
@@ -3923,9 +4483,17 @@
     "defaultMessage": "Fetching traces failed",
     "description": "Error message for fetching traces failed"
   },
+  "dOOaZ1": {
+    "defaultMessage": "e.g., my-custom-llm",
+    "description": "Custom provider placeholder"
+  },
   "dPn3az": {
     "defaultMessage": "Tool",
     "description": "Display text for the 'tool' role in a GenAI chat message."
+  },
+  "dQ/yZc": {
+    "defaultMessage": "Created",
+    "description": "Routes table > created at column header"
   },
   "dTLq6E": {
     "defaultMessage": "expand {title}",
@@ -3958,6 +4526,10 @@
   "dl3Yfr": {
     "defaultMessage": "No results match this search.",
     "description": "No results message in datasets drawer table"
+  },
+  "dlVyoS": {
+    "defaultMessage": "Last Updated",
+    "description": "Routes table > last updated at column header"
   },
   "dq8MJd": {
     "defaultMessage": "Contour Plot",
@@ -4027,6 +4599,14 @@
     "defaultMessage": "Discard",
     "description": "Evaluation review > assessments > discard pending assessments button label"
   },
+  "eIZBBm": {
+    "defaultMessage": "Tags",
+    "description": "Routes table > tags column header"
+  },
+  "eKXlS4": {
+    "defaultMessage": "There was a problem loading secrets. Please try refreshing the page or contact your administrator if the problem persists.",
+    "description": "Secrets table > error state description"
+  },
   "eLgTRT": {
     "defaultMessage": "Key",
     "description": "Tag key label in unified trace tag assignment modal"
@@ -4067,6 +4647,10 @@
     "defaultMessage": "Error during metric page load: invalid URL",
     "description": "Error message when loading metric page fails"
   },
+  "eY9orM": {
+    "defaultMessage": "e.g., Primary GPT-4o route for production workloads",
+    "description": "Description placeholder"
+  },
   "eZOxx1": {
     "defaultMessage": "Toggle the preview sidepane",
     "description": "Experiment page > control bar > expanded view toggle button tooltip"
@@ -4090,6 +4674,10 @@
   "ega/Za": {
     "defaultMessage": "Hide finished runs",
     "description": "Menu option for hiding all finished runs in the experiment view runs compare mode"
+  },
+  "enLJYD": {
+    "defaultMessage": "Created",
+    "description": "Secrets table > created at column header"
   },
   "ep1s0U": {
     "defaultMessage": "Evaluations",
@@ -4167,6 +4755,10 @@
     "defaultMessage": "Experiment ID",
     "description": "Run page > Overview > experiment ID section label"
   },
+  "fg/OYa": {
+    "defaultMessage": "Last Updated",
+    "description": "Secret detail drawer > last updated label"
+  },
   "fh6RWb": {
     "defaultMessage": "{count} more...",
     "description": "Label for a link that renders the remaining tags when clicked"
@@ -4187,6 +4779,10 @@
     "defaultMessage": "You need to provide values for all defined inputs",
     "description": "Experiment page > new run modal > invalid state - no prompt inputs provided"
   },
+  "fpB8AN": {
+    "defaultMessage": "The following resources are currently using this secret:",
+    "description": "Bindings table > warning message"
+  },
   "fq8v6G": {
     "defaultMessage": "Trace name",
     "description": "Column label for trace name"
@@ -4194,6 +4790,10 @@
   "frPtD/": {
     "defaultMessage": "Metrics",
     "description": "Row group title for metrics of runs on the experiment compare runs page"
+  },
+  "fsmMeB": {
+    "defaultMessage": "These resources will use the new API key:",
+    "description": "Resources impact description"
   },
   "fv7vQf": {
     "defaultMessage": "Rename",
@@ -4214,6 +4814,10 @@
   "g+YDB/": {
     "defaultMessage": "Group by",
     "description": "Label for the grouping selector button in the logged model list page when no grouping is selected"
+  },
+  "g/+cvY": {
+    "defaultMessage": "Secret {secretName} updated successfully",
+    "description": "Success notification message for updating secret"
   },
   "g0tloS": {
     "defaultMessage": "Context sufficiency assessment is missing. This is likely because your agent is not returning retrieved_context.",
@@ -4239,6 +4843,10 @@
     "defaultMessage": "Delete {count, plural, one { # trace } other { # traces }}",
     "description": "Experiment page > traces view controls > Delete traces modal > Delete button"
   },
+  "g5j1k2": {
+    "defaultMessage": "Actions",
+    "description": "Bindings table > actions column header"
+  },
   "g7xNvF": {
     "defaultMessage": "Display points",
     "description": "Runs charts > line chart > display points > label"
@@ -4254,6 +4862,10 @@
   "gIc8Lp": {
     "defaultMessage": "Stages have been deprecated in the new Model Registry UI. Learn how to migrate models <link>here</link>.",
     "description": "Tooltip content for the disabled stage metadata in model version page"
+  },
+  "gKe52V": {
+    "defaultMessage": "e.g., ANTHROPIC_API_KEY",
+    "description": "Environment variable key placeholder"
   },
   "gLj8lU": {
     "defaultMessage": "<strong>{length}</strong> matching {length, plural, =0 {runs} =1 {run} other {runs}}",
@@ -4278,6 +4890,10 @@
   "gQB+Vs": {
     "defaultMessage": "{count, plural, =1 {1 second} other {# seconds}} ago",
     "description": "Time duration in seconds"
+  },
+  "gQZqJ5": {
+    "defaultMessage": "Click to choose a model...",
+    "description": "Model select placeholder"
   },
   "gRz1nB": {
     "defaultMessage": "{count, plural, one {Delete Trace} other {Delete Traces}}",
@@ -4371,6 +4987,10 @@
     "defaultMessage": "Aliases:",
     "description": "A label for the aliases list in the prompt details page"
   },
+  "h5d+AM": {
+    "defaultMessage": "A key with this name already exists. Please choose a different key name.",
+    "description": "Routes page > secret conflict error description"
+  },
   "hBAhI8": {
     "defaultMessage": "Copy",
     "description": "Tooltip message displayed on copy action"
@@ -4426,6 +5046,10 @@
   "hnhCDT": {
     "defaultMessage": "Error occurred",
     "description": "Run page > artifact view > logged table view > generic error empty state title"
+  },
+  "hwrwUJ": {
+    "defaultMessage": "Add Route",
+    "description": "Add route button"
   },
   "hxMEqi": {
     "defaultMessage": "The model version will be copied to {selectedModel} as a new version.",
@@ -4515,6 +5139,10 @@
     "defaultMessage": "<link>Learn more</link>",
     "description": "Learn more link on the form for creating model in the model registry"
   },
+  "ia8h0L": {
+    "defaultMessage": "All",
+    "description": "Secrets page > shared filter all option"
+  },
   "iaomsd": {
     "defaultMessage": "collapse {title}",
     "description": "Common component > collapsible section > alternative label when expand"
@@ -4531,6 +5159,10 @@
     "defaultMessage": "ID",
     "description": "Label for the ID section"
   },
+  "iscFB8": {
+    "defaultMessage": "Add Route",
+    "description": "Add route button label (use existing secret)"
+  },
   "ivRq5S": {
     "defaultMessage": "Send Feedback",
     "description": "Text for provide feedback button on experiment view page header"
@@ -4538,6 +5170,10 @@
   "iwD/Dv": {
     "defaultMessage": "Cancel",
     "description": "Cancel button text to cancel the flow to register the model"
+  },
+  "iwdPxE": {
+    "defaultMessage": "Unbind",
+    "description": "Bindings table > unbind action label"
   },
   "izS5yQ": {
     "defaultMessage": "Learn more",
@@ -4603,9 +5239,17 @@
     "defaultMessage": "All runs are hidden. Select at least one run to view charts.",
     "description": "Experiment tracking > runs charts > indication displayed when no runs are selected for comparison"
   },
+  "ja7yxY": {
+    "defaultMessage": "Secret name is required for global secrets",
+    "description": "Secret name required validation message"
+  },
   "jcSfl/": {
     "defaultMessage": "Open the {experimentsLink} page.",
     "description": "Instruction to open the experiments page from the log traces drawer"
+  },
+  "jhZAEF": {
+    "defaultMessage": "Enter Model Name",
+    "description": "Model name step title"
   },
   "jhjCgW": {
     "defaultMessage": "Agent versions",
@@ -4667,6 +5311,10 @@
     "defaultMessage": "Edited {timeSince} by {source}. Original value: {value}",
     "description": "Evaluation review > assessments > tooltip > edited by human"
   },
+  "kHTwuR": {
+    "defaultMessage": "Routes",
+    "description": "Header title for the routes page"
+  },
   "kIlkgf": {
     "defaultMessage": "Search runs using a simplified version of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search runs from the experiments table"
@@ -4695,9 +5343,21 @@
     "defaultMessage": "null",
     "description": "null assessment label"
   },
+  "kev2U/": {
+    "defaultMessage": "Other Routes Using Current Key ({count})",
+    "description": "Routes using same key count"
+  },
+  "kfntQa": {
+    "defaultMessage": "No secrets found for {provider}. You need to create a new secret first.",
+    "description": "No secrets available message"
+  },
   "kgJSBI": {
     "defaultMessage": "Delete",
     "description": "A label for the confirm button in the delete prompt modal"
+  },
+  "kjGT/8": {
+    "defaultMessage": "Enter new secret value",
+    "description": "Update secret modal > secret value placeholder"
   },
   "kjltRf": {
     "defaultMessage": "Click a cell to preview data",
@@ -4715,6 +5375,10 @@
     "defaultMessage": "{count, plural, one { # trace } other { # traces }} will be deleted.",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message title"
   },
+  "knZDd2": {
+    "defaultMessage": "API Key",
+    "description": "API key select label"
+  },
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
@@ -4722,6 +5386,10 @@
   "l/+0SR": {
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
+  },
+  "l/NjUj": {
+    "defaultMessage": "Bindings",
+    "description": "Secret detail drawer > bindings section title"
   },
   "l8Z2nP": {
     "defaultMessage": "Remove filter",
@@ -4759,6 +5427,10 @@
     "defaultMessage": "1 value",
     "description": "Text for number of unique values for categorical assessment"
   },
+  "lLZl1g": {
+    "defaultMessage": "Route Name",
+    "description": "Route name label"
+  },
   "lM0z8k": {
     "defaultMessage": "The following variable names contain spaces which is disallowed: {invalidNames}",
     "description": "Experiment page > new run modal > variable name validation > including spaces error"
@@ -4774,6 +5446,10 @@
   "lQ2nDn": {
     "defaultMessage": "This assessment is produced by a custom metric.",
     "description": "Custom judge assessment description"
+  },
+  "lQZwgZ": {
+    "defaultMessage": "e.g., Production GPT-4o",
+    "description": "Route name placeholder"
   },
   "lS7kq2": {
     "defaultMessage": "Parameters",
@@ -4794,6 +5470,10 @@
   "lZPbxb": {
     "defaultMessage": "Hide charts with no data",
     "description": "Experiment page > control bar > label for a checkbox toggle button that hides chart cards with no corresponding data"
+  },
+  "ldwb+P": {
+    "defaultMessage": "Tags",
+    "description": "Route detail drawer > tags section title"
   },
   "lhFnAG": {
     "defaultMessage": "Insufficient",
@@ -4847,6 +5527,10 @@
     "defaultMessage": "Create Model",
     "description": "Title text for creating model in the model registry"
   },
+  "mJca+m": {
+    "defaultMessage": "Configure Route",
+    "description": "Route config step title"
+  },
   "mN6m2e": {
     "defaultMessage": "Only display data points between the p5 and p95 of the data. This can help with chart readability in cases where outliers significantly affect the Y-axis range",
     "description": "A tooltip describing the 'Ignore Outliers' configuration option for line charts"
@@ -4858,6 +5542,10 @@
   "mRshzt": {
     "defaultMessage": "Models",
     "description": "Run page > Overview > Metrics table > Models column header"
+  },
+  "mVQVM3": {
+    "defaultMessage": "Select Existing Secret",
+    "description": "Secret selection step title"
   },
   "mWl3Qv": {
     "defaultMessage": "{toolName} was called in {toolCallId}",
@@ -4882,6 +5570,10 @@
   "mjNFJt": {
     "defaultMessage": "Logged models",
     "description": "Run page > Overview > Run models section label"
+  },
+  "mm//La": {
+    "defaultMessage": "Row actions",
+    "description": "Secrets table > row actions dropdown aria label"
   },
   "mmiHAX": {
     "defaultMessage": "Parameters",
@@ -4947,6 +5639,10 @@
     "defaultMessage": "Edit history",
     "description": "Title of a modal that shows the edit history of an assessment"
   },
+  "nAJXEO": {
+    "defaultMessage": "Last Updated By",
+    "description": "Route detail drawer > last updated by label"
+  },
   "nC54Nf": {
     "defaultMessage": "Tags",
     "description": "Column title for model tags in the registered model page"
@@ -4966,6 +5662,10 @@
   "nF10K1": {
     "defaultMessage": "Machine learning",
     "description": "Label for custom experiments focused on machine learning"
+  },
+  "nIOG2L": {
+    "defaultMessage": "Shared",
+    "description": "Secrets page > shared filter shared option"
   },
   "nIk08y": {
     "defaultMessage": "Trace view",
@@ -5019,6 +5719,10 @@
     "defaultMessage": "Parent run name loading",
     "description": "Run page > Overview > Parent run name loading"
   },
+  "nhf1Z3": {
+    "defaultMessage": "Secret Name",
+    "description": "New secret name label"
+  },
   "nhqO2Z": {
     "defaultMessage": "Save",
     "description": "Experiment page > artifact compare view > prompt lab artifact synchronization > cancel button label"
@@ -5059,9 +5763,17 @@
     "defaultMessage": "MLflow deployment returned the following error: \"{errorMessage}\"",
     "description": "Experiment page > MLflow deployment error message"
   },
+  "o+hwCt": {
+    "defaultMessage": "Key",
+    "description": "Tag key header label"
+  },
   "o21MFS": {
     "defaultMessage": "Invalid log value",
     "description": "Experiment tracking > runs charts > line chart configuration > invalid log value message"
+  },
+  "o24MjD": {
+    "defaultMessage": "An unexpected error occurred. Please try again.",
+    "description": "Routes page > generic error description"
   },
   "o7dzKo": {
     "defaultMessage": "Last Modified",
@@ -5095,6 +5807,10 @@
     "defaultMessage": "No models found in experiment or all models are hidden. Select at least one model to view charts.",
     "description": "Label displayed in logged models chart view when no models are visible or selected"
   },
+  "oObZzV": {
+    "defaultMessage": "Secrets not configured",
+    "description": "Secrets table > KEK passphrase error state title"
+  },
   "oShuJS": {
     "defaultMessage": "Logged from",
     "description": "Label for the source (where it was logged from) of a logged model on the logged model details page. It can be e.g. a notebook or a file."
@@ -5119,6 +5835,10 @@
     "defaultMessage": "Data details for",
     "description": "Text for data details for the experiment run in the dataset drawer"
   },
+  "oc2RC9": {
+    "defaultMessage": "Delete Secret",
+    "description": "Secret detail drawer > delete button"
+  },
   "odkg7W": {
     "defaultMessage": "Compact view",
     "description": "Run page > artifact view > logged table view > compact view toggle button"
@@ -5126,6 +5846,10 @@
   "ofr72S": {
     "defaultMessage": "Version",
     "description": "Column label for logged model"
+  },
+  "ogfBO8": {
+    "defaultMessage": "A secret with this name already exists. Please choose a different name.",
+    "description": "Secret name conflict error message"
   },
   "okQ1oB": {
     "defaultMessage": "Please input a new name for the new experiment.",
@@ -5146,6 +5870,10 @@
   "ov1whU": {
     "defaultMessage": "AI Judge",
     "description": "Label for AI judge in the tooltip for the assessment in the evaluation metrics."
+  },
+  "ovAjIx": {
+    "defaultMessage": "Create a route to configure model access with API keys. Routes connect secrets to models and can be bound to specific resources.",
+    "description": "Routes page > no routes empty state description"
   },
   "owr9l2": {
     "defaultMessage": "No group by columns selected",
@@ -5179,6 +5907,10 @@
     "defaultMessage": "Run example code:",
     "description": "Instruction for running example GenAI code in order to log MLflow 3 models"
   },
+  "pEScEu": {
+    "defaultMessage": "Global",
+    "description": "Secret scope global option"
+  },
   "pEpexK": {
     "defaultMessage": "Clear filters",
     "description": "Label for a button that clears all filters, visible on a experiment runs page next to a empty state when all runs have been filtered out"
@@ -5206,6 +5938,10 @@
   "paolVF": {
     "defaultMessage": "Summary",
     "description": "Label for the summary view tab in the model trace explorer"
+  },
+  "pbAtp7": {
+    "defaultMessage": "Select columns",
+    "description": "Routes table > column selector dropdown aria label"
   },
   "pcNJvo": {
     "defaultMessage": "You're viewing artifacts assigned to a <link>logged model</link> associated with this run.",
@@ -5239,6 +5975,10 @@
     "defaultMessage": "Pass",
     "description": "Passing assessment label"
   },
+  "psogIe": {
+    "defaultMessage": "Or",
+    "description": "Custom model hint prefix"
+  },
   "puATD8": {
     "defaultMessage": "Are you sure you want to delete this assessment?",
     "description": "Delete assessments modal confirmation text"
@@ -5258,6 +5998,10 @@
   "qAdWdK": {
     "defaultMessage": "Error",
     "description": "Title of editor error fallback component"
+  },
+  "qBV8Yf": {
+    "defaultMessage": "Update Route",
+    "description": "Update route button"
   },
   "qDiJI2": {
     "defaultMessage": "Forecasting",
@@ -5318,6 +6062,10 @@
   "quxZB8": {
     "defaultMessage": "Create version",
     "description": "Button for creating a new genai model version"
+  },
+  "qz9XeG": {
+    "defaultMessage": "Cancel",
+    "description": "Cancel button"
   },
   "r+KCRg": {
     "defaultMessage": "Parameter",
@@ -5395,6 +6143,10 @@
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
   },
+  "rdFlKt": {
+    "defaultMessage": "Create Route",
+    "description": "Create route button"
+  },
   "rgSaFx": {
     "defaultMessage": "Span type",
     "description": "Section label for span type filters in the trace explorer."
@@ -5414,6 +6166,10 @@
   "rs7Iic": {
     "defaultMessage": "Tags",
     "description": "Run page > Overview > Run tags section label"
+  },
+  "ruR/M7": {
+    "defaultMessage": "Search routes by name",
+    "description": "Routes page > search input placeholder"
   },
   "rxMHgr": {
     "defaultMessage": "Stage transition",
@@ -5491,6 +6247,10 @@
     "defaultMessage": "None",
     "description": "Label for the button disabling grouping in the logged model list page"
   },
+  "sR9H35": {
+    "defaultMessage": "Model Name",
+    "description": "Model name label"
+  },
   "sS3GBl": {
     "defaultMessage": "Trace LLM applications for debugging and monitoring.",
     "description": "Home page quick action description for logging traces"
@@ -5498,6 +6258,10 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
+  "sWCRcm": {
+    "defaultMessage": "Model",
+    "description": "Routes table > model name column header"
   },
   "sWbj1n": {
     "defaultMessage": "Apply filters",
@@ -5519,6 +6283,14 @@
     "defaultMessage": "No evaluation tables logged",
     "description": "Experiment page > artifact compare view > empty state for no evaluation tables logged > title"
   },
+  "si4HAN": {
+    "defaultMessage": "Shared",
+    "description": "Secrets page > shared filter label"
+  },
+  "slpKag": {
+    "defaultMessage": "Scorer (Coming Soon)",
+    "description": "Secret scope scorer option"
+  },
   "smtq2M": {
     "defaultMessage": "Automatically log traces for OpenAI API calls by calling the {code} function. For example:",
     "description": "Description of how to log traces for the OpenAI package using MLflow autologging. This message is followed by a code example."
@@ -5534,6 +6306,10 @@
   "sxlGRc": {
     "defaultMessage": "Inputs ({numInputs})",
     "description": "Input section header for schema table in model version page"
+  },
+  "sy8tMl": {
+    "defaultMessage": "Secret",
+    "description": "Secret label"
   },
   "syyEiR": {
     "defaultMessage": "Table",
@@ -5595,6 +6371,10 @@
     "defaultMessage": "Okay",
     "description": "Experiment page > new notebook run modal > okay button label"
   },
+  "tw10WB": {
+    "defaultMessage": "Last Updated By",
+    "description": "Routes table > last updated by column header"
+  },
   "tx3aAM": {
     "defaultMessage": "Add tag",
     "description": "Key-value tag editor modal > Add tag button"
@@ -5602,6 +6382,10 @@
   "tzA/LZ": {
     "defaultMessage": "Name",
     "description": "Header for the name column in the registered prompts table"
+  },
+  "u90yqc": {
+    "defaultMessage": "Name",
+    "description": "Secrets table > secret name column header"
   },
   "uAv9Zs": {
     "defaultMessage": "Home",
@@ -5639,6 +6423,10 @@
     "defaultMessage": "Error while loading compare runs page",
     "description": "Title of the error state on the run compare page"
   },
+  "uaAYTc": {
+    "defaultMessage": "Please select a different route name.",
+    "description": "Routes page > binding conflict error description"
+  },
   "ubGTUL": {
     "defaultMessage": "Name is required.",
     "description": "Error message for name requirement in editable tags table view in MLflow"
@@ -5646,6 +6434,10 @@
   "ubeHow": {
     "defaultMessage": "Input",
     "description": "Column header for the input in the runs table on the logged model details page"
+  },
+  "ueWiyD": {
+    "defaultMessage": "Update Secret",
+    "description": "Secret detail drawer > update button"
   },
   "ufamzi": {
     "defaultMessage": "Comparing {runs} MLflow Runs",
@@ -5679,9 +6471,29 @@
     "defaultMessage": "Cancel",
     "description": "Add new key-value tag modal > Cancel button text"
   },
+  "utTEQQ": {
+    "defaultMessage": "Description:",
+    "description": "Route detail drawer > description label"
+  },
+  "uyLTJ5": {
+    "defaultMessage": "Failed to load routes",
+    "description": "Routes page > error loading routes"
+  },
   "v+0HXI": {
     "defaultMessage": "Artifact loading",
     "description": "Run page > artifact view > loading skeleton label"
+  },
+  "v+t6h9": {
+    "defaultMessage": "Route updated successfully",
+    "description": "Routes page > update route success notification"
+  },
+  "v0Ka/1": {
+    "defaultMessage": "Create Secret",
+    "description": "Create secret modal title"
+  },
+  "v7WRRk": {
+    "defaultMessage": "Secret value is required",
+    "description": "Update secret modal > secret value required validation"
   },
   "v8UFxB": {
     "defaultMessage": "No datasets were recorded for this experiment's runs.",
@@ -5707,9 +6519,17 @@
     "defaultMessage": "Source",
     "description": "Column label for source"
   },
+  "vMq0Ly": {
+    "defaultMessage": "Select Existing Key",
+    "description": "Secret selection placeholder"
+  },
   "vNRmQa": {
     "defaultMessage": "using Notebook",
     "description": "String for creating a new run from a notebook"
+  },
+  "vNc29K": {
+    "defaultMessage": "Delete secret",
+    "description": "Secrets table > delete secret action"
   },
   "vPnoNk": {
     "defaultMessage": "Save changes",
@@ -5803,6 +6623,10 @@
     "defaultMessage": "Registered at:",
     "description": "A label for the registration timestamp in the prompt details page"
   },
+  "wK2VRD": {
+    "defaultMessage": "Your API key will be encrypted and stored securely",
+    "description": "API key security hint"
+  },
   "wMG8+P": {
     "defaultMessage": "To search by tags or by names and tags, use a simplified version{newline}of the SQL {whereBold} clause.",
     "description": "Tooltip string to explain how to search models from the model registry table"
@@ -5831,6 +6655,18 @@
     "defaultMessage": "Here's how to optimize your prompt with your dataset in your Python code:",
     "description": "Description of how to optimize a prompt with a dataset in Python"
   },
+  "wfwOPT": {
+    "defaultMessage": "Failed to create route",
+    "description": "Routes page > generic error title"
+  },
+  "wg6P36": {
+    "defaultMessage": "Value",
+    "description": "Tag value header label"
+  },
+  "wguNrr": {
+    "defaultMessage": "Impact Analysis",
+    "description": "Impact analysis section title"
+  },
   "wh+Eos": {
     "defaultMessage": "Create prompt",
     "description": "A header for the create prompt modal in the prompt management UI"
@@ -5854,6 +6690,10 @@
   "wtpLvY": {
     "defaultMessage": "Load more",
     "description": "Run page > Overview > Child runs load more"
+  },
+  "wucnqm": {
+    "defaultMessage": "Provider",
+    "description": "Routes table > provider column header"
   },
   "wusz4l": {
     "defaultMessage": "Input",
@@ -5879,9 +6719,17 @@
     "defaultMessage": "Are you sure you want to delete the prompt version?",
     "description": "A content for the delete prompt version confirmation modal"
   },
+  "x6ebNQ": {
+    "defaultMessage": "Delete route functionality coming soon",
+    "description": "Routes page > delete route placeholder notification"
+  },
   "x6rkyu": {
     "defaultMessage": "Response",
     "description": "Evaluation review > Response section > title"
+  },
+  "xArU7J": {
+    "defaultMessage": "Select Model",
+    "description": "Model selection step title"
   },
   "xBVMQz": {
     "defaultMessage": "LLM",
@@ -5991,6 +6839,10 @@
     "defaultMessage": "Original logged model: {originalName}",
     "description": "Tooltip text showing the original logged model name"
   },
+  "yIRYYB": {
+    "defaultMessage": "Environment Variable",
+    "description": "Bindings table > field name column header"
+  },
   "yJpGwW": {
     "defaultMessage": "Deleted",
     "description": "Linked model dropdown option to show deleted experiment runs"
@@ -6003,6 +6855,10 @@
     "defaultMessage": "NaN",
     "description": "Label displaying \"not-a-number\" symbol displayed on a plot UI element"
   },
+  "ySHcZ7": {
+    "defaultMessage": "Available Models",
+    "description": "Available models label"
+  },
   "ySno61": {
     "defaultMessage": "The code snippets below demonstrate how to make predictions using the logged model.",
     "description": "Subtext heading explaining the below section of the model artifact view on how users can prediction using the registered logged model"
@@ -6010,6 +6866,14 @@
   "ySuIn+": {
     "defaultMessage": "State",
     "description": "Column label for state"
+  },
+  "yVN1eM": {
+    "defaultMessage": "Secret credential is required",
+    "description": "Secret credential required validation message"
+  },
+  "yZFrvq": {
+    "defaultMessage": "Route created successfully",
+    "description": "Routes page > create route success notification"
   },
   "ydoHrJ": {
     "defaultMessage": "Output",
@@ -6054,6 +6918,10 @@
   "z/CjX4": {
     "defaultMessage": "View stack trace",
     "description": "Link to view the stack trace for an assessment error"
+  },
+  "z/iw80": {
+    "defaultMessage": "Configure API Key",
+    "description": "API key step title"
   },
   "z2Gyuw": {
     "defaultMessage": "MLflow Model",
@@ -6123,6 +6991,10 @@
     "defaultMessage": "Select columns",
     "description": "Experiment page > traces table > column selector dropdown aria label"
   },
+  "zdMi+c": {
+    "defaultMessage": "Secret Name",
+    "description": "Route detail drawer > secret name label"
+  },
   "zdYXP8": {
     "defaultMessage": "Parent run",
     "description": "Run page > Overview > Parent run"
@@ -6158,6 +7030,10 @@
   "zv4Ycc": {
     "defaultMessage": "View as table",
     "description": "Experiment tracking > Artifact view > View as table checkbox"
+  },
+  "zwEgmF": {
+    "defaultMessage": "enter a custom model name",
+    "description": "Custom model link"
   },
   "zwO8+l": {
     "defaultMessage": "20",

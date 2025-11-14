@@ -24,7 +24,7 @@ const formatResourceType = (resourceType: string) => {
   // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
   return resourceType
     .split('_')
-    .map(word => word.charAt(0) + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0) + word.slice(1).toLowerCase())
     .join(' ');
 };
 
@@ -43,9 +43,12 @@ export const BindingsTable = ({
   const { theme } = useDesignSystemTheme();
   const { bindings, isLoading, error } = useListBindings({ secretId });
 
-  const handleUnbind = useCallback((binding: SecretBinding) => {
-    onUnbind?.(binding);
-  }, [onUnbind]);
+  const handleUnbind = useCallback(
+    (binding: SecretBinding) => {
+      onUnbind?.(binding);
+    },
+    [onUnbind],
+  );
 
   // Only show unbind for shared/global secrets bound to actual resources (not GLOBAL type)
   const canUnbind = (binding: SecretBinding) => {
@@ -144,10 +147,7 @@ export const BindingsTable = ({
                   color: theme.colors.textSecondary,
                 }}
               >
-                <FormattedMessage
-                  defaultMessage="Resource"
-                  description="Bindings table > resource column header"
-                />
+                <FormattedMessage defaultMessage="Resource" description="Bindings table > resource column header" />
               </th>
               <th
                 css={{
@@ -172,10 +172,7 @@ export const BindingsTable = ({
                     width: '80px',
                   }}
                 >
-                  <FormattedMessage
-                    defaultMessage="Actions"
-                    description="Bindings table > actions column header"
-                  />
+                  <FormattedMessage defaultMessage="Actions" description="Bindings table > actions column header" />
                 </th>
               )}
             </tr>
