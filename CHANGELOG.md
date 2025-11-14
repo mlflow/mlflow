@@ -13,12 +13,11 @@ MLflow 3.6.0 includes several major features and improvements for AI Observabili
 
 Breaking changes:
 
-- Deprecate promptflow, diviner flavors (#18597, #18577, @copilot-swe-agent)
+- Deprecate pmdarima, promptflow, diviner flavors (#18597, #18577, @copilot-swe-agent)
 - Drop numbering suffix (`_1`, `_2`, ...) from span names (#18531, @serena-ruan)
 
 Features:
 
-- [Models] Un-deprecate pmdarima flavor as upstream project is active again (@copilot-swe-agent)
 - [Tracing] Add RLIKE operator support for trace search (#18591, @serena-ruan)
 - [Tracing] Attributes translation for OpenTelemetry clients (#18532, @serena-ruan)
 - [Tracing] Implement auto-tracing logic for Vercel AI SDK (#18402, @B-Step62)
