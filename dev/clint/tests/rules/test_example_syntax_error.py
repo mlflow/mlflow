@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from clint.config import Config
-from clint.linter import Location, lint_file
+from clint.linter import Position, Range, lint_file
 from clint.rules.example_syntax_error import ExampleSyntaxError
 
 
@@ -28,7 +28,7 @@ def good():
     violations = lint_file(Path("test.py"), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
-    assert violations[0].loc == Location(5, 8)
+    assert violations[0].range == Range(Position(5, 8))
 
 
 @pytest.mark.parametrize("suffix", [".md", ".mdx"])
@@ -42,4 +42,4 @@ def g():
     violations = lint_file(Path("test").with_suffix(suffix), code, config, index_path)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExampleSyntaxError) for v in violations)
-    assert violations[0].loc == Location(2, 0)
+    assert violations[0].range == Range(Position(2, 0))

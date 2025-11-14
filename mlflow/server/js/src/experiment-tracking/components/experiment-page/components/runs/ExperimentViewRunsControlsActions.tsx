@@ -3,7 +3,7 @@ import type { Theme } from '@emotion/react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { useNavigate } from '../../../../../common/utils/RoutingUtils';
-import { LegacyTooltip } from '@databricks/design-system';
+import { Tooltip } from '@databricks/design-system';
 import { LIFECYCLE_FILTER } from '../../../../constants';
 import Routes from '../../../../routes';
 import type { ExperimentPageViewState } from '../../models/ExperimentPageViewState';

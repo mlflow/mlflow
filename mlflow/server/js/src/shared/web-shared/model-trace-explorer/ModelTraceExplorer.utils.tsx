@@ -12,7 +12,9 @@ import {
   has,
   compact,
   keyBy,
+  isObject,
 } from 'lodash';
+import { useMemo } from 'react';
 
 import { ModelSpanType, ModelIconType, MLFLOW_TRACE_SCHEMA_VERSION_KEY } from './ModelTrace.types';
 import type {
@@ -35,6 +37,7 @@ import type {
   Assessment,
   RetrieverDocument,
   ModelTraceEvent,
+  ModelTraceLocation,
 } from './ModelTrace.types';
 import { ModelTraceExplorerIcon } from './ModelTraceExplorerIcon';
 import {
@@ -58,12 +61,24 @@ import {
   normalizeLlamaIndexChatResponse,
   normalizeDspyChatInput,
   normalizeDspyChatOutput,
+  normalizeVercelAIChatInput,
+  normalizeVercelAIChatOutput,
+  isOtelGenAIChatMessage,
+  normalizeOtelGenAIChatMessage,
 } from './chat-utils';
+import { normalizeOpenAIResponsesStreamingOutput } from './chat-utils/openai';
+import { TOKEN_USAGE_METADATA_KEY } from './constants';
+import { getTimelineTreeNodesList, isNodeImportant } from './timeline-tree/TimelineTree.utils';
 
 export const FETCH_TRACE_INFO_QUERY_KEY = 'model-trace-info-v3';
 
 export const displayErrorNotification = (errorMessage: string) => {
   // TODO: display error notification in OSS
+  return;
+};
+
+export const displaySuccessNotification = (successMessage: string) => {
+  // TODO: display success notification in OSS
   return;
 };
 
@@ -428,6 +443,7 @@ export const normalizeNewSpanData = (
     outputs,
     attributes,
     events,
+    chatMessageFormat: messageFormat,
     chatMessages,
     chatTools,
     parentId,
@@ -453,8 +469,9 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
     return '';
   }
 
-  if (isV3Span) {
-    // v3 span ids are base64 encoded
+  // v3 span ids are base64 encoded
+  // only attempt decoding if the id length is less than 16 chars
+  if (isV3Span && spanId.length < 16) {
     try {
       return base64ToHex(spanId);
     } catch (e) {
@@ -473,7 +490,11 @@ export const decodeSpanId = (spanId: string | null | undefined, isV3Span: boolea
 };
 
 export function isV3ModelTraceInfo(info: ModelTrace['info']): info is ModelTraceInfoV3 {
-  return 'trace_metadata' in info;
+  if (!info) {
+    return false;
+  }
+
+  return 'trace_location' in info;
 }
 
 export function isV3ModelTraceSpan(span: ModelTraceSpan): span is ModelTraceSpanV3 {
@@ -520,7 +541,10 @@ export function getModelTraceSize(trace: ModelTrace): number | null {
 
 export function parseModelTraceToTree(trace: ModelTrace): ModelTraceSpanNode | null {
   const traceId = getModelTraceId(trace);
-  const spans = trace.trace_data?.spans ?? trace.data.spans;
+  const rawSpans = trace.trace_data?.spans ?? trace.data.spans;
+
+  // Normalize span attributes to the common format (K/V list to map).
+  const spans = rawSpans.map(convertOtelAttributesToMap);
   const spanMap: { [span_id: string]: ModelTraceSpan } = {};
   const relationMap: { [span_id: string]: string[] } = {};
 
@@ -870,6 +894,12 @@ export const isRawModelTraceChatMessage = (message: any): message is RawModelTra
     }
   }
 
+  if (message.parts && isNil(message.content)) {
+    // This is OpenTelemetry GenAI semantic conventions. We parse it separately.
+    // https://opentelemetry.io/docs/specs/semconv/gen-ai/gen-ai-input-messages.json
+    return false;
+  }
+
   if (message.type === 'reasoning') {
     return true;
   }
@@ -903,7 +933,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
 };
 
 /**
- * Attempt to normalize a conversation, return null in case the format is unrecognized
+ * Attempt to normalize a conversation, return null in case the format is unrecognized.
+ * Defaults to checking OpenAI format if not provided, as it is a common case.
  *
  * Supported formats:
  *   1. Langchain chat inputs
@@ -925,6 +956,8 @@ export const isModelTraceChatResponse = (obj: any): obj is ModelTraceChatRespons
  *  16. Autogen outputs
  *  17. Bedrock inputs
  *  18. Bedrock outputs
+ *  19. Vercel AI inputs
+ *  20. Vercel AI outputs
  */
 export const normalizeConversation = (input: any, messageFormat?: string): ModelTraceChatMessage[] | null => {
   // wrap in try/catch to avoid crashing the UI. we're doing a lot of type coercion
@@ -950,7 +983,8 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
           normalizeOpenAIChatInput(input) ??
           normalizeOpenAIChatResponse(input) ??
           normalizeOpenAIResponsesOutput(input) ??
-          normalizeOpenAIResponsesInput(input);
+          normalizeOpenAIResponsesInput(input) ??
+          normalizeOpenAIResponsesStreamingOutput(input);
         if (openAIMessages) return openAIMessages;
         break;
       case 'dspy':
@@ -977,12 +1011,21 @@ export const normalizeConversation = (input: any, messageFormat?: string): Model
         const bedrockMessages = normalizeBedrockChatInput(input) ?? normalizeBedrockChatOutput(input);
         if (bedrockMessages) return bedrockMessages;
         break;
+      case 'vercel_ai':
+        const vercelAIMessages = normalizeVercelAIChatInput(input) ?? normalizeVercelAIChatOutput(input);
+        if (vercelAIMessages) return vercelAIMessages;
+        break;
       default:
         // Fallback to OpenAI chat format
         const chatMessages = normalizeOpenAIChatInput(input) ?? normalizeOpenAIChatResponse(input);
         if (chatMessages) return chatMessages;
         break;
     }
+
+    if (Array.isArray(input) && input.length > 0 && input.every(isOtelGenAIChatMessage)) {
+      return compact(input.map(normalizeOtelGenAIChatMessage));
+    }
+
     return null;
   } catch (e) {
     return null;
@@ -1066,4 +1109,120 @@ export const getDefaultActiveTab = (
   }
 
   return 'attributes';
+};
+
+/**
+ * Processes entire model trace and converts any attributes that are in OTEL key-value array format
+ * to a map format.
+ */
+export const convertOtelAttributesToMap = (modelTraceSpan: ModelTraceSpan): ModelTraceSpan => {
+  const getValue = (value: any) => {
+    if (!isObject(value)) {
+      return value;
+    }
+    if ('string_value' in value) {
+      return value.string_value;
+    }
+    if ('bool_value' in value) {
+      return value.bool_value;
+    }
+    if ('int_value' in value) {
+      return value.int_value;
+    }
+    if ('double_value' in value) {
+      return value.double_value;
+    }
+    return value;
+  };
+
+  const convertAttributes = (attributes: any) => {
+    if (!Array.isArray(attributes)) {
+      return attributes;
+    }
+    return attributes.reduce((acc, attr) => {
+      if (!attr.key || !attr.value) {
+        return acc;
+      }
+      return { ...acc, [attr.key]: getValue(attr.value) };
+    }, {} as Record<string, any>);
+  };
+
+  return {
+    ...modelTraceSpan,
+    ...(modelTraceSpan.attributes && { attributes: convertAttributes(modelTraceSpan.attributes) }),
+    ...(modelTraceSpan.events && {
+      events: modelTraceSpan.events?.map((event) => ({
+        ...event,
+        attributes: convertAttributes(event.attributes),
+      })),
+    }),
+  };
+};
+
+export const useIntermediateNodes = (rootNode: ModelTraceSpanNode | null) => {
+  const intermediateNodes = useMemo(() => {
+    if (!rootNode) {
+      return [];
+    }
+
+    // Filter to show important nodes as a flat list
+    const nodes = getTimelineTreeNodesList([rootNode]);
+    const intermediateNodes = nodes.filter(isNodeImportant);
+
+    return intermediateNodes;
+  }, [rootNode]);
+
+  return intermediateNodes;
+};
+
+/**
+ * Parses a trace URI of the form `trace:/<location>/<traceId>` into its component parts
+ */
+export const parseTraceUri = (traceUri: string): { location: string; traceId: string } => {
+  const [, location, traceId] = traceUri.split('/');
+  return { location, traceId };
+};
+
+/**
+ * Determines if a trace (by provided info object) supports being queried using V4 API.
+ * For now, only UC_SCHEMA-located traces are supported.
+ */
+export const doesTraceSupportV4API = (traceInfo?: ModelTrace['info']) => {
+  return Boolean(traceInfo && isV3ModelTraceInfo(traceInfo) && traceInfo.trace_location?.type === 'UC_SCHEMA');
+};
+
+export const createTraceV4SerializedLocation = (location: ModelTraceLocation) => {
+  if (location.type === 'MLFLOW_EXPERIMENT') {
+    return location.mlflow_experiment?.experiment_id;
+  }
+  if (location.type === 'INFERENCE_TABLE') {
+    return location.inference_table?.full_table_name;
+  }
+  if (location.type === 'UC_SCHEMA') {
+    return `${location.uc_schema?.catalog_name}.${location.uc_schema?.schema_name}`;
+  }
+  return undefined;
+};
+
+export const createTraceV4LongIdentifier = (modelTraceInfo: ModelTraceInfoV3) => {
+  const serializedLocation = createTraceV4SerializedLocation(modelTraceInfo.trace_location);
+  if (!serializedLocation) {
+    return modelTraceInfo.trace_id;
+  }
+
+  return `trace:/${serializedLocation}/${modelTraceInfo.trace_id}`;
+};
+
+export const getTotalTokens = (traceInfo: ModelTraceInfoV3): number | null => {
+  const tokenUsage = traceInfo.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
+  if (!tokenUsage) {
+    return null;
+  }
+
+  try {
+    const parsedTokenUsage = JSON.parse(tokenUsage);
+    return parsedTokenUsage?.total_tokens ?? null;
+  } catch {
+    return null;
+  }
 };

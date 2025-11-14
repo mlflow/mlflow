@@ -8,6 +8,7 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
+from mlflow.entities.span import create_mlflow_span
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
@@ -19,10 +20,9 @@ from mlflow.tracing.constant import (
     TraceTagKey,
 )
 from mlflow.tracing.processor.otel_metrics_mixin import OtelMetricsMixin
-from mlflow.tracing.trace_manager import _Trace
+from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
-    deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
@@ -84,7 +84,7 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 return
             trace_id = trace_info.trace_id
 
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
+        InMemoryTraceManager.get_instance().register_span(create_mlflow_span(span, trace_id))
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
         raise NotImplementedError("Subclasses must implement this method.")
@@ -109,10 +109,8 @@ class BaseMlflowSpanProcessor(OtelMetricsMixin, SimpleSpanProcessor):
                 if trace is not None:
                     if span._parent is None:
                         self._update_trace_info(trace, span)
-                    deduplicate_span_names_in_place(list(trace.span_dict.values()))
                 else:
                     _logger.debug(f"Trace data with request ID {trace_id} not found.")
-
         super().on_end(span)
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:

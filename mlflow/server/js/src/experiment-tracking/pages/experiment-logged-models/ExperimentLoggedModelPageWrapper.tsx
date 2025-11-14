@@ -1,5 +1,4 @@
 import { UserActionErrorHandler } from '@databricks/web-shared/metrics';
-import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { ErrorBoundary } from 'react-error-boundary';
 import { DangerIcon, Empty, PageWrapper } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';

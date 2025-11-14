@@ -1426,7 +1426,7 @@ def _autolog(
                 flavor_name, "registered_model_name", None
             )
             if flavor_name == mlflow.xgboost.FLAVOR_NAME:
-                model_format = get_autologging_config(flavor_name, "model_format", "xgb")
+                model_format = get_autologging_config(flavor_name, "model_format", "ubj")
                 model_info = log_model_func(
                     self,
                     "model",

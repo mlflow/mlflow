@@ -2,23 +2,12 @@ import functools
 import pathlib
 import pickle
 from typing import Generator
+from uuid import uuid4
 
 import pytest
 
-from mlflow.entities.span import SpanType
-from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
-
-from tests.tracing.helper import get_traces, purge_traces
-
-if not IS_PYDANTIC_V2_OR_NEWER:
-    pytest.skip(
-        "ResponsesAgent and its pydantic classes are not supported in pydantic v1. Skipping test.",
-        allow_module_level=True,
-    )
-
-from uuid import uuid4
-
 import mlflow
+from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
@@ -33,6 +22,8 @@ from mlflow.types.responses import (
     ResponsesAgentStreamEvent,
     output_to_responses_items_stream,
 )
+
+from tests.tracing.helper import get_traces, purge_traces
 
 if _HAS_LANGCHAIN_BASE_MESSAGE:
     pass

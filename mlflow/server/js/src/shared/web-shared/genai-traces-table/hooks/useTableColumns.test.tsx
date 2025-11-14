@@ -1,3 +1,4 @@
+import { jest, describe, afterEach, it, expect } from '@jest/globals';
 import { renderHook } from '@testing-library/react';
 
 import type { IntlShape } from '@databricks/i18n';
@@ -130,6 +131,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -195,6 +197,7 @@ describe('useTableColumns', () => {
           tags: {},
           trace_id: '',
           trace_location: {} as any,
+          trace_metadata: {},
         },
       },
     ];
@@ -455,7 +458,7 @@ describe('useTableColumns', () => {
           trace_id: '',
           trace_location: {} as any,
           // No trace_metadata
-        },
+        } as any,
       },
     ];
 

@@ -308,7 +308,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
-            "tests/diviner",
             "tests/dspy",
             "tests/gemini",
             "tests/groq",
@@ -327,7 +326,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
-            "tests/promptflow",
             "tests/prophet",
             "tests/pydantic_ai",
             "tests/pyfunc",
@@ -591,6 +589,10 @@ def reset_tracing():
     _TRACE_BUFFER.clear()
     InMemoryTraceManager.reset()
     IPythonTraceDisplayHandler._instance = None
+
+    # Reset opentelemetry tracer provider as well
+    trace_api._TRACER_PROVIDER_SET_ONCE._done = False
+    trace_api._TRACER_PROVIDER = None
 
 
 def _is_span_active():

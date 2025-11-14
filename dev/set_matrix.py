@@ -86,6 +86,7 @@ class PackageInfo(BaseModel):
     install_dev: str | None = None
     module_name: str | None = None
     genai: bool = False
+    repo: str | None = None
 
 
 class TestConfig(BaseModel):
@@ -340,11 +341,49 @@ def _requires_python(package: str, version: str) -> str | None:
     return None
 
 
-def infer_python_version(package: str, version: str) -> str:
+def _requires_python_from_repo(repo_url: str) -> str | None:
+    """
+    Fetch requires-python from repository's pyproject.toml for dev version inference.
+    """
+    match = re.match(r"https://github\.com/([^/]+/[^/]+)/tree/HEAD(?:/(.+))?", repo_url)
+    if not match:
+        raise ValueError(f"Invalid GitHub repository URL format: {repo_url}")
+
+    owner_repo = match.group(1)
+    subpath = match.group(2) or ""
+    pyproject_path = f"{subpath}/pyproject.toml" if subpath else "pyproject.toml"
+    raw_url = f"https://raw.githubusercontent.com/{owner_repo}/HEAD/{pyproject_path}"
+
+    print(f"Fetching pyproject.toml from {owner_repo} (path: {pyproject_path})", file=sys.stderr)
+
+    try:
+        resp = requests.get(raw_url, timeout=10)
+        resp.raise_for_status()
+    except requests.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"  pyproject.toml not found at {raw_url}", file=sys.stderr)
+            return None
+        raise
+
+    if match := re.search(r'requires-python\s*=\s*["\']([^"\']+)["\']', resp.text):
+        print(f"  Found requires-python: {match.group(1)}", file=sys.stderr)
+        return match.group(1)
+
+    print("  requires-python field not found in pyproject.toml", file=sys.stderr)
+    return None
+
+
+def infer_python_version(package: str, version: str, repo_url: str | None = None) -> str:
     """
     Infer the minimum Python version required by the package.
     """
     candidates = ("3.10", "3.11")
+
+    if version == DEV_VERSION and repo_url:
+        if rp := _requires_python_from_repo(repo_url):
+            spec = SpecifierSet(rp)
+            return next(filter(spec.contains, candidates), candidates[0])
+
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])
@@ -368,11 +407,13 @@ def _find_matches(spec: dict[str, T], version: str) -> Iterator[T]:
             yield val
 
 
-def get_python_version(python: dict[str, str] | None, package: str, version: str) -> str:
+def get_python_version(
+    python: dict[str, str] | None, package: str, version: str, repo_url: str | None = None
+) -> str:
     if python and (match := next(_find_matches(python, version), None)):
         return match
 
-    return infer_python_version(package, version)
+    return infer_python_version(package, version, repo_url)
 
 
 def get_runs_on(runs_on: dict[str, str] | None, version: str) -> str:
@@ -621,7 +662,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 requirements.extend(get_matched_requirements(cfg.requirements or {}, str(ver)))
                 install = make_pip_install_command(requirements)
                 run = remove_comments(cfg.run)
-                python = get_python_version(cfg.python, package_info.pip_release, str(ver))
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, str(ver), package_info.repo
+                )
                 runs_on = get_runs_on(cfg.runs_on, ver)
                 java = get_java_version(cfg.java, str(ver))
 
@@ -674,7 +717,9 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     install = make_pip_install_command(requirements) + "\n" + install_dev
                 else:
                     install = install_dev
-                python = get_python_version(cfg.python, package_info.pip_release, DEV_VERSION)
+                python = get_python_version(
+                    cfg.python, package_info.pip_release, DEV_VERSION, package_info.repo
+                )
                 runs_on = get_runs_on(cfg.runs_on, DEV_VERSION)
                 java = get_java_version(cfg.java, DEV_VERSION)
 

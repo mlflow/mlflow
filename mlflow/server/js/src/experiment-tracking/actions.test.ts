@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, beforeEach, afterEach, describe, it, expect } from '@jest/globals';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -16,7 +17,6 @@ import {
   getParentRunTagName,
   searchRunsPayload,
 } from './actions';
-import { MLFLOW_LOGGED_ARTIFACTS_TAG } from './constants';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import { ViewType } from './sdk/MlflowEnums';
 import { MlflowService } from './sdk/MlflowService';

@@ -1,17 +1,18 @@
 sklearn:
   package_info:
+    repo: https://github.com/scikit-learn/scikit-learn/tree/HEAD
     pip_release: "scikit-learn"
     install_dev: |
       pip install git+https://github.com/scikit-learn/scikit-learn.git
 
   models:
-    minimum: "1.3.2"
+    minimum: "1.4.0"
     maximum: "1.7.2"
     run: |
       pytest tests/sklearn/test_sklearn_model_export.py
 
   autologging:
-    minimum: "1.3.2"
+    minimum: "1.4.0"
     maximum: "1.7.2"
     requirements:
       ">= 0.0.0": ["matplotlib"]
@@ -24,6 +25,7 @@ sklearn:
 
 pytorch:
   package_info:
+    repo: https://github.com/pytorch/pytorch/tree/HEAD
     pip_release: "torch"
     module_name: "torch"
     install_dev: |
@@ -31,7 +33,7 @@ pytorch:
 
   models:
     minimum: "2.1.1"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       ">= 0.0.0": ["torchvision", "scikit-learn"]
       ">= 1.8": ["transformers"]
@@ -41,7 +43,7 @@ pytorch:
 
   autologging:
     minimum: "2.1.1"
-    maximum: "2.8.0"
+    maximum: "2.9.0"
     requirements:
       ">= 0.0.0": ["tensorboard"]
     run: |
@@ -49,6 +51,7 @@ pytorch:
 
 pytorch-lightning:
   package_info:
+    repo: https://github.com/Lightning-AI/pytorch-lightning/tree/HEAD
     pip_release: "pytorch-lightning"
     module_name: "lightning"
     install_dev: |
@@ -59,19 +62,36 @@ pytorch-lightning:
     minimum: "2.1.1"
     maximum: "2.5.5"
     requirements:
-      ">= 0.0.0": ["scikit-learn", "torchvision", "protobuf<4.0.0", "tensorboard", "greenlet<3"]
+      ">= 0.0.0":
+        [
+          "scikit-learn",
+          "torchvision",
+          "protobuf<4.0.0",
+          "tensorboard",
+          "greenlet<3",
+          "pytorch-forecasting",
+        ]
     run: |
       pytest tests/pytorch/test_pytorch_autolog.py
 
+  models:
+    minimum: "2.1.1"
+    maximum: "2.5.5"
+    requirements:
+      ">= 0.0.0": ["pytorch-forecasting"]
+    run: |
+      pytest tests/pytorch/test_forecasting_model.py
+
 keras:
   package_info:
+    repo: https://github.com/keras-team/keras/tree/HEAD
     pip_release: "keras"
     install_dev: |
       pip install --upgrade git+https://github.com/keras-team/keras.git
 
   models:
     minimum: "3.0.2"
-    maximum: "3.11.3"
+    maximum: "3.12.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -81,7 +101,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.11.3"
+    maximum: "3.12.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -91,6 +111,7 @@ keras:
 
 tensorflow:
   package_info:
+    repo: https://github.com/tensorflow/tensorflow/tree/HEAD
     pip_release: "tensorflow"
     install_dev: |
       pip install --pre tf-nightly
@@ -119,21 +140,22 @@ tensorflow:
 
 xgboost:
   package_info:
+    repo: https://github.com/dmlc/xgboost/tree/HEAD
     pip_release: "xgboost"
     install_dev: |
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
 
   models:
-    minimum: "2.0.1"
-    maximum: "3.0.5"
+    minimum: "2.0.2"
+    maximum: "3.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     run: |
       pytest tests/xgboost/test_xgboost_model_export.py
 
   autologging:
-    minimum: "2.0.1"
-    maximum: "3.0.5"
+    minimum: "2.0.2"
+    maximum: "3.1.1"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     run: |
@@ -141,6 +163,7 @@ xgboost:
 
 lightgbm:
   package_info:
+    repo: https://github.com/microsoft/LightGBM/tree/HEAD
     pip_release: "lightgbm"
     install_dev: |
       git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master /tmp/LightGBM
@@ -180,6 +203,7 @@ catboost:
 
 onnx:
   package_info:
+    repo: https://github.com/onnx/onnx/tree/HEAD
     pip_release: "onnx"
     install_dev: |
       # This workflow describes how to build a wheel for Linux:
@@ -211,6 +235,7 @@ onnx:
 semantic_kernel:
   package_info:
     genai: true
+    repo: https://github.com/microsoft/semantic-kernel/tree/HEAD/python
     pip_release: "semantic-kernel"
     install_dev: |
       pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
@@ -230,6 +255,7 @@ semantic_kernel:
 
 spacy:
   package_info:
+    repo: https://github.com/explosion/spaCy/tree/HEAD
     pip_release: "spacy"
     install_dev: |
       pip install git+https://github.com/explosion/spaCy.git
@@ -244,6 +270,7 @@ spacy:
 
 statsmodels:
   package_info:
+    repo: https://github.com/statsmodels/statsmodels/tree/HEAD
     pip_release: "statsmodels"
     install_dev: |
       pip install git+https://github.com/statsmodels/statsmodels.git
@@ -262,6 +289,7 @@ statsmodels:
 
 spark:
   package_info:
+    repo: https://github.com/apache/spark/tree/HEAD
     pip_release: "pyspark"
     module_name: "pyspark"
     install_dev: |
@@ -343,10 +371,12 @@ prophet:
 
   models:
     minimum: "1.1.6"
-    maximum: "1.1.7"
+    maximum: "1.2.1"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
       ">= 0.0.0": ["numpy<2"]
+      # cmdstanpy>=1.3.0 is not compatible with prophet<=1.2.0: https://github.com/facebook/prophet/issues/2697
+      "<= 1.2.0": ["cmdstanpy<1.3.0"]
       # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200 on
       # older version of prophet. Compatibility updates have been released as part of the 1.1.4
       # release of prophet.
@@ -375,32 +405,6 @@ pmdarima:
         ]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
-
-diviner:
-  package_info:
-    pip_release: "diviner"
-    install_dev: |
-      pip install git+https://github.com/databricks/diviner.git
-
-  models:
-    minimum: "0.1.1"
-    maximum: "0.1.1"
-    requirements:
-      # https://github.com/alan-turing-institute/sktime/issues/2898
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": [
-          "cmdstanpy!=1.0.2",
-          "holidays!=0.25",
-          "numpy<2",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
-      # Diviner <= 0.1.1 isn't compatible with pandas>=2
-      "<= 0.1.1": ["pandas<2"]
-      # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
-      "== dev": ["pandas<2"]
-    run: |
-      pytest tests/diviner/test_diviner_model_export.py
 
 h2o:
   package_info:
@@ -440,6 +444,7 @@ paddle:
 
 transformers:
   package_info:
+    repo: https://github.com/huggingface/transformers/tree/HEAD
     pip_release: "transformers"
     install_dev: |
       pip install git+https://github.com/huggingface/transformers
@@ -517,6 +522,8 @@ transformers:
       # evaluate >= 0.4.3 is incompatible with datasets<=2.4.0
       # pyarrow >= 21.0.0 is incompatible with datasets<=2.4.0
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3", "pyarrow<21.0.0"]
+      # sentence-transformers 5.1.2 introduces breaking changes with AcceleratorConfig
+      "< 4.42": ["sentence-transformers<5.1.2"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
       pytest tests/transformers/test_transformers_autolog.py
@@ -524,12 +531,13 @@ transformers:
 openai:
   package_info:
     genai: true
+    repo: https://github.com/openai/openai-python/tree/HEAD
     pip_release: "openai"
     install_dev: |
       pip install git+https://github.com/openai/openai-python
   models:
-    minimum: "1.52.0"
-    maximum: "2.3.0"
+    minimum: "1.53.1"
+    maximum: "2.6.1"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -547,8 +555,8 @@ openai:
     # many test tasks for openai. Reducing the number of testing only for every 10 version.
     test_every_n_versions: 10
   autologging:
-    minimum: "1.52.0"
-    maximum: "2.3.0"
+    minimum: "1.53.1"
+    maximum: "2.6.1"
     requirements:
       ">= 0.0.0": [
           "tiktoken",
@@ -568,18 +576,19 @@ openai:
 dspy:
   package_info:
     genai: true
+    repo: https://github.com/stanfordnlp/dspy/tree/HEAD
     pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
-    minimum: "2.5.17"
+    minimum: "2.5.22"
     maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
-    minimum: "2.5.17"
+    minimum: "2.5.22"
     maximum: "3.0.3"
     requirements:
       ">= 0.0.0": ["openai"]
@@ -590,12 +599,13 @@ dspy:
 langchain:
   package_info:
     genai: true
+    repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
   models:
     # Where the large package update was made (langchain-core, community, ...)
-    minimum: "0.3.4"
+    minimum: "0.3.7"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -637,7 +647,7 @@ langchain:
       # Run all langchain tests except autologging
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
-    minimum: "0.3.4"
+    minimum: "0.3.7"
     maximum: "0.3.27"
     requirements:
       ">= 0.0.0": [
@@ -667,13 +677,13 @@ langchain:
       # Install with 'langchain' to ensure the compatible version is installed
       pip install langchain langchain-community
 
-      # TODO: an unexpected issue happens when autolog test and evaluation test are run together, which need investigations
       pytest tests/langchain/test_langchain_autolog.py
     test_tracing_sdk: true
 
 langgraph:
   package_info:
     genai: true
+    repo: https://github.com/langchain-ai/langgraph/tree/HEAD/libs/langgraph
     pip_release: "langgraph"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
@@ -681,7 +691,7 @@ langgraph:
       pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
-    minimum: "0.2.39"
+    minimum: "0.2.43"
     maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
@@ -698,7 +708,7 @@ langgraph:
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
   autologging:
-    minimum: "0.2.39"
+    minimum: "0.2.43"
     maximum: "0.6.10"
     requirements:
       ">= 0.0.0": [
@@ -718,13 +728,14 @@ langgraph:
 llama_index:
   package_info:
     genai: true
+    repo: https://github.com/run-llama/llama_index/tree/HEAD
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
       pip install git+https://github.com/run-llama/llama_index.git
   models:
     # New event/span framework is fully implemented in 0.10.44
-    minimum: "0.11.19"
+    minimum: "0.11.21"
     maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
@@ -742,7 +753,7 @@ llama_index:
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
-    minimum: "0.11.19"
+    minimum: "0.11.21"
     maximum: "0.14.4"
     requirements:
       ">= 0.0.0": [
@@ -763,7 +774,7 @@ ag2:
     module_name: "autogen"
   autologging:
     minimum: "0.7.0"
-    maximum: "0.9.10"
+    maximum: "0.10.0"
     requirements:
       ">= 0.0.0": [
           # Required to run tests/openai/mock_openai.py
@@ -801,13 +812,14 @@ autogen:
 gemini:
   package_info:
     genai: true
+    repo: https://github.com/googleapis/python-genai/tree/HEAD
     pip_release: "google-genai"
     module_name: "google.genai"
     install_dev: |
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.44.0"
+    maximum: "1.47.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK
@@ -819,12 +831,13 @@ gemini:
 anthropic:
   package_info:
     genai: true
+    repo: https://github.com/anthropics/anthropic-sdk-python/tree/HEAD
     pip_release: "anthropic"
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
-    minimum: "0.36.2"
-    maximum: "0.69.0"
+    minimum: "0.38.0"
+    maximum: "0.72.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -836,13 +849,14 @@ anthropic:
 crewai:
   package_info:
     genai: true
+    repo: https://github.com/crewAIInc/crewAI/tree/HEAD/lib/crewai
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
-      pip install git+https://github.com/crewAIInc/crewAI
+      pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
-    maximum: "0.203.1"
+    maximum: "1.4.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -852,6 +866,7 @@ crewai:
 agno:
   package_info:
     genai: true
+    repo: https://github.com/agno-agi/agno/tree/HEAD/libs/agno
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
@@ -867,6 +882,7 @@ agno:
 pydantic_ai:
   package_info:
     genai: true
+    repo: https://github.com/pydantic/pydantic-ai/tree/HEAD
     pip_release: "pydantic-ai"
     module_name: "pydantic_ai"
 
@@ -886,7 +902,7 @@ pydantic_ai:
         "git+https://github.com/pydantic/pydantic-ai.git#egg=pydantic-ai"
   autologging:
     minimum: "0.1.9"
-    maximum: "1.0.18"
+    maximum: "1.9.0"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -895,6 +911,7 @@ pydantic_ai:
 smolagents:
   package_info:
     genai: true
+    repo: https://github.com/huggingface/smolagents/tree/HEAD
     pip_release: "smolagents"
     module_name: "smolagents"
     install_dev: |
@@ -913,25 +930,27 @@ smolagents:
 strands:
   package_info:
     genai: true
+    repo: https://github.com/strands-agents/sdk-python/tree/HEAD
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |
       pip install "git+https://github.com/strands-agents/sdk-python"
   autologging:
     minimum: "1.4.0"
-    maximum: "1.12.0"
+    maximum: "1.14.0"
     run: pytest tests/strands
     test_tracing_sdk: true
 
 haystack:
   package_info:
+    repo: https://github.com/deepset-ai/haystack/tree/HEAD
     pip_release: "haystack-ai"
     module_name: "haystack"
     install_dev: |
       pip install git+https://github.com/deepset-ai/haystack
   autologging:
     minimum: "2.0.0"
-    maximum: "2.18.1"
+    maximum: "2.19.0"
     requirements:
     run: pytest tests/haystack
     test_tracing_sdk: true
@@ -940,6 +959,7 @@ haystack:
 mistral:
   package_info:
     genai: true
+    repo: https://github.com/mistralai/client-python/tree/HEAD
     pip_release: "mistralai"
     module_name: "mistralai"
     install_dev: |
@@ -959,12 +979,13 @@ mistral:
 
 sentence_transformers:
   package_info:
+    repo: https://github.com/UKPLab/sentence-transformers/tree/HEAD
     pip_release: "sentence-transformers"
     install_dev: |
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
   models:
     minimum: "2.3.1"
-    maximum: "5.1.1"
+    maximum: "5.1.2"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -985,7 +1006,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "5.1.7"
+    minimum: "5.1.8"
     maximum: "6.1.1"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
@@ -997,29 +1018,10 @@ johnsnowlabs:
         echo "Skipping tests due to missing license key"
       fi
 
-promptflow:
-  package_info:
-    pip_release: "promptflow"
-    # Install dev subpackages to ensure test running on the latest code
-    install_dev: |
-      pip install git+https://github.com/microsoft/promptflow#subdirectory=src/promptflow
-  models:
-    minimum: "1.3.0"
-    maximum: "1.18.1"
-    requirements:
-      # Requirements to run sparkudf predict test
-      # marshmallow 3.24.0 has breaking change causes `from marshmallow.fields import _T` error
-      # inside promptflow
-      ">= 0.0.0": ["pyspark", "jinja2", "marshmallow<3.24.0"]
-      ">= 1.11.0": ["openai>=1"]
-      "< 1.18": ["numpy<2"]
-    run: |
-      pytest tests/promptflow/test_promptflow_model_export.py
-    test_every_n_versions: 10
-
 litellm:
   package_info:
     genai: true
+    repo: https://github.com/BerriAI/litellm/tree/HEAD
     pip_release: "litellm"
     install_dev: |
       pip install git+https://github.com/BerriAI/litellm.git
@@ -1041,12 +1043,13 @@ litellm:
 groq:
   package_info:
     genai: true
+    repo: https://github.com/groq/groq-python/tree/HEAD
     pip_release: "groq"
     install_dev: |
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.32.0"
+    maximum: "0.33.0"
     requirements:
     run: pytest tests/groq
     test_tracing_sdk: true
@@ -1059,7 +1062,7 @@ bedrock:
     module_name: "boto3"
   autologging:
     # BedrockRuntime client is added in boto3 1.33
-    minimum: "1.35.42"
-    maximum: "1.40.52"
+    minimum: "1.35.53"
+    maximum: "1.40.62"
     run: pytest tests/bedrock
     test_tracing_sdk: true

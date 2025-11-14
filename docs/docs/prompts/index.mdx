@@ -193,8 +193,10 @@ MLflow currently offers these functions as four components: MLflow Tracking,
 MLflow Projects, MLflow Models, and MLflow Registry.
 """
 
-# Load the prompt
-prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
+# Load the prompt (latest version)
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@latest")
+# Or load a specific version of the prompt
+# prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Use the prompt with an LLM
 client = openai.OpenAI()

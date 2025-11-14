@@ -73,7 +73,7 @@ class PromptVersion(_ModelRegistryEntity):
         aliases: list[str] | None = None,
         last_updated_timestamp: int | None = None,
         user_id: str | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ):
         from mlflow.types.chat import ChatMessage
 
@@ -191,7 +191,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     @staticmethod
     def convert_response_format_to_dict(
-        response_format: BaseModel | dict[str, Any],
+        response_format: type[BaseModel] | dict[str, Any],
     ) -> dict[str, Any]:
         """
         Convert a response format specification to a dictionary representation.

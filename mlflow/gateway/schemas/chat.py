@@ -10,7 +10,7 @@ NB: These Pydantic models just alias the models defined in mlflow.types.chat to 
 
 from typing import Literal
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 
 from mlflow.gateway.base_models import RequestModel, ResponseModel
 
@@ -29,7 +29,6 @@ from mlflow.types.chat import (
     ToolCall,  # noqa F401
     ToolCallDelta,  # noqa F401
 )
-from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 # NB: `import x as y` does not work and will cause a Pydantic error.
 StreamDelta = ChatChoiceDelta
@@ -67,16 +66,10 @@ _REQUEST_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class RequestPayload(ChatCompletionRequest, RequestModel):
-    messages: list[RequestMessage] = (
-        Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
-    )
+    messages: list[RequestMessage] = Field(..., min_length=1)
     tools: list[ChatToolWithUC] | None = None
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _REQUEST_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_REQUEST_PAYLOAD_EXTRA_SCHEMA)
 
 
 _RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -113,11 +106,7 @@ class ResponsePayload(ChatCompletionResponse, ResponseModel):
     # Override the `choices` field to use the Choice model
     choices: list[Choice]
 
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_RESPONSE_PAYLOAD_EXTRA_SCHEMA)
 
 
 _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
@@ -138,8 +127,4 @@ _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA = {
 
 
 class StreamResponsePayload(ChatCompletionChunk, ResponseModel):
-    class Config:
-        if IS_PYDANTIC_V2_OR_NEWER:
-            json_schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
-        else:
-            schema_extra = _STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA
+    model_config = ConfigDict(json_schema_extra=_STREAM_RESPONSE_PAYLOAD_EXTRA_SCHEMA)

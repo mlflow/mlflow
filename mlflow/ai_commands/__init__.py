@@ -8,6 +8,8 @@ from mlflow.ai_commands.ai_command_utils import (
     list_commands,
     parse_frontmatter,
 )
+from mlflow.telemetry.events import AiCommandRunEvent
+from mlflow.telemetry.track import _record_event
 
 __all__ = ["get_command", "get_command_body", "list_commands", "parse_frontmatter", "commands"]
 
@@ -51,6 +53,8 @@ def get_cmd(key: str) -> None:
 def run_cmd(key: str) -> None:
     """Get a command formatted for execution by an AI assistant."""
     try:
+        _record_event(AiCommandRunEvent, {"command_key": key, "context": "cli"})
+
         content = get_command(key)
         _, body = parse_frontmatter(content)
 

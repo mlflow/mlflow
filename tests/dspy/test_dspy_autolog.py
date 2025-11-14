@@ -160,7 +160,7 @@ def test_autolog_cot():
     assert len(spans[3].outputs) == 3
     # Output parser will run per completion output (n=3)
     for i in range(3):
-        assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
+        assert spans[4 + i].name == "ChatAdapter.parse"
         assert spans[4 + i].span_type == SpanType.PARSER
         assert "question -> reasoning, answer" in spans[4 + i].inputs["signature"]
 
@@ -259,20 +259,20 @@ def test_autolog_react():
     assert len(spans) == 15
     assert [span.name for span in spans] == [
         "ReAct.forward",
-        "Predict.forward_1",
-        "ChatAdapter.format_1",
-        "DummyLMWithUsage.__call___1",
-        "ChatAdapter.parse_1",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
         "Tool.search",
-        "Predict.forward_2",
-        "ChatAdapter.format_2",
-        "DummyLMWithUsage.__call___2",
-        "ChatAdapter.parse_2",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
         "ChainOfThought.forward",
-        "Predict.forward_3",
-        "ChatAdapter.format_3",
-        "DummyLMWithUsage.__call___3",
-        "ChatAdapter.parse_3",
+        "Predict.forward",
+        "ChatAdapter.format",
+        "DummyLMWithUsage.__call__",
+        "ChatAdapter.parse",
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
