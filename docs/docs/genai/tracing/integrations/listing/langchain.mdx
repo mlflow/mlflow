@@ -35,33 +35,7 @@ mlflow.langchain.autolog()
 LangChain.js tracing is supported via the [OpenTelemetry ingestion](/genai/tracing/opentelemetry/ingest) endpoint.
 
 ```bash
-npm i @arizeai/openinference-instrumentation-langchain langchain @langchain/core @langchain/openai
-```
-
-Enable OpenTelemetry instrumentation for LangChain in your application.
-
-```typescript
-import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
-import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
-import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
-import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
-
-// Set up the OpenTelemetry
-const provider = new NodeTracerProvider(
-  {
-    spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter({
-      url: "http://localhost:5000/v1/traces",
-      headers: {
-        "x-mlflow-experiment-id": "123",
-      },
-    }))],
-  }
-);
-provider.register();
-
-// Enable LangChain instrumentation
-const lcInstrumentation = new LangChainInstrumentation();
-lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+npm i langchain @langchain/core @langchain/openai @arizeai/openinference-instrumentation-langchain
 ```
 
   </TabItem>
@@ -76,6 +50,9 @@ MLflow LangChain integration is not only about tracing. MLflow offers full track
 
 ### Example Usage
 
+LangChain.js v1.0 introduced a new Agent API (e.g., `createAgent`). If you are on LangChain 0.x, use the v0 example; for 1.x and later, use the v1 example.
+
+<TabsWrapper>
 <Tabs>
   <TabItem value="python" label="Python" default>
 
@@ -115,12 +92,37 @@ chain.invoke(
 ```
 
   </TabItem>
-  <TabItem value="typescript" label="JS / TS">
+  <TabItem value="typescript-v1" label="JS / TS (v1)">
+
+The `createAgent` API is available in LangChain.js v1.0 and later. If you are on LangChain 0.x, see the v0 example instead.
 
 ```typescript
 import { createAgent, tool } from "langchain";
 import * as z from "zod";
 
+import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
+
+// Set up the OpenTelemetry
+const provider = new NodeTracerProvider(
+  {
+    spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter({
+      url: "http://localhost:5000/v1/traces",
+      headers: {
+        "x-mlflow-experiment-id": "123",
+      },
+    }))],
+  }
+);
+provider.register();
+
+// Enable LangChain instrumentation
+const lcInstrumentation = new LangChainInstrumentation();
+lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+
+// Define a tool and an agent
 const getWeather = tool(
   (input) => `It's always sunny in ${input.city}!`,
   {
@@ -137,15 +139,55 @@ const agent = createAgent({
   tools: [getWeather],
 });
 
-console.log(
-  await agent.invoke({
+await agent.invoke({
     messages: [{ role: "user", content: "What's the weather in Tokyo?" }],
-  })
+});
+```
+
+  </TabItem>
+  <TabItem value="typescript-v0" label="JS / TS (v0)">
+
+```typescript
+import { OpenAI } from "@langchain/openai";
+import { PromptTemplate } from "@langchain/core/prompts";
+
+import { NodeTracerProvider, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-node";
+import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
+import { LangChainInstrumentation } from "@arizeai/openinference-instrumentation-langchain";
+import * as CallbackManagerModule from "@langchain/core/callbacks/manager";
+
+// Set up the OpenTelemetry
+const provider = new NodeTracerProvider(
+  {
+    spanProcessors: [new SimpleSpanProcessor(new OTLPTraceExporter({
+      url: "http://localhost:5000/v1/traces",
+      headers: {
+        "x-mlflow-experiment-id": "123",
+      },
+    }))],
+  }
 );
+provider.register();
+
+// Enable LangChain instrumentation
+const lcInstrumentation = new LangChainInstrumentation();
+lcInstrumentation.manuallyInstrument(CallbackManagerModule);
+
+// Construct an LLMChain from a PromptTemplate and an LLM.
+const model = new OpenAI({ temperature: 0 });
+const prompt = PromptTemplate.fromTemplate(
+  "What is a good name for a company that makes {product}?"
+);
+
+const chain = prompt.pipe({ llm: model });
+
+const res = await chain.invoke({ product: "colorful socks" });
+console.log({ res });
 ```
 
   </TabItem>
 </Tabs>
+</TabsWrapper>
 
 :::note
 This example above has been confirmed working with the following requirement versions:
