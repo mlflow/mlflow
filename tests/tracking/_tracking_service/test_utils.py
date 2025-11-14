@@ -45,12 +45,15 @@ from tests.tracing.helper import get_tracer_tracking_uri
 pytestmark = pytest.mark.notrackingurimock
 
 
+def test_default_tracking_scheme():
+    assert _get_tracking_scheme() == "sqlite"
+
+
 def test_get_store_file_store(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     store = _get_store()
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
-    assert _get_tracking_scheme() == "file"
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -58,7 +61,6 @@ def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     store = _get_store("other/path")
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
-    assert _get_tracking_scheme() == "file"
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
