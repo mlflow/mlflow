@@ -632,6 +632,10 @@ langchain:
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
+      ">= 1.0.0": [
+          # required for testing legacy modules
+          "langchain-classic",
+        ]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
