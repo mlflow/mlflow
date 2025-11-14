@@ -1044,3 +1044,48 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model(model_i
     assert len(traces) == 1
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id
+
+
+@pytest.mark.parametrize("log_traces", [True, False])
+def test_langchain_tracing_evaluate(log_traces):
+    from mlflow.genai import scorer
+
+    if log_traces:
+        mlflow.langchain.autolog()
+        mlflow.openai.autolog()  # Our chain contains OpenAI call as well
+
+    chain = create_openai_runnable()
+
+    data = [
+        {
+            "inputs": {"product": "MLflow"},
+            "expectations": {"expected_response": "MLflow is an open-source platform."},
+        },
+        {
+            "inputs": {"product": "Spark"},
+            "expectations": {"expected_response": "Spark is a unified analytics engine."},
+        },
+    ]
+
+    def predict_fn(product: str) -> str:
+        return chain.invoke({"product": product})
+
+    @scorer
+    def exact_match(outputs: str, expectations: dict[str, str]) -> bool:
+        return outputs == expectations["expected_response"]
+
+    result = mlflow.genai.evaluate(
+        predict_fn=predict_fn,
+        data=data,
+        scorers=[exact_match],
+    )
+    assert result.metrics["exact_match/mean"] == 0.0
+    assert result.result_df is not None
+
+    # Traces should be enabled automatically
+    assert len(get_traces()) == 2
+    for trace in get_traces():
+        assert len(trace.data.spans) == 5
+        assert trace.data.spans[0].name == "RunnableSequence"
+        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == result.run_id
+        assert len(trace.info.assessments) == 2
