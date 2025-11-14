@@ -884,9 +884,10 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     else:
         if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
-                "Unsafe pickle deserialization is disallowed by default, but this model is saved "
+                "Unsafe pickle deserialization is disallowed, but this model is saved "
                 "as pickle format. To address this issue, you need to set environment variable "
-                "to 'true', or save the langchain model as 'model from code' artifacts."
+                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the langchain "
+                "model as the 'model from code' artifacts."
             )
         warnings.warn(
             "The Langchain model is saved by unsafe pickler, this saving format is deprecated, "

@@ -298,7 +298,7 @@ def _validate_and_prepare_lc_model_or_path(lc_model, loader_fn, temp_dir=None):
 
     if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
         raise MlflowException(
-            "Unsafe pickler deserialization for langchain model is disallowed by default. "
+            "Unsafe pickler deserialization for langchain model is disallowed. "
             "Please set 'lc_model' parameter to a file path containing the LangChain model code, "
             "or set environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
             "to allow unsafe pickler."
