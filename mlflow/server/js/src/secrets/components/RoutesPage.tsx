@@ -104,6 +104,16 @@ export default function RoutesPage() {
     localStorageStore.setItem(LOCAL_STORAGE_KEY, JSON.stringify(hiddenColumns));
   }, [hiddenColumns, localStorageStore]);
 
+  // Update selectedRoute when routes data changes (e.g., after updating a route)
+  useEffect(() => {
+    if (selectedRoute && routes.length > 0) {
+      const updatedRoute = routes.find((r) => r.route_id === selectedRoute.route_id);
+      if (updatedRoute) {
+        setSelectedRoute(updatedRoute);
+      }
+    }
+  }, [routes, selectedRoute]);
+
   const toggleHiddenColumn = useCallback((columnId: string) => {
     setHiddenColumns((prev) => {
       if (prev.includes(columnId)) {

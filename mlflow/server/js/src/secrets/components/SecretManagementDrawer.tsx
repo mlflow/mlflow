@@ -5,6 +5,7 @@ import {
   Drawer,
   Empty,
   GearIcon,
+  PencilIcon,
   Spinner,
   TrashIcon,
   Typography,
@@ -17,6 +18,7 @@ import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
 import { useListRoutes } from '../hooks/useListRoutes';
 import { DeleteSecretModal } from './DeleteSecretModal';
+import { UpdateSecretModal } from './UpdateSecretModal';
 
 export interface SecretManagementDrawerProps {
   open: boolean;
@@ -35,6 +37,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
   const { routes = [] } = useListRoutes({ enabled: open });
   const [expandedSecretIds, setExpandedSecretIds] = useState<Set<string>>(new Set());
   const [deleteSecret, setDeleteSecret] = useState<Secret | null>(null);
+  const [updateSecret, setUpdateSecret] = useState<Secret | null>(null);
 
   // Auto-collapse all expanded secrets when drawer closes
   useEffect(() => {
@@ -58,6 +61,14 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
   const handleDeleteClick = useCallback(
     (secret: Secret) => {
       setDeleteSecret(secret);
+      onClose();
+    },
+    [onClose],
+  );
+
+  const handleUpdateClick = useCallback(
+    (secret: Secret) => {
+      setUpdateSecret(secret);
       onClose();
     },
     [onClose],
@@ -174,6 +185,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
                     secret={secret}
                     isExpanded={expandedSecretIds.has(secret.secret_id)}
                     onToggleExpand={() => toggleExpanded(secret.secret_id)}
+                    onUpdate={() => handleUpdateClick(secret)}
                     onDelete={() => handleDeleteClick(secret)}
                     routeNames={secretToRoutes.get(secret.secret_id) || []}
                   />
@@ -184,6 +196,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
         </Drawer.Content>
       </Drawer.Root>
 
+      <UpdateSecretModal secret={updateSecret} visible={!!updateSecret} onCancel={() => setUpdateSecret(null)} />
       <DeleteSecretModal secret={deleteSecret} visible={!!deleteSecret} onCancel={() => setDeleteSecret(null)} />
     </>
   );
@@ -193,11 +206,12 @@ interface SecretManagementRowProps {
   secret: Secret;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  onUpdate: () => void;
   onDelete: () => void;
   routeNames: string[];
 }
 
-const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onDelete, routeNames }: SecretManagementRowProps) => {
+const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onUpdate, onDelete, routeNames }: SecretManagementRowProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { bindings = [], isLoading: isLoadingBindings } = useListBindings({
@@ -303,7 +317,22 @@ const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onDelete, rou
           </div>
         </div>
 
-        <div css={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div css={{ display: 'flex', justifyContent: 'flex-end', gap: theme.spacing.sm }}>
+          <Button
+            componentId="mlflow.secrets.management_drawer.update_button"
+            size="small"
+            icon={<PencilIcon />}
+            onClick={(e) => {
+              e.stopPropagation();
+              onUpdate();
+            }}
+            aria-label={intl.formatMessage({
+              defaultMessage: 'Update secret',
+              description: 'Secret management drawer > update button aria label',
+            })}
+          >
+            <FormattedMessage defaultMessage="Update" description="Secret management drawer > update button" />
+          </Button>
           <Button
             componentId="mlflow.secrets.management_drawer.delete_button"
             size="small"
