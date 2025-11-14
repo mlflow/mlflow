@@ -336,7 +336,9 @@ class TracesReceivedByServerEvent(Event):
     @classmethod
     def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
         source = arguments.get("source")
-        count = arguments.get("count")
+        if "count" not in arguments:
+            raise ValueError("count is required for TracesReceivedByServerEvent")
+        count = arguments["count"]
         return {
             "source": source.value if isinstance(source, TraceSource) else source,
             "count": count,
