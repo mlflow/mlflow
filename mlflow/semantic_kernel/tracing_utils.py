@@ -34,7 +34,7 @@ _OPERATION_TO_SPAN_TYPE = {
     "invoke_agent": SpanType.AGENT,
 }
 
-# NB: Streaming operation names are removed in Semantic Kernel
+# NB: Streaming operation names were removed in Semantic Kernel 1.38.0
 try:
     from semantic_kernel.utils.telemetry.agent_diagnostics.decorators import (
         CHAT_STREAMING_COMPLETION_OPERATION,
