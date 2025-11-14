@@ -183,6 +183,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
+    UpdateSecretRoute,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -4093,6 +4094,54 @@ def _delete_secret_route():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _update_secret_route():
+    request_message = _get_request_message(
+        UpdateSecretRoute(),
+        schema={
+            "route_id": [_assert_required, _assert_string],
+            "secret_id": [_assert_string],
+            "secret_name": [_assert_string],
+            "secret_value": [_assert_string],
+            "provider": [_assert_string],
+            "is_shared": [_assert_bool],
+            "auth_config": [_assert_string],
+        },
+    )
+
+    store = _get_tracking_store()
+
+    if request_message.HasField("secret_id"):
+        route = store._update_secret_route(
+            route_id=request_message.route_id,
+            secret_id=request_message.secret_id,
+        )
+        secret = store._get_secret_info(secret_id=request_message.secret_id)
+    elif request_message.HasField("secret_name") and request_message.HasField("secret_value"):
+        secret, route = store._update_secret_route_with_new_secret(
+            route_id=request_message.route_id,
+            secret_name=request_message.secret_name,
+            secret_value=request_message.secret_value,
+            provider=request_message.provider if request_message.HasField("provider") else None,
+            is_shared=request_message.is_shared,
+            auth_config=(
+                request_message.auth_config if request_message.HasField("auth_config") else None
+            ),
+        )
+    else:
+        raise MlflowException(
+            "Must provide either 'secret_id' to update to an existing secret, "
+            "or both 'secret_name' and 'secret_value' to create a new secret.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    response_message = UpdateSecretRoute.Response()
+    response_message.route.CopyFrom(route.to_proto())
+    response_message.secret.CopyFrom(secret.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _bind_secret_route():
     request_message = _get_request_message(
         BindSecretRoute(),
@@ -4553,6 +4602,7 @@ HANDLERS = {
     ListSecretBindings: _list_secret_bindings,
     ListSecretRoutes: _list_secret_routes,
     DeleteSecretRoute: _delete_secret_route,
+    UpdateSecretRoute: _update_secret_route,
     BindSecretRoute: _bind_secret_route,
     DeleteSecretBinding: _delete_secret_binding,
     SetSecretTag: _set_secret_tag,

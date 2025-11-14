@@ -131,11 +131,11 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     TraceRequestMetadata,
     TraceTag,
-    UnbindSecret,
     UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
+    UpdateSecretRoute,
     UpsertDatasetRecords,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -1609,6 +1609,73 @@ class RestStore(AbstractStore):
             DeleteSecretRoute,
             req_body,
             endpoint="/api/3.0/mlflow/secrets/routes/delete",
+        )
+
+    def _update_secret_route(self, route_id: str, secret_id: str) -> SecretRoute:
+        """
+        Update a secret route to use a different existing secret.
+
+        Args:
+            route_id: ID of the route to update.
+            secret_id: ID of an existing secret to update the route to.
+
+        Returns:
+            The updated SecretRoute entity.
+        """
+        req_body = message_to_json(
+            UpdateSecretRoute(
+                route_id=route_id,
+                secret_id=secret_id,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateSecretRoute,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/routes/update",
+        )
+        return SecretRoute.from_proto(response_proto.route)
+
+    def _update_secret_route_with_new_secret(
+        self,
+        route_id: str,
+        secret_name: str,
+        secret_value: str,
+        provider: str | None = None,
+        is_shared: bool = False,
+        auth_config: str | None = None,
+    ) -> tuple[Secret, SecretRoute]:
+        """
+        Update a route by creating a new secret and associating the route with it.
+
+        Args:
+            route_id: ID of the route to update.
+            secret_name: Name for the new secret.
+            secret_value: Value for the new secret.
+            provider: Provider for the new secret.
+            is_shared: Whether the new secret should be shared.
+            auth_config: Optional authentication configuration.
+
+        Returns:
+            Tuple of (new Secret entity, updated SecretRoute entity).
+        """
+        req_body = message_to_json(
+            UpdateSecretRoute(
+                route_id=route_id,
+                secret_name=secret_name,
+                secret_value=secret_value,
+                provider=provider,
+                is_shared=is_shared,
+                auth_config=auth_config,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateSecretRoute,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/routes/update",
+        )
+        return (
+            Secret.from_proto(response_proto.secret),
+            SecretRoute.from_proto(response_proto.route),
         )
 
     def _bind_secret_route(

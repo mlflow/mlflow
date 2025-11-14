@@ -1564,15 +1564,20 @@ service MlflowService {
   //
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a secret with the given name already exists.
   // Throws ``INVALID_PARAMETER_VALUE`` if the resource_type or field_name are invalid.
-  rpc createAndBindSecret (CreateAndBindSecret) returns (CreateAndBindSecret.Response) {
+  rpc createAndBindSecret(CreateAndBindSecret) returns (CreateAndBindSecret.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/secrets/create-and-bind"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Create and Bind Secret",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/create-and-bind"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create and Bind Secret"
     };
   }
 
@@ -1584,60 +1589,80 @@ service MlflowService {
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
   // Throws ``INVALID_PARAMETER_VALUE`` if the secret is not shared.
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
-  rpc createRouteAndBind (CreateRouteAndBind) returns (CreateRouteAndBind.Response) {
+  rpc createRouteAndBind(CreateRouteAndBind) returns (CreateRouteAndBind.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/secrets/create-route-and-bind"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Create Route and Bind",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/create-route-and-bind"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Create Route and Bind"
     };
   }
 
   // Get secret metadata by ID (does not return the encrypted value).
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
-  rpc getSecretInfo (GetSecretInfo) returns (GetSecretInfo.Response) {
+  rpc getSecretInfo(GetSecretInfo) returns (GetSecretInfo.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/secrets/get-info"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Get Secret Info",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/secrets/get-info"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Secret Info"
     };
   }
 
   // Update an existing secret's value (key rotation).
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
-  rpc updateSecret (UpdateSecret) returns (UpdateSecret.Response) {
+  rpc updateSecret(UpdateSecret) returns (UpdateSecret.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/secrets/update"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Update Secret",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Secret"
     };
   }
 
   // Delete a secret and all its bindings.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
-  rpc deleteSecret (DeleteSecret) returns (DeleteSecret.Response) {
+  rpc deleteSecret(DeleteSecret) returns (DeleteSecret.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/secrets/delete"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Secret",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/secrets/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Secret"
     };
   }
 
@@ -1645,54 +1670,74 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the binding does not exist.
   // Throws ``INVALID_PARAMETER_VALUE`` if trying to unbind a private secret or the last binding.
-  rpc unbindSecret (UnbindSecret) returns (UnbindSecret.Response) {
+  rpc unbindSecret(UnbindSecret) returns (UnbindSecret.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/secrets/unbind"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Unbind Secret",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/unbind"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Unbind Secret"
     };
   }
 
   // List all secrets with optional filtering.
-  rpc listSecrets (ListSecrets) returns (ListSecrets.Response) {
+  rpc listSecrets(ListSecrets) returns (ListSecrets.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/secrets/list"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Secrets",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/secrets/list"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Secrets"
     };
   }
 
   // List secret bindings with optional filters.
-  rpc listSecretBindings (ListSecretBindings) returns (ListSecretBindings.Response) {
+  rpc listSecretBindings(ListSecretBindings) returns (ListSecretBindings.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/secrets/list-bindings"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Secret Bindings",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/secrets/list-bindings"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Secret Bindings"
     };
   }
 
   // List secret routes with optional filters.
-  rpc listSecretRoutes (ListSecretRoutes) returns (ListSecretRoutes.Response) {
+  rpc listSecretRoutes(ListSecretRoutes) returns (ListSecretRoutes.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "GET",
-        path: "/mlflow/secrets/list-routes"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "List Secret Routes",
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/secrets/list-routes"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "List Secret Routes"
     };
   }
 
@@ -1700,15 +1745,45 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
   // Throws ``INVALID_STATE`` if the route has active bindings.
-  rpc deleteSecretRoute (DeleteSecretRoute) returns (DeleteSecretRoute.Response) {
+  rpc deleteSecretRoute(DeleteSecretRoute) returns (DeleteSecretRoute.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/secrets/routes/delete"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Secret Route",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/secrets/routes/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Secret Route"
+    };
+  }
+
+  // Update a secret route to use a different secret.
+  //
+  // This endpoint supports two use cases:
+  // 1. Update to an existing secret: provide route_id and secret_id
+  // 2. Create new secret and update: provide route_id and new secret details
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route or target secret does not exist.
+  // Throws ``RESOURCE_ALREADY_EXISTS`` if creating a new shared secret with duplicate name.
+  rpc updateSecretRoute(UpdateSecretRoute) returns (UpdateSecretRoute.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/secrets/routes/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Secret Route"
     };
   }
 
@@ -1716,30 +1791,40 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
-  rpc bindSecretRoute (BindSecretRoute) returns (BindSecretRoute.Response) {
+  rpc bindSecretRoute(BindSecretRoute) returns (BindSecretRoute.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "POST",
-        path: "/mlflow/secrets/bind-route"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Bind Secret Route",
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/bind-route"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Bind Secret Route"
     };
   }
 
   // Delete a secret binding.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the binding does not exist.
-  rpc deleteSecretBinding (DeleteSecretBinding) returns (DeleteSecretBinding.Response) {
+  rpc deleteSecretBinding(DeleteSecretBinding) returns (DeleteSecretBinding.Response) {
     option (rpc) = {
-      endpoints: [{
-        method: "DELETE",
-        path: "/mlflow/secrets/bindings/delete"
-        since { major: 3, minor: 0 },
-      }],
-      visibility: PUBLIC,
-      rpc_doc_title: "Delete Secret Binding",
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/secrets/bindings/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Delete Secret Binding"
     };
   }
 }
@@ -4083,7 +4168,42 @@ message DeleteSecretRoute {
   // ID of the route to delete.
   optional string route_id = 1;
 
+  message Response {}
+}
+
+// Update a secret route to use a different secret.
+//
+// Supports two use cases:
+// 1. Update to existing secret: Provide route_id and secret_id.
+// 2. Create new secret and update: Provide route_id, secret_name, secret_value, and optional fields.
+message UpdateSecretRoute {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the route to update.
+  optional string route_id = 1;
+
+  // === For updating to existing secret ===
+  // ID of an existing secret to update the route to.
+  // Mutually exclusive with secret_name/secret_value.
+  optional string secret_id = 2;
+
+  // === For creating new secret ===
+  // Name for the new secret (required if creating new secret).
+  optional string secret_name = 3;
+  // Value for the new secret (required if creating new secret).
+  optional string secret_value = 4;
+  // Provider for the new secret (e.g., "openai", "anthropic").
+  optional string provider = 5;
+  // Whether the new secret should be shared across resources.
+  optional bool is_shared = 6 [default = false];
+  // Optional authentication configuration for the new secret.
+  optional string auth_config = 7;
+
   message Response {
+    // The updated route.
+    optional SecretRoute route = 1;
+    // The secret (existing or newly created).
+    optional Secret secret = 2;
   }
 }
 
@@ -4113,8 +4233,7 @@ message DeleteSecretBinding {
   // ID of the binding to delete.
   optional string binding_id = 1;
 
-  message Response {
-  }
+  message Response {}
 }
 
 // Set a tag on a secret.

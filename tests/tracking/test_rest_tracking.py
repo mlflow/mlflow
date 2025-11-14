@@ -4206,4 +4206,58 @@ def test_rest_store_secrets_end_to_end(mlflow_client_with_secrets, store_type):
     assert decrypted_job5["VERTEX_CREDENTIALS"]["type"] == "service_account"
     assert decrypted_job5["VERTEX_CREDENTIALS"]["project_id"] == "my-gcp-project"
 
+    openai_secret_for_update = store._create_and_bind_secret(
+        secret_name="openai_key_alternate",
+        secret_value="sk-openai-alternate-key",
+        resource_type="SCORER_JOB",
+        resource_id="job-6",
+        field_name="OPENAI_API_KEY",
+        model_name="gpt-4",
+        route_name="GPT-4 Route",
+        is_shared=True,
+        provider="openai",
+    )
+    original_route_id = openai_secret_for_update.route.route_id
+    original_secret_id = openai_secret_for_update.secret.secret_id
+    assert openai_secret_for_update.binding.route_id == original_route_id
+
+    updated_route_existing = store._update_secret_route(
+        route_id=original_route_id,
+        secret_id=result_with_dict_value.secret.secret_id,
+    )
+    assert updated_route_existing.route_id == original_route_id
+    assert updated_route_existing.secret_id == result_with_dict_value.secret.secret_id
+    assert updated_route_existing.secret_id != original_secret_id
+
+    bindings_after_update = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_after_update) == 1
+    assert bindings_after_update[0].route_id == original_route_id
+
+    decrypted_job6_after_update = backend_store._get_secrets_for_resource("SCORER_JOB", "job-6")
+    assert isinstance(decrypted_job6_after_update["OPENAI_API_KEY"], dict)
+    assert decrypted_job6_after_update["OPENAI_API_KEY"]["type"] == "service_account"
+
+    new_secret, updated_route_with_new_secret = store._update_secret_route_with_new_secret(
+        route_id=original_route_id,
+        secret_name="openai_key_brand_new",
+        secret_value="sk-openai-brand-new-key",
+        provider="openai",
+        is_shared=True,
+    )
+    assert updated_route_with_new_secret.route_id == original_route_id
+    assert updated_route_with_new_secret.secret_id == new_secret.secret_id
+    assert updated_route_with_new_secret.secret_id != result_with_dict_value.secret.secret_id
+    assert new_secret.secret_name == "openai_key_brand_new"
+    assert new_secret.is_shared is True
+    assert new_secret.provider == "openai"
+
+    bindings_after_new_secret = store._list_secret_bindings(route_id=original_route_id)
+    assert len(bindings_after_new_secret) == 1
+    assert bindings_after_new_secret[0].route_id == original_route_id
+
+    decrypted_job6_final = backend_store._get_secrets_for_resource("SCORER_JOB", "job-6")
+    assert decrypted_job6_final["OPENAI_API_KEY"] == "sk-openai-brand-new-key"
+
+    store._delete_secret(openai_secret_for_update.secret.secret_id)
+    store._delete_secret(new_secret.secret_id)
     store._delete_secret(result_with_dict_value.secret.secret_id)

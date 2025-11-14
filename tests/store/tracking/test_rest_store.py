@@ -3258,9 +3258,9 @@ def test_bind_secret():
     response_json = {"binding": binding_json}
 
     def mock_request(*args, **kwargs):
-        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/bind")
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/bind-route")
         request_json = kwargs["json"]
-        assert request_json["secret_id"] == "secret-123"
+        assert request_json["route_id"] == "route-123"
         assert request_json["resource_type"] == "SCORER_JOB"
         assert request_json["resource_id"] == "job-new"
         assert request_json["field_name"] == "OPENAI_API_KEY"
@@ -3272,45 +3272,18 @@ def test_bind_secret():
 
     with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._bind_secret(
-            secret_id="secret-123",
+        result = store._bind_secret_route(
+            route_id="route-123",
             resource_type="SCORER_JOB",
             resource_id="job-new",
             field_name="OPENAI_API_KEY",
-            created_by="user@example.com",
         )
 
-        assert isinstance(result, SecretWithRouteAndBinding)
-        assert result.binding.binding_id == "binding-new"
-        assert result.binding.resource_type == "SCORER_JOB"
-        assert result.binding.resource_id == "job-new"
-        assert result.binding.field_name == "OPENAI_API_KEY"
-
-
-def test_unbind_secret():
-    response_json = {}
-
-    def mock_request(*args, **kwargs):
-        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/unbind")
-        request_json = kwargs["json"]
-        assert request_json["resource_type"] == "SCORER_JOB"
-        assert request_json["resource_id"] == "job-123"
-        assert request_json["field_name"] == "OPENAI_API_KEY"
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        response.text = json.dumps(response_json)
-        return response
-
-    with mock.patch("requests.Session.request", side_effect=mock_request):
-        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._unbind_secret(
-            resource_type="SCORER_JOB",
-            resource_id="job-123",
-            field_name="OPENAI_API_KEY",
-        )
-
-        assert result is None
+        assert isinstance(result, SecretBinding)
+        assert result.binding_id == "binding-new"
+        assert result.resource_type == "SCORER_JOB"
+        assert result.resource_id == "job-new"
+        assert result.field_name == "OPENAI_API_KEY"
 
 
 def test_list_secret_bindings():

@@ -1901,6 +1901,31 @@ class DeleteSecretRoute(_message.Message):
     route_id: str
     def __init__(self, route_id: _Optional[str] = ...) -> None: ...
 
+class UpdateSecretRoute(_message.Message):
+    __slots__ = ("route_id", "secret_id", "secret_name", "secret_value", "provider", "is_shared", "auth_config")
+    class Response(_message.Message):
+        __slots__ = ("route", "secret")
+        ROUTE_FIELD_NUMBER: _ClassVar[int]
+        SECRET_FIELD_NUMBER: _ClassVar[int]
+        route: SecretRoute
+        secret: Secret
+        def __init__(self, route: _Optional[_Union[SecretRoute, _Mapping]] = ..., secret: _Optional[_Union[Secret, _Mapping]] = ...) -> None: ...
+    ROUTE_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    IS_SHARED_FIELD_NUMBER: _ClassVar[int]
+    AUTH_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    route_id: str
+    secret_id: str
+    secret_name: str
+    secret_value: str
+    provider: str
+    is_shared: bool
+    auth_config: str
+    def __init__(self, route_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., is_shared: bool = ..., auth_config: _Optional[str] = ...) -> None: ...
+
 class BindSecretRoute(_message.Message):
     __slots__ = ("route_id", "resource_type", "resource_id", "field_name")
     class Response(_message.Message):
