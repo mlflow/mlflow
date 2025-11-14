@@ -105,12 +105,6 @@ _MODEL_TYPE_KEY = "model_type"
 
 _logger = logging.getLogger(__name__)
 
-warnings.warn(
-    "pmdarima flavor is deprecated and will be removed in a future release",
-    FutureWarning,
-    stacklevel=2,
-)
-
 
 def get_default_pip_requirements():
     """
