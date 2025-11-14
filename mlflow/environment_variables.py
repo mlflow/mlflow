@@ -1127,5 +1127,5 @@ MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS"
 
 #: Specifies whether to allow unsafe pickle deserialization for loading model
 MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION = _BooleanEnvironmentVariable(
-    "MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION", False
+    "MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION", True
 )

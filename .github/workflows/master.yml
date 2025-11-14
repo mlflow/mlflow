@@ -343,7 +343,6 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          export MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION=true
           uv run --no-sync pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 

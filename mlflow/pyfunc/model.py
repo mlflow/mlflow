@@ -10,6 +10,7 @@ import logging
 import lzma
 import os
 import shutil
+import warnings
 from abc import ABCMeta, abstractmethod
 from pathlib import Path
 from typing import Any, Generator, Iterator
@@ -1265,6 +1266,14 @@ def _load_context_model_and_signature(model_path: str, model_config: dict[str, A
                 "as pickle format. To address this issue, you need to set environment variable "
                 "to 'true', or save the model as 'model from code' artifacts."
             )
+
+        warnings.warn(
+            "The python model is saved by unsafe pickler, this saving format is deprecated, "
+            "and will be disabled  by default in future MLflow versions. Saving python model as "
+            "the 'model from code' artifact is the recommended way.",
+            FutureWarning,
+            stacklevel=2,
+        )
 
         python_model_cloudpickle_version = pyfunc_config.get(CONFIG_KEY_CLOUDPICKLE_VERSION, None)
         if python_model_cloudpickle_version is None:

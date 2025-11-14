@@ -412,6 +412,7 @@ import sys
 import tempfile
 import threading
 import uuid
+import warnings
 from copy import deepcopy
 from pathlib import Path
 from typing import Any, Iterator, Tuple, Union
@@ -3039,15 +3040,22 @@ def save_model(
         auth_policy: {{ auth_policy }}
         kwargs: Extra keyword arguments.
     """
-    if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
-        if not isinstance(python_model, (Path, str)):
+    if not isinstance(python_model, (Path, str)):
+        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
             raise MlflowException(
-                "Unsafe pickler deserialization for custom python model is disallowed by default. "
+                "Unsafe pickler deserialization for custom python model is disallowed. "
                 "Please set 'python_model' parameter to a file path to the PythonModel which "
                 "defines the model from code artifact to avoid using unsafe pickler, or set "
                 "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
                 "to allow unsafe pickler."
             )
+        warnings.warn(
+            "Saving custom python model by unsafe pickler is deprecated, and will be disabled "
+            "by default in future MLflow versions. Saving python model as the 'model from code' "
+            "artifact is the recommended way.",
+            FutureWarning,
+            stacklevel=2,
+        )
 
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
     _validate_pyfunc_model_config(model_config)
