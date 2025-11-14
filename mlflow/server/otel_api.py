@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
-from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
+from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
 from mlflow.tracking.request_header.default_request_header_provider import (
@@ -156,17 +156,18 @@ async def export_traces(
                 detail=f"Failed to log OpenTelemetry spans: {error_msg}",
             )
 
-        trace_source = (
-            TraceSource.MLFLOW_PYTHON_CLIENT
-            if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX)
-            else TraceSource.UNKNOWN
-        )
+        if completed_trace_ids:
+            trace_source = (
+                TraceSource.MLFLOW_PYTHON_CLIENT
+                if user_agent and user_agent.startswith(_MLFLOW_PYTHON_CLIENT_USER_AGENT_PREFIX)
+                else TraceSource.UNKNOWN
+            )
 
-        for _ in completed_trace_ids:
             _record_event(
-                TraceReceivedByServerEvent,
+                TracesReceivedByServerEvent,
                 {
                     "source": trace_source,
+                    "count": len(completed_trace_ids),
                 },
             )
 

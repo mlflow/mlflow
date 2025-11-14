@@ -31,7 +31,7 @@ from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.telemetry.client import TelemetryClient
-from mlflow.telemetry.events import TraceReceivedByServerEvent, TraceSource
+from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -654,8 +654,9 @@ def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
 
         if mock_client.add_record.called:
             record = mock_client.add_record.call_args[0][0]
-            assert record.event_name == TraceReceivedByServerEvent.name
+            assert record.event_name == TracesReceivedByServerEvent.name
             assert record.params["source"] == TraceSource.MLFLOW_PYTHON_CLIENT.value
+            assert record.params["count"] == 1
 
 
 def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
@@ -726,6 +727,7 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
         mock_client.add_record.assert_called_once()
         record = mock_client.add_record.call_args[0][0]
 
-        assert record.event_name == TraceReceivedByServerEvent.name
+        assert record.event_name == TracesReceivedByServerEvent.name
         assert record.status.value == "success"
         assert record.params["source"] == TraceSource.UNKNOWN.value
+        assert record.params["count"] == 1
