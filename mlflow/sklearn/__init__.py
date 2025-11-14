@@ -198,11 +198,13 @@ def save_model(
         mlflow_model: :py:mod:`mlflow.models.Model` this flavor is being added to.
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
-            The default format is "skops" which guarantees security for model loading.
+            The "skops" format guarantees safe deserialization.
             The "cloudpickle"
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
+            The default format is "cloudpickle", but in future MLflow version, the default format
+            will be changed to "skops" for safe deserialization.
 
         signature: {{ signature }}
         input_example: {{ input_example }}
@@ -408,11 +410,13 @@ def log_model(
         code_paths: {{ code_paths }}
         serialization_format: The format in which to serialize the model. This should be one of
             the formats "skops", "cloudpickle" or "pickle".
-            The default format is "skops" which guarantees security for model loading.
+            The "skops" format guarantees safe deserialization.
             The "cloudpickle"
             format, ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``,
             provides better cross-system compatibility by identifying and
             packaging code dependencies with the serialized model.
+            The default format is "cloudpickle", but in future MLflow version, the default format
+            will be changed to "skops" for safe deserialization.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -1401,8 +1405,7 @@ def autolog(
             ``True``. See the `post training metrics`_ section for more
             details.
         serialization_format: The format in which to serialize the model. This should be one of
-            the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
-            ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+            the following: "pickle", "cloudpickle" or "skops".
         registered_model_name: If given, each time a model is trained, it is registered as a
             new model version of the registered model with this name.
             The registered model is created if it does not already exist.
