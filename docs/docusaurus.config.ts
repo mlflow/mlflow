@@ -753,13 +753,15 @@ const config: Config = {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
-            to: '/ml/deep-learning/pytorch/guide',
-            from: ['/deep-learning/pytorch/guide'],
-          },
-          {
-            to: '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
-            from: ['/deep-learning/pytorch/quickstart/pytorch_quickstart'],
+            to: '/ml/deep-learning/pytorch',
+            from: [
+              '/deep-learning/pytorch/guide',
+              '/ml/deep-learning/pytorch/guide',
+              '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+              '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
           },
           {
             to: '/ml/deep-learning/sentence-transformers',
