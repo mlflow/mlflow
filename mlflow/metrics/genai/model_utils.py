@@ -76,19 +76,26 @@ def score_model_on_payload(
         error_code=INVALID_PARAMETER_VALUE,
     )
 
+def _parse_model_uri(model_uri: str):
+    """Parse a model URI of the form "<provider>:/<model-name>"."""
 
-def _parse_model_uri(model_uri):
-    parsed = urllib.parse.urlparse(model_uri, allow_fragments=False)
-    scheme = parsed.scheme
-    path = parsed.path
-    if not path.startswith("/") or len(path) <= 1:
+    if ":/" not in model_uri:
         raise MlflowException(
             f"Malformed model uri '{model_uri}'. The URI must be in the format of "
             "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    path = path.lstrip("/")
-    return scheme, path
+
+    provider, model_path = model_uri.split(":/", 1)
+
+    if not provider or not model_path:
+        raise MlflowException(
+            f"Malformed model uri '{model_uri}'. The URI must be in the format of "
+            "<provider>:/<model-name>, e.g., 'openai:/gpt-4.1-mini'.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    return provider, model_path
 
 
 _PREDICT_ERROR_MSG = """\
