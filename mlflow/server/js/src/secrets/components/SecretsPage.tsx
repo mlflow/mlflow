@@ -14,6 +14,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useState, useCallback, useMemo } from 'react';
+import { useDebounce } from 'use-debounce';
 import type { SortingState } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
@@ -40,6 +41,7 @@ export default function SecretsPage() {
   const [showManagementDrawer, setShowManagementDrawer] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText] = useDebounce(searchText, 500);
   const [isSharedFilter, setIsSharedFilter] = useState<'all' | 'shared' | 'private'>('all');
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [updatedSecretName, setUpdatedSecretName] = useState('');
@@ -82,7 +84,9 @@ export default function SecretsPage() {
 
   const filteredSecrets = useMemo(() => {
     return secrets.filter((secret) => {
-      const matchesSearch = searchText ? secret.secret_name.toLowerCase().includes(searchText.toLowerCase()) : true;
+      const matchesSearch = debouncedSearchText
+        ? secret.secret_name.toLowerCase().includes(debouncedSearchText.toLowerCase())
+        : true;
 
       const matchesSharedFilter =
         isSharedFilter === 'all' ||
@@ -91,7 +95,7 @@ export default function SecretsPage() {
 
       return matchesSearch && matchesSharedFilter;
     });
-  }, [secrets, searchText, isSharedFilter]);
+  }, [secrets, debouncedSearchText, isSharedFilter]);
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

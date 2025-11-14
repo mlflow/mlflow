@@ -18,6 +18,7 @@ import {
 // eslint-disable-next-line import/no-extraneous-dependencies
 import { notification } from 'antd';
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useDebounce } from 'use-debounce';
 import type { SortingState } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
@@ -96,6 +97,7 @@ export default function RoutesPage() {
   });
 
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText] = useDebounce(searchText, 500);
 
   // Save hidden columns to localStorage whenever they change
   useEffect(() => {
@@ -113,11 +115,11 @@ export default function RoutesPage() {
 
   const filteredRoutes = useMemo(() => {
     return routes.filter((route) => {
-      const matchesSearch = searchText
-        ? (route.name && route.name.toLowerCase().includes(searchText.toLowerCase())) ||
-          route.route_id.toLowerCase().includes(searchText.toLowerCase()) ||
-          route.model_name.toLowerCase().includes(searchText.toLowerCase()) ||
-          (route.provider && route.provider.toLowerCase().includes(searchText.toLowerCase()))
+      const matchesSearch = debouncedSearchText
+        ? (route.name && route.name.toLowerCase().includes(debouncedSearchText.toLowerCase())) ||
+          route.route_id.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+          route.model_name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+          (route.provider && route.provider.toLowerCase().includes(debouncedSearchText.toLowerCase()))
         : true;
 
       const matchesTags =
@@ -152,7 +154,7 @@ export default function RoutesPage() {
 
       return matchesSearch && matchesTags;
     });
-  }, [routes, searchText, tagsFilter]);
+  }, [routes, debouncedSearchText, tagsFilter]);
 
   const parseErrorMessage = (error: any): { title: string; description: string } => {
     const errorMsg = error.message || error.error_message || String(error);
