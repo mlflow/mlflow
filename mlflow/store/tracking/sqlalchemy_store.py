@@ -2844,16 +2844,6 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            secret_id = sql_route.secret_id
-            route_count = session.query(SqlSecretRoute).filter_by(secret_id=secret_id).count()
-
-            if route_count == 1:
-                raise MlflowException(
-                    f"Cannot delete the last route for secret '{secret_id}'. "
-                    "Delete the secret instead to remove the last route.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
             session.delete(sql_route)
             session.commit()
 
