@@ -1015,6 +1015,11 @@ const config: Config = {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
           },
+          // Redirect consolidated prophet guide to index
+          {
+            to: '/ml/traditional-ml/prophet',
+            from: ['/ml/traditional-ml/prophet/guide'],
+          },
           // Redirect consolidated sparkml guide to index
           {
             to: '/ml/traditional-ml/sparkml',
