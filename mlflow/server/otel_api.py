@@ -25,10 +25,6 @@ from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_P
 # Create FastAPI router for OTel endpoints
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
-import logging
-
-_logger = logging.getLogger(__name__)
-
 
 class OTelExportTraceServiceResponse(BaseModel):
     """
