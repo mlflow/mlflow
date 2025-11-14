@@ -375,7 +375,7 @@ def log_model(
     artifact_path: str | None = None,
     conda_env=None,
     code_paths=None,
-    serialization_format=SERIALIZATION_FORMAT_SKOPS,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
