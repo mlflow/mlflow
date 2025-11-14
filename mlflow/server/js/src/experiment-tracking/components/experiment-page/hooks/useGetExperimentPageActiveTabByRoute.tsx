@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { matchPath, useLocation } from '../../../../common/utils/RoutingUtils';
+import { useLocation } from '../../../../common/utils/RoutingUtils';
 import { RoutePaths } from '../../../routes';
 import { ExperimentPageTabName } from '../../../constants';
 import { map } from 'lodash';
+import { matchPathWithWorkspace } from '../../../../common/utils/WorkspaceRouteUtils';
 
 // Maps experiment page route paths to enumerated tab names
 const ExperimentPageRoutePathToTabNameMap = map(
@@ -21,8 +22,8 @@ const ExperimentPageRoutePathToTabNameMap = map(
 // Gets exact tab name based on given pathname
 const getTabNameFromRoutePath = (pathname: string) =>
   ExperimentPageRoutePathToTabNameMap
-    // Find the first route path that matches the given pathname
-    .find(({ routePath }) => Boolean(matchPath(routePath, pathname)))?.tabName;
+    // Find the first route path that matches the given pathname (workspace-aware)
+    .find(({ routePath }) => Boolean(matchPathWithWorkspace(routePath, pathname)))?.tabName;
 
 // Maps exact tab names to top-level tab names
 const getTopLevelTab = (tabName?: ExperimentPageTabName) => {

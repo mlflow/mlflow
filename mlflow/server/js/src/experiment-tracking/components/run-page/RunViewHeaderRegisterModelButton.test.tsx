@@ -8,6 +8,7 @@ import { DesignSystemProvider } from '@databricks/design-system';
 import type { KeyValueEntity } from '../../../common/types';
 import userEvent from '@testing-library/user-event';
 import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { prefixRouteWithWorkspace } from '../../../common/utils/WorkspaceUtils';
 
 jest.mock('../../../model-registry/actions', () => ({
   searchRegisteredModelsApi: jest.fn(() => ({ type: 'MOCKED_ACTION', payload: Promise.resolve() })),
@@ -102,7 +103,7 @@ describe('RunViewHeaderRegisterModelButton', () => {
     expect(screen.queryByRole('button', { name: 'Register model' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Model registered' })).toHaveAttribute(
       'href',
-      createMLflowRoutePath('/models/test-model/versions/7'),
+      prefixRouteWithWorkspace(createMLflowRoutePath('/models/test-model/versions/7')),
     );
   });
 

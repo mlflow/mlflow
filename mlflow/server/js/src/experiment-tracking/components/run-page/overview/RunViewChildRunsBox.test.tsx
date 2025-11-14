@@ -6,6 +6,8 @@ import { RunViewChildRunsBox } from './RunViewChildRunsBox';
 import { MlflowService } from '../../../sdk/MlflowService';
 import userEvent from '@testing-library/user-event';
 import type { RunInfoEntity } from '../../../types';
+import { prefixRouteWithWorkspace } from '../../../../common/utils/WorkspaceUtils';
+import Routes from '../../../routes';
 
 jest.mock('../../../sdk/MlflowService', () => ({
   MlflowService: {
@@ -55,7 +57,7 @@ describe('RunViewChildRunsBox', () => {
     expect(await screen.findByText('Child runs')).toBeInTheDocument();
 
     const link = await screen.findByRole('link', { name: 'Child run 1' });
-    expect(link).toHaveAttribute('href', `/experiments/${experimentId}/runs/child-1`);
+    expect(link).toHaveAttribute('href', prefixRouteWithWorkspace(Routes.getRunPageRoute(experimentId, 'child-1')));
     expect(screen.queryByText('Child runs loading')).not.toBeInTheDocument();
   });
 

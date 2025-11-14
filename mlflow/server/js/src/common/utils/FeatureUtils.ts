@@ -3,6 +3,12 @@
  * In the OSS version, you can override them in local development by manually changing the return values.
  */
 
+// For dynamic detection, we assume enabled and let WorkspaceSelector handle the actual check
+// This ensures the redirect logic works immediately while WorkspaceSelector loads the list
+export const shouldEnableWorkspaces = () => true;
+
+export const shouldEnableWorkspacePermissions = () => shouldEnableWorkspaces();
+
 export const shouldEnableRunDetailsPageAutoRefresh = () => true;
 
 /**

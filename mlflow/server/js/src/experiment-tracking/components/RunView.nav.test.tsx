@@ -14,6 +14,16 @@ import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { DesignSystemProvider } from '@databricks/design-system';
 
+jest.mock('../../common/utils/FeatureUtils', () => {
+  const actualFeatureUtils = jest.requireActual<typeof import('../../common/utils/FeatureUtils')>(
+    '../../common/utils/FeatureUtils',
+  );
+  return {
+    ...actualFeatureUtils,
+    shouldEnableWorkspaces: () => false,
+  };
+});
+
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
   // @ts-expect-error 'props' is of type 'unknown'

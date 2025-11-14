@@ -11,9 +11,12 @@ import {
   Route,
   Routes,
   createLazyRouteElement,
+  useLocation,
+  useNavigate,
   useParams,
 } from './common/utils/RoutingUtils';
 import { MlflowHeader } from './common/components/MlflowHeader';
+import { shouldEnableWorkspaces } from './common/utils/FeatureUtils';
 
 // Route definition imports:
 import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tracking/route-defs';
@@ -21,6 +24,14 @@ import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/rout
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { MlflowSidebar } from './common/components/MlflowSidebar';
+import {
+  DEFAULT_WORKSPACE_NAME,
+  extractWorkspaceFromPathname,
+  setActiveWorkspace,
+  subscribeToWorkspaceChanges,
+  getCurrentWorkspace,
+} from './common/utils/WorkspaceUtils';
+import { prefixRoutePathWithWorkspace } from './common/utils/WorkspaceRouteUtils';
 
 /**
  * This is the MLflow default entry/landing route.
@@ -29,6 +40,14 @@ const landingRoute = {
   path: '/',
   element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
   pageId: 'mlflow.experiments.list',
+};
+
+type MlflowRouteDef = {
+  path?: string;
+  element?: React.ReactNode;
+  pageId?: string;
+  children?: MlflowRouteDef[];
+  [key: string]: unknown;
 };
 
 /**
@@ -43,7 +62,7 @@ const MlflowRootRoute = ({
   isDarkTheme?: boolean;
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
   useChildRoutesOutlet?: boolean;
-  routes?: any[];
+  routes?: MlflowRouteDef[];
 }) => {
   useInitializeExperimentRunColors();
 
@@ -93,7 +112,7 @@ const MlflowRootRoute = ({
               ) : (
                 <Routes>
                   {routes?.map(({ element, pageId, path }) => (
-                    <Route key={pageId} path={path} element={element} />
+                    <Route key={`${path}-${pageId}`} path={path} element={element} />
                   ))}
                 </Routes>
               )}
@@ -104,6 +123,58 @@ const MlflowRootRoute = ({
     </div>
   );
 };
+
+const WorkspaceRouterSync = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!shouldEnableWorkspaces()) {
+      setActiveWorkspace(null);
+      return;
+    }
+
+    const workspace = extractWorkspaceFromPathname(location.pathname);
+    const activeWorkspace = getCurrentWorkspace();
+    if (!workspace) {
+      const fallbackWorkspace = activeWorkspace || DEFAULT_WORKSPACE_NAME;
+      if (activeWorkspace !== fallbackWorkspace) {
+        setActiveWorkspace(fallbackWorkspace);
+      }
+      const suffix = location.pathname === '/' ? '' : location.pathname;
+      const search = location.search ?? '';
+      const targetPath = `/workspaces/${encodeURIComponent(fallbackWorkspace)}${suffix === '/' ? '' : suffix}`;
+      if (location.pathname !== targetPath) {
+        navigate(`${targetPath}${search}`, { replace: true });
+      }
+      return;
+    }
+
+    if (workspace !== activeWorkspace) {
+      setActiveWorkspace(workspace);
+    }
+  }, [location, navigate]);
+
+  return null;
+};
+
+const WorkspaceAwareRootRoute = (props: React.ComponentProps<typeof MlflowRootRoute>) => (
+  <>
+    <WorkspaceRouterSync />
+    <MlflowRootRoute {...props} />
+  </>
+);
+
+const prependWorkspaceToRoutes = (routeDefs: MlflowRouteDef[]): MlflowRouteDef[] =>
+  routeDefs.map((route) => {
+    const children = route.children ? prependWorkspaceToRoutes(route.children) : undefined;
+
+    return {
+      ...route,
+      path: prefixRoutePathWithWorkspace(route.path),
+      ...(children ? { children } : {}),
+    };
+  });
 export const MlflowRouter = ({
   isDarkTheme,
   setIsDarkTheme,
@@ -112,9 +183,26 @@ export const MlflowRouter = ({
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
 }) => {
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const routes = useMemo(
+  const routes = useMemo<MlflowRouteDef[]>(
     () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
     [],
+  );
+  const workspacesEnabled = shouldEnableWorkspaces();
+  const [workspaceKey, setWorkspaceKey] = useState(() => getCurrentWorkspace() ?? DEFAULT_WORKSPACE_NAME);
+
+  useEffect(() => {
+    return subscribeToWorkspaceChanges((workspace) => {
+      setWorkspaceKey(workspace ?? DEFAULT_WORKSPACE_NAME);
+    });
+  }, []);
+
+  const workspaceRoutes = useMemo(
+    () => (workspacesEnabled ? prependWorkspaceToRoutes(routes) : []),
+    [routes, workspacesEnabled],
+  );
+  const combinedRoutes = useMemo(
+    () => (workspacesEnabled ? [...routes, ...workspaceRoutes] : routes),
+    [routes, workspaceRoutes, workspacesEnabled],
   );
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const hashRouter = useMemo(
@@ -122,11 +210,18 @@ export const MlflowRouter = ({
       createHashRouter([
         {
           path: '/',
-          element: <MlflowRootRoute isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} useChildRoutesOutlet />,
-          children: routes,
+          element: (
+            <WorkspaceAwareRootRoute
+              key={workspaceKey}
+              isDarkTheme={isDarkTheme}
+              setIsDarkTheme={setIsDarkTheme}
+              useChildRoutesOutlet
+            />
+          ),
+          children: combinedRoutes,
         },
       ]),
-    [routes, isDarkTheme, setIsDarkTheme],
+    [combinedRoutes, isDarkTheme, setIsDarkTheme, workspaceKey] /* eslint-disable-line react-hooks/exhaustive-deps */,
   );
 
   if (hashRouter) {
@@ -138,8 +233,13 @@ export const MlflowRouter = ({
   }
 
   return (
-    <HashRouter>
-      <MlflowRootRoute routes={routes} isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+    <HashRouter key={workspaceKey}>
+      <WorkspaceAwareRootRoute
+        key={workspaceKey}
+        routes={combinedRoutes}
+        isDarkTheme={isDarkTheme}
+        setIsDarkTheme={setIsDarkTheme}
+      />
     </HashRouter>
   );
 };

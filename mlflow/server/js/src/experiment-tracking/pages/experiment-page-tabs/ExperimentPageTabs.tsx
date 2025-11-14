@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { Button, PageWrapper, Spacer, ParagraphSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { PredefinedError } from '@databricks/web-shared/errors';
 import invariant from 'invariant';
-import { useNavigate, useParams, Outlet, matchPath, useLocation } from '../../../common/utils/RoutingUtils';
+import { useNavigate, useParams, Outlet, useLocation } from '../../../common/utils/RoutingUtils';
 import { useGetExperimentQuery } from '../../hooks/useExperimentQuery';
 import { useExperimentReduxStoreCompat } from '../../hooks/useExperimentReduxStoreCompat';
 import { ExperimentPageHeaderWithDescription } from '../../components/experiment-page/components/ExperimentPageHeaderWithDescription';
@@ -15,6 +15,7 @@ import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
 import { useInferExperimentKind } from '../../components/experiment-page/hooks/useInferExperimentKind';
 import { ExperimentViewInferredKindModal } from '../../components/experiment-page/components/header/ExperimentViewInferredKindModal';
 import Routes, { RoutePaths } from '../../routes';
+import { matchPathWithWorkspace } from '../../../common/utils/WorkspaceRouteUtils';
 import { useGetExperimentPageActiveTabByRoute } from '../../components/experiment-page/hooks/useGetExperimentPageActiveTabByRoute';
 import { useNavigateToExperimentPageTab } from '../../components/experiment-page/hooks/useNavigateToExperimentPageTab';
 import { ExperimentPageSubTabSelector } from './ExperimentPageSubTabSelector';
@@ -76,7 +77,7 @@ const ExperimentPageTabsImpl = () => {
 
   // Check if the user landed on the experiment page without a specific tab (sub-route)...
   const { pathname } = useLocation();
-  const matchedExperimentPageWithoutTab = Boolean(matchPath(RoutePaths.experimentPage, pathname));
+  const matchedExperimentPageWithoutTab = Boolean(matchPathWithWorkspace(RoutePaths.experimentPage, pathname));
   // ...if true, we want to navigate to the appropriate tab based on the experiment kind
   useNavigateToExperimentPageTab({
     enabled: matchedExperimentPageWithoutTab,

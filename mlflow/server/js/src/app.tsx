@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
 
@@ -19,14 +19,30 @@ import { LegacySkeleton } from '@databricks/design-system';
 import { MlflowRouter as MlflowRouter } from './MlflowRouter';
 import { useMLflowDarkTheme } from './common/hooks/useMLflowDarkTheme';
 import '@patternfly/patternfly/patternfly.css';
+import {
+  DEFAULT_WORKSPACE_NAME,
+  getCurrentWorkspace,
+  subscribeToWorkspaceChanges,
+} from './common/utils/WorkspaceUtils';
 
 export function MLFlowRoot() {
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const intl = useI18nInit();
+  const [workspaceKey, setWorkspaceKey] = useState(() => getCurrentWorkspace() ?? DEFAULT_WORKSPACE_NAME);
+
+  useEffect(() => {
+    return subscribeToWorkspaceChanges((workspace) => {
+      setWorkspaceKey(workspace ?? DEFAULT_WORKSPACE_NAME);
+    });
+  }, []);
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const apolloClient = useMemo(() => createApolloClient(), []);
+  // Recreate clients when workspace changes to clear caches
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const apolloClient = useMemo(() => createApolloClient(), [workspaceKey]);
   // eslint-disable-next-line react-hooks/rules-of-hooks
-  const queryClient = useMemo(() => new QueryClient(), []);
+  // Recreate clients when workspace changes to clear caches
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const queryClient = useMemo(() => new QueryClient(), [workspaceKey]);
 
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const [isDarkTheme, setIsDarkTheme, MlflowThemeGlobalStyles] = useMLflowDarkTheme();
@@ -40,14 +56,14 @@ export function MLFlowRoot() {
   }
 
   return (
-    <ApolloProvider client={apolloClient}>
+    <ApolloProvider client={apolloClient} key={workspaceKey}>
       <RawIntlProvider value={intl} key={intl.locale}>
         <Provider store={store}>
           <DesignSystemContainer isDarkTheme={isDarkTheme}>
             <ApplyGlobalStyles />
             <MlflowThemeGlobalStyles />
-            <QueryClientProvider client={queryClient}>
-              <MlflowRouter isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+            <QueryClientProvider key={workspaceKey} client={queryClient}>
+              <MlflowRouter key={workspaceKey} isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
             </QueryClientProvider>
           </DesignSystemContainer>
         </Provider>
