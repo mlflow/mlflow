@@ -11443,30 +11443,52 @@ def test_create_and_bind_prevents_orphaned_secrets(store: SqlAlchemyStore, kek_p
     assert secret_binding_count == 1
 
 
-def test_create_and_bind_duplicate_binding_fails(store: SqlAlchemyStore, kek_passphrase):
+def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphrase):
+    """Test that multiple routes can be created for the same resource/field combination."""
     resource_type = SecretResourceType.SCORER_JOB
     resource_id = "scorer_456"
     field_name = "ANTHROPIC_API_KEY"
 
-    store._create_and_bind_secret(
+    # Create first route
+    result1 = store._create_and_bind_secret(
         secret_name="first_secret",
         secret_value="value1",
         resource_type=resource_type,
         resource_id=resource_id,
         field_name=field_name,
         model_name="claude-3-5-sonnet-20241022",
+        route_name="claude-sonnet-route",
     )
 
-    with pytest.raises(
-        MlflowException, match="Binding already exists for resource_type=.*resource_id="
-    ):
+    # Create second route with different secret for SAME resource/field - should succeed
+    result2 = store._create_and_bind_secret(
+        secret_name="second_secret",
+        secret_value="value2",
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+        model_name="claude-3-haiku-20240307",
+        route_name="claude-haiku-route",
+    )
+
+    # Verify both routes were created successfully
+    assert result1.route.name == "claude-sonnet-route"
+    assert result2.route.name == "claude-haiku-route"
+    assert result1.binding.resource_type == resource_type
+    assert result2.binding.resource_type == resource_type
+    assert result1.binding.field_name == field_name
+    assert result2.binding.field_name == field_name
+
+    # Verify route names must be unique - duplicate route name should fail
+    with pytest.raises(Exception):  # Database will enforce unique constraint
         store._create_and_bind_secret(
-            secret_name="second_secret",
-            secret_value="value2",
+            secret_name="third_secret",
+            secret_value="value3",
             resource_type=resource_type,
             resource_id=resource_id,
             field_name=field_name,
-            model_name="claude-3-5-sonnet-20241022",
+            model_name="claude-3-opus-20240229",
+            route_name="claude-sonnet-route",  # Duplicate route name
         )
 
 
@@ -11678,24 +11700,40 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
 
 
 def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
+    """Test that multiple routes can bind to same resource/field, but route names must be unique."""
     secret_entity = create_secret(is_shared=True)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
+
+    # First route - should succeed
     store._create_route_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
         model_name="gpt-4",
         field_name="api_key",
+        route_name="gpt-4-route",
     )
 
-    with pytest.raises(MlflowException, match="already exists"):
+    # Second route with same resource/field but different route name - should succeed
+    store._create_route_and_bind(
+        secret_id=secret_entity.secret_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id=job_id,
+        model_name="gpt-3.5-turbo",
+        field_name="api_key",
+        route_name="gpt-3.5-route",
+    )
+
+    # Third route with duplicate route name - should fail
+    with pytest.raises(Exception):  # Database will enforce unique constraint
         store._create_route_and_bind(
             secret_id=secret_entity.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
             resource_id=job_id,
-            model_name="gpt-4",
+            model_name="gpt-4-turbo",
             field_name="api_key",
+            route_name="gpt-4-route",  # Duplicate route name
         )
 
 
@@ -12288,14 +12326,6 @@ def test_bind_secret_route(store: SqlAlchemyStore, kek_passphrase):
 
     bindings_after = store._list_secret_bindings(route_id=result.route.route_id)
     assert len(bindings_after) == 2
-
-    with pytest.raises(MlflowException, match="Binding already exists"):
-        store._bind_secret_route(
-            route_id=result.route.route_id,
-            resource_type=SecretResourceType.GLOBAL,
-            resource_id="workspace_2",
-            field_name="OPENAI_API_KEY",
-        )
 
     with pytest.raises(MlflowException, match="not found"):
         store._bind_secret_route(

@@ -2367,8 +2367,9 @@ class SqlAlchemyStore(AbstractStore):
         2. Route: The model configuration (provider + model using that secret)
         3. Binding: The resource binding (which service uses this route)
 
-        Note that this method enforces uniqueness constraints for both shared secrets
-        (by name) and secret bindings (by resource/field combination).
+        Note that this method enforces uniqueness constraints for shared secrets (by name)
+        and route names (each route must have a unique name). Multiple routes can share the
+        same secret and can be bound to the same resource/field combination.
 
         Secrets cannot be created and bind in separate steps using the public API to
         avoid having unbound secrets or routes (orphaned resources) in the backend.
@@ -2421,22 +2422,6 @@ class SqlAlchemyStore(AbstractStore):
                         f"(ID: {existing.secret_id}).",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
-
-            existing_binding = (
-                session.query(SqlSecretBinding)
-                .filter_by(
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    field_name=field_name,
-                )
-                .first()
-            )
-            if existing_binding:
-                raise MlflowException(
-                    f"Binding already exists for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
-                )
 
             secret_id = uuid.uuid4().hex
             binding_id = uuid.uuid4().hex
@@ -2541,6 +2526,8 @@ class SqlAlchemyStore(AbstractStore):
         Create a new route and binding for an existing secret.
 
         This enables reusing a single API key (secret) across multiple model configurations.
+        Multiple routes can be created for the same secret and bound to the same resource/field
+        combination, as long as each route has a unique name.
 
         Args:
             secret_id: ID of the existing secret to use.
@@ -2548,7 +2535,7 @@ class SqlAlchemyStore(AbstractStore):
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
             model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
-            route_name: Optional display name for the route.
+            route_name: Optional display name for the route. Must be unique across all routes.
             route_description: Optional description for the route.
             route_tags: Optional list of tags for the route.
             created_by: Username of the creator. Optional.
@@ -2557,7 +2544,7 @@ class SqlAlchemyStore(AbstractStore):
             SecretWithRouteAndBinding containing the secret, new route, and new binding.
 
         Raises:
-            MlflowException: If secret is not found, is not shared, or binding already exists.
+            MlflowException: If secret is not found or is not shared.
         """
         with self.ManagedSessionMaker() as session:
             sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
@@ -2572,22 +2559,6 @@ class SqlAlchemyStore(AbstractStore):
                     f"Cannot create route for private secret '{secret_id}'. "
                     "Only shared secrets can have multiple routes.",
                     error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            existing_binding = (
-                session.query(SqlSecretBinding)
-                .filter_by(
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    field_name=field_name,
-                )
-                .first()
-            )
-            if existing_binding:
-                raise MlflowException(
-                    f"Binding already exists for resource_type='{resource_type}', "
-                    f"resource_id='{resource_id}', field_name='{field_name}'.",
-                    error_code=RESOURCE_ALREADY_EXISTS,
                 )
 
             current_time = get_current_time_millis()
@@ -2897,7 +2868,8 @@ class SqlAlchemyStore(AbstractStore):
         Bind an existing route to a new resource.
 
         This allows reusing a route (model configuration) across multiple resources
-        without creating a new route each time.
+        without creating a new route each time. Multiple routes can be bound to the
+        same resource/field combination.
 
         Args:
             route_id: ID of the existing route to bind.
@@ -2910,7 +2882,7 @@ class SqlAlchemyStore(AbstractStore):
             The created SecretBinding entity.
 
         Raises:
-            MlflowException: If route doesn't exist or binding already exists.
+            MlflowException: If route doesn't exist.
         """
         with self.ManagedSessionMaker() as session:
             sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
@@ -2919,23 +2891,6 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Route with ID '{route_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            existing_binding = (
-                session.query(SqlSecretBinding)
-                .filter_by(
-                    resource_type=resource_type,
-                    resource_id=resource_id,
-                    field_name=field_name,
-                )
-                .first()
-            )
-
-            if existing_binding:
-                raise MlflowException(
-                    f"Binding already exists for resource_type={resource_type}, "
-                    f"resource_id={resource_id}, field_name={field_name}",
-                    error_code=RESOURCE_ALREADY_EXISTS,
                 )
 
             binding_id = uuid.uuid4().hex
