@@ -122,7 +122,7 @@ def get_tracking_uri() -> str:
 
     .. code-block:: text
 
-        Current tracking uri: file:///.../mlruns
+        Current tracking uri: sqlite:///mlflow.db
     """
     if _tracking_uri is not None:
         return _tracking_uri
