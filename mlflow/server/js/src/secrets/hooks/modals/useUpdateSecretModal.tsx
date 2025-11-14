@@ -10,7 +10,12 @@ export interface UseUpdateSecretModalProps {
   onSuccess?: (secretName: string) => void;
 }
 
-export const useUpdateSecretModal = ({ secret, onSuccess }: UseUpdateSecretModalProps) => {
+interface UseUpdateSecretModalReturn {
+  UpdateSecretModal: JSX.Element | null;
+  openModal: () => void;
+}
+
+export const useUpdateSecretModal = ({ secret, onSuccess }: UseUpdateSecretModalProps): UseUpdateSecretModalReturn => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [open, setOpen] = useState(false);

@@ -10,7 +10,12 @@ export interface UseDeleteSecretModalProps {
   onSuccess?: () => void;
 }
 
-export const useDeleteSecretModal = ({ secret, onSuccess }: UseDeleteSecretModalProps) => {
+interface UseDeleteSecretModalReturn {
+  DeleteSecretModal: JSX.Element | null;
+  openModal: () => void;
+}
+
+export const useDeleteSecretModal = ({ secret, onSuccess }: UseDeleteSecretModalProps): UseDeleteSecretModalReturn => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [open, setOpen] = useState(false);

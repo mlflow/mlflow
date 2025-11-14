@@ -21,7 +21,12 @@ export interface UseCreateSecretModalProps {
   onSuccess?: () => void;
 }
 
-export const useCreateSecretModal = ({ onSuccess }: UseCreateSecretModalProps) => {
+interface UseCreateSecretModalReturn {
+  CreateSecretModal: JSX.Element;
+  openModal: () => void;
+}
+
+export const useCreateSecretModal = ({ onSuccess }: UseCreateSecretModalProps): UseCreateSecretModalReturn => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const [open, setOpen] = useState(false);
