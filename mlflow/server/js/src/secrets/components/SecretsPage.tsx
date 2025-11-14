@@ -20,9 +20,9 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { SecretsTable } from './SecretsTable';
-import { CreateSecretModal } from './CreateSecretModal';
-import { UpdateSecretModal } from './UpdateSecretModal';
-import { DeleteSecretModal } from './DeleteSecretModal';
+import { useCreateSecretModal } from '../hooks/modals/useCreateSecretModal';
+import { useUpdateSecretModal } from '../hooks/modals/useUpdateSecretModal';
+import { useDeleteSecretModal } from '../hooks/modals/useDeleteSecretModal';
 import { SecretDetailDrawer } from './SecretDetailDrawer';
 import { SecretManagementDrawer } from './SecretManagementDrawer';
 import type { Secret } from '../types';
@@ -34,9 +34,6 @@ export default function SecretsPage() {
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showUpdateModal, setShowUpdateModal] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showManagementDrawer, setShowManagementDrawer] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
@@ -46,32 +43,55 @@ export default function SecretsPage() {
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
   const [updatedSecretName, setUpdatedSecretName] = useState('');
 
+  // Modal hooks
+  const { CreateSecretModal, openModal: openCreateModal } = useCreateSecretModal({
+    onSuccess: () => {
+      // Refetch is handled automatically by React Query invalidation
+    },
+  });
+
+  const { UpdateSecretModal, openModal: openUpdateModal } = useUpdateSecretModal({
+    secret: selectedSecret,
+    onSuccess: (secretName) => {
+      setUpdatedSecretName(secretName);
+      setShowSuccessNotification(true);
+      setTimeout(() => setShowSuccessNotification(false), 3000);
+    },
+  });
+
+  const { DeleteSecretModal, openModal: openDeleteModal } = useDeleteSecretModal({
+    secret: selectedSecret,
+    onSuccess: () => {
+      setShowDetailModal(false);
+    },
+  });
+
   const handleCreateSecret = useCallback(() => {
-    setShowCreateModal(true);
-  }, []);
+    openCreateModal();
+  }, [openCreateModal]);
 
   const handleSecretClicked = useCallback((secret: Secret) => {
     setSelectedSecret(secret);
     setShowDetailModal(true);
   }, []);
 
-  const handleUpdateSecret = useCallback((secret: Secret) => {
-    setSelectedSecret(secret);
-    setShowUpdateModal(true);
-    setShowDetailModal(false);
-  }, []);
+  const handleUpdateSecret = useCallback(
+    (secret: Secret) => {
+      setSelectedSecret(secret);
+      setShowDetailModal(false);
+      openUpdateModal();
+    },
+    [openUpdateModal],
+  );
 
-  const handleUpdateSuccess = useCallback((secretName: string) => {
-    setUpdatedSecretName(secretName);
-    setShowSuccessNotification(true);
-    setTimeout(() => setShowSuccessNotification(false), 3000);
-  }, []);
-
-  const handleDeleteSecret = useCallback((secret: Secret) => {
-    setSelectedSecret(secret);
-    setShowDeleteModal(true);
-    setShowDetailModal(false);
-  }, []);
+  const handleDeleteSecret = useCallback(
+    (secret: Secret) => {
+      setSelectedSecret(secret);
+      setShowDetailModal(false);
+      openDeleteModal();
+    },
+    [openDeleteModal],
+  );
 
   const toggleHiddenColumn = useCallback((columnId: string) => {
     setHiddenColumns((prev) => {
@@ -198,24 +218,9 @@ export default function SecretsPage() {
         />
       </div>
 
-      <CreateSecretModal visible={showCreateModal} onCancel={() => setShowCreateModal(false)} />
-      <UpdateSecretModal
-        secret={selectedSecret}
-        visible={showUpdateModal}
-        onCancel={() => {
-          setShowUpdateModal(false);
-          setSelectedSecret(null);
-        }}
-        onSuccess={handleUpdateSuccess}
-      />
-      <DeleteSecretModal
-        secret={selectedSecret}
-        visible={showDeleteModal}
-        onCancel={() => {
-          setShowDeleteModal(false);
-          setSelectedSecret(null);
-        }}
-      />
+      {CreateSecretModal}
+      {UpdateSecretModal}
+      {DeleteSecretModal}
       <SecretDetailDrawer
         secret={selectedSecret}
         open={showDetailModal}
