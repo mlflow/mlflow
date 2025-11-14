@@ -50,7 +50,7 @@ class VercelAITranslator(OtelSchemaTranslator):
     def get_input_value(self, attributes: dict[str, Any]) -> Any:
         if self._is_chat_span(attributes):
             inputs = self._unpack_attributes_with_prefix(attributes, "ai.prompt.")
-            if "tools" in inputs or {}:
+            if "tools" in inputs:
                 inputs["tools"] = [self._safe_load_json(tool) for tool in inputs["tools"]]
             return json.dumps(inputs) if inputs else None
         return super().get_input_value(attributes)
