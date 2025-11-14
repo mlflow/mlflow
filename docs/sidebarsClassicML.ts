@@ -241,23 +241,9 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'PyTorch',
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/quickstart/quickstart-tensorflow-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/tensorflow/index',
-              },
             },
             {
               type: 'category',

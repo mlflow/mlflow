@@ -797,11 +797,11 @@ const config: Config = {
             from: ['/deep-learning/tensorflow'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/guide',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/guide'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
           },
           {
