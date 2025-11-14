@@ -17,6 +17,7 @@ import logging
 import os
 import pickle
 import shutil
+import warnings
 import weakref
 from collections import OrderedDict, defaultdict
 from copy import deepcopy
@@ -33,6 +34,7 @@ from mlflow.data.numpy_dataset import from_numpy
 from mlflow.data.pandas_dataset import from_pandas
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
+from mlflow.environment_variables import MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -171,7 +173,7 @@ def save_model(
     conda_env=None,
     code_paths=None,
     mlflow_model=None,
-    serialization_format=SERIALIZATION_FORMAT_SKOPS,
+    serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -254,6 +256,22 @@ def save_model(
                 f" of the following supported formats: {SUPPORTED_SERIALIZATION_FORMATS}."
             ),
             error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if serialization_format != SERIALIZATION_FORMAT_SKOPS:
+        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Unsafe pickle deserialization is disallowed, Please set 'serialization_format' "
+                "parameter to 'skops', or set "
+                "environment variable 'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true' "
+                "to allow unsafe pickler."
+            )
+        warnings.warn(
+            "Saving sklearn model by unsafe pickler is deprecated, and will be disabled "
+            "by default in future MLflow versions. Saving sklearn model as the 'skops' "
+            "format is the recommended way.",
+            FutureWarning,
+            stacklevel=2,
         )
 
     _validate_and_prepare_target_save_path(path)
@@ -490,6 +508,23 @@ def _load_model_from_local_file(path, serialization_format, skops_trusted_types=
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
+
+    if serialization_format != SERIALIZATION_FORMAT_SKOPS:
+        if not MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION.get():
+            raise MlflowException(
+                "Unsafe pickle deserialization is disallowed, but this model is saved "
+                "as pickle format. To address this issue, you need to set environment variable "
+                "'MLFLOW_ALLOW_UNSAFE_PICKLE_DESERIALIZATION' to 'true', or save the model as "
+                "'skops' format."
+            )
+        warnings.warn(
+            "The sklearn model is saved by unsafe pickler, this saving format is deprecated, "
+            "and will be disabled by default in future MLflow versions. Saving sklearn model as "
+            "the 'skops' format is the recommended way.",
+            FutureWarning,
+            stacklevel=2,
+        )
+
     if serialization_format == SERIALIZATION_FORMAT_SKOPS:
         import skops.io
 
