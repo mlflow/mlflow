@@ -787,8 +787,13 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
+        with self.ManagedSessionMaker() as session:
+            run = self._get_run(run_uuid=run_id, session=session)
+            self._check_run_is_active(run)
+            experiment_id = run.experiment_id
+
         self._log_metrics(run_id, [metric])
-        self._log_model_metrics(run_id, [metric])
+        self._log_model_metrics(run_id, [metric], experiment_id=experiment_id)
 
     def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
         """
@@ -885,8 +890,8 @@ class SqlAlchemyStore(AbstractStore):
         self,
         run_id: str,
         metrics: list[Metric],
+        experiment_id: str,
         dataset_uuid: str | None = None,
-        experiment_id: str | None = None,
     ) -> None:
         if not metrics:
             return
@@ -916,11 +921,6 @@ class SqlAlchemyStore(AbstractStore):
             return
 
         with self.ManagedSessionMaker() as session:
-            if experiment_id is None:
-                run = self._get_run(run_uuid=run_id, session=session)
-                self._check_run_is_active(run)
-                experiment_id = run.experiment_id
-
             metric_instances = [
                 SqlLoggedModelMetric(
                     model_id=metric.model_id,
@@ -1605,7 +1605,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
-                self._log_model_metrics(run_id, metrics)
+                self._log_model_metrics(run_id, metrics, experiment_id=run.experiment_id)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e
