@@ -785,14 +785,10 @@ class SqlAlchemyStore(AbstractStore):
             )
             return [run.run_uuid for run in runs]
 
-    def log_metric(self, run_id, metric, experiment_id: str | None = None):
+    def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
         self._log_metrics(run_id, [metric])
-        self._log_model_metrics(
-            run_id,
-            [metric],
-            experiment_id=experiment_id,
-        )
+        self._log_model_metrics(run_id, [metric])
 
     def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
         """
@@ -811,7 +807,7 @@ class SqlAlchemyStore(AbstractStore):
             value = metric_value
         return is_nan, value
 
-    def _log_metrics(self, run_id, metrics, experiment_id: str | None = None):
+    def _log_metrics(self, run_id, metrics):
         # Duplicate metric values are eliminated here to maintain
         # the same behavior in log_metric
         metric_instances = []
@@ -1609,7 +1605,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
-                self._log_model_metrics(run_id, metrics, experiment_id=run.experiment_id)
+                self._log_model_metrics(run_id, metrics)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e

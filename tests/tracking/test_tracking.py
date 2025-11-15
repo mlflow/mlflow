@@ -384,50 +384,6 @@ def test_log_metrics_uses_millisecond_timestamp_resolution_client():
     assert {(m.value, m.timestamp) for m in metric_history_name2} == {(-3, 123 * 1000)}
 
 
-def test_log_metric_with_explicit_experiment_id():
-    client = tracking.MlflowClient()
-
-    with start_run() as active_run:
-        run_id = active_run.info.run_id
-        experiment_id = active_run.info.experiment_id
-        with mock.patch.object(
-            client._tracking_client,
-            "log_metric",
-            wraps=client._tracking_client.log_metric,
-        ) as log_metric_spy:
-            client.log_metric(
-                run_id=run_id,
-                key="custom",
-                value=1.0,
-            )
-        assert log_metric_spy.called
-        assert log_metric_spy.call_args.kwargs["experiment_id"] == experiment_id
-
-    metric_history = client.get_metric_history(run_id, "custom")
-    assert len(metric_history) == 1
-
-    with start_run() as active_run:
-        run_id = active_run.info.run_id
-        metric_kwargs = {
-            "run_id": run_id,
-            "key": "async-custom",
-            "value": 2.0,
-            "synchronous": False,
-        }
-        with mock.patch.object(
-            client._tracking_client.store,
-            "log_metric_async",
-            return_value=mock.MagicMock(),
-        ) as log_metric_async_mock:
-            client.log_metric(**metric_kwargs)
-
-        log_metric_async_mock.assert_called_once()
-        async_args, async_kwargs = log_metric_async_mock.call_args
-        assert async_kwargs == {}
-        assert async_args[0] == run_id
-        assert isinstance(async_args[1], Metric)
-
-
 @pytest.mark.parametrize("step_kwarg", [None, -10, 5])
 def test_log_metrics_uses_common_timestamp_and_step_per_invocation(step_kwarg):
     expected_metrics = {"name_1": 30, "name_2": -3, "nested/nested/name": 40}

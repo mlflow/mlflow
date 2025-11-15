@@ -373,7 +373,7 @@ class RestoreRun(_message.Message):
     def __init__(self, run_id: _Optional[str] = ...) -> None: ...
 
 class LogMetric(_message.Message):
-    __slots__ = ("run_id", "run_uuid", "key", "value", "timestamp", "step", "model_id", "dataset_name", "dataset_digest", "experiment_id")
+    __slots__ = ("run_id", "run_uuid", "key", "value", "timestamp", "step", "model_id", "dataset_name", "dataset_digest")
     class Response(_message.Message):
         __slots__ = ()
         def __init__(self) -> None: ...
@@ -386,7 +386,6 @@ class LogMetric(_message.Message):
     MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     DATASET_NAME_FIELD_NUMBER: _ClassVar[int]
     DATASET_DIGEST_FIELD_NUMBER: _ClassVar[int]
-    EXPERIMENT_ID_FIELD_NUMBER: _ClassVar[int]
     run_id: str
     run_uuid: str
     key: str
@@ -396,8 +395,7 @@ class LogMetric(_message.Message):
     model_id: str
     dataset_name: str
     dataset_digest: str
-    experiment_id: str
-    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[float] = ..., timestamp: _Optional[int] = ..., step: _Optional[int] = ..., model_id: _Optional[str] = ..., dataset_name: _Optional[str] = ..., dataset_digest: _Optional[str] = ..., experiment_id: _Optional[str] = ...) -> None: ...
+    def __init__(self, run_id: _Optional[str] = ..., run_uuid: _Optional[str] = ..., key: _Optional[str] = ..., value: _Optional[float] = ..., timestamp: _Optional[int] = ..., step: _Optional[int] = ..., model_id: _Optional[str] = ..., dataset_name: _Optional[str] = ..., dataset_digest: _Optional[str] = ...) -> None: ...
 
 class LogParam(_message.Message):
     __slots__ = ("run_id", "run_uuid", "key", "value")

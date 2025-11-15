@@ -1628,9 +1628,6 @@ message LogMetric {
   // within datasets of the same name.
   optional string dataset_digest = 9 [(visibility) = PUBLIC_UNDOCUMENTED];
 
-  // Experiment ID associated with the metric, if available.
-  optional string experiment_id = 10 [(visibility) = PUBLIC_UNDOCUMENTED];
-
   message Response {}
 }
 

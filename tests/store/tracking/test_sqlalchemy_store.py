@@ -7706,34 +7706,6 @@ def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
         assert logged_metrics[0].experiment_id == int(exp_id)
 
 
-def test_log_model_metrics_respects_metric_experiment_id(store: SqlAlchemyStore):
-    exp_id_run = store.create_experiment(f"exp-run-{uuid.uuid4()}")
-    exp_id_metric = store.create_experiment(f"exp-metric-{uuid.uuid4()}")
-
-    run = store.create_run(exp_id_run, "user", 0, [], "test_run")
-    model = store.create_logged_model(experiment_id=exp_id_run, source_run_id=run.info.run_id)
-
-    metric = Metric(
-        key="metric",
-        value=1.0,
-        timestamp=get_current_time_millis(),
-        step=0,
-        model_id=model.model_id,
-        run_id=run.info.run_id,
-    )
-
-    store.log_metric(run.info.run_id, metric, experiment_id=exp_id_metric)
-
-    with store.ManagedSessionMaker() as session:
-        logged_metrics = (
-            session.query(SqlLoggedModelMetric)
-            .filter(SqlLoggedModelMetric.model_id == model.model_id)
-            .all()
-        )
-        assert len(logged_metrics) == 1
-        assert logged_metrics[0].experiment_id == int(exp_id_metric)
-
-
 @pytest.mark.parametrize(
     "name",
     [

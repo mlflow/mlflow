@@ -715,14 +715,13 @@ class RestStore(AbstractStore):
             endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
 
-    def log_metric(self, run_id: str, metric: Metric, experiment_id: str | None = None):
+    def log_metric(self, run_id: str, metric: Metric):
         """
         Log a metric for the specified run
 
         Args:
             run_id: String id for the run
             metric: Metric instance to log
-            experiment_id: Optional string ID of the experiment
         """
         req_body = message_to_json(
             LogMetric(
@@ -735,7 +734,6 @@ class RestStore(AbstractStore):
                 model_id=metric.model_id,
                 dataset_name=metric.dataset_name,
                 dataset_digest=metric.dataset_digest,
-                experiment_id=experiment_id,
             )
         )
         self._call_endpoint(LogMetric, req_body)
