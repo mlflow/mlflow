@@ -267,7 +267,7 @@ jobs:
           uv sync --extra extras --extra genai
           uv pip install \
             -r requirements/test-requirements.txt \
-            torch transformers pyspark langchain langchain-experimental 'shap<0.47.0' lightgbm xgboost
+            torch transformers pyspark langchain langchain-experimental shap lightgbm xgboost
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
