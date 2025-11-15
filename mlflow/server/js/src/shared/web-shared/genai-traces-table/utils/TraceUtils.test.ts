@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import { uniq } from 'lodash';
 
 import type { ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
@@ -267,6 +268,120 @@ describe('applyTraceInfoV3ToEvalEntry', () => {
     };
 
     expect(result[0]).toEqual(expected);
+  });
+
+  it('should handle expectation assessment with mixed-type array values', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace456',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp456' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client789',
+      request: '{}',
+      response: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [
+        {
+          assessment_id: 'mixed123',
+          trace_id: 'trace456',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'mixedArray',
+          expectation: { value: ['{"key": "val"}', true, 42, { obj: 'value' }] },
+          feedback: undefined,
+          error: undefined,
+          metadata: {},
+          rationale: '',
+        } as any,
+      ],
+    };
+
+    const evalEntry: RunEvaluationTracesDataEntry = {
+      ...baseEvalEntry,
+      traceInfo,
+    };
+
+    const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
+
+    // String should be parsed, non-strings should be preserved
+    expect(result[0].targets['mixedArray']).toEqual([{ key: 'val' }, true, 42, { obj: 'value' }]);
+  });
+
+  it('should handle expectation assessment with boolean value', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace789',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp789' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client999',
+      request: '{}',
+      response: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [
+        {
+          assessment_id: 'bool123',
+          trace_id: 'trace789',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'booleanValue',
+          expectation: { value: true },
+          feedback: undefined,
+          error: undefined,
+          metadata: {},
+          rationale: '',
+        } as any,
+      ],
+    };
+
+    const evalEntry: RunEvaluationTracesDataEntry = {
+      ...baseEvalEntry,
+      traceInfo,
+    };
+
+    const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
+
+    // Boolean should be preserved
+    expect(result[0].targets['booleanValue']).toBe(true);
+  });
+
+  it('should handle expectation assessment with numeric value', () => {
+    const traceInfo: ModelTraceInfoV3 = {
+      trace_id: 'trace999',
+      trace_location: { type: 'MLFLOW_EXPERIMENT', mlflow_experiment: { experiment_id: 'exp999' } },
+      request_time: '2023-10-01T00:00:00Z',
+      state: 'OK',
+      client_request_id: 'client111',
+      request: '{}',
+      response: '{}',
+      tags: {},
+      trace_metadata: {},
+      assessments: [
+        {
+          assessment_id: 'num123',
+          trace_id: 'trace999',
+          create_time: '2023-10-01T00:00:00Z',
+          last_update_time: '2023-10-01T00:00:00Z',
+          assessment_name: 'numericValue',
+          expectation: { value: 3.14 },
+          feedback: undefined,
+          error: undefined,
+          metadata: {},
+          rationale: '',
+        } as any,
+      ],
+    };
+
+    const evalEntry: RunEvaluationTracesDataEntry = {
+      ...baseEvalEntry,
+      traceInfo,
+    };
+
+    const result = applyTraceInfoV3ToEvalEntry([evalEntry]);
+
+    // Number should be preserved
+    expect(result[0].targets['numericValue']).toBe(3.14);
   });
 });
 

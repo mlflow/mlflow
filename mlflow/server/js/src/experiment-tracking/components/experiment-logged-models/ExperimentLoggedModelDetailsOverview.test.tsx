@@ -1,8 +1,10 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import type { ComponentProps } from 'react';
 import { render, screen, waitFor } from '../../../common/utils/TestUtils.react18';
 import { ExperimentLoggedModelDetailsOverview } from './ExperimentLoggedModelDetailsOverview';
 import { ExperimentKind } from '../../constants';
 import { IntlProvider } from 'react-intl';
+import { DesignSystemProvider } from '@databricks/design-system';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MockedProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { testRoute, TestRouter } from '../../../common/utils/RoutingTestUtils';
@@ -19,7 +21,7 @@ describe('ExperimentLoggedModelDetailsOverview', () => {
   const renderTestComponent = (props: Partial<ComponentProps<typeof ExperimentLoggedModelDetailsOverview>> = {}) => {
     render(
       <ExperimentLoggedModelDetailsOverview
-        onDataUpdated={jest.fn()}
+        onDataUpdated={jest.fn<() => void>()}
         loggedModel={{ data: {}, info: { name: 'TestModel', model_id: 'm-123456' } }}
         {...props}
       />,
@@ -28,11 +30,13 @@ describe('ExperimentLoggedModelDetailsOverview', () => {
           <TestRouter
             routes={[
               testRoute(
-                <IntlProvider locale="en">
-                  <MockedProvider>
-                    <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
-                  </MockedProvider>
-                </IntlProvider>,
+                <DesignSystemProvider>
+                  <IntlProvider locale="en">
+                    <MockedProvider>
+                      <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+                    </MockedProvider>
+                  </IntlProvider>
+                </DesignSystemProvider>,
                 '*',
               ),
             ]}

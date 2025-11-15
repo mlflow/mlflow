@@ -1,4 +1,4 @@
-from mlflow.server.handlers import _get_rest_path
+from mlflow.server.handlers import _add_static_prefix, _get_ajax_path, _get_rest_path
 
 HOME = "/"
 SIGNUP = "/signup"
@@ -16,3 +16,14 @@ CREATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/p
 GET_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/get")
 UPDATE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/update")
 DELETE_REGISTERED_MODEL_PERMISSION = _get_rest_path("/mlflow/registered-models/permissions/delete")
+
+# Flask routes (not part of Protobuf API)
+GET_ARTIFACT = _add_static_prefix("/get-artifact")
+UPLOAD_ARTIFACT = _get_ajax_path("/mlflow/upload-artifact")
+GET_MODEL_VERSION_ARTIFACT = _add_static_prefix("/model-versions/get-artifact")
+GET_TRACE_ARTIFACT = _get_ajax_path("/mlflow/get-trace-artifact")
+GET_METRIC_HISTORY_BULK = _get_ajax_path("/mlflow/metrics/get-history-bulk")
+GET_METRIC_HISTORY_BULK_INTERVAL = _get_ajax_path("/mlflow/metrics/get-history-bulk-interval")
+SEARCH_DATASETS = _get_ajax_path("/mlflow/experiments/search-datasets")
+CREATE_PROMPTLAB_RUN = _get_ajax_path("/mlflow/runs/create-promptlab-run")
+GATEWAY_PROXY = _get_ajax_path("/mlflow/gateway-proxy")

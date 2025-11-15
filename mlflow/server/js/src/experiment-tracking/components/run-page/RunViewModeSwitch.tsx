@@ -5,6 +5,7 @@ import Routes from '../../routes';
 import { RunPageTabName } from '../../constants';
 import { useRunViewActiveTab } from './useRunViewActiveTab';
 import { useState } from 'react';
+import type { KeyValueEntity } from '../../../common/types';
 
 // Set of tabs that when active, the margin of the tab selector should be removed for better displaying
 const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATIONS];
@@ -12,7 +13,7 @@ const TABS_WITHOUT_MARGIN = [RunPageTabName.ARTIFACTS, RunPageTabName.EVALUATION
 /**
  * Mode switcher for the run details page.
  */
-export const RunViewModeSwitch = () => {
+export const RunViewModeSwitch = ({ runTags }: { runTags: Record<string, KeyValueEntity> }) => {
   const { experimentId, runUuid } = useParams<{ runUuid: string; experimentId: string }>();
   const navigate = useNavigate();
   const { theme } = useDesignSystemTheme();

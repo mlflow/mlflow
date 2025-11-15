@@ -13,7 +13,6 @@ from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import get_tracking_uri
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 from mlflow.utils.uri import is_databricks_uri
 
@@ -109,7 +108,6 @@ class SerializedScorer:
             )
 
 
-@experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
     aggregations: list[_AggregationType] | None = None
@@ -120,19 +118,16 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
-    @experimental(version="3.2.0")
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
 
     @property
-    @experimental(version="3.2.0")
     def filter_string(self) -> str | None:
         """Get the filter string for this scorer."""
         return self._sampling_config.filter_string if self._sampling_config else None
 
     @property
-    @experimental(version="3.3.0")
     def status(self) -> ScorerStatus:
         """Get the status of this scorer, using only the local state."""
 
@@ -271,12 +266,19 @@ class Scorer(BaseModel):
                     f"{'; '.join(errors)}"
                 )
 
+            feedback_value_type = str  # default to str
+            if "feedback_value_type" in data and data["feedback_value_type"] is not None:
+                feedback_value_type = InstructionsJudge._deserialize_feedback_value_type(
+                    data["feedback_value_type"]
+                )
+
             try:
                 return InstructionsJudge(
                     name=serialized.name,
                     description=serialized.description,
                     instructions=data["instructions"],
                     model=data["model"],
+                    feedback_value_type=feedback_value_type,
                     # TODO: add aggregations here once we support boolean/numeric judge outputs
                 )
             except Exception as e:
@@ -522,7 +524,6 @@ class Scorer(BaseModel):
     def kind(self) -> ScorerKind:
         return ScorerKind.CLASS
 
-    @experimental(version="3.2.0")
     def register(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Register this scorer with the MLflow server.
@@ -588,7 +589,6 @@ class Scorer(BaseModel):
             new_scorer._registered_backend = "tracking"
         return new_scorer
 
-    @experimental(version="3.2.0")
     def start(
         self,
         *,
@@ -661,7 +661,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def update(
         self,
         *,
@@ -735,7 +734,6 @@ class Scorer(BaseModel):
             experiment_id=experiment_id,
         )
 
-    @experimental(version="3.2.0")
     def stop(self, *, name: str | None = None, experiment_id: str | None = None) -> "Scorer":
         """
         Stop registered scoring by setting sample rate to 0.
@@ -846,7 +844,6 @@ class Scorer(BaseModel):
             )
 
 
-@experimental(version="3.0.0")
 def scorer(
     func=None,
     *,

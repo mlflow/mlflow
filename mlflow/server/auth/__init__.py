@@ -99,21 +99,30 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
+    CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
+    GATEWAY_PROXY,
+    GET_ARTIFACT,
     GET_EXPERIMENT_PERMISSION,
+    GET_METRIC_HISTORY_BULK,
+    GET_METRIC_HISTORY_BULK_INTERVAL,
+    GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
+    SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
+    UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
 from mlflow.server.fastapi_app import create_fastapi_app
@@ -424,6 +433,163 @@ def validate_can_delete_user():
     return False
 
 
+def _get_permission_from_run_id_or_uuid() -> Permission:
+    """
+    Get permission for Flask routes that use either run_id or run_uuid parameter.
+    """
+    run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    if not run_id:
+        raise MlflowException(
+            "Request must specify run_id or run_uuid parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    run = _get_tracking_store().get_run(run_id)
+    experiment_id = run.info.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def validate_can_read_run_artifact():
+    """Checks READ permission on run artifacts."""
+    return _get_permission_from_run_id_or_uuid().can_read
+
+
+def validate_can_update_run_artifact():
+    """Checks UPDATE permission on run artifacts."""
+    return _get_permission_from_run_id_or_uuid().can_update
+
+
+def _get_permission_from_model_version() -> Permission:
+    """
+    Get permission for model version artifacts.
+    Model versions inherit permissions from their registered model.
+    """
+    name = request.args.get("name")
+    if not name:
+        raise MlflowException(
+            "Request must specify name parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_registered_model_permission(name, username).permission
+    )
+
+
+def validate_can_read_model_version_artifact():
+    """Checks READ permission on model version artifacts."""
+    return _get_permission_from_model_version().can_read
+
+
+def _get_permission_from_trace_request_id() -> Permission:
+    """
+    Get permission for trace artifacts.
+    Traces inherit permissions from their parent run/experiment.
+    """
+    request_id = request.args.get("request_id")
+    if not request_id:
+        raise MlflowException(
+            "Request must specify request_id parameter",
+            INVALID_PARAMETER_VALUE,
+        )
+    # Get the trace to find its experiment
+    trace = _get_tracking_store().get_trace_info(request_id)
+    experiment_id = trace.experiment_id
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+
+
+def validate_can_read_trace_artifact():
+    """Checks READ permission on trace artifacts."""
+    return _get_permission_from_trace_request_id().can_read
+
+
+def validate_can_read_metric_history_bulk():
+    """Checks READ permission on all requested runs."""
+    run_ids = request.args.to_dict(flat=False).get("run_id", [])
+    if not run_ids:
+        raise MlflowException(
+            "GetMetricHistoryBulk request must specify at least one run_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    tracking_store = _get_tracking_store()
+
+    # Check permission for each run
+    for run_id in run_ids:
+        run = tracking_store.get_run(run_id)
+        experiment_id = run.info.experiment_id
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_read_metric_history_bulk_interval():
+    """Checks READ permission on all requested runs."""
+    return validate_can_read_metric_history_bulk()
+
+
+def validate_can_search_datasets():
+    """Checks READ permission on all requested experiments."""
+    if request.method == "POST":
+        data = request.json
+        experiment_ids = data.get("experiment_ids", [])
+    else:
+        experiment_ids = request.args.getlist("experiment_ids")
+
+    if not experiment_ids:
+        raise MlflowException(
+            "SearchDatasets request must specify at least one experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+
+    # Check permission for each experiment
+    for experiment_id in experiment_ids:
+        permission = _get_permission_from_store_or_default(
+            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
+        )
+        if not permission.can_read:
+            return False
+
+    return True
+
+
+def validate_can_create_promptlab_run():
+    """Checks UPDATE permission on the experiment."""
+    data = request.json
+    experiment_id = data.get("experiment_id")
+    if not experiment_id:
+        raise MlflowException(
+            "CreatePromptlabRun request must specify experiment_id.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    username = authenticate_request().username
+    permission = _get_permission_from_store_or_default(
+        lambda: store.get_experiment_permission(experiment_id, username).permission
+    )
+    return permission.can_update
+
+
+def validate_gateway_proxy():
+    """
+    Allows gateway proxy requests without permission checks.
+    This endpoint proxies to external services that handle their own authorization.
+    """
+    return True
+
+
 BEFORE_REQUEST_HANDLERS = {
     # Routes for experiments
     GetExperiment: validate_can_read_experiment,
@@ -487,6 +653,7 @@ BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
+# Auth-related routes
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (SIGNUP, "GET"): validate_can_create_user,
@@ -503,6 +670,22 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+    }
+)
+
+# Flask routes (no proto mapping)
+BEFORE_REQUEST_VALIDATORS.update(
+    {
+        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
+        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
+        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
+        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
+        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
+        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
+        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
+        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
+        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
+        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     }
 )
 

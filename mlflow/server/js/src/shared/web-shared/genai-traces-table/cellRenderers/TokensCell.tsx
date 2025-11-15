@@ -1,9 +1,9 @@
 import { HoverCard, Tag, Typography } from '@databricks/design-system';
 import { useIntl } from '@databricks/i18n';
+import { TOKEN_USAGE_METADATA_KEY, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
 
 import { NullCell } from './NullCell';
 import { StackedComponents } from './StackedComponents';
-import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 export const TokensCell = (props: {
   currentTraceInfo?: ModelTraceInfoV3;
@@ -23,7 +23,7 @@ export const TokensCell = (props: {
 const TokenComponent = (props: { traceInfo?: ModelTraceInfoV3; isComparing: boolean }) => {
   const { traceInfo, isComparing } = props;
 
-  const tokenUsage = traceInfo?.trace_metadata?.['mlflow.trace.tokenUsage'];
+  const tokenUsage = traceInfo?.trace_metadata?.[TOKEN_USAGE_METADATA_KEY];
   const parsedTokenUsage = (() => {
     try {
       return tokenUsage ? JSON.parse(tokenUsage) : {};

@@ -15,6 +15,7 @@ from mlflow.entities.span import Span
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
+from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
 from mlflow.tracing.utils import dump_span_attribute_value
@@ -25,6 +26,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     OpenInferenceTranslator(),
     GenAiTranslator(),
     TraceloopTranslator(),
+    GoogleADKTranslator(),
 ]
 
 
@@ -151,10 +153,13 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
     """
     attributes = span_dict.get("attributes", {})
 
-    if SpanAttributeKey.SPAN_TYPE not in attributes:
-        if mlflow_type := translate_span_type_from_otel(attributes):
-            # Serialize to match how MLflow stores attributes
-            attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    try:
+        if SpanAttributeKey.SPAN_TYPE not in attributes:
+            if mlflow_type := translate_span_type_from_otel(attributes):
+                # Serialize to match how MLflow stores attributes
+                attributes[SpanAttributeKey.SPAN_TYPE] = dump_span_attribute_value(mlflow_type)
+    except Exception:
+        _logger.debug("Failed to translate span type", exc_info=True)
 
     span_dict["attributes"] = attributes
     return span_dict
@@ -162,7 +167,7 @@ def translate_loaded_span(span_dict: dict[str, Any]) -> dict[str, Any]:
 
 def update_token_usage(
     current_token_usage: str | dict[str, Any], new_token_usage: str | dict[str, Any]
-) -> dict[str, Any]:
+) -> str | dict[str, Any]:
     """
     Update current token usage in-place by adding the new token usage.
 
@@ -171,17 +176,27 @@ def update_token_usage(
         new_token_usage: New token usage, dictionary or JSON string
 
     Returns:
-        Updated token usage dictionary
+        Updated token usage dictionary or JSON string
     """
-    if isinstance(current_token_usage, str):
-        current_token_usage = json.loads(current_token_usage)
-    if isinstance(new_token_usage, str):
-        new_token_usage = json.loads(new_token_usage)
-    for key in [
-        TokenUsageKey.INPUT_TOKENS,
-        TokenUsageKey.OUTPUT_TOKENS,
-        TokenUsageKey.TOTAL_TOKENS,
-    ]:
-        current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage[key]
+    try:
+        if isinstance(current_token_usage, str):
+            current_token_usage = json.loads(current_token_usage) or {}
+        if isinstance(new_token_usage, str):
+            new_token_usage = json.loads(new_token_usage) or {}
+        if new_token_usage:
+            for key in [
+                TokenUsageKey.INPUT_TOKENS,
+                TokenUsageKey.OUTPUT_TOKENS,
+                TokenUsageKey.TOTAL_TOKENS,
+            ]:
+                current_token_usage[key] = current_token_usage.get(key, 0) + new_token_usage.get(
+                    key, 0
+                )
+    except Exception:
+        _logger.debug(
+            f"Failed to update token usage with current_token_usage: {current_token_usage}, "
+            f"new_token_usage: {new_token_usage}",
+            exc_info=True,
+        )
 
     return current_token_usage

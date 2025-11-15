@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, beforeEach, it } from '@jest/globals';
 import { type ModelTraceInfo } from '@databricks/web-shared/model-trace-explorer';
 import { screen } from '@testing-library/react';
 import type { TracesViewTableProps } from './TracesViewTable';

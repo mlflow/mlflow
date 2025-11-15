@@ -103,6 +103,19 @@ TOOLS = [
         },
         version_args=["version"],
     ),
+    Tool(
+        name="buf",
+        urls={
+            (
+                "linux",
+                "x86_64",
+            ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Linux-x86_64",
+            (
+                "darwin",
+                "arm64",
+            ): "https://github.com/bufbuild/buf/releases/download/v1.59.0/buf-Darwin-arm64",
+        },
+    ),
 ]
 
 
