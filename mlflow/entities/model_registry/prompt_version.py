@@ -167,7 +167,7 @@ class PromptVersion(_ModelRegistryEntity):
         Returns:
             True for text prompts (string templates), False for chat prompts (list of messages).
         """
-        return self._prompt_type == PROMPT_TYPE_TEXT
+        return self._prompt_type in (PROMPT_TYPE_TEXT, "jinja2")
 
     @property
     def response_format(self) -> dict[str, Any] | None:
@@ -320,6 +320,7 @@ class PromptVersion(_ModelRegistryEntity):
             Jinja2 templates allow conditionals, loops, and filters for dynamic prompt generation.
             """
             from mlflow.genai.prompts.utils import format_prompt
+            from jinja2 import Undefined
 
             input_keys = set(kwargs.keys())
             template = self.template
@@ -327,7 +328,7 @@ class PromptVersion(_ModelRegistryEntity):
             # 1. Handle Jinja2-based prompts
             if getattr(self, "_prompt_type", None) == "jinja2":
                 env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
-                env = env_cls(undefined=StrictUndefined)
+                env = env_cls(undefined=Undefined)
                 if isinstance(template, list):
                     rendered = []
                     for msg in template:

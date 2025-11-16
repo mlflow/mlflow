@@ -771,4 +771,8 @@ def _resolve_experiment_ids_and_locations(
             f"Found invalid experiment IDs: {invalid_exp_ids_str}."
         )
 
+<<<<<<< HEAD
     return locations
+=======
+    return locations
+>>>>>>> ce04d7fc5 (Fix: ensure mlflow.prompt.type is stored and restored correctly for Jinja2 prompts)
