@@ -15,6 +15,7 @@ RESPONSE_FORMAT_TAG_KEY = "_mlflow_prompt_response_format"
 # Prompt types
 PROMPT_TYPE_TEXT = "text"
 PROMPT_TYPE_CHAT = "chat"
+PROMPT_TYPE_JINJA2 = "jinja2"
 
 # A special tag to store associated run IDs for prompts
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"

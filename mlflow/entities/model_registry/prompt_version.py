@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import json
 import re
+from jinja2 import Environment, StrictUndefined
+from jinja2.sandbox import SandboxedEnvironment
+
 from typing import Any
 
 from pydantic import BaseModel, ValidationError
@@ -89,6 +92,7 @@ class PromptVersion(_ModelRegistryEntity):
 
         # Determine prompt type and set it
         if isinstance(template, list) and len(template) > 0:
+            # Chat prompt
             try:
                 for msg in template:
                     ChatMessage.model_validate(msg)
@@ -97,9 +101,14 @@ class PromptVersion(_ModelRegistryEntity):
             self._prompt_type = PROMPT_TYPE_CHAT
             tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_CHAT
         else:
-            self._prompt_type = PROMPT_TYPE_TEXT
-            tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
-
+            # Detect Jinja2 syntax
+            if isinstance(template, str) and any(sym in template for sym in ["{%", "{{", "}}", "%}"]):
+                self._prompt_type = "jinja2"
+                tags[PROMPT_TYPE_TAG_KEY] = "jinja2"
+            else:
+                self._prompt_type = PROMPT_TYPE_TEXT
+                tags[PROMPT_TYPE_TAG_KEY] = PROMPT_TYPE_TEXT
+                
         # Store template text as a tag
         tags[PROMPT_TEXT_TAG_KEY] = template if isinstance(template, str) else json.dumps(template)
         tags[IS_PROMPT_TAG_KEY] = "true"
@@ -299,80 +308,70 @@ class PromptVersion(_ModelRegistryEntity):
         self._tags[tag.key] = tag.value
 
     def format(
-        self, allow_partial: bool = False, **kwargs
-    ) -> PromptVersion | str | list[dict[str, Any]]:
-        """
-        Format the template with the given keyword arguments.
-        By default, it raises an error if there are missing variables. To format
-        the prompt partially, set `allow_partial=True`.
+            self,
+            allow_partial: bool = False,
+            use_jinja_sandbox: bool = True,
+            **kwargs,
+        ) -> PromptVersion | str | list[dict[str, Any]]:
+            """
+            Format the template with the given keyword arguments.
 
-        Example:
+            Supports plain, chat, and Jinja2-based templates.
+            Jinja2 templates allow conditionals, loops, and filters for dynamic prompt generation.
+            """
+            from mlflow.genai.prompts.utils import format_prompt
 
-        .. code-block:: python
+            input_keys = set(kwargs.keys())
+            template = self.template
 
-            # Text prompt formatting
-            prompt = PromptVersion("my-prompt", 1, "Hello, {{title}} {{name}}!")
-            formatted = prompt.format(title="Ms", name="Alice")
-            print(formatted)
-            # Output: "Hello, Ms Alice!"
+            # 1. Handle Jinja2-based prompts
+            if getattr(self, "_prompt_type", None) == "jinja2":
+                env_cls = SandboxedEnvironment if use_jinja_sandbox else Environment
+                env = env_cls(undefined=StrictUndefined)
+                if isinstance(template, list):
+                    rendered = []
+                    for msg in template:
+                        tmpl = env.from_string(msg["content"])
+                        rendered.append({
+                            "role": msg["role"],
+                            "content": tmpl.render(**kwargs),
+                        })
+                    return rendered
+                else:
+                    tmpl = env.from_string(template)
+                    return tmpl.render(**kwargs)
 
-            # Chat prompt formatting
-            chat_prompt = PromptVersion(
-                "assistant",
-                1,
-                [
-                    {"role": "system", "content": "You are a {{style}} assistant."},
-                    {"role": "user", "content": "{{question}}"},
-                ],
-            )
-            formatted = chat_prompt.format(style="friendly", question="How are you?")
-            print(formatted)
-            # Output: [{"role": "system", "content": "You are a friendly assistant."},
-            #          {"role": "user", "content": "How are you?"}]
-
-            # Partial formatting
-            formatted = prompt.format(title="Ms", allow_partial=True)
-            print(formatted)
-            # Output: PromptVersion(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
-
-
-        Args:
-            allow_partial: If True, allow partial formatting of the prompt text.
-                If False, raise an error if there are missing variables.
-            kwargs: Keyword arguments to replace the variables in the template.
-        """
-        from mlflow.genai.prompts.utils import format_prompt
-
-        input_keys = set(kwargs.keys())
-        if self.is_text_prompt:
-            template = format_prompt(self.template, **kwargs)
-        else:
-            # For chat prompts, we need to handle JSON properly
-            # Instead of working with JSON strings, work with the Python objects directly
-            template = [
-                {
-                    "role": message["role"],
-                    "content": format_prompt(message.get("content"), **kwargs),
-                }
-                for message in self.template
-            ]
-        if missing_keys := self.variables - input_keys:
-            if not allow_partial:
-                raise MlflowException.invalid_parameter_value(
-                    f"Missing variables: {missing_keys}. To partially format the prompt, "
-                    "set `allow_partial=True`."
-                )
+            # 2. Handle plain or chat prompts
+            if self.is_text_prompt:
+                formatted = format_prompt(template, **kwargs)
             else:
-                return PromptVersion(
-                    name=self.name,
-                    version=int(self.version),
-                    template=template,
-                    response_format=self.response_format,
-                    commit_message=self.commit_message,
-                    creation_timestamp=self.creation_timestamp,
-                    tags=self.tags,
-                    aliases=self.aliases,
-                    last_updated_timestamp=self.last_updated_timestamp,
-                    user_id=self.user_id,
-                )
-        return template
+                formatted = [
+                    {
+                        "role": msg["role"],
+                        "content": format_prompt(msg.get("content"), **kwargs),
+                    }
+                    for msg in template
+                ]
+
+            # 3. Check for missing variables
+            if missing_keys := self.variables - input_keys:
+                if not allow_partial:
+                    raise MlflowException.invalid_parameter_value(
+                        f"Missing variables: {missing_keys}. "
+                        "To partially format the prompt, set `allow_partial=True`."
+                    )
+                else:
+                    return PromptVersion(
+                        name=self.name,
+                        version=int(self.version),
+                        template=formatted,
+                        response_format=self.response_format,
+                        commit_message=self.commit_message,
+                        creation_timestamp=self.creation_timestamp,
+                        tags=self.tags,
+                        aliases=self.aliases,
+                        last_updated_timestamp=self.last_updated_timestamp,
+                        user_id=self.user_id,
+                    )
+
+            return formatted

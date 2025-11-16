@@ -63,6 +63,7 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
     PROMPT_TYPE_TEXT,
+    PROMPT_TYPE_JINJA2,
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
@@ -629,12 +630,28 @@ class MlflowClient:
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
         tags.update({IS_PROMPT_TAG_KEY: "true"})
+
+        # Detect prompt type automatically
         if isinstance(template, list):
-            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT})
-            tags.update({PROMPT_TEXT_TAG_KEY: json.dumps(template)})
+            # Chat prompt
+            tags.update({
+                PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_CHAT,
+                PROMPT_TEXT_TAG_KEY: json.dumps(template),
+            })
+        elif isinstance(template, str) and any(sym in template for sym in ["{%", "{{", "}}", "%}"]):
+            # Jinja2 prompt
+            tags.update({
+                PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_JINJA2,
+                PROMPT_TEXT_TAG_KEY: template,
+            })
         else:
-            tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
-            tags.update({PROMPT_TEXT_TAG_KEY: template})
+            # Plain text prompt
+            tags.update({
+                PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT,
+                PROMPT_TEXT_TAG_KEY: template,
+            })
+
+        # Optional: response format tag
         if response_format:
             tags.update(
                 {
