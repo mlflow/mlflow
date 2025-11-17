@@ -12,9 +12,15 @@ from mlflow.server.auth.db import utils as dbutils
 from mlflow.server.auth.db.models import (
     SqlExperimentPermission,
     SqlRegisteredModelPermission,
+    SqlScorerPermission,
     SqlUser,
 )
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+)
 from mlflow.server.auth.permissions import _validate_permission
 from mlflow.store.db.utils import _get_managed_session_maker, create_sqlalchemy_engine_with_retry
 from mlflow.utils.uri import extract_db_type_from_uri
@@ -259,3 +265,92 @@ class SqlAlchemyStore:
             )
             for perm in perms:
                 perm.name = new_name
+
+    def create_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> ScorerPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            try:
+                user = self._get_user(session, username=username)
+                perm = SqlScorerPermission(
+                    experiment_id=experiment_id,
+                    scorer_name=scorer_name,
+                    user_id=user.id,
+                    permission=permission,
+                )
+                session.add(perm)
+                session.flush()
+                return perm.to_mlflow_entity()
+            except IntegrityError as e:
+                raise MlflowException(
+                    f"Scorer permission (experiment_id={experiment_id}, scorer_name={scorer_name}, "
+                    f"username={username}) already exists. Error: {e}",
+                    RESOURCE_ALREADY_EXISTS,
+                ) from e
+
+    def _get_scorer_permission(
+        self, session, experiment_id: str, scorer_name: str, username: str
+    ) -> SqlScorerPermission:
+        try:
+            user = self._get_user(session, username=username)
+            return (
+                session.query(SqlScorerPermission)
+                .filter(
+                    SqlScorerPermission.experiment_id == experiment_id,
+                    SqlScorerPermission.scorer_name == scorer_name,
+                    SqlScorerPermission.user_id == user.id,
+                )
+                .one()
+            )
+        except NoResultFound:
+            raise MlflowException(
+                f"Scorer permission with experiment_id={experiment_id}, "
+                f"scorer_name={scorer_name}, and username={username} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        except MultipleResultsFound:
+            raise MlflowException(
+                f"Found multiple scorer permissions with experiment_id={experiment_id}, "
+                f"scorer_name={scorer_name}, and username={username}",
+                INVALID_STATE,
+            )
+
+    def get_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str
+    ) -> ScorerPermission:
+        with self.ManagedSessionMaker() as session:
+            return self._get_scorer_permission(
+                session, experiment_id, scorer_name, username
+            ).to_mlflow_entity()
+
+    def list_scorer_permissions(self, username: str) -> list[ScorerPermission]:
+        with self.ManagedSessionMaker() as session:
+            user = self._get_user(session, username=username)
+            perms = (
+                session.query(SqlScorerPermission)
+                .filter(SqlScorerPermission.user_id == user.id)
+                .all()
+            )
+            return [p.to_mlflow_entity() for p in perms]
+
+    def update_scorer_permission(
+        self, experiment_id: str, scorer_name: str, username: str, permission: str
+    ) -> ScorerPermission:
+        _validate_permission(permission)
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
+            perm.permission = permission
+            return perm.to_mlflow_entity()
+
+    def delete_scorer_permission(self, experiment_id: str, scorer_name: str, username: str):
+        with self.ManagedSessionMaker() as session:
+            perm = self._get_scorer_permission(session, experiment_id, scorer_name, username)
+            session.delete(perm)
+
+    def delete_scorer_permissions_for_scorer(self, experiment_id: str, scorer_name: str):
+        with self.ManagedSessionMaker() as session:
+            session.query(SqlScorerPermission).filter(
+                SqlScorerPermission.experiment_id == experiment_id,
+                SqlScorerPermission.scorer_name == scorer_name,
+            ).delete()
