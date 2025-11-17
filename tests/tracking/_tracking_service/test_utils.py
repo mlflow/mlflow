@@ -49,11 +49,10 @@ def test_default_tracking_scheme():
     assert _get_tracking_scheme() == "sqlite"
 
 
-def test_get_store_file_store(tmp_path, monkeypatch):
+def test_get_store_no_args(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     store = _get_store()
-    assert isinstance(store, FileStore)
-    assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
+    assert isinstance(store, SqlAlchemyStore)
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
