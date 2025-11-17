@@ -24,6 +24,7 @@ import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
 import LocalStorageUtils from '@mlflow/mlflow/src/common/utils/LocalStorageUtils';
 import { ExperimentListViewTagsFilter } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/ExperimentListViewTagsFilter';
+import { useBackendSupport } from '@mlflow/mlflow/src/common/hooks/useBackendSupport';
 import { useListRoutes } from '../hooks/useListRoutes';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useCreateRoute } from '../hooks/useCreateRoute';
@@ -36,6 +37,7 @@ import { RoutesTable } from './RoutesTable';
 import { RouteDetailDrawer } from './RouteDetailDrawer';
 import { UpdateRouteModal } from './UpdateRouteModal';
 import { SecretManagementDrawer } from './SecretManagementDrawer';
+import { GatewayRequiresSqlBackend } from './GatewayRequiresSqlBackend';
 import type { Route } from '../types';
 
 const DEFAULT_HIDDEN_COLUMNS = ['tags', 'created_at', 'created_by', 'last_updated_by'];
@@ -44,7 +46,8 @@ const LOCAL_STORAGE_KEY = 'hiddenColumns';
 export default function RoutesPage() {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
-  const { routes = [], isLoading, error } = useListRoutes({ enabled: true });
+  const { isSqlBackend, storeType, isLoading: isCheckingBackend } = useBackendSupport();
+  const { routes = [], isLoading, error } = useListRoutes({ enabled: isSqlBackend === true });
   const { secrets = [], refetch: refetchSecrets } = useListSecrets({ enabled: true });
   const { createRouteAsync } = useCreateRoute();
   const { updateRouteAsync } = useUpdateRoute();
@@ -165,6 +168,21 @@ export default function RoutesPage() {
       return matchesSearch && matchesTags;
     });
   }, [routes, debouncedSearchText, tagsFilter]);
+
+  // Show placeholder if FileStore is detected
+  if (isCheckingBackend) {
+    return (
+      <ScrollablePageWrapper>
+        <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <Spinner />
+        </div>
+      </ScrollablePageWrapper>
+    );
+  }
+
+  if (isSqlBackend === false) {
+    return <GatewayRequiresSqlBackend storeType={storeType} />;
+  }
 
   const parseErrorMessage = (error: any): { title: string; description: string } => {
     const errorMsg = error.message || error.error_message || String(error);

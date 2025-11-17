@@ -11,6 +11,7 @@ import {
   Notification,
   SearchIcon,
   Spacer,
+  Spinner,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { useState, useCallback, useMemo } from 'react';
@@ -18,6 +19,7 @@ import { useDebounce } from 'use-debounce';
 import type { SortingState } from '@tanstack/react-table';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/ScrollablePageWrapper';
+import { useBackendSupport } from '@mlflow/mlflow/src/common/hooks/useBackendSupport';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { SecretsTable } from './SecretsTable';
 import { useCreateSecretModal } from '../hooks/modals/useCreateSecretModal';
@@ -25,12 +27,14 @@ import { useUpdateSecretModal } from '../hooks/modals/useUpdateSecretModal';
 import { useDeleteSecretModal } from '../hooks/modals/useDeleteSecretModal';
 import { SecretDetailDrawer } from './SecretDetailDrawer';
 import { SecretManagementDrawer } from './SecretManagementDrawer';
+import { GatewayRequiresSqlBackend } from './GatewayRequiresSqlBackend';
 import type { Secret } from '../types';
 
 export default function SecretsPage() {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { secrets = [], isLoading, error } = useListSecrets({ enabled: true });
+  const { isSqlBackend, storeType, isLoading: isCheckingBackend } = useBackendSupport();
+  const { secrets = [], isLoading, error } = useListSecrets({ enabled: isSqlBackend === true });
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
@@ -116,6 +120,21 @@ export default function SecretsPage() {
       return matchesSearch && matchesSharedFilter;
     });
   }, [secrets, debouncedSearchText, isSharedFilter]);
+
+  // Show placeholder if FileStore is detected
+  if (isCheckingBackend) {
+    return (
+      <ScrollablePageWrapper>
+        <div css={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <Spinner />
+        </div>
+      </ScrollablePageWrapper>
+    );
+  }
+
+  if (isSqlBackend === false) {
+    return <GatewayRequiresSqlBackend storeType={storeType} />;
+  }
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
