@@ -1952,6 +1952,17 @@ class DeleteSecretBinding(_message.Message):
     binding_id: str
     def __init__(self, binding_id: _Optional[str] = ...) -> None: ...
 
+class GetBackendInfo(_message.Message):
+    __slots__ = ()
+    class Response(_message.Message):
+        __slots__ = ("store_type", "is_sql_backend")
+        STORE_TYPE_FIELD_NUMBER: _ClassVar[int]
+        IS_SQL_BACKEND_FIELD_NUMBER: _ClassVar[int]
+        store_type: str
+        is_sql_backend: bool
+        def __init__(self, store_type: _Optional[str] = ..., is_sql_backend: bool = ...) -> None: ...
+    def __init__(self) -> None: ...
+
 class SetSecretTag(_message.Message):
     __slots__ = ("secret_id", "key", "value")
     class Response(_message.Message):

@@ -1827,6 +1827,27 @@ service MlflowService {
       rpc_doc_title: "Delete Secret Binding"
     };
   }
+
+  // Get backend information including store type and capabilities.
+  //
+  // Returns information about the tracking backend, including whether it supports
+  // SQL-only features like secrets management.
+  rpc getBackendInfo(GetBackendInfo) returns (GetBackendInfo.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "GET"
+          path: "/mlflow/backend-info"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Get Backend Info"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -4234,6 +4255,18 @@ message DeleteSecretBinding {
   optional string binding_id = 1;
 
   message Response {}
+}
+
+// Get backend information.
+message GetBackendInfo {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  message Response {
+    // Type of tracking store backend (e.g., "FileStore", "SqlAlchemyStore").
+    optional string store_type = 1;
+    // Whether the backend supports SQL-only features (secrets, routes, etc.).
+    optional bool is_sql_backend = 2;
+  }
 }
 
 // Set a tag on a secret.

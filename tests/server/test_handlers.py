@@ -60,6 +60,7 @@ from mlflow.protos.service_pb2 import (
     CreateExperiment,
     DeleteScorer,
     DeleteSecret,
+    GetBackendInfo,
     GetScorer,
     GetSecretInfo,
     ListScorers,
@@ -104,6 +105,7 @@ from mlflow.server.handlers import (
     _delete_scorer,
     _delete_secret,
     _deprecated_search_traces_v2,
+    _get_backend_info,
     _get_dataset_experiment_ids_handler,
     _get_dataset_handler,
     _get_dataset_records_handler,
@@ -2237,7 +2239,7 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
 
     mock_tracking_store._list_secret_bindings.return_value = bindings
 
-    resp = _list_secret_bindings()
+    _list_secret_bindings()
 
     mock_tracking_store._list_secret_bindings.assert_called_once_with(
         secret_id="secret-123",
@@ -2245,5 +2247,24 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
         resource_id="job-abc",
     )
 
+
+def test_get_backend_info_sql_backend(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = GetBackendInfo()
+    type(mock_tracking_store).__name__ = "SqlAlchemyStore"
+
+    resp = _get_backend_info()
+
     response_data = json.loads(resp.get_data())
-    assert len(response_data["bindings"]) == 2
+    assert response_data["store_type"] == "SqlAlchemyStore"
+    assert response_data["is_sql_backend"] is True
+
+
+def test_get_backend_info_file_store(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = GetBackendInfo()
+    type(mock_tracking_store).__name__ = "FileStore"
+
+    resp = _get_backend_info()
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["store_type"] == "FileStore"
+    assert response_data["is_sql_backend"] is False

@@ -129,6 +129,7 @@ from mlflow.protos.service_pb2 import (
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
+    GetBackendInfo,
     GetDataset,
     GetDatasetExperimentIds,
     GetDatasetRecords,
@@ -4181,6 +4182,20 @@ def _delete_secret_binding():
     return _wrap_response(response_message)
 
 
+@catch_mlflow_exception
+def _get_backend_info():
+    _get_request_message(GetBackendInfo())
+
+    store = _get_tracking_store()
+    store_type = type(store).__name__
+    is_sql_backend = store_type != "FileStore"
+
+    response_message = GetBackendInfo.Response()
+    response_message.store_type = store_type
+    response_message.is_sql_backend = is_sql_backend
+    return _wrap_response(response_message)
+
+
 def _get_rest_path(base_path, version=2):
     return f"/api/{version}.0{base_path}"
 
@@ -4609,4 +4624,6 @@ HANDLERS = {
     DeleteSecretTag: _delete_secret_tag,
     SetSecretRouteTag: _set_secret_route_tag,
     DeleteSecretRouteTag: _delete_secret_route_tag,
+    # Backend Info API
+    GetBackendInfo: _get_backend_info,
 }
