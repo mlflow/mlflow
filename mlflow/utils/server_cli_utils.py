@@ -19,7 +19,6 @@ def resolve_default_artifact_root(
     serve_artifacts: bool,
     default_artifact_root: str,
     backend_store_uri: str,
-    # resolve_to_local: bool = False,
 ) -> str:
     if serve_artifacts and not default_artifact_root:
         default_artifact_root = DEFAULT_ARTIFACTS_URI
@@ -28,13 +27,6 @@ def resolve_default_artifact_root(
             default_artifact_root = backend_store_uri
         else:
             default_artifact_root = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-        # else:
-        #     msg = (
-        #         "Option 'default-artifact-root' is required when backend store is not "
-        #         "local file based and artifact serving is disabled."
-        #     )
-        #     eprint(msg)
-        #     raise click.UsageError(message=msg)
     return default_artifact_root
 
 
