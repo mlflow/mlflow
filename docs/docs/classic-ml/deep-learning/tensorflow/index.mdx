@@ -106,11 +106,29 @@ For more control, use <APILink fn="mlflow.tensorflow.MlflowCallback" />:
 
 ```python
 import mlflow
+import numpy as np
 from tensorflow import keras
 
+# Prepare sample data
+data = np.random.uniform(size=[100, 28, 28, 3])
+labels = np.random.randint(2, size=100)
+
 # Define and compile your model
-model = keras.Sequential([...])
-model.compile(...)
+model = keras.Sequential(
+    [
+        keras.Input([28, 28, 3]),
+        keras.layers.Conv2D(8, 3),
+        keras.layers.MaxPool2D(2),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2, activation="softmax"),
+    ]
+)
+
+model.compile(
+    loss="sparse_categorical_crossentropy",
+    optimizer=keras.optimizers.Adam(0.001),
+    metrics=["accuracy"],
+)
 
 # Create an MLflow run and add the callback
 with mlflow.start_run() as run:
@@ -180,22 +198,6 @@ model_info = mlflow.tensorflow.log_model(model, name="model")
 # Later, load the model for inference
 loaded_model = mlflow.tensorflow.load_model(model_info.model_uri)
 predictions = loaded_model.predict(tf.random.uniform([1, 28, 28, 3]))
-```
-
-### Model Formats
-
-By default, models are saved in TensorFlow SavedModel format. Alternative formats:
-
-```python
-# Save in H5 format
-mlflow.tensorflow.log_model(
-    model, name="model", keras_model_kwargs={"save_format": "h5"}
-)
-
-# Save in native Keras format
-mlflow.tensorflow.log_model(
-    model, name="model", keras_model_kwargs={"save_format": "keras"}
-)
 ```
 
 ## Hyperparameter Optimization
@@ -291,40 +293,12 @@ with mlflow.start_run():
         {"model_type": "cnn", "dataset": "imagenet", "framework": "tensorflow"}
     )
 
-# Transition to production
-client.transition_model_version_stage(
+# Set model alias for deployment
+client.set_registered_model_alias(
     name="ImageClassifier",
+    alias="champion",
     version=model_info.registered_model_version,
-    stage="Production",
 )
-```
-
-## Deployment
-
-Deploy TensorFlow models locally:
-
-```bash
-mlflow models serve -m models:/<model_id> -p 5000
-```
-
-Test your deployed model:
-
-```python
-import requests
-import json
-
-# Prepare test data
-test_data = {"inputs": sample_input.tolist()}
-
-# Make prediction request
-response = requests.post(
-    "http://localhost:5000/invocations",
-    data=json.dumps(test_data),
-    headers={"Content-Type": "application/json"},
-)
-
-predictions = response.json()
-print("Predictions:", predictions)
 ```
 
 ## Learn More
