@@ -67,7 +67,7 @@ export const PromptVersionsTable = ({
         }),
         accessorKey: 'aliases',
         cell: PromptVersionsTableAliasesCell,
-      }
+      },
     ];
 
     if (mode === PromptVersionsTableMode.TABLE) {
