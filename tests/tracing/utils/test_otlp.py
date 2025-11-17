@@ -297,13 +297,13 @@ def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expect
     assert f'{SpanAttributeKey.METADATA.format(key="user_id")}: Str("42")' in collector_logs
 
 
-@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_metadata_added_in_root_span_with_otel_export(monkeypatch):
     saved_spans = []
 
     def mock_on_end(self, span: OTelReadableSpan):
         saved_spans.append(span)
 
+    # Endpoint not used as on_end is mocked
     monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:42/v1/traces")
     monkeypatch.setattr(BatchSpanProcessor, "on_end", mock_on_end)
     mlflow.set_experiment("metadata_export_test")
@@ -319,7 +319,6 @@ def test_metadata_added_in_root_span_with_otel_export(monkeypatch):
 
     @mlflow.trace(name="child_span")
     def child_function(arg1, arg2):
-        # Test that update_current_trace works in dual export mode
         mlflow.update_current_trace(
             metadata={"str": "42", "int": 123, "obj": {"hello": "world"}},
         )
