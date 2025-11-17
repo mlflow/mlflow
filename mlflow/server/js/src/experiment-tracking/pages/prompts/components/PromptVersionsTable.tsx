@@ -14,7 +14,6 @@ import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../../../common/utils/Utils';
-import { ModelVersionTableAliasesCell } from '../../../../model-registry/components/aliases/ModelVersionTableAliasesCell';
 import type { RegisteredPrompt, RegisteredPromptVersion } from '../types';
 import { PromptVersionsTableMode } from '../utils';
 import { PromptsListTableVersionCell } from './PromptsListTableVersionCell';
@@ -60,6 +59,15 @@ export const PromptVersionsTable = ({
         accessorKey: 'version',
         cell: PromptsListTableVersionCell,
       },
+      {
+        id: 'aliases',
+        header: intl.formatMessage({
+          defaultMessage: 'Aliases',
+          description: 'Header for the aliases column in the registered prompts table',
+        }),
+        accessorKey: 'aliases',
+        cell: PromptVersionsTableAliasesCell,
+      }
     ];
 
     if (mode === PromptVersionsTableMode.TABLE) {
@@ -79,15 +87,6 @@ export const PromptVersionsTable = ({
           description: 'Header for the commit message column in the registered prompts table',
         }),
         accessorKey: 'description',
-      });
-      resultColumns.push({
-        id: 'aliases',
-        header: intl.formatMessage({
-          defaultMessage: 'Aliases',
-          description: 'Header for the aliases column in the registered prompts table',
-        }),
-        accessorKey: 'aliases',
-        cell: PromptVersionsTableAliasesCell,
       });
     }
 
