@@ -895,6 +895,7 @@ def test_prompt_webhook_with_mixed_events(
     logs = app_client.wait_for_logs(expected_count=4, timeout=10)
     assert len(logs) == 4
 
+    # Webhooks are processed asynchronously and may arrive out of order
     expected_payloads = [
         {
             "name": "regular_model",
@@ -922,7 +923,6 @@ def test_prompt_webhook_with_mixed_events(
             "tags": {},
         },
     ]
-
     actual_payloads = [log.payload for log in logs]
     assert sorted(actual_payloads, key=str) == sorted(expected_payloads, key=str)
 
