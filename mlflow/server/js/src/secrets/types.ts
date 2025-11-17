@@ -137,6 +137,10 @@ export interface UpdateRouteRequest {
   provider?: string;
   is_shared?: boolean;
   auth_config?: string;
+
+  // Option 3: Update route metadata
+  route_description?: string;
+  route_tags?: string;
 }
 
 export interface UpdateRouteResponse {

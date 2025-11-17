@@ -303,6 +303,8 @@ export default function RoutesPage() {
       secret_value?: string;
       provider?: string;
       auth_config?: string;
+      route_description?: string;
+      route_tags?: string;
     },
   ) => {
     if (!selectedRoute) return;

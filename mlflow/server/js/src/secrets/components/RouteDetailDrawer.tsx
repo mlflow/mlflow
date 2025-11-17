@@ -23,6 +23,16 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useState, useMemo, useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import {
+  TagAssignmentRoot,
+  TagAssignmentRow,
+  TagAssignmentLabel,
+  TagAssignmentKey,
+  TagAssignmentValue,
+  TagAssignmentRemoveButton,
+  useTagAssignmentForm,
+} from '@databricks/web-shared/unified-tagging';
 import type { Route } from '../types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { Descriptions } from '@mlflow/mlflow/src/common/components/Descriptions';
@@ -33,6 +43,9 @@ import { useListBindings } from '../hooks/useListBindings';
 import { MaskedApiKeyInput } from './MaskedApiKeyInput';
 import { AuthConfigFields } from './AuthConfigFields';
 import { PROVIDERS } from './routeConstants';
+
+const EMPTY_TAG_ENTITY = { key: '', value: '' };
+const EMPTY_TAG_ARRAY: { key: string; value: string }[] = [];
 
 export interface RouteDetailDrawerProps {
   route: Route | null;
@@ -46,12 +59,14 @@ export interface RouteDetailDrawerProps {
       secret_value?: string;
       provider?: string;
       auth_config?: string;
+      route_description?: string;
+      route_tags?: string;
     },
   ) => void;
   onDelete?: (route: Route) => void;
 }
 
-type ManagementOperation = 'changeSecret' | 'deleteRoute' | null;
+type ManagementOperation = 'changeSecret' | 'editDetails' | 'deleteRoute' | null;
 type SecretSource = 'existing' | 'new';
 
 export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: RouteDetailDrawerProps) => {
@@ -79,6 +94,19 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
     provider?: string;
   }>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Edit details state
+  const [editDescription, setEditDescription] = useState('');
+  type TagEntity = { key: string; value: string };
+  const tagsForm = useForm<{ tags: TagEntity[] }>({ mode: 'onChange' });
+  const tagsFieldArray = useTagAssignmentForm({
+    name: 'tags',
+    emptyValue: EMPTY_TAG_ENTITY,
+    keyProperty: 'key',
+    valueProperty: 'value',
+    form: tagsForm,
+    defaultValues: EMPTY_TAG_ARRAY,
+  });
 
   // Fetch data
   const { secrets = [] } = useListSecrets({ enabled: open });
@@ -112,6 +140,15 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
       setNewSecretProvider(route.provider || currentSecret?.provider || '');
       setAuthConfig({});
       setErrors({});
+
+      // Initialize edit details
+      setEditDescription(route.description || '');
+      const initialTags = route.tags
+        ? Array.isArray(route.tags)
+          ? route.tags
+          : Object.entries(route.tags).map(([key, value]) => ({ key, value }))
+        : [EMPTY_TAG_ENTITY];
+      tagsForm.reset({ tags: initialTags });
     }
   }, [route?.route_id, open, secrets]);
 
@@ -237,6 +274,28 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
     if (!route) return;
     onDelete?.(route);
     onClose();
+  };
+
+  // Handle save details
+  const handleSaveDetails = async () => {
+    if (!route || !onUpdate) return;
+
+    setIsLoading(true);
+    try {
+      const tags = tagsForm.getValues().tags.filter((tag) => tag.key.trim() || tag.value.trim());
+      const route_tags = tags.length > 0 ? JSON.stringify(tags) : undefined;
+
+      await onUpdate(route.route_id, {
+        route_description: editDescription.trim() || undefined,
+        route_tags,
+      });
+
+      setSelectedOperation(null);
+    } catch (err) {
+      console.error('Failed to update route details:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const hasChanges =
@@ -596,6 +655,14 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
                 {/* Button Group */}
                 <div css={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.md }}>
                   <Button
+                    componentId="mlflow.routes.detail_drawer.edit_details_toggle"
+                    icon={<PencilIcon />}
+                    type={selectedOperation === 'editDetails' ? 'primary' : undefined}
+                    onClick={() => setSelectedOperation(selectedOperation === 'editDetails' ? null : 'editDetails')}
+                  >
+                    <FormattedMessage defaultMessage="Edit Details" description="Edit details button" />
+                  </Button>
+                  <Button
                     componentId="mlflow.routes.detail_drawer.change_secret_toggle"
                     icon={<PencilIcon />}
                     type={selectedOperation === 'changeSecret' ? 'primary' : undefined}
@@ -613,6 +680,83 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
                     <FormattedMessage defaultMessage="Delete Route" description="Delete route button" />
                   </Button>
                 </div>
+
+                {/* Edit Details Content */}
+                {selectedOperation === 'editDetails' && (
+                  <div
+                    css={{
+                      padding: theme.spacing.md,
+                      borderRadius: theme.borders.borderRadiusMd,
+                      border: `2px solid ${theme.colors.border}`,
+                      backgroundColor: theme.colors.backgroundPrimary,
+                    }}
+                  >
+                    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
+                      {/* Description */}
+                      <div>
+                        <FormUI.Label htmlFor="route-description-input">
+                          <FormattedMessage defaultMessage="Description" description="Route description label" />
+                        </FormUI.Label>
+                        <Input
+                          componentId="mlflow.routes.detail_drawer.description_input"
+                          id="route-description-input"
+                          value={editDescription}
+                          onChange={(e) => setEditDescription(e.target.value)}
+                          placeholder={intl.formatMessage({
+                            defaultMessage: 'Add a description for this route',
+                            description: 'Route description placeholder',
+                          })}
+                        />
+                      </div>
+
+                      {/* Tags */}
+                      <div>
+                        <FormUI.Label>
+                          <FormattedMessage defaultMessage="Tags" description="Route tags label" />
+                        </FormUI.Label>
+                        <TagAssignmentRoot {...tagsFieldArray}>
+                          <TagAssignmentRow>
+                            <TagAssignmentLabel>
+                              <FormattedMessage defaultMessage="Key" description="Tag key label" />
+                            </TagAssignmentLabel>
+                            <TagAssignmentLabel>
+                              <FormattedMessage defaultMessage="Value" description="Tag value label" />
+                            </TagAssignmentLabel>
+                          </TagAssignmentRow>
+
+                          {tagsFieldArray.fields.map((field, index) => (
+                            <TagAssignmentRow key={field.id}>
+                              <TagAssignmentKey index={index} />
+                              <TagAssignmentValue index={index} />
+                              <TagAssignmentRemoveButton
+                                componentId="mlflow.routes.detail_drawer.remove_tag"
+                                index={index}
+                              />
+                            </TagAssignmentRow>
+                          ))}
+                        </TagAssignmentRoot>
+                      </div>
+
+                      {/* Save button */}
+                      <div css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginTop: theme.spacing.md }}>
+                        <Button
+                          componentId="mlflow.routes.detail_drawer.cancel_details"
+                          onClick={() => setSelectedOperation(null)}
+                        >
+                          <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
+                        </Button>
+                        <Button
+                          componentId="mlflow.routes.detail_drawer.save_details"
+                          type="primary"
+                          onClick={handleSaveDetails}
+                          loading={isLoading}
+                        >
+                          <FormattedMessage defaultMessage="Save" description="Save button" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Change Secret Content */}
                 {selectedOperation === 'changeSecret' && (
