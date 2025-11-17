@@ -18,6 +18,7 @@ from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
+from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 from mlflow.tracing.utils import dump_span_attribute_value
 
 _logger = logging.getLogger(__name__)
@@ -27,6 +28,7 @@ _TRANSLATORS: list[OtelSchemaTranslator] = [
     GenAiTranslator(),
     TraceloopTranslator(),
     GoogleADKTranslator(),
+    VercelAITranslator(),
 ]
 
 

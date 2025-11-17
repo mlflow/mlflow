@@ -16,6 +16,7 @@ from mlflow.tracing.otel.translation.genai_semconv import GenAiTranslator
 from mlflow.tracing.otel.translation.google_adk import GoogleADKTranslator
 from mlflow.tracing.otel.translation.open_inference import OpenInferenceTranslator
 from mlflow.tracing.otel.translation.traceloop import TraceloopTranslator
+from mlflow.tracing.otel.translation.vercel_ai import VercelAITranslator
 
 
 @pytest.mark.parametrize(
@@ -69,6 +70,8 @@ def test_translate_span_type_returns_none(attributes):
     [
         (OpenInferenceTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("LLM"), SpanType.LLM),
         (TraceloopTranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("agent"), SpanType.AGENT),
+        (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.generateText"), SpanType.LLM),
+        (VercelAITranslator.SPAN_KIND_ATTRIBUTE_KEY, json.dumps("ai.toolCall"), SpanType.TOOL),
     ],
 )
 def test_json_serialized_values(attr_key, attr_value, expected_type):
