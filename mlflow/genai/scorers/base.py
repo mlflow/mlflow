@@ -116,6 +116,7 @@ class Scorer(BaseModel):
     _cached_dump: dict[str, Any] | None = PrivateAttr(default=None)
     _sampling_config: ScorerSamplingConfig | None = PrivateAttr(default=None)
     _registered_backend: str | None = PrivateAttr(default=None)
+    _is_multi_turn_scorer: bool = PrivateAttr(default=False)
 
     @property
     def sample_rate(self) -> float | None:
@@ -431,6 +432,7 @@ class Scorer(BaseModel):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session_traces: list[Trace] | None = None,
     ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
