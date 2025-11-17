@@ -347,10 +347,6 @@
     "defaultMessage": "Creator",
     "description": "Lable name for the creator under details tab on the model view page"
   },
-  "1tRtls": {
-    "defaultMessage": "Registered at",
-    "description": "Header for the registration time column in the registered prompts table"
-  },
   "1wfVV5": {
     "defaultMessage": "Currently sorted by",
     "description": "Label for the custom column group in the logged model column selector"
@@ -2274,10 +2270,6 @@
     "defaultMessage": "Metric",
     "description": "Label for a radio button that configures the x-axis on a line chart. This option makes the X-axis a custom metric that the user selects."
   },
-  "M0zIfe": {
-    "defaultMessage": "Aliases",
-    "description": "Header for the aliases column in the registered prompts table"
-  },
   "M1dwxx": {
     "defaultMessage": "Version {version}",
     "description": "Model registry > models table > aliases column > version indicator"
@@ -3491,10 +3483,6 @@
     "defaultMessage": "Pass",
     "description": "Evaluation results > overall assessment > pass value label. Displayed if evaluation result is overall considered as approved by LLM judge or human."
   },
-  "ZaQ42C": {
-    "defaultMessage": "Commit message",
-    "description": "Header for the commit message column in the registered prompts table"
-  },
   "Zb6BqS": {
     "defaultMessage": "Relative Time",
     "description": "Label for the relative axis on the runs compare chart"
@@ -4346,10 +4334,6 @@
   "gqfk5C": {
     "defaultMessage": "User is not authorized.",
     "description": "Unauthorized (HTTP STATUS 401) generic error message"
-  },
-  "guBsqD": {
-    "defaultMessage": "List",
-    "description": "Label for the list mode on the registered prompt details page"
   },
   "h1HQ14": {
     "defaultMessage": "Automatically log traces for DSPy executions by calling the {code} function. For example:",
