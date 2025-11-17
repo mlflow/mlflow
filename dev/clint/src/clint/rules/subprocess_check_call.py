@@ -19,7 +19,7 @@ class SubprocessCheckCall(Rule):
         resolved = resolver.resolve(node)
 
         # Check if this is subprocess.run
-        if not (resolved and len(resolved) == 2 and resolved == ["subprocess", "run"]):
+        if resolved != ["subprocess", "run"]:
             return False
 
         # Check if there are any keyword arguments
