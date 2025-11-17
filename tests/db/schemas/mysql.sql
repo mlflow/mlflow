@@ -92,7 +92,9 @@ CREATE TABLE secrets (
 	kek_version INTEGER NOT NULL,
 	masked_value VARCHAR(100) NOT NULL,
 	provider VARCHAR(64),
-	model VARCHAR(256),
+	encrypted_auth_config BLOB,
+	wrapped_auth_config_dek BLOB,
+	description TEXT,
 	is_shared TINYINT NOT NULL,
 	created_by VARCHAR(255),
 	created_at BIGINT NOT NULL,
@@ -127,6 +129,21 @@ CREATE TABLE datasets (
 	dataset_profile MEDIUMTEXT,
 	PRIMARY KEY (experiment_id, name, digest),
 	CONSTRAINT fk_datasets_experiment_id_experiments FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoints (
+	endpoint_id VARCHAR(36) NOT NULL,
+	secret_id VARCHAR(36) NOT NULL,
+	name VARCHAR(255),
+	description TEXT,
+	endpoint_type VARCHAR(64),
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	PRIMARY KEY (endpoint_id),
+	CONSTRAINT fk_endpoints_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE
 )
 
 
@@ -255,18 +272,12 @@ CREATE TABLE scorers (
 )
 
 
-CREATE TABLE secrets_bindings (
-	binding_id VARCHAR(36) NOT NULL,
+CREATE TABLE secret_tags (
 	secret_id VARCHAR(36) NOT NULL,
-	resource_type VARCHAR(50) NOT NULL,
-	resource_id VARCHAR(255) NOT NULL,
-	field_name VARCHAR(255) NOT NULL,
-	created_at BIGINT NOT NULL,
-	created_by VARCHAR(255),
-	last_updated_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255),
-	PRIMARY KEY (binding_id),
-	CONSTRAINT fk_secrets_bindings_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	PRIMARY KEY (secret_id, key),
+	CONSTRAINT fk_secret_tags_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE
 )
 
 
@@ -312,6 +323,32 @@ CREATE TABLE assessments (
 	assessment_metadata TEXT,
 	PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_models (
+	model_id VARCHAR(36) NOT NULL,
+	endpoint_id VARCHAR(36) NOT NULL,
+	model_name VARCHAR(256) NOT NULL,
+	weight FLOAT NOT NULL,
+	priority INTEGER NOT NULL,
+	encrypted_model_config BLOB,
+	wrapped_model_config_dek BLOB,
+	created_by VARCHAR(255),
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	PRIMARY KEY (model_id),
+	CONSTRAINT fk_endpoint_models_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE endpoint_tags (
+	endpoint_id VARCHAR(36) NOT NULL,
+	key VARCHAR(250) NOT NULL,
+	value VARCHAR(5000),
+	PRIMARY KEY (endpoint_id, key),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -408,6 +445,21 @@ CREATE TABLE scorer_versions (
 	creation_time BIGINT,
 	PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
+)
+
+
+CREATE TABLE secrets_bindings (
+	binding_id VARCHAR(36) NOT NULL,
+	endpoint_id VARCHAR(36) NOT NULL,
+	resource_type VARCHAR(50) NOT NULL,
+	resource_id VARCHAR(255) NOT NULL,
+	field_name VARCHAR(255) NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255),
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255),
+	PRIMARY KEY (binding_id),
+	CONSTRAINT fk_secrets_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 

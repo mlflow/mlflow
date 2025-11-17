@@ -2075,12 +2075,22 @@ class SqlSecret(Base):
     provider = Column(String(64), nullable=True)
     """
     LLM provider identifier: `String` (limit 64 characters). Optional.
-    E.g., "anthropic", "openai", "cohere". Used for gateway model metadata.
+    E.g., "anthropic", "openai", "cohere", "vertex_ai", "bedrock", "databricks".
     """
-    model = Column(String(256), nullable=True)
+    encrypted_auth_config = Column(LargeBinary, nullable=True)
     """
-    LLM model identifier: `String` (limit 256 characters). Optional.
-    E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo". Used for gateway model metadata.
+    Encrypted provider authentication config: `LargeBinary`. Combined nonce (12 bytes) +
+    AES-GCM ciphertext + tag (16 bytes). Used for complex provider authentication like
+    AWS Bedrock (access keys), Azure OpenAI (endpoints), Vertex AI (service accounts).
+    """
+    wrapped_auth_config_dek = Column(LargeBinary, nullable=True)
+    """
+    Wrapped auth config data encryption key: `LargeBinary`. DEK encrypted by KEK.
+    Used to decrypt encrypted_auth_config.
+    """
+    description = Column(Text, nullable=True)
+    """
+    Secret description: `Text`. Optional user-provided description for the API key.
     """
     is_shared = Column(Boolean, nullable=False, default=False)
     """
@@ -2112,10 +2122,223 @@ class SqlSecret(Base):
         return f"<SqlSecret ({self.secret_id}, {self.secret_name})>"
 
 
+class SqlSecretTag(Base):
+    """
+    DB model for secret tags. These are recorded in ``secret_tags`` table.
+    """
+
+    __tablename__ = "secret_tags"
+
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    Part of *Primary Key* for ``secret_tags`` table.
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Tag key: `String` (limit 250 characters). Part of *Primary Key* for ``secret_tags`` table.
+    """
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters). Could be *null*.
+    """
+
+    secret = relationship("SqlSecret", backref=backref("tags", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("secret_id", "key", name="secret_tags_pk"),
+        Index("index_secret_tags_secret_id", "secret_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlSecretTag ({self.secret_id}, {self.key}, {self.value})>"
+
+
+class SqlEndpoint(Base):
+    """
+    DB model for endpoints. These are recorded in ``endpoints`` table.
+    Represents LLM endpoint configurations that can have multiple models.
+    """
+
+    __tablename__ = "endpoints"
+
+    endpoint_id = Column(String(36), nullable=False)
+    """
+    Endpoint ID: `String` (limit 36 characters). *Primary Key* for ``endpoints`` table.
+    """
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    References the API key used for this endpoint.
+    """
+    name = Column(String(255), nullable=True)
+    """
+    Display name: `String` (limit 255 characters). Optional user-friendly name.
+    """
+    description = Column(Text, nullable=True)
+    """
+    Endpoint description: `Text`. Optional user-provided description.
+    """
+    endpoint_type = Column(String(64), nullable=True)
+    """
+    Endpoint type: `String` (limit 64 characters). E.g., "chat", "embedding", "image_generation".
+    Corresponds to LiteLLM's 'mode' field.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+
+    secret = relationship("SqlSecret", backref=backref("endpoints", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
+        UniqueConstraint("name", name="unique_endpoint_name"),
+        Index("index_endpoints_secret_id", "secret_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlEndpoint ({self.endpoint_id}, {self.name})>"
+
+
+class SqlEndpointModel(Base):
+    """
+    DB model for endpoint models. These are recorded in ``endpoint_models`` table.
+    Represents individual models that can be assigned to an endpoint for traffic
+    splitting or failover.
+    """
+
+    __tablename__ = "endpoint_models"
+
+    model_id = Column(String(36), nullable=False)
+    """
+    Model ID: `String` (limit 36 characters). *Primary Key* for ``endpoint_models`` table.
+    """
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    """
+    model_name = Column(String(256), nullable=False)
+    """
+    Model name: `String` (limit 256 characters). Required.
+    E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo", "gemini-2.5-pro".
+    """
+    weight = Column(sa.Float, nullable=False, default=1.0)
+    """
+    Traffic weight: `Float`. For traffic splitting. All weights for an endpoint should sum to 1.0.
+    """
+    priority = Column(Integer, nullable=False, default=0)
+    """
+    Failover priority: `Integer`. Lower values = higher priority. For failover routing.
+    """
+    encrypted_model_config = Column(LargeBinary, nullable=True)
+    """
+    Encrypted model runtime config: `LargeBinary`. Combined nonce (12 bytes) +
+    AES-GCM ciphertext + tag (16 bytes). Contains runtime parameters like temperature,
+    max_tokens, base_url (for Azure), and other provider-specific overrides.
+    """
+    wrapped_model_config_dek = Column(LargeBinary, nullable=True)
+    """
+    Wrapped model config data encryption key: `LargeBinary`. DEK encrypted by KEK.
+    Used to decrypt encrypted_model_config.
+    """
+    created_by = Column(String(255), nullable=True)
+    """
+    Creator user ID: `String` (limit 255 characters).
+    """
+    created_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Creation timestamp: `BigInteger`.
+    """
+    last_updated_by = Column(String(255), nullable=True)
+    """
+    Last updater user ID: `String` (limit 255 characters).
+    """
+    last_updated_at = Column(BigInteger, default=get_current_time_millis, nullable=False)
+    """
+    Last update timestamp: `BigInteger`.
+    """
+
+    endpoint = relationship("SqlEndpoint", backref=backref("models", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("model_id", name="endpoint_models_pk"),
+        Index("index_endpoint_models_endpoint_id", "endpoint_id"),
+        Index("index_endpoint_models_model_name", "model_name"),
+    )
+
+    def __repr__(self):
+        return f"<SqlEndpointModel ({self.model_id}, {self.model_name})>"
+
+
+class SqlEndpointTag(Base):
+    """
+    DB model for endpoint tags. These are recorded in ``endpoint_tags`` table.
+    """
+
+    __tablename__ = "endpoint_tags"
+
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    Part of *Primary Key* for ``endpoint_tags`` table.
+    """
+    key = Column(String(250), nullable=False)
+    """
+    Tag key: `String` (limit 250 characters). Part of *Primary Key* for ``endpoint_tags`` table.
+    """
+    value = Column(String(5000), nullable=True)
+    """
+    Tag value: `String` (limit 5000 characters). Could be *null*.
+    """
+
+    endpoint = relationship("SqlEndpoint", backref=backref("tags", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlEndpoint`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("endpoint_id", "key", name="endpoint_tags_pk"),
+        Index("index_endpoint_tags_endpoint_id", "endpoint_id"),
+    )
+
+    def __repr__(self):
+        return f"<SqlEndpointTag ({self.endpoint_id}, {self.key}, {self.value})>"
+
+
 class SqlSecretBinding(Base):
     """
     DB model for secret bindings. These are recorded in ``secrets_bindings`` table.
-    Maps secrets to resources (e.g., binding an API key secret to an MLflow object).
+    Maps endpoints to resources (e.g., binding an endpoint to a scorer job).
     """
 
     __tablename__ = "secrets_bindings"
@@ -2124,19 +2347,21 @@ class SqlSecretBinding(Base):
     """
     Binding ID: `String` (limit 36 characters). *Primary Key* for ``secrets_bindings`` table.
     """
-    secret_id = Column(
-        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
+    endpoint_id = Column(
+        String(36), ForeignKey("endpoints.endpoint_id", ondelete="CASCADE"), nullable=False
     )
     """
-    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
+    References the endpoint used by this resource.
     """
     resource_type = Column(String(50), nullable=False)
     """
-    Resource type: `String` (limit 50 characters). E.g., SCORER_JOB.
+    Resource type: `String` (limit 50 characters).
+    E.g., SCORER_JOB, etc.
     """
     resource_id = Column(String(255), nullable=False)
     """
-    Resource ID: `String` (limit 255 characters). ID of the resource using this secret.
+    Resource ID: `String` (limit 255 characters). ID of the resource using this endpoint.
     """
     field_name = Column(String(255), nullable=False)
     """
@@ -2159,17 +2384,14 @@ class SqlSecretBinding(Base):
     Last updater user ID: `String` (limit 255 characters).
     """
 
-    secret = relationship("SqlSecret", backref=backref("bindings", cascade="all"))
+    endpoint = relationship("SqlEndpoint", backref=backref("bindings", cascade="all"))
     """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlEndpoint`.
     """
 
     __table_args__ = (
         PrimaryKeyConstraint("binding_id", name="secrets_bindings_pk"),
-        UniqueConstraint(
-            "resource_type", "resource_id", "field_name", name="unique_binding_per_resource"
-        ),
-        Index("index_secrets_bindings_secret_id", "secret_id"),
+        Index("index_secrets_bindings_endpoint_id", "endpoint_id"),
         Index("index_secrets_bindings_resource_type_resource_id", "resource_type", "resource_id"),
     )
 
