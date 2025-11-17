@@ -711,9 +711,6 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
 
                       {/* Tags */}
                       <div>
-                        <FormUI.Label>
-                          <FormattedMessage defaultMessage="Tags" description="Route tags label" />
-                        </FormUI.Label>
                         <TagAssignmentRoot {...tagsFieldArray}>
                           <TagAssignmentRow>
                             <TagAssignmentLabel>
