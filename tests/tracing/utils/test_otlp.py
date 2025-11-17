@@ -4,11 +4,16 @@ import zlib
 from collections.abc import Callable
 
 import pytest
+
+# from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from fastapi import HTTPException
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.environment_variables import MLFLOW_TRACE_ENABLE_OTLP_DUAL_EXPORT
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter, _get_tracer
@@ -125,6 +130,9 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
     class TestModel:
         @mlflow.trace()
         def predict(self, x, y):
+            mlflow.update_current_trace(
+                metadata={"user_id": "42", "session_id": "123"},
+            )
             z = x + y
             z = self.add_one(z)
             z = mlflow.trace(self.square)(z)
@@ -183,6 +191,10 @@ def test_export_to_otel_collector(otel_collector, monkeypatch, dual_export):
         f"Logs: {collector_logs[:2000]}"
     )
 
+    # Verify Metadata are added in root span
+    assert f'{SpanAttributeKey.METADATA.format(key="session_id")}: Str("123")' in collector_logs
+    assert f'{SpanAttributeKey.METADATA.format(key="user_id")}: Str("42")' in collector_logs
+
 
 @pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
 def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
@@ -208,7 +220,10 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
     @mlflow.trace(name="child_span")
     def child_function(arg1, arg2):
         # Test that update_current_trace works in dual export mode
-        mlflow.update_current_trace({"env": "production", "version": "1.0"})
+        mlflow.update_current_trace(
+            tags={"env": "production", "version": "1.0"},
+            metadata={"user_id": "42", "session_id": "123"},
+        )
         return f"{arg1} {arg2}"
 
     result = parent_function()
@@ -235,7 +250,7 @@ def test_dual_export_to_mlflow_and_otel(otel_collector, monkeypatch):
             collector_logs = f.read()
         # Check if spans are in the logs - the debug exporter outputs span details
         # Look for evidence that spans were received
-        if "parent_span" in collector_logs or "child_span" in collector_logs:
+        if "parent_span" in collector_logs:
             # Evidence of traces being exported to OTLP
             spans_found = True
             break
@@ -276,3 +291,74 @@ def test_decompress_otlp_body_valid(
 def test_decompress_otlp_body_invalid(encoding: str, invalid_data: bytes, expected_error: str):
     with pytest.raises(HTTPException, match=expected_error, check=lambda e: e.status_code == 400):
         decompress_otlp_body(invalid_data, encoding)
+
+    # Verify Metadata are added in root span
+    assert f'{SpanAttributeKey.METADATA.format(key="session_id")}: Str("123")' in collector_logs
+    assert f'{SpanAttributeKey.METADATA.format(key="user_id")}: Str("42")' in collector_logs
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_metadata_added_in_root_span_with_otel_export(monkeypatch):
+    saved_spans = []
+
+    def mock_on_end(self, span: OTelReadableSpan):
+        saved_spans.append(span)
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:42/v1/traces")
+    monkeypatch.setattr(BatchSpanProcessor, "on_end", mock_on_end)
+    mlflow.set_experiment("metadata_export_test")
+
+    processors = _get_tracer("test").span_processor._span_processors
+    assert len(processors) == 1
+    assert isinstance(processors[0], OtelSpanProcessor)
+
+    @mlflow.trace(name="parent_span")
+    def parent_function():
+        result = child_function("Hello", "World")
+        return f"Parent: {result}"
+
+    @mlflow.trace(name="child_span")
+    def child_function(arg1, arg2):
+        # Test that update_current_trace works in dual export mode
+        mlflow.update_current_trace(
+            metadata={"str": "42", "int": 123, "obj": {"hello": "world"}},
+        )
+        return f"{arg1} {arg2}"
+
+    result = parent_function()
+    assert result == "Parent: Hello World"
+
+    assert len(saved_spans) == 2
+
+    for span in saved_spans:
+        if span.parent is None:
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="str")) == '"42"'
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="int")) == "123"
+            assert (
+                span.attributes.get(SpanAttributeKey.METADATA.format(key="obj"))
+                == '{"hello": "world"}'
+            )
+            assert any(
+                k.startswith(SpanAttributeKey.METADATA.format(key="mlflow"))
+                for k in span.attributes.keys()
+            )
+        else:
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="str")) is None
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="int")) is None
+            assert span.attributes.get(SpanAttributeKey.METADATA.format(key="obj")) is None
+            assert not any(
+                k.startswith(SpanAttributeKey.METADATA.format(key="mlflow"))
+                for k in span.attributes.keys()
+            )
+
+    # Test exception when setting metadata
+    def mock_get_mlflow_span(span):
+        raise Exception("Simulated error during metadata retrieval")
+
+    monkeypatch.setattr(
+        "mlflow.tracing.processor.otel.get_mlflow_span_for_otel_span", mock_get_mlflow_span
+    )
+    saved_spans = []
+    result = parent_function()
+    assert result == "Parent: Hello World"
+    assert len(saved_spans) == 2

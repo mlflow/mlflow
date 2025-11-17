@@ -81,6 +81,7 @@ class SpanAttributeKey:
     # within an active span. Stored as a JSON list of {"name": "...", "version": "..."} objects,
     # same format as LINKED_PROMPTS_TAG_KEY in traces.
     LINKED_PROMPTS = "mlflow.linkedPrompts"
+    METADATA = "mlflow.trace.metadata.{key}"
 
 
 class AssessmentMetadataKey:
