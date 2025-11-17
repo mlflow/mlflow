@@ -18,7 +18,7 @@ export const PromptVersionsTableCombinedCell: ColumnDef<RegisteredPromptVersion>
   const aliases = aliasesByVersion[original.version] || [];
 
   return (
-    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.xs }}>
+    <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
       <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, flexWrap: 'wrap' }}>
         <Typography.Text bold>Version {original.version}</Typography.Text>
         {registeredPrompt && (

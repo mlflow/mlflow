@@ -135,7 +135,6 @@ export const PromptVersionsTable = ({
               <TableRow
                 key={row.id}
                 css={{
-                  height: theme.general.heightBase,
                   backgroundColor: getColor(),
                   cursor: showCursorForEntireRow ? 'pointer' : 'default',
                 }}
