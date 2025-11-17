@@ -143,10 +143,14 @@ export const RouteDetailDrawer = ({ route, open, onClose, onUpdate, onDelete }: 
 
       // Initialize edit details
       setEditDescription(route.description || '');
-      const initialTags = route.tags
+      const existingTags = route.tags
         ? Array.isArray(route.tags)
           ? route.tags
           : Object.entries(route.tags).map(([key, value]) => ({ key, value }))
+        : [];
+      // Always include an empty tag at the end for adding new tags
+      const initialTags = existingTags.length > 0
+        ? [...existingTags, EMPTY_TAG_ENTITY]
         : [EMPTY_TAG_ENTITY];
       tagsForm.reset({ tags: initialTags });
     }
