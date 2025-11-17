@@ -3,11 +3,7 @@ import os
 
 from packaging.version import Version
 
-from mlflow.environment_variables import (
-    _MLFLOW_TELEMETRY_LOGGING,
-    _MLFLOW_TESTING_TELEMETRY,
-    MLFLOW_DISABLE_TELEMETRY,
-)
+from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.constant import CONFIG_STAGING_URL, CONFIG_URL
 from mlflow.version import VERSION
 
@@ -63,7 +59,7 @@ def _is_in_databricks() -> bool:
 _IS_MLFLOW_DEV_VERSION = Version(VERSION).is_devrelease
 _IS_IN_CI_ENV_OR_TESTING = _is_ci_env_or_testing()
 _IS_IN_DATABRICKS = _is_in_databricks()
-_IS_MLFLOW_TESTING_TELEMETRY = _MLFLOW_TESTING_TELEMETRY.get()
+_IS_MLFLOW_TESTING_TELEMETRY = os.environ.get("_MLFLOW_TESTING_TELEMETRY", "false").lower() == "true"
 
 
 def is_telemetry_disabled() -> bool:
@@ -100,5 +96,5 @@ def _get_config_url(version: str) -> str | None:
 
 
 def _log_error(message: str) -> None:
-    if _MLFLOW_TELEMETRY_LOGGING.get():
+    if os.environ.get("_MLFLOW_TELEMETRY_LOGGING", "false").lower() == "true":
         _logger.error(message, exc_info=True)

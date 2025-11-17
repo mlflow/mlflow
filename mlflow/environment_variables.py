@@ -1060,21 +1060,6 @@ MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int,
 MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
 
 
-#: Internal flag to enable telemetry in mlflow tests.
-#: (default: ``False``)
-_MLFLOW_TESTING_TELEMETRY = _BooleanEnvironmentVariable("_MLFLOW_TESTING_TELEMETRY", False)
-
-
-#: Internal environment variable to set the telemetry session id when TelemetryClient is initialized
-#: This should never be set by users or explicitly.
-#: (default: ``None``)
-_MLFLOW_TELEMETRY_SESSION_ID = _EnvironmentVariable("_MLFLOW_TELEMETRY_SESSION_ID", str, None)
-
-
-#: Internal flag to enable telemetry logging
-#: (default: ``False``)
-_MLFLOW_TELEMETRY_LOGGING = _BooleanEnvironmentVariable("_MLFLOW_TELEMETRY_LOGGING", False)
-
 #: Internal environment variable to indicate which SGI is being used,
 #: e.g. "uvicorn" or "gunicorn".
 #: This should never be set by users or explicitly.
