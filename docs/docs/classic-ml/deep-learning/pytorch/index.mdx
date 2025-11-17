@@ -389,11 +389,11 @@ with mlflow.start_run():
         {"model_type": "cnn", "dataset": "imagenet", "framework": "pytorch"}
     )
 
-# Transition to production
-client.transition_model_version_stage(
+# Set alias for production deployment
+client.set_registered_model_alias(
     name="ImageClassifier",
+    alias="champion",
     version=model_info.registered_model_version,
-    stage="Production",
 )
 ```
 
