@@ -108,8 +108,9 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorerVersion,
     SqlSecret,
     SqlSecretBinding,
-    SqlSecretRoute,
-    SqlSecretRouteTag,
+    SqlEndpoint,
+    SqlEndpointModel,
+    SqlEndpointTag,
     SqlSecretTag,
     SqlSpan,
     SqlTag,
@@ -2465,9 +2466,9 @@ class SqlAlchemyStore(AbstractStore):
                 provider=provider,
             )
 
-            route_id = uuid.uuid4().hex
-            sql_route = SqlSecretRoute(
-                route_id=route_id,
+            endpoint_id = uuid.uuid4().hex
+            sql_route = SqlEndpoint(
+                endpoint_id=endpoint_id,
                 secret_id=secret_id,
                 model_name=model_name,
                 name=route_name,
@@ -2480,7 +2481,7 @@ class SqlAlchemyStore(AbstractStore):
 
             sql_binding = SqlSecretBinding(
                 binding_id=binding_id,
-                route_id=route_id,
+                endpoint_id=endpoint_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 field_name=field_name,
@@ -2496,8 +2497,8 @@ class SqlAlchemyStore(AbstractStore):
 
             if route_tags:
                 for tag in route_tags:
-                    sql_tag = SqlSecretRouteTag(
-                        route_id=route_id,
+                    sql_tag = SqlEndpointTag(
+                        endpoint_id=endpoint_id,
                         key=tag["key"],
                         value=tag["value"],
                     )
@@ -2563,10 +2564,10 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             current_time = get_current_time_millis()
-            route_id = uuid.uuid4().hex
+            endpoint_id = uuid.uuid4().hex
 
-            sql_route = SqlSecretRoute(
-                route_id=route_id,
+            sql_route = SqlEndpoint(
+                endpoint_id=endpoint_id,
                 secret_id=secret_id,
                 model_name=model_name,
                 name=route_name,
@@ -2580,7 +2581,7 @@ class SqlAlchemyStore(AbstractStore):
             binding_id = uuid.uuid4().hex
             sql_binding = SqlSecretBinding(
                 binding_id=binding_id,
-                route_id=route_id,
+                endpoint_id=endpoint_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 field_name=field_name,
@@ -2595,8 +2596,8 @@ class SqlAlchemyStore(AbstractStore):
 
             if route_tags:
                 for tag in route_tags:
-                    sql_tag = SqlSecretRouteTag(
-                        route_id=route_id,
+                    sql_tag = SqlEndpointTag(
+                        endpoint_id=endpoint_id,
                         key=tag["key"],
                         value=tag["value"],
                     )
@@ -2750,8 +2751,8 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(
                     SqlSecret, func.count(SqlSecretBinding.binding_id).label("binding_count")
                 )
-                .outerjoin(SqlSecretRoute, SqlSecret.secret_id == SqlSecretRoute.secret_id)
-                .outerjoin(SqlSecretBinding, SqlSecretRoute.route_id == SqlSecretBinding.route_id)
+                .outerjoin(SqlEndpoint, SqlSecret.secret_id == SqlEndpoint.secret_id)
+                .outerjoin(SqlSecretBinding, SqlEndpoint.endpoint_id == SqlSecretBinding.endpoint_id)
                 .group_by(SqlSecret.secret_id)
             )
 
@@ -2793,12 +2794,12 @@ class SqlAlchemyStore(AbstractStore):
             List of SecretRouteListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlSecretRoute, SqlSecret.secret_name, SqlSecret.provider).join(
-                SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id
+            query = session.query(SqlEndpoint, SqlSecret.secret_name, SqlSecret.provider).join(
+                SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id
             )
 
             if secret_id is not None:
-                query = query.filter(SqlSecretRoute.secret_id == secret_id)
+                query = query.filter(SqlEndpoint.secret_id == secret_id)
 
             if provider is not None:
                 query = query.filter(SqlSecret.provider == provider)
@@ -2806,7 +2807,7 @@ class SqlAlchemyStore(AbstractStore):
             results = query.all()
             return [
                 SecretRouteListItem(
-                    route_id=route.route_id,
+                    endpoint_id=route.endpoint_id,
                     secret_id=route.secret_id,
                     model_name=route.model_name,
                     created_at=route.created_at,
@@ -2822,7 +2823,7 @@ class SqlAlchemyStore(AbstractStore):
                 for route, secret_name, provider_value in results
             ]
 
-    def _delete_secret_route(self, route_id: str) -> None:
+    def _delete_secret_route(self, endpoint_id: str) -> None:
         """
         Delete a route and its associated bindings.
 
@@ -2830,17 +2831,17 @@ class SqlAlchemyStore(AbstractStore):
         for a secret, the caller should handle secret deletion separately.
 
         Args:
-            route_id: ID of the route to delete.
+            endpoint_id: ID of the route to delete.
 
         Raises:
             MlflowException: If route doesn't exist or is the last route for its secret.
         """
         with self.ManagedSessionMaker() as session:
-            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+            sql_route = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
 
             if not sql_route:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found.",
+                    f"Route with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
@@ -2849,18 +2850,18 @@ class SqlAlchemyStore(AbstractStore):
 
     def _update_secret_route(
         self,
-        route_id: str,
+        endpoint_id: str,
         secret_id: str,
         updated_by: str | None = None,
     ) -> SecretRoute:
         """
         Update an existing route to point to a different existing secret.
 
-        This updates the route's secret_id in-place, preserving the route_id and all bindings.
+        This updates the route's secret_id in-place, preserving the endpoint_id and all bindings.
         The target secret must already exist.
 
         Args:
-            route_id: ID of the route to update.
+            endpoint_id: ID of the route to update.
             secret_id: ID of the existing secret to associate with this route.
             updated_by: Username of the user performing the update. Optional.
 
@@ -2871,11 +2872,11 @@ class SqlAlchemyStore(AbstractStore):
             MlflowException: If route or secret doesn't exist.
         """
         with self.ManagedSessionMaker() as session:
-            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+            sql_route = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
 
             if not sql_route:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found.",
+                    f"Route with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
@@ -2905,7 +2906,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _update_secret_route_with_new_secret(
         self,
-        route_id: str,
+        endpoint_id: str,
         secret_name: str,
         secret_value: str | dict[str, Any],
         provider: str | None = None,
@@ -2917,10 +2918,10 @@ class SqlAlchemyStore(AbstractStore):
         Update a route by creating a new secret and associating the route with it.
 
         This creates a new secret atomically and updates the route to point to it,
-        preserving the route_id and all bindings.
+        preserving the endpoint_id and all bindings.
 
         Args:
-            route_id: ID of the route to update.
+            endpoint_id: ID of the route to update.
             secret_name: Name for the new secret.
             secret_value: The secret value (API key, password, etc.).
             provider: Optional provider hint (e.g., "openai", "anthropic").
@@ -2935,11 +2936,11 @@ class SqlAlchemyStore(AbstractStore):
             MlflowException: If route doesn't exist or secret name already exists.
         """
         with self.ManagedSessionMaker() as session:
-            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+            sql_route = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
 
             if not sql_route:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found.",
+                    f"Route with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
@@ -3021,7 +3022,7 @@ class SqlAlchemyStore(AbstractStore):
 
     def _bind_secret_route(
         self,
-        route_id: str,
+        endpoint_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
@@ -3035,7 +3036,7 @@ class SqlAlchemyStore(AbstractStore):
         same resource/field combination.
 
         Args:
-            route_id: ID of the existing route to bind.
+            endpoint_id: ID of the existing route to bind.
             resource_type: Type of resource (e.g., "GLOBAL", "SCORER_JOB").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
@@ -3048,11 +3049,11 @@ class SqlAlchemyStore(AbstractStore):
             MlflowException: If route doesn't exist.
         """
         with self.ManagedSessionMaker() as session:
-            sql_route = session.query(SqlSecretRoute).filter_by(route_id=route_id).first()
+            sql_route = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
 
             if not sql_route:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found.",
+                    f"Route with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
@@ -3061,7 +3062,7 @@ class SqlAlchemyStore(AbstractStore):
 
             sql_binding = SqlSecretBinding(
                 binding_id=binding_id,
-                route_id=route_id,
+                endpoint_id=endpoint_id,
                 resource_type=resource_type,
                 resource_id=resource_id,
                 field_name=field_name,
@@ -3102,7 +3103,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
             sql_route = (
-                session.query(SqlSecretRoute).filter_by(route_id=sql_binding.route_id).first()
+                session.query(SqlEndpoint).filter_by(endpoint_id=sql_binding.endpoint_id).first()
             )
             if sql_route:
                 sql_secret = (
@@ -3117,15 +3118,15 @@ class SqlAlchemyStore(AbstractStore):
                             error_code=INVALID_PARAMETER_VALUE,
                         )
 
-                    route_ids = [
-                        r.route_id
-                        for r in session.query(SqlSecretRoute).filter_by(
+                    endpoint_ids = [
+                        r.endpoint_id
+                        for r in session.query(SqlEndpoint).filter_by(
                             secret_id=sql_secret.secret_id
                         )
                     ]
                     binding_count = (
                         session.query(SqlSecretBinding)
-                        .filter(SqlSecretBinding.route_id.in_(route_ids))
+                        .filter(SqlSecretBinding.endpoint_id.in_(endpoint_ids))
                         .count()
                     )
                     if binding_count == 1:
@@ -3142,20 +3143,20 @@ class SqlAlchemyStore(AbstractStore):
     def _list_secret_bindings(
         self,
         secret_id: str | None = None,
-        route_id: str | None = None,
+        endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
     ) -> list[SecretBindingListItem]:
         """
         List secret bindings with optional filters.
 
-        This method allows querying bindings by secret_id, route_id, resource_type, and/or
+        This method allows querying bindings by secret_id, endpoint_id, resource_type, and/or
         resource_id.
         If no filters are provided, returns all bindings.
 
         Args:
             secret_id: Optional filter by secret ID (joins through routes).
-            route_id: Optional filter by route ID.
+            endpoint_id: Optional filter by route ID.
             resource_type: Optional filter by resource type (e.g., "GLOBAL").
             resource_id: Optional filter by resource ID.
 
@@ -3166,20 +3167,20 @@ class SqlAlchemyStore(AbstractStore):
             query = (
                 session.query(
                     SqlSecretBinding,
-                    SqlSecretRoute.secret_id,
+                    SqlEndpoint.secret_id,
                     SqlSecret.secret_name,
-                    SqlSecretRoute.name,
-                    SqlSecretRoute.model_name,
+                    SqlEndpoint.name,
+                    SqlEndpoint.model_name,
                     SqlSecret.provider,
                 )
-                .join(SqlSecretRoute, SqlSecretBinding.route_id == SqlSecretRoute.route_id)
-                .join(SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id)
+                .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
+                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
             )
 
-            if route_id is not None:
-                query = query.filter(SqlSecretBinding.route_id == route_id)
+            if endpoint_id is not None:
+                query = query.filter(SqlSecretBinding.endpoint_id == endpoint_id)
             if secret_id is not None:
-                query = query.filter(SqlSecretRoute.secret_id == secret_id)
+                query = query.filter(SqlEndpoint.secret_id == secret_id)
             if resource_type is not None:
                 query = query.filter(SqlSecretBinding.resource_type == resource_type)
             if resource_id is not None:
@@ -3189,7 +3190,7 @@ class SqlAlchemyStore(AbstractStore):
             return [
                 SecretBindingListItem(
                     binding_id=binding.binding_id,
-                    route_id=binding.route_id,
+                    endpoint_id=binding.endpoint_id,
                     secret_id=secret_id_value,
                     resource_type=binding.resource_type,
                     resource_id=binding.resource_id,
@@ -3233,8 +3234,8 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             results = (
                 session.query(SqlSecretBinding, SqlSecret)
-                .join(SqlSecretRoute, SqlSecretBinding.route_id == SqlSecretRoute.route_id)
-                .join(SqlSecret, SqlSecretRoute.secret_id == SqlSecret.secret_id)
+                .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
+                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
                 .filter(
                     SqlSecretBinding.resource_type == resource_type,
                     SqlSecretBinding.resource_id == resource_id,
@@ -3314,50 +3315,50 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.delete(filtered_tags[0])
 
-    def set_secret_route_tag(self, route_id: str, tag: SecretRouteTag) -> None:
+    def set_secret_route_tag(self, endpoint_id: str, tag: SecretRouteTag) -> None:
         """
         Set a tag for the specified secret route.
 
         Args:
-            route_id: String ID of the route.
+            endpoint_id: String ID of the route.
             tag: SecretRouteTag instance to set.
         """
         _validate_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:
             tag = _validate_tag(tag.key, tag.value)
             route = (
-                session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+                session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == endpoint_id).first()
             )
             if route is None:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found",
+                    f"Route with ID '{endpoint_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
-            session.merge(SqlSecretRouteTag(route_id=route_id, key=tag.key, value=tag.value))
+            session.merge(SqlEndpointTag(endpoint_id=endpoint_id, key=tag.key, value=tag.value))
 
-    def delete_secret_route_tag(self, route_id: str, key: str) -> None:
+    def delete_secret_route_tag(self, endpoint_id: str, key: str) -> None:
         """
         Delete a tag from the specified secret route.
 
         Args:
-            route_id: String ID of the route.
+            endpoint_id: String ID of the route.
             key: String name of the tag to be deleted.
         """
         with self.ManagedSessionMaker() as session:
             route = (
-                session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+                session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == endpoint_id).first()
             )
             if route is None:
                 raise MlflowException(
-                    f"Route with ID '{route_id}' not found",
+                    f"Route with ID '{endpoint_id}' not found",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             filtered_tags = (
-                session.query(SqlSecretRouteTag).filter_by(route_id=route_id, key=key).all()
+                session.query(SqlEndpointTag).filter_by(endpoint_id=endpoint_id, key=key).all()
             )
             if len(filtered_tags) == 0:
                 raise MlflowException(
-                    f"No tag with name: {key} in route with id {route_id}",
+                    f"No tag with name: {key} in route with id {endpoint_id}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             elif len(filtered_tags) > 1:

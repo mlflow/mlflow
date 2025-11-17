@@ -56,7 +56,7 @@ class SecretBinding(_MlflowObject):
 
     Args:
         binding_id: String containing binding ID (UUID).
-        route_id: String containing the route ID this binding references.
+        endpoint_id: String containing the route ID this binding references.
         secret_id: String containing the secret ID (denormalized from route for convenience).
         resource_type: String containing the type of resource this secret is bound to.
         resource_id: String containing the ID of the resource using this secret.
@@ -68,7 +68,7 @@ class SecretBinding(_MlflowObject):
     """
 
     binding_id: str
-    route_id: str
+    endpoint_id: str
     secret_id: str
     resource_type: str
     resource_id: str
@@ -83,7 +83,7 @@ class SecretBinding(_MlflowObject):
 
         return ProtoSecretBinding(
             binding_id=self.binding_id,
-            route_id=self.route_id,
+            endpoint_id=self.endpoint_id,
             resource_type=self.resource_type,
             resource_id=self.resource_id,
             field_name=self.field_name,
@@ -97,7 +97,7 @@ class SecretBinding(_MlflowObject):
     def from_proto(cls, proto):
         return cls(
             binding_id=proto.binding_id,
-            route_id=proto.route_id,
+            endpoint_id=proto.endpoint_id,
             secret_id=proto.secret_id if proto.HasField("secret_id") else "",
             resource_type=proto.resource_type,
             resource_id=proto.resource_id,
