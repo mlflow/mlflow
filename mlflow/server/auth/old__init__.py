@@ -11,7 +11,7 @@ import functools
 import importlib
 import logging
 import re
-from typing import Any, Callable
+from typing import Any, Callable, Optional, Union
 
 import sqlalchemy
 from flask import (
@@ -23,12 +23,6 @@ from flask import (
     make_response,
     render_template_string,
     request,
-    session,
-    redirect,
-    url_for,
-    send_from_directory,
-    current_app,
-    abort,
 )
 from werkzeug.datastructures import Authorization
 
@@ -36,7 +30,7 @@ from mlflow import MlflowException
 from mlflow.entities import Experiment
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import RegisteredModel
-from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
     INTERNAL_ERROR,
@@ -105,33 +99,23 @@ from mlflow.server.auth.logo import MLFLOW_LOGO
 from mlflow.server.auth.permissions import MANAGE, Permission, get_permission
 from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
-    CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
     DELETE_USER,
-    GATEWAY_PROXY,
-    GET_ARTIFACT,
     GET_EXPERIMENT_PERMISSION,
-    GET_METRIC_HISTORY_BULK,
-    GET_METRIC_HISTORY_BULK_INTERVAL,
-    GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
-    GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
-    SEARCH_DATASETS,
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
-    UPLOAD_ARTIFACT,
 )
 from mlflow.server.auth.sqlalchemy_store import SqlAlchemyStore
-from mlflow.server.fastapi_app import create_fastapi_app
 from mlflow.server.handlers import (
     _get_model_registry_store,
     _get_request_message,
@@ -143,7 +127,6 @@ from mlflow.store.entities import PagedList
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import _REST_API_PATH_PREFIX
 from mlflow.utils.search_utils import SearchUtils
-import os
 
 try:
     from flask_wtf.csrf import CSRFProtect
@@ -382,34 +365,6 @@ def sender_is_admin():
     return store.get_user(username).is_admin
 
 
-def filter_experiment_ids(experiment_ids: list[str]) -> list[str]:
-    """
-    Filter experiment IDs to only include those the user has read access to.
-
-    Args:
-        experiment_ids: List of experiment IDs to filter
-
-    Returns:
-        Filtered list of experiment IDs the user can read
-    """
-    if not auth_config:
-        return experiment_ids
-
-    try:
-        if sender_is_admin():
-            return experiment_ids
-
-        username = authenticate_request().username
-        perms = store.list_experiment_permissions(username)
-        can_read = {p.experiment_id: get_permission(p.permission).can_read for p in perms}
-        default_can_read = get_permission(auth_config.default_permission).can_read
-
-        return [exp_id for exp_id in experiment_ids if can_read.get(exp_id, default_can_read)]
-    except (RuntimeError, AttributeError):
-        # Auth system not fully initialized, skip filtering
-        return experiment_ids
-
-
 def username_is_sender():
     """Validate if the request username is the sender"""
     username = _get_request_param("username")
@@ -438,163 +393,6 @@ def validate_can_update_user_admin():
 def validate_can_delete_user():
     # only admins can delete, but admins won't reach this validator
     return False
-
-
-def _get_permission_from_run_id_or_uuid() -> Permission:
-    """
-    Get permission for Flask routes that use either run_id or run_uuid parameter.
-    """
-    run_id = request.args.get("run_id") or request.args.get("run_uuid")
-    if not run_id:
-        raise MlflowException(
-            "Request must specify run_id or run_uuid parameter",
-            INVALID_PARAMETER_VALUE,
-        )
-    run = _get_tracking_store().get_run(run_id)
-    experiment_id = run.info.experiment_id
-    username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
-    )
-
-
-def validate_can_read_run_artifact():
-    """Checks READ permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_read
-
-
-def validate_can_update_run_artifact():
-    """Checks UPDATE permission on run artifacts."""
-    return _get_permission_from_run_id_or_uuid().can_update
-
-
-def _get_permission_from_model_version() -> Permission:
-    """
-    Get permission for model version artifacts.
-    Model versions inherit permissions from their registered model.
-    """
-    name = request.args.get("name")
-    if not name:
-        raise MlflowException(
-            "Request must specify name parameter",
-            INVALID_PARAMETER_VALUE,
-        )
-    username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_registered_model_permission(name, username).permission
-    )
-
-
-def validate_can_read_model_version_artifact():
-    """Checks READ permission on model version artifacts."""
-    return _get_permission_from_model_version().can_read
-
-
-def _get_permission_from_trace_request_id() -> Permission:
-    """
-    Get permission for trace artifacts.
-    Traces inherit permissions from their parent run/experiment.
-    """
-    request_id = request.args.get("request_id")
-    if not request_id:
-        raise MlflowException(
-            "Request must specify request_id parameter",
-            INVALID_PARAMETER_VALUE,
-        )
-    # Get the trace to find its experiment
-    trace = _get_tracking_store().get_trace_info(request_id)
-    experiment_id = trace.experiment_id
-    username = authenticate_request().username
-    return _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
-    )
-
-
-def validate_can_read_trace_artifact():
-    """Checks READ permission on trace artifacts."""
-    return _get_permission_from_trace_request_id().can_read
-
-
-def validate_can_read_metric_history_bulk():
-    """Checks READ permission on all requested runs."""
-    run_ids = request.args.to_dict(flat=False).get("run_id", [])
-    if not run_ids:
-        raise MlflowException(
-            "GetMetricHistoryBulk request must specify at least one run_id.",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    username = authenticate_request().username
-    tracking_store = _get_tracking_store()
-
-    # Check permission for each run
-    for run_id in run_ids:
-        run = tracking_store.get_run(run_id)
-        experiment_id = run.info.experiment_id
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
-        )
-        if not permission.can_read:
-            return False
-
-    return True
-
-
-def validate_can_read_metric_history_bulk_interval():
-    """Checks READ permission on all requested runs."""
-    return validate_can_read_metric_history_bulk()
-
-
-def validate_can_search_datasets():
-    """Checks READ permission on all requested experiments."""
-    if request.method == "POST":
-        data = request.json
-        experiment_ids = data.get("experiment_ids", [])
-    else:
-        experiment_ids = request.args.getlist("experiment_ids")
-
-    if not experiment_ids:
-        raise MlflowException(
-            "SearchDatasets request must specify at least one experiment_id.",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    username = authenticate_request().username
-
-    # Check permission for each experiment
-    for experiment_id in experiment_ids:
-        permission = _get_permission_from_store_or_default(
-            lambda eid=experiment_id: store.get_experiment_permission(eid, username).permission
-        )
-        if not permission.can_read:
-            return False
-
-    return True
-
-
-def validate_can_create_promptlab_run():
-    """Checks UPDATE permission on the experiment."""
-    data = request.json
-    experiment_id = data.get("experiment_id")
-    if not experiment_id:
-        raise MlflowException(
-            "CreatePromptlabRun request must specify experiment_id.",
-            INVALID_PARAMETER_VALUE,
-        )
-
-    username = authenticate_request().username
-    permission = _get_permission_from_store_or_default(
-        lambda: store.get_experiment_permission(experiment_id, username).permission
-    )
-    return permission.can_update
-
-
-def validate_gateway_proxy():
-    """
-    Allows gateway proxy requests without permission checks.
-    This endpoint proxies to external services that handle their own authorization.
-    """
-    return True
 
 
 BEFORE_REQUEST_HANDLERS = {
@@ -660,7 +458,6 @@ BEFORE_REQUEST_VALIDATORS = {
     for method in methods
 }
 
-# Auth-related routes
 BEFORE_REQUEST_VALIDATORS.update(
     {
         (SIGNUP, "GET"): validate_can_create_user,
@@ -677,22 +474,6 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
-    }
-)
-
-# Flask routes (no proto mapping)
-BEFORE_REQUEST_VALIDATORS.update(
-    {
-        (GET_ARTIFACT, "GET"): validate_can_read_run_artifact,
-        (UPLOAD_ARTIFACT, "POST"): validate_can_update_run_artifact,
-        (GET_MODEL_VERSION_ARTIFACT, "GET"): validate_can_read_model_version_artifact,
-        (GET_TRACE_ARTIFACT, "GET"): validate_can_read_trace_artifact,
-        (GET_METRIC_HISTORY_BULK, "GET"): validate_can_read_metric_history_bulk,
-        (GET_METRIC_HISTORY_BULK_INTERVAL, "GET"): validate_can_read_metric_history_bulk_interval,
-        (SEARCH_DATASETS, "POST"): validate_can_search_datasets,
-        (CREATE_PROMPTLAB_RUN, "POST"): validate_can_create_promptlab_run,
-        (GATEWAY_PROXY, "GET"): validate_gateway_proxy,
-        (GATEWAY_PROXY, "POST"): validate_gateway_proxy,
     }
 )
 
@@ -725,8 +506,8 @@ def _is_proxy_artifact_path(path: str) -> bool:
 
 
 def _get_proxy_artifact_validator(
-    method: str, view_args: dict[str, Any] | None
-) -> Callable[[], bool] | None:
+    method: str, view_args: Optional[dict[str, Any]]
+) -> Optional[Callable[[], bool]]:
     if view_args is None:
         return validate_can_read_experiment_artifact_proxy  # List
 
@@ -737,14 +518,14 @@ def _get_proxy_artifact_validator(
     }.get(method)
 
 
-def authenticate_request() -> Authorization | Response:
+def authenticate_request() -> Union[Authorization, Response]:
     """Use configured authorization function to get request authorization."""
     auth_func = get_auth_func(auth_config.authorization_function)
     return auth_func()
 
 
 @functools.lru_cache(maxsize=None)
-def get_auth_func(authorization_function: str) -> Callable[[], Authorization | Response]:
+def get_auth_func(authorization_function: str) -> Callable[[], Union[Authorization, Response]]:
     """
     Import and return the specified authorization function.
 
@@ -756,36 +537,21 @@ def get_auth_func(authorization_function: str) -> Callable[[], Authorization | R
     return getattr(module, fn_name)
 
 
-def authenticate_request_basic_auth() -> Authorization | Response:
+def authenticate_request_basic_auth() -> Union[Authorization, Response]:
     """Authenticate the request using basic auth."""
-    # Check for session-based login first
-    if "username" in session:
-        return Authorization("basic", {"username": session["username"], "password": ""})
-    # Fallback to HTTP Basic Auth
     if request.authorization is None:
-        return redirect("/login")  # Show your custom login page
+        return make_basic_auth_response()
+
     username = request.authorization.username
     password = request.authorization.password
     if store.authenticate_user(username, password):
         return request.authorization
     else:
-        return redirect("/login")
+        # let user attempt login again
+        return make_basic_auth_response()
 
 
-def require_login_for_ui():
-    if (
-        not request.path.startswith("/static")
-        and not request.path.startswith("/assets")
-        and not request.path.startswith("/login")
-        and not request.path.startswith("/signup")
-        and not request.path.startswith("/api")
-        and not request.path.startswith("/mlflow/users")
-        and "username" not in session
-    ):
-        return redirect("/login")
-
-
-def _find_validator(req: Request) -> Callable[[], bool] | None:
+def _find_validator(req: Request) -> Optional[Callable[[], bool]]:
     """
     Finds the validator matching the request path and method.
     """
@@ -1339,162 +1105,6 @@ def delete_registered_model_permission():
     return make_response({})
 
 
-def custom_login():
-    if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
-        if store.authenticate_user(username, password):
-            session["username"] = username
-            return redirect(url_for("serve"))  # or change to your desired landing page
-        else:
-            flash("Invalid username or password")
-    return render_template_string("""
-<!DOCTYPE html>
-<html lang='en'>
-<head>
-    <meta charset='UTF-8'>
-    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
-    <title>MLflow Login</title>
-    <style>
-        body {
-            background: #f4f6fb;
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Segoe UI', Arial, sans-serif;
-        }
-        .login-container {
-            background: #fff;
-            border-radius: 12px;
-            box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-            padding: 40px 32px 32px 32px;
-            width: 100%;
-            max-width: 370px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .logo {
-            margin-bottom: 24px;
-            width: 200px;
-            display: flex;
-            justify-content: center;
-        }
-        .logo img {
-            width: 200px;
-            height: auto;
-            display: block;
-            margin: 0 auto;
-        }
-        .login-title {
-            font-size: 1.5rem;
-            font-weight: 600;
-            margin-bottom: 24px;
-            color: #222;
-        }
-        .login-form {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-        }
-        .login-form label {
-            font-size: 1rem;
-            margin-bottom: 6px;
-            color: #444;
-        }
-        .login-form input {
-            padding: 10px 12px;
-            margin-bottom: 18px;
-            border: 1px solid #d1d5db;
-            border-radius: 6px;
-            font-size: 1rem;
-            background: #f9fafb;
-            transition: border 0.2s;
-        }
-        .login-form input:focus {
-            border: 1.5px solid #2272b4;
-            outline: none;
-        }
-        .login-form button {
-            background: #2272b4;
-            color: #fff;
-            border: none;
-            border-radius: 6px;
-            padding: 12px 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-        .login-form button:hover {
-            background: #185a8c;
-        }
-        .signup-link {
-            margin-top: 18px;
-            font-size: 0.97rem;
-        }
-        .signup-link a {
-            color: #2272b4;
-            text-decoration: none;
-            font-weight: 500;
-        }
-        .error-message {
-            color: #d32f2f;
-            margin-bottom: 12px;
-            font-size: 0.98rem;
-            text-align: center;
-        }
-    </style>
-</head>
-<body>
-    <div class='login-container'>
-        <div class='logo'><img src='/assets/variphi-logo.png' alt='Variphi Logo'/></div>
-        <div class='login-title'>Sign in to MLflow</div>
-        <form class='login-form' method='post'>
-            <label for='username'>Username</label>
-            <input id='username' name='username' type='text' placeholder='Enter your username' required autofocus>
-            <label for='password'>Password</label>
-            <input id='password' name='password' type='password' placeholder='Enter your password' required>
-            {% with messages = get_flashed_messages() %}
-              {% if messages %}
-                <div class='error-message'>
-                  {% for message in messages %}{{ message }}{% endfor %}
-                </div>
-              {% endif %}
-            {% endwith %}
-            <button type='submit'>Login</button>
-        </form>
-        <div class='signup-link'>Don't have an account? <a href='/signup'>Sign up</a></div>
-    </div>
-</body>
-</html>
-""")
-
-
-def logout():
-    session.pop("username", None)
-    return redirect("/login")
-
-
-def logout_link():
-    if "username" in session:
-        return '<a href="/logout">Logout</a>'
-    return ''
-
-
-def custom_assets(filename):
-    # Print the resolved path for debugging
-    assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'assets'))
-    print("Serving assets from:", assets_dir)
-    file_path = os.path.join(assets_dir, filename)
-    print("Requested file:", file_path)
-    if not os.path.exists(file_path):
-        print("File does not exist:", file_path)
-        return abort(404)
-    return send_from_directory(assets_dir, filename)
-
-
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1609,32 +1219,8 @@ def create_app(app: Flask = app):
         view_func=delete_registered_model_permission,
         methods=["DELETE"],
     )
-    app.add_url_rule(
-        rule="/login",
-        view_func=custom_login,
-        methods=["GET", "POST"],
-    )
-    app.add_url_rule(
-        rule="/logout",
-        view_func=logout,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule="/logout-link",
-        view_func=logout_link,
-        methods=["GET"],
-    )
-    app.add_url_rule(
-        rule="/assets/<path:filename>",
-        view_func=custom_assets,
-        methods=["GET"],
-    )
 
     app.before_request(_before_request)
     app.after_request(_after_request)
-    app.before_request(require_login_for_ui)
 
-    if _MLFLOW_SGI_NAME.get() == "uvicorn":
-        return create_fastapi_app(app)
-    else:
-        return app
+    return app
