@@ -8,31 +8,10 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
     },
     {
-      type: 'category',
-      label: 'MLflow 3.0',
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
       className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'mlflow-3/deep-learning',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/genai-agent',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/breaking-changes',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/faqs',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'mlflow-3/index',
-      },
     },
     {
       type: 'category',

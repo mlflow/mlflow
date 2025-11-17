@@ -305,18 +305,21 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
-          // Redirect mlflow 3 pages
+          // Redirect mlflow 3 pages to migration guide
           {
             to: '/genai/mlflow-3',
-            from: ['/mlflow-3', '/ml/mlflow-3'],
-          },
-          {
-            to: '/genai/mlflow-3/deep-learning',
-            from: ['/mlflow-3/deep-learning'],
-          },
-          {
-            to: '/genai/mlflow-3/genai-agent',
-            from: ['/mlflow-3/genai-agent'],
+            from: [
+              '/mlflow-3',
+              '/ml/mlflow-3',
+              '/genai/mlflow-3/deep-learning',
+              '/mlflow-3/deep-learning',
+              '/genai/mlflow-3/genai-agent',
+              '/mlflow-3/genai-agent',
+              '/genai/mlflow-3/breaking-changes',
+              '/mlflow-3/breaking-changes',
+              '/genai/mlflow-3/faqs',
+              '/mlflow-3/faqs',
+            ],
           },
           {
             to: '/genai/getting-started/databricks-trial',
