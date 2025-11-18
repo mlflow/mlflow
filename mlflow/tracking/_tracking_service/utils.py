@@ -27,7 +27,13 @@ _tracking_uri = None
 
 
 def _has_existing_mlruns_data() -> bool:
-    """Returns True if mlruns contains experiment data (meta.yaml files)."""
+    """
+    Returns True if mlruns contains experiment data (meta.yaml files).
+
+    This check is used to maintain backward compatibility when switching the default
+    tracking URI from file-based storage to SQLite. If existing mlruns data is detected,
+    the default remains as file-based storage to avoid breaking existing workflows.
+    """
     from mlflow.store.tracking.file_store import FileStore
 
     mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
