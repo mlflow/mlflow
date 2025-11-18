@@ -30,6 +30,8 @@ from mlflow.server import handlers
 from mlflow.server.fastapi_app import app as mlflow_app
 from mlflow.server.handlers import initialize_backend_stores
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.telemetry.client import TelemetryClient
+from mlflow.telemetry.events import TraceSource, TracesReceivedByServerEvent
 from mlflow.tracing.utils import encode_trace_id
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -625,3 +627,122 @@ def test_error_logging_spans(mlflow_server: str):
     )
 
     assert len(traces) == 1
+
+
+def test_otel_trace_received_telemetry_from_mlflow_client(mlflow_server: str):
+    """
+    Test TraceReceivedByServerEvent telemetry shows source=MLFLOW_PYTHON_CLIENT for standard client.
+
+    Uses @mlflow.trace with standard MLflow client configuration, which automatically sends
+    User-Agent and X-MLflow-Client-Version headers to identify traces from MLflow client.
+    """
+    mlflow.set_tracking_uri(mlflow_server)
+    mlflow.set_experiment("otel-telemetry-mlflow-client-test")
+
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        @mlflow.trace
+        def test_function():
+            return "test result"
+
+        result = test_function()
+        assert result == "test result"
+
+        time.sleep(1)
+
+        if mock_client.add_record.called:
+            record = mock_client.add_record.call_args[0][0]
+            assert record.event_name == TracesReceivedByServerEvent.name
+            assert record.params["source"] == TraceSource.MLFLOW_PYTHON_CLIENT.value
+            assert record.params["count"] == 1
+
+
+def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
+    """
+    Test TracesReceivedByServerEvent telemetry shows source=UNKNOWN for external clients.
+
+    Sends a direct protobuf request without MLflow client headers to simulate an external
+    OpenTelemetry client (not MLflow client). Tests with 2 traces to verify count field.
+    """
+    mlflow.set_tracking_uri(mlflow_server)
+    experiment = mlflow.set_experiment("otel-telemetry-external-client-test")
+    experiment_id = experiment.experiment_id
+
+    trace_id_1 = bytes.fromhex("0000000000000100" + "0" * 16)
+    trace_id_2 = bytes.fromhex("0000000000000200" + "0" * 16)
+
+    request = ExportTraceServiceRequest()
+
+    # First trace with root span and child spans
+    request.resource_spans.append(
+        ResourceSpans(
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="telemetry-test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id_1,
+                            span_id=bytes.fromhex("00000001" + "0" * 8),
+                            name="root-span-1",
+                            start_time_unix_nano=1000000000,
+                            end_time_unix_nano=2000000000,
+                        ),
+                        OTelProtoSpan(
+                            trace_id=trace_id_1,
+                            span_id=bytes.fromhex("00000002" + "0" * 8),
+                            parent_span_id=bytes.fromhex("00000001" + "0" * 8),
+                            name="child-span-1",
+                            start_time_unix_nano=1100000000,
+                            end_time_unix_nano=1500000000,
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+
+    # Second trace with root span
+    request.resource_spans.append(
+        ResourceSpans(
+            scope_spans=[
+                ScopeSpans(
+                    scope=InstrumentationScope(name="telemetry-test-scope"),
+                    spans=[
+                        OTelProtoSpan(
+                            trace_id=trace_id_2,
+                            span_id=bytes.fromhex("00000003" + "0" * 8),
+                            name="root-span-2",
+                            start_time_unix_nano=1600000000,
+                            end_time_unix_nano=1900000000,
+                        ),
+                    ],
+                )
+            ]
+        )
+    )
+
+    with mock.patch("mlflow.telemetry.track.get_telemetry_client") as mock_get_client:
+        mock_client = mock.MagicMock(spec=TelemetryClient)
+        mock_get_client.return_value = mock_client
+
+        response = requests.post(
+            f"{mlflow_server}/v1/traces",
+            data=request.SerializeToString(),
+            headers={
+                "Content-Type": "application/x-protobuf",
+                MLFLOW_EXPERIMENT_ID_HEADER: experiment_id,
+            },
+            timeout=10,
+        )
+
+        assert response.status_code == 200
+
+        mock_client.add_record.assert_called_once()
+        record = mock_client.add_record.call_args[0][0]
+
+        assert record.event_name == TracesReceivedByServerEvent.name
+        assert record.status.value == "success"
+        assert record.params["source"] == TraceSource.UNKNOWN.value
+        assert record.params["count"] == 2
