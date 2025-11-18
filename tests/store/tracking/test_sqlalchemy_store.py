@@ -11118,8 +11118,8 @@ def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_
     assert secrets_retrieved["openai_key"] == "test-secret-value-default"
     assert secrets_retrieved["anthropic_key"] == "test-secret-value-default"
 
-    store._delete_secret(secret_1.secret_id)
-    store._delete_secret(secret_2.secret_id)
+    store._delete_secret_endpoint(result_1.endpoint.endpoint_id)
+    store._delete_secret_endpoint(result_2.endpoint.endpoint_id)
 
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
@@ -11135,6 +11135,9 @@ def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_
 
     secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_999")
     assert secrets == {}
+
+    store._delete_secret(secret_1.secret_id)
+    store._delete_secret(secret_2.secret_id)
 
 
 def test_shared_secret_unique_constraint(create_secret):
@@ -11778,8 +11781,10 @@ def test_delete_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
     routes_after = store._list_secret_endpoints(secret_id=result.secret.secret_id)
     assert len(routes_after) == 1
 
-    with pytest.raises(MlflowException, match="Cannot delete the last endpoint"):
-        store._delete_secret_endpoint(result.endpoint.endpoint_id)
+    store._delete_secret_endpoint(result.endpoint.endpoint_id)
+
+    routes_final = store._list_secret_endpoints(secret_id=result.secret.secret_id)
+    assert len(routes_final) == 0
 
     with pytest.raises(MlflowException, match="not found"):
         store._delete_secret_endpoint("nonexistent_route_id")
@@ -12118,8 +12123,10 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     assert len(openai_routes) == 1
     assert openai_routes[0].models[0].model_name == "gpt-4"
 
-    with pytest.raises(MlflowException, match="Cannot delete the last endpoint"):
-        store._delete_secret_endpoint(result1.endpoint.endpoint_id)
+    store._delete_secret_endpoint(result1.endpoint.endpoint_id)
+
+    openai_routes = store._list_secret_endpoints(provider="openai")
+    assert len(openai_routes) == 0
 
     store._delete_secret(result1.secret.secret_id)
 
