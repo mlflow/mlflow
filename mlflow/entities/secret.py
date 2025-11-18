@@ -67,11 +67,11 @@ class SecretWithEndpointAndBinding(_MlflowObject):
     @classmethod
     def from_proto(cls, proto):
         from mlflow.entities.secret_binding import SecretBinding
-        from mlflow.entities.secret_route import SecretRoute
+        from mlflow.entities.secret_route import Endpoint
 
         return cls(
             secret=Secret.from_proto(proto.secret),
-            route=SecretRoute.from_proto(proto.route),
+            route=Endpoint.from_proto(proto.route),
             binding=SecretBinding.from_proto(proto.binding),
         )
 

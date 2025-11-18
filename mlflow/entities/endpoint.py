@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
-from mlflow.protos.service_pb2 import SecretRoute as ProtoSecretRoute
+from mlflow.protos.service_pb2 import Endpoint as ProtoEndpoint
 
 if TYPE_CHECKING:
     from mlflow.entities.endpoint_model import EndpointModel
@@ -48,7 +48,7 @@ class Endpoint(_MlflowObject):
         from mlflow.entities.endpoint_model import EndpointModel as EndpointModelEntity
         from mlflow.protos.service_pb2 import EndpointModel as ProtoEndpointModel
 
-        proto = ProtoSecretRoute()
+        proto = ProtoEndpoint()
         proto.endpoint_id = self.endpoint_id
         proto.created_at = self.created_at
         proto.last_updated_at = self.last_updated_at

@@ -98,14 +98,14 @@ from mlflow.protos.model_registry_pb2 import (
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
     BatchGetTraces,
-    BindSecretRoute,
+    BindEndpoint,
     CalculateTraceFilterCorrelation,
     CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
     CreateExperiment,
     CreateLoggedModel,
-    CreateRouteAndBind,
+    CreateEndpointAndBind,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
@@ -118,8 +118,8 @@ from mlflow.protos.service_pb2 import (
     DeleteScorer,
     DeleteSecret,
     DeleteSecretBinding,
-    DeleteSecretRoute,
-    DeleteSecretRouteTag,
+    DeleteEndpoint,
+    DeleteEndpointTag,
     DeleteSecretTag,
     DeleteTag,
     DeleteTraces,
@@ -149,7 +149,7 @@ from mlflow.protos.service_pb2 import (
     ListScorers,
     ListScorerVersions,
     ListSecretBindings,
-    ListSecretRoutes,
+    ListEndpoints,
     ListSecrets,
     LogBatch,
     LogInputs,
@@ -173,7 +173,7 @@ from mlflow.protos.service_pb2 import (
     SetDatasetTags,
     SetExperimentTag,
     SetLoggedModelTags,
-    SetSecretRouteTag,
+    SetEndpointTag,
     SetSecretTag,
     SetTag,
     SetTraceTag,
@@ -184,7 +184,7 @@ from mlflow.protos.service_pb2 import (
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
-    UpdateSecretRoute,
+    UpdateEndpoint,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3806,7 +3806,7 @@ def _create_and_bind_secret():
 @_disable_if_artifacts_only
 def _create_route_and_bind():
     request_message = _get_request_message(
-        CreateRouteAndBind(),
+        CreateEndpointAndBind(),
         schema={
             "secret_id": [_assert_required, _assert_string],
             "resource_type": [_assert_required, _assert_string],
@@ -3844,7 +3844,7 @@ def _create_route_and_bind():
         created_by=request_message.created_by if request_message.HasField("created_by") else None,
     )
 
-    response_message = CreateRouteAndBind.Response()
+    response_message = CreateEndpointAndBind.Response()
     response_message.secret.CopyFrom(result.secret.to_proto())
     response_message.route.CopyFrom(result.route.to_proto())
     response_message.binding.CopyFrom(result.binding.to_proto())
@@ -4016,7 +4016,7 @@ def _delete_secret_tag():
 @_disable_if_artifacts_only
 def _set_secret_route_tag():
     request_message = _get_request_message(
-        SetSecretRouteTag(),
+        SetEndpointTag(),
         schema={
             "route_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4024,14 +4024,14 @@ def _set_secret_route_tag():
         },
     )
 
-    from mlflow.entities import SecretRouteTag
+    from mlflow.entities import EndpointTag
 
     _get_tracking_store().set_secret_route_tag(
         route_id=request_message.route_id,
-        tag=SecretRouteTag(key=request_message.key, value=request_message.value),
+        tag=EndpointTag(key=request_message.key, value=request_message.value),
     )
 
-    response_message = SetSecretRouteTag.Response()
+    response_message = SetEndpointTag.Response()
     return _wrap_response(response_message)
 
 
@@ -4039,7 +4039,7 @@ def _set_secret_route_tag():
 @_disable_if_artifacts_only
 def _delete_secret_route_tag():
     request_message = _get_request_message(
-        DeleteSecretRouteTag(),
+        DeleteEndpointTag(),
         schema={
             "route_id": [_assert_required, _assert_string],
             "key": [_assert_required, _assert_string],
@@ -4051,7 +4051,7 @@ def _delete_secret_route_tag():
         key=request_message.key,
     )
 
-    response_message = DeleteSecretRouteTag.Response()
+    response_message = DeleteEndpointTag.Response()
     return _wrap_response(response_message)
 
 
@@ -4059,7 +4059,7 @@ def _delete_secret_route_tag():
 @_disable_if_artifacts_only
 def _list_secret_routes():
     request_message = _get_request_message(
-        ListSecretRoutes(),
+        ListEndpoints(),
         schema={
             "secret_id": [_assert_string],
             "provider": [_assert_string],
@@ -4071,7 +4071,7 @@ def _list_secret_routes():
         provider=request_message.provider if request_message.HasField("provider") else None,
     )
 
-    response_message = ListSecretRoutes.Response()
+    response_message = ListEndpoints.Response()
     for route in routes:
         response_message.routes.add().CopyFrom(route.to_proto())
     return _wrap_response(response_message)
@@ -4081,7 +4081,7 @@ def _list_secret_routes():
 @_disable_if_artifacts_only
 def _delete_secret_route():
     request_message = _get_request_message(
-        DeleteSecretRoute(),
+        DeleteEndpoint(),
         schema={
             "route_id": [_assert_required, _assert_string],
         },
@@ -4089,7 +4089,7 @@ def _delete_secret_route():
 
     _get_tracking_store()._delete_secret_route(route_id=request_message.route_id)
 
-    response_message = DeleteSecretRoute.Response()
+    response_message = DeleteEndpoint.Response()
     return _wrap_response(response_message)
 
 
@@ -4097,7 +4097,7 @@ def _delete_secret_route():
 @_disable_if_artifacts_only
 def _update_secret_route():
     request_message = _get_request_message(
-        UpdateSecretRoute(),
+        UpdateEndpoint(),
         schema={
             "route_id": [_assert_required, _assert_string],
             "secret_id": [_assert_string],
@@ -4135,7 +4135,7 @@ def _update_secret_route():
             error_code=INVALID_PARAMETER_VALUE,
         )
 
-    response_message = UpdateSecretRoute.Response()
+    response_message = UpdateEndpoint.Response()
     response_message.route.CopyFrom(route.to_proto())
     response_message.secret.CopyFrom(secret.to_proto())
     return _wrap_response(response_message)
@@ -4145,7 +4145,7 @@ def _update_secret_route():
 @_disable_if_artifacts_only
 def _bind_secret_route():
     request_message = _get_request_message(
-        BindSecretRoute(),
+        BindEndpoint(),
         schema={
             "route_id": [_assert_required, _assert_string],
             "resource_type": [_assert_required, _assert_string],
@@ -4161,7 +4161,7 @@ def _bind_secret_route():
         field_name=request_message.field_name,
     )
 
-    response_message = BindSecretRoute.Response()
+    response_message = BindEndpoint.Response()
     response_message.binding.CopyFrom(binding.to_proto())
     return _wrap_response(response_message)
 
@@ -4609,21 +4609,21 @@ HANDLERS = {
     DeleteScorer: _delete_scorer,
     # Secrets APIs
     CreateAndBindSecret: _create_and_bind_secret,
-    CreateRouteAndBind: _create_route_and_bind,
+    CreateEndpointAndBind: _create_route_and_bind,
     GetSecretInfo: _get_secret_info,
     ListSecrets: _list_secrets,
     UpdateSecret: _update_secret,
     DeleteSecret: _delete_secret,
     ListSecretBindings: _list_secret_bindings,
-    ListSecretRoutes: _list_secret_routes,
-    DeleteSecretRoute: _delete_secret_route,
-    UpdateSecretRoute: _update_secret_route,
-    BindSecretRoute: _bind_secret_route,
+    ListEndpoints: _list_secret_routes,
+    DeleteEndpoint: _delete_secret_route,
+    UpdateEndpoint: _update_secret_route,
+    BindEndpoint: _bind_secret_route,
     DeleteSecretBinding: _delete_secret_binding,
     SetSecretTag: _set_secret_tag,
     DeleteSecretTag: _delete_secret_tag,
-    SetSecretRouteTag: _set_secret_route_tag,
-    DeleteSecretRouteTag: _delete_secret_route_tag,
+    SetEndpointTag: _set_secret_route_tag,
+    DeleteEndpointTag: _delete_secret_route_tag,
     # Backend Info API
     GetBackendInfo: _get_backend_info,
 }
