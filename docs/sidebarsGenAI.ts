@@ -578,8 +578,18 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'prompt-registry/structured-output',
         },
         {
-          type: 'doc',
-          id: 'prompt-registry/optimize-prompts',
+          type: 'category',
+          label: 'Optimize Prompts',
+          link: {
+            type: 'doc',
+            id: 'prompt-registry/optimize-prompts',
+          },
+          items: [
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
+            },
+          ],
         },
         {
           type: 'doc',

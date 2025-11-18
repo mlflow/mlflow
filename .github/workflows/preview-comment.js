@@ -129,7 +129,10 @@ function getCommentTemplate({
 
   if (changedPages && changedPages.length > 0) {
     const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
-    changedPagesSection = `
+
+    // Only collapse if there are more than 5 changed pages
+    if (changedPages.length > 5) {
+      changedPagesSection = `
 
 <details>
 <summary>Changed Pages (${changedPages.length})</summary>
@@ -138,6 +141,14 @@ ${pageLinks}
 
 </details>
 `;
+    } else {
+      changedPagesSection = `
+
+**Changed Pages (${changedPages.length})**
+
+${pageLinks}
+`;
+    }
   }
 
   return `
