@@ -2780,7 +2780,8 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(
                     SqlSecret, func.count(SqlSecretBinding.binding_id).label("binding_count")
                 )
-                .outerjoin(SqlEndpoint, SqlSecret.secret_id == SqlEndpoint.secret_id)
+                .outerjoin(SqlEndpointModel, SqlSecret.secret_id == SqlEndpointModel.secret_id)
+                .outerjoin(SqlEndpoint, SqlEndpointModel.endpoint_id == SqlEndpoint.endpoint_id)
                 .outerjoin(SqlSecretBinding, SqlEndpoint.endpoint_id == SqlSecretBinding.endpoint_id)
                 .group_by(SqlSecret.secret_id)
             )
@@ -2833,10 +2834,11 @@ class SqlAlchemyStore(AbstractStore):
                 .subquery()
             )
 
-            # Subquery to get model details for the first model
+            # Subquery to get model details for the first model (including secret_id)
             first_model_subq = (
                 session.query(
                     SqlEndpointModel.endpoint_id,
+                    SqlEndpointModel.secret_id,
                     SqlEndpointModel.model_name,
                 )
                 .join(
@@ -2854,14 +2856,15 @@ class SqlAlchemyStore(AbstractStore):
                     SqlEndpoint,
                     SqlSecret.secret_name,
                     SqlSecret.provider,
+                    first_model_subq.c.secret_id,
                     first_model_subq.c.model_name,
                 )
-                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
-                .outerjoin(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
+                .join(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
+                .join(SqlSecret, first_model_subq.c.secret_id == SqlSecret.secret_id)
             )
 
             if secret_id is not None:
-                query = query.filter(SqlEndpoint.secret_id == secret_id)
+                query = query.filter(first_model_subq.c.secret_id == secret_id)
 
             if provider is not None:
                 query = query.filter(SqlSecret.provider == provider)
@@ -2870,7 +2873,7 @@ class SqlAlchemyStore(AbstractStore):
             return [
                 EndpointListItem(
                     endpoint_id=endpoint.endpoint_id,
-                    secret_id=endpoint.secret_id,
+                    secret_id=secret_id_value,
                     model_name=model_name,
                     created_at=endpoint.created_at,
                     last_updated_at=endpoint.last_updated_at,
@@ -2882,21 +2885,20 @@ class SqlAlchemyStore(AbstractStore):
                     secret_name=secret_name,
                     provider=provider_value,
                 )
-                for endpoint, secret_name, provider_value, model_name in results
+                for endpoint, secret_name, provider_value, secret_id_value, model_name in results
             ]
 
     def _delete_secret_endpoint(self, endpoint_id: str) -> None:
         """
-        Delete a endpoint and its associated bindings.
+        Delete an endpoint and its associated models and bindings.
 
-        This will CASCADE delete all bindings for this endpoint. If this is the last endpoint
-        for a secret, the caller should handle secret deletion separately.
+        This will CASCADE delete all models and bindings for this endpoint.
 
         Args:
             endpoint_id: ID of the endpoint to delete.
 
         Raises:
-            MlflowException: If endpoint doesn't exist or is the last endpoint for its secret.
+            MlflowException: If endpoint doesn't exist.
         """
         with self.ManagedSessionMaker() as session:
             sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
@@ -2905,20 +2907,6 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Endpoint with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Check if this is the last endpoint for this secret
-            endpoint_count = (
-                session.query(SqlEndpoint)
-                .filter_by(secret_id=sql_endpoint.secret_id)
-                .count()
-            )
-
-            if endpoint_count == 1:
-                raise MlflowException(
-                    f"Cannot delete the last endpoint for secret '{sql_endpoint.secret_id}'. "
-                    "Delete the secret instead to clean up all associated routes.",
-                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
             session.delete(sql_endpoint)
@@ -2931,14 +2919,15 @@ class SqlAlchemyStore(AbstractStore):
         updated_by: str | None = None,
     ) -> Endpoint:
         """
-        Update an existing endpoint to point to a different existing secret.
+        Update an existing endpoint's models to use a different existing secret.
 
-        This updates the endpoint's secret_id in-place, preserving the endpoint_id and all bindings.
+        This updates all models in the endpoint to use the new secret_id,
+        preserving the endpoint_id and all bindings.
         The target secret must already exist.
 
         Args:
             endpoint_id: ID of the endpoint to update.
-            secret_id: ID of the existing secret to associate with this endpoint.
+            secret_id: ID of the existing secret to associate with this endpoint's models.
             updated_by: Username of the user performing the update. Optional.
 
         Returns:
@@ -2964,9 +2953,17 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            # Update the endpoint
-            sql_endpoint.secret_id = secret_id
-            sql_endpoint.last_updated_at = get_current_time_millis()
+            # Update all models in this endpoint to use the new secret
+            current_time = get_current_time_millis()
+            models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
+            for model in models:
+                model.secret_id = secret_id
+                model.last_updated_at = current_time
+                if updated_by:
+                    model.last_updated_by = updated_by
+
+            # Update endpoint timestamp
+            sql_endpoint.last_updated_at = current_time
             if updated_by:
                 sql_endpoint.last_updated_by = updated_by
 
@@ -3078,8 +3075,15 @@ class SqlAlchemyStore(AbstractStore):
                 provider=provider,
             )
 
-            # Update the endpoint to point to the new secret
-            sql_endpoint.secret_id = secret_id
+            # Update all models in this endpoint to use the new secret
+            models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
+            for model in models:
+                model.secret_id = secret_id
+                model.last_updated_at = current_time
+                if updated_by:
+                    model.last_updated_by = updated_by
+
+            # Update endpoint timestamp
             sql_endpoint.last_updated_at = current_time
             if updated_by:
                 sql_endpoint.last_updated_by = updated_by
@@ -3182,27 +3186,35 @@ class SqlAlchemyStore(AbstractStore):
                 session.query(SqlEndpoint).filter_by(endpoint_id=sql_binding.endpoint_id).first()
             )
             if sql_endpoint:
-                sql_secret = (
-                    session.query(SqlSecret).filter_by(secret_id=sql_endpoint.secret_id).first()
+                # Get secret_id from the first model in the endpoint
+                first_model = (
+                    session.query(SqlEndpointModel)
+                    .filter_by(endpoint_id=sql_endpoint.endpoint_id)
+                    .first()
                 )
-                if sql_secret:
-                    if not sql_secret.is_shared:
-                        raise MlflowException(
-                            f"Cannot unbind private secret '{sql_secret.secret_name}'. "
-                            f"Private secrets are scoped to a single resource. "
-                            f"Delete the secret entirely if it's no longer needed.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
+                if first_model:
+                    sql_secret = (
+                        session.query(SqlSecret).filter_by(secret_id=first_model.secret_id).first()
+                    )
+                    if sql_secret:
+                        if not sql_secret.is_shared:
+                            raise MlflowException(
+                                f"Cannot unbind private secret '{sql_secret.secret_name}'. "
+                                f"Private secrets are scoped to a single resource. "
+                                f"Delete the secret entirely if it's no longer needed.",
+                                error_code=INVALID_PARAMETER_VALUE,
+                            )
 
-                    endpoint_ids = [
-                        r.endpoint_id
-                        for r in session.query(SqlEndpoint).filter_by(
-                            secret_id=sql_secret.secret_id
-                        )
-                    ]
-                    binding_count = (
-                        session.query(SqlSecretBinding)
-                        .filter(SqlSecretBinding.endpoint_id.in_(endpoint_ids))
+                        # Find all endpoint_ids that have models using this secret
+                        endpoint_ids = [
+                            r.endpoint_id
+                            for r in session.query(SqlEndpointModel.endpoint_id)
+                            .filter_by(secret_id=sql_secret.secret_id)
+                            .distinct()
+                        ]
+                        binding_count = (
+                            session.query(SqlSecretBinding)
+                            .filter(SqlSecretBinding.endpoint_id.in_(endpoint_ids))
                         .count()
                     )
                     if binding_count == 1:
@@ -3250,10 +3262,11 @@ class SqlAlchemyStore(AbstractStore):
                 .subquery()
             )
 
-            # Subquery to get model details for the first model
+            # Subquery to get model details for the first model (including secret_id)
             first_model_subq = (
                 session.query(
                     SqlEndpointModel.endpoint_id,
+                    SqlEndpointModel.secret_id,
                     SqlEndpointModel.model_name,
                 )
                 .join(
@@ -3269,21 +3282,21 @@ class SqlAlchemyStore(AbstractStore):
             query = (
                 session.query(
                     SqlSecretBinding,
-                    SqlEndpoint.secret_id,
+                    first_model_subq.c.secret_id,
                     SqlSecret.secret_name,
                     SqlEndpoint.name,
                     first_model_subq.c.model_name,
                     SqlSecret.provider,
                 )
                 .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
-                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
-                .outerjoin(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
+                .join(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
+                .join(SqlSecret, first_model_subq.c.secret_id == SqlSecret.secret_id)
             )
 
             if endpoint_id is not None:
                 query = query.filter(SqlSecretBinding.endpoint_id == endpoint_id)
             if secret_id is not None:
-                query = query.filter(SqlEndpoint.secret_id == secret_id)
+                query = query.filter(first_model_subq.c.secret_id == secret_id)
             if resource_type is not None:
                 query = query.filter(SqlSecretBinding.resource_type == resource_type)
             if resource_id is not None:
@@ -3338,7 +3351,8 @@ class SqlAlchemyStore(AbstractStore):
             results = (
                 session.query(SqlSecretBinding, SqlSecret)
                 .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
-                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
+                .join(SqlEndpointModel, SqlEndpoint.endpoint_id == SqlEndpointModel.endpoint_id)
+                .join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
                 .filter(
                     SqlSecretBinding.resource_type == resource_type,
                     SqlSecretBinding.resource_id == resource_id,
