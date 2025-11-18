@@ -27,11 +27,10 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.tracking import (
     DEFAULT_ARTIFACTS_URI,
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
-    DEFAULT_TRACKING_URI,
 )
 from mlflow.tracking import _get_store
 from mlflow.tracking._tracking_service.utils import (
-    _has_existing_mlruns_data,
+    _get_default_tracking_uri,
     is_tracking_uri_set,
     set_tracking_uri,
 )
@@ -551,11 +550,7 @@ def server(
 
     # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = (
-            DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-            if _has_existing_mlruns_data()
-            else DEFAULT_TRACKING_URI
-        )
+        backend_store_uri = _get_default_tracking_uri()
 
     # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
@@ -635,7 +630,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_TRACKING_URI,
+    default=None,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "

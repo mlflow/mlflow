@@ -27,19 +27,29 @@ _tracking_uri = None
 
 
 def _has_existing_mlruns_data() -> bool:
-    """Returns True if mlruns contains experiment directories (numeric or .trash)."""
+    """Returns True if mlruns contains experiment data (meta.yaml files)."""
+    from mlflow.store.tracking.file_store import FileStore
+
     mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
     if not mlruns_path.exists():
         return False
 
     try:
         for item in mlruns_path.iterdir():
-            if item.is_dir() and (item.name.isdigit() or item.name == ".trash"):
-                return True
+            if item.is_dir() and item.name.isdigit():
+                for f in item.iterdir():
+                    if f.name == FileStore.META_DATA_FILE_NAME:
+                        return True
     except (OSError, PermissionError):
         return False
 
     return False
+
+
+def _get_default_tracking_uri() -> str:
+    if _has_existing_mlruns_data():
+        return DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    return DEFAULT_TRACKING_URI
 
 
 def is_tracking_uri_set():
@@ -147,10 +157,11 @@ def get_tracking_uri() -> str:
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
-        # Backward compatibility: use file store if existing mlruns data found
-        if _has_existing_mlruns_data():
-            return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
-        return DEFAULT_TRACKING_URI
+        default_uri = _get_default_tracking_uri()
+        # Convert local file path to URI format
+        if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
+            return path_to_local_file_uri(os.path.abspath(default_uri))
+        return default_uri
 
 
 def _get_file_store(store_uri, **_):

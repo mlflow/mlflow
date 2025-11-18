@@ -54,7 +54,9 @@ def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     mlruns_dir = tmp_path / "mlruns"
     mlruns_dir.mkdir()
-    (mlruns_dir / "0").mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
     assert _get_tracking_scheme() == "file"
 
 
@@ -68,7 +70,9 @@ def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     mlruns_dir = tmp_path / "mlruns"
     mlruns_dir.mkdir()
-    (mlruns_dir / "0").mkdir()
+    exp_dir = mlruns_dir / "0"
+    exp_dir.mkdir()
+    (exp_dir / "meta.yaml").touch()
 
     store = _get_store()
     assert isinstance(store, FileStore)
@@ -79,6 +83,16 @@ def test_get_store_with_empty_mlruns(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     mlruns_dir = tmp_path / "mlruns"
     mlruns_dir.mkdir()
+
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_mlruns_dir_but_no_meta_yaml(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    (mlruns_dir / "0").mkdir()
 
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
