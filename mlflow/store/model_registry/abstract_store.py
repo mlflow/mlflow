@@ -546,6 +546,7 @@ class AbstractStore:
         max_results: int | None = None,
         order_by: list[str] | None = None,
         page_token: str | None = None,
+        experiment_id: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -558,6 +559,7 @@ class AbstractStore:
             max_results: Maximum number of prompts desired.
             order_by: List of order-by clauses.
             page_token: Pagination token for requesting subsequent pages.
+            experiment_id: Optional experiment ID to filter prompts by.
 
         Returns:
             A PagedList of Prompt objects.
@@ -567,6 +569,23 @@ class AbstractStore:
 
         # Build filter to only include prompts (use backticks for tag key with dots)
         prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+
+        # Add experiment filter if specified
+        if experiment_id:
+            from mlflow.tracking import _get_store as _get_tracking_store
+
+            tracking_store = _get_tracking_store()
+            prompt_names = tracking_store.get_prompt_names_by_experiment(experiment_id)
+
+            # If no prompts are linked to this experiment, return empty result
+            if not prompt_names:
+                return PagedList([], None)
+
+            # Build IN clause with proper SQL escaping (escape single quotes)
+            escaped_names = [name.replace("'", "''") for name in prompt_names]
+            names_list = ", ".join(f"'{name}'" for name in escaped_names)
+            prompt_filter = f"{prompt_filter} AND name IN ({names_list})"
+
         if filter_string:
             prompt_filter = f"{prompt_filter} AND {filter_string}"
 
@@ -581,6 +600,7 @@ class AbstractStore:
         # Convert RegisteredModel objects to Prompt objects
         prompts = []
         for rm in registered_models:
+
             # Extract tags as dict
             if isinstance(rm.tags, dict):
                 tags = rm.tags.copy()
@@ -1050,6 +1070,40 @@ class AbstractStore:
                 from mlflow.entities import RunTag
 
                 tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
+
+    def link_prompt_version_to_experiment(
+        self, name: str, version: str, experiment_id: str
+    ) -> None:
+        """
+        Link a prompt version to an experiment using entity associations.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            experiment_id: ID of the experiment to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        if not prompt_version:
+            raise MlflowException(
+                f"Could not find prompt '{name}' version '{version}'.",
+                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+            )
+
+        tracking_store = _get_tracking_store()
+
+        # Verify experiment exists
+        experiment = tracking_store.get_experiment(experiment_id)
+        if not experiment:
+            raise MlflowException(
+                f"Could not find experiment with ID '{experiment_id}' to which to link prompt '{name}'.",
+                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+            )
+
+        # Create entity association linking prompt to experiment
+        # Use prompt name as identifier (not version-specific)
+        tracking_store.add_prompt_to_experiment(name, experiment_id)
 
     # CRUD API for Webhook objects
     def create_webhook(

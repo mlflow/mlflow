@@ -1319,3 +1319,313 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_load_prompt_links_to_experiment():
+    """Test that load_prompt links the prompt to the experiment when called within a run."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Register a prompt
+    mlflow.genai.register_prompt(name="test_exp_link", template="Hello {{name}}!")
+
+    # Create an experiment and start a run
+    exp_id = mlflow.create_experiment("test_experiment_link")
+    with mlflow.start_run(experiment_id=exp_id) as run:
+        # Load the prompt - it should link to the experiment
+        prompt = mlflow.genai.load_prompt("test_exp_link", version=1)
+        assert prompt.name == "test_exp_link"
+
+    # Verify the entity association was created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        # Query for the association
+        association = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.source_id == "test_exp_link",
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                SqlEntityAssociation.destination_id == exp_id,
+            )
+            .first()
+        )
+
+        assert association is not None
+        assert association.source_id == "test_exp_link"
+        assert association.destination_id == exp_id
+
+
+def test_register_prompt_links_to_experiment():
+    """Test that register_prompt links the prompt to the experiment when called within a run."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Create an experiment and start a run
+    exp_id = mlflow.create_experiment("test_experiment_register")
+    with mlflow.start_run(experiment_id=exp_id):
+        # Register the prompt - it should link to the experiment
+        prompt = mlflow.genai.register_prompt(
+            name="test_exp_register", template="Greetings {{name}}!"
+        )
+        assert prompt.name == "test_exp_register"
+
+    # Verify the entity association was created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        # Query for the association
+        association = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.source_id == "test_exp_register",
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                SqlEntityAssociation.destination_id == exp_id,
+            )
+            .first()
+        )
+
+        assert association is not None
+        assert association.source_id == "test_exp_register"
+        assert association.destination_id == exp_id
+
+
+def test_multiple_prompts_link_to_same_experiment():
+    """Test that multiple prompts can be linked to the same experiment."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Create an experiment
+    exp_id = mlflow.create_experiment("test_multi_prompts")
+
+    with mlflow.start_run(experiment_id=exp_id):
+        # Register multiple prompts
+        mlflow.genai.register_prompt(name="prompt_a", template="Hello {{name}}!")
+        mlflow.genai.register_prompt(name="prompt_b", template="Goodbye {{name}}!")
+
+    # Verify both associations were created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        # Query for all prompt associations to this experiment
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                SqlEntityAssociation.destination_id == exp_id,
+            )
+            .all()
+        )
+
+        assert len(associations) == 2
+        prompt_ids = {assoc.source_id for assoc in associations}
+        assert "prompt_a" in prompt_ids
+        assert "prompt_b" in prompt_ids
+
+
+def test_same_prompt_links_to_multiple_experiments():
+    """Test that the same prompt can be linked to multiple experiments."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Register a prompt outside of any run
+    mlflow.genai.register_prompt(name="shared_prompt", template="Shared {{text}}!")
+
+    # Create two experiments and link the prompt to both
+    exp_id_1 = mlflow.create_experiment("test_exp_1")
+    exp_id_2 = mlflow.create_experiment("test_exp_2")
+
+    with mlflow.start_run(experiment_id=exp_id_1):
+        mlflow.genai.load_prompt("shared_prompt", version=1)
+
+    with mlflow.start_run(experiment_id=exp_id_2):
+        mlflow.genai.load_prompt("shared_prompt", version=1)
+
+    # Verify both associations were created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        # Query for all associations for this prompt
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.source_id == "shared_prompt",
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+            )
+            .all()
+        )
+
+        assert len(associations) == 2
+        exp_ids = {assoc.destination_id for assoc in associations}
+        assert exp_id_1 in exp_ids
+        assert exp_id_2 in exp_ids
+
+
+def test_link_prompt_to_experiment_no_duplicate():
+    """Test that linking the same prompt to the same experiment multiple times doesn't create duplicates."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Register a prompt
+    mlflow.genai.register_prompt(name="no_dup_prompt", template="Test {{x}}!")
+
+    # Create an experiment
+    exp_id = mlflow.create_experiment("test_no_dup")
+
+    with mlflow.start_run(experiment_id=exp_id):
+        # Load the prompt multiple times
+        mlflow.genai.load_prompt("no_dup_prompt", version=1)
+        mlflow.genai.load_prompt("no_dup_prompt", version=1)
+        mlflow.genai.load_prompt("no_dup_prompt", version=1)
+
+    # Verify only one association was created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.source_id == "no_dup_prompt",
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                SqlEntityAssociation.destination_id == exp_id,
+            )
+            .all()
+        )
+
+        # Should only have 1 association despite multiple loads
+        assert len(associations) == 1
+
+
+def test_load_prompt_without_run_no_experiment_link():
+    """Test that load_prompt without an active run doesn't link to any experiment."""
+    from mlflow.entities.entity_type import EntityAssociationType
+
+    # Register a prompt
+    mlflow.genai.register_prompt(name="no_run_prompt", template="Test {{y}}!")
+
+    # Load the prompt without an active run
+    prompt = mlflow.genai.load_prompt("no_run_prompt", version=1)
+    assert prompt.name == "no_run_prompt"
+
+    # Verify no experiment associations were created
+    from mlflow.tracking import _get_store as _get_tracking_store
+
+    tracking_store = _get_tracking_store()
+    with tracking_store.ManagedSessionMaker() as session:
+        from mlflow.store.tracking.dbmodels.models import SqlEntityAssociation
+
+        associations = (
+            session.query(SqlEntityAssociation)
+            .filter(
+                SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                SqlEntityAssociation.source_id == "no_run_prompt",
+                SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+            )
+            .all()
+        )
+
+        # Should have no associations
+        assert len(associations) == 0
+
+
+def test_search_prompts_by_experiment_id():
+    """Test that search_prompts can filter by experiment_id."""
+    # Create an experiment
+    exp_id = mlflow.create_experiment("test_search_by_exp")
+
+    # Register prompts and link to experiment
+    with mlflow.start_run(experiment_id=exp_id):
+        mlflow.genai.register_prompt(name="exp_prompt_1", template="Template 1: {{x}}")
+        mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
+
+    # Register a prompt not linked to this experiment
+    mlflow.genai.register_prompt(name="other_prompt", template="Other: {{z}}")
+
+    # Search for prompts by experiment ID
+    client = MlflowClient()
+    prompts = client.search_prompts(experiment_id=exp_id)
+
+    # Should only return prompts linked to the experiment
+    assert len(prompts) == 2
+    prompt_names = {p.name for p in prompts}
+    assert "exp_prompt_1" in prompt_names
+    assert "exp_prompt_2" in prompt_names
+    assert "other_prompt" not in prompt_names
+
+
+def test_search_prompts_by_experiment_id_empty():
+    """Test that search_prompts returns empty list for experiment with no prompts."""
+    # Create an experiment with no prompts
+    exp_id = mlflow.create_experiment("test_empty_exp")
+
+    client = MlflowClient()
+    prompts = client.search_prompts(experiment_id=exp_id)
+
+    # Should return empty list
+    assert len(prompts) == 0
+
+
+def test_search_prompts_by_experiment_id_with_filter():
+    """Test that search_prompts can combine experiment_id with filter_string."""
+    # Create an experiment
+    exp_id = mlflow.create_experiment("test_search_combined")
+
+    # Register prompts with different names
+    with mlflow.start_run(experiment_id=exp_id):
+        mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{a}}")
+        mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{b}}")
+        mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{c}}")
+
+    # Search with both experiment_id and name filter
+    client = MlflowClient()
+    prompts = client.search_prompts(
+        experiment_id=exp_id, filter_string="name LIKE 'alpha%'"
+    )
+
+    # Should only return alpha_prompt
+    assert len(prompts) == 1
+    assert prompts[0].name == "alpha_prompt"
+
+
+def test_search_prompts_same_prompt_multiple_experiments():
+    """Test that a prompt linked to multiple experiments appears in searches for both."""
+    # Create two experiments
+    exp_id_1 = mlflow.create_experiment("test_multi_exp_1")
+    exp_id_2 = mlflow.create_experiment("test_multi_exp_2")
+
+    # Register a prompt (not in a run)
+    mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
+
+    # Link to both experiments by loading in separate runs
+    with mlflow.start_run(experiment_id=exp_id_1):
+        mlflow.genai.load_prompt("shared_search_prompt", version=1)
+
+    with mlflow.start_run(experiment_id=exp_id_2):
+        mlflow.genai.load_prompt("shared_search_prompt", version=1)
+
+    # Search in both experiments
+    client = MlflowClient()
+    prompts_exp1 = client.search_prompts(experiment_id=exp_id_1)
+    prompts_exp2 = client.search_prompts(experiment_id=exp_id_2)
+
+    # Prompt should appear in both
+    assert len(prompts_exp1) == 1
+    assert prompts_exp1[0].name == "shared_search_prompt"
+
+    assert len(prompts_exp2) == 1
+    assert prompts_exp2[0].name == "shared_search_prompt"

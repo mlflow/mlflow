@@ -1175,6 +1175,16 @@ class SearchModelUtils(SearchUtils):
     VALID_ORDER_BY_KEYS_REGISTERED_MODELS = {"name", "creation_timestamp", "last_updated_timestamp"}
 
     @classmethod
+    def validate_list_supported(cls, key: str) -> None:
+        """Override to allow 'name' attribute to be used with IN/NOT IN."""
+        if key not in ("run_id", "name"):
+            raise MlflowException(
+                "Only the 'run_id' and 'name' attributes support comparison with a list of quoted "
+                "string values.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    @classmethod
     def _does_registered_model_match_clauses(cls, model, sed):
         key_type = sed.get("type")
         key = sed.get("key")
@@ -1321,9 +1331,9 @@ class SearchModelUtils(SearchUtils):
             if token.ttype in cls.STRING_VALUE_TYPES or isinstance(token, Identifier):
                 return cls._strip_quotes(token.value, expect_quoted_value=True)
             elif isinstance(token, Parenthesis):
-                if key != "run_id":
+                if key not in ("run_id", "name"):
                     raise MlflowException(
-                        "Only the 'run_id' attribute supports comparison with a list of quoted "
+                        "Only the 'run_id' and 'name' attributes support comparison with a list of quoted "
                         "string values.",
                         error_code=INVALID_PARAMETER_VALUE,
                     )

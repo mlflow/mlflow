@@ -1220,6 +1220,30 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
+    @requires_sql_backend
+    def add_prompt_to_experiment(self, prompt_name: str, experiment_id: str) -> None:
+        """
+        Link a prompt to an experiment using entity associations.
+
+        Args:
+            prompt_name: Name of the prompt.
+            experiment_id: ID of the experiment to link to.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
+    @requires_sql_backend
+    def get_prompt_names_by_experiment(self, experiment_id: str) -> list[str]:
+        """
+        Get all prompt names associated with an experiment.
+
+        Args:
+            experiment_id: ID of the experiment.
+
+        Returns:
+            List of prompt names linked to the experiment.
+        """
+        raise NotImplementedError(self.__class__.__name__)
+
     @abstractmethod
     def link_traces_to_run(self, trace_ids: list[str], run_id: str) -> None:
         """

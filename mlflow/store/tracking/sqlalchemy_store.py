@@ -4510,6 +4510,75 @@ class SqlAlchemyStore(AbstractStore):
 
             return dataset.to_mlflow_entity()
 
+    def add_prompt_to_experiment(self, prompt_name: str, experiment_id: str) -> None:
+        """
+        Link a prompt to an experiment using entity associations.
+
+        Args:
+            prompt_name: Name of the prompt.
+            experiment_id: ID of the experiment to link to.
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            # Verify experiment exists
+            if not session.query(SqlExperiment).filter_by(experiment_id=str(experiment_id)).first():
+                raise MlflowException(
+                    f"Experiment '{experiment_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Check if association already exists
+            existing_association = (
+                session.query(SqlEntityAssociation)
+                .filter(
+                    SqlEntityAssociation.source_id == prompt_name,
+                    SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                    SqlEntityAssociation.destination_id == str(experiment_id),
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                )
+                .first()
+            )
+
+            # Only create association if it doesn't already exist
+            if not existing_association:
+                association = SqlEntityAssociation(
+                    association_id=uuid.uuid4().hex,
+                    source_id=prompt_name,
+                    source_type=EntityAssociationType.PROMPT,
+                    destination_id=str(experiment_id),
+                    destination_type=EntityAssociationType.EXPERIMENT,
+                )
+                session.add(association)
+                session.commit()
+
+    def get_prompt_names_by_experiment(self, experiment_id: str) -> list[str]:
+        """
+        Get all prompt names associated with an experiment.
+
+        Args:
+            experiment_id: ID of the experiment.
+
+        Returns:
+            List of prompt names linked to the experiment.
+        """
+        from mlflow.entities.entity_type import EntityAssociationType
+
+        with self.ManagedSessionMaker() as session:
+            # Query entity associations for prompts linked to this experiment
+            associations = (
+                session.query(SqlEntityAssociation.source_id)
+                .filter(
+                    SqlEntityAssociation.source_type == EntityAssociationType.PROMPT,
+                    SqlEntityAssociation.destination_type == EntityAssociationType.EXPERIMENT,
+                    SqlEntityAssociation.destination_id == str(experiment_id),
+                )
+                .distinct()
+                .all()
+            )
+
+            return [assoc.source_id for assoc in associations]
+
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
     """

@@ -661,7 +661,26 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+        prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+
+        from mlflow.tracking.fluent import _get_latest_active_run
+
+        if run := _get_latest_active_run():
+            try:
+                self.link_prompt_version_to_experiment(
+                    name=prompt_version.name,
+                    version=prompt_version.version,
+                    experiment_id=run.info.experiment_id,
+                )
+            except Exception:
+                # NB: We should still register the prompt even if experiment linking fails
+                _logger.warning(
+                    f"Failed to link prompt '{prompt_version.name}' version '{prompt_version.version}'"
+                    f" to experiment '{run.info.experiment_id}'.",
+                    exc_info=True,
+                )
+
+        return prompt_version
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -670,6 +689,7 @@ class MlflowClient:
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: str | None = None,
+        experiment_id: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -689,6 +709,9 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            experiment_id (Optional[str]):
+                An experiment ID to filter prompts by. If provided, only prompts
+                linked to this experiment will be returned. Defaults to `None`.
 
         Returns:
             A pageable list of Prompt objects representing prompt metadata:
@@ -705,6 +728,9 @@ class MlflowClient:
                 # Search for prompts
                 prompts = client.search_prompts(filter_string="name LIKE 'greeting%'")
 
+                # Get prompts by experiment
+                prompts = client.search_prompts(experiment_id="1")
+
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
@@ -719,6 +745,7 @@ class MlflowClient:
             filter_string=filter_string,
             max_results=max_results,
             page_token=page_token,
+            experiment_id=experiment_id,
         )
 
     @require_prompt_registry
@@ -811,6 +838,23 @@ class MlflowClient:
             name=name,
             version=version,
             model_id=model_id,
+        )
+
+    def link_prompt_version_to_experiment(
+        self, name: str, version: str, experiment_id: str
+    ) -> None:
+        """
+        Link a prompt version to an experiment.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            experiment_id: The ID of the experiment to link the prompt version to.
+        """
+        return self._get_registry_client().link_prompt_version_to_experiment(
+            name=name,
+            version=version,
+            experiment_id=experiment_id,
         )
 
     def link_prompt_versions_to_trace(

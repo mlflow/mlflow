@@ -764,6 +764,20 @@ def load_prompt(
     # MLflow GenAI evaluation.
     if run := _get_latest_active_run():
         client.link_prompt_version_to_run(run.info.run_id, prompt)
+        # Also link the prompt to the experiment associated with this run
+        try:
+            client.link_prompt_version_to_experiment(
+                name=prompt.name,
+                version=prompt.version,
+                experiment_id=run.info.experiment_id,
+            )
+        except Exception:
+            # NB: We should still load the prompt even if experiment linking fails
+            _logger.warning(
+                f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
+                f" to experiment '{run.info.experiment_id}'.",
+                exc_info=True,
+            )
 
     if link_to_model:
         model_id = model_id or get_active_model_id()
@@ -783,7 +797,7 @@ def load_prompt(
                 except Exception:
                     # NB: We should still load the prompt even if linking fails, since the prompt
                     # is critical to the caller's application logic
-                    _logger.warn(
+                    _logger.warning(
                         f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
                         f" to model '{model_id}'.",
                         exc_info=True,
