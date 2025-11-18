@@ -70,6 +70,7 @@ from mlflow.protos.service_pb2 import (
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
+    DeleteScorer,
     DeleteTag,
     FinalizeLoggedModel,
     GetExperiment,
@@ -77,12 +78,16 @@ from mlflow.protos.service_pb2 import (
     GetLoggedModel,
     GetMetricHistory,
     GetRun,
+    GetScorer,
     ListArtifacts,
+    ListScorers,
+    ListScorerVersions,
     LogBatch,
     LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogParam,
+    RegisterScorer,
     RestoreExperiment,
     RestoreRun,
     SearchExperiments,
@@ -101,10 +106,12 @@ from mlflow.server.auth.routes import (
     CREATE_EXPERIMENT_PERMISSION,
     CREATE_PROMPTLAB_RUN,
     CREATE_REGISTERED_MODEL_PERMISSION,
+    CREATE_SCORER_PERMISSION,
     CREATE_USER,
     CREATE_USER_UI,
     DELETE_EXPERIMENT_PERMISSION,
     DELETE_REGISTERED_MODEL_PERMISSION,
+    DELETE_SCORER_PERMISSION,
     DELETE_USER,
     GATEWAY_PROXY,
     GET_ARTIFACT,
@@ -113,6 +120,7 @@ from mlflow.server.auth.routes import (
     GET_METRIC_HISTORY_BULK_INTERVAL,
     GET_MODEL_VERSION_ARTIFACT,
     GET_REGISTERED_MODEL_PERMISSION,
+    GET_SCORER_PERMISSION,
     GET_TRACE_ARTIFACT,
     GET_USER,
     HOME,
@@ -120,6 +128,7 @@ from mlflow.server.auth.routes import (
     SIGNUP,
     UPDATE_EXPERIMENT_PERMISSION,
     UPDATE_REGISTERED_MODEL_PERMISSION,
+    UPDATE_SCORER_PERMISSION,
     UPDATE_USER_ADMIN,
     UPDATE_USER_PASSWORD,
     UPLOAD_ARTIFACT,
@@ -286,6 +295,24 @@ def _get_permission_from_registered_model_name() -> Permission:
     )
 
 
+def _get_permission_from_scorer_name() -> Permission:
+    experiment_id = _get_request_param("experiment_id")
+    name = _get_request_param("name")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, name, username).permission
+    )
+
+
+def _get_permission_from_scorer_permission_request() -> Permission:
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = authenticate_request().username
+    return _get_permission_from_store_or_default(
+        lambda: store.get_scorer_permission(experiment_id, scorer_name, username).permission
+    )
+
+
 def validate_can_read_experiment():
     return _get_permission_from_experiment_id().can_read
 
@@ -367,6 +394,27 @@ def validate_can_delete_registered_model():
 
 def validate_can_manage_registered_model():
     return _get_permission_from_registered_model_name().can_manage
+
+
+# Scorers
+def validate_can_read_scorer():
+    return _get_permission_from_scorer_name().can_read
+
+
+def validate_can_update_scorer():
+    return _get_permission_from_scorer_name().can_update
+
+
+def validate_can_delete_scorer():
+    return _get_permission_from_scorer_name().can_delete
+
+
+def validate_can_manage_scorer():
+    return _get_permission_from_scorer_name().can_manage
+
+
+def validate_can_manage_scorer_permission():
+    return _get_permission_from_scorer_permission_request().can_manage
 
 
 def sender_is_admin():
@@ -632,6 +680,12 @@ BEFORE_REQUEST_HANDLERS = {
     SetRegisteredModelAlias: validate_can_update_registered_model,
     DeleteRegisteredModelAlias: validate_can_delete_registered_model,
     GetModelVersionByAlias: validate_can_read_registered_model,
+    # Routes for scorers
+    RegisterScorer: validate_can_update_experiment,
+    ListScorers: validate_can_read_experiment,
+    GetScorer: validate_can_read_scorer,
+    DeleteScorer: validate_can_delete_scorer,
+    ListScorerVersions: validate_can_read_scorer,
 }
 
 
@@ -670,6 +724,10 @@ BEFORE_REQUEST_VALIDATORS.update(
         (CREATE_REGISTERED_MODEL_PERMISSION, "POST"): validate_can_manage_registered_model,
         (UPDATE_REGISTERED_MODEL_PERMISSION, "PATCH"): validate_can_manage_registered_model,
         (DELETE_REGISTERED_MODEL_PERMISSION, "DELETE"): validate_can_manage_registered_model,
+        (GET_SCORER_PERMISSION, "GET"): validate_can_manage_scorer_permission,
+        (CREATE_SCORER_PERMISSION, "POST"): validate_can_manage_scorer_permission,
+        (UPDATE_SCORER_PERMISSION, "PATCH"): validate_can_manage_scorer_permission,
+        (DELETE_SCORER_PERMISSION, "DELETE"): validate_can_manage_scorer_permission,
     }
 )
 
@@ -1032,6 +1090,23 @@ def rename_registered_model_permission(resp: Response):
     store.rename_registered_model_permissions(data.get("name"), data.get("new_name"))
 
 
+def set_can_manage_scorer_permission(resp: Response):
+    response_message = RegisterScorer.Response()
+    parse_dict(resp.json, response_message)
+    experiment_id = response_message.experiment_id
+    name = response_message.name
+    username = authenticate_request().username
+    store.create_scorer_permission(experiment_id, name, username, MANAGE.name)
+
+
+def delete_scorer_permissions_cascade(resp: Response):
+    data = request.get_json(force=True, silent=True)
+    experiment_id = data.get("experiment_id")
+    name = data.get("name")
+    if experiment_id and name:
+        store.delete_scorer_permissions_for_scorer(experiment_id, name)
+
+
 AFTER_REQUEST_PATH_HANDLERS = {
     CreateExperiment: set_can_manage_experiment_permission,
     CreateRegisteredModel: set_can_manage_registered_model_permission,
@@ -1040,6 +1115,8 @@ AFTER_REQUEST_PATH_HANDLERS = {
     SearchLoggedModels: filter_search_logged_models,
     SearchRegisteredModels: filter_search_registered_models,
     RenameRegisteredModel: rename_registered_model_permission,
+    RegisterScorer: set_can_manage_scorer_permission,
+    DeleteScorer: delete_scorer_permissions_cascade,
 }
 
 
@@ -1317,6 +1394,44 @@ def delete_registered_model_permission():
     return make_response({})
 
 
+@catch_mlflow_exception
+def create_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    sp = store.create_scorer_permission(experiment_id, scorer_name, username, permission)
+    return jsonify({"scorer_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def get_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    sp = store.get_scorer_permission(experiment_id, scorer_name, username)
+    return make_response({"scorer_permission": sp.to_json()})
+
+
+@catch_mlflow_exception
+def update_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    permission = _get_request_param("permission")
+    store.update_scorer_permission(experiment_id, scorer_name, username, permission)
+    return make_response({})
+
+
+@catch_mlflow_exception
+def delete_scorer_permission():
+    experiment_id = _get_request_param("experiment_id")
+    scorer_name = _get_request_param("scorer_name")
+    username = _get_request_param("username")
+    store.delete_scorer_permission(experiment_id, scorer_name, username)
+    return make_response({})
+
+
 def create_app(app: Flask = app):
     """
     A factory to enable authentication and authorization for the MLflow server.
@@ -1429,6 +1544,26 @@ def create_app(app: Flask = app):
     app.add_url_rule(
         rule=DELETE_REGISTERED_MODEL_PERMISSION,
         view_func=delete_registered_model_permission,
+        methods=["DELETE"],
+    )
+    app.add_url_rule(
+        rule=CREATE_SCORER_PERMISSION,
+        view_func=create_scorer_permission,
+        methods=["POST"],
+    )
+    app.add_url_rule(
+        rule=GET_SCORER_PERMISSION,
+        view_func=get_scorer_permission,
+        methods=["GET"],
+    )
+    app.add_url_rule(
+        rule=UPDATE_SCORER_PERMISSION,
+        view_func=update_scorer_permission,
+        methods=["PATCH"],
+    )
+    app.add_url_rule(
+        rule=DELETE_SCORER_PERMISSION,
+        view_func=delete_scorer_permission,
         methods=["DELETE"],
     )
 

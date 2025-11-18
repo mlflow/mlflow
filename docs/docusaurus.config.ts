@@ -753,6 +753,7 @@ const config: Config = {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
             to: '/ml/deep-learning/pytorch',
             from: [

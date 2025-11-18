@@ -3,148 +3,489 @@ sidebar_position: 1
 sidebar_label: Pytorch
 ---
 
-import Link from "@docusaurus/Link";
-import { CardGroup, PageCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ImageBox from "@site/src/components/ImageBox";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Zap, GitBranch, Package, BookOpen } from "lucide-react";
 
 # MLflow PyTorch Integration
 
-**PyTorch** has revolutionized deep learning with its dynamic computation graphs and intuitive, Pythonic approach to building neural networks.
-Developed by Meta's AI Research lab, PyTorch provides unparalleled flexibility for researchers and developers who need to experiment rapidly
-while maintaining production-ready performance.
+## Introduction
 
-What sets PyTorch apart is its **eager execution model** - unlike static graph frameworks, PyTorch builds computational graphs on-the-fly,
-making debugging intuitive and experimentation seamless. This dynamic nature, combined with its extensive ecosystem and robust community
-support, has made PyTorch the framework of choice for cutting-edge AI research and production deployments.
+**PyTorch** is an open-source deep learning framework developed by Meta's AI Research lab. It provides dynamic computation graphs and a Pythonic API for building neural networks, making it popular for both research and production deep learning applications.
 
-<details>
-  <summary>Why PyTorch Dominates Modern AI</summary>
+MLflow's PyTorch integration provides experiment tracking, model versioning, and deployment capabilities for deep learning workflows.
 
-#### Dynamic Computation Philosophy
-
-- 🔥 **Eager Execution**: Build and modify networks on-the-fly with immediate feedback
-- 🐍 **Pythonic Design**: Write neural networks that feel like natural Python code
-- 🔍 **Easy Debugging**: Use standard Python debugging tools directly on your models
-- ⚡ **Rapid Prototyping**: Iterate faster with immediate execution and dynamic graphs
-
-#### Research-to-Production Pipeline
-
-- 🎓 **Research-First**: Preferred by leading AI labs and academic institutions worldwide
-- 🏭 **Production-Ready**: TorchScript and TorchServe provide robust deployment options
-- 📊 **Ecosystem Richness**: Comprehensive libraries for vision, NLP, audio, and specialized domains
-- 🤝 **Industry Adoption**: Powers AI systems at Meta, Tesla, OpenAI, and countless other organizations
-
-</details>
+<ImageBox src="/images/deep-learning/dl-training-ui.gif" alt="Deep Learning Training" />
 
 ## Why MLflow + PyTorch?
 
-The synergy between MLflow's experiment management and PyTorch's dynamic flexibility creates an unbeatable combination for deep learning workflows:
+<FeatureHighlights
+  features={[
+    {
+      icon: Zap,
+      title: "Autologging",
+      description: "Enable comprehensive experiment tracking with one line: mlflow.pytorch.autolog() automatically logs metrics, parameters, and models.",
+    },
+    {
+      icon: GitBranch,
+      title: "Experiment Tracking",
+      description: "Track training metrics, hyperparameters, model architectures, and artifacts across all PyTorch experiments.",
+    },
+    {
+      icon: Package,
+      title: "Model Registry",
+      description: "Version, stage, and deploy PyTorch models with MLflow's model registry and serving infrastructure.",
+    },
+    {
+      icon: BookOpen,
+      title: "Reproducibility",
+      description: "Capture model states, random seeds, and environments for reproducible deep learning experiments.",
+    },
+  ]}
+/>
 
-- 🚀 **Zero-Friction Tracking**: Enable comprehensive logging with `mlflow.pytorch.autolog()` - one line transforms your entire workflow
-- 🔬 **Dynamic Graph Support**: Track models that change architecture during training - perfect for neural architecture search and adaptive networks
-- 📊 **Real-Time Monitoring**: Watch your training progress live with automatic metric logging and visualization
-- 🎯 **Hyperparameter Optimization**: Seamlessly integrate with Optuna, Ray Tune, and other optimization libraries
-- 🔄 **Experiment Reproducibility**: Capture exact model states, random seeds, and environments for perfect reproducibility
-- 👥 **Collaborative Research**: Share detailed experiment results and model artifacts with your team through MLflow's intuitive interface
+## Getting Started
 
-## Key Features
-
-### One-Line Autologging Magic
-
-Transform your PyTorch training workflow instantly with MLflow's powerful autologging capability:
+Enable comprehensive experiment tracking with one line of code:
 
 ```python
 import mlflow
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
-mlflow.pytorch.autolog()  # That's it! 🎉
+# Enable autologging
+mlflow.pytorch.autolog()
+
+# Create synthetic data
+X = torch.randn(1000, 784)
+y = torch.randint(0, 10, (1000,))
+train_loader = DataLoader(TensorDataset(X, y), batch_size=32, shuffle=True)
 
 # Your existing PyTorch code works unchanged
-for epoch in range(num_epochs):
-    model.train()
-    # ... your training loop stays exactly the same
+model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.CrossEntropyLoss()
+
+# Training loop - metrics, parameters, and models logged automatically
+for epoch in range(10):
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
 ```
 
-<details>
-  <summary>What Gets Automatically Captured</summary>
+Autologging captures training metrics, model parameters, optimizer configuration, and model checkpoints automatically.
 
-#### Metrics & Performance
+:::note PyTorch Lightning Support
+MLflow's autologging works seamlessly with PyTorch Lightning. For vanilla PyTorch with custom training loops, use manual logging as shown in the section below.
+:::
 
-- 📈 **Training Metrics**: Loss values, accuracy, and custom metrics logged automatically every epoch
-- 🎯 **Validation Tracking**: Separate validation metrics with clear train/val distinction
-- ⏱️ **Training Dynamics**: Epoch duration, learning rate schedules, and convergence patterns
-- 🔍 **Gradient Information**: Optional gradient norms and parameter update magnitudes
+## Manual Logging
 
-#### Model Architecture & Parameters
-
-- 🧠 **Model Summary**: Complete architecture overview with layer details and parameter counts
-- ⚙️ **Hyperparameters**: Learning rates, batch sizes, optimizers, and all training configuration
-- 🎛️ **Optimizer State**: Adam beta values, momentum, weight decay, and scheduler parameters
-- 📐 **Model Complexity**: Total parameters, trainable parameters, and memory requirements
-
-#### Artifacts & Reproducibility
-
-- 🤖 **Model Checkpoints**: Complete model state including weights and optimizer state
-- 📊 **Training Plots**: Loss curves, metric progression, and custom visualizations
-- 🌱 **Random Seeds**: Capture and restore exact randomization states for perfect reproducibility
-- 🖼️ **Sample Predictions**: Log model outputs on validation samples for qualitative assessment
-
-#### Smart Experiment Management
-
-- 🚀 **Intelligent Run Handling**: Automatic run creation and management
-- 🔄 **Resume Capability**: Seamlessly continue interrupted training sessions
-- 🏷️ **Automatic Tagging**: Smart tags based on model architecture and training configuration
-
-</details>
-
-### Advanced Logging with Manual APIs
-
-For researchers who need granular control, MLflow provides comprehensive manual logging APIs:
-
-<details>
-  <summary>Precision Logging Capabilities</summary>
-
-- 📊 **Custom Metrics**: Log domain-specific metrics like BLEU scores, IoU, or custom research metrics
-- 🎨 **Rich Visualizations**: Save matplotlib plots, tensorboard logs, and custom visualizations as artifacts
-- 🔧 **Flexible Model Saving**: Choose exactly when and what model states to preserve
-- 📈 **Batch-Level Tracking**: Log metrics at batch granularity for detailed training analysis
-- 🎯 **Conditional Logging**: Implement smart logging based on performance thresholds or training phases
-- 🏷️ **Custom Tags**: Organize experiments with meaningful tags and descriptions
-- 📦 **Artifact Management**: Store datasets, configuration files, and analysis results alongside models
-
-</details>
-
-### Dynamic Graph Excellence
-
-PyTorch's dynamic nature pairs perfectly with MLflow's flexible tracking:
+For standard PyTorch workflows, integrate MLflow logging into your training loop:
 
 ```python
-# Track models that change during training
-if epoch > 50:
-    model.add_layer(new_attention_layer)  # Dynamic architecture changes
-    mlflow.log_param("architecture_change", f"Added attention at epoch {epoch}")
+import mlflow
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
+
+
+# Define model
+class NeuralNetwork(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.flatten = nn.Flatten()
+        self.linear_relu_stack = nn.Sequential(
+            nn.Linear(28 * 28, 512),
+            nn.ReLU(),
+            nn.Linear(512, 10),
+        )
+
+    def forward(self, x):
+        x = self.flatten(x)
+        return self.linear_relu_stack(x)
+
+
+# Training parameters
+params = {
+    "epochs": 5,
+    "learning_rate": 1e-3,
+    "batch_size": 64,
+}
+
+# Training with MLflow logging
+with mlflow.start_run():
+    # Log parameters
+    mlflow.log_params(params)
+
+    # Initialize model and optimizer
+    model = NeuralNetwork()
+    loss_fn = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(model.parameters(), lr=params["learning_rate"])
+
+    # Training loop
+    for epoch in range(params["epochs"]):
+        model.train()
+        train_loss = 0
+        correct = 0
+        total = 0
+
+        for data, target in train_loader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = loss_fn(output, target)
+            loss.backward()
+            optimizer.step()
+
+            train_loss += loss.item()
+            _, predicted = output.max(1)
+            total += target.size(0)
+            correct += predicted.eq(target).sum().item()
+
+        # Log metrics per epoch
+        avg_loss = train_loss / len(train_loader)
+        accuracy = 100.0 * correct / total
+
+        mlflow.log_metrics(
+            {"train_loss": avg_loss, "train_accuracy": accuracy}, step=epoch
+        )
+
+    # Log final model
+    mlflow.pytorch.log_model(model, name="model")
 ```
 
-### Production-Ready Model Management
+## System Metrics Tracking
 
-<details>
-  <summary>Enterprise-Grade ML Operations</summary>
+Track hardware resource utilization during training to monitor GPU usage, memory consumption, and system performance:
 
-- 🚀 **Model Registry**: Version control your PyTorch models with full lineage tracking
-- 📦 **Containerized Deployment**: Deploy models with Docker integration and environment capture
-- 🔄 **A/B Testing Support**: Compare model versions in production with detailed performance tracking
-- 📊 **Performance Monitoring**: Track model drift, latency, and accuracy in production environments
-- 🛡️ **Model Governance**: Approval workflows and access controls for production model deployment
-- ⚡ **Scalable Serving**: Integration with TorchServe, Ray Serve, and cloud deployment platforms
+```python
+import mlflow
+import torch
+import torch.nn as nn
+from torch.utils.data import DataLoader, TensorDataset
 
-</details>
+# Create data and model
+X = torch.randn(1000, 784)
+y = torch.randint(0, 10, (1000,))
+train_loader = DataLoader(TensorDataset(X, y), batch_size=32, shuffle=True)
 
-## Real-World Applications
+model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.CrossEntropyLoss()
 
-The MLflow-PyTorch integration excels across diverse AI domains:
+# Enable system metrics logging
+mlflow.enable_system_metrics_logging()
 
-- 🖼️ **Computer Vision**: Track CNN architectures, data augmentation pipelines, and transfer learning experiments for image classification, object detection, and generative models
-- 📝 **Natural Language Processing**: Log transformer architectures, tokenization strategies, and fine-tuning experiments for language models, chatbots, and text analysis
-- 🎵 **Audio & Speech**: Monitor RNN and transformer models for speech recognition, music generation, and audio analysis
-- 🎮 **Reinforcement Learning**: Track agent performance, reward functions, and policy evolution in game AI and robotics
-- 🔬 **Scientific Computing**: Log physics-informed neural networks, molecular dynamics simulations, and scientific discovery models
-- 📊 **Time Series Forecasting**: Monitor LSTM, GRU, and Transformer models for financial prediction, demand forecasting, and anomaly detection
-- 🧬 **Bioinformatics**: Track protein folding models, genomic analysis, and drug discovery experiments
+with mlflow.start_run():
+    mlflow.log_params({"learning_rate": 0.001, "batch_size": 32, "epochs": 10})
+
+    # Training loop - system metrics logged automatically
+    for epoch in range(10):
+        for data, target in train_loader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+        mlflow.log_metric("loss", loss.item(), step=epoch)
+
+    mlflow.pytorch.log_model(model, name="model")
+```
+
+System metrics logging automatically captures:
+
+- **GPU Metrics**: Utilization percentage, memory usage, temperature, and power consumption
+- **CPU Metrics**: Utilization percentage and memory usage
+- **Disk I/O**: Read/write throughput and utilization
+- **Network I/O**: Network traffic statistics
+
+For PyTorch training, monitoring GPU metrics is especially valuable for:
+
+- Identifying GPU underutilization that may indicate data loading bottlenecks
+- Detecting memory issues before out-of-memory errors occur
+- Optimizing batch sizes based on GPU memory usage
+- Comparing resource efficiency across different model architectures
+
+:::tip Advanced Configuration
+
+You can customize system metrics collection frequency and behavior. See the **[System Metrics documentation](/ml/tracking/system-metrics)** for detailed configuration options.
+
+:::
+
+## Model Logging with Signatures
+
+Log PyTorch models with input/output signatures for better model understanding:
+
+```python
+import mlflow
+import torch
+import torch.nn as nn
+from mlflow.models import infer_signature
+
+model = nn.Sequential(nn.Linear(10, 50), nn.ReLU(), nn.Linear(50, 1))
+
+# Create sample input and output for signature
+input_example = torch.randn(1, 10)
+predictions = model(input_example)
+
+# Infer signature from input/output
+signature = infer_signature(input_example.numpy(), predictions.detach().numpy())
+
+with mlflow.start_run():
+    # Log model with signature and input example
+    mlflow.pytorch.log_model(
+        model,
+        name="pytorch_model",
+        signature=signature,
+        input_example=input_example.numpy(),
+    )
+```
+
+## Model Loading
+
+Load logged PyTorch models for inference:
+
+```python
+# Load as PyTorch model
+model_uri = "runs:/<run_id>/pytorch_model"
+loaded_model = mlflow.pytorch.load_model(model_uri)
+
+# Make predictions
+input_tensor = torch.randn(5, 10)
+predictions = loaded_model(input_tensor)
+
+# Load as PyFunc for generic inference
+pyfunc_model = mlflow.pyfunc.load_model(model_uri)
+predictions = pyfunc_model.predict(input_tensor.numpy())
+```
+
+## Hyperparameter Optimization
+
+Track hyperparameter tuning experiments with MLflow:
+
+```python
+import mlflow
+import optuna
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader, TensorDataset
+
+# Create synthetic dataset for demonstration
+input_size = 784  # e.g., flattened 28x28 images
+output_size = 10  # e.g., 10 classes
+
+X_train = torch.randn(1000, input_size)
+y_train = torch.randint(0, output_size, (1000,))
+X_val = torch.randn(200, input_size)
+y_val = torch.randint(0, output_size, (200,))
+
+train_loader = DataLoader(TensorDataset(X_train, y_train), batch_size=32, shuffle=True)
+val_loader = DataLoader(TensorDataset(X_val, y_val), batch_size=32)
+
+
+def train_and_evaluate(model, optimizer, train_loader, val_loader, epochs=5):
+    """Simple training loop for demonstration."""
+    criterion = nn.CrossEntropyLoss()
+
+    for epoch in range(epochs):
+        model.train()
+        for data, target in train_loader:
+            optimizer.zero_grad()
+            output = model(data)
+            loss = criterion(output, target)
+            loss.backward()
+            optimizer.step()
+
+    # Validation
+    model.eval()
+    val_loss = 0
+    with torch.no_grad():
+        for data, target in val_loader:
+            output = model(data)
+            val_loss += criterion(output, target).item()
+
+    return val_loss / len(val_loader)
+
+
+def objective(trial):
+    """Optuna objective for hyperparameter tuning."""
+
+    with mlflow.start_run(nested=True):
+        # Define hyperparameter search space
+        params = {
+            "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-1, log=True),
+            "hidden_size": trial.suggest_int("hidden_size", 32, 512),
+            "dropout": trial.suggest_float("dropout", 0.1, 0.5),
+        }
+
+        # Log parameters
+        mlflow.log_params(params)
+
+        # Create model
+        model = nn.Sequential(
+            nn.Linear(input_size, params["hidden_size"]),
+            nn.ReLU(),
+            nn.Dropout(params["dropout"]),
+            nn.Linear(params["hidden_size"], output_size),
+        )
+
+        # Train model
+        optimizer = optim.Adam(model.parameters(), lr=params["learning_rate"])
+        val_loss = train_and_evaluate(model, optimizer, train_loader, val_loader)
+
+        # Log validation loss
+        mlflow.log_metric("val_loss", val_loss)
+
+        return val_loss
+
+
+# Run optimization
+with mlflow.start_run(run_name="PyTorch HPO"):
+    study = optuna.create_study(direction="minimize")
+    study.optimize(objective, n_trials=50)
+
+    # Log best parameters
+    mlflow.log_params({f"best_{k}": v for k, v in study.best_params.items()})
+    mlflow.log_metric("best_val_loss", study.best_value)
+```
+
+## Model Registry Integration
+
+Register PyTorch models for version control and deployment:
+
+```python
+import mlflow
+import torch.nn as nn
+from mlflow import MlflowClient
+
+client = MlflowClient()
+
+with mlflow.start_run():
+    # Create a simple model for demonstration
+    model = nn.Sequential(
+        nn.Conv2d(3, 32, 3),
+        nn.ReLU(),
+        nn.MaxPool2d(2),
+        nn.Flatten(),
+        nn.Linear(32 * 15 * 15, 10),
+    )
+
+    # Log model to registry
+    model_info = mlflow.pytorch.log_model(
+        model, name="pytorch_model", registered_model_name="ImageClassifier"
+    )
+
+    # Tag for tracking
+    mlflow.set_tags(
+        {"model_type": "cnn", "dataset": "imagenet", "framework": "pytorch"}
+    )
+
+# Set alias for production deployment
+client.set_registered_model_alias(
+    name="ImageClassifier",
+    alias="champion",
+    version=model_info.registered_model_version,
+)
+```
+
+## Distributed Training
+
+Track distributed PyTorch training experiments:
+
+```python
+import mlflow
+import torch
+import torch.nn as nn
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, TensorDataset
+
+# Create synthetic dataset
+X_train = torch.randn(1000, 784)
+y_train = torch.randint(0, 10, (1000,))
+train_dataset = TensorDataset(X_train, y_train)
+
+# Simple model
+model = nn.Sequential(nn.Linear(784, 128), nn.ReLU(), nn.Linear(128, 10))
+
+
+def train_epoch(model, train_loader):
+    """Simple training epoch for demonstration."""
+    model.train()
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    total_loss = 0
+
+    for data, target in train_loader:
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+        total_loss += loss.item()
+
+    return total_loss / len(train_loader)
+
+
+def train_distributed():
+    # Initialize distributed training
+    dist.init_process_group(backend="nccl")
+    rank = dist.get_rank()
+
+    # Wrap model with DDP
+    model_ddp = DDP(model.to(rank), device_ids=[rank])
+
+    # Create distributed sampler
+    from torch.utils.data.distributed import DistributedSampler
+
+    sampler = DistributedSampler(
+        train_dataset, num_replicas=dist.get_world_size(), rank=rank
+    )
+    train_loader = DataLoader(train_dataset, batch_size=32, sampler=sampler)
+
+    # Only log from rank 0
+    if rank == 0:
+        mlflow.start_run()
+        mlflow.log_params({"world_size": dist.get_world_size(), "backend": "nccl"})
+
+    # Training loop
+    epochs = 10
+    for epoch in range(epochs):
+        sampler.set_epoch(epoch)  # Shuffle data differently each epoch
+        train_loss = train_epoch(model_ddp, train_loader)
+
+        # Log metrics from rank 0 only
+        if rank == 0:
+            mlflow.log_metric("train_loss", train_loss, step=epoch)
+
+    # Save model from rank 0
+    if rank == 0:
+        mlflow.pytorch.log_model(model, name="distributed_model")
+        mlflow.end_run()
+```
+
+## Learn More
+
+<TilesGrid>
+  <TileCard
+    icon={Package}
+    title="Model Registry"
+    description="Version and manage PyTorch models"
+    href="/ml/model-registry"
+  />
+  <TileCard
+    icon={GitBranch}
+    title="MLflow Tracking"
+    description="Track experiments, parameters, and metrics"
+    href="/ml/tracking"
+  />
+</TilesGrid>
