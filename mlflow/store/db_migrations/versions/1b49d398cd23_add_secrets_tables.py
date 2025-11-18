@@ -70,7 +70,6 @@ def upgrade():
     op.create_table(
         "endpoints",
         sa.Column("endpoint_id", sa.String(length=36), nullable=False),
-        sa.Column("secret_id", sa.String(length=36), nullable=False),
         sa.Column("name", sa.String(length=255), nullable=True),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("endpoint_type", sa.String(length=64), nullable=True),
@@ -88,22 +87,15 @@ def upgrade():
             default=lambda: int(time.time() * 1000),
             nullable=False,
         ),
-        sa.ForeignKeyConstraint(
-            ["secret_id"],
-            ["secrets.secret_id"],
-            name="fk_endpoints_secret_id",
-            ondelete="CASCADE",
-        ),
         sa.PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
         sa.UniqueConstraint("name", name="unique_endpoint_name"),
     )
-    with op.batch_alter_table("endpoints", schema=None) as batch_op:
-        batch_op.create_index("index_endpoints_secret_id", ["secret_id"], unique=False)
 
     op.create_table(
         "endpoint_models",
         sa.Column("model_id", sa.String(length=36), nullable=False),
         sa.Column("endpoint_id", sa.String(length=36), nullable=False),
+        sa.Column("secret_id", sa.String(length=36), nullable=False),
         sa.Column("model_name", sa.String(length=256), nullable=False),
         sa.Column("weight", sa.Float(), nullable=False, default=1.0),
         sa.Column("priority", sa.Integer(), nullable=False, default=0),
@@ -129,10 +121,16 @@ def upgrade():
             name="fk_endpoint_models_endpoint_id",
             ondelete="CASCADE",
         ),
+        sa.ForeignKeyConstraint(
+            ["secret_id"],
+            ["secrets.secret_id"],
+            name="fk_endpoint_models_secret_id",
+        ),
         sa.PrimaryKeyConstraint("model_id", name="endpoint_models_pk"),
     )
     with op.batch_alter_table("endpoint_models", schema=None) as batch_op:
         batch_op.create_index("index_endpoint_models_endpoint_id", ["endpoint_id"], unique=False)
+        batch_op.create_index("index_endpoint_models_secret_id", ["secret_id"], unique=False)
         batch_op.create_index("index_endpoint_models_model_name", ["model_name"], unique=False)
 
     op.create_table(
