@@ -149,6 +149,9 @@ def _validate_eval_result_df(result: EvaluationResult):
         assert actual.iloc[i]["expected_response/value"] is not None
         assert actual.iloc[i]["max_length/value"] is not None
 
+    # backwards compatibility
+    assert len(result.tables["eval_results"]) == len(result.result_df)
+
 
 @dataclass
 class ServerConfig:
