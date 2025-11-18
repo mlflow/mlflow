@@ -10442,7 +10442,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
     )
 
     otel_span._attributes = {
-        "llm.model_name": "gpt-4",
+        "llm.models[0].model_name": "gpt-4",
         "llm.input_tokens": 100,
         "llm.output_tokens": 50,
         "custom.key": "custom_value",
@@ -10463,7 +10463,7 @@ def test_batch_get_traces_with_complex_attributes(store: SqlAlchemyStore) -> Non
     assert loaded_span.status.status_code == "ERROR"
     assert loaded_span.status.description == "Test error"
 
-    assert loaded_span.attributes.get("llm.model_name") == "gpt-4"
+    assert loaded_span.attributes.get("llm.models[0].model_name") == "gpt-4"
     assert loaded_span.attributes.get("llm.input_tokens") == 100
     assert loaded_span.attributes.get("llm.output_tokens") == 50
     assert loaded_span.attributes.get("custom.key") == "custom_value"
@@ -11448,7 +11448,7 @@ def test_create_secret_with_route_tags(store: SqlAlchemyStore, kek_passphrase):
 
     assert result.secret.secret_id is not None
     assert result.endpoint.endpoint_id is not None
-    assert result.endpoint.model_name == "gpt-4-turbo"
+    assert result.endpoint.models[0].model_name == "gpt-4-turbo"
     assert result.endpoint.name == "Production GPT-4"
     assert result.endpoint.description == "Production GPT-4 Turbo endpoint for ML scoring"
     assert len(result.endpoint.tags) == 3
@@ -11497,8 +11497,8 @@ def test_create_endpoint_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passp
     assert result3.secret.secret_id == result1.secret.secret_id
     assert result2.endpoint.endpoint_id != result1.endpoint.endpoint_id
     assert result3.endpoint.endpoint_id != result1.endpoint.endpoint_id
-    assert result2.endpoint.model_name == "gpt-3.5-turbo"
-    assert result3.endpoint.model_name == "gpt-4o"
+    assert result2.endpoint.models[0].model_name == "gpt-3.5-turbo"
+    assert result3.endpoint.models[0].model_name == "gpt-4o"
     assert len(result2.endpoint.tags) == 1
     assert result2.endpoint.tags[0].key == "tier"
 
@@ -11703,18 +11703,18 @@ def test_list_secret_endpoints(store: SqlAlchemyStore, kek_passphrase):
 
     routes_secret1 = store._list_secret_endpoints(secret_id=result1.secret.secret_id)
     assert len(routes_secret1) == 1
-    assert routes_secret1[0].secret_id == result1.secret.secret_id
-    assert routes_secret1[0].model_name == "gpt-4"
-    assert routes_secret1[0].secret_name == "openai_key"
-    assert routes_secret1[0].provider == "openai"
+    assert routes_secret1[0].models[0].secret_id == result1.secret.secret_id
+    assert routes_secret1[0].models[0].model_name == "gpt-4"
+    assert routes_secret1[0].models[0].secret_name == "openai_key"
+    assert routes_secret1[0].models[0].provider == "openai"
 
     openai_routes = store._list_secret_endpoints(provider="openai")
     assert len(openai_routes) >= 1
-    assert any(r.model_name == "gpt-4" for r in openai_routes)
+    assert any(r.models[0].model_name == "gpt-4" for r in openai_routes)
 
     anthropic_routes = store._list_secret_endpoints(provider="anthropic")
     assert len(anthropic_routes) >= 1
-    assert any(r.model_name == "claude-3-5-sonnet-20241022" for r in anthropic_routes)
+    assert any(r.models[0].model_name == "claude-3-5-sonnet-20241022" for r in anthropic_routes)
 
     routes_nonexistent = store._list_secret_endpoints(secret_id="nonexistent_secret_id")
     assert len(routes_nonexistent) == 0
@@ -11742,11 +11742,11 @@ def test_list_secret_endpoints_multiple_per_secret(store: SqlAlchemyStore, kek_p
     routes = store._list_secret_endpoints(secret_id=result1.secret.secret_id)
     assert len(routes) == 2
 
-    model_names = {r.model_name for r in routes}
+    model_names = {r.models[0].model_name for r in routes}
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
     for endpoint in routes:
-        assert endpoint.secret_id == result1.secret.secret_id
+        assert endpoint.models[0].secret_id == result1.secret.secret_id
         assert endpoint.created_at > 0
         assert endpoint.last_updated_at > 0
 
@@ -11857,7 +11857,7 @@ def test_update_secret_endpoint_to_existing_secret(store: SqlAlchemyStore, kek_p
     )
 
     assert updated_endpoint.endpoint_id == original_route_id
-    assert updated_endpoint.secret_id == target_secret_id
+    assert updated_endpoint.models[0].secret_id == target_secret_id
     assert updated_endpoint.last_updated_by == "test_updater"
     assert updated_endpoint.last_updated_at > result1.endpoint.created_at
 
@@ -11936,8 +11936,8 @@ def test_update_secret_endpoint_with_new_secret(store: SqlAlchemyStore, kek_pass
     )
 
     assert updated_endpoint.endpoint_id == original_route_id
-    assert updated_endpoint.secret_id == new_secret.secret_id
-    assert updated_endpoint.secret_id != original_secret_id
+    assert updated_endpoint.models[0].secret_id == new_secret.secret_id
+    assert updated_endpoint.models[0].secret_id != original_secret_id
     assert updated_endpoint.last_updated_by == "test_updater"
 
     assert new_secret.secret_name == "new_api_key"
@@ -12026,7 +12026,7 @@ def test_update_secret_endpoint_preserves_bindings(store: SqlAlchemyStore, kek_p
     )
 
     assert updated_endpoint.endpoint_id == result.endpoint.endpoint_id
-    assert updated_endpoint.secret_id != result.secret.secret_id
+    assert updated_endpoint.models[0].secret_id != result.secret.secret_id
 
     bindings_after = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
     binding_ids_after = {b.binding_id for b in bindings_after}
@@ -12082,7 +12082,7 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
 
     openai_routes = store._list_secret_endpoints(provider="openai")
     assert len(openai_routes) == 1
-    assert openai_routes[0].model_name == "gpt-4"
+    assert openai_routes[0].models[0].model_name == "gpt-4"
 
     result2 = store._create_endpoint_and_bind(
         secret_id=result1.secret.secret_id,
@@ -12094,7 +12094,7 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
 
     openai_routes = store._list_secret_endpoints(provider="openai")
     assert len(openai_routes) == 2
-    model_names = {r.model_name for r in openai_routes}
+    model_names = {r.models[0].model_name for r in openai_routes}
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
     job_binding = store._bind_secret_endpoint(
@@ -12116,7 +12116,7 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
 
     openai_routes = store._list_secret_endpoints(provider="openai")
     assert len(openai_routes) == 1
-    assert openai_routes[0].model_name == "gpt-4"
+    assert openai_routes[0].models[0].model_name == "gpt-4"
 
     with pytest.raises(MlflowException, match="Cannot delete the last endpoint"):
         store._delete_secret_endpoint(result1.endpoint.endpoint_id)
@@ -12152,7 +12152,7 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
 
         existing_models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
         assert len(existing_models) == 1
-        assert existing_models[0].model_name == "claude-3-5-sonnet-20241022"
+        assert existing_models[0].models[0].model_name == "claude-3-5-sonnet-20241022"
         assert existing_models[0].weight == 1.0
         assert existing_models[0].priority == 0
 
@@ -12183,19 +12183,19 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
         assert len(sql_endpoint.models) == 3
 
-        model_names = {m.model_name for m in sql_endpoint.models}
+        model_names = {m.models[0].model_name for m in sql_endpoint.models}
         assert model_names == {
             "claude-3-5-sonnet-20241022",
             "claude-3-5-haiku-20241022",
             "claude-3-opus-20240229",
         }
 
-        weights = {m.model_name: m.weight for m in sql_endpoint.models}
+        weights = {m.models[0].model_name: m.weight for m in sql_endpoint.models}
         assert weights["claude-3-5-sonnet-20241022"] == 1.0
         assert weights["claude-3-5-haiku-20241022"] == 0.3
         assert weights["claude-3-opus-20240229"] == 0.2
 
-        priorities = {m.model_name: m.priority for m in sql_endpoint.models}
+        priorities = {m.models[0].model_name: m.priority for m in sql_endpoint.models}
         assert priorities["claude-3-5-sonnet-20241022"] == 0
         assert priorities["claude-3-5-haiku-20241022"] == 1
         assert priorities["claude-3-opus-20240229"] == 2
@@ -12203,12 +12203,12 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         endpoint_entity = sql_endpoint.to_mlflow_entity()
         assert endpoint_entity.endpoint_id == endpoint_id
         assert endpoint_entity.secret_id == secret_id
-        assert endpoint_entity.model_name == "claude-3-5-sonnet-20241022"
+        assert endpoint_entity.models[0].model_name == "claude-3-5-sonnet-20241022"
 
     routes = store._list_secret_endpoints(secret_id=secret_id)
     assert len(routes) == 1
     assert routes[0].endpoint_id == endpoint_id
-    assert routes[0].model_name == "claude-3-5-sonnet-20241022"
+    assert routes[0].models[0].model_name == "claude-3-5-sonnet-20241022"
 
 
 def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
@@ -12259,15 +12259,15 @@ def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
 
     openai_routes = store._list_secret_endpoints(provider="openai")
     assert len(openai_routes) == 1
-    assert openai_routes[0].model_name == "gpt-4"
+    assert openai_routes[0].models[0].model_name == "gpt-4"
 
     anthropic_routes = store._list_secret_endpoints(provider="anthropic")
     assert len(anthropic_routes) == 1
-    assert anthropic_routes[0].model_name == "claude-3-5-sonnet-20241022"
+    assert anthropic_routes[0].models[0].model_name == "claude-3-5-sonnet-20241022"
 
     google_routes = store._list_secret_endpoints(provider="google")
     assert len(google_routes) == 1
-    assert google_routes[0].model_name == "gemini-2.0-flash"
+    assert google_routes[0].models[0].model_name == "gemini-2.0-flash"
 
 
 def test_global_secrets_resource_type_filter(store: SqlAlchemyStore, kek_passphrase):

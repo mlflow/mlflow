@@ -2375,6 +2375,8 @@ class SqlEndpointModel(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            secret_name=self.secret.secret_name if self.secret else "",
+            provider=self.secret.provider if self.secret else "",
         )
 
 

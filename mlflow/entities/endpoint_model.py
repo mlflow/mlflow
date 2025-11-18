@@ -28,6 +28,8 @@ class EndpointModel(_MlflowObject):
         last_updated_at: Last update timestamp in milliseconds since the UNIX epoch.
         created_by: String containing the user ID who created the model, or None.
         last_updated_by: String containing the user ID who last updated the model, or None.
+        secret_name: String containing the secret name (for UI display). Optional.
+        provider: String containing the LLM provider (for UI display). Optional.
     """
 
     model_id: str
@@ -40,3 +42,5 @@ class EndpointModel(_MlflowObject):
     priority: int = 0
     created_by: str | None = None
     last_updated_by: str | None = None
+    secret_name: str = ""
+    provider: str = ""
