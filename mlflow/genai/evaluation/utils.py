@@ -438,7 +438,6 @@ def _group_traces_by_session(eval_items: list["EvalResult"]) -> dict[str, list[t
         session_id = item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
         if session_id:
             session_groups[session_id].append((item, item.trace))
-        # Note: Traces without session_id are excluded from multi-turn evaluation
 
     return dict(session_groups)
 

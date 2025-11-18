@@ -574,6 +574,20 @@ def test_validate_tags_invalid(tags, expected_error):
 # ==================== Tests for Multi-Turn Helper Functions ====================
 
 
+class _MultiTurnTestScorer(mlflow.genai.Scorer):
+    """Test scorer that simulates a multi-turn scorer by overriding is_multi_turn property."""
+
+    def __init__(self, name: str = "multi_turn_test_scorer"):
+        super().__init__(name=name)
+
+    @property
+    def is_multi_turn(self) -> bool:
+        return True
+
+    def __call__(self, session_traces=None, **kwargs):
+        return 1.0
+
+
 def test_classify_scorers_all_single_turn():
     """Test that all scorers are classified as single-turn when none are multi-turn."""
 
@@ -595,22 +609,18 @@ def test_classify_scorers_all_single_turn():
 
 def test_classify_scorers_all_multi_turn():
     """Test that all scorers are classified as multi-turn when all have is_multi_turn=True."""
+    multi_turn_scorer1 = _MultiTurnTestScorer(name="multi_turn_scorer1")
+    multi_turn_scorer2 = _MultiTurnTestScorer(name="multi_turn_scorer2")
 
-    # Create mock scorers with is_multi_turn property
-    mock_scorer1 = Mock(spec=["is_multi_turn", "name"])
-    mock_scorer1.is_multi_turn = True
-    mock_scorer1.name = "multi_turn_scorer1"
-
-    mock_scorer2 = Mock(spec=["is_multi_turn", "name"])
-    mock_scorer2.is_multi_turn = True
-    mock_scorer2.name = "multi_turn_scorer2"
-
-    scorers_list = [mock_scorer1, mock_scorer2]
+    scorers_list = [multi_turn_scorer1, multi_turn_scorer2]
     single_turn, multi_turn = _classify_scorers(scorers_list)
 
     assert len(single_turn) == 0
     assert len(multi_turn) == 2
     assert multi_turn == scorers_list
+    # Verify they are actually multi-turn
+    assert multi_turn_scorer1.is_multi_turn is True
+    assert multi_turn_scorer2.is_multi_turn is True
 
 
 def test_classify_scorers_mixed():
@@ -620,17 +630,18 @@ def test_classify_scorers_mixed():
     def single_turn_scorer(outputs):
         return 1.0
 
-    mock_multi_turn = Mock(spec=["is_multi_turn", "name"])
-    mock_multi_turn.is_multi_turn = True
-    mock_multi_turn.name = "multi_turn_scorer"
+    multi_turn_scorer = _MultiTurnTestScorer(name="multi_turn_scorer")
 
-    scorers_list = [single_turn_scorer, mock_multi_turn]
+    scorers_list = [single_turn_scorer, multi_turn_scorer]
     single_turn, multi_turn = _classify_scorers(scorers_list)
 
     assert len(single_turn) == 1
     assert len(multi_turn) == 1
     assert single_turn[0] == single_turn_scorer
-    assert multi_turn[0] == mock_multi_turn
+    assert multi_turn[0] == multi_turn_scorer
+    # Verify properties
+    assert single_turn_scorer.is_multi_turn is False
+    assert multi_turn_scorer.is_multi_turn is True
 
 
 def test_classify_scorers_empty_list():
