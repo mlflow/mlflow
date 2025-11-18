@@ -332,4 +332,3 @@ class TraceSource(str, Enum):
 
 class TracesReceivedByServerEvent(Event):
     name: str = "traces_received_by_server"
-
