@@ -102,6 +102,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to virtualenv.
@@ -136,6 +137,7 @@ environment manager. The following values are supported:
 \b
 - local: use the local environment
 - virtualenv: use virtualenv (and pyenv for Python version management)
+- uv: use uv
 - conda: use conda
 
 If unspecified, default to None, then MLflow will automatically pick the env manager
