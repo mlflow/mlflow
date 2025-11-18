@@ -74,12 +74,18 @@ class TraceData:
     def request(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
-            return span._span.attributes.get(SpanAttributeKey.INPUTS)
-        return None
+            inputs = span._span.attributes.get(SpanAttributeKey.INPUTS)
+            # Return empty dict if inputs is None (e.g., from third-party OTEL clients)
+            # to ensure compatibility with mlflow.genai.evaluate
+            return inputs if inputs is not None else "{}"
+        return "{}"
 
     @property
     def response(self) -> str | None:
         if span := self._get_root_span():
             # Accessing the OTel span directly get serialized value directly.
-            return span._span.attributes.get(SpanAttributeKey.OUTPUTS)
-        return None
+            outputs = span._span.attributes.get(SpanAttributeKey.OUTPUTS)
+            # Return empty string if outputs is None (e.g., from third-party OTEL clients)
+            # to ensure compatibility with mlflow.genai.evaluate
+            return outputs if outputs is not None else '""'
+        return '""'

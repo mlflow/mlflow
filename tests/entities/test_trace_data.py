@@ -2,10 +2,24 @@ import json
 from unittest import mock
 
 import pytest
+from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
+from opentelemetry.trace import SpanContext
 
 import mlflow
-from mlflow.entities import SpanType, TraceData
+from mlflow.entities import (
+    Span,
+    SpanStatus,
+    SpanStatusCode,
+    SpanType,
+    Trace,
+    TraceData,
+    TraceInfo,
+)
 from mlflow.entities.span_event import SpanEvent
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.utils import dump_span_attribute_value
 
 
 def test_json_deserialization():
@@ -230,5 +244,98 @@ def test_request_and_response_are_still_available():
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_data = trace.data
-    assert trace_data.request is None
-    assert trace_data.response is None
+    assert trace_data.request == "{}"
+    assert trace_data.response == '""'
+
+
+@pytest.fixture
+def span_without_inputs():
+    trace_id = 12345
+    span_id = 67890
+
+    context = SpanContext(
+        trace_id=trace_id,
+        span_id=span_id,
+        is_remote=False,
+        trace_flags=0x01,
+    )
+
+    otel_span = OTelReadableSpan(
+        name="external_function",
+        context=context,
+        parent=None,
+        start_time=1000000000,
+        end_time=1001000000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(f"tr-test-{trace_id}"),
+            SpanAttributeKey.SPAN_TYPE: dump_span_attribute_value("UNKNOWN"),
+            SpanAttributeKey.OUTPUTS: dump_span_attribute_value("some output"),
+            "custom.attribute": "some_value",
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        events=[],
+        resource=None,
+    )
+
+    return Span(otel_span)
+
+
+def test_trace_data_request_returns_empty_dict_when_span_has_no_inputs(span_without_inputs):
+    trace_data = TraceData(spans=[span_without_inputs])
+
+    assert trace_data.request == "{}"
+
+
+def test_trace_data_request_returns_empty_dict_when_no_root_span():
+    trace_id = 12345
+    parent_id = 11111
+    span_id = 67890
+
+    context = SpanContext(
+        trace_id=trace_id,
+        span_id=span_id,
+        is_remote=False,
+        trace_flags=0x01,
+    )
+
+    parent_context = SpanContext(
+        trace_id=trace_id,
+        span_id=parent_id,
+        is_remote=False,
+        trace_flags=0x01,
+    )
+
+    otel_span = OTelReadableSpan(
+        name="child_span",
+        context=context,
+        parent=parent_context,
+        start_time=1000000000,
+        end_time=1001000000,
+        attributes={
+            SpanAttributeKey.REQUEST_ID: dump_span_attribute_value(f"tr-test-{trace_id}"),
+        },
+        status=SpanStatus(SpanStatusCode.OK).to_otel_status(),
+        events=[],
+        resource=None,
+    )
+
+    span = Span(otel_span)
+    trace_data = TraceData(spans=[span])
+
+    assert trace_data.request == "{}"
+
+
+def test_trace_to_dataframe_with_missing_inputs(span_without_inputs):
+    trace_info = TraceInfo(
+        trace_id=span_without_inputs.trace_id,
+        trace_location=TraceLocation.from_experiment_id("1"),
+        request_time=1000,
+        execution_duration=1000,
+        state=TraceState.OK,
+    )
+    trace = Trace(info=trace_info, data=TraceData(spans=[span_without_inputs]))
+
+    row = trace.to_pandas_dataframe_row()
+
+    assert row["request"] == {}
+    assert row["response"] == "some output"
