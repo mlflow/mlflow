@@ -364,6 +364,10 @@ class CustomLangchainTracer(MlflowLangchainTracer):
         )
 ```
 
+### Using the Custom Tracer
+
+Once you have defined your custom tracer, you need to integrate it into your LangChain workflow. There are two main approaches:
+
 ## Disable auto-tracing
 
 Auto tracing for LangChain can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
