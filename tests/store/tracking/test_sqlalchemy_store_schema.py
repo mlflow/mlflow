@@ -9,6 +9,10 @@ from alembic.migration import MigrationContext
 from alembic.script import ScriptDirectory
 
 import mlflow.db
+
+# Import workspace models temporarily for tests to pass.
+# This can be removed once we have a workspace store imported.
+import mlflow.store.workspace.dbmodels as _workspace_models  # noqa: F401
 from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
 from mlflow.store.db.utils import _get_alembic_config, _verify_schema
