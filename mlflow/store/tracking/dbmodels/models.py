@@ -2298,11 +2298,11 @@ class SqlEndpointModel(Base):
     Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
     """
     secret_id = Column(
-        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
+        String(36), ForeignKey("secrets.secret_id"), nullable=False
     )
     """
     Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
-    References the API key used for this specific model.
+    Each model has its own secret/credential for authentication.
     """
     model_name = Column(String(256), nullable=False)
     """
