@@ -2171,13 +2171,6 @@ class SqlEndpoint(Base):
     """
     Endpoint ID: `String` (limit 36 characters). *Primary Key* for ``endpoints`` table.
     """
-    secret_id = Column(
-        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
-    )
-    """
-    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
-    References the API key used for this endpoint.
-    """
     name = Column(String(255), nullable=True)
     """
     Display name: `String` (limit 255 characters). Optional user-friendly name.
@@ -2208,15 +2201,9 @@ class SqlEndpoint(Base):
     Last update timestamp: `BigInteger`.
     """
 
-    secret = relationship("SqlSecret", backref=backref("endpoints", cascade="all"))
-    """
-    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
-    """
-
     __table_args__ = (
         PrimaryKeyConstraint("endpoint_id", name="endpoints_pk"),
         UniqueConstraint("name", name="unique_endpoint_name"),
-        Index("index_endpoints_secret_id", "secret_id"),
     )
 
     def __repr__(self):
@@ -2242,18 +2229,25 @@ class SqlEndpointModel(Base):
     """
     Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
     """
+    secret_id = Column(
+        String(36), ForeignKey("secrets.secret_id"), nullable=False
+    )
+    """
+    Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
+    Each model has its own secret/credential for authentication.
+    """
     model_name = Column(String(256), nullable=False)
     """
     Model name: `String` (limit 256 characters). Required.
     E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo", "gemini-2.5-pro".
     """
-    weight = Column(sa.Float, nullable=False, default=1.0)
+    routing_config = Column(Text, nullable=True)
     """
-    Traffic weight: `Float`. For traffic splitting. All weights for an endpoint should sum to 1.0.
-    """
-    priority = Column(Integer, nullable=False, default=0)
-    """
-    Failover priority: `Integer`. Lower values = higher priority. For failover routing.
+    Routing configuration: `Text` (JSON string). Optional configuration for traffic routing.
+    Can store flexible JSON for future routing strategies like:
+    - Traffic splitting: {"weight": 0.5}
+    - Failover priority: {"priority": 1}
+    - Custom strategies: {"strategy": "round_robin", "params": {...}}
     """
     encrypted_model_config = Column(LargeBinary, nullable=True)
     """
@@ -2287,10 +2281,15 @@ class SqlEndpointModel(Base):
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlEndpoint`.
     """
+    secret = relationship("SqlSecret")
+    """
+    SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
+    """
 
     __table_args__ = (
         PrimaryKeyConstraint("model_id", name="endpoint_models_pk"),
         Index("index_endpoint_models_endpoint_id", "endpoint_id"),
+        Index("index_endpoint_models_secret_id", "secret_id"),
         Index("index_endpoint_models_model_name", "model_name"),
     )
 

@@ -5,6 +5,19 @@ CREATE TABLE alembic_version (
 )
 
 
+CREATE TABLE endpoints (
+	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	endpoint_type VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_at BIGINT NOT NULL,
+	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id)
+)
+
+
 CREATE TABLE entity_associations (
 	association_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	source_type VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
@@ -131,18 +144,30 @@ CREATE TABLE datasets (
 )
 
 
-CREATE TABLE endpoints (
+CREATE TABLE endpoint_models (
+	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	secret_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	description VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	endpoint_type VARCHAR(64) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	model_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	routing_config VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	encrypted_model_config VARBINARY,
+	wrapped_model_config_dek VARBINARY,
 	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	created_at BIGINT NOT NULL,
 	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT endpoints_pk PRIMARY KEY (endpoint_id),
-	CONSTRAINT fk_endpoints_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id) ON DELETE CASCADE
+	CONSTRAINT endpoint_models_pk PRIMARY KEY (model_id),
+	CONSTRAINT fk_endpoint_models_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE,
+	CONSTRAINT fk_endpoint_models_secret_id FOREIGN KEY(secret_id) REFERENCES secrets (secret_id)
+)
+
+
+CREATE TABLE endpoint_tags (
+	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT endpoint_tags_pk PRIMARY KEY (endpoint_id, key),
+	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -276,6 +301,21 @@ CREATE TABLE secret_tags (
 )
 
 
+CREATE TABLE secrets_bindings (
+	binding_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	resource_type VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	resource_id VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	field_name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	created_at BIGINT NOT NULL,
+	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	last_updated_at BIGINT NOT NULL,
+	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT secrets_bindings_pk PRIMARY KEY (binding_id),
+	CONSTRAINT fk_secrets_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE trace_info (
 	request_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -318,32 +358,6 @@ CREATE TABLE assessments (
 	assessment_metadata VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	CONSTRAINT assessments_pk PRIMARY KEY (assessment_id),
 	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE endpoint_models (
-	model_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	model_name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	weight FLOAT NOT NULL,
-	priority INTEGER NOT NULL,
-	encrypted_model_config VARBINARY,
-	wrapped_model_config_dek VARBINARY,
-	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	created_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	last_updated_at BIGINT NOT NULL,
-	CONSTRAINT endpoint_models_pk PRIMARY KEY (model_id),
-	CONSTRAINT fk_endpoint_models_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE endpoint_tags (
-	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(5000) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	CONSTRAINT endpoint_tags_pk PRIMARY KEY (endpoint_id, key),
-	CONSTRAINT fk_endpoint_tags_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
@@ -437,21 +451,6 @@ CREATE TABLE scorer_versions (
 	creation_time BIGINT,
 	CONSTRAINT scorer_version_pk PRIMARY KEY (scorer_id, scorer_version),
 	CONSTRAINT fk_scorer_versions_scorer_id FOREIGN KEY(scorer_id) REFERENCES scorers (scorer_id) ON DELETE CASCADE
-)
-
-
-CREATE TABLE secrets_bindings (
-	binding_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	endpoint_id VARCHAR(36) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	resource_type VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	resource_id VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	field_name VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	created_at BIGINT NOT NULL,
-	created_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	last_updated_at BIGINT NOT NULL,
-	last_updated_by VARCHAR(255) COLLATE "SQL_Latin1_General_CP1_CI_AS",
-	CONSTRAINT secrets_bindings_pk PRIMARY KEY (binding_id),
-	CONSTRAINT fk_secrets_bindings_endpoint_id FOREIGN KEY(endpoint_id) REFERENCES endpoints (endpoint_id) ON DELETE CASCADE
 )
 
 
