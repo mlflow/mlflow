@@ -61,7 +61,7 @@ def rm_data(registered_model_names, tmp_path):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="Filesystem model registry backend.*is deprecated"):
+    with pytest.warns(FutureWarning, match="Filesystem tracking backend.* deprecated"):
         FileStore(str(tmp_path / "model_registry"))
 
 
