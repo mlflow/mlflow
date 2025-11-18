@@ -103,13 +103,16 @@ from mlflow.protos.service_pb2 import (
     CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
+    CreateEndpointAndBind,
     CreateExperiment,
     CreateLoggedModel,
-    CreateEndpointAndBind,
     CreateRun,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
+    DeleteEndpoint,
+    DeleteEndpointBinding,
+    DeleteEndpointTag,
     DeleteExperiment,
     DeleteExperimentTag,
     DeleteLoggedModel,
@@ -117,9 +120,6 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteScorer,
     DeleteSecret,
-    DeleteEndpointBinding,
-    DeleteEndpoint,
-    DeleteEndpointTag,
     DeleteSecretTag,
     DeleteTag,
     DeleteTraces,
@@ -145,11 +145,11 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     LinkTracesToRun,
     ListArtifacts,
+    ListEndpointBindings,
+    ListEndpoints,
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
-    ListEndpointBindings,
-    ListEndpoints,
     ListSecrets,
     LogBatch,
     LogInputs,
@@ -171,9 +171,9 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetDatasetTags,
+    SetEndpointTag,
     SetExperimentTag,
     SetLoggedModelTags,
-    SetEndpointTag,
     SetSecretTag,
     SetTag,
     SetTraceTag,
@@ -181,10 +181,10 @@ from mlflow.protos.service_pb2 import (
     StartTrace,
     StartTraceV3,
     UpdateAssessment,
+    UpdateEndpoint,
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
-    UpdateEndpoint,
     UpsertDatasetRecords,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
@@ -3797,7 +3797,7 @@ def _create_and_bind_secret():
 
     response_message = CreateAndBindSecret.Response()
     response_message.secret.CopyFrom(result.secret.to_proto())
-    response_message.route.CopyFrom(result.route.to_proto())
+    response_message.endpoint.CopyFrom(result.endpoint.to_proto())
     response_message.binding.CopyFrom(result.binding.to_proto())
     return _wrap_response(response_message)
 
@@ -3846,7 +3846,7 @@ def _create_route_and_bind():
 
     response_message = CreateEndpointAndBind.Response()
     response_message.secret.CopyFrom(result.secret.to_proto())
-    response_message.route.CopyFrom(result.route.to_proto())
+    response_message.endpoint.CopyFrom(result.endpoint.to_proto())
     response_message.binding.CopyFrom(result.binding.to_proto())
     return _wrap_response(response_message)
 
@@ -3960,7 +3960,7 @@ def _list_secret_bindings():
         resource_id=request_message.resource_id
         if request_message.HasField("resource_id")
         else None,
-        route_id=request_message.route_id if request_message.HasField("route_id") else None,
+        endpoint_id=request_message.endpoint_id if request_message.HasField("endpoint_id") else None,
     )
 
     response_message = ListEndpointBindings.Response()
@@ -4027,7 +4027,7 @@ def _set_secret_route_tag():
     from mlflow.entities import EndpointTag
 
     _get_tracking_store().set_secret_route_tag(
-        route_id=request_message.route_id,
+        endpoint_id=request_message.endpoint_id,
         tag=EndpointTag(key=request_message.key, value=request_message.value),
     )
 
@@ -4047,7 +4047,7 @@ def _delete_secret_route_tag():
     )
 
     _get_tracking_store().delete_secret_route_tag(
-        route_id=request_message.route_id,
+        endpoint_id=request_message.endpoint_id,
         key=request_message.key,
     )
 
@@ -4087,7 +4087,7 @@ def _delete_secret_route():
         },
     )
 
-    _get_tracking_store()._delete_secret_route(route_id=request_message.route_id)
+    _get_tracking_store()._delete_secret_route(endpoint_id=request_message.endpoint_id)
 
     response_message = DeleteEndpoint.Response()
     return _wrap_response(response_message)
@@ -4113,13 +4113,13 @@ def _update_secret_route():
 
     if request_message.HasField("secret_id"):
         route = store._update_secret_route(
-            route_id=request_message.route_id,
+            endpoint_id=request_message.endpoint_id,
             secret_id=request_message.secret_id,
         )
         secret = store._get_secret_info(secret_id=request_message.secret_id)
     elif request_message.HasField("secret_name") and request_message.HasField("secret_value"):
         secret, route = store._update_secret_route_with_new_secret(
-            route_id=request_message.route_id,
+            endpoint_id=request_message.endpoint_id,
             secret_name=request_message.secret_name,
             secret_value=request_message.secret_value,
             provider=request_message.provider if request_message.HasField("provider") else None,
@@ -4136,7 +4136,7 @@ def _update_secret_route():
         )
 
     response_message = UpdateEndpoint.Response()
-    response_message.route.CopyFrom(route.to_proto())
+    response_message.endpoint.CopyFrom(route.to_proto())
     response_message.secret.CopyFrom(secret.to_proto())
     return _wrap_response(response_message)
 
@@ -4155,7 +4155,7 @@ def _bind_secret_route():
     )
 
     binding = _get_tracking_store()._bind_secret_route(
-        route_id=request_message.route_id,
+        endpoint_id=request_message.endpoint_id,
         resource_type=request_message.resource_type,
         resource_id=request_message.resource_id,
         field_name=request_message.field_name,

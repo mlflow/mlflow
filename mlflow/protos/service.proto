@@ -3896,31 +3896,54 @@ message Secret {
   optional string model = 11;
 }
 
-// Secret route entity representing a route configuration for an LLM provider.
-message Endpoint {
-  // Unique identifier for the route (UUID).
-  optional string endpoint_id = 1;
-  // Secret ID this route uses.
-  optional string secret_id = 2;
+// Model configuration within an endpoint.
+message EndpointModel {
+  // Unique identifier for this model configuration (UUID).
+  optional string model_id = 1;
+  // Endpoint ID this model belongs to.
+  optional string endpoint_id = 2;
   // Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo").
   optional string model_name = 3;
+  // Secret ID this model uses for authentication.
+  optional string secret_id = 4;
+  // Traffic weight for load balancing (0.0-1.0). Weights across all models should sum to 1.0.
+  optional double weight = 5;
+  // Priority for fallback ordering. Higher priority models are tried first.
+  optional int32 priority = 6;
   // Creation timestamp in milliseconds since UNIX epoch.
-  optional int64 created_at = 4;
+  optional int64 created_at = 7;
   // Last update timestamp in milliseconds since UNIX epoch.
-  optional int64 last_updated_at = 5;
-  // Optional display name for the route.
-  optional string name = 6;
-  // Optional description for the route.
-  optional string description = 7;
-  // User ID who created the route.
-  optional string created_by = 8;
-  // User ID who last updated the route.
-  optional string last_updated_by = 9;
-  // Route tags.
-  repeated EndpointTag tags = 10;
+  optional int64 last_updated_at = 8;
+  // User ID who created the model configuration.
+  optional string created_by = 9;
+  // User ID who last updated the model configuration.
+  optional string last_updated_by = 10;
   // Display fields populated by list operations (from joined secret table)
   optional string secret_name = 11;
   optional string provider = 12;
+}
+
+// Endpoint entity representing a routing configuration for LLM models.
+// An endpoint can contain multiple models, each with its own secret for authentication.
+message Endpoint {
+  // Unique identifier for the endpoint (UUID).
+  optional string endpoint_id = 1;
+  // Creation timestamp in milliseconds since UNIX epoch.
+  optional int64 created_at = 2;
+  // Last update timestamp in milliseconds since UNIX epoch.
+  optional int64 last_updated_at = 3;
+  // Optional display name for the endpoint.
+  optional string name = 4;
+  // Optional description for the endpoint.
+  optional string description = 5;
+  // User ID who created the endpoint.
+  optional string created_by = 6;
+  // User ID who last updated the endpoint.
+  optional string last_updated_by = 7;
+  // Endpoint tags.
+  repeated EndpointTag tags = 8;
+  // Models configured in this endpoint.
+  repeated EndpointModel models = 9;
 }
 
 // Tag for a secret.
@@ -3975,13 +3998,13 @@ message SecretWithBinding {
   optional EndpointBinding binding = 2;
 }
 
-// Result of atomically creating a gateway asset (secret + route + binding).
+// Result of atomically creating a gateway asset (secret + endpoint + binding).
 message SecretWithRouteAndBinding {
   // The created secret metadata.
   optional Secret secret = 1;
-  // The created route configuration.
-  optional Endpoint route = 2;
-  // The initial binding for the route.
+  // The created endpoint configuration.
+  optional Endpoint endpoint = 2;
+  // The initial binding for the endpoint.
   optional EndpointBinding binding = 3;
 }
 
@@ -4027,9 +4050,9 @@ message CreateAndBindSecret {
   message Response {
     // The created secret metadata.
     optional Secret secret = 1;
-    // The created route configuration.
-    optional Endpoint route = 2;
-    // The initial binding for the route.
+    // The created endpoint configuration.
+    optional Endpoint endpoint = 2;
+    // The initial binding for the endpoint.
     optional EndpointBinding binding = 3;
   }
 }
@@ -4061,9 +4084,9 @@ message CreateEndpointAndBind {
   message Response {
     // The existing secret metadata.
     optional Secret secret = 1;
-    // The created route configuration.
-    optional Endpoint route = 2;
-    // The created binding for the route.
+    // The created endpoint configuration.
+    optional Endpoint endpoint = 2;
+    // The created binding for the endpoint.
     optional EndpointBinding binding = 3;
   }
 }
@@ -4221,8 +4244,8 @@ message UpdateEndpoint {
   optional string auth_config = 7;
 
   message Response {
-    // The updated route.
-    optional Endpoint route = 1;
+    // The updated endpoint.
+    optional Endpoint endpoint = 1;
     // The secret (existing or newly created).
     optional Secret secret = 2;
   }

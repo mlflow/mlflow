@@ -7,10 +7,10 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 
 import mlflow
 from mlflow.entities import (
+    Endpoint,
     ScorerVersion,
     Secret,
     SecretBinding,
-    Endpoint,
     SecretWithEndpointAndBinding,
     Span,
     Trace,
@@ -63,9 +63,9 @@ from mlflow.protos.service_pb2 import (
     GetBackendInfo,
     GetScorer,
     GetSecretInfo,
+    ListEndpointBindings,
     ListScorers,
     ListScorerVersions,
-    ListEndpointBindings,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -2046,19 +2046,31 @@ def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
         last_updated_by="user@example.com",
         provider="openai",
     )
+    from mlflow.entities.endpoint_model import EndpointModel
+
     route = Endpoint(
-        route_id="route-789",
-        secret_id="secret-123",
-        model_name="gpt-4-turbo",
+        endpoint_id="route-789",
         name="Production GPT-4",
         created_at=1234567890000,
         last_updated_at=1234567890000,
         created_by="user@example.com",
         last_updated_by="user@example.com",
+        models=[
+            EndpointModel(
+                model_id="model-1",
+                endpoint_id="route-789",
+                model_name="gpt-4-turbo",
+                secret_id="secret-123",
+                weight=1.0,
+                priority=1,
+                created_at=1234567890000,
+                last_updated_at=1234567890000,
+            )
+        ],
     )
     binding = SecretBinding(
         binding_id="binding-456",
-        route_id="route-789",
+        endpoint_id="route-789",
         secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-abc123",
@@ -2068,7 +2080,7 @@ def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
         created_by="user@example.com",
         last_updated_by="user@example.com",
     )
-    result = SecretWithEndpointAndBinding(secret=secret, route=route, binding=binding)
+    result = SecretWithEndpointAndBinding(secret=secret, endpoint=route, binding=binding)
 
     mock_tracking_store._create_and_bind_secret.return_value = result
 
@@ -2092,15 +2104,16 @@ def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
 
     response_data = json.loads(resp.get_data())
     assert "secret" in response_data
-    assert "route" in response_data
+    assert "endpoint" in response_data
     assert "binding" in response_data
     assert response_data["secret"]["secret_id"] == "secret-123"
     assert response_data["secret"]["provider"] == "openai"
-    assert response_data["route"]["route_id"] == "route-789"
-    assert response_data["route"]["model_name"] == "gpt-4-turbo"
-    assert response_data["route"]["name"] == "Production GPT-4"
+    assert response_data["endpoint"]["endpoint_id"] == "route-789"
+    assert len(response_data["endpoint"]["models"]) == 1
+    assert response_data["endpoint"]["models"][0]["model_name"] == "gpt-4-turbo"
+    assert response_data["endpoint"]["name"] == "Production GPT-4"
     assert response_data["binding"]["binding_id"] == "binding-456"
-    assert response_data["binding"]["route_id"] == "route-789"
+    assert response_data["binding"]["endpoint_id"] == "route-789"
 
 
 def test_get_secret_info(mock_get_request_message, mock_tracking_store):
@@ -2173,7 +2186,7 @@ def test_delete_secret(mock_get_request_message, mock_tracking_store):
 
 def test_bind_secret(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = BindEndpoint(
-        route_id="route-123",
+        endpoint_id="route-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
         field_name="OPENAI_API_KEY",
@@ -2181,7 +2194,7 @@ def test_bind_secret(mock_get_request_message, mock_tracking_store):
 
     binding = SecretBinding(
         binding_id="binding-new",
-        route_id="route-123",
+        endpoint_id="route-123",
         secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
@@ -2197,7 +2210,7 @@ def test_bind_secret(mock_get_request_message, mock_tracking_store):
     resp = _bind_secret_route()
 
     mock_tracking_store._bind_secret_route.assert_called_once_with(
-        route_id="route-123",
+        endpoint_id="route-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
         field_name="OPENAI_API_KEY",
@@ -2217,7 +2230,7 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
     bindings = [
         SecretBinding(
             binding_id="binding-1",
-            route_id="route-1",
+            endpoint_id="route-1",
             secret_id="secret-123",
             resource_type="SCORER_JOB",
             resource_id="job-abc",
@@ -2227,7 +2240,7 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
         ),
         SecretBinding(
             binding_id="binding-2",
-            route_id="route-2",
+            endpoint_id="route-2",
             secret_id="secret-123",
             resource_type="SCORER_JOB",
             resource_id="job-abc",
@@ -2245,6 +2258,7 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
         secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-abc",
+        endpoint_id=None,
     )
 
 

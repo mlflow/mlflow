@@ -9,6 +9,7 @@ import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
+    Endpoint,
     EvaluationDataset,
     Experiment,
     ExperimentTag,
@@ -20,7 +21,6 @@ from mlflow.entities import (
     RunTag,
     Secret,
     SecretBinding,
-    Endpoint,
     SecretWithEndpointAndBinding,
     SourceType,
     ViewType,
@@ -2915,19 +2915,30 @@ def test_create_and_bind_secret():
         "last_updated_by": "user@example.com",
         "provider": "openai",
     }
-    route_json = {
-        "route_id": "route-789",
-        "secret_id": "secret-123",
-        "model_name": "gpt-4-turbo",
+    endpoint_json = {
+        "endpoint_id": "route-789",
         "name": "Production GPT-4",
         "created_at": "1234567890000",
         "last_updated_at": "1234567890000",
         "created_by": "user@example.com",
         "last_updated_by": "user@example.com",
+        "models": [
+            {
+                "model_id": "model-1",
+                "endpoint_id": "route-789",
+                "model_name": "gpt-4-turbo",
+                "secret_id": "secret-123",
+                "weight": 1.0,
+                "priority": 1,
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
     }
     binding_json = {
         "binding_id": "binding-456",
-        "route_id": "route-789",
+        "endpoint_id": "route-789",
+        "secret_id": "secret-123",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-abc123",
         "field_name": "OPENAI_API_KEY",
@@ -2936,7 +2947,7 @@ def test_create_and_bind_secret():
         "created_by": "user@example.com",
         "last_updated_by": "user@example.com",
     }
-    response_json = {"secret": secret_json, "route": route_json, "binding": binding_json}
+    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
 
     def mock_request(*args, **kwargs):
         assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/create-and-bind")
@@ -2975,7 +2986,7 @@ def test_create_and_bind_secret():
 
         assert isinstance(result, SecretWithEndpointAndBinding)
         assert isinstance(result.secret, Secret)
-        assert isinstance(result.route, Endpoint)
+        assert isinstance(result.endpoint, Endpoint)
         assert isinstance(result.binding, SecretBinding)
 
         assert result.secret.secret_id == "secret-123"
@@ -2985,13 +2996,14 @@ def test_create_and_bind_secret():
         assert result.secret.created_by == "user@example.com"
         assert result.secret.provider == "openai"
 
-        assert result.route.route_id == "route-789"
-        assert result.route.secret_id == "secret-123"
-        assert result.route.model_name == "gpt-4-turbo"
-        assert result.route.name == "Production GPT-4"
+        assert result.endpoint.endpoint_id == "route-789"
+        assert result.endpoint.name == "Production GPT-4"
+        assert len(result.endpoint.models) == 1
+        assert result.endpoint.models[0].model_name == "gpt-4-turbo"
+        assert result.endpoint.models[0].secret_id == "secret-123"
 
         assert result.binding.binding_id == "binding-456"
-        assert result.binding.route_id == "route-789"
+        assert result.binding.endpoint_id == "route-789"
         assert result.binding.resource_type == "SCORER_JOB"
         assert result.binding.resource_id == "job-abc123"
         assert result.binding.field_name == "OPENAI_API_KEY"
@@ -3010,19 +3022,30 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
         "last_updated_by": "admin@example.com",
         "provider": "vertex_ai",
     }
-    route_json = {
-        "route_id": "route-999",
-        "secret_id": "secret-456",
-        "model_name": "gemini-2.5-pro",
+    endpoint_json = {
+        "endpoint_id": "route-999",
         "description": "Vertex AI production endpoint",
         "created_at": "1234567890000",
         "last_updated_at": "1234567890000",
         "created_by": "admin@example.com",
         "last_updated_by": "admin@example.com",
+        "models": [
+            {
+                "model_id": "model-2",
+                "endpoint_id": "route-999",
+                "model_name": "gemini-2.5-pro",
+                "secret_id": "secret-456",
+                "weight": 1.0,
+                "priority": 1,
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
     }
     binding_json = {
         "binding_id": "binding-789",
-        "route_id": "route-999",
+        "endpoint_id": "route-999",
+        "secret_id": "secret-456",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-xyz789",
         "field_name": "GOOGLE_APPLICATION_CREDENTIALS",
@@ -3031,7 +3054,7 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
         "created_by": "admin@example.com",
         "last_updated_by": "admin@example.com",
     }
-    response_json = {"secret": secret_json, "route": route_json, "binding": binding_json}
+    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
 
     service_account_json = {"type": "service_account", "project_id": "my-project"}
     auth_config = {"project_id": "my-project", "location": "us-central1"}
@@ -3069,7 +3092,8 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
 
         assert isinstance(result, SecretWithEndpointAndBinding)
         assert result.secret.masked_value == "<dict>"
-        assert result.route.model_name == "gemini-2.5-pro"
+        assert len(result.endpoint.models) == 1
+        assert result.endpoint.models[0].model_name == "gemini-2.5-pro"
 
 
 def test_create_route_and_bind():
@@ -3084,10 +3108,8 @@ def test_create_route_and_bind():
         "last_updated_by": "user@example.com",
         "provider": "openai",
     }
-    route_json = {
-        "route_id": "route-new-999",
-        "secret_id": "secret-shared-123",
-        "model_name": "gpt-3.5-turbo",
+    endpoint_json = {
+        "endpoint_id": "route-new-999",
         "name": "Development GPT-3.5",
         "description": "Cost-efficient dev endpoint",
         "created_at": "1234567890000",
@@ -3095,10 +3117,23 @@ def test_create_route_and_bind():
         "created_by": "user@example.com",
         "last_updated_by": "user@example.com",
         "tags": [{"key": "tier", "value": "development"}],
+        "models": [
+            {
+                "model_id": "model-3",
+                "endpoint_id": "route-new-999",
+                "model_name": "gpt-3.5-turbo",
+                "secret_id": "secret-shared-123",
+                "weight": 1.0,
+                "priority": 1,
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
     }
     binding_json = {
         "binding_id": "binding-new-456",
-        "route_id": "route-new-999",
+        "endpoint_id": "route-new-999",
+        "secret_id": "secret-shared-123",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-dev-456",
         "field_name": "OPENAI_API_KEY",
@@ -3107,7 +3142,7 @@ def test_create_route_and_bind():
         "created_by": "user@example.com",
         "last_updated_by": "user@example.com",
     }
-    response_json = {"secret": secret_json, "route": route_json, "binding": binding_json}
+    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
 
     route_tags = [{"key": "tier", "value": "development"}]
 
@@ -3145,13 +3180,14 @@ def test_create_route_and_bind():
 
         assert isinstance(result, SecretWithEndpointAndBinding)
         assert result.secret.secret_id == "secret-shared-123"
-        assert result.route.route_id == "route-new-999"
-        assert result.route.model_name == "gpt-3.5-turbo"
-        assert result.route.name == "Development GPT-3.5"
-        assert len(result.route.tags) == 1
-        assert result.route.tags[0].key == "tier"
-        assert result.route.tags[0].value == "development"
-        assert result.binding.route_id == "route-new-999"
+        assert result.endpoint.endpoint_id == "route-new-999"
+        assert len(result.endpoint.models) == 1
+        assert result.endpoint.models[0].model_name == "gpt-3.5-turbo"
+        assert result.endpoint.name == "Development GPT-3.5"
+        assert len(result.endpoint.tags) == 1
+        assert result.endpoint.tags[0].key == "tier"
+        assert result.endpoint.tags[0].value == "development"
+        assert result.binding.endpoint_id == "route-new-999"
 
 
 def test_get_secret_info():
@@ -3260,7 +3296,7 @@ def test_bind_secret():
     def mock_request(*args, **kwargs):
         assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/bind-route")
         request_json = kwargs["json"]
-        assert request_json["route_id"] == "route-123"
+        assert request_json["endpoint_id"] == "route-123"
         assert request_json["resource_type"] == "SCORER_JOB"
         assert request_json["resource_id"] == "job-new"
         assert request_json["field_name"] == "OPENAI_API_KEY"
@@ -3273,7 +3309,7 @@ def test_bind_secret():
     with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://test-host"))
         result = store._bind_secret_route(
-            route_id="route-123",
+            endpoint_id="route-123",
             resource_type="SCORER_JOB",
             resource_id="job-new",
             field_name="OPENAI_API_KEY",

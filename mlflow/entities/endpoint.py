@@ -45,7 +45,6 @@ class Endpoint(_MlflowObject):
     tags: list[EndpointTag] = field(default_factory=list)
 
     def to_proto(self):
-        from mlflow.entities.endpoint_model import EndpointModel as EndpointModelEntity
         from mlflow.protos.service_pb2 import EndpointModel as ProtoEndpointModel
 
         proto = ProtoEndpoint()
@@ -93,7 +92,9 @@ class Endpoint(_MlflowObject):
                     priority=model_proto.priority,
                     created_at=model_proto.created_at,
                     last_updated_at=model_proto.last_updated_at,
-                    created_by=model_proto.created_by if model_proto.HasField("created_by") else None,
+                    created_by=model_proto.created_by
+                    if model_proto.HasField("created_by")
+                    else None,
                     last_updated_by=(
                         model_proto.last_updated_by
                         if model_proto.HasField("last_updated_by")

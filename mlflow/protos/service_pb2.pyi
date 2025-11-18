@@ -1639,11 +1639,37 @@ class Secret(_message.Message):
     model: str
     def __init__(self, secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., masked_value: _Optional[str] = ..., is_shared: bool = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., binding_count: _Optional[int] = ..., provider: _Optional[str] = ..., model: _Optional[str] = ...) -> None: ...
 
-class Endpoint(_message.Message):
-    __slots__ = ("endpoint_id", "secret_id", "model_name", "created_at", "last_updated_at", "name", "description", "created_by", "last_updated_by", "tags", "secret_name", "provider")
+class EndpointModel(_message.Message):
+    __slots__ = ("model_id", "endpoint_id", "model_name", "secret_id", "weight", "priority", "created_at", "last_updated_at", "created_by", "last_updated_by", "secret_name", "provider")
+    MODEL_ID_FIELD_NUMBER: _ClassVar[int]
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
-    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    PRIORITY_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_BY_FIELD_NUMBER: _ClassVar[int]
+    LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
+    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    model_id: str
+    endpoint_id: str
+    model_name: str
+    secret_id: str
+    weight: float
+    priority: int
+    created_at: int
+    last_updated_at: int
+    created_by: str
+    last_updated_by: str
+    secret_name: str
+    provider: str
+    def __init__(self, model_id: _Optional[str] = ..., endpoint_id: _Optional[str] = ..., model_name: _Optional[str] = ..., secret_id: _Optional[str] = ..., weight: _Optional[float] = ..., priority: _Optional[int] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., secret_name: _Optional[str] = ..., provider: _Optional[str] = ...) -> None: ...
+
+class Endpoint(_message.Message):
+    __slots__ = ("endpoint_id", "created_at", "last_updated_at", "name", "description", "created_by", "last_updated_by", "tags", "models")
+    ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -1651,11 +1677,8 @@ class Endpoint(_message.Message):
     CREATED_BY_FIELD_NUMBER: _ClassVar[int]
     LAST_UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
     TAGS_FIELD_NUMBER: _ClassVar[int]
-    SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
-    PROVIDER_FIELD_NUMBER: _ClassVar[int]
+    MODELS_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
-    secret_id: str
-    model_name: str
     created_at: int
     last_updated_at: int
     name: str
@@ -1663,9 +1686,8 @@ class Endpoint(_message.Message):
     created_by: str
     last_updated_by: str
     tags: _containers.RepeatedCompositeFieldContainer[EndpointTag]
-    secret_name: str
-    provider: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., model_name: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[EndpointTag, _Mapping]]] = ..., secret_name: _Optional[str] = ..., provider: _Optional[str] = ...) -> None: ...
+    models: _containers.RepeatedCompositeFieldContainer[EndpointModel]
+    def __init__(self, endpoint_id: _Optional[str] = ..., created_at: _Optional[int] = ..., last_updated_at: _Optional[int] = ..., name: _Optional[str] = ..., description: _Optional[str] = ..., created_by: _Optional[str] = ..., last_updated_by: _Optional[str] = ..., tags: _Optional[_Iterable[_Union[EndpointTag, _Mapping]]] = ..., models: _Optional[_Iterable[_Union[EndpointModel, _Mapping]]] = ...) -> None: ...
 
 class SecretTag(_message.Message):
     __slots__ = ("key", "value")
@@ -1722,26 +1744,26 @@ class SecretWithBinding(_message.Message):
     def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
 
 class SecretWithRouteAndBinding(_message.Message):
-    __slots__ = ("secret", "route", "binding")
+    __slots__ = ("secret", "endpoint", "binding")
     SECRET_FIELD_NUMBER: _ClassVar[int]
-    ROUTE_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
     BINDING_FIELD_NUMBER: _ClassVar[int]
     secret: Secret
-    route: Endpoint
+    endpoint: Endpoint
     binding: EndpointBinding
-    def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., route: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
+    def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., endpoint: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
 
 class CreateAndBindSecret(_message.Message):
     __slots__ = ("secret_name", "secret_value", "resource_type", "resource_id", "field_name", "is_shared", "created_by", "provider", "auth_config", "model_name", "route_name", "route_description", "route_tags")
     class Response(_message.Message):
-        __slots__ = ("secret", "route", "binding")
+        __slots__ = ("secret", "endpoint", "binding")
         SECRET_FIELD_NUMBER: _ClassVar[int]
-        ROUTE_FIELD_NUMBER: _ClassVar[int]
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
         BINDING_FIELD_NUMBER: _ClassVar[int]
         secret: Secret
-        route: Endpoint
+        endpoint: Endpoint
         binding: EndpointBinding
-        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., route: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
+        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., endpoint: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
     SECRET_VALUE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
@@ -1773,14 +1795,14 @@ class CreateAndBindSecret(_message.Message):
 class CreateEndpointAndBind(_message.Message):
     __slots__ = ("secret_id", "resource_type", "resource_id", "field_name", "model_name", "route_name", "route_description", "route_tags", "created_by")
     class Response(_message.Message):
-        __slots__ = ("secret", "route", "binding")
+        __slots__ = ("secret", "endpoint", "binding")
         SECRET_FIELD_NUMBER: _ClassVar[int]
-        ROUTE_FIELD_NUMBER: _ClassVar[int]
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
         BINDING_FIELD_NUMBER: _ClassVar[int]
         secret: Secret
-        route: Endpoint
+        endpoint: Endpoint
         binding: EndpointBinding
-        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., route: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
+        def __init__(self, secret: _Optional[_Union[Secret, _Mapping]] = ..., endpoint: _Optional[_Union[Endpoint, _Mapping]] = ..., binding: _Optional[_Union[EndpointBinding, _Mapping]] = ...) -> None: ...
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_TYPE_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1904,12 +1926,12 @@ class DeleteEndpoint(_message.Message):
 class UpdateEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "secret_id", "secret_name", "secret_value", "provider", "is_shared", "auth_config")
     class Response(_message.Message):
-        __slots__ = ("route", "secret")
-        ROUTE_FIELD_NUMBER: _ClassVar[int]
+        __slots__ = ("endpoint", "secret")
+        ENDPOINT_FIELD_NUMBER: _ClassVar[int]
         SECRET_FIELD_NUMBER: _ClassVar[int]
-        route: Endpoint
+        endpoint: Endpoint
         secret: Secret
-        def __init__(self, route: _Optional[_Union[Endpoint, _Mapping]] = ..., secret: _Optional[_Union[Secret, _Mapping]] = ...) -> None: ...
+        def __init__(self, endpoint: _Optional[_Union[Endpoint, _Mapping]] = ..., secret: _Optional[_Union[Secret, _Mapping]] = ...) -> None: ...
     ENDPOINT_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     SECRET_NAME_FIELD_NUMBER: _ClassVar[int]
