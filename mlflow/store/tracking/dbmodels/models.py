@@ -2267,7 +2267,6 @@ class SqlEndpoint(Base):
 
         return Endpoint(
             endpoint_id=self.endpoint_id,
-            secret_id=self.secret_id,
             model_name=model_name,
             name=self.name,
             description=self.description,
@@ -2299,11 +2298,11 @@ class SqlEndpointModel(Base):
     Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
     """
     secret_id = Column(
-        String(36), ForeignKey("secrets.secret_id"), nullable=False
+        String(36), ForeignKey("secrets.secret_id", ondelete="CASCADE"), nullable=False
     )
     """
     Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
-    Each model has its own secret/credential for authentication.
+    References the API key used for this specific model.
     """
     model_name = Column(String(256), nullable=False)
     """
@@ -2350,7 +2349,7 @@ class SqlEndpointModel(Base):
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlEndpoint`.
     """
-    secret = relationship("SqlSecret")
+    secret = relationship("SqlSecret", backref=backref("endpoint_models", cascade="all"))
     """
     SQLAlchemy relationship (many:one) with :py:class:`mlflow.store.dbmodels.models.SqlSecret`.
     """
@@ -2491,10 +2490,13 @@ class SqlSecretBinding(Base):
         Returns:
             mlflow.entities.secret_binding.SecretBinding
         """
+        # Get secret_id from the first model in the endpoint
+        secret_id = self.endpoint.models[0].secret_id if self.endpoint.models else ""
+
         return SecretBinding(
             binding_id=self.binding_id,
             endpoint_id=self.endpoint_id,
-            secret_id=self.endpoint.secret_id,
+            secret_id=secret_id,
             resource_type=self.resource_type,
             resource_id=self.resource_id,
             field_name=self.field_name,

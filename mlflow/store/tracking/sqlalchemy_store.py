@@ -2472,7 +2472,6 @@ class SqlAlchemyStore(AbstractStore):
             endpoint_id = uuid.uuid4().hex
             sql_endpoint = SqlEndpoint(
                 endpoint_id=endpoint_id,
-                secret_id=secret_id,
                 name=endpoint_name,
                 description=endpoint_description,
                 created_at=current_time,
@@ -2485,6 +2484,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_endpoint_model = SqlEndpointModel(
                 model_id=model_id,
                 endpoint_id=endpoint_id,
+                secret_id=secret_id,
                 model_name=model_name,
                 weight=1.0,
                 priority=0,
@@ -2584,7 +2584,6 @@ class SqlAlchemyStore(AbstractStore):
 
             sql_endpoint = SqlEndpoint(
                 endpoint_id=endpoint_id,
-                secret_id=secret_id,
                 name=endpoint_name,
                 description=endpoint_description,
                 created_at=current_time,
@@ -2597,6 +2596,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_endpoint_model = SqlEndpointModel(
                 model_id=model_id,
                 endpoint_id=endpoint_id,
+                secret_id=secret_id,
                 model_name=model_name,
                 weight=1.0,
                 priority=0,

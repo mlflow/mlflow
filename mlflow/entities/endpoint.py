@@ -14,15 +14,14 @@ class Endpoint(_MlflowObject):
     """
     MLflow entity representing an Endpoint.
 
-    Endpoints map API keys (secrets) to specific model configurations for LLM providers.
-    One secret (API key) can be used with multiple models through different endpoints.
+    Endpoints are routing configurations that can direct traffic to multiple models.
+    Each model in the endpoint has its own secret (API key) for authentication.
 
     This entity contains only metadata about the endpoint - cryptographic fields
     (encrypted_model_config, wrapped_model_config_dek) are never exposed outside the store layer.
 
     Args:
         endpoint_id: String containing endpoint ID (UUID).
-        secret_id: String containing the secret ID this endpoint uses.
         model_name: String containing the model identifier.
             E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo", "gemini-2.5-pro".
         name: String containing optional display name, or None.
@@ -36,7 +35,6 @@ class Endpoint(_MlflowObject):
     """
 
     endpoint_id: str
-    secret_id: str
     model_name: str
     created_at: int
     last_updated_at: int
