@@ -98,7 +98,7 @@ test_that("rest call handles errors correctly", {
   mock_client <- mlflow:::new_mlflow_client_impl(get_host_creds = function() {
      mlflow:::new_mlflow_host_creds(host = "localhost")
   })
-  with_mocked_bindings(.env = "httr", POST = function(...) {
+  with_mocked_bindings(.package  = "httr", POST = function(...) {
     httr:::response(
       status_code = 400,
       content = charToRaw(paste("{\"error_code\":\"INVALID_PARAMETER_VALUE\",",
@@ -117,7 +117,7 @@ test_that("rest call handles errors correctly", {
     )
   })
 
-  with_mocked_bindings(.env = "httr", GET = function(...) {
+  with_mocked_bindings(.package  = "httr", GET = function(...) {
     httr:::response(
       status_code = 500,
       content = charToRaw(paste("some text."))
@@ -133,7 +133,7 @@ test_that("rest call handles errors correctly", {
     )
   })
 
-  with_mocked_bindings(.env = "httr", POST = function(...) {
+  with_mocked_bindings(.package  = "httr", POST = function(...) {
     httr:::response(
       status_code = 503,
       content = as.raw(c(0, 255))
