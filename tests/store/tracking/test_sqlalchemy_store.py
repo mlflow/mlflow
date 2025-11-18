@@ -12159,7 +12159,7 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
 
         existing_models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
         assert len(existing_models) == 1
-        assert existing_models[0].models[0].model_name == "claude-3-5-sonnet-20241022"
+        assert existing_models[0].model_name == "claude-3-5-sonnet-20241022"
         assert existing_models[0].weight == 1.0
         assert existing_models[0].priority == 0
 
@@ -12167,6 +12167,7 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         model_2 = SqlEndpointModel(
             model_id=uuid.uuid4().hex,
             endpoint_id=endpoint_id,
+            secret_id=secret_id,
             model_name="claude-3-5-haiku-20241022",
             weight=0.3,
             priority=1,
@@ -12176,6 +12177,7 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         model_3 = SqlEndpointModel(
             model_id=uuid.uuid4().hex,
             endpoint_id=endpoint_id,
+            secret_id=secret_id,
             model_name="claude-3-opus-20240229",
             weight=0.2,
             priority=2,
@@ -12190,26 +12192,27 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
         assert len(sql_endpoint.models) == 3
 
-        model_names = {m.models[0].model_name for m in sql_endpoint.models}
+        model_names = {m.model_name for m in sql_endpoint.models}
         assert model_names == {
             "claude-3-5-sonnet-20241022",
             "claude-3-5-haiku-20241022",
             "claude-3-opus-20240229",
         }
 
-        weights = {m.models[0].model_name: m.weight for m in sql_endpoint.models}
+        weights = {m.model_name: m.weight for m in sql_endpoint.models}
         assert weights["claude-3-5-sonnet-20241022"] == 1.0
         assert weights["claude-3-5-haiku-20241022"] == 0.3
         assert weights["claude-3-opus-20240229"] == 0.2
 
-        priorities = {m.models[0].model_name: m.priority for m in sql_endpoint.models}
+        priorities = {m.model_name: m.priority for m in sql_endpoint.models}
         assert priorities["claude-3-5-sonnet-20241022"] == 0
         assert priorities["claude-3-5-haiku-20241022"] == 1
         assert priorities["claude-3-opus-20240229"] == 2
 
         endpoint_entity = sql_endpoint.to_mlflow_entity()
         assert endpoint_entity.endpoint_id == endpoint_id
-        assert endpoint_entity.secret_id == secret_id
+        assert len(endpoint_entity.models) == 3
+        assert endpoint_entity.models[0].secret_id == secret_id
         assert endpoint_entity.models[0].model_name == "claude-3-5-sonnet-20241022"
 
     routes = store._list_secret_endpoints(secret_id=secret_id)
