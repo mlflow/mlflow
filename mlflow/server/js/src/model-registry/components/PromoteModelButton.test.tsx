@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, it, expect } from '@jest/globals';
 import { waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
@@ -61,7 +62,7 @@ describe('PromoteModelButton', () => {
   });
 
   it('prepopulates the search registry on render', () => {
-    const searchRegistryMock = jest.fn();
+    const searchRegistryMock = jest.fn<typeof ModelRegistryService.searchRegisteredModels>();
     ModelRegistryService.searchRegisteredModels = searchRegistryMock;
     renderComponent();
     expect(searchRegistryMock).toHaveBeenCalledTimes(1);

@@ -753,13 +753,15 @@ const config: Config = {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
-            to: '/ml/deep-learning/pytorch/guide',
-            from: ['/deep-learning/pytorch/guide'],
-          },
-          {
-            to: '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
-            from: ['/deep-learning/pytorch/quickstart/pytorch_quickstart'],
+            to: '/ml/deep-learning/pytorch',
+            from: [
+              '/deep-learning/pytorch/guide',
+              '/ml/deep-learning/pytorch/guide',
+              '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+              '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
           },
           {
             to: '/ml/deep-learning/sentence-transformers',
@@ -796,11 +798,11 @@ const config: Config = {
             from: ['/deep-learning/tensorflow'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/guide',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/guide'],
           },
           {
-            to: '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
           },
           {
@@ -1010,6 +1012,16 @@ const config: Config = {
           {
             to: '/ml/traditional-ml',
             from: ['/traditional-ml'],
+          },
+          // Redirect consolidated prophet guide to index
+          {
+            to: '/ml/traditional-ml/prophet',
+            from: ['/ml/traditional-ml/prophet/guide'],
+          },
+          // Redirect consolidated sparkml guide to index
+          {
+            to: '/ml/traditional-ml/sparkml',
+            from: ['/ml/traditional-ml/sparkml/guide'],
           },
           {
             to: '/ml/traditional-ml/tutorials/creating-custom-pyfunc',

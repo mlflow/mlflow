@@ -1,3 +1,4 @@
+import { describe, it, expect } from '@jest/globals';
 import type { ErrorLogType } from './ErrorLogType';
 import type { ErrorName } from './ErrorName';
 import {

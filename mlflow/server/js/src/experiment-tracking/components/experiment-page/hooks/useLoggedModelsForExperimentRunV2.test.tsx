@@ -1,14 +1,14 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import { useLoggedModelsForExperimentRunV2 } from './useLoggedModelsForExperimentRunV2';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useGetLoggedModelsQuery } from '../../../hooks/logged-models/useGetLoggedModelsQuery';
+import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
 
 // Mock the useGetLoggedModelsQuery hook
 jest.mock('../../../hooks/logged-models/useGetLoggedModelsQuery', () => ({
   useGetLoggedModelsQuery: jest.fn(),
 }));
-
-import { useGetLoggedModelsQuery } from '../../../hooks/logged-models/useGetLoggedModelsQuery';
-import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../../run-page/hooks/useGetRunQuery';
 
 describe('useLoggedModelsForExperimentRun', () => {
   // Create a wrapper component with QueryClientProvider
@@ -57,7 +57,7 @@ describe('useLoggedModelsForExperimentRun', () => {
     // Verify the hook was called with the right parameters
     expect(useGetLoggedModelsQuery).toHaveBeenCalledWith(
       { modelIds: ['model-123', 'model-456', 'model-789'] },
-      { enabled: true },
+      { enabled: true, refetchOnWindowFocus: false },
     );
 
     // Verify the returned data matches what we expect
@@ -77,7 +77,10 @@ describe('useLoggedModelsForExperimentRun', () => {
     );
 
     // Should not call useGetLoggedModelsQuery with modelIds
-    expect(useGetLoggedModelsQuery).toHaveBeenCalledWith({ modelIds: undefined }, { enabled: false });
+    expect(useGetLoggedModelsQuery).toHaveBeenCalledWith(
+      { modelIds: undefined },
+      { enabled: false, refetchOnWindowFocus: false },
+    );
 
     // No models should be returned
     expect(result.current.models).toBeUndefined();
@@ -96,7 +99,10 @@ describe('useLoggedModelsForExperimentRun', () => {
     const { result } = renderHook(() => useLoggedModelsForExperimentRunV2({ runInputs, runOutputs }), { wrapper });
 
     // Should not call useGetLoggedModelsQuery with modelIds
-    expect(useGetLoggedModelsQuery).toHaveBeenCalledWith({ modelIds: undefined }, { enabled: false });
+    expect(useGetLoggedModelsQuery).toHaveBeenCalledWith(
+      { modelIds: undefined },
+      { enabled: false, refetchOnWindowFocus: false },
+    );
 
     // No models should be returned
     expect(result.current.models).toBeUndefined();

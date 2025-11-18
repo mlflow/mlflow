@@ -1,4 +1,4 @@
-import { Icon, LegacyTooltip, VisibleOffIcon, useDesignSystemTheme, visuallyHidden } from '@databricks/design-system';
+import { Icon, Tooltip, VisibleOffIcon, useDesignSystemTheme, visuallyHidden } from '@databricks/design-system';
 import { RUNS_VISIBILITY_MODE } from '../../../models/ExperimentPageUIState';
 import { ReactComponent as VisibleFillIcon } from '../../../../../../common/static/icon-visible-fill.svg';
 import type { Theme } from '@emotion/react';
@@ -14,9 +14,6 @@ interface RunVisibilityControlButtonProps {
   onClick: (runUuidOrToggle: string | RUNS_VISIBILITY_MODE, runUuid?: string, isRowVisible?: boolean) => void;
   label: React.ReactNode;
 }
-
-// Mouse enter/leave delays passed to tooltips are set to 0 so swift toggling/pinning runs is not hampered
-const MOUSE_DELAYS = { mouseEnterDelay: 0, mouseLeaveDelay: 0 };
 
 export const RunVisibilityControlButton = ({
   runUuid,
@@ -46,7 +43,7 @@ export const RunVisibilityControlButton = ({
     );
   }
   return (
-    <LegacyTooltip dangerouslySetAntdProps={MOUSE_DELAYS} placement="right" title={label}>
+    <Tooltip delayDuration={0} side="left" content={label} componentId="mlflow.run.row_actions.visibility.tooltip">
       <label className={className} css={styles.button(theme)}>
         <span css={visuallyHidden}>{label}</span>
         <input
@@ -62,7 +59,7 @@ export const RunVisibilityControlButton = ({
         />
         {!rowHidden ? <VisibleIcon /> : <VisibleOffIcon />}
       </label>
-    </LegacyTooltip>
+    </Tooltip>
   );
 };
 

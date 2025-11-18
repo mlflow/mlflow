@@ -1,8 +1,11 @@
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
+import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
@@ -122,7 +125,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         }}
       >
         <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-data-drawer"
+          componentId="mlflow.experiment.chat-session.trace-drawer"
           title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
           width="90vw"
           expandContentToFullHeight

@@ -7,7 +7,7 @@ from spacy.util import compounding, minibatch
 
 import mlflow.spacy
 
-IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__) >= Version("3.0.0")
+IS_SPACY_VERSION_NEWER_THAN_OR_EQUAL_TO_3_0_0 = Version(spacy.__version__).major >= 3
 
 # training data
 TRAIN_DATA = [

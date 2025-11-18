@@ -760,6 +760,9 @@ class Linter(ast.NodeVisitor):
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
 
+        if rules.SubprocessCheckCall.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.SubprocessCheckCall())
+
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsChdirInTest())
 
@@ -792,6 +795,11 @@ class Linter(ast.NodeVisitor):
     def visit_Delete(self, node: ast.Delete) -> None:
         if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsEnvironDeleteInTest())
+        self.generic_visit(node)
+
+    def visit_Compare(self, node: ast.Compare) -> None:
+        if rules.MajorVersionCheck.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.MajorVersionCheck())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.expr) -> None:

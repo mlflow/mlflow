@@ -1,5 +1,6 @@
 sklearn:
   package_info:
+    repo: https://github.com/scikit-learn/scikit-learn/tree/HEAD
     pip_release: "scikit-learn"
     install_dev: |
       pip install git+https://github.com/scikit-learn/scikit-learn.git
@@ -24,6 +25,7 @@ sklearn:
 
 pytorch:
   package_info:
+    repo: https://github.com/pytorch/pytorch/tree/HEAD
     pip_release: "torch"
     module_name: "torch"
     install_dev: |
@@ -49,6 +51,7 @@ pytorch:
 
 pytorch-lightning:
   package_info:
+    repo: https://github.com/Lightning-AI/pytorch-lightning/tree/HEAD
     pip_release: "pytorch-lightning"
     module_name: "lightning"
     install_dev: |
@@ -81,6 +84,7 @@ pytorch-lightning:
 
 keras:
   package_info:
+    repo: https://github.com/keras-team/keras/tree/HEAD
     pip_release: "keras"
     install_dev: |
       pip install --upgrade git+https://github.com/keras-team/keras.git
@@ -107,6 +111,7 @@ keras:
 
 tensorflow:
   package_info:
+    repo: https://github.com/tensorflow/tensorflow/tree/HEAD
     pip_release: "tensorflow"
     install_dev: |
       pip install --pre tf-nightly
@@ -135,6 +140,7 @@ tensorflow:
 
 xgboost:
   package_info:
+    repo: https://github.com/dmlc/xgboost/tree/HEAD
     pip_release: "xgboost"
     install_dev: |
       pip install git+https://github.com/dmlc/xgboost.git#subdirectory=python-package
@@ -157,6 +163,7 @@ xgboost:
 
 lightgbm:
   package_info:
+    repo: https://github.com/microsoft/LightGBM/tree/HEAD
     pip_release: "lightgbm"
     install_dev: |
       git clone --recursive https://github.com/microsoft/LightGBM --depth=1 --branch master /tmp/LightGBM
@@ -196,6 +203,7 @@ catboost:
 
 onnx:
   package_info:
+    repo: https://github.com/onnx/onnx/tree/HEAD
     pip_release: "onnx"
     install_dev: |
       # This workflow describes how to build a wheel for Linux:
@@ -227,6 +235,7 @@ onnx:
 semantic_kernel:
   package_info:
     genai: true
+    repo: https://github.com/microsoft/semantic-kernel/tree/HEAD/python
     pip_release: "semantic-kernel"
     install_dev: |
       pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
@@ -246,6 +255,7 @@ semantic_kernel:
 
 spacy:
   package_info:
+    repo: https://github.com/explosion/spaCy/tree/HEAD
     pip_release: "spacy"
     install_dev: |
       pip install git+https://github.com/explosion/spaCy.git
@@ -260,6 +270,7 @@ spacy:
 
 statsmodels:
   package_info:
+    repo: https://github.com/statsmodels/statsmodels/tree/HEAD
     pip_release: "statsmodels"
     install_dev: |
       pip install git+https://github.com/statsmodels/statsmodels.git
@@ -278,6 +289,7 @@ statsmodels:
 
 spark:
   package_info:
+    repo: https://github.com/apache/spark/tree/HEAD
     pip_release: "pyspark"
     module_name: "pyspark"
     install_dev: |
@@ -394,32 +406,6 @@ pmdarima:
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
-diviner:
-  package_info:
-    pip_release: "diviner"
-    install_dev: |
-      pip install git+https://github.com/databricks/diviner.git
-
-  models:
-    minimum: "0.1.1"
-    maximum: "0.1.1"
-    requirements:
-      # https://github.com/alan-turing-institute/sktime/issues/2898
-      # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
-      ">= 0.0": [
-          "cmdstanpy!=1.0.2",
-          "holidays!=0.25",
-          "numpy<2",
-          # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
-          "boto3<1.36",
-        ]
-      # Diviner <= 0.1.1 isn't compatible with pandas>=2
-      "<= 0.1.1": ["pandas<2"]
-      # As of Jun 7, 2023, Diviner dev isn't compatible with pandas>=2
-      "== dev": ["pandas<2"]
-    run: |
-      pytest tests/diviner/test_diviner_model_export.py
-
 h2o:
   package_info:
     pip_release: "h2o"
@@ -458,6 +444,7 @@ paddle:
 
 transformers:
   package_info:
+    repo: https://github.com/huggingface/transformers/tree/HEAD
     pip_release: "transformers"
     install_dev: |
       pip install git+https://github.com/huggingface/transformers
@@ -544,6 +531,7 @@ transformers:
 openai:
   package_info:
     genai: true
+    repo: https://github.com/openai/openai-python/tree/HEAD
     pip_release: "openai"
     install_dev: |
       pip install git+https://github.com/openai/openai-python
@@ -588,6 +576,7 @@ openai:
 dspy:
   package_info:
     genai: true
+    repo: https://github.com/stanfordnlp/dspy/tree/HEAD
     pip_release: "dspy"
     install_dev: |
       pip install git+https://github.com/stanfordnlp/dspy.git
@@ -610,6 +599,7 @@ dspy:
 langchain:
   package_info:
     genai: true
+    repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
@@ -693,6 +683,7 @@ langchain:
 langgraph:
   package_info:
     genai: true
+    repo: https://github.com/langchain-ai/langgraph/tree/HEAD/libs/langgraph
     pip_release: "langgraph"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
@@ -737,6 +728,7 @@ langgraph:
 llama_index:
   package_info:
     genai: true
+    repo: https://github.com/run-llama/llama_index/tree/HEAD
     pip_release: "llama-index"
     module_name: "llama_index.core"
     install_dev: |
@@ -820,6 +812,7 @@ autogen:
 gemini:
   package_info:
     genai: true
+    repo: https://github.com/googleapis/python-genai/tree/HEAD
     pip_release: "google-genai"
     module_name: "google.genai"
     install_dev: |
@@ -838,6 +831,7 @@ gemini:
 anthropic:
   package_info:
     genai: true
+    repo: https://github.com/anthropics/anthropic-sdk-python/tree/HEAD
     pip_release: "anthropic"
     install_dev: |
       pip install git+https://github.com/anthropics/anthropic-sdk-python
@@ -855,13 +849,14 @@ anthropic:
 crewai:
   package_info:
     genai: true
+    repo: https://github.com/crewAIInc/crewAI/tree/HEAD/lib/crewai
     pip_release: "crewai"
     module_name: "crewai"
     install_dev: |
       pip install git+https://github.com/crewAIInc/crewAI#subdirectory=lib/crewai
   autologging:
     minimum: "0.80.0"
-    maximum: "0.203.1"
+    maximum: "1.4.1"
     unsupported: ["==0.114.0"]
     requirements:
     run: pytest tests/crewai
@@ -871,6 +866,7 @@ crewai:
 agno:
   package_info:
     genai: true
+    repo: https://github.com/agno-agi/agno/tree/HEAD/libs/agno
     pip_release: "agno"
     module_name: "agno"
     install_dev: |
@@ -886,6 +882,7 @@ agno:
 pydantic_ai:
   package_info:
     genai: true
+    repo: https://github.com/pydantic/pydantic-ai/tree/HEAD
     pip_release: "pydantic-ai"
     module_name: "pydantic_ai"
 
@@ -914,6 +911,7 @@ pydantic_ai:
 smolagents:
   package_info:
     genai: true
+    repo: https://github.com/huggingface/smolagents/tree/HEAD
     pip_release: "smolagents"
     module_name: "smolagents"
     install_dev: |
@@ -932,6 +930,7 @@ smolagents:
 strands:
   package_info:
     genai: true
+    repo: https://github.com/strands-agents/sdk-python/tree/HEAD
     pip_release: "strands-agents"
     module_name: "strands"
     install_dev: |
@@ -944,6 +943,7 @@ strands:
 
 haystack:
   package_info:
+    repo: https://github.com/deepset-ai/haystack/tree/HEAD
     pip_release: "haystack-ai"
     module_name: "haystack"
     install_dev: |
@@ -959,6 +959,7 @@ haystack:
 mistral:
   package_info:
     genai: true
+    repo: https://github.com/mistralai/client-python/tree/HEAD
     pip_release: "mistralai"
     module_name: "mistralai"
     install_dev: |
@@ -978,6 +979,7 @@ mistral:
 
 sentence_transformers:
   package_info:
+    repo: https://github.com/UKPLab/sentence-transformers/tree/HEAD
     pip_release: "sentence-transformers"
     install_dev: |
       pip install git+https://github.com/UKPLab/sentence-transformers#egg=sentence-transformers
@@ -1019,6 +1021,7 @@ johnsnowlabs:
 litellm:
   package_info:
     genai: true
+    repo: https://github.com/BerriAI/litellm/tree/HEAD
     pip_release: "litellm"
     install_dev: |
       pip install git+https://github.com/BerriAI/litellm.git
@@ -1040,6 +1043,7 @@ litellm:
 groq:
   package_info:
     genai: true
+    repo: https://github.com/groq/groq-python/tree/HEAD
     pip_release: "groq"
     install_dev: |
       pip install git+https://github.com/groq/groq-python
