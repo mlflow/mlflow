@@ -34,7 +34,8 @@ from mlflow.store.model_registry import (
 )
 from mlflow.telemetry.events import LoadPromptEvent
 from mlflow.telemetry.track import record_usage_event
-from mlflow.tracing.fluent import get_active_trace_id
+from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.fluent import get_active_trace_id, get_current_active_span
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
@@ -800,6 +801,11 @@ def load_prompt(
             trace_id=trace_id,
             prompt=prompt,
         )
+
+    # Set prompt version information as span attributes if there's an active span
+    if span := get_current_active_span():
+        span.set_attribute(SpanAttributeKey.PROMPT_NAME, prompt.name)
+        span.set_attribute(SpanAttributeKey.PROMPT_VERSION, prompt.version)
 
     return prompt
 

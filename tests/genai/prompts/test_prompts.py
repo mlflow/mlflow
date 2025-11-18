@@ -14,6 +14,7 @@ from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_MAX_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.tracing.constant import SpanAttributeKey
 
 
 def join_thread_by_name_prefix(prefix: str):
@@ -1319,3 +1320,25 @@ def test_register_prompt_with_nested_variables():
         "user.preferences.greeting",
     }
     assert prompt.variables == expected_variables
+
+
+def test_load_prompt_sets_span_attributes():
+    mlflow.genai.register_prompt(name="span_test_prompt", template="Hello, {{name}}!")
+
+    with mlflow.start_span("test_span") as span:
+        prompt = mlflow.genai.load_prompt("span_test_prompt", version=1)
+
+    assert span.get_attribute(SpanAttributeKey.PROMPT_NAME) == "span_test_prompt"
+    assert span.get_attribute(SpanAttributeKey.PROMPT_VERSION) == 1
+
+    assert prompt.name == "span_test_prompt"
+    assert prompt.version == 1
+
+
+def test_load_prompt_no_span_attributes_without_active_span():
+    mlflow.genai.register_prompt(name="no_span_test", template="Test {{var}}")
+
+    prompt = mlflow.genai.load_prompt("no_span_test", version=1)
+
+    assert prompt.name == "no_span_test"
+    assert prompt.version == 1
