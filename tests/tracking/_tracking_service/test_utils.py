@@ -45,12 +45,41 @@ from tests.tracing.helper import get_tracer_tracking_uri
 pytestmark = pytest.mark.notrackingurimock
 
 
-def test_default_tracking_scheme():
+def test_default_tracking_scheme(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     assert _get_tracking_scheme() == "sqlite"
+
+
+def test_tracking_scheme_with_existing_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    (mlruns_dir / "0").mkdir()
+    assert _get_tracking_scheme() == "file"
 
 
 def test_get_store_no_args(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    store = _get_store()
+    assert isinstance(store, SqlAlchemyStore)
+
+
+def test_get_store_with_existing_mlruns_data(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+    (mlruns_dir / "0").mkdir()
+
+    store = _get_store()
+    assert isinstance(store, FileStore)
+    assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
+
+
+def test_get_store_with_empty_mlruns(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    mlruns_dir = tmp_path / "mlruns"
+    mlruns_dir.mkdir()
+
     store = _get_store()
     assert isinstance(store, SqlAlchemyStore)
 

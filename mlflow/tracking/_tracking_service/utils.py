@@ -1,4 +1,5 @@
 import logging
+import os
 from collections import OrderedDict
 from contextlib import contextmanager
 from functools import lru_cache, partial
@@ -14,6 +15,7 @@ from mlflow.tracing.provider import reset
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.utils.credentials import get_default_host_creds
 from mlflow.utils.databricks_utils import get_databricks_host_creds
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     _OSS_UNITY_CATALOG_SCHEME,
@@ -22,6 +24,22 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+
+
+def _has_existing_mlruns_data() -> bool:
+    """Returns True if mlruns contains experiment directories (numeric or .trash)."""
+    mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    if not mlruns_path.exists():
+        return False
+
+    try:
+        for item in mlruns_path.iterdir():
+            if item.is_dir() and (item.name.isdigit() or item.name == ".trash"):
+                return True
+    except (OSError, PermissionError):
+        return False
+
+    return False
 
 
 def is_tracking_uri_set():
@@ -129,6 +147,9 @@ def get_tracking_uri() -> str:
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
+        # Backward compatibility: use file store if existing mlruns data found
+        if _has_existing_mlruns_data():
+            return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
         return DEFAULT_TRACKING_URI
 
 

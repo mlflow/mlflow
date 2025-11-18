@@ -219,7 +219,8 @@ class FileStore(AbstractStore):
         warnings.warn(
             "Filesystem tracking backend (e.g., './mlruns') is deprecated. "
             "Please switch to a database backend (e.g., 'sqlite:///mlflow.db'). "
-            "For feedback, see: https://github.com/mlflow/mlflow/issues/18534",
+            "See https://github.com/mlflow/mlflow/issues/18534 for feedback and how to migrate "
+            "existing data.",
             FutureWarning,
             stacklevel=2,
         )
