@@ -11056,16 +11056,11 @@ def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
         field_name="api_key",
     )
 
-    store._delete_secret(secret_entity.secret_id)
+    # Delete endpoints first (cascade deletes models and bindings)
+    store._delete_secret_endpoint(result_1.endpoint.endpoint_id)
+    store._delete_secret_endpoint(result_2.endpoint.endpoint_id)
 
-    with pytest.raises(MlflowException, match="not found"):
-        store._get_secret_info(secret_entity.secret_id)
-
-    secrets_job1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    secrets_job2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    assert secrets_job1 == {}
-    assert secrets_job2 == {}
-
+    # Verify bindings are cascade deleted
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
             session.query(SqlSecretBinding)
@@ -11078,6 +11073,19 @@ def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
         )
         assert len(remaining_bindings) == 0
 
+    # Verify resources no longer have secrets
+    secrets_job1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
+    secrets_job2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
+    assert secrets_job1 == {}
+    assert secrets_job2 == {}
+
+    # Now delete the orphaned secret
+    store._delete_secret(secret_entity.secret_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store._get_secret_info(secret_entity.secret_id)
+
+    with store.ManagedSessionMaker() as session:
         remaining_secret = (
             session.query(SqlSecret).filter(SqlSecret.secret_id == secret_entity.secret_id).first()
         )

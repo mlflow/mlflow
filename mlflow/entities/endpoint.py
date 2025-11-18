@@ -51,13 +51,15 @@ class EndpointListItem(Endpoint):
     Endpoint with additional display information for list responses.
 
     Extends Endpoint with human-readable fields populated via JOIN
-    with the secrets table. Used by list_secret_endpoints() to provide
-    UI-friendly data without additional API calls.
+    with the secrets and endpoint_models tables. Used by list_secret_endpoints()
+    to provide UI-friendly data without additional API calls.
 
     Args:
+        secret_id: ID of the secret used by the first model in this endpoint (for display).
         secret_name: User-friendly secret name (e.g., "company_openai_key").
         provider: LLM provider (e.g., "openai", "anthropic", "google").
     """
 
+    secret_id: str = ""
     secret_name: str = ""
     provider: str = ""
