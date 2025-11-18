@@ -392,6 +392,72 @@ def validate_tags(tags: Any) -> None:
         raise MlflowException.invalid_parameter_value("Invalid tags:\n  - " + "\n  - ".join(errors))
 
 
+def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]]:
+    """
+    Separate scorers into single-turn and multi-turn categories.
+
+    Args:
+        scorers: List of scorer instances.
+
+    Returns:
+        tuple: (single_turn_scorers, multi_turn_scorers)
+    """
+    single_turn_scorers = []
+    multi_turn_scorers = []
+
+    for scorer in scorers:
+        if scorer.is_multi_turn:
+            multi_turn_scorers.append(scorer)
+        else:
+            single_turn_scorers.append(scorer)
+
+    return single_turn_scorers, multi_turn_scorers
+
+
+def _group_traces_by_session(eval_items: list["EvalResult"]) -> dict[str, list[tuple[Any, Trace]]]:
+    """
+    Group evaluation items containing traces by session_id.
+
+    Args:
+        eval_items: List of EvalItem objects.
+
+    Returns:
+        dict: {session_id: [(eval_item, trace), ...]} where traces are grouped by session.
+              Only traces with a session_id are included in the output.
+    """
+    from collections import defaultdict
+
+    from mlflow.tracing.constant import TraceMetadataKey
+
+    session_groups = defaultdict(list)
+
+    for item in eval_items:
+        if not hasattr(item, "trace") or item.trace is None:
+            continue
+
+        session_id = item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+        if session_id:
+            session_groups[session_id].append((item, item.trace))
+        # Note: Traces without session_id are excluded from multi-turn evaluation
+
+    return dict(session_groups)
+
+
+def _get_first_trace_in_session(
+    session_traces: list[tuple[Any, Trace]]
+) -> tuple[Any, Trace]:
+    """
+    Find the chronologically first trace in a session based on request_time.
+
+    Args:
+        session_traces: List of (eval_item, trace) tuples.
+
+    Returns:
+        tuple: (eval_item, trace) of the first trace in chronological order.
+    """
+    return min(session_traces, key=lambda x: x[1].info.request_time)
+
+
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:
     """Wraps the as_completed function with a progress bar."""
     futures_as_completed = as_completed(futures)
