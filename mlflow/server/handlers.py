@@ -667,7 +667,7 @@ def _get_request_message(request_message, flask_request=request, schema=None):
                 if field.type == descriptor.FieldDescriptor.TYPE_BOOL and isinstance(value, str):
                     if value.lower() not in ["true", "false"]:
                         raise MlflowException.invalid_parameter_value(
-                            f"Invalid boolean value: {value}, must be a boolean.",
+                            f"Invalid boolean value: {value}, must be 'true' or 'false'.",
                         )
                     value = value.lower() == "true"
                 request_json[field.name] = value
