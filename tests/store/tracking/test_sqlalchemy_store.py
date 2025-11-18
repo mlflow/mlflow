@@ -12645,6 +12645,90 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     assert len(openai_secrets) == 0
 
 
+def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
+    result = store._create_and_bind_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-test-key",
+        provider="anthropic",
+        model_name="claude-3-5-sonnet-20241022",
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+        is_shared=True,
+    )
+
+    endpoint_id = result.endpoint.endpoint_id
+    secret_id = result.secret.secret_id
+
+    from mlflow.store.tracking.dbmodels.models import SqlEndpoint, SqlEndpointModel
+    from mlflow.utils.time import get_current_time_millis
+    import uuid
+
+    with store.ManagedSessionMaker() as session:
+        sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+        assert sql_endpoint is not None
+
+        existing_models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
+        assert len(existing_models) == 1
+        assert existing_models[0].model_name == "claude-3-5-sonnet-20241022"
+        assert existing_models[0].weight == 1.0
+        assert existing_models[0].priority == 0
+
+        current_time = get_current_time_millis()
+        model_2 = SqlEndpointModel(
+            model_id=uuid.uuid4().hex,
+            endpoint_id=endpoint_id,
+            model_name="claude-3-5-haiku-20241022",
+            weight=0.3,
+            priority=1,
+            created_at=current_time,
+            last_updated_at=current_time,
+        )
+        model_3 = SqlEndpointModel(
+            model_id=uuid.uuid4().hex,
+            endpoint_id=endpoint_id,
+            model_name="claude-3-opus-20240229",
+            weight=0.2,
+            priority=2,
+            created_at=current_time,
+            last_updated_at=current_time,
+        )
+        session.add(model_2)
+        session.add(model_3)
+        session.commit()
+
+    with store.ManagedSessionMaker() as session:
+        sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+        assert len(sql_endpoint.models) == 3
+
+        model_names = {m.model_name for m in sql_endpoint.models}
+        assert model_names == {
+            "claude-3-5-sonnet-20241022",
+            "claude-3-5-haiku-20241022",
+            "claude-3-opus-20240229",
+        }
+
+        weights = {m.model_name: m.weight for m in sql_endpoint.models}
+        assert weights["claude-3-5-sonnet-20241022"] == 1.0
+        assert weights["claude-3-5-haiku-20241022"] == 0.3
+        assert weights["claude-3-opus-20240229"] == 0.2
+
+        priorities = {m.model_name: m.priority for m in sql_endpoint.models}
+        assert priorities["claude-3-5-sonnet-20241022"] == 0
+        assert priorities["claude-3-5-haiku-20241022"] == 1
+        assert priorities["claude-3-opus-20240229"] == 2
+
+        endpoint_entity = sql_endpoint.to_mlflow_entity()
+        assert endpoint_entity.endpoint_id == endpoint_id
+        assert endpoint_entity.secret_id == secret_id
+        assert endpoint_entity.model_name == "claude-3-5-sonnet-20241022"
+
+    routes = store._list_secret_routes(secret_id=secret_id)
+    assert len(routes) == 1
+    assert routes[0].endpoint_id == endpoint_id
+    assert routes[0].model_name == "claude-3-5-sonnet-20241022"
+
+
 def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
     store._create_and_bind_secret(
         secret_name="openai_key",

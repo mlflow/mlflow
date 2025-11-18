@@ -2823,13 +2823,29 @@ class SqlAlchemyStore(AbstractStore):
             List of EndpointListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
-            # Subquery to get first model for each endpoint
+            # Subquery to get the first model_id for each endpoint (by created_at, model_id)
+            first_model_id_subq = (
+                session.query(
+                    SqlEndpointModel.endpoint_id,
+                    func.min(SqlEndpointModel.model_id).label("min_model_id"),
+                )
+                .group_by(SqlEndpointModel.endpoint_id)
+                .subquery()
+            )
+
+            # Subquery to get model details for the first model
             first_model_subq = (
                 session.query(
                     SqlEndpointModel.endpoint_id,
                     SqlEndpointModel.model_name,
                 )
-                .distinct(SqlEndpointModel.endpoint_id)
+                .join(
+                    first_model_id_subq,
+                    and_(
+                        SqlEndpointModel.endpoint_id == first_model_id_subq.c.endpoint_id,
+                        SqlEndpointModel.model_id == first_model_id_subq.c.min_model_id,
+                    ),
+                )
                 .subquery()
             )
 
@@ -3224,13 +3240,29 @@ class SqlAlchemyStore(AbstractStore):
             List of SecretBindingListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
-            # Subquery to get first model for each endpoint (for backward compatibility)
+            # Subquery to get the first model_id for each endpoint (by created_at, model_id)
+            first_model_id_subq = (
+                session.query(
+                    SqlEndpointModel.endpoint_id,
+                    func.min(SqlEndpointModel.model_id).label("min_model_id"),
+                )
+                .group_by(SqlEndpointModel.endpoint_id)
+                .subquery()
+            )
+
+            # Subquery to get model details for the first model
             first_model_subq = (
                 session.query(
                     SqlEndpointModel.endpoint_id,
                     SqlEndpointModel.model_name,
                 )
-                .distinct(SqlEndpointModel.endpoint_id)
+                .join(
+                    first_model_id_subq,
+                    and_(
+                        SqlEndpointModel.endpoint_id == first_model_id_subq.c.endpoint_id,
+                        SqlEndpointModel.model_id == first_model_id_subq.c.min_model_id,
+                    ),
+                )
                 .subquery()
             )
 
