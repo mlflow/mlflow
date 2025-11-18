@@ -262,19 +262,21 @@ test_that("databricks get run context fetches expected info for job environment"
 
 #' Verifies that, when notebook information is unavailable and there is no function
 #' available for fetching job info (as is the case for older Spark images), fetching
-#' the databricks run context delegates to the default context provider
-test_that("databricks get run context falls back to default when job info unavailable", {
+#' the databricks run context delegates to the next context provider
+test_that("databricks get run context succeeds when job info function is unavailable", {
   run_with_mock_notebook_and_job_info(function() {
-    context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
-      mlflow:::mlflow_client("databricks"),
-      experiment_id = 52
-    )
-    # When there's no databricks-specific info, it should fall back to the default
-    # context which has MLFLOW_SOURCE_TYPE set to LOCAL instead of NOTEBOOK or JOB
-    expect_true(context$tags[[MLFLOW_TAGS$MLFLOW_SOURCE_TYPE]] == MLFLOW_SOURCE_TYPE$LOCAL)
-    expect_true(context$experiment_id == 52)
-    # Default context should include standard tags
-    expect_true(!is.null(context$tags[[MLFLOW_TAGS$MLFLOW_USER]]))
-    expect_true(!is.null(context$tags[[MLFLOW_TAGS$MLFLOW_SOURCE_NAME]]))
+    test_env = new.env()
+    test_env$next_method_calls <- 0
+    mock_delegate_function = function() {
+      test_env$next_method_calls <- test_env$next_method_calls + 1
+    }
+    with_mocked_bindings(.package = "mlflow",
+      mlflow_databricks_delegate_to_next_method = mock_delegate_function, {
+      context <- mlflow:::mlflow_get_run_context.mlflow_databricks_client(
+        mlflow:::mlflow_client("databricks"),
+        experiment_id = 0
+      )
+    })
+    expect_true(test_env$next_method_calls == 1)
   }, notebook_info = NULL, job_info = NULL)
 })
