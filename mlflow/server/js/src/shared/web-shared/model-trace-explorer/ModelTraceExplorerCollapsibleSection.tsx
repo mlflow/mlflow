@@ -44,7 +44,7 @@ export const ModelTraceExplorerCollapsibleSection = ({
       >
         <Button
           size="small"
-          componentId={`shared.model-trace-explorer.expand-${sectionKey}`}
+          componentId="shared.model-trace-explorer.expand"
           type="tertiary"
           icon={expanded ? <ChevronDownIcon /> : <ChevronRightIcon />}
           onClick={() => setExpanded(!expanded)}

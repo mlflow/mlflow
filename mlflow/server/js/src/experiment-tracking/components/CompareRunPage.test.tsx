@@ -1,3 +1,4 @@
+import { jest, describe, beforeAll, test, expect } from '@jest/globals';
 import { IntlProvider } from 'react-intl';
 import { render, screen, waitFor } from '../../common/utils/TestUtils.react18';
 import CompareRunPage from './CompareRunPage';

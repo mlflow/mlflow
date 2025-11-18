@@ -1,7 +1,7 @@
 import { getModelTraceId, SingleChatTurnMessages, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
 import { Button, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from '@databricks/i18n';
-import { MutableRefObject } from 'react';
+import type { MutableRefObject } from 'react';
 
 export const ExperimentSingleChatConversation = ({
   traces,

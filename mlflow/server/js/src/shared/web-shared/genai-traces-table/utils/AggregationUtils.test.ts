@@ -1,3 +1,5 @@
+import { describe, it, expect, jest } from '@jest/globals';
+
 import type { ThemeType } from '@databricks/design-system';
 import { I18nUtils } from '@databricks/i18n';
 

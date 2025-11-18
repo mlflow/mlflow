@@ -1,7 +1,10 @@
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 import { useDeleteTracesMutation } from './useDeleteTraces';
+import { MlflowService } from '../../../sdk/MlflowService';
+import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
 // Mock the dependencies
 jest.mock('../../../sdk/MlflowService', () => ({
@@ -13,10 +16,6 @@ jest.mock('../../../sdk/MlflowService', () => ({
 jest.mock('@databricks/web-shared/genai-traces-table', () => ({
   invalidateMlflowSearchTracesCache: jest.fn(),
 }));
-
-// Import the mocked dependencies
-import { MlflowService } from '../../../sdk/MlflowService';
-import { invalidateMlflowSearchTracesCache } from '@databricks/web-shared/genai-traces-table';
 
 function createWrapper() {
   const queryClient = new QueryClient({

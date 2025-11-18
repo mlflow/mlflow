@@ -27,7 +27,7 @@ assert "mlflow.utils.request_utils" in sys.modules
     test_file = tmp_path.joinpath("test_request_utils_does_not_import_mlflow.py")
     test_file.write_text(file_content)
 
-    subprocess.run([sys.executable, str(test_file)], check=True)
+    subprocess.check_call([sys.executable, str(test_file)])
 
 
 class IncompleteResponse:

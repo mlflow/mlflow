@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import type { DeepPartial } from 'redux';
 import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
@@ -56,6 +57,7 @@ describe('RunViewDatasetBox', () => {
           datasetWithTags: testDatasetWithTags,
         }),
       }),
+      // @ts-expect-error Expected 1 arguments, but got 2
       {},
     );
   });
@@ -98,6 +100,7 @@ describe('RunViewDatasetBox', () => {
           datasetWithTags: evalDataset,
         }),
       }),
+      // @ts-expect-error Expected 1 arguments, but got 2
       {},
     );
   });

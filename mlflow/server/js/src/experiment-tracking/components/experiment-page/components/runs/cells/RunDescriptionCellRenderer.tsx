@@ -1,5 +1,5 @@
 import React from 'react';
-import { LegacyTooltip } from '@databricks/design-system';
+import { Tooltip } from '@databricks/design-system';
 import Utils from '../../../../../../common/utils/Utils';
 import type { RunRowType } from '../../../utils/experimentPage.row-types';
 import { TrimmedText } from '../../../../../../common/components/TrimmedText';
@@ -8,11 +8,11 @@ export const RunDescriptionCellRenderer = React.memo(({ value }: { value: RunRow
   const description = Utils.getRunDescriptionFromTags(value) || '-';
   return (
     <>
-      <LegacyTooltip title={description}>
+      <Tooltip componentId="mlflow.experiment-tracking.run-description.display" content={description}>
         <span>
           <TrimmedText text={description} maxSize={50} />
         </span>
-      </LegacyTooltip>
+      </Tooltip>
     </>
   );
 });
