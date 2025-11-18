@@ -1589,7 +1589,7 @@ service MlflowService {
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the secret does not exist.
   // Throws ``INVALID_PARAMETER_VALUE`` if the secret is not shared.
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
-  rpc createRouteAndBind(CreateRouteAndBind) returns (CreateRouteAndBind.Response) {
+  rpc createEndpointAndBind(CreateEndpointAndBind) returns (CreateEndpointAndBind.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1706,7 +1706,7 @@ service MlflowService {
   }
 
   // List secret bindings with optional filters.
-  rpc listSecretBindings(ListSecretBindings) returns (ListSecretBindings.Response) {
+  rpc listEndpointBindings(ListEndpointBindings) returns (ListEndpointBindings.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1724,7 +1724,7 @@ service MlflowService {
   }
 
   // List secret routes with optional filters.
-  rpc listSecretRoutes(ListSecretRoutes) returns (ListSecretRoutes.Response) {
+  rpc listEndpoints(ListEndpoints) returns (ListEndpoints.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1745,7 +1745,7 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
   // Throws ``INVALID_STATE`` if the route has active bindings.
-  rpc deleteSecretRoute(DeleteSecretRoute) returns (DeleteSecretRoute.Response) {
+  rpc deleteEndpoint(DeleteEndpoint) returns (DeleteEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1765,12 +1765,12 @@ service MlflowService {
   // Update a secret route to use a different secret.
   //
   // This endpoint supports two use cases:
-  // 1. Update to an existing secret: provide route_id and secret_id
-  // 2. Create new secret and update: provide route_id and new secret details
+  // 1. Update to an existing secret: provide endpoint_id and secret_id
+  // 2. Create new secret and update: provide endpoint_id and new secret details
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route or target secret does not exist.
   // Throws ``RESOURCE_ALREADY_EXISTS`` if creating a new shared secret with duplicate name.
-  rpc updateSecretRoute(UpdateSecretRoute) returns (UpdateSecretRoute.Response) {
+  rpc updateEndpoint(UpdateEndpoint) returns (UpdateEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1791,7 +1791,7 @@ service MlflowService {
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the route does not exist.
   // Throws ``RESOURCE_ALREADY_EXISTS`` if a binding already exists for the resource/field.
-  rpc bindSecretRoute(BindSecretRoute) returns (BindSecretRoute.Response) {
+  rpc bindEndpoint(BindEndpoint) returns (BindEndpoint.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -1811,7 +1811,7 @@ service MlflowService {
   // Delete a secret binding.
   //
   // Throws ``RESOURCE_DOES_NOT_EXIST`` if the binding does not exist.
-  rpc deleteSecretBinding(DeleteSecretBinding) returns (DeleteSecretBinding.Response) {
+  rpc deleteEndpointBinding(DeleteEndpointBinding) returns (DeleteEndpointBinding.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -3897,9 +3897,9 @@ message Secret {
 }
 
 // Secret route entity representing a route configuration for an LLM provider.
-message SecretRoute {
+message Endpoint {
   // Unique identifier for the route (UUID).
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
   // Secret ID this route uses.
   optional string secret_id = 2;
   // Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo").
@@ -3917,7 +3917,7 @@ message SecretRoute {
   // User ID who last updated the route.
   optional string last_updated_by = 9;
   // Route tags.
-  repeated SecretRouteTag tags = 10;
+  repeated EndpointTag tags = 10;
   // Display fields populated by list operations (from joined secret table)
   optional string secret_name = 11;
   optional string provider = 12;
@@ -3932,7 +3932,7 @@ message SecretTag {
 }
 
 // Tag for a secret route.
-message SecretRouteTag {
+message EndpointTag {
   // Tag key (e.g., "deployment", "model_version", "region").
   optional string key = 1;
   // Tag value.
@@ -3940,11 +3940,11 @@ message SecretRouteTag {
 }
 
 // Secret binding entity representing a binding between a route and a resource.
-message SecretBinding {
+message EndpointBinding {
   // Unique identifier for the binding (UUID).
   optional string binding_id = 1;
   // Route ID this binding references.
-  optional string route_id = 2;
+  optional string endpoint_id = 2;
   // Type of resource (e.g., "SCORER_JOB", "GLOBAL").
   optional string resource_type = 3;
   // ID of the resource using this secret.
@@ -3972,7 +3972,7 @@ message SecretWithBinding {
   // The created secret metadata.
   optional Secret secret = 1;
   // The initial binding for the secret.
-  optional SecretBinding binding = 2;
+  optional EndpointBinding binding = 2;
 }
 
 // Result of atomically creating a gateway asset (secret + route + binding).
@@ -3980,9 +3980,9 @@ message SecretWithRouteAndBinding {
   // The created secret metadata.
   optional Secret secret = 1;
   // The created route configuration.
-  optional SecretRoute route = 2;
+  optional Endpoint route = 2;
   // The initial binding for the route.
-  optional SecretBinding binding = 3;
+  optional EndpointBinding binding = 3;
 }
 
 // Atomically create a secret and bind it to a resource.
@@ -4028,14 +4028,14 @@ message CreateAndBindSecret {
     // The created secret metadata.
     optional Secret secret = 1;
     // The created route configuration.
-    optional SecretRoute route = 2;
+    optional Endpoint route = 2;
     // The initial binding for the route.
-    optional SecretBinding binding = 3;
+    optional EndpointBinding binding = 3;
   }
 }
 
 // Create a new route and binding for an existing secret.
-message CreateRouteAndBind {
+message CreateEndpointAndBind {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the existing secret to use.
@@ -4062,9 +4062,9 @@ message CreateRouteAndBind {
     // The existing secret metadata.
     optional Secret secret = 1;
     // The created route configuration.
-    optional SecretRoute route = 2;
+    optional Endpoint route = 2;
     // The created binding for the route.
-    optional SecretBinding binding = 3;
+    optional EndpointBinding binding = 3;
   }
 }
 
@@ -4149,7 +4149,7 @@ message ListSecrets {
 }
 
 // List secret bindings with optional filters.
-message ListSecretBindings {
+message ListEndpointBindings {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Optional filter by secret ID.
@@ -4159,16 +4159,16 @@ message ListSecretBindings {
   // Optional filter by resource ID.
   optional string resource_id = 3;
   // Optional filter by route ID.
-  optional string route_id = 4;
+  optional string endpoint_id = 4;
 
   message Response {
     // List of bindings matching the filters.
-    repeated SecretBinding bindings = 1;
+    repeated EndpointBinding bindings = 1;
   }
 }
 
 // List secret routes.
-message ListSecretRoutes {
+message ListEndpoints {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // Optional filter by secret ID.
@@ -4178,16 +4178,16 @@ message ListSecretRoutes {
 
   message Response {
     // List of routes matching the filters.
-    repeated SecretRoute routes = 1;
+    repeated Endpoint routes = 1;
   }
 }
 
 // Delete a secret route.
-message DeleteSecretRoute {
+message DeleteEndpoint {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the route to delete.
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
 
   message Response {}
 }
@@ -4195,13 +4195,13 @@ message DeleteSecretRoute {
 // Update a secret route to use a different secret.
 //
 // Supports two use cases:
-// 1. Update to existing secret: Provide route_id and secret_id.
-// 2. Create new secret and update: Provide route_id, secret_name, secret_value, and optional fields.
-message UpdateSecretRoute {
+// 1. Update to existing secret: Provide endpoint_id and secret_id.
+// 2. Create new secret and update: Provide endpoint_id, secret_name, secret_value, and optional fields.
+message UpdateEndpoint {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the route to update.
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
 
   // === For updating to existing secret ===
   // ID of an existing secret to update the route to.
@@ -4222,18 +4222,18 @@ message UpdateSecretRoute {
 
   message Response {
     // The updated route.
-    optional SecretRoute route = 1;
+    optional Endpoint route = 1;
     // The secret (existing or newly created).
     optional Secret secret = 2;
   }
 }
 
 // Bind a secret route to a resource.
-message BindSecretRoute {
+message BindEndpoint {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the route to bind.
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
   // Type of resource to bind to.
   optional string resource_type = 2;
   // ID of the resource to bind to.
@@ -4243,12 +4243,12 @@ message BindSecretRoute {
 
   message Response {
     // The created binding.
-    optional SecretBinding binding = 1;
+    optional EndpointBinding binding = 1;
   }
 }
 
 // Delete a secret binding.
-message DeleteSecretBinding {
+message DeleteEndpointBinding {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the binding to delete.
@@ -4300,11 +4300,11 @@ message DeleteSecretTag {
 }
 
 // Set a tag on a secret route.
-message SetSecretRouteTag {
+message SetEndpointTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the route.
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
   // Tag key.
   optional string key = 2;
   // Tag value.
@@ -4316,11 +4316,11 @@ message SetSecretRouteTag {
 }
 
 // Delete a tag from a secret route.
-message DeleteSecretRouteTag {
+message DeleteEndpointTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the route.
-  optional string route_id = 1;
+  optional string endpoint_id = 1;
   // Tag key to delete.
   optional string key = 2;
 
