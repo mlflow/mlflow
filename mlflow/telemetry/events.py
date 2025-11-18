@@ -333,12 +333,3 @@ class TraceSource(str, Enum):
 class TracesReceivedByServerEvent(Event):
     name: str = "traces_received_by_server"
 
-    @classmethod
-    def parse(cls, arguments: dict[str, Any]) -> dict[str, Any] | None:
-        source = arguments.get("source")
-        if "count" not in arguments:
-            raise ValueError("count is required for TracesReceivedByServerEvent")
-        return {
-            "source": source.value if isinstance(source, TraceSource) else source,
-            "count": arguments["count"],
-        }
