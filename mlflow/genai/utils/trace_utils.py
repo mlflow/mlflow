@@ -169,14 +169,14 @@ def resolve_conversation_from_session_traces(
     for trace in sorted_traces:
         # Extract and parse input (user message)
         inputs = extract_inputs_from_trace(trace)
-        if inputs is not None:
+        if not _is_empty(inputs):
             user_content = parse_inputs_to_str(inputs)
             if user_content and user_content.strip():
                 conversation.append({"role": "user", "content": user_content})
 
         # Extract and parse output (assistant message)
         outputs = extract_outputs_from_trace(trace)
-        if outputs is not None:
+        if not _is_empty(outputs):
             assistant_content = parse_outputs_to_str(outputs)
             if assistant_content and assistant_content.strip():
                 conversation.append({"role": "assistant", "content": assistant_content})
@@ -307,6 +307,17 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _is_empty(value: Any) -> bool:
+    """
+    Check if a value is empty (None, empty dict, empty list, empty string, etc.).
+    """
+    if value is None:
+        return True
+    if isinstance(value, (dict, list, str)):
+        return len(value) == 0
+    return False
 
 
 def parse_inputs_to_str(value: Any) -> str:
