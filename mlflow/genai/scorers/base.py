@@ -494,10 +494,7 @@ class Scorer(BaseModel):
               - Available only for multi-turn scorers (scorers with
                 ``_is_multi_turn_scorer = True``).
 
-                * Multi-turn scorers receive all traces in a session, ordered chronologically
-                  by ``trace.info.request_time``.
                 * Only traces with the same ``mlflow.trace.session`` metadata value are grouped.
-                * This parameter is ``None`` for single-turn scorers.
 
         Example:
 
