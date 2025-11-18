@@ -7677,12 +7677,6 @@ def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
     run = store.create_run(exp_id, "user", 0, [], "test_run")
     model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
 
-    with store.ManagedSessionMaker() as session:
-        session.query(SqlExperiment).filter(
-            SqlExperiment.experiment_id == int(store.DEFAULT_EXPERIMENT_ID)
-        ).delete()
-        session.commit()
-
     metric = Metric(
         key="metric",
         value=1.0,
