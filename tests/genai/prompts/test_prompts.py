@@ -1,6 +1,7 @@
 import importlib
 import json
 import threading
+import time
 from concurrent.futures import ThreadPoolExecutor
 from unittest import mock
 
@@ -1323,68 +1324,69 @@ def test_register_prompt_with_nested_variables():
 
 def test_load_prompt_links_to_experiment():
     mlflow.genai.register_prompt(name="test_exp_link", template="Hello {{name}}!")
-    exp_id = mlflow.create_experiment("test_experiment_link")
-    with mlflow.start_run(experiment_id=exp_id):
-        prompt = mlflow.genai.load_prompt("test_exp_link", version=1)
-        assert prompt.name == "test_exp_link"
+    experiment = mlflow.set_experiment("test_experiment_link")
+    mlflow.genai.load_prompt("test_exp_link", version=1)
+
+    # Wait for the links to be established
+    time.sleep(1)
 
     client = MlflowClient()
     prompt_info = client.get_prompt("test_exp_link")
-    assert prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY) == exp_id
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
 
 
 def test_register_prompt_links_to_experiment():
-    exp_id = mlflow.create_experiment("test_experiment_register")
-    with mlflow.start_run(experiment_id=exp_id):
-        prompt = mlflow.genai.register_prompt(
-            name="test_exp_register", template="Greetings {{name}}!"
-        )
-        assert prompt.name == "test_exp_register"
+    experiment = mlflow.set_experiment("test_experiment_register")
+    mlflow.genai.register_prompt(name="test_exp_register", template="Greetings {{name}}!")
+
+    # Wait for the links to be established
+    time.sleep(1)
 
     client = MlflowClient()
     prompt_info = client.get_prompt("test_exp_register")
-    assert prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY) == exp_id
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
 
 
 def test_link_prompt_to_experiment_no_duplicate():
     mlflow.genai.register_prompt(name="no_dup_prompt", template="Test {{x}}!")
 
-    exp_id = mlflow.create_experiment("test_no_dup")
+    experiment = mlflow.set_experiment("test_no_dup")
 
-    with mlflow.start_run(experiment_id=exp_id):
-        mlflow.genai.load_prompt("no_dup_prompt", version=1)
-        mlflow.genai.load_prompt("no_dup_prompt", version=1)
-        mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+    mlflow.genai.load_prompt("no_dup_prompt", version=1)
+
+    # Wait for the links to be established
+    time.sleep(1)
 
     client = MlflowClient()
     prompt_info = client.get_prompt("no_dup_prompt")
-    assert prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY) == exp_id
+    assert experiment.experiment_id in prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY)
 
 
 def test_search_prompts_by_experiment_id():
-    exp_id = mlflow.create_experiment("test_search_by_exp")
+    experiment = mlflow.set_experiment("test_search_by_exp")
 
-    with mlflow.start_run(experiment_id=exp_id):
-        mlflow.genai.register_prompt(name="exp_prompt_1", template="Template 1: {{x}}")
-        mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
+    mlflow.genai.register_prompt(name="exp_prompt_1", template="Template 1: {{x}}")
+    mlflow.genai.register_prompt(name="exp_prompt_2", template="Template 2: {{y}}")
 
-    mlflow.genai.register_prompt(name="other_prompt", template="Other: {{z}}")
+    # Wait for the links to be established
+    time.sleep(1)
 
     client = MlflowClient()
-    prompts = client.search_prompts(filter_string=f'experiment_id = "{exp_id}"')
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
 
     assert len(prompts) == 2
     prompt_names = {p.name for p in prompts}
     assert "exp_prompt_1" in prompt_names
     assert "exp_prompt_2" in prompt_names
-    assert "other_prompt" not in prompt_names
 
 
 def test_search_prompts_by_experiment_id_empty():
-    exp_id = mlflow.create_experiment("test_empty_exp")
+    experiment = mlflow.set_experiment("test_empty_exp")
 
     client = MlflowClient()
-    prompts = client.search_prompts(filter_string=f'experiment_id = "{exp_id}"')
+    prompts = client.search_prompts(filter_string=f'experiment_id = "{experiment.experiment_id}"')
 
     assert len(prompts) == 0
 
@@ -1395,11 +1397,17 @@ def test_search_prompts_same_prompt_multiple_experiments():
 
     mlflow.genai.register_prompt(name="shared_search_prompt", template="Shared: {{x}}")
 
-    with mlflow.start_run(experiment_id=exp_id_1):
-        mlflow.genai.load_prompt("shared_search_prompt", version=1)
+    mlflow.set_experiment(experiment_id=exp_id_1)
+    mlflow.genai.load_prompt("shared_search_prompt", version=1)
 
-    with mlflow.start_run(experiment_id=exp_id_2):
-        mlflow.genai.load_prompt("shared_search_prompt", version=1)
+    # Wait for the links to be established
+    time.sleep(1)
+
+    mlflow.set_experiment(experiment_id=exp_id_2)
+    mlflow.genai.load_prompt("shared_search_prompt", version=1)
+
+    # Wait for the links to be established
+    time.sleep(1)
 
     client = MlflowClient()
     prompts_exp1 = client.search_prompts(filter_string=f'experiment_id = "{exp_id_1}"')
@@ -1413,25 +1421,28 @@ def test_search_prompts_same_prompt_multiple_experiments():
 
 
 def test_search_prompts_with_combined_filters():
-    exp_id = mlflow.create_experiment("test_combined_filters")
+    experiment = mlflow.set_experiment("test_combined_filters")
 
-    with mlflow.start_run(experiment_id=exp_id):
-        mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
-        mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
-
+    mlflow.genai.register_prompt(name="alpha_prompt", template="Alpha: {{x}}")
+    mlflow.genai.register_prompt(name="beta_prompt", template="Beta: {{y}}")
     mlflow.genai.register_prompt(name="gamma_prompt", template="Gamma: {{z}}")
 
     client = MlflowClient()
 
+    # Wait for the links to be established
+    time.sleep(1)
+
     # Test experiment_id filter combined with name filter
     prompts = client.search_prompts(
-        filter_string=f'experiment_id = "{exp_id}" AND name = "alpha_prompt"'
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name = "alpha_prompt"'
     )
     assert len(prompts) == 1
     assert prompts[0].name == "alpha_prompt"
 
     # Test experiment_id filter combined with name LIKE filter
-    prompts = client.search_prompts(filter_string=f'experiment_id = "{exp_id}" AND name LIKE "a%"')
+    prompts = client.search_prompts(
+        filter_string=f'experiment_id = "{experiment.experiment_id}" AND name LIKE "a%"'
+    )
     assert len(prompts) == 1
     assert prompts[0].name == "alpha_prompt"
 

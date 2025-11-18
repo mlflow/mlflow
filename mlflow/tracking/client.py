@@ -15,6 +15,7 @@ import re
 import string
 import sys
 import tempfile
+import threading
 import urllib
 import uuid
 import warnings
@@ -54,11 +55,12 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING, MLFLOW_EXPERIMENT_ID
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -663,35 +665,45 @@ class MlflowClient:
 
         prompt_version = model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
-        from mlflow.tracking.fluent import _get_latest_active_run
+        if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+            self._link_prompt_to_experiment(prompt_version, experiment_id)
 
-        if run := _get_latest_active_run():
+        return prompt_version
+
+    def _link_prompt_to_experiment(self, prompt_version: PromptVersion, experiment_id: str) -> None:
+        """
+        Update the experiment IDs for a prompt version.
+        """
+
+        def _link_prompt_to_experiment_async() -> None:
             try:
-                from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
-
-                # Get existing experiment IDs
-                prompt_info = registry_client.get_prompt(prompt_version.name)
+                prompt_info = self.get_prompt(prompt_version.name)
                 existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
-
-                # Parse existing IDs and add new one if not present
+                existing_ids = existing_ids.rstrip(",").lstrip(",")
                 exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
-                if run.info.experiment_id not in exp_ids:
-                    exp_ids.append(run.info.experiment_id)
-                    # Store as comma-separated list
+                if experiment_id not in exp_ids:
+                    exp_ids.append(experiment_id)
+                    exp_ids = ",".join(exp_ids)
+                    # Use LIKE to match the experiment ID and experiment ID is auto-incremented
+                    # integer. So add comma before and after the list of experiment IDs to
+                    # avoid false matches (e.g., "1" matches "10").
+                    exp_ids = f",{exp_ids},"
                     self.set_prompt_tag(
                         name=prompt_version.name,
                         key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
-                        value=",".join(exp_ids),
+                        value=exp_ids,
                     )
             except Exception:
-                # NB: We should still register the prompt even if experiment tagging fails
                 _logger.warning(
-                    f"Failed to tag prompt '{prompt_version.name}' with "
-                    f"experiment ID '{run.info.experiment_id}'.",
+                    f"Failed to tag prompt '{prompt_version.name}' with experiment ID "
+                    f"{experiment_id}.",
                     exc_info=True,
                 )
 
-        return prompt_version
+        threading.Thread(
+            target=_link_prompt_to_experiment_async,
+            name=f"link_prompt_to_experiment_thread-{uuid.uuid4().hex[:8]}",
+        ).start()
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -733,6 +745,7 @@ class MlflowClient:
             use get_prompt_version() with a specific version:
 
             .. code-block:: python
+
                 from mlflow import MlflowClient
 
                 # Your prompt registry URI
@@ -747,7 +760,7 @@ class MlflowClient:
                 # Get specific version content
                 for prompt in prompts:
                     prompt_version = client.get_prompt_version(prompt.name, version="1")
-                    print(f"Template: {prompt.template}")
+                    print(f"Template: {prompt_version.template}")
 
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """

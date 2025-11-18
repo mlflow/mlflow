@@ -13,12 +13,12 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
 from mlflow.environment_variables import (
+    MLFLOW_EXPERIMENT_ID,
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_PROMPT_CACHE_MAX_SIZE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
@@ -703,7 +703,7 @@ def search_prompts(
             # Get specific version content
             for prompt in prompts:
                 prompt_version = mlflow.genai.load_prompt(prompt.name, version="1")
-                print(f"Template: {prompt.template}")
+                print(f"Template: {prompt_version.template}")
     """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
@@ -804,29 +804,9 @@ def load_prompt(
     # MLflow GenAI evaluation.
     if run := _get_latest_active_run():
         client.link_prompt_version_to_run(run.info.run_id, prompt)
-        # Also tag the prompt with the experiment ID (append if already exists)
-        try:
-            # Get existing experiment IDs
-            prompt_info = client.get_prompt(prompt.name)
-            existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
 
-            # Parse existing IDs and add new one if not present
-            exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
-            if run.info.experiment_id not in exp_ids:
-                exp_ids.append(run.info.experiment_id)
-                # Store as comma-separated list
-                client.set_prompt_tag(
-                    name=prompt.name,
-                    key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
-                    value=",".join(exp_ids),
-                )
-        except Exception:
-            # NB: We should still load the prompt even if experiment tagging fails
-            _logger.warning(
-                f"Failed to tag prompt '{prompt.name}' with "
-                f"experiment ID '{run.info.experiment_id}'.",
-                exc_info=True,
-            )
+    if experiment_id := MLFLOW_EXPERIMENT_ID.get():
+        client._link_prompt_to_experiment(prompt, experiment_id)
 
     if link_to_model:
         model_id = model_id or get_active_model_id()
