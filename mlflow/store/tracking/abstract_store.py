@@ -1382,17 +1382,17 @@ class AbstractStore:
         created_by: str | None = None,
         provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
-        route_name: str | None = None,
-        route_description: str | None = None,
-        route_tags: list[dict[str, str]] | None = None,
+        endpoint_name: str | None = None,
+        endpoint_description: str | None = None,
+        endpoint_tags: list[dict[str, str]] | None = None,
     ) -> SecretWithEndpointAndBinding:
         """
-        Atomically create a gateway asset (secret + route + binding) in a single transaction.
+        Atomically create a gateway asset (secret + endpoint + binding) in a single transaction.
 
         This creates a complete gateway configuration:
         1. Secret: The API key/credential (and/or auth config)
-        2. Route: The model configuration (provider + model using that secret)
-        3. Binding: The resource binding (which service uses this route)
+        2. Endpoint: The model configuration (provider + model using that secret)
+        3. Binding: The resource binding (which service uses this endpoint)
 
         Args:
             secret_name: Name for the secret.
@@ -1402,18 +1402,18 @@ class AbstractStore:
             resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
-            model_name: Model identifier for the route (e.g., "gpt-4-turbo",
+            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo",
                 "claude-3-5-sonnet-20241022"). Required.
             is_shared: Whether the secret can be reused across multiple resources.
             created_by: Username of the creator. Optional.
             provider: LLM provider identifier. Optional.
             auth_config: Optional provider-specific authentication configuration.
-            route_name: Optional display name for the route. If not provided, model_name is used.
-            route_description: Optional description for the route.
-            route_tags: Optional list of tags for the route.
+            endpoint_name: Optional display name for the endpoint. If not provided, model_name is used.
+            endpoint_description: Optional description for the endpoint.
+            endpoint_tags: Optional list of tags for the endpoint.
 
         Returns:
-            SecretWithEndpointAndBinding containing the created secret, route, and initial binding.
+            SecretWithEndpointAndBinding containing the created secret, endpoint, and initial binding.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1424,13 +1424,13 @@ class AbstractStore:
         resource_id: str,
         field_name: str,
         model_name: str,
-        route_name: str | None = None,
-        route_description: str | None = None,
-        route_tags: list[dict[str, str]] | None = None,
+        endpoint_name: str | None = None,
+        endpoint_description: str | None = None,
+        endpoint_tags: list[dict[str, str]] | None = None,
         created_by: str | None = None,
     ) -> SecretWithEndpointAndBinding:
         """
-        Create a new route and binding for an existing secret.
+        Create a new endpoint and binding for an existing secret.
 
         This enables reusing a single API key (secret) across multiple model configurations.
 
@@ -1439,14 +1439,14 @@ class AbstractStore:
             resource_type: Type of resource (e.g., "SCORER_JOB").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
-            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
-            route_name: Optional display name for the route.
-            route_description: Optional description for the route.
-            route_tags: Optional list of tags for the route.
+            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo"). Required.
+            endpoint_name: Optional display name for the endpoint.
+            endpoint_description: Optional description for the endpoint.
+            endpoint_tags: Optional list of tags for the endpoint.
             created_by: Username of the creator. Optional.
 
         Returns:
-            SecretWithEndpointAndBinding containing the secret, new route, and new binding.
+            SecretWithEndpointAndBinding containing the secret, new endpoint, and new binding.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1506,7 +1506,7 @@ class AbstractStore:
         """
         Delete a secret binding by its ID.
 
-        This removes the binding between a route and a resource. The route and secret
+        This removes the binding between an endpoint and a resource. The endpoint and secret
         are not deleted, only the binding is removed.
 
         Args:
@@ -1520,7 +1520,7 @@ class AbstractStore:
     def _list_secret_bindings(
         self,
         secret_id: str | None = None,
-        route_id: str | None = None,
+        endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
     ) -> list[SecretBinding]:
@@ -1529,7 +1529,7 @@ class AbstractStore:
 
         Args:
             secret_id: Optional filter by secret ID (joins through routes).
-            route_id: Optional filter by route ID.
+            endpoint_id: Optional filter by endpoint ID.
             resource_type: Optional filter by resource type (e.g., "GLOBAL").
             resource_id: Optional filter by resource ID.
 
@@ -1575,22 +1575,22 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def set_secret_endpoint_tag(self, route_id: str, tag: EndpointTag) -> None:
+    def set_secret_endpoint_tag(self, endpoint_id: str, tag: EndpointTag) -> None:
         """
-        Set a tag for the specified secret route.
+        Set a tag for the specified secret endpoint.
 
         Args:
-            route_id: String ID of the route.
+            endpoint_id: String ID of the endpoint.
             tag: EndpointTag instance to set.
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_secret_endpoint_tag(self, route_id: str, key: str) -> None:
+    def delete_secret_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
-        Delete a tag from the specified secret route.
+        Delete a tag from the specified secret endpoint.
 
         Args:
-            route_id: String ID of the route.
+            endpoint_id: String ID of the endpoint.
             key: String name of the tag to be deleted.
         """
         raise NotImplementedError(self.__class__.__name__)
@@ -1626,10 +1626,10 @@ class AbstractStore:
         provider: str | None = None,
     ) -> list[Endpoint]:
         """
-        List all secret routes with optional filtering.
+        List all secret endpoints with optional filtering.
 
-        This method returns route metadata for displaying model configurations in the UI.
-        Routes represent model configurations (e.g., which model uses which secret).
+        This method returns endpoint metadata for displaying model configurations in the UI.
+        Endpoints represent model configurations (e.g., which model uses which secret).
 
         Args:
             secret_id: Optional filter to return only routes for a specific secret.
@@ -1640,37 +1640,37 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _delete_secret_endpoint(self, route_id: str) -> None:
+    def _delete_secret_endpoint(self, endpoint_id: str) -> None:
         """
-        Delete a secret route and its associated bindings.
+        Delete a secret endpoint and its associated bindings.
 
-        This will CASCADE delete all bindings for this route. If this is the last route
+        This will CASCADE delete all bindings for this endpoint. If this is the last endpoint
         for a secret, the secret will be orphaned and should be deleted separately.
 
         Args:
-            route_id: ID of the route to delete.
+            endpoint_id: ID of the endpoint to delete.
 
         Raises:
-            MlflowException: If route doesn't exist or is the last route for its secret.
+            MlflowException: If endpoint doesn't exist or is the last endpoint for its secret.
         """
         raise NotImplementedError(self.__class__.__name__)
 
     def _bind_secret_endpoint(
         self,
-        route_id: str,
+        endpoint_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
         created_by: str | None = None,
     ) -> SecretBinding:
         """
-        Bind an existing secret route to a new resource.
+        Bind an existing secret endpoint to a new resource.
 
-        This allows reusing a route (model configuration) across multiple resources
-        without creating a new route each time.
+        This allows reusing an endpoint (endpoint) across multiple resources
+        without creating a new endpoint each time.
 
         Args:
-            route_id: ID of the existing route to bind.
+            endpoint_id: ID of the existing endpoint to bind.
             resource_type: Type of resource (e.g., "GLOBAL", "SCORER_JOB").
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
@@ -1680,6 +1680,6 @@ class AbstractStore:
             The created SecretBinding entity.
 
         Raises:
-            MlflowException: If route doesn't exist or binding already exists.
+            MlflowException: If endpoint doesn't exist or binding already exists.
         """
         raise NotImplementedError(self.__class__.__name__)

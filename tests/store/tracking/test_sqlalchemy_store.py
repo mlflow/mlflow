@@ -11454,7 +11454,7 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
     resource_id = "scorer_456"
     field_name = "ANTHROPIC_API_KEY"
 
-    # Create first route
+    # Create first endpoint
     result1 = store._create_and_bind_secret(
         secret_name="first_secret",
         secret_value="value1",
@@ -11462,10 +11462,10 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
         resource_id=resource_id,
         field_name=field_name,
         model_name="claude-3-5-sonnet-20241022",
-        route_name="claude-sonnet-route",
+        endpoint_name="claude-sonnet-route",
     )
 
-    # Create second route with different secret for SAME resource/field - should succeed
+    # Create second endpoint with different secret for SAME resource/field - should succeed
     result2 = store._create_and_bind_secret(
         secret_name="second_secret",
         secret_value="value2",
@@ -11473,7 +11473,7 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
         resource_id=resource_id,
         field_name=field_name,
         model_name="claude-3-haiku-20240307",
-        route_name="claude-haiku-route",
+        endpoint_name="claude-haiku-route",
     )
 
     # Verify both routes were created successfully
@@ -11484,7 +11484,7 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
     assert result1.binding.field_name == field_name
     assert result2.binding.field_name == field_name
 
-    # Verify route names must be unique - duplicate route name should fail
+    # Verify endpoint names must be unique - duplicate route name should fail
     with pytest.raises(MlflowException, match="UNIQUE constraint"):
         store._create_and_bind_secret(
             secret_name="third_secret",
@@ -11493,7 +11493,7 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
             resource_id=resource_id,
             field_name=field_name,
             model_name="claude-3-opus-20240229",
-            route_name="claude-sonnet-route",  # Duplicate route name
+            endpoint_name="claude-sonnet-route",  # Duplicate endpoint name
         )
 
 
@@ -11550,7 +11550,7 @@ def test_bind_private_secret_raises_error(store: SqlAlchemyStore, kek_passphrase
         is_shared=False,
     )
 
-    with pytest.raises(MlflowException, match="Cannot create route for private secret"):
+    with pytest.raises(MlflowException, match="Cannot create endpoint for private secret"):
         store._create_endpoint_and_bind(
             secret_id=result.secret.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
@@ -11705,32 +11705,32 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
 
 
 def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
-    """Test that multiple routes can bind to same resource/field, but route names must be unique."""
+    """Test that multiple endpoints can bind to same resource/field, but endpoint names must be unique."""
     secret_entity = create_secret(is_shared=True)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
-    # First route - should succeed
+    # First endpoint - should succeed
     store._create_endpoint_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
         model_name="gpt-4",
         field_name="api_key",
-        route_name="gpt-4-route",
+        endpoint_name="gpt-4-route",
     )
 
-    # Second route with same resource/field but different route name - should succeed
+    # Second endpoint with same resource/field but different route name - should succeed
     store._create_endpoint_and_bind(
         secret_id=secret_entity.secret_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
         model_name="gpt-3.5-turbo",
         field_name="api_key",
-        route_name="gpt-3.5-route",
+        endpoint_name="gpt-3.5-route",
     )
 
-    # Third route with duplicate route name - should fail
+    # Third endpoint with duplicate route name - should fail
     with pytest.raises(MlflowException, match="UNIQUE constraint"):
         store._create_endpoint_and_bind(
             secret_id=secret_entity.secret_id,
@@ -11738,7 +11738,7 @@ def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret)
             resource_id=job_id,
             model_name="gpt-4-turbo",
             field_name="api_key",
-            route_name="gpt-4-route",  # Duplicate route name
+            endpoint_name="gpt-4-route",  # Duplicate endpoint name
         )
 
 
@@ -11959,9 +11959,9 @@ def test_create_secret_with_route_tags(store: SqlAlchemyStore, kek_passphrase):
         model_name="gpt-4-turbo",
         is_shared=True,
         provider="openai",
-        route_name="Production GPT-4",
-        route_description="Production GPT-4 Turbo endpoint for ML scoring",
-        route_tags=route_tags,
+        endpoint_name="Production GPT-4",
+        endpoint_description="Production GPT-4 Turbo endpoint for ML scoring",
+        endpoint_tags=route_tags,
     )
 
     assert result.secret.secret_id is not None
@@ -11986,8 +11986,8 @@ def test_create_endpoint_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passp
         model_name="gpt-4-turbo",
         is_shared=True,
         provider="openai",
-        route_name="GPT-4 Turbo",
-        route_description="Main production GPT-4 endpoint",
+        endpoint_name="GPT-4 Turbo",
+        endpoint_description="Main production GPT-4 endpoint",
     )
 
     result2 = store._create_endpoint_and_bind(
@@ -11996,9 +11996,9 @@ def test_create_endpoint_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passp
         resource_id="job_2",
         field_name="OPENAI_API_KEY",
         model_name="gpt-3.5-turbo",
-        route_name="GPT-3.5 Turbo",
-        route_description="Cost-efficient endpoint for dev",
-        route_tags=[{"key": "tier", "value": "development"}],
+        endpoint_name="GPT-3.5 Turbo",
+        endpoint_description="Cost-efficient endpoint for dev",
+        endpoint_tags=[{"key": "tier", "value": "development"}],
     )
 
     result3 = store._create_endpoint_and_bind(
@@ -12007,8 +12007,8 @@ def test_create_endpoint_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passp
         resource_id="job_3",
         field_name="OPENAI_API_KEY",
         model_name="gpt-4o",
-        route_name="GPT-4o",
-        route_description="Latest model for experiments",
+        endpoint_name="GPT-4o",
+        endpoint_description="Latest model for experiments",
     )
 
     assert result2.secret.secret_id == result1.secret.secret_id
@@ -12039,7 +12039,7 @@ def test_create_endpoint_and_bind_private_secret_fails(store: SqlAlchemyStore, k
         is_shared=False,
     )
 
-    with pytest.raises(MlflowException, match="Cannot create route for private secret"):
+    with pytest.raises(MlflowException, match="Cannot create endpoint for private secret"):
         store._create_endpoint_and_bind(
             secret_id=result.secret.secret_id,
             resource_type=SecretResourceType.SCORER_JOB,
@@ -12263,10 +12263,10 @@ def test_list_secret_endpoints_multiple_per_secret(store: SqlAlchemyStore, kek_p
     model_names = {r.model_name for r in routes}
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
-    for route in routes:
-        assert route.secret_id == result1.secret.secret_id
-        assert route.created_at > 0
-        assert route.last_updated_at > 0
+    for endpoint in routes:
+        assert endpoint.secret_id == result1.secret.secret_id
+        assert endpoint.created_at > 0
+        assert endpoint.last_updated_at > 0
 
 
 def test_delete_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
@@ -12296,7 +12296,7 @@ def test_delete_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
     routes_after = store._list_secret_endpoints(secret_id=result.secret.secret_id)
     assert len(routes_after) == 1
 
-    with pytest.raises(MlflowException, match="Cannot delete the last route"):
+    with pytest.raises(MlflowException, match="Cannot delete the last endpoint"):
         store._delete_secret_endpoint(result.endpoint.endpoint_id)
 
     with pytest.raises(MlflowException, match="not found"):
@@ -12368,16 +12368,16 @@ def test_update_secret_endpoint_to_existing_secret(store: SqlAlchemyStore, kek_p
     bindings_before = store._list_secret_bindings(endpoint_id=original_route_id)
     assert len(bindings_before) == 1
 
-    updated_route = store._update_secret_endpoint(
+    updated_endpoint = store._update_secret_endpoint(
         endpoint_id=original_route_id,
         secret_id=target_secret_id,
         updated_by="test_updater",
     )
 
-    assert updated_route.endpoint_id == original_route_id
-    assert updated_route.secret_id == target_secret_id
-    assert updated_route.last_updated_by == "test_updater"
-    assert updated_route.last_updated_at > result1.endpoint.created_at
+    assert updated_endpoint.endpoint_id == original_route_id
+    assert updated_endpoint.secret_id == target_secret_id
+    assert updated_endpoint.last_updated_by == "test_updater"
+    assert updated_endpoint.last_updated_at > result1.endpoint.created_at
 
     bindings_after = store._list_secret_bindings(endpoint_id=original_route_id)
     assert len(bindings_after) == 1
@@ -12395,7 +12395,7 @@ def test_update_secret_endpoint_nonexistent_route_fails(store: SqlAlchemyStore, 
         is_shared=True,
     )
 
-    with pytest.raises(MlflowException, match="Route with ID 'nonexistent' not found"):
+    with pytest.raises(MlflowException, match="Endpoint with ID 'nonexistent' not found"):
         store._update_secret_endpoint(
             endpoint_id="nonexistent",
             secret_id=result.secret.secret_id,
@@ -12444,7 +12444,7 @@ def test_update_secret_endpoint_with_new_secret(store: SqlAlchemyStore, kek_pass
     bindings_before = store._list_secret_bindings(endpoint_id=original_route_id)
     assert len(bindings_before) == 2
 
-    new_secret, updated_route = store._update_secret_endpoint_with_new_secret(
+    new_secret, updated_endpoint = store._update_secret_endpoint_with_new_secret(
         endpoint_id=original_route_id,
         secret_name="new_api_key",
         secret_value="sk-new-value",
@@ -12453,10 +12453,10 @@ def test_update_secret_endpoint_with_new_secret(store: SqlAlchemyStore, kek_pass
         updated_by="test_updater",
     )
 
-    assert updated_route.endpoint_id == original_route_id
-    assert updated_route.secret_id == new_secret.secret_id
-    assert updated_route.secret_id != original_secret_id
-    assert updated_route.last_updated_by == "test_updater"
+    assert updated_endpoint.endpoint_id == original_route_id
+    assert updated_endpoint.secret_id == new_secret.secret_id
+    assert updated_endpoint.secret_id != original_secret_id
+    assert updated_endpoint.last_updated_by == "test_updater"
 
     assert new_secret.secret_name == "new_api_key"
     assert new_secret.is_shared is True
@@ -12506,7 +12506,7 @@ def test_update_secret_endpoint_with_new_secret_duplicate_name_fails(
 def test_update_secret_endpoint_with_new_secret_nonexistent_route_fails(
     store: SqlAlchemyStore, kek_passphrase
 ):
-    with pytest.raises(MlflowException, match="Route with ID 'nonexistent' not found"):
+    with pytest.raises(MlflowException, match="Endpoint with ID 'nonexistent' not found"):
         store._update_secret_endpoint_with_new_secret(
             endpoint_id="nonexistent",
             secret_name="new_key",
@@ -12537,14 +12537,14 @@ def test_update_secret_endpoint_preserves_bindings(store: SqlAlchemyStore, kek_p
     binding_ids_before = {b.binding_id for b in bindings_before}
     assert len(bindings_before) == 4
 
-    new_secret, updated_route = store._update_secret_endpoint_with_new_secret(
+    new_secret, updated_endpoint = store._update_secret_endpoint_with_new_secret(
         endpoint_id=result.endpoint.endpoint_id,
         secret_name="new_key",
         secret_value="sk-new",
     )
 
-    assert updated_route.endpoint_id == result.endpoint.endpoint_id
-    assert updated_route.secret_id != result.secret.secret_id
+    assert updated_endpoint.endpoint_id == result.endpoint.endpoint_id
+    assert updated_endpoint.secret_id != result.secret.secret_id
 
     bindings_after = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
     binding_ids_after = {b.binding_id for b in bindings_after}
@@ -12636,7 +12636,7 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     assert len(openai_routes) == 1
     assert openai_routes[0].model_name == "gpt-4"
 
-    with pytest.raises(MlflowException, match="Cannot delete the last route"):
+    with pytest.raises(MlflowException, match="Cannot delete the last endpoint"):
         store._delete_secret_endpoint(result1.endpoint.endpoint_id)
 
     store._delete_secret(result1.secret.secret_id)

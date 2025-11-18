@@ -2,7 +2,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 
 
 class EndpointTag(_MlflowObject):
-    """Tag object associated with a secret route."""
+    """Tag object associated with a secret endpoint."""
 
     def __init__(self, key, value):
         self._key = key
