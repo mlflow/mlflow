@@ -548,13 +548,13 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
         backend_store_uri = _get_default_tracking_uri()
+        click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
 
-    # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
+        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
