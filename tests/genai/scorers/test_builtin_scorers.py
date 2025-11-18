@@ -67,7 +67,7 @@ def mock_judge_with_inputs_outputs():
 
 def test_retrieval_groundedness(sample_rag_trace):
     with patch(
-        "mlflow.genai.judges.is_grounded",
+        "mlflow.genai.judges.builtin._is_grounded_impl",
         side_effect=lambda *args, **kwargs: Feedback(
             name="retrieval_groundedness", value=CategoricalRating.YES
         ),
@@ -233,7 +233,7 @@ def test_retrieval_relevance_with_custom_model(sample_rag_trace, monkeypatch: py
 def test_retrieval_sufficiency(sample_rag_trace):
     # 1. Test with default scorer
     with patch(
-        "mlflow.genai.judges.is_context_sufficient",
+        "mlflow.genai.judges.builtin._is_context_sufficient_impl",
         side_effect=lambda *args, **kwargs: Feedback(
             name="retrieval_sufficiency", value=CategoricalRating.YES
         ),
@@ -276,7 +276,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
 
     # 2. Test with custom model parameter
     with patch(
-        "mlflow.genai.judges.is_context_sufficient",
+        "mlflow.genai.judges.builtin._is_context_sufficient_impl",
         side_effect=lambda *args, **kwargs: Feedback(
             name="custom_sufficiency", value=CategoricalRating.YES
         ),
@@ -315,7 +315,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
 
 def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     with patch(
-        "mlflow.genai.judges.is_context_sufficient",
+        "mlflow.genai.judges.builtin._is_context_sufficient_impl",
         return_value=Feedback(name="retrieval_sufficiency", value=CategoricalRating.YES),
     ) as mock_is_context_sufficient:
         RetrievalSufficiency()(
@@ -351,7 +351,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
 
 def test_guidelines():
     # 1. Called with per-row guidelines
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_guidelines:
         ExpectationsGuidelines()(
             inputs={"question": "query"},
             outputs="answer",
@@ -366,7 +366,7 @@ def test_guidelines():
     )
 
     # 2. Called with global guidelines
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_guidelines:
         is_english = Guidelines(
             name="is_english",
             guidelines=["The response should be in English."],
@@ -382,7 +382,7 @@ def test_guidelines():
     )
 
     # 3. Test with string input (should wrap in list)
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_guidelines:
         is_polite = Guidelines(
             name="is_polite",
             guidelines="Be polite and respectful.",
@@ -400,7 +400,7 @@ def test_guidelines():
 
 def test_relevance_to_query():
     # 1. Test with default scorer
-    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+    with patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_is_context_relevant:
         RelevanceToQuery()(
             inputs={"question": "query"},
             outputs="answer",
@@ -414,7 +414,7 @@ def test_relevance_to_query():
     )
 
     # 2. Test with custom model parameter
-    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+    with patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_is_context_relevant:
         relevance_custom = RelevanceToQuery(
             name="custom_relevance",
             model="openai:/gpt-4.1-mini",
@@ -502,7 +502,7 @@ def test_safety_with_custom_model_and_name(monkeypatch: pytest.MonkeyPatch):
 
 
 def test_correctness():
-    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+    with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
         Correctness()(
             inputs={"question": "query"},
             outputs="answer",
@@ -518,7 +518,7 @@ def test_correctness():
         model=None,
     )
 
-    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+    with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
         correctness_custom = Correctness(
             name="custom_correctness",
             model="openai:/gpt-4.1-mini",
@@ -646,7 +646,7 @@ def create_simple_trace(inputs=None, outputs=None):
 
 
 def test_correctness_with_trace():
-    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+    with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
         mock_is_correct.return_value = Feedback(
             name="correctness", value=True, rationale="Correct answer"
         )
@@ -680,7 +680,7 @@ def test_equivalence_with_trace():
 
 
 def test_guidelines_with_trace():
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
         mock_meets_guidelines.return_value = Feedback(
             name="guidelines", value=True, rationale="Follows guidelines"
         )
@@ -695,7 +695,7 @@ def test_guidelines_with_trace():
 
 
 def test_relevance_to_query_with_trace():
-    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+    with patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_is_context_relevant:
         mock_is_context_relevant.return_value = Feedback(
             name="relevance_to_query", value="yes", rationale="Relevant"
         )
@@ -736,7 +736,7 @@ def test_correctness_fallback_with_expectations(trace_without_inputs_outputs):
             inputs='{"question": "extracted question"}', outputs="extracted answer"
         )
 
-        with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
             mock_is_correct.return_value = Feedback(
                 name="correctness", value=True, rationale="Correct answer"
             )
@@ -773,7 +773,7 @@ def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
             inputs='{"question": "test"}', outputs="test response"
         )
 
-        with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
             mock_meets_guidelines.return_value = Feedback(
                 name="guidelines", value=True, rationale="Follows guidelines"
             )
@@ -797,9 +797,9 @@ def test_scorer_fallback_to_make_judge(trace_without_inputs_outputs):
 @pytest.mark.parametrize(
     ("scorer_factory", "expected_name", "judge_to_mock"),
     [
-        (lambda: Guidelines(guidelines=["Be concise"]), "guidelines", "meets_guidelines"),
-        (lambda: RelevanceToQuery(), "relevance_to_context", "is_context_relevant"),
-        (lambda: Safety(), "safety", "is_safe"),
+        (lambda: Guidelines(guidelines=["Be concise"]), "guidelines", "_meets_guidelines_impl"),
+        (lambda: RelevanceToQuery(), "relevance_to_context", "_is_context_relevant_impl"),
+        (lambda: Safety(), "safety", "_is_safe_impl"),
     ],
 )
 def test_trace_not_formatted_into_prompt_for_fallback(
@@ -812,7 +812,7 @@ def test_trace_not_formatted_into_prompt_for_fallback(
             inputs='{"question": "test"}', outputs="test response"
         )
 
-        with patch(f"mlflow.genai.judges.{judge_to_mock}") as mock_judge:
+        with patch(f"mlflow.genai.judges.builtin.{judge_to_mock}") as mock_judge:
             mock_judge.return_value = Feedback(
                 name=expected_name, value=True, rationale="Test passed"
             )
@@ -830,7 +830,7 @@ def test_trace_not_formatted_into_prompt_for_fallback(
 
 
 def test_correctness_with_override_outputs():
-    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+    with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
         mock_is_correct.return_value = Feedback(name="correctness", value=True, rationale="Correct")
 
         trace = create_simple_trace()
@@ -868,7 +868,7 @@ def test_equivalence_with_override_outputs():
 
 
 def test_relevance_mixed_override():
-    with patch("mlflow.genai.judges.is_context_relevant") as mock_is_context_relevant:
+    with patch("mlflow.genai.judges.builtin._is_context_relevant_impl") as mock_is_context_relevant:
         mock_is_context_relevant.return_value = Feedback(
             name="relevance_to_query", value="yes", rationale="Relevant"
         )
@@ -893,7 +893,7 @@ def test_trace_agent_mode_with_extra_fields(trace_with_only_inputs):
             inputs='{"question": "Test question"}', outputs="extracted outputs"
         )
 
-        with patch("mlflow.genai.judges.is_safe") as mock_is_safe:
+        with patch("mlflow.genai.judges.builtin._is_safe_impl") as mock_is_safe:
             mock_is_safe.return_value = Feedback(
                 name="safety", value="yes", rationale="Safe via trace"
             )
@@ -918,7 +918,7 @@ def test_pure_trace_mode_with_expectations(trace_with_only_outputs):
             inputs='{"question": "extracted question"}', outputs="Test response"
         )
 
-        with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+        with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
             mock_is_correct.return_value = Feedback(
                 name="correctness", value=True, rationale="Pure trace mode"
             )
@@ -946,7 +946,7 @@ def test_correctness_default_extracts_from_trace():
 
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    with patch("mlflow.genai.judges.is_correct") as mock_is_correct:
+    with patch("mlflow.genai.judges.builtin._is_correct_impl") as mock_is_correct:
         mock_is_correct.return_value = Feedback(
             name="correctness", value=True, rationale="Extracted from trace"
         )
@@ -977,7 +977,7 @@ def test_equivalence_default_extracts_from_trace():
 
 
 def test_backwards_compatibility():
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
         mock_meets_guidelines.return_value = Feedback(
             name="guidelines", value=True, rationale="Compatible"
         )
@@ -994,7 +994,7 @@ def test_backwards_compatibility():
 
 
 def test_expectations_guidelines_with_trace():
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
         mock_meets_guidelines.return_value = Feedback(
             name="expectations_guidelines", value=True, rationale="Follows guidelines"
         )
@@ -1017,7 +1017,7 @@ def test_expectations_guidelines_extraction_from_trace():
 
     trace_with_expectations = mlflow.get_trace(trace.info.trace_id)
 
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
         mock_meets_guidelines.return_value = Feedback(
             name="expectations_guidelines", value=True, rationale="Follows guidelines"
         )
@@ -1040,7 +1040,7 @@ def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_output
             inputs='{"question": "test"}', outputs="test response"
         )
 
-        with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+        with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
             mock_meets_guidelines.return_value = Feedback(
                 name="expectations_guidelines", value=True, rationale="Follows guidelines"
             )
@@ -1060,7 +1060,7 @@ def test_expectations_guidelines_fallback_with_trace(trace_without_inputs_output
 
 
 def test_expectations_guidelines_mixed_override():
-    with patch("mlflow.genai.judges.meets_guidelines") as mock_meets_guidelines:
+    with patch("mlflow.genai.judges.builtin._meets_guidelines_impl") as mock_meets_guidelines:
         mock_meets_guidelines.return_value = Feedback(
             name="expectations_guidelines", value=True, rationale="Follows guidelines"
         )
