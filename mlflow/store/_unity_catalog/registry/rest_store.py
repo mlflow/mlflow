@@ -1326,6 +1326,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         # Parse catalog and schema from filter string
         if filter_string:
+            from mlflow.store.model_registry.abstract_store import AbstractStore
+
+            filter_string = AbstractStore._parse_experiment_id_filter(filter_string)
             parsed_filter = self._parse_catalog_schema_from_filter(filter_string)
         else:
             raise MlflowException(

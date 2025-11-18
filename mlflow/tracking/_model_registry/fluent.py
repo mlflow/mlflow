@@ -18,6 +18,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
+from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
@@ -764,18 +765,27 @@ def load_prompt(
     # MLflow GenAI evaluation.
     if run := _get_latest_active_run():
         client.link_prompt_version_to_run(run.info.run_id, prompt)
-        # Also link the prompt to the experiment associated with this run
+        # Also tag the prompt with the experiment ID (append if already exists)
         try:
-            client.link_prompt_version_to_experiment(
-                name=prompt.name,
-                version=prompt.version,
-                experiment_id=run.info.experiment_id,
-            )
+            # Get existing experiment IDs
+            prompt_info = client.get_prompt(prompt.name)
+            existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+
+            # Parse existing IDs and add new one if not present
+            exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
+            if run.info.experiment_id not in exp_ids:
+                exp_ids.append(run.info.experiment_id)
+                # Store as comma-separated list
+                client.set_prompt_tag(
+                    name=prompt.name,
+                    key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
+                    value=",".join(exp_ids),
+                )
         except Exception:
-            # NB: We should still load the prompt even if experiment linking fails
+            # NB: We should still load the prompt even if experiment tagging fails
             _logger.warning(
-                f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
-                f" to experiment '{run.info.experiment_id}'.",
+                f"Failed to tag prompt '{prompt.name}' with "
+                f"experiment ID '{run.info.experiment_id}'.",
                 exc_info=True,
             )
 

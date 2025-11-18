@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
@@ -540,13 +541,63 @@ class AbstractStore:
             tags=tags or {},
         )
 
+    @staticmethod
+    def _parse_experiment_id_filter(filter_string: str | None) -> str | None:
+        """
+        Parse and transform experiment_id filter to tag-based filter.
+
+        This helper extracts the special 'experiment_id = "xxx"' syntax from the filter
+        string, converts it to the appropriate tag filter clause, and combines it with
+        any remaining filters.
+
+        Args:
+            filter_string: Original filter string that may contain experiment_id clause
+
+        Returns:
+            Transformed filter string with experiment_id converted to tag filter, or None
+        """
+        if not filter_string:
+            return None
+
+        from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+
+        # Match experiment_id = 'xxx' or experiment_id = "xxx"
+        exp_id_pattern = r"experiment_id\s*=\s*['\"]([^'\"]+)['\"]"
+        match = re.search(exp_id_pattern, filter_string)
+
+        if not match:
+            return filter_string
+
+        experiment_id = match.group(1)
+
+        # Remove the experiment_id clause from the filter string
+        remaining_filter = re.sub(exp_id_pattern, "", filter_string).strip()
+
+        # Clean up any leading/trailing AND operators
+        remaining_filter = re.sub(r"^\s*AND\s+", "", remaining_filter)
+        remaining_filter = re.sub(r"\s+AND\s*$", "", remaining_filter)
+
+        # Clean up double AND operators
+        remaining_filter = re.sub(r"\s+AND\s+AND\s+", " AND ", remaining_filter)
+
+        # Build the tag filter clause
+        # Escape single quotes and percent signs for SQL injection protection
+        escaped_experiment_id = experiment_id.replace("'", "''").replace("%", "%%")
+        # Use LIKE to match the experiment ID anywhere in the comma-separated list
+        # Note: No backticks needed since the tag key doesn't contain dots
+        experiment_filter = f"tags.{PROMPT_EXPERIMENT_IDS_TAG_KEY} LIKE '%{escaped_experiment_id}%'"
+
+        # Combine experiment filter with remaining filter
+        if remaining_filter:
+            return f"{experiment_filter} AND {remaining_filter}"
+        return experiment_filter
+
     def search_prompts(
         self,
         filter_string: str | None = None,
         max_results: int | None = None,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-        experiment_id: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -556,10 +607,10 @@ class AbstractStore:
 
         Args:
             filter_string: Filter query string, defaults to searching for all prompts.
+                Supports experiment_id filter via 'experiment_id = "xxx"' syntax.
             max_results: Maximum number of prompts desired.
             order_by: List of order-by clauses.
             page_token: Pagination token for requesting subsequent pages.
-            experiment_id: Optional experiment ID to filter prompts by.
 
         Returns:
             A PagedList of Prompt objects.
@@ -570,23 +621,8 @@ class AbstractStore:
         # Build filter to only include prompts (use backticks for tag key with dots)
         prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
 
-        # Add experiment filter if specified
-        if experiment_id:
-            from mlflow.tracking import _get_store as _get_tracking_store
-
-            tracking_store = _get_tracking_store()
-            prompt_names = tracking_store.get_prompt_names_by_experiment(experiment_id)
-
-            # If no prompts are linked to this experiment, return empty result
-            if not prompt_names:
-                return PagedList([], None)
-
-            # Build IN clause with proper SQL escaping (escape single quotes)
-            escaped_names = [name.replace("'", "''") for name in prompt_names]
-            names_list = ", ".join(f"'{name}'" for name in escaped_names)
-            prompt_filter = f"{prompt_filter} AND name IN ({names_list})"
-
         if filter_string:
+            filter_string = self._parse_experiment_id_filter(filter_string)
             prompt_filter = f"{prompt_filter} AND {filter_string}"
 
         # Search registered models with prompt filter
@@ -600,7 +636,6 @@ class AbstractStore:
         # Convert RegisteredModel objects to Prompt objects
         prompts = []
         for rm in registered_models:
-
             # Extract tags as dict
             if isinstance(rm.tags, dict):
                 tags = rm.tags.copy()
@@ -1070,40 +1105,6 @@ class AbstractStore:
                 from mlflow.entities import RunTag
 
                 tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
-
-    def link_prompt_version_to_experiment(
-        self, name: str, version: str, experiment_id: str
-    ) -> None:
-        """
-        Link a prompt version to an experiment using entity associations.
-
-        Args:
-            name: Name of the prompt.
-            version: Version of the prompt to link.
-            experiment_id: ID of the experiment to link to.
-        """
-        from mlflow.tracking import _get_store as _get_tracking_store
-
-        prompt_version = self.get_prompt_version(name, version)
-        if not prompt_version:
-            raise MlflowException(
-                f"Could not find prompt '{name}' version '{version}'.",
-                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-            )
-
-        tracking_store = _get_tracking_store()
-
-        # Verify experiment exists
-        experiment = tracking_store.get_experiment(experiment_id)
-        if not experiment:
-            raise MlflowException(
-                f"Could not find experiment with ID '{experiment_id}' to which to link prompt '{name}'.",
-                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-            )
-
-        # Create entity association linking prompt to experiment
-        # Use prompt name as identifier (not version-specific)
-        tracking_store.add_prompt_to_experiment(name, experiment_id)
 
     # CRUD API for Webhook objects
     def create_webhook(

@@ -517,7 +517,6 @@ class ModelRegistryClient:
         max_results: int | None = None,
         order_by: list[str] | None = None,
         page_token: str | None = None,
-        experiment_id: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
@@ -529,10 +528,10 @@ class ModelRegistryClient:
             filter_string: Filter query string. For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
                 For traditional registries, standard filter expressions are supported.
+                Supports experiment_id filter via 'experiment_id = "xxx"' syntax.
             max_results: Maximum number of prompts to return.
             order_by: List of column names with ASC|DESC annotation.
             page_token: Token specifying the next page of results.
-            experiment_id: Optional experiment ID to filter prompts by.
 
         Returns:
             A PagedList of Prompt objects.
@@ -542,7 +541,6 @@ class ModelRegistryClient:
             max_results=max_results,
             order_by=order_by,
             page_token=page_token,
-            experiment_id=experiment_id,
         )
 
     def delete_prompt(self, name: str) -> None:
@@ -749,19 +747,6 @@ class ModelRegistryClient:
             run_id: The ID of the run to link the prompt version to.
         """
         return self.store.link_prompt_version_to_run(name, str(version), run_id)
-
-    def link_prompt_version_to_experiment(
-        self, name: str, version: int | str, experiment_id: str
-    ) -> None:
-        """
-        Link a prompt version to an experiment.
-
-        Args:
-            name: The name of the prompt.
-            version: The version of the prompt.
-            experiment_id: The ID of the experiment to link the prompt version to.
-        """
-        return self.store.link_prompt_version_to_experiment(name, str(version), experiment_id)
 
     def link_prompt_versions_to_trace(
         self, prompt_versions: list[PromptVersion], trace_id: str

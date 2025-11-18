@@ -384,7 +384,7 @@ class SqlAlchemyStore(AbstractStore):
                     raise MlflowException(
                         f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
-                if comparator not in ("=", "!=", "LIKE", "ILIKE", "IN", "NOT IN"):
+                if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException(
                         f"Invalid comparator for attribute: {comparator}",
                         error_code=INVALID_PARAMETER_VALUE,

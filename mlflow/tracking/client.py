@@ -667,16 +667,27 @@ class MlflowClient:
 
         if run := _get_latest_active_run():
             try:
-                self.link_prompt_version_to_experiment(
-                    name=prompt_version.name,
-                    version=prompt_version.version,
-                    experiment_id=run.info.experiment_id,
-                )
+                from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
+
+                # Get existing experiment IDs
+                prompt_info = registry_client.get_prompt(prompt_version.name)
+                existing_ids = prompt_info.tags.get(PROMPT_EXPERIMENT_IDS_TAG_KEY, "")
+
+                # Parse existing IDs and add new one if not present
+                exp_ids = [eid.strip() for eid in existing_ids.split(",") if eid.strip()]
+                if run.info.experiment_id not in exp_ids:
+                    exp_ids.append(run.info.experiment_id)
+                    # Store as comma-separated list
+                    self.set_prompt_tag(
+                        name=prompt_version.name,
+                        key=PROMPT_EXPERIMENT_IDS_TAG_KEY,
+                        value=",".join(exp_ids),
+                    )
             except Exception:
-                # NB: We should still register the prompt even if experiment linking fails
+                # NB: We should still register the prompt even if experiment tagging fails
                 _logger.warning(
-                    f"Failed to link prompt '{prompt_version.name}' version '{prompt_version.version}'"
-                    f" to experiment '{run.info.experiment_id}'.",
+                    f"Failed to tag prompt '{prompt_version.name}' with "
+                    f"experiment ID '{run.info.experiment_id}'.",
                     exc_info=True,
                 )
 
@@ -689,7 +700,6 @@ class MlflowClient:
         filter_string: str | None = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: str | None = None,
-        experiment_id: str | None = None,
     ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
@@ -703,15 +713,13 @@ class MlflowClient:
                 An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+                Supports experiment_id filter via 'experiment_id = "xxx"' syntax.
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
-            experiment_id (Optional[str]):
-                An experiment ID to filter prompts by. If provided, only prompts
-                linked to this experiment will be returned. Defaults to `None`.
 
         Returns:
             A pageable list of Prompt objects representing prompt metadata:
@@ -729,7 +737,7 @@ class MlflowClient:
                 prompts = client.search_prompts(filter_string="name LIKE 'greeting%'")
 
                 # Get prompts by experiment
-                prompts = client.search_prompts(experiment_id="1")
+                prompts = client.search_prompts(filter_string='experiment_id = "1"')
 
                 # Get specific version content
                 for prompt in prompts:
@@ -745,7 +753,6 @@ class MlflowClient:
             filter_string=filter_string,
             max_results=max_results,
             page_token=page_token,
-            experiment_id=experiment_id,
         )
 
     @require_prompt_registry
@@ -838,23 +845,6 @@ class MlflowClient:
             name=name,
             version=version,
             model_id=model_id,
-        )
-
-    def link_prompt_version_to_experiment(
-        self, name: str, version: str, experiment_id: str
-    ) -> None:
-        """
-        Link a prompt version to an experiment.
-
-        Args:
-            name: The name of the prompt.
-            version: The version of the prompt.
-            experiment_id: The ID of the experiment to link the prompt version to.
-        """
-        return self._get_registry_client().link_prompt_version_to_experiment(
-            name=name,
-            version=version,
-            experiment_id=experiment_id,
         )
 
     def link_prompt_versions_to_trace(
