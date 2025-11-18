@@ -117,7 +117,7 @@ from mlflow.protos.service_pb2 import (
     DeleteRun,
     DeleteScorer,
     DeleteSecret,
-    DeleteSecretBinding,
+    DeleteEndpointBinding,
     DeleteEndpoint,
     DeleteEndpointTag,
     DeleteSecretTag,
@@ -148,7 +148,7 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     ListScorers,
     ListScorerVersions,
-    ListSecretBindings,
+    ListEndpointBindings,
     ListEndpoints,
     ListSecrets,
     LogBatch,
@@ -3943,7 +3943,7 @@ def _delete_secret():
 @_disable_if_artifacts_only
 def _list_secret_bindings():
     request_message = _get_request_message(
-        ListSecretBindings(),
+        ListEndpointBindings(),
         schema={
             "secret_id": [_assert_string],
             "resource_type": [_assert_string],
@@ -3963,7 +3963,7 @@ def _list_secret_bindings():
         route_id=request_message.route_id if request_message.HasField("route_id") else None,
     )
 
-    response_message = ListSecretBindings.Response()
+    response_message = ListEndpointBindings.Response()
     for binding in bindings:
         response_message.bindings.add().CopyFrom(binding.to_proto())
     return _wrap_response(response_message)
@@ -4170,7 +4170,7 @@ def _bind_secret_route():
 @_disable_if_artifacts_only
 def _delete_secret_binding():
     request_message = _get_request_message(
-        DeleteSecretBinding(),
+        DeleteEndpointBinding(),
         schema={
             "binding_id": [_assert_required, _assert_string],
         },
@@ -4178,7 +4178,7 @@ def _delete_secret_binding():
 
     _get_tracking_store()._delete_secret_binding(binding_id=request_message.binding_id)
 
-    response_message = DeleteSecretBinding.Response()
+    response_message = DeleteEndpointBinding.Response()
     return _wrap_response(response_message)
 
 
@@ -4614,12 +4614,12 @@ HANDLERS = {
     ListSecrets: _list_secrets,
     UpdateSecret: _update_secret,
     DeleteSecret: _delete_secret,
-    ListSecretBindings: _list_secret_bindings,
+    ListEndpointBindings: _list_secret_bindings,
     ListEndpoints: _list_secret_routes,
     DeleteEndpoint: _delete_secret_route,
     UpdateEndpoint: _update_secret_route,
     BindEndpoint: _bind_secret_route,
-    DeleteSecretBinding: _delete_secret_binding,
+    DeleteEndpointBinding: _delete_secret_binding,
     SetSecretTag: _set_secret_tag,
     DeleteSecretTag: _delete_secret_tag,
     SetEndpointTag: _set_secret_route_tag,

@@ -20,8 +20,8 @@ from mlflow.entities import (
     RunTag,
     Secret,
     SecretBinding,
-    SecretRoute,
-    SecretWithRouteAndBinding,
+    Endpoint,
+    SecretWithEndpointAndBinding,
     SourceType,
     ViewType,
 )
@@ -2973,9 +2973,9 @@ def test_create_and_bind_secret():
             provider="openai",
         )
 
-        assert isinstance(result, SecretWithRouteAndBinding)
+        assert isinstance(result, SecretWithEndpointAndBinding)
         assert isinstance(result.secret, Secret)
-        assert isinstance(result.route, SecretRoute)
+        assert isinstance(result.route, Endpoint)
         assert isinstance(result.binding, SecretBinding)
 
         assert result.secret.secret_id == "secret-123"
@@ -3067,7 +3067,7 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
             auth_config=auth_config,
         )
 
-        assert isinstance(result, SecretWithRouteAndBinding)
+        assert isinstance(result, SecretWithEndpointAndBinding)
         assert result.secret.masked_value == "<dict>"
         assert result.route.model_name == "gemini-2.5-pro"
 
@@ -3143,7 +3143,7 @@ def test_create_route_and_bind():
             created_by="user@example.com",
         )
 
-        assert isinstance(result, SecretWithRouteAndBinding)
+        assert isinstance(result, SecretWithEndpointAndBinding)
         assert result.secret.secret_id == "secret-shared-123"
         assert result.route.route_id == "route-new-999"
         assert result.route.model_name == "gpt-3.5-turbo"

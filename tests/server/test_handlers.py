@@ -10,8 +10,8 @@ from mlflow.entities import (
     ScorerVersion,
     Secret,
     SecretBinding,
-    SecretRoute,
-    SecretWithRouteAndBinding,
+    Endpoint,
+    SecretWithEndpointAndBinding,
     Span,
     Trace,
     TraceData,
@@ -54,7 +54,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     BatchGetTraces,
-    BindSecretRoute,
+    BindEndpoint,
     CalculateTraceFilterCorrelation,
     CreateAndBindSecret,
     CreateExperiment,
@@ -65,7 +65,7 @@ from mlflow.protos.service_pb2 import (
     GetSecretInfo,
     ListScorers,
     ListScorerVersions,
-    ListSecretBindings,
+    ListEndpointBindings,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
@@ -2046,7 +2046,7 @@ def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
         last_updated_by="user@example.com",
         provider="openai",
     )
-    route = SecretRoute(
+    route = Endpoint(
         route_id="route-789",
         secret_id="secret-123",
         model_name="gpt-4-turbo",
@@ -2068,7 +2068,7 @@ def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
         created_by="user@example.com",
         last_updated_by="user@example.com",
     )
-    result = SecretWithRouteAndBinding(secret=secret, route=route, binding=binding)
+    result = SecretWithEndpointAndBinding(secret=secret, route=route, binding=binding)
 
     mock_tracking_store._create_and_bind_secret.return_value = result
 
@@ -2172,7 +2172,7 @@ def test_delete_secret(mock_get_request_message, mock_tracking_store):
 
 
 def test_bind_secret(mock_get_request_message, mock_tracking_store):
-    mock_get_request_message.return_value = BindSecretRoute(
+    mock_get_request_message.return_value = BindEndpoint(
         route_id="route-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
@@ -2208,7 +2208,7 @@ def test_bind_secret(mock_get_request_message, mock_tracking_store):
 
 
 def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
-    mock_get_request_message.return_value = ListSecretBindings(
+    mock_get_request_message.return_value = ListEndpointBindings(
         secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-abc",
