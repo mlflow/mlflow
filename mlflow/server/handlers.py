@@ -3162,24 +3162,20 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    trace_data_in_artifact_repo = False
+    trace_data = None
     try:
         # allow partial so the front end can render in-progress traces
         trace = _get_tracking_store().get_trace(request_id, allow_partial=True)
-    except MlflowNotImplementedException:
-        pass
     except MlflowTracingException:
-        trace_data_in_artifact_repo = True
-    else:
-        trace_data = trace.data.to_dict()
-
-    if not trace_data_in_artifact_repo:
+        pass
+    except MlflowNotImplementedException:
+        # default to batch get traces if get_trace is not implemented
         try:
             traces = _get_tracking_store().batch_get_traces([request_id], None)
         # For stores that don't support batch get traces, or if the trace data is not stored in the
         # tracking store, we need to get the trace data from the artifact repository.
         except (MlflowTracingException, MlflowNotImplementedException):
-            trace_data_in_artifact_repo = True
+            pass
         else:
             if len(traces) != 1:
                 raise MlflowException(
@@ -3187,8 +3183,10 @@ def get_trace_artifact_handler():
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
             trace_data = traces[0].data.to_dict()
+    else:
+        trace_data = trace.data.to_dict()
 
-    if trace_data_in_artifact_repo:
+    if trace_data is None:
         trace_info = _get_tracking_store().get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 

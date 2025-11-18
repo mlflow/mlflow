@@ -337,7 +337,7 @@ class AbstractStore:
             trace_id: String id of the trace to fetch.
             allow_partial: Whether to allow partial traces. If True, the trace will be returned
                 even if it is not fully exported yet. If False, MLflow retries and returns
-                the trace until all spans are exported or the retry timeout is reached. Default
+                the trace until all spans are exported or retries are exhausted. Default
                 to False.
 
         Returns:

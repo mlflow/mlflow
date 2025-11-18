@@ -2023,7 +2023,6 @@ def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
     )
     mock_span = Span(otel_span)
 
-    # Create mock trace to return
     mock_trace = Trace(
         info=TraceInfo(
             trace_id=trace_id,
@@ -2037,13 +2036,10 @@ def test_get_trace_handler(mock_get_request_message, mock_tracking_store):
 
     mock_tracking_store.get_trace.return_value = mock_trace
 
-    # Call the handler
     response = _get_trace()
 
-    # Verify the store was called with the correct trace ID and allow_partial
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=True)
 
-    # Verify response was created
     assert response is not None
     assert response.status_code == 200
     response_data = json.loads(response.get_data())
@@ -2082,13 +2078,10 @@ def test_get_trace_handler_with_allow_partial_false(mock_get_request_message, mo
 
     mock_tracking_store.get_trace.return_value = mock_trace
 
-    # Call the handler
     response = _get_trace()
 
-    # Verify the store was called with allow_partial=False
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
 
-    # Verify response was created
     assert response is not None
     assert response.status_code == 200
     response_data = json.loads(response.get_data())
@@ -2101,19 +2094,15 @@ def test_get_trace_handler_not_found(mock_get_request_message, mock_tracking_sto
     get_trace_proto = GetTrace(trace_id=trace_id)
     mock_get_request_message.return_value = get_trace_proto
 
-    # Store returns None for non-existent trace
     mock_tracking_store.get_trace.side_effect = MlflowException(
         f"Trace with ID {trace_id} is not found.",
         error_code=RESOURCE_DOES_NOT_EXIST,
     )
 
-    # Call the handler - should raise MlflowException
     response = _get_trace()
 
-    # Verify the store was called
     mock_tracking_store.get_trace.assert_called_once_with(trace_id, allow_partial=False)
 
-    # Verify error response for not found
     assert response is not None
     assert response.status_code == 404
     response_data = json.loads(response.get_data())
