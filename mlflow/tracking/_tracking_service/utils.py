@@ -166,7 +166,6 @@ def get_tracking_uri() -> str:
         return uri
     else:
         default_uri = _get_default_tracking_uri()
-        # Convert local file path to URI format
         if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
             return path_to_local_file_uri(os.path.abspath(default_uri))
         return default_uri
