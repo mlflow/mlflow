@@ -47,9 +47,11 @@ def _has_existing_mlruns_data() -> bool:
 
 
 def _get_default_tracking_uri() -> str:
-    if _has_existing_mlruns_data():
-        return DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-    return DEFAULT_TRACKING_URI
+    return (
+        DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        if _has_existing_mlruns_data()
+        else DEFAULT_TRACKING_URI
+    )
 
 
 def is_tracking_uri_set():
