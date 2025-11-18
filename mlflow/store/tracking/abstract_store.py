@@ -1417,7 +1417,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _create_route_and_bind(
+    def _create_endpoint_and_bind(
         self,
         secret_id: str,
         resource_type: str,
@@ -1575,7 +1575,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def set_secret_route_tag(self, route_id: str, tag: EndpointTag) -> None:
+    def set_secret_endpoint_tag(self, route_id: str, tag: EndpointTag) -> None:
         """
         Set a tag for the specified secret route.
 
@@ -1585,7 +1585,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def delete_secret_route_tag(self, route_id: str, key: str) -> None:
+    def delete_secret_endpoint_tag(self, route_id: str, key: str) -> None:
         """
         Delete a tag from the specified secret route.
 
@@ -1620,7 +1620,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _list_secret_routes(
+    def _list_secret_endpoints(
         self,
         secret_id: str | None = None,
         provider: str | None = None,
@@ -1640,7 +1640,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _delete_secret_route(self, route_id: str) -> None:
+    def _delete_secret_endpoint(self, route_id: str) -> None:
         """
         Delete a secret route and its associated bindings.
 
@@ -1655,7 +1655,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _bind_secret_route(
+    def _bind_secret_endpoint(
         self,
         route_id: str,
         resource_type: str,

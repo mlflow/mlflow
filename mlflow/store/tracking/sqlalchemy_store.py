@@ -2528,7 +2528,7 @@ class SqlAlchemyStore(AbstractStore):
                 binding=sql_binding.to_mlflow_entity(),
             )
 
-    def _create_route_and_bind(
+    def _create_endpoint_and_bind(
         self,
         secret_id: str,
         resource_type: str,
@@ -2804,7 +2804,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return secrets
 
-    def _list_secret_routes(
+    def _list_secret_endpoints(
         self,
         secret_id: str | None = None,
         provider: str | None = None,
@@ -2885,7 +2885,7 @@ class SqlAlchemyStore(AbstractStore):
                 for route, secret_name, provider_value, model_name in results
             ]
 
-    def _delete_secret_route(self, endpoint_id: str) -> None:
+    def _delete_secret_endpoint(self, endpoint_id: str) -> None:
         """
         Delete a route and its associated bindings.
 
@@ -2924,7 +2924,7 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_route)
             session.commit()
 
-    def _update_secret_route(
+    def _update_secret_endpoint(
         self,
         endpoint_id: str,
         secret_id: str,
@@ -2980,7 +2980,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return route_entity
 
-    def _update_secret_route_with_new_secret(
+    def _update_secret_endpoint_with_new_secret(
         self,
         endpoint_id: str,
         secret_name: str,
@@ -3096,7 +3096,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return secret_entity, route_entity
 
-    def _bind_secret_route(
+    def _bind_secret_endpoint(
         self,
         endpoint_id: str,
         resource_type: str,
@@ -3418,7 +3418,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.delete(filtered_tags[0])
 
-    def set_secret_route_tag(self, endpoint_id: str, tag: EndpointTag) -> None:
+    def set_secret_endpoint_tag(self, endpoint_id: str, tag: EndpointTag) -> None:
         """
         Set a tag for the specified secret route.
 
@@ -3439,7 +3439,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.merge(SqlEndpointTag(endpoint_id=endpoint_id, key=tag.key, value=tag.value))
 
-    def delete_secret_route_tag(self, endpoint_id: str, key: str) -> None:
+    def delete_secret_endpoint_tag(self, endpoint_id: str, key: str) -> None:
         """
         Delete a tag from the specified secret route.
 
