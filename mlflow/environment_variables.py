@@ -675,6 +675,14 @@ MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING = _BooleanEnvironmentVariable(
     "MLFLOW_GENAI_EVAL_ENABLE_SCORER_TRACING", False
 )
 
+#: Enable multi-turn evaluation support in mlflow.genai.evaluate. This is an experimental feature
+#: that allows evaluation of entire conversation sessions using multi-turn scorers.
+#: Multi-turn scorers process groups of traces belonging to the same session, with assessments
+#: logged to the first trace chronologically. (default: False)
+MLFLOW_ENABLE_MULTI_TURN_EVALUATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MULTI_TURN_EVALUATION", False
+)
+
 #: Whether to warn (default) or raise (opt-in) for unresolvable requirements inference for
 #: a model's dependency inference. If set to True, an exception will be raised if requirements
 #: inference or the process of capturing imported modules encounters any errors.

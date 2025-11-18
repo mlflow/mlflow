@@ -372,7 +372,7 @@ class Scorer(BaseModel):
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
         return scorer_instance
 
-    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
+    def run(self, *, inputs=None, outputs=None, expectations=None, trace=None, session_traces=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 
         merged = {
@@ -380,6 +380,7 @@ class Scorer(BaseModel):
             "outputs": outputs,
             "expectations": expectations,
             "trace": trace,
+            "session_traces": session_traces,
         }
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
@@ -487,6 +488,16 @@ class Scorer(BaseModel):
             * - ``trace``
               - A trace object corresponding to the prediction for the row.
               - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+            * - ``session_traces``
+              - A list of trace objects belonging to the same conversation session.
+              - Available only for multi-turn scorers (scorers with
+                ``_is_multi_turn_scorer = True``).
+
+                * Multi-turn scorers receive all traces in a session, ordered chronologically
+                  by ``trace.info.request_time``.
+                * Only traces with the same ``mlflow.trace.session`` metadata value are grouped.
+                * This parameter is ``None`` for single-turn scorers.
 
         Example:
 
