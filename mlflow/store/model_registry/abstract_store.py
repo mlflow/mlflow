@@ -19,6 +19,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
+    PROMPT_EXPERIMENT_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
     PROMPT_TYPE_CHAT,
     PROMPT_TYPE_TAG_KEY,
@@ -559,8 +560,6 @@ class AbstractStore:
         if not filter_string:
             return None
 
-        from mlflow.prompt.constants import PROMPT_EXPERIMENT_IDS_TAG_KEY
-
         # Match experiment_id = 'xxx' or experiment_id = "xxx"
         exp_id_pattern = r"experiment_id\s*=\s*['\"]([^'\"]+)['\"]"
         match = re.search(exp_id_pattern, filter_string)
@@ -576,18 +575,14 @@ class AbstractStore:
         # Clean up any leading/trailing AND operators
         remaining_filter = re.sub(r"^\s*AND\s+", "", remaining_filter)
         remaining_filter = re.sub(r"\s+AND\s*$", "", remaining_filter)
-
-        # Clean up double AND operators
         remaining_filter = re.sub(r"\s+AND\s+AND\s+", " AND ", remaining_filter)
 
         # Build the tag filter clause
         # Escape single quotes and percent signs for SQL injection protection
         escaped_experiment_id = experiment_id.replace("'", "''").replace("%", "%%")
         # Use LIKE to match the experiment ID anywhere in the comma-separated list
-        # Note: No backticks needed since the tag key doesn't contain dots
         experiment_filter = f"tags.{PROMPT_EXPERIMENT_IDS_TAG_KEY} LIKE '%{escaped_experiment_id}%'"
 
-        # Combine experiment filter with remaining filter
         if remaining_filter:
             return f"{experiment_filter} AND {remaining_filter}"
         return experiment_filter
