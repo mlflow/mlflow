@@ -2275,7 +2275,7 @@ class SqlEndpoint(Base):
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
-            tags=[],  # Tags loaded separately if needed
+            tags=[tag.to_mlflow_entity() for tag in self.tags],
         )
 
 

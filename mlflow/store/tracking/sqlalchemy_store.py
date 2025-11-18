@@ -2823,8 +2823,25 @@ class SqlAlchemyStore(AbstractStore):
             List of EndpointListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
-            query = session.query(SqlEndpoint, SqlSecret.secret_name, SqlSecret.provider).join(
-                SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id
+            # Subquery to get first model for each endpoint
+            first_model_subq = (
+                session.query(
+                    SqlEndpointModel.endpoint_id,
+                    SqlEndpointModel.model_name,
+                )
+                .distinct(SqlEndpointModel.endpoint_id)
+                .subquery()
+            )
+
+            query = (
+                session.query(
+                    SqlEndpoint,
+                    SqlSecret.secret_name,
+                    SqlSecret.provider,
+                    first_model_subq.c.model_name,
+                )
+                .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
+                .outerjoin(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
             )
 
             if secret_id is not None:
@@ -2838,7 +2855,7 @@ class SqlAlchemyStore(AbstractStore):
                 EndpointListItem(
                     endpoint_id=route.endpoint_id,
                     secret_id=route.secret_id,
-                    model_name=route.model_name,
+                    model_name=model_name,
                     created_at=route.created_at,
                     last_updated_at=route.last_updated_at,
                     name=route.name,
@@ -2849,7 +2866,7 @@ class SqlAlchemyStore(AbstractStore):
                     secret_name=secret_name,
                     provider=provider_value,
                 )
-                for route, secret_name, provider_value in results
+                for route, secret_name, provider_value, model_name in results
             ]
 
     def _delete_secret_route(self, endpoint_id: str) -> None:
@@ -2872,6 +2889,20 @@ class SqlAlchemyStore(AbstractStore):
                 raise MlflowException(
                     f"Route with ID '{endpoint_id}' not found.",
                     error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            # Check if this is the last route for this secret
+            route_count = (
+                session.query(SqlEndpoint)
+                .filter_by(secret_id=sql_route.secret_id)
+                .count()
+            )
+
+            if route_count == 1:
+                raise MlflowException(
+                    f"Cannot delete the last route for secret '{sql_route.secret_id}'. "
+                    "Delete the secret instead to clean up all associated routes.",
+                    error_code=INVALID_PARAMETER_VALUE,
                 )
 
             session.delete(sql_route)
