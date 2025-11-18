@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
     Endpoint,
-    EndpointListItem,
     EndpointTag,
     Assessment,
     DatasetInput,

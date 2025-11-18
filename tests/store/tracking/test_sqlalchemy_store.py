@@ -26,7 +26,6 @@ import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
     Endpoint,
-    EndpointListItem,
     EndpointTag,
     AssessmentSource,
     AssessmentSourceType,

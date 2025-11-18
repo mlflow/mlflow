@@ -2252,28 +2252,20 @@ class SqlEndpoint(Base):
         """
         Convert DB model to corresponding MLflow entity.
 
-        For now, returns a Endpoint entity with the first model's name.
-        In future, this should support multi-model endpoints properly.
-
         Returns:
             mlflow.entities.endpoint.Endpoint
         """
         from mlflow.entities.endpoint import Endpoint
 
-        # Get the first model from the endpoint (temporary solution for backward compatibility)
-        model_name = self.models[0].model_name if self.models else None
-        if model_name is None:
-            raise ValueError(f"Endpoint {self.endpoint_id} has no associated models")
-
         return Endpoint(
             endpoint_id=self.endpoint_id,
-            model_name=model_name,
             name=self.name,
             description=self.description,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
             last_updated_by=self.last_updated_by,
+            models=[model.to_mlflow_entity() for model in self.models],
             tags=[tag.to_mlflow_entity() for tag in self.tags],
         )
 
@@ -2366,12 +2358,24 @@ class SqlEndpointModel(Base):
 
     def to_mlflow_entity(self):
         """
-        Convert DB model to corresponding MLflow entity.
+        Convert DB model to Mlflow entity.
 
-        Returns:
-            mlflow.entities.endpoint_model.EndpointModel
+        :return: :py:class:`mlflow.entities.EndpointModel`.
         """
-        raise NotImplementedError("EndpointModel entity not yet implemented")
+        from mlflow.entities.endpoint_model import EndpointModel
+
+        return EndpointModel(
+            model_id=self.model_id,
+            endpoint_id=self.endpoint_id,
+            model_name=self.model_name,
+            secret_id=self.secret_id,
+            weight=self.weight,
+            priority=self.priority,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+        )
 
 
 class SqlEndpointTag(Base):

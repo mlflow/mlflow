@@ -24,7 +24,6 @@ from sqlalchemy.orm import aliased, joinedload
 import mlflow.store.db.utils
 from mlflow.entities import (
     Endpoint,
-    EndpointListItem,
     EndpointTag,
     Assessment,
     DatasetInput,
@@ -2809,84 +2808,37 @@ class SqlAlchemyStore(AbstractStore):
         self,
         secret_id: str | None = None,
         provider: str | None = None,
-    ) -> list[EndpointListItem]:
+    ) -> list[Endpoint]:
         """
-        List all secret routes with optional filtering.
+        List all secret endpoints with optional filtering.
 
         This method returns endpoint metadata for displaying model configurations in the UI.
-        Endpoints represent model configurations (e.g., which model uses which secret).
+        Endpoints represent model configurations (e.g., which models use which secrets).
 
         Args:
-            secret_id: Optional filter to return only routes for a specific secret.
+            secret_id: Optional filter to return only endpoints for a specific secret.
             provider: Optional filter by LLM provider (filters via secret's provider).
 
         Returns:
-            List of EndpointListItem with display fields populated via JOIN.
+            List of Endpoint entities with all their models populated.
         """
         with self.ManagedSessionMaker() as session:
-            # Subquery to get the first model_id for each endpoint (by created_at, model_id)
-            first_model_id_subq = (
-                session.query(
-                    SqlEndpointModel.endpoint_id,
-                    func.min(SqlEndpointModel.model_id).label("min_model_id"),
-                )
-                .group_by(SqlEndpointModel.endpoint_id)
-                .subquery()
-            )
-
-            # Subquery to get model details for the first model (including secret_id)
-            first_model_subq = (
-                session.query(
-                    SqlEndpointModel.endpoint_id,
-                    SqlEndpointModel.secret_id,
-                    SqlEndpointModel.model_name,
-                )
-                .join(
-                    first_model_id_subq,
-                    and_(
-                        SqlEndpointModel.endpoint_id == first_model_id_subq.c.endpoint_id,
-                        SqlEndpointModel.model_id == first_model_id_subq.c.min_model_id,
-                    ),
-                )
-                .subquery()
-            )
-
-            query = (
-                session.query(
-                    SqlEndpoint,
-                    SqlSecret.secret_name,
-                    SqlSecret.provider,
-                    first_model_subq.c.secret_id,
-                    first_model_subq.c.model_name,
-                )
-                .join(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
-                .join(SqlSecret, first_model_subq.c.secret_id == SqlSecret.secret_id)
-            )
+            query = session.query(SqlEndpoint).join(SqlEndpoint.models)
 
             if secret_id is not None:
-                query = query.filter(first_model_subq.c.secret_id == secret_id)
+                # Filter endpoints that have at least one model using this secret
+                query = query.filter(SqlEndpointModel.secret_id == secret_id)
 
             if provider is not None:
+                # Filter endpoints that have at least one model using a secret with this provider
+                query = query.join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
                 query = query.filter(SqlSecret.provider == provider)
 
-            results = query.all()
-            return [
-                EndpointListItem(
-                    endpoint_id=endpoint.endpoint_id,
-                    secret_id=secret_id_value,
-                    model_name=model_name,
-                    created_at=endpoint.created_at,
-                    last_updated_at=endpoint.last_updated_at,
-                    name=endpoint.name,
-                    description=endpoint.description,
-                    created_by=endpoint.created_by,
-                    last_updated_by=endpoint.last_updated_by,
-                    tags=[t.to_mlflow_entity() for t in endpoint.tags],
-                    secret_name=secret_name,
-                    provider=provider_value,
-                )
-                for endpoint, secret_name, provider_value, secret_id_value, model_name in results
-            ]
+            # Use distinct() to avoid duplicate endpoints if multiple models match the filter
+            query = query.distinct()
+
+            endpoints = query.all()
+            return [endpoint.to_mlflow_entity() for endpoint in endpoints]
 
     def _delete_secret_endpoint(self, endpoint_id: str) -> None:
         """
@@ -2931,7 +2883,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_by: Username of the user performing the update. Optional.
 
         Returns:
-            The updated Endpoint entity.
+            The updated Endpoint entity with all models.
 
         Raises:
             MlflowException: If endpoint or secret doesn't exist.
@@ -2969,13 +2921,7 @@ class SqlAlchemyStore(AbstractStore):
 
             session.commit()
 
-            endpoint_entity = sql_endpoint.to_mlflow_entity()
-
-            # Populate provider field for UI display
-            endpoint_entity.provider = target_secret.provider
-            endpoint_entity.secret_name = target_secret.secret_name
-
-            return endpoint_entity
+            return sql_endpoint.to_mlflow_entity()
 
     def _update_secret_endpoint_with_new_secret(
         self,
@@ -3003,7 +2949,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_by: Username of the user performing the update.
 
         Returns:
-            Tuple of (created Secret entity, updated Endpoint entity).
+            Tuple of (created Secret entity, updated Endpoint entity with all models).
 
         Raises:
             MlflowException: If endpoint doesn't exist or secret name already exists.
@@ -3093,10 +3039,6 @@ class SqlAlchemyStore(AbstractStore):
 
             secret_entity = sql_secret.to_mlflow_entity()
             endpoint_entity = sql_endpoint.to_mlflow_entity()
-
-            # Populate provider field for UI display
-            endpoint_entity.provider = provider
-            endpoint_entity.secret_name = secret_name
 
             return secret_entity, endpoint_entity
 

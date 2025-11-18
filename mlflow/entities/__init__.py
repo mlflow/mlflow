@@ -46,7 +46,8 @@ from mlflow.entities.secret_binding import (
     SecretBindingListItem,
     SecretResourceType,
 )
-from mlflow.entities.endpoint import Endpoint, EndpointListItem
+from mlflow.entities.endpoint import Endpoint
+from mlflow.entities.endpoint_model import EndpointModel
 from mlflow.entities.endpoint_tag import EndpointTag
 from mlflow.entities.secret_tag import SecretTag
 from mlflow.entities.source_type import SourceType
@@ -92,7 +93,7 @@ __all__ = [
     "SecretBindingListItem",
     "SecretResourceType",
     "Endpoint",
-    "EndpointListItem",
+    "EndpointModel",
     "EndpointTag",
     "SecretTag",
     "SecretWithEndpointAndBinding",
