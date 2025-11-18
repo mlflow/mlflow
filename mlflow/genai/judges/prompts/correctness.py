@@ -44,7 +44,7 @@ def get_prompt(
         response: The actual response to evaluate
         expected_response: Expected response (optional)
         expected_facts: Expected facts as a string or list of strings (optional, converted
-        to expected_response)
+            to expected_response)
 
     Returns:
         Formatted prompt string
