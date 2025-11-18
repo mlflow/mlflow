@@ -7,7 +7,7 @@ from mlflow.entities._mlflow_object import _MlflowObject
 
 if TYPE_CHECKING:
     from mlflow.entities.endpoint import Endpoint
-    from mlflow.entities.secret_binding import SecretBinding
+    from mlflow.entities.endpoint_binding import EndpointBinding
     from mlflow.entities.secret_tag import SecretTag
 
 
@@ -27,12 +27,12 @@ class SecretWithEndpointAndBinding(_MlflowObject):
     Args:
         secret: The created Secret entity with metadata (API key).
         endpoint: The created Endpoint entity (model configuration).
-        binding: The initial SecretBinding that associates the endpoint with a resource.
+        binding: The initial EndpointBinding that associates the endpoint with a resource.
     """
 
     secret: "Secret"
     endpoint: "Endpoint"
-    binding: "SecretBinding"
+    binding: "EndpointBinding"
 
 
 @dataclass

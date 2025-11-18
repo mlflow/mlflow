@@ -28,6 +28,10 @@ from mlflow.entities import (
     DatasetRecord,
     DatasetRecordSource,
     Endpoint,
+    EndpointBinding,
+    EndpointBindingListItem,
+    EndpointModel,
+    EndpointModelSpec,
     EndpointTag,
     EvaluationDataset,
     Expectation,
@@ -40,10 +44,7 @@ from mlflow.entities import (
     RunTag,
     ScorerVersion,
     Secret,
-    SecretBinding,
-    SecretBindingListItem,
     SecretTag,
-    SecretWithEndpointAndBinding,
     SourceType,
     Trace,
     TraceData,
@@ -136,7 +137,7 @@ from mlflow.tracing.utils import (
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
 from mlflow.tracking.fluent import _get_experiment_id
-from mlflow.utils.crypto import KEKManager, decrypt_secret, encrypt_secret, mask_secret_value
+from mlflow.utils.crypto import KEKManager, encrypt_secret, mask_secret_value
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -2344,94 +2345,47 @@ class SqlAlchemyStore(AbstractStore):
 
     # Secrets management methods
 
-    def _create_and_bind_secret(
+    def _create_secret(
         self,
         secret_name: str,
         secret_value: str | dict[str, Any],
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
-        is_shared: bool = False,
-        created_by: str | None = None,
         provider: str | None = None,
+        is_shared: bool = False,
         auth_config: dict[str, Any] | None = None,
-        endpoint_name: str | None = None,
-        endpoint_description: str | None = None,
-        endpoint_tags: list[dict[str, str]] | None = None,
-    ) -> SecretWithEndpointAndBinding:
+        description: str | None = None,
+        created_by: str | None = None,
+    ) -> Secret:
         """
-        Atomically create a gateway asset (secret + endpoint + binding) in a single transaction.
-
-        This creates a complete gateway configuration:
-        1. Secret: The API key/credential (and/or auth config)
-        2. Endpoint: The model configuration (provider + model using that secret)
-        3. Binding: The resource binding (which service uses this endpoint)
-
-        Note that this method enforces uniqueness constraints for shared secrets (by name)
-        and endpoint names (each endpoint must have a unique name). Multiple endpoints can share the
-        same secret and can be bound to the same resource/field combination.
-
-        Secrets cannot be created and bind in separate steps using the public API to
-        avoid having unbound secrets or routes (orphaned resources) in the backend.
+        Create a new secret.
 
         Args:
-            secret_name: Name for the secret. Must be unique among shared secrets
-                if is_shared=True.
-            secret_value: Secret value to encrypt. Required. Can be:
-                - String: API key/token for simple providers (OpenAI, Anthropic, Cohere)
-                - Dict: JSON credentials for complex providers (Vertex AI service account JSON)
-            resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
-            resource_id: Unique identifier for the resource instance.
-            field_name: Name of the field on the resource where the secret is used
-                (e.g., "OPENAI_API_KEY").
-            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo",
-                "claude-3-5-sonnet-20241022"). Required.
-            is_shared: Whether the secret can be reused across multiple resources.
-            created_by: Username of the creator. Optional.
-            provider: LLM provider identifier (e.g., "anthropic", "openai", "azure",
-                "bedrock", "vertex_ai", "databricks"). Optional.
-            auth_config: Optional provider-specific authentication configuration.
-                Used for additional configuration beyond the primary credential:
-                - Azure OpenAI: {"azure_endpoint": "https://...", "api_version": "2024-02-01"}
-                - AWS Bedrock: {"aws_access_key_id": "...", "region": "us-east-1"}
-                - Vertex AI: {"project_id": "my-project", "location": "us-central1"}
-                - Databricks: {"workspace_url": "https://...", "warehouse_id": "..."}
-            endpoint_name: Optional display name for the endpoint. If not provided,
-                model_name is used.
-            endpoint_description: Optional description for the endpoint.
-            endpoint_tags: Optional list of tags for the endpoint.
+            secret_name: Name for the secret.
+            secret_value: The secret value (API key, password, etc.) as string or dict.
+            provider: Optional provider hint (e.g., "openai", "anthropic").
+            is_shared: Whether this secret can be shared across resources.
+            auth_config: Optional authentication configuration as dict.
+            description: Optional description.
+            created_by: Username of creator.
 
         Returns:
-            SecretWithEndpointAndBinding containing the created secret, endpoint,
-                and initial binding.
-
+            Created Secret entity.
         """
-
         with self.ManagedSessionMaker() as session:
             if is_shared:
                 existing = (
                     session.query(SqlSecret)
-                    .filter_by(
-                        secret_name=secret_name,
-                        is_shared=True,
-                    )
+                    .filter_by(secret_name=secret_name, is_shared=True)
                     .first()
                 )
                 if existing:
                     raise MlflowException(
-                        f"Shared secret with name '{secret_name}' already exists. "
-                        f"Choose a different name or delete the existing secret first. "
-                        f"(ID: {existing.secret_id}).",
+                        f"Shared secret with name '{secret_name}' already exists.",
                         error_code=RESOURCE_ALREADY_EXISTS,
                     )
 
             secret_id = uuid.uuid4().hex
-            binding_id = uuid.uuid4().hex
             current_time = get_current_time_millis()
-
             masked_value = mask_secret_value(secret_value)
-
             kek_manager = KEKManager()
 
             encrypted = encrypt_secret(
@@ -2460,6 +2414,7 @@ class SqlAlchemyStore(AbstractStore):
                 kek_version=encrypted.kek_version,
                 encrypted_auth_config=encrypted_auth.encrypted_value if encrypted_auth else None,
                 wrapped_auth_config_dek=encrypted_auth.wrapped_dek if encrypted_auth else None,
+                description=description,
                 created_at=current_time,
                 last_updated_at=current_time,
                 created_by=created_by,
@@ -2467,163 +2422,88 @@ class SqlAlchemyStore(AbstractStore):
                 provider=provider,
             )
 
-            endpoint_id = uuid.uuid4().hex
-            sql_endpoint = SqlEndpoint(
-                endpoint_id=endpoint_id,
-                name=endpoint_name,
-                description=endpoint_description,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-            )
-
-            model_id = uuid.uuid4().hex
-            sql_endpoint_model = SqlEndpointModel(
-                model_id=model_id,
-                endpoint_id=endpoint_id,
-                secret_id=secret_id,
-                model_name=model_name,
-                weight=1.0,
-                priority=0,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-            )
-
-            sql_binding = SqlSecretBinding(
-                binding_id=binding_id,
-                endpoint_id=endpoint_id,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                field_name=field_name,
-                created_by=created_by,
-                created_at=current_time,
-                last_updated_by=created_by,
-                last_updated_at=current_time,
-            )
-
             session.add(sql_secret)
-            session.add(sql_endpoint)
-            session.add(sql_endpoint_model)
-            session.add(sql_binding)
-
-            if endpoint_tags:
-                for tag in endpoint_tags:
-                    sql_tag = SqlEndpointTag(
-                        endpoint_id=endpoint_id,
-                        key=tag["key"],
-                        value=tag["value"],
-                    )
-                    session.add(sql_tag)
-
             session.commit()
 
-            return SecretWithEndpointAndBinding(
-                secret=sql_secret.to_mlflow_entity(),
-                endpoint=sql_endpoint.to_mlflow_entity(),
-                binding=sql_binding.to_mlflow_entity(),
-            )
+            return sql_secret.to_mlflow_entity()
 
-    def _create_endpoint_and_bind(
+    def _create_endpoint(
         self,
-        secret_id: str,
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
-        endpoint_name: str | None = None,
-        endpoint_description: str | None = None,
-        endpoint_tags: list[dict[str, str]] | None = None,
+        models: list[EndpointModelSpec],
+        name: str | None = None,
+        description: str | None = None,
+        tags: list[dict[str, str]] | None = None,
         created_by: str | None = None,
-    ) -> SecretWithEndpointAndBinding:
+    ) -> Endpoint:
         """
-        Create a new endpoint and binding for an existing secret.
+        Create a new endpoint with one or more models.
 
-        This enables reusing a single API key (secret) across multiple model configurations.
-        Multiple endpoints can be created for the same secret and bound to the same resource/field
-        combination, as long as each endpoint has a unique name.
+        Each model must reference an existing secret via secret_id.
 
         Args:
-            secret_id: ID of the existing secret to use.
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: Unique identifier for the resource instance.
-            field_name: Name of the field on the resource where the secret is used.
-            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo"). Required.
-            endpoint_name: Optional display name for the endpoint. Must be unique across
-                all endpoints.
-            endpoint_description: Optional description for the endpoint.
-            endpoint_tags: Optional list of tags for the endpoint.
-            created_by: Username of the creator. Optional.
+            models: List of EndpointModelSpec defining the models for this endpoint.
+            name: Optional endpoint name.
+            description: Optional endpoint description.
+            tags: Optional list of tags (each dict with "key" and "value").
+            created_by: Username of creator.
 
         Returns:
-            SecretWithEndpointAndBinding containing the secret, new endpoint, and new binding.
-
-        Raises:
-            MlflowException: If secret is not found or is not shared.
+            Created Endpoint entity with all models.
         """
+        if not models:
+            raise MlflowException(
+                "Endpoint must have at least one model",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
         with self.ManagedSessionMaker() as session:
-            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
-            if not sql_secret:
+            secret_ids = [m.secret_id for m in models]
+            existing_secrets = (
+                session.query(SqlSecret.secret_id).filter(SqlSecret.secret_id.in_(secret_ids)).all()
+            )
+            existing_ids = {s.secret_id for s in existing_secrets}
+            missing = set(secret_ids) - existing_ids
+            if missing:
                 raise MlflowException(
-                    f"Secret with ID '{secret_id}' not found.",
+                    f"Secrets not found: {', '.join(missing)}",
                     error_code=RESOURCE_DOES_NOT_EXIST,
                 )
 
-            if not sql_secret.is_shared:
-                raise MlflowException(
-                    f"Cannot create endpoint for private secret '{secret_id}'. "
-                    "Only shared secrets can have multiple routes.",
-                    error_code=INVALID_PARAMETER_VALUE,
-                )
-
-            current_time = get_current_time_millis()
             endpoint_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
 
             sql_endpoint = SqlEndpoint(
                 endpoint_id=endpoint_id,
-                name=endpoint_name,
-                description=endpoint_description,
+                name=name,
+                description=description,
                 created_at=current_time,
                 last_updated_at=current_time,
                 created_by=created_by,
                 last_updated_by=created_by,
             )
-
-            model_id = uuid.uuid4().hex
-            sql_endpoint_model = SqlEndpointModel(
-                model_id=model_id,
-                endpoint_id=endpoint_id,
-                secret_id=secret_id,
-                model_name=model_name,
-                weight=1.0,
-                priority=0,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=created_by,
-                last_updated_by=created_by,
-            )
-
-            binding_id = uuid.uuid4().hex
-            sql_binding = SqlSecretBinding(
-                binding_id=binding_id,
-                endpoint_id=endpoint_id,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                field_name=field_name,
-                created_by=created_by,
-                created_at=current_time,
-                last_updated_by=created_by,
-                last_updated_at=current_time,
-            )
-
             session.add(sql_endpoint)
-            session.add(sql_endpoint_model)
-            session.add(sql_binding)
 
-            if endpoint_tags:
-                for tag in endpoint_tags:
+            for model_spec in models:
+                model_id = uuid.uuid4().hex
+                routing_config = model_spec.routing_config
+                if routing_config and isinstance(routing_config, dict):
+                    routing_config = json.dumps(routing_config)
+
+                sql_model = SqlEndpointModel(
+                    model_id=model_id,
+                    endpoint_id=endpoint_id,
+                    secret_id=model_spec.secret_id,
+                    model_name=model_spec.model_name,
+                    routing_config=routing_config,
+                    created_at=current_time,
+                    last_updated_at=current_time,
+                    created_by=created_by,
+                    last_updated_by=created_by,
+                )
+                session.add(sql_model)
+
+            if tags:
+                for tag in tags:
                     sql_tag = SqlEndpointTag(
                         endpoint_id=endpoint_id,
                         key=tag["key"],
@@ -2633,11 +2513,178 @@ class SqlAlchemyStore(AbstractStore):
 
             session.commit()
 
-            return SecretWithEndpointAndBinding(
-                secret=sql_secret.to_mlflow_entity(),
-                endpoint=sql_endpoint.to_mlflow_entity(),
-                binding=sql_binding.to_mlflow_entity(),
+            return sql_endpoint.to_mlflow_entity()
+
+    def _add_model_to_endpoint(
+        self,
+        endpoint_id: str,
+        model_name: str,
+        secret_id: str,
+        routing_config: dict[str, Any] | None = None,
+        updated_by: str | None = None,
+    ) -> EndpointModel:
+        """
+        Add a new model to an existing endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint.
+            model_name: Model identifier.
+            secret_id: ID of secret to use for this model.
+            routing_config: Optional routing configuration dict.
+            updated_by: Username of updater.
+
+        Returns:
+            Created EndpointModel entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+            if not sql_endpoint:
+                raise MlflowException(
+                    f"Endpoint '{endpoint_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+            if not sql_secret:
+                raise MlflowException(
+                    f"Secret '{secret_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            model_id = uuid.uuid4().hex
+            current_time = get_current_time_millis()
+
+            if routing_config and isinstance(routing_config, dict):
+                routing_config = json.dumps(routing_config)
+
+            sql_model = SqlEndpointModel(
+                model_id=model_id,
+                endpoint_id=endpoint_id,
+                secret_id=secret_id,
+                model_name=model_name,
+                routing_config=routing_config,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=updated_by,
+                last_updated_by=updated_by,
             )
+
+            sql_endpoint.last_updated_at = current_time
+            if updated_by:
+                sql_endpoint.last_updated_by = updated_by
+
+            session.add(sql_model)
+            session.commit()
+
+            return sql_model.to_mlflow_entity()
+
+    def _update_model_secret(
+        self,
+        model_id: str,
+        secret_id: str,
+        updated_by: str | None = None,
+    ) -> EndpointModel:
+        """
+        Rebind a model to a different secret.
+
+        Args:
+            model_id: ID of the model to update.
+            secret_id: New secret ID to bind to.
+            updated_by: Username of updater.
+
+        Returns:
+            Updated EndpointModel entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model = session.query(SqlEndpointModel).filter_by(model_id=model_id).first()
+            if not sql_model:
+                raise MlflowException(
+                    f"Model '{model_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            sql_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
+            if not sql_secret:
+                raise MlflowException(
+                    f"Secret '{secret_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            current_time = get_current_time_millis()
+            sql_model.secret_id = secret_id
+            sql_model.last_updated_at = current_time
+            if updated_by:
+                sql_model.last_updated_by = updated_by
+
+            session.commit()
+
+            return sql_model.to_mlflow_entity()
+
+    def _update_model_config(
+        self,
+        model_id: str,
+        routing_config: dict[str, Any],
+        updated_by: str | None = None,
+    ) -> EndpointModel:
+        """
+        Update a model's routing configuration.
+
+        Args:
+            model_id: ID of the model to update.
+            routing_config: New routing configuration dict.
+            updated_by: Username of updater.
+
+        Returns:
+            Updated EndpointModel entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model = session.query(SqlEndpointModel).filter_by(model_id=model_id).first()
+            if not sql_model:
+                raise MlflowException(
+                    f"Model '{model_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            current_time = get_current_time_millis()
+            sql_model.routing_config = json.dumps(routing_config) if routing_config else None
+            sql_model.last_updated_at = current_time
+            if updated_by:
+                sql_model.last_updated_by = updated_by
+
+            session.commit()
+
+            return sql_model.to_mlflow_entity()
+
+    def _remove_model_from_endpoint(
+        self,
+        model_id: str,
+    ) -> None:
+        """
+        Remove a model from an endpoint.
+
+        Args:
+            model_id: ID of the model to remove.
+            updated_by: Username of updater.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model = session.query(SqlEndpointModel).filter_by(model_id=model_id).first()
+            if not sql_model:
+                raise MlflowException(
+                    f"Model '{model_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            endpoint_models = (
+                session.query(SqlEndpointModel).filter_by(endpoint_id=sql_model.endpoint_id).all()
+            )
+            if len(endpoint_models) == 1:
+                raise MlflowException(
+                    "Cannot remove the last model from an endpoint. Delete the endpoint instead.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+
+            session.delete(sql_model)
+            session.commit()
 
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
@@ -2806,7 +2853,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return secrets
 
-    def _list_secret_endpoints(
+    def _list_endpoints(
         self,
         secret_id: str | None = None,
         provider: str | None = None,
@@ -2828,21 +2875,18 @@ class SqlAlchemyStore(AbstractStore):
             query = session.query(SqlEndpoint).join(SqlEndpoint.models)
 
             if secret_id is not None:
-                # Filter endpoints that have at least one model using this secret
                 query = query.filter(SqlEndpointModel.secret_id == secret_id)
 
             if provider is not None:
-                # Filter endpoints that have at least one model using a secret with this provider
                 query = query.join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
                 query = query.filter(SqlSecret.provider == provider)
 
-            # Use distinct() to avoid duplicate endpoints if multiple models match the filter
             query = query.distinct()
 
             endpoints = query.all()
             return [endpoint.to_mlflow_entity() for endpoint in endpoints]
 
-    def _delete_secret_endpoint(self, endpoint_id: str) -> None:
+    def _delete_endpoint(self, endpoint_id: str) -> None:
         """
         Delete an endpoint and its associated models and bindings.
 
@@ -2866,192 +2910,14 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_endpoint)
             session.commit()
 
-    def _update_secret_endpoint(
-        self,
-        endpoint_id: str,
-        secret_id: str,
-        updated_by: str | None = None,
-    ) -> Endpoint:
-        """
-        Update an existing endpoint's models to use a different existing secret.
-
-        This updates all models in the endpoint to use the new secret_id,
-        preserving the endpoint_id and all bindings.
-        The target secret must already exist.
-
-        Args:
-            endpoint_id: ID of the endpoint to update.
-            secret_id: ID of the existing secret to associate with this endpoint's models.
-            updated_by: Username of the user performing the update. Optional.
-
-        Returns:
-            The updated Endpoint entity with all models.
-
-        Raises:
-            MlflowException: If endpoint or secret doesn't exist.
-        """
-        with self.ManagedSessionMaker() as session:
-            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
-
-            if not sql_endpoint:
-                raise MlflowException(
-                    f"Endpoint with ID '{endpoint_id}' not found.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Verify the target secret exists
-            target_secret = session.query(SqlSecret).filter_by(secret_id=secret_id).first()
-            if not target_secret:
-                raise MlflowException(
-                    f"Secret with ID '{secret_id}' not found.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Update all models in this endpoint to use the new secret
-            current_time = get_current_time_millis()
-            models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
-            for model in models:
-                model.secret_id = secret_id
-                model.last_updated_at = current_time
-                if updated_by:
-                    model.last_updated_by = updated_by
-
-            # Update endpoint timestamp
-            sql_endpoint.last_updated_at = current_time
-            if updated_by:
-                sql_endpoint.last_updated_by = updated_by
-
-            session.commit()
-
-            return sql_endpoint.to_mlflow_entity()
-
-    def _update_secret_endpoint_with_new_secret(
-        self,
-        endpoint_id: str,
-        secret_name: str,
-        secret_value: str | dict[str, Any],
-        provider: str | None = None,
-        is_shared: bool = False,
-        auth_config: str | dict[str, Any] | None = None,
-        updated_by: str | None = None,
-    ) -> tuple[Secret, Endpoint]:
-        """
-        Update an endpoint by creating a new secret and associating the endpoint with it.
-
-        This creates a new secret atomically and updates the endpoint to point to it,
-        preserving the endpoint_id and all bindings.
-
-        Args:
-            endpoint_id: ID of the endpoint to update.
-            secret_name: Name for the new secret.
-            secret_value: The secret value (API key, password, etc.).
-            provider: Optional provider hint (e.g., "openai", "anthropic").
-            is_shared: Whether this secret is shared across resources.
-            auth_config: Optional authentication configuration as dict or JSON string.
-            updated_by: Username of the user performing the update.
-
-        Returns:
-            Tuple of (created Secret entity, updated Endpoint entity with all models).
-
-        Raises:
-            MlflowException: If endpoint doesn't exist or secret name already exists.
-        """
-        with self.ManagedSessionMaker() as session:
-            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
-
-            if not sql_endpoint:
-                raise MlflowException(
-                    f"Endpoint with ID '{endpoint_id}' not found.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-
-            # Check if secret name already exists (for shared secrets)
-            if is_shared:
-                existing = (
-                    session.query(SqlSecret)
-                    .filter_by(
-                        secret_name=secret_name,
-                        is_shared=True,
-                    )
-                    .first()
-                )
-                if existing:
-                    raise MlflowException(
-                        f"Shared secret with name '{secret_name}' already exists. "
-                        f"Choose a different name or use the existing secret. "
-                        f"(ID: {existing.secret_id}).",
-                        error_code=RESOURCE_ALREADY_EXISTS,
-                    )
-
-            # Create the new secret
-            secret_id = uuid.uuid4().hex
-            current_time = get_current_time_millis()
-
-            masked_value = mask_secret_value(secret_value)
-            kek_manager = KEKManager()
-
-            encrypted = encrypt_secret(
-                secret_value=secret_value,
-                kek_manager=kek_manager,
-                secret_id=secret_id,
-                secret_name=secret_name,
-            )
-
-            encrypted_auth = None
-            if auth_config:
-                encrypted_auth = encrypt_secret(
-                    secret_value=auth_config,
-                    kek_manager=kek_manager,
-                    secret_id=secret_id,
-                    secret_name=f"{secret_name}_auth_config",
-                )
-
-            sql_secret = SqlSecret(
-                secret_id=secret_id,
-                secret_name=secret_name,
-                encrypted_value=encrypted.encrypted_value,
-                wrapped_dek=encrypted.wrapped_dek,
-                masked_value=masked_value,
-                is_shared=is_shared,
-                kek_version=encrypted.kek_version,
-                encrypted_auth_config=encrypted_auth.encrypted_value if encrypted_auth else None,
-                wrapped_auth_config_dek=encrypted_auth.wrapped_dek if encrypted_auth else None,
-                created_at=current_time,
-                last_updated_at=current_time,
-                created_by=updated_by,
-                last_updated_by=updated_by,
-                provider=provider,
-            )
-
-            # Update all models in this endpoint to use the new secret
-            models = session.query(SqlEndpointModel).filter_by(endpoint_id=endpoint_id).all()
-            for model in models:
-                model.secret_id = secret_id
-                model.last_updated_at = current_time
-                if updated_by:
-                    model.last_updated_by = updated_by
-
-            # Update endpoint timestamp
-            sql_endpoint.last_updated_at = current_time
-            if updated_by:
-                sql_endpoint.last_updated_by = updated_by
-
-            session.add(sql_secret)
-            session.commit()
-
-            secret_entity = sql_secret.to_mlflow_entity()
-            endpoint_entity = sql_endpoint.to_mlflow_entity()
-
-            return secret_entity, endpoint_entity
-
-    def _bind_secret_endpoint(
+    def _bind_endpoint(
         self,
         endpoint_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
         created_by: str | None = None,
-    ) -> SecretBinding:
+    ) -> EndpointBinding:
         """
         Bind an existing endpoint to a new resource.
 
@@ -3067,7 +2933,7 @@ class SqlAlchemyStore(AbstractStore):
             created_by: Username of the creator. Optional.
 
         Returns:
-            The created SecretBinding entity.
+            The created EndpointBinding entity.
 
         Raises:
             MlflowException: If endpoint doesn't exist.
@@ -3101,7 +2967,7 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_binding.to_mlflow_entity()
 
-    def _delete_secret_binding(
+    def _unbind_endpoint(
         self,
         binding_id: str,
     ) -> None:
@@ -3172,13 +3038,13 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_binding)
             session.commit()
 
-    def _list_secret_bindings(
+    def _list_endpoint_bindings(
         self,
         secret_id: str | None = None,
         endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
-    ) -> list[SecretBindingListItem]:
+    ) -> list[EndpointBindingListItem]:
         """
         List secret bindings with optional filters.
 
@@ -3193,138 +3059,80 @@ class SqlAlchemyStore(AbstractStore):
             resource_id: Optional filter by resource ID.
 
         Returns:
-            List of SecretBindingListItem with display fields populated via JOIN.
+            List of EndpointBindingListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
-            # Subquery to get the first model_id for each endpoint (by created_at, model_id)
-            first_model_id_subq = (
-                session.query(
-                    SqlEndpointModel.endpoint_id,
-                    func.min(SqlEndpointModel.model_id).label("min_model_id"),
-                )
-                .group_by(SqlEndpointModel.endpoint_id)
-                .subquery()
-            )
-
-            # Subquery to get model details for the first model (including secret_id)
-            first_model_subq = (
-                session.query(
-                    SqlEndpointModel.endpoint_id,
-                    SqlEndpointModel.secret_id,
-                    SqlEndpointModel.model_name,
-                )
-                .join(
-                    first_model_id_subq,
-                    and_(
-                        SqlEndpointModel.endpoint_id == first_model_id_subq.c.endpoint_id,
-                        SqlEndpointModel.model_id == first_model_id_subq.c.min_model_id,
-                    ),
-                )
-                .subquery()
-            )
-
-            query = (
-                session.query(
-                    SqlSecretBinding,
-                    first_model_subq.c.secret_id,
-                    SqlSecret.secret_name,
-                    SqlEndpoint.name,
-                    first_model_subq.c.model_name,
-                    SqlSecret.provider,
-                )
-                .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
-                .join(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
-                .join(SqlSecret, first_model_subq.c.secret_id == SqlSecret.secret_id)
+            # Base query for bindings
+            query = session.query(SqlSecretBinding, SqlEndpoint).join(
+                SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id
             )
 
             if endpoint_id is not None:
                 query = query.filter(SqlSecretBinding.endpoint_id == endpoint_id)
-            if secret_id is not None:
-                query = query.filter(first_model_subq.c.secret_id == secret_id)
             if resource_type is not None:
                 query = query.filter(SqlSecretBinding.resource_type == resource_type)
             if resource_id is not None:
                 query = query.filter(SqlSecretBinding.resource_id == resource_id)
 
-            results = query.all()
-            return [
-                SecretBindingListItem(
-                    binding_id=binding.binding_id,
-                    endpoint_id=binding.endpoint_id,
-                    secret_id=secret_id_value,
-                    resource_type=binding.resource_type,
-                    resource_id=binding.resource_id,
-                    field_name=binding.field_name,
-                    created_at=binding.created_at,
-                    last_updated_at=binding.last_updated_at,
-                    created_by=binding.created_by,
-                    last_updated_by=binding.last_updated_by,
-                    secret_name=secret_name,
-                    route_name=endpoint_name or model_name,
-                    provider=provider_value,
+            bindings_with_endpoints = query.all()
+
+            # Build EndpointBindingListItem for each binding with aggregated model info
+            result = []
+            for binding, endpoint in bindings_with_endpoints:
+                # Get all models for this endpoint with their secrets
+                models_query = (
+                    session.query(SqlEndpointModel, SqlSecret)
+                    .join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
+                    .filter(SqlEndpointModel.endpoint_id == endpoint.endpoint_id)
                 )
-                for (
-                    binding,
-                    secret_id_value,
-                    secret_name,
-                    endpoint_name,
-                    model_name,
-                    provider_value,
-                ) in results
-            ]
 
-    def _get_secrets_for_resource(
-        self,
-        resource_type: str,
-        resource_id: str,
-    ) -> dict[str, str | dict[str, Any]]:
-        """
-        Retrieve and decrypt all secrets bound to a specific resource.
+                # Filter by secret_id if provided
+                if secret_id is not None:
+                    models_query = models_query.filter(SqlEndpointModel.secret_id == secret_id)
 
-        Returns a dictionary mapping field names to decrypted secret values.
+                models_with_secrets = models_query.all()
 
-        Args:
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: Unique identifier for the resource instance.
+                # Skip this binding if secret_id filter doesn't match any models
+                if secret_id is not None and not models_with_secrets:
+                    continue
 
-        Returns:
-            Dictionary mapping field names to decrypted secret values.
-            String and dict values are returned as-is without wrapping.
-        """
-        with self.ManagedSessionMaker() as session:
-            results = (
-                session.query(SqlSecretBinding, SqlSecret)
-                .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
-                .join(SqlEndpointModel, SqlEndpoint.endpoint_id == SqlEndpointModel.endpoint_id)
-                .join(SqlSecret, SqlEndpointModel.secret_id == SqlSecret.secret_id)
-                .filter(
-                    SqlSecretBinding.resource_type == resource_type,
-                    SqlSecretBinding.resource_id == resource_id,
+                # Convert SQL models to EndpointModel entities with provider info
+                models_list = []
+                for sql_model, secret in models_with_secrets:
+                    # Convert to EndpointModel entity with provider information for display
+                    endpoint_model = EndpointModel(
+                        model_id=sql_model.model_id,
+                        endpoint_id=sql_model.endpoint_id,
+                        model_name=sql_model.model_name,
+                        secret_id=sql_model.secret_id,
+                        routing_config=sql_model.routing_config,
+                        created_at=sql_model.created_at,
+                        last_updated_at=sql_model.last_updated_at,
+                        created_by=sql_model.created_by,
+                        last_updated_by=sql_model.last_updated_by,
+                        secret_name=secret.secret_name,
+                        provider=secret.provider or "",
+                    )
+                    models_list.append(endpoint_model)
+
+                result.append(
+                    EndpointBindingListItem(
+                        binding_id=binding.binding_id,
+                        endpoint_id=binding.endpoint_id,
+                        resource_type=binding.resource_type,
+                        resource_id=binding.resource_id,
+                        field_name=binding.field_name,
+                        created_at=binding.created_at,
+                        last_updated_at=binding.last_updated_at,
+                        created_by=binding.created_by,
+                        last_updated_by=binding.last_updated_by,
+                        endpoint_name=endpoint.name or "",
+                        endpoint_description=endpoint.description or "",
+                        models=models_list,
+                    )
                 )
-                .all()
-            )
 
-            kek_manager = KEKManager()
-            decrypted_secrets = {}
-
-            for binding, sql_secret in results:
-                try:
-                    decrypted_value = decrypt_secret(
-                        encrypted_value=sql_secret.encrypted_value,
-                        wrapped_dek=sql_secret.wrapped_dek,
-                        kek_manager=kek_manager,
-                        secret_id=sql_secret.secret_id,
-                        secret_name=sql_secret.secret_name,
-                    )
-                    decrypted_secrets[binding.field_name] = decrypted_value
-                except Exception as e:
-                    raise MlflowException(
-                        f"Failed to decrypt secret '{sql_secret.secret_name}' "
-                        f"(ID: {sql_secret.secret_id}): {e}",
-                        error_code=INTERNAL_ERROR,
-                    )
-
-            return decrypted_secrets
+            return result
 
     def set_secret_tag(self, secret_id: str, tag: SecretTag) -> None:
         """

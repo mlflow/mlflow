@@ -27,6 +27,7 @@ from mlflow import entities
 from mlflow.entities import (
     AssessmentSource,
     AssessmentSourceType,
+    EndpointModelSpec,
     EndpointTag,
     Expectation,
     Experiment,
@@ -79,6 +80,7 @@ from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
     SqlEndpoint,
+    SqlEndpointModel,
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
@@ -366,14 +368,9 @@ def create_secret(store, kek_passphrase):
             "secret_name": f"test_secret_{uuid.uuid4().hex[:8]}",
             "secret_value": "test-secret-value-default",
             "is_shared": False,
-            "resource_type": "SCORER_JOB",
-            "resource_id": f"test_resource_{uuid.uuid4().hex[:8]}",
-            "field_name": "TEST_SECRET",
-            "model_name": "gpt-4-turbo",
         }
         defaults.update(kwargs)
-        result = store._create_and_bind_secret(**defaults)
-        return result.secret
+        return store._create_secret(**defaults)
 
     return _create_secret
 
@@ -10872,54 +10869,66 @@ def test_create_and_bind_secret_atomic(store: SqlAlchemyStore, kek_passphrase):
     field_name = "OPENAI_API_KEY"
     created_by = "user@example.com"
 
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name=secret_name,
         secret_value=secret_value,
-        resource_type=resource_type,
-        resource_id=resource_id,
-        field_name=field_name,
-        model_name="gpt-4-turbo",
         is_shared=False,
         created_by=created_by,
     )
 
-    assert result.secret.secret_name == secret_name
-    assert result.secret.is_shared is False
-    assert result.secret.created_by == created_by
-    assert result.secret.masked_value == "sk-...2345"
-    assert not hasattr(result.secret, "secret_value")
+    endpoint = store._create_endpoint(
+        models=[EndpointModelSpec(model_name="gpt-4-turbo", secret_id=secret.secret_id)],
+        created_by=created_by,
+    )
 
-    assert result.binding.secret_id == result.secret.secret_id
-    assert result.binding.resource_type == resource_type
-    assert result.binding.resource_id == resource_id
-    assert result.binding.field_name == field_name
-    assert result.binding.created_by == created_by
+    binding = store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        field_name=field_name,
+        created_by=created_by,
+    )
 
-    retrieved_secret = store._get_secret_info(result.secret.secret_id)
-    assert retrieved_secret.secret_id == result.secret.secret_id
+    assert secret.secret_name == secret_name
+    assert secret.is_shared is False
+    assert secret.created_by == created_by
+    assert secret.masked_value == "sk-...2345"
+    assert not hasattr(secret, "secret_value")
 
-    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    assert binding.endpoint_id == endpoint.endpoint_id
+    assert binding.resource_type == resource_type
+    assert binding.resource_id == resource_id
+    assert binding.field_name == field_name
+    assert binding.created_by == created_by
+
+    retrieved_secret = store._get_secret_info(secret.secret_id)
+    assert retrieved_secret.secret_id == secret.secret_id
+
+    bindings = store._list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 1
-    assert bindings[0].binding_id == result.binding.binding_id
+    assert bindings[0].binding_id == binding.binding_id
 
 
 def test_create_and_bind_prevents_orphaned_secrets(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="test_secret",
         secret_value="test_value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace_id",
-        field_name="API_KEY",
-        model_name="gpt-4",
         is_shared=True,
     )
 
-    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
-    assert len(bindings) == 1, "Secret must have at least one binding"
+    endpoint = store._create_endpoint(
+        models=[EndpointModelSpec(model_name="gpt-4", secret_id=secret.secret_id)],
+    )
 
-    all_bindings = store._list_secret_bindings()
-    secret_binding_count = sum(1 for b in all_bindings if b.secret_id == result.secret.secret_id)
-    assert secret_binding_count == 1
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_id",
+        field_name="API_KEY",
+    )
+
+    bindings = store._list_endpoint_bindings(secret_id=secret.secret_id)
+    assert len(bindings) == 1, "Secret must have at least one binding"
 
 
 def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphrase):
@@ -10928,42 +10937,48 @@ def test_multiple_routes_same_resource_field(store: SqlAlchemyStore, kek_passphr
     resource_id = "scorer_456"
     field_name = "ANTHROPIC_API_KEY"
 
-    result1 = store._create_and_bind_secret(
-        secret_name="first_secret",
-        secret_value="value1",
+    secret1 = store._create_secret(secret_name="first_secret", secret_value="value1")
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(model_name="claude-3-5-sonnet-20241022", secret_id=secret1.secret_id)
+        ],
+        name="claude-sonnet-route",
+    )
+    binding1 = store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=resource_type,
         resource_id=resource_id,
         field_name=field_name,
-        model_name="claude-3-5-sonnet-20241022",
-        endpoint_name="claude-sonnet-route",
     )
 
-    result2 = store._create_and_bind_secret(
-        secret_name="second_secret",
-        secret_value="value2",
+    secret2 = store._create_secret(secret_name="second_secret", secret_value="value2")
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(model_name="claude-3-haiku-20240307", secret_id=secret2.secret_id)
+        ],
+        name="claude-haiku-route",
+    )
+    binding2 = store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=resource_type,
         resource_id=resource_id,
         field_name=field_name,
-        model_name="claude-3-haiku-20240307",
-        endpoint_name="claude-haiku-route",
     )
 
-    assert result1.endpoint.name == "claude-sonnet-route"
-    assert result2.endpoint.name == "claude-haiku-route"
-    assert result1.binding.resource_type == resource_type
-    assert result2.binding.resource_type == resource_type
-    assert result1.binding.field_name == field_name
-    assert result2.binding.field_name == field_name
+    assert endpoint1.name == "claude-sonnet-route"
+    assert endpoint2.name == "claude-haiku-route"
+    assert binding1.resource_type == resource_type
+    assert binding2.resource_type == resource_type
+    assert binding1.field_name == field_name
+    assert binding2.field_name == field_name
 
+    secret3 = store._create_secret(secret_name="third_secret", secret_value="value3")
     with pytest.raises(MlflowException, match="UNIQUE constraint"):
-        store._create_and_bind_secret(
-            secret_name="third_secret",
-            secret_value="value3",
-            resource_type=resource_type,
-            resource_id=resource_id,
-            field_name=field_name,
-            model_name="claude-3-opus-20240229",
-            endpoint_name="claude-sonnet-route",  # Duplicate endpoint name
+        store._create_endpoint(
+            models=[
+                EndpointModelSpec(model_name="claude-3-opus-20240229", secret_id=secret3.secret_id)
+            ],
+            name="claude-sonnet-route",  # Duplicate endpoint name
         )
 
 
@@ -10974,102 +10989,133 @@ def test_shared_secret_multiple_bindings(store: SqlAlchemyStore, create_secret):
         is_shared=True,
     )
 
-    result = store._create_endpoint_and_bind(
-        secret_id=shared_secret.secret_id,
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=shared_secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_1",
         field_name="llm_api_key",
-        model_name="gpt-4",
     )
-    store._bind_secret_endpoint(
-        endpoint_id=result.endpoint.endpoint_id,
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_2",
         field_name="llm_api_key",
     )
-    store._bind_secret_endpoint(
-        endpoint_id=result.endpoint.endpoint_id,
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_3",
         field_name="llm_api_key",
     )
 
-    secrets_retrieved_1 = store._get_secrets_for_resource(
-        SecretResourceType.SCORER_JOB, "scorer_job_1"
-    )
-    secrets_retrieved_2 = store._get_secrets_for_resource(
-        SecretResourceType.SCORER_JOB, "scorer_job_2"
-    )
-    secrets_retrieved_3 = store._get_secrets_for_resource(
-        SecretResourceType.SCORER_JOB, "scorer_job_3"
-    )
-
-    assert secrets_retrieved_1["llm_api_key"] == "sk-test-openai-key-12345"
-    assert secrets_retrieved_2["llm_api_key"] == "sk-test-openai-key-12345"
-    assert secrets_retrieved_3["llm_api_key"] == "sk-test-openai-key-12345"
+    # Verify all three bindings exist
+    bindings = store._list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
+    assert len(bindings) == 3
+    binding_resource_ids = {b.resource_id for b in bindings}
+    assert binding_resource_ids == {"scorer_job_1", "scorer_job_2", "scorer_job_3"}
 
 
 def test_bind_private_secret_raises_error(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    # The private/shared distinction is less relevant when secrets are per-model
+    secret = store._create_secret(
         secret_name="private_key",
         secret_value="sk-private-12345",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="scorer_1",
-        field_name="API_KEY",
-        model_name="gpt-4",
         is_shared=False,
     )
 
-    with pytest.raises(MlflowException, match="Cannot create endpoint for private secret"):
-        store._create_endpoint_and_bind(
-            secret_id=result.secret.secret_id,
-            resource_type=SecretResourceType.SCORER_JOB,
-            resource_id="scorer_2",
-            field_name="API_KEY",
-            model_name="gpt-4",
-        )
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_1",
+        field_name="API_KEY",
+    )
+
+    # Can create another endpoint using the same private secret (new design allows this)
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="scorer_2",
+        field_name="API_KEY",
+    )
+
+    assert endpoint2.endpoint_id != endpoint1.endpoint_id
+    assert endpoint2.models[0].secret_id == secret.secret_id
 
 
 def test_secret_cascade_delete(store: SqlAlchemyStore, create_secret):
     secret_entity = create_secret(is_shared=True)
 
-    result_1 = store._create_endpoint_and_bind(
-        secret_id=secret_entity.secret_id,
+    endpoint_1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_entity.secret_id,
+            )
+        ],
+    )
+
+    binding_1 = store._bind_endpoint(
+        endpoint_id=endpoint_1.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_1",
-        model_name="gpt-4",
         field_name="api_key",
     )
-    result_2 = store._create_endpoint_and_bind(
-        secret_id=secret_entity.secret_id,
+
+    endpoint_2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_entity.secret_id,
+            )
+        ],
+    )
+
+    binding_2 = store._bind_endpoint(
+        endpoint_id=endpoint_2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
-        model_name="gpt-4",
         field_name="api_key",
     )
 
     # Delete endpoints first (cascade deletes models and bindings)
-    store._delete_secret_endpoint(result_1.endpoint.endpoint_id)
-    store._delete_secret_endpoint(result_2.endpoint.endpoint_id)
+    store._delete_endpoint(endpoint_1.endpoint_id)
+    store._delete_endpoint(endpoint_2.endpoint_id)
 
     # Verify bindings are cascade deleted
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
             session.query(SqlSecretBinding)
-            .filter(
-                SqlSecretBinding.binding_id.in_(
-                    [result_1.binding.binding_id, result_2.binding.binding_id]
-                )
-            )
+            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
             .all()
         )
         assert len(remaining_bindings) == 0
-
-    # Verify resources no longer have secrets
-    secrets_job1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    secrets_job2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    assert secrets_job1 == {}
-    assert secrets_job2 == {}
 
     # Now delete the orphaned secret
     store._delete_secret(secret_entity.secret_id)
@@ -11088,46 +11134,48 @@ def test_multiple_secrets_bound_to_same_resource(store: SqlAlchemyStore, create_
     secret_1 = create_secret(secret_name="openai_key", is_shared=True)
     secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
 
-    result_1 = store._create_endpoint_and_bind(
-        secret_id=secret_1.secret_id,
+    endpoint_1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_1.secret_id,
+            )
+        ],
+    )
+
+    binding_1 = store._bind_endpoint(
+        endpoint_id=endpoint_1.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_999",
-        model_name="gpt-4",
         field_name="openai_key",
     )
 
-    result_2 = store._create_endpoint_and_bind(
-        secret_id=secret_2.secret_id,
+    endpoint_2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_2.secret_id,
+            )
+        ],
+    )
+
+    binding_2 = store._bind_endpoint(
+        endpoint_id=endpoint_2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_999",
-        model_name="gpt-4",
         field_name="anthropic_key",
     )
 
-    secrets_retrieved = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_999")
-
-    assert "openai_key" in secrets_retrieved
-    assert "anthropic_key" in secrets_retrieved
-    assert secrets_retrieved["openai_key"] == "test-secret-value-default"
-    assert secrets_retrieved["anthropic_key"] == "test-secret-value-default"
-
-    store._delete_secret_endpoint(result_1.endpoint.endpoint_id)
-    store._delete_secret_endpoint(result_2.endpoint.endpoint_id)
+    store._delete_endpoint(endpoint_1.endpoint_id)
+    store._delete_endpoint(endpoint_2.endpoint_id)
 
     with store.ManagedSessionMaker() as session:
         remaining_bindings = (
             session.query(SqlSecretBinding)
-            .filter(
-                SqlSecretBinding.binding_id.in_(
-                    [result_1.binding.binding_id, result_2.binding.binding_id]
-                )
-            )
+            .filter(SqlSecretBinding.binding_id.in_([binding_1.binding_id, binding_2.binding_id]))
             .all()
         )
         assert len(remaining_bindings) == 0
-
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_999")
-    assert secrets == {}
 
     store._delete_secret(secret_1.secret_id)
     store._delete_secret(secret_2.secret_id)
@@ -11173,16 +11221,21 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
     assert updated.last_updated_by == "admin"
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
-    store._create_endpoint_and_bind(
-        secret_id=secret.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id=job_id,
-        model_name="gpt-4",
-        field_name="api_key",
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
     )
 
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, job_id)
-    assert secrets["api_key"] == "new-value-456"
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id=job_id,
+        field_name="api_key",
+    )
 
 
 def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
@@ -11190,32 +11243,49 @@ def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
 
-    store._create_endpoint_and_bind(
-        secret_id=secret_entity.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id=job_id,
-        model_name="gpt-4",
-        field_name="api_key",
-        endpoint_name="gpt-4-route",
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_entity.secret_id,
+            )
+        ],
+        name="gpt-4-route",
     )
 
-    store._create_endpoint_and_bind(
-        secret_id=secret_entity.secret_id,
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id=job_id,
-        model_name="gpt-3.5-turbo",
         field_name="api_key",
-        endpoint_name="gpt-3.5-route",
+    )
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret_entity.secret_id,
+            )
+        ],
+        name="gpt-3.5-route",
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id=job_id,
+        field_name="api_key",
     )
 
     with pytest.raises(MlflowException, match="UNIQUE constraint"):
-        store._create_endpoint_and_bind(
-            secret_id=secret_entity.secret_id,
-            resource_type=SecretResourceType.SCORER_JOB,
-            resource_id=job_id,
-            model_name="gpt-4-turbo",
-            field_name="api_key",
-            endpoint_name="gpt-4-route",  # Duplicate endpoint name
+        store._create_endpoint(
+            models=[
+                EndpointModelSpec(
+                    model_name="gpt-4-turbo",
+                    secret_id=secret_entity.secret_id,
+                )
+            ],
+            name="gpt-4-route",  # Duplicate endpoint name
         )
 
 
@@ -11226,102 +11296,50 @@ def test_get_encrypted_secret_by_binding(store: SqlAlchemyStore, create_secret):
         is_shared=True,
     )
 
-    store._create_endpoint_and_bind(
-        secret_id=secret_entity.secret_id,
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret_entity.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_999",
-        model_name="gpt-4",
         field_name="openai_key",
     )
-
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_999")
-
-    assert secrets["openai_key"] == "sk-test-api-key-value"
-
-
-def test_get_secrets_for_resource_batch(store: SqlAlchemyStore, create_secret):
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "empty_job")
-    assert secrets == {}
-
-    secret_1 = create_secret(secret_name="openai_key", is_shared=True)
-    store._create_endpoint_and_bind(
-        secret_id=secret_1.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_1",
-        model_name="gpt-4",
-        field_name="openai_key",
-    )
-
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    assert len(secrets) == 1
-    assert "openai_key" in secrets
-
-    secret_2 = create_secret(secret_name="anthropic_key", is_shared=True)
-    secret_3 = create_secret(secret_name="db_password", is_shared=True)
-
-    store._create_endpoint_and_bind(
-        secret_id=secret_2.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_2",
-        model_name="gpt-4",
-        field_name="anthropic_key",
-    )
-    store._create_endpoint_and_bind(
-        secret_id=secret_3.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_2",
-        model_name="gpt-4",
-        field_name="db_password",
-    )
-
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    assert len(secrets) == 2
-    assert set(secrets.keys()) == {"anthropic_key", "db_password"}
-
-    secret_4 = create_secret(secret_name="job4_secret", is_shared=True)
-    secret_5 = create_secret(secret_name="job5_secret", is_shared=True)
-
-    store._create_endpoint_and_bind(
-        secret_id=secret_4.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_4",
-        model_name="gpt-4",
-        field_name="api_key",
-    )
-    store._create_endpoint_and_bind(
-        secret_id=secret_5.secret_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_5",
-        model_name="gpt-4",
-        field_name="api_key",
-    )
-
-    secrets_job4 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_4")
-    secrets_job5 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_5")
-
-    assert len(secrets_job4) == 1
-    assert len(secrets_job5) == 1
-    assert "api_key" in secrets_job4
-    assert "api_key" in secrets_job5
 
 
 def test_secret_with_auth_config_simple(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="openai_config",
         secret_value="sk-test123",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_1",
-        field_name="config",
-        model_name="gpt-4-turbo",
         is_shared=True,
         provider="openai",
         auth_config={"organization": "org-test"},
     )
-    assert result.secret.secret_id is not None
-    assert result.secret.provider == "openai"
 
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    assert secrets["config"] == "sk-test123"
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="config",
+    )
+
+    assert secret.secret_id is not None
+    assert secret.provider == "openai"
 
 
 def test_secret_with_auth_config_azure_openai(store: SqlAlchemyStore, kek_passphrase):
@@ -11329,96 +11347,136 @@ def test_secret_with_auth_config_azure_openai(store: SqlAlchemyStore, kek_passph
         "azure_endpoint": "https://my-resource.openai.azure.com",
         "api_version": "2024-02-01",
     }
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="azure_openai_key",
         secret_value="azure-api-key-12345",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_2",
-        field_name="azure_config",
-        model_name="gpt-4",
         is_shared=True,
         provider="azure_openai",
         auth_config=auth_config,
     )
-    assert result.secret.secret_id is not None
-    assert result.secret.provider == "azure_openai"
 
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    assert secrets["azure_config"] == "azure-api-key-12345"
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+        field_name="azure_config",
+    )
+
+    assert secret.secret_id is not None
+    assert secret.provider == "azure_openai"
 
 
 def test_update_secret_with_dict_value(store: SqlAlchemyStore, kek_passphrase):
     old_service_account = {"type": "service_account", "private_key": "old-key"}
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="updatable_service_account",
         secret_value=old_service_account,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_update",
-        field_name="service_account",
-        model_name="gemini-2.5-pro",
         is_shared=True,
         provider="vertex_ai",
     )
 
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gemini-2.5-pro",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_update",
+        field_name="service_account",
+    )
+
     new_service_account = {"type": "service_account", "private_key": "new-key"}
     updated = store._update_secret(
-        secret_id=result.secret.secret_id,
+        secret_id=secret.secret_id,
         secret_value=new_service_account,
         updated_by="admin",
     )
 
-    assert updated.secret_id == result.secret.secret_id
+    assert updated.secret_id == secret.secret_id
     assert updated.last_updated_by == "admin"
-
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_update")
-    assert secrets["service_account"] == new_service_account
-    assert secrets["service_account"]["private_key"] == "new-key"
 
 
 def test_update_auth_config_independently(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="azure_key_for_update",
         secret_value="azure-api-key-original",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_auth_update",
-        field_name="azure_key",
-        model_name="gpt-4",
         is_shared=True,
         provider="azure_openai",
         auth_config={"azure_endpoint": "https://original.openai.azure.com"},
     )
 
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_auth_update",
+        field_name="azure_key",
+    )
+
     updated = store._update_secret(
-        secret_id=result.secret.secret_id,
+        secret_id=secret.secret_id,
         secret_value="azure-api-key-rotated",
         auth_config={"azure_endpoint": "https://new.openai.azure.com", "api_version": "2024-02-01"},
         updated_by="admin",
     )
 
-    assert updated.secret_id == result.secret.secret_id
-    secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_auth_update")
-    assert secrets["azure_key"] == "azure-api-key-rotated"
+    assert updated.secret_id == secret.secret_id
 
 
 def test_clear_auth_config(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="clearable_auth_config",
         secret_value="api-key-123",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_clear_auth",
-        field_name="api_key",
-        model_name="gpt-3.5-turbo",
         is_shared=True,
         auth_config={"organization": "org-123"},
     )
 
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_clear_auth",
+        field_name="api_key",
+    )
+
     updated = store._update_secret(
-        secret_id=result.secret.secret_id,
+        secret_id=secret.secret_id,
         secret_value="api-key-123",
         auth_config={},
     )
 
-    assert updated.secret_id == result.secret.secret_id
+    assert updated.secret_id == secret.secret_id
 
 
 def test_create_secret_with_route_tags(store: SqlAlchemyStore, kek_passphrase):
@@ -11427,113 +11485,170 @@ def test_create_secret_with_route_tags(store: SqlAlchemyStore, kek_passphrase):
         {"key": "team", "value": "ml-platform"},
         {"key": "cost_center", "value": "engineering"},
     ]
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="tagged_route_secret",
         secret_value="sk-tagged-key",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+        name="Production GPT-4",
+        description="Production GPT-4 Turbo endpoint for ML scoring",
+        tags=route_tags,
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_tags",
         field_name="api_key",
-        model_name="gpt-4-turbo",
-        is_shared=True,
-        provider="openai",
-        endpoint_name="Production GPT-4",
-        endpoint_description="Production GPT-4 Turbo endpoint for ML scoring",
-        endpoint_tags=route_tags,
     )
 
-    assert result.secret.secret_id is not None
-    assert result.endpoint.endpoint_id is not None
-    assert result.endpoint.models[0].model_name == "gpt-4-turbo"
-    assert result.endpoint.name == "Production GPT-4"
-    assert result.endpoint.description == "Production GPT-4 Turbo endpoint for ML scoring"
-    assert len(result.endpoint.tags) == 3
-    tag_dict = {tag.key: tag.value for tag in result.endpoint.tags}
+    assert secret.secret_id is not None
+    assert endpoint.endpoint_id is not None
+    assert endpoint.models[0].model_name == "gpt-4-turbo"
+    assert endpoint.name == "Production GPT-4"
+    assert endpoint.description == "Production GPT-4 Turbo endpoint for ML scoring"
+    assert len(endpoint.tags) == 3
+    tag_dict = {tag.key: tag.value for tag in endpoint.tags}
     assert tag_dict["environment"] == "production"
     assert tag_dict["team"] == "ml-platform"
     assert tag_dict["cost_center"] == "engineering"
 
 
 def test_create_endpoint_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passphrase):
-    result1 = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="shared_openai_key",
         secret_value="sk-reusable-key-12345",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+        name="GPT-4 Turbo",
+        description="Main production GPT-4 endpoint",
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_1",
         field_name="OPENAI_API_KEY",
-        model_name="gpt-4-turbo",
-        is_shared=True,
-        provider="openai",
-        endpoint_name="GPT-4 Turbo",
-        endpoint_description="Main production GPT-4 endpoint",
     )
 
-    result2 = store._create_endpoint_and_bind(
-        secret_id=result1.secret.secret_id,
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+        name="GPT-3.5 Turbo",
+        description="Cost-efficient endpoint for dev",
+        tags=[{"key": "tier", "value": "development"}],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_2",
         field_name="OPENAI_API_KEY",
-        model_name="gpt-3.5-turbo",
-        endpoint_name="GPT-3.5 Turbo",
-        endpoint_description="Cost-efficient endpoint for dev",
-        endpoint_tags=[{"key": "tier", "value": "development"}],
     )
 
-    result3 = store._create_endpoint_and_bind(
-        secret_id=result1.secret.secret_id,
+    endpoint3 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4o",
+                secret_id=secret.secret_id,
+            )
+        ],
+        name="GPT-4o",
+        description="Latest model for experiments",
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint3.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job_3",
         field_name="OPENAI_API_KEY",
-        model_name="gpt-4o",
-        endpoint_name="GPT-4o",
-        endpoint_description="Latest model for experiments",
     )
 
-    assert result2.secret.secret_id == result1.secret.secret_id
-    assert result3.secret.secret_id == result1.secret.secret_id
-    assert result2.endpoint.endpoint_id != result1.endpoint.endpoint_id
-    assert result3.endpoint.endpoint_id != result1.endpoint.endpoint_id
-    assert result2.endpoint.models[0].model_name == "gpt-3.5-turbo"
-    assert result3.endpoint.models[0].model_name == "gpt-4o"
-    assert len(result2.endpoint.tags) == 1
-    assert result2.endpoint.tags[0].key == "tier"
-
-    secrets_job1 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_1")
-    secrets_job2 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_2")
-    secrets_job3 = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "job_3")
-    assert secrets_job1["OPENAI_API_KEY"] == "sk-reusable-key-12345"
-    assert secrets_job2["OPENAI_API_KEY"] == "sk-reusable-key-12345"
-    assert secrets_job3["OPENAI_API_KEY"] == "sk-reusable-key-12345"
+    assert endpoint2.models[0].secret_id == secret.secret_id
+    assert endpoint3.models[0].secret_id == secret.secret_id
+    assert endpoint2.endpoint_id != endpoint1.endpoint_id
+    assert endpoint3.endpoint_id != endpoint1.endpoint_id
+    assert endpoint2.models[0].model_name == "gpt-3.5-turbo"
+    assert endpoint3.models[0].model_name == "gpt-4o"
+    assert len(endpoint2.tags) == 1
+    assert endpoint2.tags[0].key == "tier"
 
 
 def test_create_endpoint_and_bind_private_secret_fails(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="private_key",
         secret_value="sk-private-12345",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_1",
-        field_name="API_KEY",
-        model_name="gpt-4",
         is_shared=False,
     )
 
-    with pytest.raises(MlflowException, match="Cannot create endpoint for private secret"):
-        store._create_endpoint_and_bind(
-            secret_id=result.secret.secret_id,
-            resource_type=SecretResourceType.SCORER_JOB,
-            resource_id="job_2",
-            field_name="API_KEY",
-            model_name="gpt-3.5-turbo",
-        )
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="API_KEY",
+    )
+
+    # Can create another endpoint using the same private secret (new design allows this)
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+        field_name="API_KEY",
+    )
+
+    assert endpoint2.endpoint_id != endpoint1.endpoint_id
+    assert endpoint2.models[0].secret_id == secret.secret_id
 
 
 def test_create_endpoint_and_bind_nonexistent_secret_fails(store: SqlAlchemyStore, kek_passphrase):
     with pytest.raises(MlflowException, match="not found"):
-        store._create_endpoint_and_bind(
-            secret_id="nonexistent_id",
-            resource_type=SecretResourceType.SCORER_JOB,
-            resource_id="job_1",
-            field_name="API_KEY",
-            model_name="gpt-4",
+        store._create_endpoint(
+            models=[
+                EndpointModelSpec(
+                    model_name="gpt-4",
+                    secret_id="nonexistent_id",
+                )
+            ],
         )
 
 
@@ -11581,7 +11696,24 @@ def test_secret_tags(store: SqlAlchemyStore, create_secret):
 
 def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
     secret = create_secret(is_shared=True)
-    bindings = store._list_secret_bindings(secret_id=secret.secret_id)
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="api_key",
+    )
+
+    bindings = store._list_endpoint_bindings(secret_id=secret.secret_id)
     route_id = bindings[0].endpoint_id
 
     store.set_secret_endpoint_tag(route_id, EndpointTag("deployment", "blue"))
@@ -11621,26 +11753,50 @@ def test_list_secrets(store: SqlAlchemyStore, kek_passphrase):
     secrets_before = store._list_secrets()
     count_before = len(secrets_before)
 
-    _result1 = store._create_and_bind_secret(
+    secret1 = store._create_secret(
         secret_name="openai_key",
         secret_value="sk-test",
         provider="openai",
-        model_name="gpt-4",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
         is_shared=True,
     )
 
-    _result2 = store._create_and_bind_secret(
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+    )
+
+    secret2 = store._create_secret(
         secret_name="anthropic_key",
         secret_value="sk-ant-test",
         provider="anthropic",
-        model_name="claude-3-5-sonnet-20241022",
+        is_shared=False,
+    )
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret2.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="job1",
         field_name="ANTHROPIC_API_KEY",
-        is_shared=False,
     )
 
     all_secrets = store._list_secrets()
@@ -11664,149 +11820,225 @@ def test_list_secrets(store: SqlAlchemyStore, kek_passphrase):
         assert secret.binding_count is not None
 
 
-def test_list_secret_endpoints(store: SqlAlchemyStore, kek_passphrase):
-    result1 = store._create_and_bind_secret(
+def test_list_endpoints(store: SqlAlchemyStore, kek_passphrase):
+    secret1 = store._create_secret(
         secret_name="openai_key",
         secret_value="sk-test",
         provider="openai",
-        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace",
         field_name="OPENAI_API_KEY",
-        is_shared=True,
     )
 
-    _result2 = store._create_and_bind_secret(
+    secret2 = store._create_secret(
         secret_name="anthropic_key",
         secret_value="sk-ant-test",
         provider="anthropic",
-        model_name="claude-3-5-sonnet-20241022",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="ANTHROPIC_API_KEY",
         is_shared=True,
     )
 
-    routes_all = store._list_secret_endpoints()
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret2.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    routes_all = store._list_endpoints()
     assert len(routes_all) >= 2
 
-    routes_secret1 = store._list_secret_endpoints(secret_id=result1.secret.secret_id)
+    routes_secret1 = store._list_endpoints(secret_id=secret1.secret_id)
     assert len(routes_secret1) == 1
-    assert routes_secret1[0].models[0].secret_id == result1.secret.secret_id
+    assert routes_secret1[0].models[0].secret_id == secret1.secret_id
     assert routes_secret1[0].models[0].model_name == "gpt-4"
     assert routes_secret1[0].models[0].secret_name == "openai_key"
     assert routes_secret1[0].models[0].provider == "openai"
 
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) >= 1
     assert any(r.models[0].model_name == "gpt-4" for r in openai_routes)
 
-    anthropic_routes = store._list_secret_endpoints(provider="anthropic")
+    anthropic_routes = store._list_endpoints(provider="anthropic")
     assert len(anthropic_routes) >= 1
     assert any(r.models[0].model_name == "claude-3-5-sonnet-20241022" for r in anthropic_routes)
 
-    routes_nonexistent = store._list_secret_endpoints(secret_id="nonexistent_secret_id")
+    routes_nonexistent = store._list_endpoints(secret_id="nonexistent_secret_id")
     assert len(routes_nonexistent) == 0
 
 
-def test_list_secret_endpoints_multiple_per_secret(store: SqlAlchemyStore, kek_passphrase):
-    result1 = store._create_and_bind_secret(
+def test_list_endpoints_multiple_per_secret(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
         secret_name="shared_api_key",
         secret_value="sk-test-value",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_1",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
         is_shared=True,
     )
 
-    _result2 = store._create_endpoint_and_bind(
-        secret_id=result1.secret.secret_id,
-        model_name="gpt-4-turbo",
-        field_name="OPENAI_API_KEY",
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_2",
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
     )
 
-    routes = store._list_secret_endpoints(secret_id=result1.secret.secret_id)
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_1",
+        field_name="OPENAI_API_KEY",
+    )
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.SCORER_JOB,
+        resource_id="job_2",
+        field_name="OPENAI_API_KEY",
+    )
+
+    routes = store._list_endpoints(secret_id=secret.secret_id)
     assert len(routes) == 2
 
     model_names = {r.models[0].model_name for r in routes}
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
     for endpoint in routes:
-        assert endpoint.models[0].secret_id == result1.secret.secret_id
+        assert endpoint.models[0].secret_id == secret.secret_id
         assert endpoint.created_at > 0
         assert endpoint.last_updated_at > 0
 
 
-def test_delete_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+def test_delete_endpoint(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
         secret_name="shared_api_key",
         secret_value="sk-test-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
         is_shared=True,
     )
 
-    result2 = store._create_endpoint_and_bind(
-        secret_id=result.secret.secret_id,
-        model_name="gpt-4-turbo",
-        field_name="OPENAI_API_KEY",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace_2",
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
     )
 
-    routes_before = store._list_secret_endpoints(secret_id=result.secret.secret_id)
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+    )
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace_2",
+        field_name="OPENAI_API_KEY",
+    )
+
+    routes_before = store._list_endpoints(secret_id=secret.secret_id)
     assert len(routes_before) == 2
 
-    store._delete_secret_endpoint(result2.endpoint.endpoint_id)
+    store._delete_endpoint(endpoint2.endpoint_id)
 
-    routes_after = store._list_secret_endpoints(secret_id=result.secret.secret_id)
+    routes_after = store._list_endpoints(secret_id=secret.secret_id)
     assert len(routes_after) == 1
 
-    store._delete_secret_endpoint(result.endpoint.endpoint_id)
+    store._delete_endpoint(endpoint1.endpoint_id)
 
-    routes_final = store._list_secret_endpoints(secret_id=result.secret.secret_id)
+    routes_final = store._list_endpoints(secret_id=secret.secret_id)
     assert len(routes_final) == 0
 
     with pytest.raises(MlflowException, match="not found"):
-        store._delete_secret_endpoint("nonexistent_route_id")
+        store._delete_endpoint("nonexistent_route_id")
 
 
-def test_bind_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+def test_bind_endpoint(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
         secret_name="shared_api_key",
         secret_value="sk-test-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
         is_shared=True,
     )
 
-    bindings_before = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+    )
+
+    bindings_before = store._list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings_before) == 1
 
-    new_binding = store._bind_secret_endpoint(
-        endpoint_id=result.endpoint.endpoint_id,
+    new_binding = store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace_2",
         field_name="OPENAI_API_KEY",
         created_by="test_user",
     )
 
-    assert new_binding.endpoint_id == result.endpoint.endpoint_id
+    assert new_binding.endpoint_id == endpoint.endpoint_id
     assert new_binding.resource_id == "workspace_2"
     assert new_binding.created_by == "test_user"
 
-    bindings_after = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
+    bindings_after = store._list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings_after) == 2
 
     with pytest.raises(MlflowException, match="not found"):
-        store._bind_secret_endpoint(
+        store._bind_endpoint(
             endpoint_id="nonexistent_route_id",
             resource_type=SecretResourceType.GLOBAL,
             resource_id="workspace",
@@ -11814,256 +12046,68 @@ def test_bind_secret_endpoint(store: SqlAlchemyStore, kek_passphrase):
         )
 
 
-def test_update_secret_endpoint_to_existing_secret(store: SqlAlchemyStore, kek_passphrase):
-    result1 = store._create_and_bind_secret(
-        secret_name="api_key_1",
-        secret_value="sk-test-value-1",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    result2 = store._create_and_bind_secret(
-        secret_name="api_key_2",
-        secret_value="sk-test-value-2",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace2",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-3.5-turbo",
-        is_shared=True,
-    )
-
-    original_route_id = result1.endpoint.endpoint_id
-    target_secret_id = result2.secret.secret_id
-
-    bindings_before = store._list_secret_bindings(endpoint_id=original_route_id)
-    assert len(bindings_before) == 1
-
-    updated_endpoint = store._update_secret_endpoint(
-        endpoint_id=original_route_id,
-        secret_id=target_secret_id,
-        updated_by="test_updater",
-    )
-
-    assert updated_endpoint.endpoint_id == original_route_id
-    assert updated_endpoint.models[0].secret_id == target_secret_id
-    assert updated_endpoint.last_updated_by == "test_updater"
-    assert updated_endpoint.last_updated_at > result1.endpoint.created_at
-
-    bindings_after = store._list_secret_bindings(endpoint_id=original_route_id)
-    assert len(bindings_after) == 1
-    assert bindings_after[0].binding_id == bindings_before[0].binding_id
-
-
-def test_update_secret_endpoint_nonexistent_route_fails(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
-        secret_name="api_key",
-        secret_value="sk-test-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    with pytest.raises(MlflowException, match="Endpoint with ID 'nonexistent' not found"):
-        store._update_secret_endpoint(
-            endpoint_id="nonexistent",
-            secret_id=result.secret.secret_id,
-        )
-
-
-def test_update_secret_endpoint_nonexistent_secret_fails(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
-        secret_name="api_key",
-        secret_value="sk-test-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    with pytest.raises(MlflowException, match="Secret with ID 'nonexistent' not found"):
-        store._update_secret_endpoint(
-            endpoint_id=result.endpoint.endpoint_id,
-            secret_id="nonexistent",
-        )
-
-
-def test_update_secret_endpoint_with_new_secret(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
-        secret_name="old_api_key",
-        secret_value="sk-old-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    original_route_id = result.endpoint.endpoint_id
-    original_secret_id = result.secret.secret_id
-
-    store._bind_secret_endpoint(
-        endpoint_id=original_route_id,
-        resource_type=SecretResourceType.SCORER_JOB,
-        resource_id="job_123",
-        field_name="OPENAI_API_KEY",
-    )
-
-    bindings_before = store._list_secret_bindings(endpoint_id=original_route_id)
-    assert len(bindings_before) == 2
-
-    new_secret, updated_endpoint = store._update_secret_endpoint_with_new_secret(
-        endpoint_id=original_route_id,
-        secret_name="new_api_key",
-        secret_value="sk-new-value",
-        provider="openai",
-        is_shared=True,
-        updated_by="test_updater",
-    )
-
-    assert updated_endpoint.endpoint_id == original_route_id
-    assert updated_endpoint.models[0].secret_id == new_secret.secret_id
-    assert updated_endpoint.models[0].secret_id != original_secret_id
-    assert updated_endpoint.last_updated_by == "test_updater"
-
-    assert new_secret.secret_name == "new_api_key"
-    assert new_secret.is_shared is True
-    assert new_secret.provider == "openai"
-    assert new_secret.masked_value.startswith("sk-")  # typos:disable-line
-
-    bindings_after = store._list_secret_bindings(endpoint_id=original_route_id)
-    assert len(bindings_after) == 2
-    assert bindings_after[0].endpoint_id == original_route_id
-    assert bindings_after[1].endpoint_id == original_route_id
-
-
-def test_update_secret_endpoint_with_new_secret_duplicate_name_fails(
-    store: SqlAlchemyStore, kek_passphrase
-):
-    store._create_and_bind_secret(
-        secret_name="existing_key",
-        secret_value="sk-existing",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    result2 = store._create_and_bind_secret(
-        secret_name="another_key",
-        secret_value="sk-another",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace2",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-3.5-turbo",
-        is_shared=True,
-    )
-
-    with pytest.raises(
-        MlflowException, match="Shared secret with name 'existing_key' already exists"
-    ):
-        store._update_secret_endpoint_with_new_secret(
-            endpoint_id=result2.endpoint.endpoint_id,
-            secret_name="existing_key",
-            secret_value="sk-new-value",
-            is_shared=True,
-        )
-
-
-def test_update_secret_endpoint_with_new_secret_nonexistent_route_fails(
-    store: SqlAlchemyStore, kek_passphrase
-):
-    with pytest.raises(MlflowException, match="Endpoint with ID 'nonexistent' not found"):
-        store._update_secret_endpoint_with_new_secret(
-            endpoint_id="nonexistent",
-            secret_name="new_key",
-            secret_value="sk-new-value",
-        )
-
-
-def test_update_secret_endpoint_preserves_bindings(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
-        secret_name="api_key",
-        secret_value="sk-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        is_shared=True,
-    )
-
-    for i in range(3):
-        store._bind_secret_endpoint(
-            endpoint_id=result.endpoint.endpoint_id,
-            resource_type=SecretResourceType.SCORER_JOB,
-            resource_id=f"job_{i}",
-            field_name="OPENAI_API_KEY",
-        )
-
-    bindings_before = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
-    binding_ids_before = {b.binding_id for b in bindings_before}
-    assert len(bindings_before) == 4
-
-    new_secret, updated_endpoint = store._update_secret_endpoint_with_new_secret(
-        endpoint_id=result.endpoint.endpoint_id,
-        secret_name="new_key",
-        secret_value="sk-new",
-    )
-
-    assert updated_endpoint.endpoint_id == result.endpoint.endpoint_id
-    assert updated_endpoint.models[0].secret_id != result.secret.secret_id
-
-    bindings_after = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
-    binding_ids_after = {b.binding_id for b in bindings_after}
-
-    assert len(bindings_after) == 4
-    assert binding_ids_before == binding_ids_after
-
-
-def test_list_secret_bindings_by_route_id(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+def test_list_endpoint_bindings_by_route_id(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
         secret_name="shared_api_key",
         secret_value="sk-test-value",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
         is_shared=True,
     )
 
-    store._bind_secret_endpoint(
-        endpoint_id=result.endpoint.endpoint_id,
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace_2",
         field_name="OPENAI_API_KEY",
     )
 
-    bindings = store._list_secret_bindings(endpoint_id=result.endpoint.endpoint_id)
+    bindings = store._list_endpoint_bindings(endpoint_id=endpoint.endpoint_id)
     assert len(bindings) == 2
 
     for binding in bindings:
-        assert binding.endpoint_id == result.endpoint.endpoint_id
+        assert binding.endpoint_id == endpoint.endpoint_id
 
 
 def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_passphrase):
     openai_secrets = store._list_secrets(provider="openai", is_shared=True)
     assert len(openai_secrets) == 0
 
-    result1 = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="company_openai_key",
         secret_value="sk-test-openai-key",
         provider="openai",
-        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace",
         field_name="OPENAI_API_KEY",
-        is_shared=True,
     )
 
     openai_secrets = store._list_secrets(provider="openai", is_shared=True)
@@ -12071,72 +12115,83 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     assert openai_secrets[0].secret_name == "company_openai_key"
     assert openai_secrets[0].provider == "openai"
 
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) == 1
     assert openai_routes[0].models[0].model_name == "gpt-4"
 
-    result2 = store._create_endpoint_and_bind(
-        secret_id=result1.secret.secret_id,
-        model_name="gpt-4-turbo",
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace",
         field_name="OPENAI_API_KEY_TURBO",
     )
 
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) == 2
     model_names = {r.models[0].model_name for r in openai_routes}
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
-    job_binding = store._bind_secret_endpoint(
-        endpoint_id=result2.endpoint.endpoint_id,
+    job_binding = store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_1",
         field_name="llm_api_key",
     )
 
-    job_secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_job_1")
-    assert job_secrets["llm_api_key"] == "sk-test-openai-key"
+    store._unbind_endpoint(binding_id=job_binding.binding_id)
 
-    store._delete_secret_binding(binding_id=job_binding.binding_id)
+    store._delete_endpoint(endpoint2.endpoint_id)
 
-    job_secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_job_1")
-    assert "llm_api_key" not in job_secrets
-
-    store._delete_secret_endpoint(result2.endpoint.endpoint_id)
-
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) == 1
     assert openai_routes[0].models[0].model_name == "gpt-4"
 
-    store._delete_secret_endpoint(result1.endpoint.endpoint_id)
+    store._delete_endpoint(endpoint1.endpoint_id)
 
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) == 0
 
-    store._delete_secret(result1.secret.secret_id)
+    store._delete_secret(secret.secret_id)
 
     openai_secrets = store._list_secrets(provider="openai", is_shared=True)
     assert len(openai_secrets) == 0
 
 
 def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="anthropic_key",
         secret_value="sk-ant-test-key",
         provider="anthropic",
-        model_name="claude-3-5-sonnet-20241022",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="ANTHROPIC_API_KEY",
         is_shared=True,
     )
 
-    endpoint_id = result.endpoint.endpoint_id
-    secret_id = result.secret.secret_id
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
 
-    from mlflow.store.tracking.dbmodels.models import SqlEndpoint, SqlEndpointModel
-    from mlflow.utils.time import get_current_time_millis
+    store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    endpoint_id = endpoint.endpoint_id
+    secret_id = secret.secret_id
 
     with store.ManagedSessionMaker() as session:
         sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
@@ -12192,44 +12247,80 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
         assert endpoint_entity.models[0].secret_id == secret_id
         assert endpoint_entity.models[0].model_name == "claude-3-5-sonnet-20241022"
 
-    routes = store._list_secret_endpoints(secret_id=secret_id)
+    routes = store._list_endpoints(secret_id=secret_id)
     assert len(routes) == 1
     assert routes[0].endpoint_id == endpoint_id
     assert routes[0].models[0].model_name == "claude-3-5-sonnet-20241022"
 
 
 def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
-    store._create_and_bind_secret(
+    secret1 = store._create_secret(
         secret_name="openai_key",
         secret_value="sk-openai-123",
         provider="openai",
-        model_name="gpt-4",
+        is_shared=True,
+    )
+
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace",
         field_name="OPENAI_API_KEY",
-        is_shared=True,
     )
 
-    store._create_and_bind_secret(
+    secret2 = store._create_secret(
         secret_name="anthropic_key",
         secret_value="sk-ant-123",
         provider="anthropic",
-        model_name="claude-3-5-sonnet-20241022",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="ANTHROPIC_API_KEY",
         is_shared=True,
     )
 
-    store._create_and_bind_secret(
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret2.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="ANTHROPIC_API_KEY",
+    )
+
+    secret3 = store._create_secret(
         secret_name="gemini_key",
         secret_value="gemini-123",
         provider="google",
-        model_name="gemini-2.0-flash",
+        is_shared=True,
+    )
+
+    endpoint3 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gemini-2.0-flash",
+                secret_id=secret3.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint3.endpoint_id,
         resource_type=SecretResourceType.GLOBAL,
         resource_id="workspace",
         field_name="GOOGLE_API_KEY",
-        is_shared=True,
     )
 
     openai_secrets = store._list_secrets(provider="openai")
@@ -12244,40 +12335,64 @@ def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
     assert len(google_secrets) == 1
     assert google_secrets[0].secret_name == "gemini_key"
 
-    openai_routes = store._list_secret_endpoints(provider="openai")
+    openai_routes = store._list_endpoints(provider="openai")
     assert len(openai_routes) == 1
     assert openai_routes[0].models[0].model_name == "gpt-4"
 
-    anthropic_routes = store._list_secret_endpoints(provider="anthropic")
+    anthropic_routes = store._list_endpoints(provider="anthropic")
     assert len(anthropic_routes) == 1
     assert anthropic_routes[0].models[0].model_name == "claude-3-5-sonnet-20241022"
 
-    google_routes = store._list_secret_endpoints(provider="google")
+    google_routes = store._list_endpoints(provider="google")
     assert len(google_routes) == 1
     assert google_routes[0].models[0].model_name == "gemini-2.0-flash"
 
 
 def test_global_secrets_resource_type_filter(store: SqlAlchemyStore, kek_passphrase):
-    store._create_and_bind_secret(
+    secret1 = store._create_secret(
         secret_name="global_openai_key",
         secret_value="sk-global-123",
         provider="openai",
-        model_name="gpt-4",
-        resource_type=SecretResourceType.GLOBAL,
-        resource_id="workspace",
-        field_name="OPENAI_API_KEY",
         is_shared=True,
     )
 
-    store._create_and_bind_secret(
+    endpoint1 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint1.endpoint_id,
+        resource_type=SecretResourceType.GLOBAL,
+        resource_id="workspace",
+        field_name="OPENAI_API_KEY",
+    )
+
+    secret2 = store._create_secret(
         secret_name="job_specific_key",
         secret_value="sk-job-123",
         provider="openai",
-        model_name="gpt-4",
+        is_shared=False,
+    )
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret2.secret_id,
+            )
+        ],
+    )
+
+    store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_1",
         field_name="api_key",
-        is_shared=False,
     )
 
     global_secrets = store._list_secrets(resource_type=SecretResourceType.GLOBAL)

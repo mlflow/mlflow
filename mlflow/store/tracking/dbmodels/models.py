@@ -32,6 +32,7 @@ from mlflow.entities import (
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
+    EndpointBinding,
     EndpointTag,
     EvaluationDataset,
     Expectation,
@@ -47,7 +48,6 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     Secret,
-    SecretBinding,
     SecretTag,
     SourceType,
     TraceInfo,
@@ -2367,8 +2367,7 @@ class SqlEndpointModel(Base):
             endpoint_id=self.endpoint_id,
             model_name=self.model_name,
             secret_id=self.secret_id,
-            weight=self.weight,
-            priority=self.priority,
+            routing_config=self.routing_config,
             created_at=self.created_at,
             last_updated_at=self.last_updated_at,
             created_by=self.created_by,
@@ -2492,15 +2491,11 @@ class SqlSecretBinding(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            mlflow.entities.secret_binding.SecretBinding
+            mlflow.entities.endpoint_binding.EndpointBinding
         """
-        # Get secret_id from the first model in the endpoint
-        secret_id = self.endpoint.models[0].secret_id if self.endpoint.models else ""
-
-        return SecretBinding(
+        return EndpointBinding(
             binding_id=self.binding_id,
             endpoint_id=self.endpoint_id,
-            secret_id=secret_id,
             resource_type=self.resource_type,
             resource_id=self.resource_id,
             field_name=self.field_name,

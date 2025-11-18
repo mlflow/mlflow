@@ -8,6 +8,7 @@ from mlflow.entities import (
     DatasetInput,
     DatasetRecord,
     Endpoint,
+    EndpointBinding,
     EndpointTag,
     LoggedModel,
     LoggedModelInput,
@@ -17,9 +18,7 @@ from mlflow.entities import (
     LoggedModelTag,
     ScorerVersion,
     Secret,
-    SecretBinding,
     SecretTag,
-    SecretWithEndpointAndBinding,
     ViewType,
 )
 
@@ -1367,88 +1366,6 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _create_and_bind_secret(
-        self,
-        secret_name: str,
-        secret_value: str | dict[str, Any],
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
-        is_shared: bool = False,
-        created_by: str | None = None,
-        provider: str | None = None,
-        auth_config: dict[str, Any] | None = None,
-        endpoint_name: str | None = None,
-        endpoint_description: str | None = None,
-        endpoint_tags: list[dict[str, str]] | None = None,
-    ) -> SecretWithEndpointAndBinding:
-        """
-        Atomically create a gateway asset (secret + endpoint + binding) in a single transaction.
-
-        This creates a complete gateway configuration:
-        1. Secret: The API key/credential (and/or auth config)
-        2. Endpoint: The model configuration (provider + model using that secret)
-        3. Binding: The resource binding (which service uses this endpoint)
-
-        Args:
-            secret_name: Name for the secret.
-            secret_value: Secret value to encrypt. Required. Can be:
-                - String: API key/token for simple providers (OpenAI, Anthropic)
-                - Dict: JSON credentials for complex providers (Vertex AI service account)
-            resource_type: Type of resource (e.g., "SCORER_JOB", "GLOBAL").
-            resource_id: Unique identifier for the resource instance.
-            field_name: Name of the field on the resource where the secret is used.
-            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo",
-                "claude-3-5-sonnet-20241022"). Required.
-            is_shared: Whether the secret can be reused across multiple resources.
-            created_by: Username of the creator. Optional.
-            provider: LLM provider identifier. Optional.
-            auth_config: Optional provider-specific authentication configuration.
-            endpoint_name: Optional display name for the endpoint. If not provided,
-                model_name is used.
-            endpoint_description: Optional description for the endpoint.
-            endpoint_tags: Optional list of tags for the endpoint.
-
-        Returns:
-            SecretWithEndpointAndBinding containing the created secret, endpoint,
-                and initial binding.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def _create_endpoint_and_bind(
-        self,
-        secret_id: str,
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
-        endpoint_name: str | None = None,
-        endpoint_description: str | None = None,
-        endpoint_tags: list[dict[str, str]] | None = None,
-        created_by: str | None = None,
-    ) -> SecretWithEndpointAndBinding:
-        """
-        Create a new endpoint and binding for an existing secret.
-
-        This enables reusing a single API key (secret) across multiple model configurations.
-
-        Args:
-            secret_id: ID of the existing secret to use.
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: Unique identifier for the resource instance.
-            field_name: Name of the field on the resource where the secret is used.
-            model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo"). Required.
-            endpoint_name: Optional display name for the endpoint.
-            endpoint_description: Optional description for the endpoint.
-            endpoint_tags: Optional list of tags for the endpoint.
-            created_by: Username of the creator. Optional.
-
-        Returns:
-            SecretWithEndpointAndBinding containing the secret, new endpoint, and new binding.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
         Retrieve metadata for a secret by ID (does not decrypt the value).
@@ -1498,7 +1415,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _delete_secret_binding(
+    def _unbind_endpoint(
         self,
         binding_id: str,
     ) -> None:
@@ -1516,13 +1433,13 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _list_secret_bindings(
+    def _list_endpoint_bindings(
         self,
         secret_id: str | None = None,
         endpoint_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
-    ) -> list[SecretBinding]:
+    ) -> list[EndpointBinding]:
         """
         List secret bindings with optional filters.
 
@@ -1533,24 +1450,7 @@ class AbstractStore:
             resource_id: Optional filter by resource ID.
 
         Returns:
-            List of SecretBinding entities matching the filters.
-        """
-        raise NotImplementedError(self.__class__.__name__)
-
-    def _get_secrets_for_resource(
-        self,
-        resource_type: str,
-        resource_id: str,
-    ) -> dict[str, str | dict[str, Any]]:
-        """
-        Retrieve and decrypt all secrets bound to a specific resource.
-
-        Args:
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: Unique identifier for the resource instance.
-
-        Returns:
-            Dictionary mapping field names to decrypted secret values.
+            List of EndpointBinding entities matching the filters.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1619,7 +1519,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _list_secret_endpoints(
+    def _list_endpoints(
         self,
         secret_id: str | None = None,
         provider: str | None = None,
@@ -1639,7 +1539,7 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _delete_secret_endpoint(self, endpoint_id: str) -> None:
+    def _delete_endpoint(self, endpoint_id: str) -> None:
         """
         Delete a secret endpoint and its associated bindings.
 
@@ -1654,14 +1554,14 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def _bind_secret_endpoint(
+    def _bind_endpoint(
         self,
         endpoint_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
         created_by: str | None = None,
-    ) -> SecretBinding:
+    ) -> EndpointBinding:
         """
         Bind an existing secret endpoint to a new resource.
 
@@ -1676,7 +1576,7 @@ class AbstractStore:
             created_by: Username of the creator. Optional.
 
         Returns:
-            The created SecretBinding entity.
+            The created EndpointBinding entity.
 
         Raises:
             MlflowException: If endpoint doesn't exist or binding already exists.

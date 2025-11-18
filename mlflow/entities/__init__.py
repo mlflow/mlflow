@@ -18,7 +18,12 @@ from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRe
 from mlflow.entities.dataset_summary import _DatasetSummary
 from mlflow.entities.document import Document
 from mlflow.entities.endpoint import Endpoint
-from mlflow.entities.endpoint_model import EndpointModel
+from mlflow.entities.endpoint_binding import (
+    EndpointBinding,
+    EndpointBindingListItem,
+    SecretResourceType,
+)
+from mlflow.entities.endpoint_model import EndpointModel, EndpointModelSpec
 from mlflow.entities.endpoint_tag import EndpointTag
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
@@ -44,11 +49,6 @@ from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
 from mlflow.entities.secret import Secret, SecretWithEndpointAndBinding
-from mlflow.entities.secret_binding import (
-    SecretBinding,
-    SecretBindingListItem,
-    SecretResourceType,
-)
 from mlflow.entities.secret_tag import SecretTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
@@ -89,11 +89,12 @@ __all__ = [
     "RunTag",
     "ScorerVersion",
     "Secret",
-    "SecretBinding",
-    "SecretBindingListItem",
     "SecretResourceType",
     "Endpoint",
+    "EndpointBinding",
+    "EndpointBindingListItem",
     "EndpointModel",
+    "EndpointModelSpec",
     "EndpointTag",
     "SecretTag",
     "SecretWithEndpointAndBinding",

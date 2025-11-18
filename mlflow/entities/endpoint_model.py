@@ -1,8 +1,28 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
+
+
+@dataclass
+class EndpointModelSpec:
+    """
+    Specification for creating a model within an endpoint.
+
+    This is used as input to endpoint creation and model addition operations.
+    It defines the contract for what's required to add a model to an endpoint.
+
+    Args:
+        model_name: Model identifier (e.g., "gpt-4-turbo", "claude-3-5-sonnet").
+        secret_id: ID of the secret (API key) to use for this model.
+        routing_config: Optional routing configuration dict (e.g., {"weight": 0.5}).
+    """
+
+    model_name: str
+    secret_id: str
+    routing_config: dict[str, Any] | None = None
 
 
 @dataclass
