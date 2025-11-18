@@ -76,6 +76,12 @@ experiments/
 This change impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts" />. Model artifacts are no longer stored as run artifacts.
 :::
 
+### UI Changes
+
+**Artifacts Tab**
+
+In MLflow 3.x, the **Artifacts** tab in the run page no longer displays model artifacts. Model artifacts are now accessed through the **Logged Models** page, which provides a dedicated view for model-specific information and artifacts.
+
 ## Breaking Changes
 
 ### Removed Features
@@ -85,6 +91,8 @@ This change impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list
 - **Model Flavors**: The following flavors are no longer supported:
   - `fastai` ([#15255](https://github.com/mlflow/mlflow/pull/15255)) - Use `mlflow.pyfunc` with custom wrapper
   - `mleap` ([#15259](https://github.com/mlflow/mlflow/pull/15259)) - Use `mlflow.onnx` or `mlflow.pyfunc`
+  - `diviner` - Use `mlflow.pyfunc` with custom wrapper
+  - `gluon` - Use `mlflow.pytorch` or `mlflow.onnx`
 
 - **AI Gateway**: The 'routes' and 'route_type' config keys removed ([#15331](https://github.com/mlflow/mlflow/pull/15331)). Use the new configuration format.
 
@@ -137,13 +145,17 @@ The `signature_dict` property removed from `ModelInfo` ([#15367](https://github.
 The `baseline_model` parameter removed ([#15362](https://github.com/mlflow/mlflow/pull/15362)). Use `mlflow.validate_evaluation_results` API to compare models:
 
 ```python
-# Evaluate models separately
-result_1 = mlflow.evaluate(model_1, data)
-result_2 = mlflow.evaluate(model_2, data)
+# For classical ML models, use mlflow.models.evaluate
+result_1 = mlflow.models.evaluate(model_1, data)
+result_2 = mlflow.models.evaluate(model_2, data)
 
 # Compare results
 mlflow.validate_evaluation_results(result_1, result_2)
 ```
+
+:::note
+For GenAI evaluation, use `mlflow.genai.evaluate` with the new evaluation framework. See the **[GenAI Evaluation Migration Guide](https://mlflow.org/docs/latest/genai/eval-monitor/legacy-llm-evaluation/)** for details on migrating from the legacy LLM evaluation approach.
+:::
 
 #### MetricThreshold Changes
 
@@ -252,4 +264,5 @@ For detailed guidance on migrating specific code, please consult:
 
 - [MLflow Documentation](https://mlflow.org/docs/latest)
 - [MLflow Community Forum](https://github.com/mlflow/mlflow/discussions)
+- [MLflow Slack](https://mlflow.org/slack)
 - [Release Notes](https://mlflow.org/releases/3)

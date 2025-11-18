@@ -307,10 +307,10 @@ const config: Config = {
           },
           // Redirect mlflow 3 pages to migration guide
           {
-            to: '/genai/mlflow-3',
+            to: '/ml/mlflow-3',
             from: [
               '/mlflow-3',
-              '/ml/mlflow-3',
+              '/genai/mlflow-3',
               '/genai/mlflow-3/deep-learning',
               '/mlflow-3/deep-learning',
               '/genai/mlflow-3/genai-agent',
