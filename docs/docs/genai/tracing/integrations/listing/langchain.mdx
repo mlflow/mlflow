@@ -368,6 +368,53 @@ class CustomLangchainTracer(MlflowLangchainTracer):
 
 Once you have defined your custom tracer, you need to integrate it into your LangChain workflow. There are two main approaches:
 
+#### Approach 1: Using with Callbacks
+
+You can pass the custom tracer instance directly to the `callbacks` parameter when invoking your chain:
+
+```python
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Create an instance of the custom tracer
+custom_tracer = CustomLangchainTracer()
+
+# Define your LangChain components
+prompt = ChatPromptTemplate.from_messages([("user", "{input}")])
+llm = ChatOpenAI()
+chain = prompt | llm
+
+# Use the custom tracer with callbacks
+response = chain.invoke(
+    {"input": "What is MLflow?"},
+    config={"callbacks": [custom_tracer]}
+)
+```
+
+#### Approach 2: Using with Autolog's Inheritable Handlers
+
+You can also register your custom tracer globally using MLflow's inheritable handlers. This is useful when you want the tracer to be automatically applied to all LangChain invocations without explicitly passing it each time:
+
+```python
+import mlflow
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Enable autolog with your custom tracer
+mlflow.langchain.autolog(inheritable_handlers=[CustomLangchainTracer()])
+
+# Define your LangChain components
+prompt = ChatPromptTemplate.from_messages([("user", "{input}")])
+llm = ChatOpenAI()
+chain = prompt | llm
+
+# The custom tracer is automatically applied
+response = chain.invoke({"input": "What is MLflow?"})
+```
+
+With autolog enabled, all LangChain operations will automatically use the custom tracer without needing to pass it explicitly in the callbacks parameter.
+
+
 ## Disable auto-tracing
 
 Auto tracing for LangChain can be disabled globally by calling `mlflow.langchain.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
