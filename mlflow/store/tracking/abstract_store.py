@@ -4,11 +4,11 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
-    Endpoint,
-    EndpointTag,
     Assessment,
     DatasetInput,
     DatasetRecord,
+    Endpoint,
+    EndpointTag,
     LoggedModel,
     LoggedModelInput,
     LoggedModelOutput,
@@ -18,8 +18,6 @@ from mlflow.entities import (
     ScorerVersion,
     Secret,
     SecretBinding,
-    
-    
     SecretTag,
     SecretWithEndpointAndBinding,
     ViewType,
@@ -1407,12 +1405,14 @@ class AbstractStore:
             created_by: Username of the creator. Optional.
             provider: LLM provider identifier. Optional.
             auth_config: Optional provider-specific authentication configuration.
-            endpoint_name: Optional display name for the endpoint. If not provided, model_name is used.
+            endpoint_name: Optional display name for the endpoint. If not provided,
+                model_name is used.
             endpoint_description: Optional description for the endpoint.
             endpoint_tags: Optional list of tags for the endpoint.
 
         Returns:
-            SecretWithEndpointAndBinding containing the created secret, endpoint, and initial binding.
+            SecretWithEndpointAndBinding containing the created secret, endpoint,
+                and initial binding.
         """
         raise NotImplementedError(self.__class__.__name__)
 

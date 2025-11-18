@@ -32,6 +32,7 @@ from mlflow.entities import (
     Dataset,
     DatasetRecord,
     DatasetRecordSource,
+    EndpointTag,
     EvaluationDataset,
     Expectation,
     Experiment,
@@ -47,8 +48,6 @@ from mlflow.entities import (
     RunTag,
     Secret,
     SecretBinding,
-    Endpoint,
-    EndpointTag,
     SecretTag,
     SourceType,
     TraceInfo,
@@ -2289,9 +2288,7 @@ class SqlEndpointModel(Base):
     """
     Endpoint ID: `String` (limit 36 characters). *Foreign Key* into ``endpoints`` table.
     """
-    secret_id = Column(
-        String(36), ForeignKey("secrets.secret_id"), nullable=False
-    )
+    secret_id = Column(String(36), ForeignKey("secrets.secret_id"), nullable=False)
     """
     Secret ID: `String` (limit 36 characters). *Foreign Key* into ``secrets`` table.
     Each model has its own secret/credential for authentication.
@@ -2358,9 +2355,10 @@ class SqlEndpointModel(Base):
 
     def to_mlflow_entity(self):
         """
-        Convert DB model to Mlflow entity.
+        Convert DB model to MLflow entity.
 
-        :return: :py:class:`mlflow.entities.EndpointModel`.
+        Returns:
+            mlflow.entities.EndpointModel
         """
         from mlflow.entities.endpoint_model import EndpointModel
 

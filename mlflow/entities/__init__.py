@@ -17,6 +17,9 @@ from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSource, DatasetRecordSourceType
 from mlflow.entities.dataset_summary import _DatasetSummary
 from mlflow.entities.document import Document
+from mlflow.entities.endpoint import Endpoint
+from mlflow.entities.endpoint_model import EndpointModel
+from mlflow.entities.endpoint_tag import EndpointTag
 from mlflow.entities.entity_type import EntityAssociationType
 from mlflow.entities.experiment import Experiment
 from mlflow.entities.experiment_tag import ExperimentTag
@@ -46,9 +49,6 @@ from mlflow.entities.secret_binding import (
     SecretBindingListItem,
     SecretResourceType,
 )
-from mlflow.entities.endpoint import Endpoint
-from mlflow.entities.endpoint_model import EndpointModel
-from mlflow.entities.endpoint_tag import EndpointTag
 from mlflow.entities.secret_tag import SecretTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType

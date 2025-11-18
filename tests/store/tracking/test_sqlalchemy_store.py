@@ -25,10 +25,9 @@ import mlflow.db
 import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
-    Endpoint,
-    EndpointTag,
     AssessmentSource,
     AssessmentSourceType,
+    EndpointTag,
     Expectation,
     Experiment,
     ExperimentTag,
@@ -38,9 +37,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SecretResourceType,
-    
     SecretTag,
-    SecretWithEndpointAndBinding,
     SourceType,
     ViewType,
     _DatasetSummary,
@@ -81,6 +78,7 @@ from mlflow.store.tracking import (
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
     SqlDataset,
+    SqlEndpoint,
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
@@ -98,8 +96,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlSecret,
     SqlSecretBinding,
-    SqlEndpoint,
-    SqlEndpointTag,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -2448,7 +2444,6 @@ def test_search_runs_run_name(store: SqlAlchemyStore):
         run_view_type=ViewType.ACTIVE_ONLY,
     )
     assert [r.info.run_id for r in result] == [run1.info.run_id]
-
 
     with store.ManagedSessionMaker() as session:
         sql_run1 = session.query(SqlRun).filter(SqlRun.run_uuid == run1.info.run_id).one()
@@ -6664,7 +6659,6 @@ async def test_log_spans(store: SqlAlchemyStore, is_async: bool):
     )
     trace_info = store.start_trace(trace_info)
 
-
     mock_context = mock.Mock()
     mock_context.trace_id = 12345
     mock_context.span_id = 222 if not is_async else 333
@@ -10301,7 +10295,6 @@ def test_calculate_trace_filter_correlation_with_base_filter(store):
     assert result.filter2_count == 4
     assert result.joint_count == 3
 
-
     p_error = 6 / 10
     p_tool = 4 / 10
     p_joint = 3 / 10
@@ -11193,7 +11186,6 @@ def test_update_secret_value(store: SqlAlchemyStore, create_secret):
 
 
 def test_secret_binding_unique_constraint(store: SqlAlchemyStore, create_secret):
-    """Test that multiple endpoints can bind to same resource/field, but endpoint names must be unique."""
     secret_entity = create_secret(is_shared=True)
 
     job_id = f"job_{uuid.uuid4().hex[:8]}"
@@ -11594,9 +11586,7 @@ def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
 
     store.set_secret_endpoint_tag(route_id, EndpointTag("deployment", "blue"))
     with store.ManagedSessionMaker() as session:
-        sql_route = (
-            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
-        )
+        sql_route = session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 1
         assert route_entity.tags[0].key == "deployment"
@@ -11606,9 +11596,7 @@ def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
     store.set_secret_endpoint_tag(route_id, EndpointTag("model_version", "v1.0"))
     store.set_secret_endpoint_tag(route_id, EndpointTag("region", "us-west-2"))
     with store.ManagedSessionMaker() as session:
-        sql_route = (
-            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
-        )
+        sql_route = session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 3
         tag_dict = {tag.key: tag.value for tag in route_entity.tags}
@@ -11618,9 +11606,7 @@ def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
 
     store.delete_secret_endpoint_tag(route_id, "model_version")
     with store.ManagedSessionMaker() as session:
-        sql_route = (
-            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
-        )
+        sql_route = session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 2
 
@@ -12151,7 +12137,6 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
 
     from mlflow.store.tracking.dbmodels.models import SqlEndpoint, SqlEndpointModel
     from mlflow.utils.time import get_current_time_millis
-    import uuid
 
     with store.ManagedSessionMaker() as session:
         sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()

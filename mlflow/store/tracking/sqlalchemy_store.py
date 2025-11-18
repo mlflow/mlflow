@@ -23,12 +23,12 @@ from sqlalchemy.orm import aliased, joinedload
 
 import mlflow.store.db.utils
 from mlflow.entities import (
-    Endpoint,
-    EndpointTag,
     Assessment,
     DatasetInput,
     DatasetRecord,
     DatasetRecordSource,
+    Endpoint,
+    EndpointTag,
     EvaluationDataset,
     Expectation,
     Experiment,
@@ -42,9 +42,6 @@ from mlflow.entities import (
     Secret,
     SecretBinding,
     SecretBindingListItem,
-    
-    
-    
     SecretTag,
     SecretWithEndpointAndBinding,
     SourceType,
@@ -90,6 +87,9 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
     SqlAssessments,
     SqlDataset,
+    SqlEndpoint,
+    SqlEndpointModel,
+    SqlEndpointTag,
     SqlEntityAssociation,
     SqlEvaluationDataset,
     SqlEvaluationDatasetRecord,
@@ -110,9 +110,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlScorerVersion,
     SqlSecret,
     SqlSecretBinding,
-    SqlEndpoint,
-    SqlEndpointModel,
-    SqlEndpointTag,
     SqlSecretTag,
     SqlSpan,
     SqlTag,
@@ -2400,12 +2397,14 @@ class SqlAlchemyStore(AbstractStore):
                 - AWS Bedrock: {"aws_access_key_id": "...", "region": "us-east-1"}
                 - Vertex AI: {"project_id": "my-project", "location": "us-central1"}
                 - Databricks: {"workspace_url": "https://...", "warehouse_id": "..."}
-            endpoint_name: Optional display name for the endpoint. If not provided, model_name is used.
+            endpoint_name: Optional display name for the endpoint. If not provided,
+                model_name is used.
             endpoint_description: Optional description for the endpoint.
             endpoint_tags: Optional list of tags for the endpoint.
 
         Returns:
-            SecretWithEndpointAndBinding containing the created secret, endpoint, and initial binding.
+            SecretWithEndpointAndBinding containing the created secret, endpoint,
+                and initial binding.
 
         """
 
@@ -2552,7 +2551,8 @@ class SqlAlchemyStore(AbstractStore):
             resource_id: Unique identifier for the resource instance.
             field_name: Name of the field on the resource where the secret is used.
             model_name: Model identifier for the endpoint (e.g., "gpt-4-turbo"). Required.
-            endpoint_name: Optional display name for the endpoint. Must be unique across all endpoints.
+            endpoint_name: Optional display name for the endpoint. Must be unique across
+                all endpoints.
             endpoint_description: Optional description for the endpoint.
             endpoint_tags: Optional list of tags for the endpoint.
             created_by: Username of the creator. Optional.
@@ -2781,7 +2781,9 @@ class SqlAlchemyStore(AbstractStore):
                 )
                 .outerjoin(SqlEndpointModel, SqlSecret.secret_id == SqlEndpointModel.secret_id)
                 .outerjoin(SqlEndpoint, SqlEndpointModel.endpoint_id == SqlEndpoint.endpoint_id)
-                .outerjoin(SqlSecretBinding, SqlEndpoint.endpoint_id == SqlSecretBinding.endpoint_id)
+                .outerjoin(
+                    SqlSecretBinding, SqlEndpoint.endpoint_id == SqlSecretBinding.endpoint_id
+                )
                 .group_by(SqlSecret.secret_id)
             )
 
@@ -3157,8 +3159,8 @@ class SqlAlchemyStore(AbstractStore):
                         binding_count = (
                             session.query(SqlSecretBinding)
                             .filter(SqlSecretBinding.endpoint_id.in_(endpoint_ids))
-                        .count()
-                    )
+                            .count()
+                        )
                     if binding_count == 1:
                         raise MlflowException(
                             f"Cannot unbind the last binding for secret "

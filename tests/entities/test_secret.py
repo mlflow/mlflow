@@ -19,7 +19,6 @@ from mlflow.entities import (
     SecretWithEndpointAndBinding,
 )
 
-
 # ==================== Secret Tests ====================
 
 
