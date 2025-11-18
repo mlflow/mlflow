@@ -602,7 +602,6 @@ class AbstractStore:
 
         Args:
             filter_string: Filter query string, defaults to searching for all prompts.
-                Supports experiment_id filter via 'experiment_id = "xxx"' syntax.
             max_results: Maximum number of prompts desired.
             order_by: List of order-by clauses.
             page_token: Pagination token for requesting subsequent pages.

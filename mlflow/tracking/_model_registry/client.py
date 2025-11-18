@@ -528,7 +528,6 @@ class ModelRegistryClient:
             filter_string: Filter query string. For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
                 For traditional registries, standard filter expressions are supported.
-                Supports experiment_id filter via 'experiment_id = "xxx"' syntax.
             max_results: Maximum number of prompts to return.
             order_by: List of column names with ASC|DESC annotation.
             page_token: Token specifying the next page of results.

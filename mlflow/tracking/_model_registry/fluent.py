@@ -28,7 +28,6 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
@@ -665,7 +664,47 @@ def register_prompt(
 def search_prompts(
     filter_string: str | None = None,
     max_results: int | None = None,
-) -> PagedList[Prompt]:
+) -> list[Prompt]:
+    """
+    Search for prompts in the MLflow Prompt Registry.
+
+    This call returns prompt metadata for prompts that have been marked
+    as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
+    further restrict results via a standard registry filter expression.
+
+    Args:
+        filter_string (Optional[str]):
+            An additional registry-search expression to apply (e.g.
+            `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
+            catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+        max_results (Optional[int]):
+            The maximum number of prompts to return.
+
+    Returns:
+        A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects representing prompt metadata:
+
+        - name: The prompt name
+        - description: The prompt description
+        - tags: Prompt-level tags
+        - creation_timestamp: When the prompt was created
+
+        To get the actual prompt template content,
+        use :py:func:`mlflow.genai.load_prompt()` API with a specific version:
+
+        .. code-block:: python
+            import mlflow
+
+            # Search for prompts
+            prompts = mlflow.genai.search_prompts(filter_string="name LIKE 'greeting%'")
+
+            # Get prompts by experiment
+            prompts = mlflow.genai.search_prompts(filter_string='experiment_id = "1"')
+
+            # Get specific version content
+            for prompt in prompts:
+                prompt_version = mlflow.genai.load_prompt(prompt.name, version="1")
+                print(f"Template: {prompt.template}")
+    """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
         category=FutureWarning,
