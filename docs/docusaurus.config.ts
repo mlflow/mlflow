@@ -746,7 +746,7 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
           },
           {
@@ -761,6 +761,15 @@ const config: Config = {
               '/ml/deep-learning/pytorch/guide',
               '/deep-learning/pytorch/quickstart/pytorch_quickstart',
               '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
+          },
+          // Redirect consolidated spaCy guide to index
+          {
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
             ],
           },
           {
