@@ -760,6 +760,9 @@ class Linter(ast.NodeVisitor):
         if rules.IsinstanceUnionSyntax.check(node):
             self._check(Range.from_node(node), rules.IsinstanceUnionSyntax())
 
+        if rules.SubprocessCheckCall.check(node, self.resolver):
+            self._check(Range.from_node(node), rules.SubprocessCheckCall())
+
         if self._is_in_test() and rules.OsChdirInTest.check(node, self.resolver):
             self._check(Range.from_node(node), rules.OsChdirInTest())
 
