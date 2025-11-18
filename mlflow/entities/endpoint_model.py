@@ -22,8 +22,8 @@ class EndpointModel(_MlflowObject):
         model_name: String containing the model identifier.
             E.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo", "gemini-2.5-pro".
         secret_id: String containing the secret ID (UUID) used for this model's authentication.
-        weight: Float controlling traffic distribution (for weighted routing). Default 1.0.
-        priority: Integer controlling failover priority (higher = higher priority). Default 0.
+        routing_config: Optional JSON string containing flexible routing configuration.
+            Examples: {"weight": 0.5}, {"priority": 1}, {"strategy": "round_robin"}
         created_at: Creation timestamp in milliseconds since the UNIX epoch.
         last_updated_at: Last update timestamp in milliseconds since the UNIX epoch.
         created_by: String containing the user ID who created the model, or None.
@@ -38,8 +38,7 @@ class EndpointModel(_MlflowObject):
     secret_id: str
     created_at: int
     last_updated_at: int
-    weight: float = 1.0
-    priority: int = 0
+    routing_config: str | None = None
     created_by: str | None = None
     last_updated_by: str | None = None
     secret_name: str = ""
