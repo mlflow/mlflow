@@ -4,6 +4,9 @@ from abc import ABCMeta, abstractmethod
 from typing import TYPE_CHECKING, Any
 
 from mlflow.entities import (
+    Endpoint,
+    EndpointListItem,
+    EndpointTag,
     Assessment,
     DatasetInput,
     DatasetRecord,
@@ -16,10 +19,10 @@ from mlflow.entities import (
     ScorerVersion,
     Secret,
     SecretBinding,
-    SecretRoute,
-    SecretRouteTag,
+    
+    
     SecretTag,
-    SecretWithRouteAndBinding,
+    SecretWithEndpointAndBinding,
     ViewType,
 )
 
@@ -1382,7 +1385,7 @@ class AbstractStore:
         route_name: str | None = None,
         route_description: str | None = None,
         route_tags: list[dict[str, str]] | None = None,
-    ) -> SecretWithRouteAndBinding:
+    ) -> SecretWithEndpointAndBinding:
         """
         Atomically create a gateway asset (secret + route + binding) in a single transaction.
 
@@ -1410,7 +1413,7 @@ class AbstractStore:
             route_tags: Optional list of tags for the route.
 
         Returns:
-            SecretWithRouteAndBinding containing the created secret, route, and initial binding.
+            SecretWithEndpointAndBinding containing the created secret, route, and initial binding.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1425,7 +1428,7 @@ class AbstractStore:
         route_description: str | None = None,
         route_tags: list[dict[str, str]] | None = None,
         created_by: str | None = None,
-    ) -> SecretWithRouteAndBinding:
+    ) -> SecretWithEndpointAndBinding:
         """
         Create a new route and binding for an existing secret.
 
@@ -1443,7 +1446,7 @@ class AbstractStore:
             created_by: Username of the creator. Optional.
 
         Returns:
-            SecretWithRouteAndBinding containing the secret, new route, and new binding.
+            SecretWithEndpointAndBinding containing the secret, new route, and new binding.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1572,13 +1575,13 @@ class AbstractStore:
         """
         raise NotImplementedError(self.__class__.__name__)
 
-    def set_secret_route_tag(self, route_id: str, tag: SecretRouteTag) -> None:
+    def set_secret_route_tag(self, route_id: str, tag: EndpointTag) -> None:
         """
         Set a tag for the specified secret route.
 
         Args:
             route_id: String ID of the route.
-            tag: SecretRouteTag instance to set.
+            tag: EndpointTag instance to set.
         """
         raise NotImplementedError(self.__class__.__name__)
 
@@ -1621,7 +1624,7 @@ class AbstractStore:
         self,
         secret_id: str | None = None,
         provider: str | None = None,
-    ) -> list[SecretRoute]:
+    ) -> list[Endpoint]:
         """
         List all secret routes with optional filtering.
 
@@ -1633,7 +1636,7 @@ class AbstractStore:
             provider: Optional filter by LLM provider (filters via secret's provider).
 
         Returns:
-            List of SecretRoute entities.
+            List of Endpoint entities.
         """
         raise NotImplementedError(self.__class__.__name__)
 

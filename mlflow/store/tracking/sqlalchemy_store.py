@@ -23,6 +23,9 @@ from sqlalchemy.orm import aliased, joinedload
 
 import mlflow.store.db.utils
 from mlflow.entities import (
+    Endpoint,
+    EndpointListItem,
+    EndpointTag,
     Assessment,
     DatasetInput,
     DatasetRecord,
@@ -40,11 +43,11 @@ from mlflow.entities import (
     Secret,
     SecretBinding,
     SecretBindingListItem,
-    SecretRoute,
-    SecretRouteListItem,
-    SecretRouteTag,
+    
+    
+    
     SecretTag,
-    SecretWithRouteAndBinding,
+    SecretWithEndpointAndBinding,
     SourceType,
     Trace,
     TraceData,
@@ -2360,7 +2363,7 @@ class SqlAlchemyStore(AbstractStore):
         route_name: str | None = None,
         route_description: str | None = None,
         route_tags: list[dict[str, str]] | None = None,
-    ) -> SecretWithRouteAndBinding:
+    ) -> SecretWithEndpointAndBinding:
         """
         Atomically create a gateway asset (secret + route + binding) in a single transaction.
 
@@ -2403,7 +2406,7 @@ class SqlAlchemyStore(AbstractStore):
             route_tags: Optional list of tags for the route.
 
         Returns:
-            SecretWithRouteAndBinding containing the created secret, route, and initial binding.
+            SecretWithEndpointAndBinding containing the created secret, route, and initial binding.
 
         """
 
@@ -2470,9 +2473,21 @@ class SqlAlchemyStore(AbstractStore):
             sql_route = SqlEndpoint(
                 endpoint_id=endpoint_id,
                 secret_id=secret_id,
-                model_name=model_name,
                 name=route_name,
                 description=route_description,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
+            )
+
+            model_id = uuid.uuid4().hex
+            sql_endpoint_model = SqlEndpointModel(
+                model_id=model_id,
+                endpoint_id=endpoint_id,
+                model_name=model_name,
+                weight=1.0,
+                priority=0,
                 created_at=current_time,
                 last_updated_at=current_time,
                 created_by=created_by,
@@ -2493,6 +2508,7 @@ class SqlAlchemyStore(AbstractStore):
 
             session.add(sql_secret)
             session.add(sql_route)
+            session.add(sql_endpoint_model)
             session.add(sql_binding)
 
             if route_tags:
@@ -2506,9 +2522,9 @@ class SqlAlchemyStore(AbstractStore):
 
             session.commit()
 
-            return SecretWithRouteAndBinding(
+            return SecretWithEndpointAndBinding(
                 secret=sql_secret.to_mlflow_entity(),
-                route=sql_route.to_mlflow_entity(),
+                endpoint=sql_route.to_mlflow_entity(),
                 binding=sql_binding.to_mlflow_entity(),
             )
 
@@ -2523,7 +2539,7 @@ class SqlAlchemyStore(AbstractStore):
         route_description: str | None = None,
         route_tags: list[dict[str, str]] | None = None,
         created_by: str | None = None,
-    ) -> SecretWithRouteAndBinding:
+    ) -> SecretWithEndpointAndBinding:
         """
         Create a new route and binding for an existing secret.
 
@@ -2543,7 +2559,7 @@ class SqlAlchemyStore(AbstractStore):
             created_by: Username of the creator. Optional.
 
         Returns:
-            SecretWithRouteAndBinding containing the secret, new route, and new binding.
+            SecretWithEndpointAndBinding containing the secret, new route, and new binding.
 
         Raises:
             MlflowException: If secret is not found or is not shared.
@@ -2569,9 +2585,21 @@ class SqlAlchemyStore(AbstractStore):
             sql_route = SqlEndpoint(
                 endpoint_id=endpoint_id,
                 secret_id=secret_id,
-                model_name=model_name,
                 name=route_name,
                 description=route_description,
+                created_at=current_time,
+                last_updated_at=current_time,
+                created_by=created_by,
+                last_updated_by=created_by,
+            )
+
+            model_id = uuid.uuid4().hex
+            sql_endpoint_model = SqlEndpointModel(
+                model_id=model_id,
+                endpoint_id=endpoint_id,
+                model_name=model_name,
+                weight=1.0,
+                priority=0,
                 created_at=current_time,
                 last_updated_at=current_time,
                 created_by=created_by,
@@ -2592,6 +2620,7 @@ class SqlAlchemyStore(AbstractStore):
             )
 
             session.add(sql_route)
+            session.add(sql_endpoint_model)
             session.add(sql_binding)
 
             if route_tags:
@@ -2605,9 +2634,9 @@ class SqlAlchemyStore(AbstractStore):
 
             session.commit()
 
-            return SecretWithRouteAndBinding(
+            return SecretWithEndpointAndBinding(
                 secret=sql_secret.to_mlflow_entity(),
-                route=sql_route.to_mlflow_entity(),
+                endpoint=sql_route.to_mlflow_entity(),
                 binding=sql_binding.to_mlflow_entity(),
             )
 
@@ -2779,7 +2808,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         secret_id: str | None = None,
         provider: str | None = None,
-    ) -> list[SecretRouteListItem]:
+    ) -> list[EndpointListItem]:
         """
         List all secret routes with optional filtering.
 
@@ -2791,7 +2820,7 @@ class SqlAlchemyStore(AbstractStore):
             provider: Optional filter by LLM provider (filters via secret's provider).
 
         Returns:
-            List of SecretRouteListItem with display fields populated via JOIN.
+            List of EndpointListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
             query = session.query(SqlEndpoint, SqlSecret.secret_name, SqlSecret.provider).join(
@@ -2806,7 +2835,7 @@ class SqlAlchemyStore(AbstractStore):
 
             results = query.all()
             return [
-                SecretRouteListItem(
+                EndpointListItem(
                     endpoint_id=route.endpoint_id,
                     secret_id=route.secret_id,
                     model_name=route.model_name,
@@ -2853,7 +2882,7 @@ class SqlAlchemyStore(AbstractStore):
         endpoint_id: str,
         secret_id: str,
         updated_by: str | None = None,
-    ) -> SecretRoute:
+    ) -> Endpoint:
         """
         Update an existing route to point to a different existing secret.
 
@@ -2866,7 +2895,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_by: Username of the user performing the update. Optional.
 
         Returns:
-            The updated SecretRoute entity.
+            The updated Endpoint entity.
 
         Raises:
             MlflowException: If route or secret doesn't exist.
@@ -2913,7 +2942,7 @@ class SqlAlchemyStore(AbstractStore):
         is_shared: bool = False,
         auth_config: str | dict[str, Any] | None = None,
         updated_by: str | None = None,
-    ) -> tuple[Secret, SecretRoute]:
+    ) -> tuple[Secret, Endpoint]:
         """
         Update a route by creating a new secret and associating the route with it.
 
@@ -2930,7 +2959,7 @@ class SqlAlchemyStore(AbstractStore):
             updated_by: Username of the user performing the update.
 
         Returns:
-            Tuple of (created Secret entity, updated SecretRoute entity).
+            Tuple of (created Secret entity, updated Endpoint entity).
 
         Raises:
             MlflowException: If route doesn't exist or secret name already exists.
@@ -3164,17 +3193,28 @@ class SqlAlchemyStore(AbstractStore):
             List of SecretBindingListItem with display fields populated via JOIN.
         """
         with self.ManagedSessionMaker() as session:
+            # Subquery to get first model for each endpoint (for backward compatibility)
+            first_model_subq = (
+                session.query(
+                    SqlEndpointModel.endpoint_id,
+                    SqlEndpointModel.model_name,
+                )
+                .distinct(SqlEndpointModel.endpoint_id)
+                .subquery()
+            )
+
             query = (
                 session.query(
                     SqlSecretBinding,
                     SqlEndpoint.secret_id,
                     SqlSecret.secret_name,
                     SqlEndpoint.name,
-                    SqlEndpoint.model_name,
+                    first_model_subq.c.model_name,
                     SqlSecret.provider,
                 )
                 .join(SqlEndpoint, SqlSecretBinding.endpoint_id == SqlEndpoint.endpoint_id)
                 .join(SqlSecret, SqlEndpoint.secret_id == SqlSecret.secret_id)
+                .outerjoin(first_model_subq, SqlEndpoint.endpoint_id == first_model_subq.c.endpoint_id)
             )
 
             if endpoint_id is not None:
@@ -3315,13 +3355,13 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.delete(filtered_tags[0])
 
-    def set_secret_route_tag(self, endpoint_id: str, tag: SecretRouteTag) -> None:
+    def set_secret_route_tag(self, endpoint_id: str, tag: EndpointTag) -> None:
         """
         Set a tag for the specified secret route.
 
         Args:
             endpoint_id: String ID of the route.
-            tag: SecretRouteTag instance to set.
+            tag: EndpointTag instance to set.
         """
         _validate_tag(tag.key, tag.value)
         with self.ManagedSessionMaker() as session:

@@ -6,32 +6,32 @@ from typing import TYPE_CHECKING
 from mlflow.entities._mlflow_object import _MlflowObject
 
 if TYPE_CHECKING:
+    from mlflow.entities.endpoint import Endpoint
     from mlflow.entities.secret_binding import SecretBinding
-    from mlflow.entities.secret_route import SecretRoute
     from mlflow.entities.secret_tag import SecretTag
 
 
 @dataclass
-class SecretWithRouteAndBinding(_MlflowObject):
+class SecretWithEndpointAndBinding(_MlflowObject):
     """
-    Result of atomically creating a gateway asset (secret + route + binding).
+    Result of atomically creating a gateway asset (secret + endpoint + binding).
 
     This structure represents the complete gateway configuration:
     - Secret: The API key/credential
-    - Route: The model configuration (provider + model using that secret)
-    - Binding: The resource binding (which service uses this route)
+    - Endpoint: The model configuration (provider + model using that secret)
+    - Binding: The resource binding (which service uses this endpoint)
 
-    This ensures that secrets are always created with a route configuration
-    and an initial binding, preventing orphaned secrets or routes.
+    This ensures that secrets are always created with an endpoint configuration
+    and an initial binding, preventing orphaned secrets or endpoints.
 
     Args:
         secret: The created Secret entity with metadata (API key).
-        route: The created SecretRoute entity (model configuration).
-        binding: The initial SecretBinding that associates the route with a resource.
+        endpoint: The created Endpoint entity (model configuration).
+        binding: The initial SecretBinding that associates the endpoint with a resource.
     """
 
     secret: "Secret"
-    route: "SecretRoute"
+    endpoint: "Endpoint"
     binding: "SecretBinding"
 
 

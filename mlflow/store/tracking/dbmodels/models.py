@@ -47,8 +47,8 @@ from mlflow.entities import (
     RunTag,
     Secret,
     SecretBinding,
-    SecretRoute,
-    SecretRouteTag,
+    Endpoint,
+    EndpointTag,
     SecretTag,
     SourceType,
     TraceInfo,
@@ -2248,6 +2248,36 @@ class SqlEndpoint(Base):
     def __repr__(self):
         return f"<SqlEndpoint ({self.endpoint_id}, {self.name})>"
 
+    def to_mlflow_entity(self):
+        """
+        Convert DB model to corresponding MLflow entity.
+
+        For now, returns a Endpoint entity with the first model's name.
+        In future, this should support multi-model endpoints properly.
+
+        Returns:
+            mlflow.entities.endpoint.Endpoint
+        """
+        from mlflow.entities.endpoint import Endpoint
+
+        # Get the first model from the endpoint (temporary solution for backward compatibility)
+        model_name = self.models[0].model_name if self.models else None
+        if model_name is None:
+            raise ValueError(f"Endpoint {self.endpoint_id} has no associated models")
+
+        return Endpoint(
+            endpoint_id=self.endpoint_id,
+            secret_id=self.secret_id,
+            model_name=model_name,
+            name=self.name,
+            description=self.description,
+            created_at=self.created_at,
+            last_updated_at=self.last_updated_at,
+            created_by=self.created_by,
+            last_updated_by=self.last_updated_by,
+            tags=[],  # Tags loaded separately if needed
+        )
+
 
 class SqlEndpointModel(Base):
     """
@@ -2386,9 +2416,9 @@ class SqlEndpointTag(Base):
         Convert DB model to corresponding MLflow entity.
 
         Returns:
-            mlflow.entities.secret_route_tag.SecretRouteTag
+            mlflow.entities.endpoint_tag.EndpointTag
         """
-        return SecretRouteTag(key=self.key, value=self.value)
+        return EndpointTag(key=self.key, value=self.value)
 
 
 class SqlSecretBinding(Base):

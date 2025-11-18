@@ -36,7 +36,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SecretResourceType,
-    SecretRouteTag,
+    
     SecretTag,
     SourceType,
     ViewType,
@@ -95,7 +95,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlSecret,
     SqlSecretBinding,
-    SqlSecretRoute,
+    SqlEndpoint,
+    SqlEndpointTag,
     SqlSpan,
     SqlTag,
     SqlTraceInfo,
@@ -12008,8 +12009,8 @@ def test_create_route_and_bind_reuse_secret(store: SqlAlchemyStore, kek_passphra
 
     assert result2.secret.secret_id == result1.secret.secret_id
     assert result3.secret.secret_id == result1.secret.secret_id
-    assert result2.route.route_id != result1.route.route_id
-    assert result3.route.route_id != result1.route.route_id
+    assert result2.route.endpoint_id != result1.route.endpoint_id
+    assert result3.route.endpoint_id != result1.route.endpoint_id
     assert result2.route.model_name == "gpt-3.5-turbo"
     assert result3.route.model_name == "gpt-4o"
     assert len(result2.route.tags) == 1
@@ -12100,12 +12101,12 @@ def test_secret_tags(store: SqlAlchemyStore, create_secret):
 def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
     secret = create_secret(is_shared=True)
     bindings = store._list_secret_bindings(secret_id=secret.secret_id)
-    route_id = bindings[0].route_id
+    route_id = bindings[0].endpoint_id
 
     store.set_secret_route_tag(route_id, SecretRouteTag("deployment", "blue"))
     with store.ManagedSessionMaker() as session:
         sql_route = (
-            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         )
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 1
@@ -12117,7 +12118,7 @@ def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
     store.set_secret_route_tag(route_id, SecretRouteTag("region", "us-west-2"))
     with store.ManagedSessionMaker() as session:
         sql_route = (
-            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         )
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 3
@@ -12129,7 +12130,7 @@ def test_secret_route_tags(store: SqlAlchemyStore, create_secret):
     store.delete_secret_route_tag(route_id, "model_version")
     with store.ManagedSessionMaker() as session:
         sql_route = (
-            session.query(SqlSecretRoute).filter(SqlSecretRoute.route_id == route_id).first()
+            session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == route_id).first()
         )
         route_entity = sql_route.to_mlflow_entity()
         assert len(route_entity.tags) == 2
@@ -12286,7 +12287,7 @@ def test_delete_secret_route(store: SqlAlchemyStore, kek_passphrase):
     routes_before = store._list_secret_routes(secret_id=result.secret.secret_id)
     assert len(routes_before) == 2
 
-    store._delete_secret_route(result2.route.route_id)
+    store._delete_secret_route(result2.route.endpoint_id)
 
     routes_after = store._list_secret_routes(secret_id=result.secret.secret_id)
     assert len(routes_after) == 1
@@ -12320,7 +12321,7 @@ def test_bind_secret_route(store: SqlAlchemyStore, kek_passphrase):
         created_by="test_user",
     )
 
-    assert new_binding.route_id == result.route.route_id
+    assert new_binding.endpoint_id == result.route.route_id
     assert new_binding.resource_id == "workspace_2"
     assert new_binding.created_by == "test_user"
 
@@ -12357,7 +12358,7 @@ def test_update_secret_route_to_existing_secret(store: SqlAlchemyStore, kek_pass
         is_shared=True,
     )
 
-    original_route_id = result1.route.route_id
+    original_route_id = result1.route.endpoint_id
     target_secret_id = result2.secret.secret_id
 
     bindings_before = store._list_secret_bindings(route_id=original_route_id)
@@ -12460,8 +12461,8 @@ def test_update_secret_route_with_new_secret(store: SqlAlchemyStore, kek_passphr
 
     bindings_after = store._list_secret_bindings(route_id=original_route_id)
     assert len(bindings_after) == 2
-    assert bindings_after[0].route_id == original_route_id
-    assert bindings_after[1].route_id == original_route_id
+    assert bindings_after[0].endpoint_id == original_route_id
+    assert bindings_after[1].endpoint_id == original_route_id
 
 
 def test_update_secret_route_with_new_secret_duplicate_name_fails(
@@ -12491,7 +12492,7 @@ def test_update_secret_route_with_new_secret_duplicate_name_fails(
         MlflowException, match="Shared secret with name 'existing_key' already exists"
     ):
         store._update_secret_route_with_new_secret(
-            route_id=result2.route.route_id,
+            route_id=result2.route.endpoint_id,
             secret_name="existing_key",
             secret_value="sk-new-value",
             is_shared=True,
@@ -12570,7 +12571,7 @@ def test_list_secret_bindings_by_route_id(store: SqlAlchemyStore, kek_passphrase
     assert len(bindings) == 2
 
     for binding in bindings:
-        assert binding.route_id == result.route.route_id
+        assert binding.endpoint_id == result.route.route_id
 
 
 def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_passphrase):
@@ -12611,7 +12612,7 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     assert model_names == {"gpt-4", "gpt-4-turbo"}
 
     job_binding = store._bind_secret_route(
-        route_id=result2.route.route_id,
+        route_id=result2.route.endpoint_id,
         resource_type=SecretResourceType.SCORER_JOB,
         resource_id="scorer_job_1",
         field_name="llm_api_key",
@@ -12625,14 +12626,14 @@ def test_complete_secret_lifecycle_ux_simulation(store: SqlAlchemyStore, kek_pas
     job_secrets = store._get_secrets_for_resource(SecretResourceType.SCORER_JOB, "scorer_job_1")
     assert "llm_api_key" not in job_secrets
 
-    store._delete_secret_route(result2.route.route_id)
+    store._delete_secret_route(result2.route.endpoint_id)
 
     openai_routes = store._list_secret_routes(provider="openai")
     assert len(openai_routes) == 1
     assert openai_routes[0].model_name == "gpt-4"
 
     with pytest.raises(MlflowException, match="Cannot delete the last route"):
-        store._delete_secret_route(result1.route.route_id)
+        store._delete_secret_route(result1.route.endpoint_id)
 
     store._delete_secret(result1.secret.secret_id)
 

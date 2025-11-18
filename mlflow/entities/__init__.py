@@ -40,14 +40,14 @@ from mlflow.entities.run_outputs import RunOutputs
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.run_tag import RunTag
 from mlflow.entities.scorer import ScorerVersion
-from mlflow.entities.secret import Secret, SecretWithRouteAndBinding
+from mlflow.entities.secret import Secret, SecretWithEndpointAndBinding
 from mlflow.entities.secret_binding import (
     SecretBinding,
     SecretBindingListItem,
     SecretResourceType,
 )
-from mlflow.entities.secret_route import SecretRoute, SecretRouteListItem
-from mlflow.entities.secret_route_tag import SecretRouteTag
+from mlflow.entities.endpoint import Endpoint, EndpointListItem
+from mlflow.entities.endpoint_tag import EndpointTag
 from mlflow.entities.secret_tag import SecretTag
 from mlflow.entities.source_type import SourceType
 from mlflow.entities.span import LiveSpan, NoOpSpan, Span, SpanType
@@ -79,8 +79,8 @@ __all__ = [
     "Metric",
     "Param",
     "Prompt",
-    "SecretRoute",
-    "SecretRouteTag",
+    "Endpoint",
+    "EndpointTag",
     "Run",
     "RunData",
     "RunInfo",
@@ -91,11 +91,11 @@ __all__ = [
     "SecretBinding",
     "SecretBindingListItem",
     "SecretResourceType",
-    "SecretRoute",
-    "SecretRouteListItem",
-    "SecretRouteTag",
+    "Endpoint",
+    "EndpointListItem",
+    "EndpointTag",
     "SecretTag",
-    "SecretWithRouteAndBinding",
+    "SecretWithEndpointAndBinding",
     "SourceType",
     "ViewType",
     "LifecycleStage",
