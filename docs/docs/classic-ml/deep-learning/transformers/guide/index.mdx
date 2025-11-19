@@ -202,10 +202,6 @@ print(response)
 
 ## Saving Prompt Templates with Transformer Pipelines
 
-:::note
-This feature is only available in MLflow 2.10.0 and above.
-:::
-
 MLflow supports specifying prompt templates for certain pipeline types:
 
 - [feature-extraction](https://huggingface.co/transformers/main_classes/pipelines.html#transformers.FeatureExtractionPipeline)
@@ -562,10 +558,6 @@ the model directory. Within this file you will either find a copy of a declared 
 or, in the event that license information was never submitted to the huggingface hub when uploading a model repository, a link to the repository for you to use
 in order to determine what restrictions exist regarding the use of the model.
 
-:::note
-Model license information was introduced in **MLflow 2.10.0**. Previous versions do not include license information for models.
-:::
-
 ## Automatic Signature inference
 
 For pipelines that support `pyfunc`, there are 3 means of attaching a model signature to the `MLmodel` file.
@@ -676,11 +668,6 @@ torch.float64
 ```
 
 :::note
-MLflow 2.12.1 slightly changed the `torch_dtype` extraction logic. Previously it depended on the `torch_dtype` attribute of the pipeline instance,
-but now it is extracted from the underlying model via `dtype` property. This enables MLflow to capture the dtype change of the model after pipeline instantiation.
-:::
-
-:::note
 Logging or saving a model in 'components' mode (using a dictionary to declare components) does not support setting the data type for a constructed pipeline.
 If you need to override the default behavior of how data is encoded, please save or log a _pipeline_ object.
 :::
@@ -769,8 +756,7 @@ lora_config = LoraConfig(...)
 peft_model = get_peft_model(base_model, lora_config)
 ```
 
-In MLflow 2.11.0, we introduced support for tracking PEFT models in the MLflow Transformers flavor.
-You can log and load PEFT models using the same APIs as other Transformers models, such as <APILink fn="mlflow.transformers.log_model" /> and <APILink fn="mlflow.transformers.load_model" />.
+MLflow supports tracking PEFT models in the Transformers flavor. You can log and load PEFT models using the same APIs as other Transformers models, such as <APILink fn="mlflow.transformers.log_model" /> and <APILink fn="mlflow.transformers.load_model" />.
 
 ```python
 import mlflow
