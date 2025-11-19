@@ -1,0 +1,54 @@
+name: Assign Reviewer On Review
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  assign-reviewer:
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    # Skip bot reviews and draft PRs
+    if: >-
+      ${{ github.event.review.user.type != 'Bot' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Assign reviewer as assignee if maintainer
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const reviewer = context.payload.review.user.login;
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const issue_number = pr.number;
+
+            try {
+              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner,
+                repo,
+                username: reviewer,
+              });
+              const permission = data.permission; // 'none' | 'read' | 'triage' | 'write' | 'maintain' | 'admin'
+              if (!['maintain', 'admin'].includes(permission)) {
+                core.info(`User ${reviewer} has permission '${permission}', not a maintainer; skipping.`);
+                return;
+              }
+            } catch (err) {
+              core.warning(`Could not fetch permission for ${reviewer}: ${err.message}`);
+              return;
+            }
+
+            try {
+              await github.rest.issues.addAssignees({
+                owner,
+                repo,
+                issue_number,
+                assignees: [reviewer],
+              });
+              core.info(`Assigned ${reviewer} to PR #${issue_number}.`);
+            } catch (err) {
+              core.warning(`Failed to assign ${reviewer}: ${err.message}`);
+            }
