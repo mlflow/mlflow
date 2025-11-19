@@ -10,6 +10,7 @@ import tempfile
 import time
 import urllib
 from functools import partial, wraps
+from typing import Any
 
 import requests
 from flask import Response, current_app, jsonify, request, send_file
@@ -3151,9 +3152,38 @@ def _link_traces_to_run():
     return _wrap_response(LinkTracesToRun.Response())
 
 
+def _fetch_trace_data_from_store(
+    store: AbstractTrackingStore, request_id: str
+) -> dict[str, Any] | None:
+    try:
+        # allow partial so the frontend can render in-progress traces
+        trace = store.get_trace(request_id, allow_partial=True)
+        return trace.data.to_dict()
+    except MlflowTracingException:
+        return None
+    except MlflowNotImplementedException:
+        # fallback to batch_get_traces if get_trace is not implemented
+        pass
+
+    try:
+        traces = store.batch_get_traces([request_id], None)
+        match traces:
+            case [trace]:
+                return trace.data.to_dict()
+            case _:
+                raise MlflowException(
+                    f"Trace with id={request_id} not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+    # For stores that don't support batch get traces, or if trace data is not in the store,
+    # return None to signal fallback to artifact repository
+    except (MlflowTracingException, MlflowNotImplementedException):
+        return None
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def get_trace_artifact_handler():
+def get_trace_artifact_handler() -> Response:
     request_id = request.args.get("request_id")
 
     if not request_id:
@@ -3162,32 +3192,10 @@ def get_trace_artifact_handler():
             error_code=BAD_REQUEST,
         )
 
-    trace_data = None
-    try:
-        # allow partial so the front end can render in-progress traces
-        trace = _get_tracking_store().get_trace(request_id, allow_partial=True)
-    except MlflowTracingException:
-        pass
-    except MlflowNotImplementedException:
-        # default to batch get traces if get_trace is not implemented
-        try:
-            traces = _get_tracking_store().batch_get_traces([request_id], None)
-        # For stores that don't support batch get traces, or if the trace data is not stored in the
-        # tracking store, we need to get the trace data from the artifact repository.
-        except (MlflowTracingException, MlflowNotImplementedException):
-            pass
-        else:
-            if len(traces) != 1:
-                raise MlflowException(
-                    f"Trace with id={request_id} not found.",
-                    error_code=RESOURCE_DOES_NOT_EXIST,
-                )
-            trace_data = traces[0].data.to_dict()
-    else:
-        trace_data = trace.data.to_dict()
-
+    store = _get_tracking_store()
+    trace_data = _fetch_trace_data_from_store(store, request_id)
     if trace_data is None:
-        trace_info = _get_tracking_store().get_trace_info(request_id)
+        trace_info = store.get_trace_info(request_id)
         trace_data = _get_trace_artifact_repo(trace_info).download_trace_data()
 
     # Write data to a BytesIO buffer instead of needing to save a temp file
