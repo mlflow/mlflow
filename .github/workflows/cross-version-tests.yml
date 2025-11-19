@@ -165,6 +165,11 @@ jobs:
           if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install libs/tracing
             pip install pytest pytest-asyncio pytest-cov
+          # Similarly for skinny package tests
+          if [[ "${{ matrix.category }}" == "skinny" ]]; then
+            pip install libs/skinny
+            pip install pytest pytest-asyncio pytest-cov
+          fi
           # Other two categories of tests (model/autologging)
           else
             pip install .[extras]
