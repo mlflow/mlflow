@@ -48,7 +48,6 @@ services:
       - /bin/sh
       - -c
       - |
-          set -x
           mc alias set myminio "http://${MINIO_HOST}:${MINIO_PORT}" \
             "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}"
           mc mb --ignore-existing "myminio/${MINIO_BUCKET:-mlflow}"
@@ -83,7 +82,6 @@ services:
       - /bin/bash
       - -c
       - |
-          set -x
           pip install --no-cache-dir psycopg2-binary boto3
           mlflow server \
             --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" \
