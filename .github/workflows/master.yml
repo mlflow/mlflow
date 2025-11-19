@@ -124,7 +124,7 @@ jobs:
       - name: Build
         run: |
           ./tests/db/compose.sh pull -q postgresql mysql mssql
-          docker images
+          docker images --digests
           ./tests/db/compose.sh build --build-arg DEPENDENCIES="$(python dev/extract_deps.py)"
       - name: Run tests
         run: |
