@@ -14,6 +14,7 @@ from mlflow.version import VERSION
 @pytest.fixture
 def tmp_home(tmp_path, monkeypatch):
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
     return tmp_path
 
 
