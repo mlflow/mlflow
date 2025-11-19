@@ -352,7 +352,6 @@ class AbstractStore:
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
-                Should be None for OSS backend.
 
         Returns:
             List of Trace objects.
