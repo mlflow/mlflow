@@ -159,8 +159,6 @@ import mlflow
 from tensorflow import keras
 from mlflow import MlflowClient
 
-client = MlflowClient()
-
 with mlflow.start_run():
     # Create a simple model for demonstration
     model = keras.Sequential(
@@ -181,6 +179,7 @@ with mlflow.start_run():
     mlflow.set_tags({"model_type": "cnn", "dataset": "mnist", "framework": "keras"})
 
 # Set alias for production deployment
+client = MlflowClient()
 client.set_registered_model_alias(
     name="ImageClassifier",
     alias="champion",

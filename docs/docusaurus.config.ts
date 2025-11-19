@@ -753,6 +753,10 @@ const config: Config = {
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
           },
           {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
+          },
+          {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
