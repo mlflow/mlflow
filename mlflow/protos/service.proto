@@ -2777,6 +2777,18 @@ message DeleteTraceTag {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // ID of the trace from which to delete the tag.
+  optional string request_id = 1;
+
+  // Name of the tag to delete.
+  optional string key = 2;
+
+  message Response {}
+}
+
+message DeleteTraceTagV3 {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the trace from which to delete the tag.
   optional string trace_id = 3;
 
   // Name of the tag to delete.
@@ -2787,18 +2799,6 @@ message DeleteTraceTag {
   // request_id has been retired
   reserved 1;
   reserved "request_id";
-}
-
-message DeleteTraceTagV3 {
-  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
-
-  // ID of the trace from which to delete the tag.
-  optional string request_id = 1;
-
-  // Name of the tag to delete.
-  optional string key = 2;
-
-  message Response {}
 }
 
 message Trace {

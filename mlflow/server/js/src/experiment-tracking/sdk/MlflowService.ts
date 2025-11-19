@@ -324,10 +324,11 @@ export class MlflowService {
    * Traces API: delete trace tag V3
    */
   static deleteExperimentTraceTagV3 = (traceRequestId: string, key: string) =>
-    fetchEndpoint({
-      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags?key=${encodeURIComponent(key)}`,
-      method: HTTPMethods.DELETE,
-      success: defaultResponseParser,
+    deleteJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags`,
+      data: {
+        key,
+      },
     });
 
   /**
