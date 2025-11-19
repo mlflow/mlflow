@@ -12,7 +12,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
-from mlflow.genai.datasets import create_dataset
+from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_eval_set,
@@ -44,6 +44,9 @@ def count_rows(data: Any) -> int:
             return data.count()
     except Exception:
         pass
+
+    if isinstance(data, EvaluationDataset):
+        data = data.to_df()
 
     return len(data)
 
@@ -220,9 +223,9 @@ def test_convert_to_legacy_eval_traces(input_type):
 
     assert "trace" in data.columns
 
-    # "request" column should be derived from the trace
-    assert "request" in data.columns
-    assert list(data["request"]) == [{"question": "What is MLflow?"}]
+    # "inputs" column should be derived from the trace
+    assert "inputs" in data.columns
+    assert list(data["inputs"]) == [{"question": "What is MLflow?"}]
     assert data["expectations"][0] == {
         "expected_response": "expected response for first question",
         "expected_facts": ["fact1", "fact2"],
@@ -239,8 +242,8 @@ def test_convert_to_eval_set_has_no_errors(data_fixture, request):
 
     transformed_data = _convert_to_eval_set(sample_data)
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
     assert "expectations" in transformed_data.columns
 
 
@@ -253,9 +256,9 @@ def test_convert_to_eval_set_without_request_and_response():
     trace_df = trace_df[["trace"]]
     transformed_data = _convert_to_eval_set(trace_df)
 
-    assert "request" in transformed_data.columns
-    assert "response" in transformed_data.columns
-    assert transformed_data["request"].isna().all()
+    assert "inputs" in transformed_data.columns
+    assert "outputs" in transformed_data.columns
+    assert transformed_data["inputs"].isna().all()
 
 
 def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
