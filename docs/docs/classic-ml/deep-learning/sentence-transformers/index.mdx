@@ -155,7 +155,8 @@ with mlflow.start_run():
 Track fine-tuning experiments:
 
 ```python
-from sentence_transformers import InputExample, losses
+import mlflow
+from sentence_transformers import SentenceTransformer, InputExample, losses
 from torch.utils.data import DataLoader
 
 train_examples = [
@@ -199,7 +200,9 @@ with mlflow.start_run():
 Optimize batch processing for large datasets:
 
 ```python
+import mlflow
 import time
+from sentence_transformers import SentenceTransformer
 
 with mlflow.start_run():
     model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -239,6 +242,11 @@ with mlflow.start_run():
 Compare multiple models systematically:
 
 ```python
+import mlflow
+import pandas as pd
+import time
+from sentence_transformers import SentenceTransformer
+
 models_to_compare = [
     "all-MiniLM-L6-v2",
     "all-mpnet-base-v2",
