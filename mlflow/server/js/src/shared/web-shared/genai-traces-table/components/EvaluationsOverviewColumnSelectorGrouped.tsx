@@ -133,7 +133,6 @@ export const EvaluationsOverviewColumnSelectorGrouped: React.FC<React.PropsWithC
           </div>
         </Button>
       </DialogComboboxCustomButtonTriggerWrapper>
-
       <DialogComboboxContent
         maxHeight={OPTION_HEIGHT * 15.5}
         minWidth={300}

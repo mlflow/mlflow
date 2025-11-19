@@ -11321,3 +11321,154 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
     trace3 = traces_by_id[trace_id_3]
     assert trace3.info.token_usage is None
+
+
+def test_get_trace_basic(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.UNSET,
+            start_ns=1_500_000_000,
+            end_ns=1_800_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    trace = store.get_trace(trace_id)
+
+    assert trace is not None
+    loaded_spans = trace.data.spans
+
+    assert len(loaded_spans) == 2
+
+    root_span = next(s for s in loaded_spans if s.name == "root_span")
+    child_span = next(s for s in loaded_spans if s.name == "child_span")
+
+    assert root_span.trace_id == trace_id
+    assert root_span.span_id == "000000000000006f"
+    assert root_span.parent_id is None
+    assert root_span.start_time_ns == 1_000_000_000
+    assert root_span.end_time_ns == 2_000_000_000
+
+    assert child_span.trace_id == trace_id
+    assert child_span.span_id == "00000000000000de"
+    assert child_span.parent_id == "000000000000006f"
+    assert child_span.start_time_ns == 1_500_000_000
+    assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(MlflowException, match=f"Trace with ID {trace_id} is not found."):
+        store.get_trace(trace_id)
+
+
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: bool) -> None:
+    experiment_id = store.create_experiment("test_partial_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Log only 1 span but indicate trace should have 2 spans
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="span_1",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                    }
+                ),
+            },
+        )
+    )
+
+    if allow_partial:
+        trace = store.get_trace(trace_id, allow_partial=allow_partial)
+        assert trace is not None
+        assert len(trace.data.spans) == 1
+        assert trace.data.spans[0].name == "span_1"
+    else:
+        with pytest.raises(
+            MlflowException,
+            match=f"Trace with ID {trace_id} is not fully exported yet",
+        ):
+            store.get_trace(trace_id, allow_partial=allow_partial)
+
+
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bool) -> None:
+    experiment_id = store.create_experiment("test_complete_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Log 2 spans matching the expected count
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="span_1",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="span_2",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                    }
+                ),
+            },
+        )
+    )
+
+    # should always return the trace
+    trace = store.get_trace(trace_id, allow_partial=allow_partial)
+    assert trace is not None
+    assert len(trace.data.spans) == 2

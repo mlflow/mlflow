@@ -30,8 +30,12 @@ import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/ut
 
 import { ExperimentKind } from '../../../../constants';
 
-const GENAI_DOCS_PAGE_ROUTE = 'https://mlflow.org/docs/latest/genai/?rel=mlflow_ui';
-const ML_DOCS_PAGE_ROUTE = 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
+const getDocLinkHref = (experimentKind: ExperimentKind) => {
+  if (isGenAIExperimentKind(experimentKind)) {
+    return 'https://mlflow.org/docs/latest/genai/?rel=mlflow_ui';
+  }
+  return 'https://mlflow.org/docs/latest/ml/getting-started/?rel=mlflow_ui';
+};
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -69,6 +73,7 @@ export const ExperimentViewHeader = React.memo(
       [],
     );
     const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
+
     // Extract the last part of the experiment name
     const normalizedExperimentName = useMemo(() => experiment.name.split('/').pop(), [experiment.name]);
 
@@ -116,9 +121,7 @@ export const ExperimentViewHeader = React.memo(
     };
 
     const experimentKind = inferredExperimentKind ?? getExperimentKindFromTags(experiment.tags);
-    const docLinkHref = isGenAIExperimentKind(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE)
-      ? GENAI_DOCS_PAGE_ROUTE
-      : ML_DOCS_PAGE_ROUTE;
+    const docLinkHref = getDocLinkHref(experimentKind ?? ExperimentKind.NO_INFERRED_TYPE);
 
     return (
       <div
@@ -126,7 +129,7 @@ export const ExperimentViewHeader = React.memo(
           display: 'flex',
           flexDirection: 'column',
           gap: theme.spacing.xs,
-          marginBottom: theme.spacing.sm,
+          marginBottom: shouldEnableExperimentPageSideTabs() ? theme.spacing.xs : theme.spacing.sm,
         }}
       >
         {!shouldEnableExperimentPageSideTabs() && (
@@ -195,35 +198,40 @@ export const ExperimentViewHeader = React.memo(
           <div
             css={{ display: 'flex', gap: theme.spacing.sm, justifyContent: 'flex-end', marginLeft: theme.spacing.sm }}
           >
-            {!shouldEnableExperimentPageSideTabs() && (
-              <ExperimentViewHeaderShareButton
-                experimentIds={experimentIds}
-                searchFacetsState={searchFacetsState}
-                uiState={uiState}
-                type="primary"
+            {shouldEnableExperimentPageSideTabs() && (
+              <ExperimentViewManagementMenu
+                experiment={experiment}
+                setEditing={setEditing}
+                refetchExperiment={refetchExperiment}
               />
             )}
-            <ExperimentViewManagementMenu
-              experiment={experiment}
-              setEditing={setEditing}
-              refetchExperiment={refetchExperiment}
+            <ExperimentViewHeaderShareButton
+              type={shouldEnableExperimentPageSideTabs() ? undefined : 'primary'}
+              experimentIds={experimentIds}
+              searchFacetsState={searchFacetsState}
+              uiState={uiState}
             />
             {shouldEnableExperimentPageSideTabs() && (
-              <>
-                <ExperimentViewHeaderShareButton
-                  experimentIds={experimentIds}
-                  searchFacetsState={searchFacetsState}
-                  uiState={uiState}
-                />
-                <Link to={docLinkHref} target="_blank" rel="noopener noreferrer">
-                  <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
-                    <FormattedMessage
-                      defaultMessage="View docs"
-                      description="Text for docs link button on experiment view page header"
-                    />
-                  </Button>
-                </Link>
-              </>
+              <Typography.Link
+                componentId="mlflow.experiment-page.header.docs-link"
+                href={docLinkHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <Button componentId="mlflow.experiment-page.header.docs-link-button" icon={<InfoBookIcon />}>
+                  <FormattedMessage
+                    defaultMessage="View docs"
+                    description="Text for docs link button on experiment view page header"
+                  />
+                </Button>
+              </Typography.Link>
+            )}
+            {!shouldEnableExperimentPageSideTabs() && (
+              <ExperimentViewManagementMenu
+                experiment={experiment}
+                setEditing={setEditing}
+                refetchExperiment={refetchExperiment}
+              />
             )}
           </div>
         </div>

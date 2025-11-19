@@ -24,9 +24,16 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 from mlflow.tracking import _get_store
-from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
+from mlflow.tracking._tracking_service.utils import (
+    _get_default_tracking_uri,
+    is_tracking_uri_set,
+    set_tracking_uri,
+)
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
@@ -350,7 +357,7 @@ def _validate_static_prefix(ctx, param, value):
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -541,13 +548,13 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        backend_store_uri = _get_default_tracking_uri()
+        click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
 
-    # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
+        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
@@ -623,7 +630,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -674,6 +681,40 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
         you **must** set the ``MLFLOW_TRACKING_URI`` environment variable before running
         this command. Otherwise, the ``gc`` command will not be able to resolve
         artifact URIs and will not be able to delete the associated artifacts.
+
+    **What gets deleted:**
+
+    This command permanently removes:
+
+    - **Run metadata**: Parameters, metrics, tags, and all other run information from the
+      backend store
+    - **Artifacts**: All files stored in the run's artifact location (models, plots, data
+      files, etc.)
+    - **Experiment metadata**: When deleting experiments, removes the experiment record and
+      all associated data
+
+    .. note::
+
+        This command only considers lifecycle stage and the specified deletion criteria.
+        It does **not** check for pinned runs, registered models, or tags. Pinning is a
+        UI-only feature that has no effect on garbage collection. Runs must be in the
+        `deleted` lifecycle stage before they can be permanently deleted.
+
+    **Examples:**
+
+    .. code-block:: bash
+
+        # Delete all runs that have been in the deleted state for more than 30 days
+        mlflow gc --older-than 30d
+
+        # Delete specific runs by ID (they must be in deleted state)
+        mlflow gc --run-ids 'run1,run2,run3'
+
+        # Delete all runs in specific experiments (experiments must be in deleted state)
+        mlflow gc --experiment-ids 'exp1,exp2'
+
+        # Combine criteria: delete runs older than 7 days in specific experiments
+        mlflow gc --older-than 7d --experiment-ids 'exp1,exp2'
 
     """
     from mlflow.utils.time import get_current_time_millis

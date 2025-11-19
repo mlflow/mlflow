@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, afterEach, test, expect } from '@jest/globals';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 
 import { useEditAliasesModal } from './useEditAliasesModal';
@@ -36,7 +37,9 @@ const MOCK_MODEL_MANY_ALIASES = {
   ],
 };
 
-const handleSave = jest.fn(() => new Promise((resolve) => resolve));
+const handleSave = jest.fn<Parameters<typeof useEditAliasesModal>[0]['onSave']>(
+  () => new Promise((resolve) => resolve),
+);
 
 describe('useEditAliasesModal', () => {
   let userEvent: ReturnType<typeof userEventGlobal.setup>;
