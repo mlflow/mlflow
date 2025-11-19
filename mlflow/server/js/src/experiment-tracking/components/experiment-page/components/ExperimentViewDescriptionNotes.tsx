@@ -16,6 +16,7 @@ import { NOTE_CONTENT_TAG } from '../../../utils/NoteUtils';
 import type { ThunkDispatch } from '../../../../redux-types';
 import React from 'react';
 import 'react-mde/lib/styles/css/react-mde-all.css';
+import './ExperimentViewDescriptionNotes.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import {
   forceAnchorTagNewTab,
