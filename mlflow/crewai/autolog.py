@@ -157,7 +157,7 @@ def _set_span_attributes(span: LiveSpan, instance):
         from crewai import LLM, Agent, Crew, Task
         from crewai.flow.flow import Flow
 
-        ## Memory class does not have helpful attributes
+        # Memory class does not have helpful attributes
         if isinstance(instance, Crew):
             for key, value in instance.__dict__.items():
                 if value is not None:
@@ -253,21 +253,19 @@ def _parse_agents(agents):
                 model = agent.llm.model
             elif hasattr(agent.llm, "model_name"):
                 model = agent.llm.model_name
-        attributes.append(
-            {
-                "id": str(agent.id),
-                "role": agent.role,
-                "goal": agent.goal,
-                "backstory": agent.backstory,
-                "cache": agent.cache,
-                "config": agent.config,
-                "verbose": agent.verbose,
-                "allow_delegation": agent.allow_delegation,
-                "tools": agent.tools,
-                "max_iter": agent.max_iter,
-                "llm": str(model if model is not None else ""),
-            }
-        )
+        attributes.append({
+            "id": str(agent.id),
+            "role": agent.role,
+            "goal": agent.goal,
+            "backstory": agent.backstory,
+            "cache": agent.cache,
+            "config": agent.config,
+            "verbose": agent.verbose,
+            "allow_delegation": agent.allow_delegation,
+            "tools": agent.tools,
+            "max_iter": agent.max_iter,
+            "llm": str(model if model is not None else ""),
+        })
     return attributes
 
 
@@ -295,12 +293,10 @@ def _parse_tools(tools):
         if hasattr(tool, "description") and tool.description is not None:
             res["description"] = tool.description
         if res:
-            result.append(
-                {
-                    "type": "function",
-                    "function": res,
-                }
-            )
+            result.append({
+                "type": "function",
+                "function": res,
+            })
     return result
 
 

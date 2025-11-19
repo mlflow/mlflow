@@ -194,9 +194,10 @@ def mock_evaluation_dataset():
     dataset.tags = {"env": "test", "version": "1.0"}
     dataset.experiment_ids = ["0", "1"]
     dataset.records = []
-    dataset.schema = json.dumps(
-        {"inputs": {"question": "string"}, "expectations": {"accuracy": "float"}}
-    )
+    dataset.schema = json.dumps({
+        "inputs": {"question": "string"},
+        "expectations": {"accuracy": "float"},
+    })
     dataset.profile = json.dumps({"record_count": 0})
 
     proto_dataset = ProtoDataset()
@@ -1018,7 +1019,7 @@ def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeyp
     assert repo.artifact_uri == expected_uri
 
 
-### Prompt Registry Tests ###
+# Prompt Registry Tests ###
 def test_create_prompt_as_registered_model(mock_get_request_message, mock_model_registry_store):
     tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
     mock_get_request_message.return_value = CreateRegisteredModel(

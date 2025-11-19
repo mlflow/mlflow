@@ -16,7 +16,7 @@ from mlflow.llama_index.pyfunc_wrapper import (
 )
 
 
-################## Inferece Input #################
+# Inferece Input #################
 def test_format_predict_input_str_chat(single_index):
     wrapped_model = create_pyfunc_wrapper(single_index, CHAT_ENGINE_NAME)
     formatted_data = wrapped_model._format_predict_input("string")
@@ -98,9 +98,11 @@ def test_format_predict_input_message_history_chat_invalid_type(single_index):
         ["string"],  # iterables of length 1 should be treated non-iterables
         {"query_str": "string"},
         {"query_str": "string", "custom_embedding_strs": ["string"], "embedding": [1.0]},
-        pd.DataFrame(
-            {"query_str": ["string"], "custom_embedding_strs": [["string"]], "embedding": [[1.0]]}
-        ),
+        pd.DataFrame({
+            "query_str": ["string"],
+            "custom_embedding_strs": [["string"]],
+            "embedding": [[1.0]],
+        }),
     ],
 )
 def test_format_predict_input_no_iterable_query(single_index, data):
@@ -116,13 +118,11 @@ def test_format_predict_input_no_iterable_query(single_index, data):
         [{"query_str": "string"}] * 4,
         [{"query_str": "string", "custom_embedding_strs": ["string"], "embedding": [1.0]}] * 4,
         [
-            pd.DataFrame(
-                {
-                    "query_str": ["string"],
-                    "custom_embedding_strs": [["string"]],
-                    "embedding": [[1.0]],
-                }
-            )
+            pd.DataFrame({
+                "query_str": ["string"],
+                "custom_embedding_strs": [["string"]],
+                "embedding": [[1.0]],
+            })
         ]
         * 2,
     ],
@@ -142,9 +142,11 @@ def test_format_predict_input_iterable_query(single_index, data):
         ["string"],  # iterables of length 1 should be treated non-iterables
         {"query_str": "string"},
         {"query_str": "string", "custom_embedding_strs": ["string"], "embedding": [1.0]},
-        pd.DataFrame(
-            {"query_str": ["string"], "custom_embedding_strs": [["string"]], "embedding": [[1.0]]}
-        ),
+        pd.DataFrame({
+            "query_str": ["string"],
+            "custom_embedding_strs": [["string"]],
+            "embedding": [[1.0]],
+        }),
     ],
 )
 def test_format_predict_input_no_iterable_retriever(single_index, data):
@@ -160,13 +162,11 @@ def test_format_predict_input_no_iterable_retriever(single_index, data):
         [{"query_str": "string"}] * 4,
         [{"query_str": "string", "custom_embedding_strs": ["string"], "embedding": [1.0]}] * 4,
         [
-            pd.DataFrame(
-                {
-                    "query_str": ["string"],
-                    "custom_embedding_strs": [["string"]],
-                    "embedding": [[1.0]],
-                }
-            )
+            pd.DataFrame({
+                "query_str": ["string"],
+                "custom_embedding_strs": [["string"]],
+                "embedding": [[1.0]],
+            })
         ]
         * 2,
     ],
@@ -209,12 +209,10 @@ def test_format_predict_input_correct_schema_complex(single_index, engine_type):
         "embedding": [[1.0]],
     }
     assert isinstance(wrapped_model._format_predict_input(pd.DataFrame(payload)), QueryBundle)
-    payload.update(
-        {
-            "custom_embedding_strs": ["a"],
-            "embedding": [1.0],
-        }
-    )
+    payload.update({
+        "custom_embedding_strs": ["a"],
+        "embedding": [1.0],
+    })
     assert isinstance(wrapped_model._format_predict_input(payload), QueryBundle)
 
 
@@ -242,12 +240,10 @@ def test_spark_udf_retriever_and_query_engine(model_path, spark, single_index, e
 
 def test_spark_udf_chat(model_path, spark, single_index):
     engine_type = "chat"
-    input = pd.DataFrame(
-        {
-            "message": ["string"],
-            _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
-        }
-    )
+    input = pd.DataFrame({
+        "message": ["string"],
+        _CHAT_MESSAGE_HISTORY_PARAMETER_NAME: [[{"role": "user", "content": "string"}]],
+    })
     mlflow.llama_index.save_model(
         llama_index_model=single_index,
         engine_type=engine_type,
@@ -282,12 +278,10 @@ async def test_wrap_workflow():
     result = wrapper.predict({"name": "Alice"})
     assert result == "Hi, Alice!"
 
-    results = wrapper.predict(
-        [
-            {"name": "Bob"},
-            {"name": "Charlie"},
-        ]
-    )
+    results = wrapper.predict([
+        {"name": "Bob"},
+        {"name": "Charlie"},
+    ])
     assert results == ["Hi, Bob!", "Hi, Charlie!"]
 
     results = wrapper.predict(pd.DataFrame({"name": ["David"]}))

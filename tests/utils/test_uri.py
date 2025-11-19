@@ -145,40 +145,38 @@ def validate_append_to_uri_path_test_cases(cases):
 
 
 def test_append_to_uri_path_joins_uri_paths_and_posixpaths_correctly():
-    validate_append_to_uri_path_test_cases(
-        [
-            ("", "path", "path"),
-            ("", "/path", "/path"),
-            ("path", "", "path/"),
-            ("path", "subpath", "path/subpath"),
-            ("path/", "subpath", "path/subpath"),
-            ("path/", "/subpath", "path/subpath"),
-            ("path", "/subpath", "path/subpath"),
-            ("/path", "/subpath", "/path/subpath"),
-            ("//path", "/subpath", "//path/subpath"),
-            ("///path", "/subpath", "///path/subpath"),
-            ("/path", "/subpath/subdir", "/path/subpath/subdir"),
-            ("file:path", "", "file:path/"),
-            ("file:path/", "", "file:path/"),
-            ("file:path", "subpath", "file:path/subpath"),
-            ("file:path", "/subpath", "file:path/subpath"),
-            ("file:/", "", "file:///"),
-            ("file:/path", "/subpath", "file:///path/subpath"),
-            ("file:///", "", "file:///"),
-            ("file:///", "subpath", "file:///subpath"),
-            ("file:///path", "/subpath", "file:///path/subpath"),
-            ("file:///path/", "subpath", "file:///path/subpath"),
-            ("file:///path", "subpath", "file:///path/subpath"),
-            ("s3://", "", "s3:"),
-            ("s3://", "subpath", "s3:subpath"),
-            ("s3://", "/subpath", "s3:/subpath"),
-            ("s3://host", "subpath", "s3://host/subpath"),
-            ("s3://host", "/subpath", "s3://host/subpath"),
-            ("s3://host/", "subpath", "s3://host/subpath"),
-            ("s3://host/", "/subpath", "s3://host/subpath"),
-            ("s3://host", "subpath/subdir", "s3://host/subpath/subdir"),
-        ]
-    )
+    validate_append_to_uri_path_test_cases([
+        ("", "path", "path"),
+        ("", "/path", "/path"),
+        ("path", "", "path/"),
+        ("path", "subpath", "path/subpath"),
+        ("path/", "subpath", "path/subpath"),
+        ("path/", "/subpath", "path/subpath"),
+        ("path", "/subpath", "path/subpath"),
+        ("/path", "/subpath", "/path/subpath"),
+        ("//path", "/subpath", "//path/subpath"),
+        ("///path", "/subpath", "///path/subpath"),
+        ("/path", "/subpath/subdir", "/path/subpath/subdir"),
+        ("file:path", "", "file:path/"),
+        ("file:path/", "", "file:path/"),
+        ("file:path", "subpath", "file:path/subpath"),
+        ("file:path", "/subpath", "file:path/subpath"),
+        ("file:/", "", "file:///"),
+        ("file:/path", "/subpath", "file:///path/subpath"),
+        ("file:///", "", "file:///"),
+        ("file:///", "subpath", "file:///subpath"),
+        ("file:///path", "/subpath", "file:///path/subpath"),
+        ("file:///path/", "subpath", "file:///path/subpath"),
+        ("file:///path", "subpath", "file:///path/subpath"),
+        ("s3://", "", "s3:"),
+        ("s3://", "subpath", "s3:subpath"),
+        ("s3://", "/subpath", "s3:/subpath"),
+        ("s3://host", "subpath", "s3://host/subpath"),
+        ("s3://host", "/subpath", "s3://host/subpath"),
+        ("s3://host/", "subpath", "s3://host/subpath"),
+        ("s3://host/", "/subpath", "s3://host/subpath"),
+        ("s3://host", "subpath/subdir", "s3://host/subpath/subdir"),
+    ])
 
 
 def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
@@ -191,7 +189,7 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
 
     def create_char_case(special_char):
         def char_case(*case_args):
-            return tuple([item.format(c=special_char) for item in case_args])
+            return tuple(item.format(c=special_char) for item in case_args)
 
         return char_case
 
@@ -215,26 +213,22 @@ def test_append_to_uri_path_handles_special_uri_characters_in_posixpaths():
         ",",
     ]:
         char_case = create_char_case(special_char)
-        validate_append_to_uri_path_test_cases(
-            [
-                char_case("", "{c}subpath", "{c}subpath"),
-                char_case("", "/{c}subpath", "/{c}subpath"),
-                char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
-                char_case("dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"),
-                char_case("{c}{c}charsdir", "", "{c}{c}charsdir/"),
-                char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
-                char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
-                char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
-            ]
-        )
+        validate_append_to_uri_path_test_cases([
+            char_case("", "{c}subpath", "{c}subpath"),
+            char_case("", "/{c}subpath", "/{c}subpath"),
+            char_case("dirwith{c}{c}chars", "", "dirwith{c}{c}chars/"),
+            char_case("dirwith{c}{c}chars", "subpath", "dirwith{c}{c}chars/subpath"),
+            char_case("{c}{c}charsdir", "", "{c}{c}charsdir/"),
+            char_case("/{c}{c}charsdir", "", "/{c}{c}charsdir/"),
+            char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
+            char_case("/{c}{c}charsdir", "subpath", "/{c}{c}charsdir/subpath"),
+        ])
 
-    validate_append_to_uri_path_test_cases(
-        [
-            ("#?charsdir:", ":?subpath#", "#?charsdir:/:?subpath#"),
-            ("/#--+charsdir.//:", "/../:?subpath#", "/#--+charsdir.//:/../:?subpath#"),
-            ("$@''(,", ")]*%", "$@''(,/)]*%"),
-        ]
-    )
+    validate_append_to_uri_path_test_cases([
+        ("#?charsdir:", ":?subpath#", "#?charsdir:/:?subpath#"),
+        ("/#--+charsdir.//:", "/../:?subpath#", "/#--+charsdir.//:/../:?subpath#"),
+        ("$@''(,", ")]*%", "$@''(,/)]*%"),
+    ])
 
 
 @pytest.mark.parametrize(
@@ -314,76 +308,74 @@ def test_append_to_uri_query_params_appends_as_expected(
 
 
 def test_append_to_uri_path_preserves_uri_schemes_hosts_queries_and_fragments():
-    validate_append_to_uri_path_test_cases(
-        [
-            ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
-            ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
-            ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
-            ("dbscheme+dbdriver://host/path", "/subpath", "dbscheme+dbdriver://host/path/subpath"),
-            ("dbscheme+dbdriver:///path", "subpath", "dbscheme+dbdriver:/path/subpath"),
-            ("dbscheme+dbdriver:?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:/?somequery", "subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver://?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
-            ("dbscheme+dbdriver:///?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
-            ("dbscheme+dbdriver:#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
-            ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
-            (
-                "dbscheme+dbdriver://root:password?creds=creds",
-                "subpath",
-                "dbscheme+dbdriver://root:password/subpath?creds=creds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password/path/?creds=creds",
-                "/subpath/anotherpath",
-                "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=creds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password///path/?creds=creds",
-                "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=creds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password///path/?creds=creds",
-                "/subpath",
-                "dbscheme+dbdriver://root:password///path/subpath?creds=creds",
-            ),
-            (
-                "dbscheme+dbdriver://root:password#myfragment",
-                "/subpath",
-                "dbscheme+dbdriver://root:password/subpath#myfragment",
-            ),
-            (
-                "dbscheme+dbdriver://root:password//path/#fragmentwith$pecial@",
-                "subpath/anotherpath",
-                "dbscheme+dbdriver://root:password//path/subpath/anotherpath#fragmentwith$pecial@",
-            ),
-            (
-                "dbscheme+dbdriver://root:password@host?creds=creds#fragmentwith$pecial@",
-                "subpath",
-                "dbscheme+dbdriver://root:password@host/subpath?creds=creds#fragmentwith$pecial@",
-            ),
-            (
-                "dbscheme+dbdriver://root:password@host.com/path?creds=creds#*frag@*",
-                "subpath/dir",
-                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
-            ),
-            (
-                "dbscheme-dbdriver://root:password@host.com/path?creds=creds#*frag@*",
-                "subpath/dir",
-                "dbscheme-dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
-            ),
-            (
-                "dbscheme+dbdriver://root:password@host.com/path?creds=creds,param=value#*frag@*",
-                "subpath/dir",
-                "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?"
-                "creds=creds,param=value#*frag@*",
-            ),
-        ]
-    )
+    validate_append_to_uri_path_test_cases([
+        ("dbscheme+dbdriver:", "", "dbscheme+dbdriver:"),
+        ("dbscheme+dbdriver:", "subpath", "dbscheme+dbdriver:subpath"),
+        ("dbscheme+dbdriver:path", "subpath", "dbscheme+dbdriver:path/subpath"),
+        ("dbscheme+dbdriver://host/path", "/subpath", "dbscheme+dbdriver://host/path/subpath"),
+        ("dbscheme+dbdriver:///path", "subpath", "dbscheme+dbdriver:/path/subpath"),
+        ("dbscheme+dbdriver:?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
+        ("dbscheme+dbdriver:?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver:/?somequery", "subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver://?somequery", "subpath", "dbscheme+dbdriver:subpath?somequery"),
+        ("dbscheme+dbdriver:///?somequery", "/subpath", "dbscheme+dbdriver:/subpath?somequery"),
+        ("dbscheme+dbdriver:#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
+        ("dbscheme+dbdriver:#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        ("dbscheme+dbdriver:/#somefrag", "subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        ("dbscheme+dbdriver://#somefrag", "subpath", "dbscheme+dbdriver:subpath#somefrag"),
+        ("dbscheme+dbdriver:///#somefrag", "/subpath", "dbscheme+dbdriver:/subpath#somefrag"),
+        (
+            "dbscheme+dbdriver://root:password?creds=creds",
+            "subpath",
+            "dbscheme+dbdriver://root:password/subpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password/path/?creds=creds",
+            "/subpath/anotherpath",
+            "dbscheme+dbdriver://root:password/path/subpath/anotherpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password///path/?creds=creds",
+            "subpath/anotherpath",
+            "dbscheme+dbdriver://root:password///path/subpath/anotherpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password///path/?creds=creds",
+            "/subpath",
+            "dbscheme+dbdriver://root:password///path/subpath?creds=creds",
+        ),
+        (
+            "dbscheme+dbdriver://root:password#myfragment",
+            "/subpath",
+            "dbscheme+dbdriver://root:password/subpath#myfragment",
+        ),
+        (
+            "dbscheme+dbdriver://root:password//path/#fragmentwith$pecial@",
+            "subpath/anotherpath",
+            "dbscheme+dbdriver://root:password//path/subpath/anotherpath#fragmentwith$pecial@",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host?creds=creds#fragmentwith$pecial@",
+            "subpath",
+            "dbscheme+dbdriver://root:password@host/subpath?creds=creds#fragmentwith$pecial@",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host.com/path?creds=creds#*frag@*",
+            "subpath/dir",
+            "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
+        ),
+        (
+            "dbscheme-dbdriver://root:password@host.com/path?creds=creds#*frag@*",
+            "subpath/dir",
+            "dbscheme-dbdriver://root:password@host.com/path/subpath/dir?creds=creds#*frag@*",
+        ),
+        (
+            "dbscheme+dbdriver://root:password@host.com/path?creds=creds,param=value#*frag@*",
+            "subpath/dir",
+            "dbscheme+dbdriver://root:password@host.com/path/subpath/dir?"
+            "creds=creds,param=value#*frag@*",
+        ),
+    ])
 
 
 def test_extract_and_normalize_path():

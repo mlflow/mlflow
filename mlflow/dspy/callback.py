@@ -54,7 +54,7 @@ class MlflowCallback(BaseCallback):
         self._call_id_to_span: dict[str, SpanWithToken] = {}
         self._call_id_to_module: dict[str, Any] = {}
 
-        ###### state management for optimization process ######
+        # state management for optimization process ######
         # The current callback logic assumes there is no optimization running in parallel.
         # The state management may not work when multiple optimizations are running in parallel.
         # optimizer_stack_level is used to determine if the callback is called within compile

@@ -21,7 +21,7 @@ from mlflow.tracing.provider import trace_disabled
 from tests.helper_functions import start_mock_openai_server
 
 
-#### General ####
+# General ####
 @pytest.fixture
 def model_path(tmp_path):
     model_path = tmp_path.joinpath("model")
@@ -49,7 +49,7 @@ def mock_openai():
         yield base_url
 
 
-#### Settings ####
+# Settings ####
 def _mock_tokenizer(text: str) -> list[str]:
     """Mock tokenizer."""
     tokens = re.split(r"[ \n]", text)
@@ -79,7 +79,7 @@ def settings(monkeypatch, mock_openai):
     return Settings
 
 
-#### Indexes ####
+# Indexes ####
 @pytest.fixture
 def document():
     return Document.example()
@@ -102,7 +102,7 @@ def single_graph(document):
     return KnowledgeGraphIndex.from_documents([document])
 
 
-#### Prompt Templates ####
+# Prompt Templates ####
 @pytest.fixture
 def qa_prompt_template():
     return PromptTemplate(

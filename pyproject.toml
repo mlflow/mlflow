@@ -222,6 +222,7 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.ruff]
+preview = true
 line-length = 100
 target-version = "py310"
 required-version = "0.12.10"
@@ -286,6 +287,7 @@ select = [
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
+  "RUF036",  # none-not-at-end-of-union
   "RUF051",  # if-key-in-dict-del
   "RUF100",  # unused-noqa
   "S102",    # exec-builtin

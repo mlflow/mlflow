@@ -478,7 +478,7 @@ class MlflowClient:
         """
         return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
-    ##### Prompt Registry #####
+    # Prompt Registry #####
 
     @require_prompt_registry
     @translate_prompt_exception
@@ -636,13 +636,11 @@ class MlflowClient:
             tags.update({PROMPT_TYPE_TAG_KEY: PROMPT_TYPE_TEXT})
             tags.update({PROMPT_TEXT_TAG_KEY: template})
         if response_format:
-            tags.update(
-                {
-                    RESPONSE_FORMAT_TAG_KEY: json.dumps(
-                        PromptVersion.convert_response_format_to_dict(response_format)
-                    ),
-                }
-            )
+            tags.update({
+                RESPONSE_FORMAT_TAG_KEY: json.dumps(
+                    PromptVersion.convert_response_format_to_dict(response_format)
+                ),
+            })
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -1054,7 +1052,7 @@ class MlflowClient:
             f"Invalid prompt URI: {uri}. Prompts do not support stage-based references."
         )
 
-    ##### Tracing #####
+    # Tracing #####
     def delete_traces(
         self,
         experiment_id: str,

@@ -47,8 +47,9 @@ def assert_dirs_equal(expected, actual):
 
 @pytest.fixture(scope="package")
 def docker_example_base_image():
-    import docker
     from docker.errors import APIError, BuildError
+
+    import docker
 
     mlflow_home = os.environ.get("MLFLOW_HOME", None)
     if not mlflow_home:

@@ -461,7 +461,7 @@ def _get_ordered_runs(store: SqlAlchemyStore, order_clauses, experiment_id):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
@@ -2430,9 +2430,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_with_deterministic_max_results")
     # Create 10 runs with the same start_time.
     # Sort based on run_id
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     for n in [1, 2, 4, 8, 10, 20]:
         assert runs[: min(10, n)] == _search_runs(store, exp, max_results=n)
 
@@ -2440,9 +2440,9 @@ def test_search_with_deterministic_max_results(store: SqlAlchemyStore):
 def test_search_runs_pagination(store: SqlAlchemyStore):
     exp = _create_experiments(store, "test_search_runs_pagination")
     # test returned token behavior
-    runs = sorted(
-        [_run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)]
-    )
+    runs = sorted([
+        _run_factory(store, _get_run_configs(exp, start_time=10)).info.run_id for r in range(10)
+    ])
     result = store.search_runs([exp], None, ViewType.ALL, max_results=4)
     assert [r.info.run_id for r in result] == runs[0:4]
     assert result.token is not None
@@ -2913,7 +2913,7 @@ def test_log_batch(store: SqlAlchemyStore):
     run = store.get_run(run_id)
     assert run.data.tags == {"t1": "t1val", "t2": "t2val", MLFLOW_RUN_NAME: "my_run"}
     assert run.data.params == {"p1": "p1val", "p2": "p2val"}
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == {("m1", 0.87, 12345, 0), ("m2", 0.49, 12345, 1)}
 
@@ -2927,7 +2927,7 @@ def test_log_batch_limits(store: SqlAlchemyStore):
     metric_entities = [Metric(*metric_tuple) for metric_tuple in metric_tuples]
     store.log_batch(run_id=run_id, metrics=metric_entities, params=[], tags=[])
     run = store.get_run(run_id)
-    metric_histories = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    metric_histories = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     metrics = [(m.key, m.value, m.timestamp, m.step) for m in metric_histories]
     assert set(metrics) == set(metric_tuples)
 
@@ -3315,16 +3315,14 @@ def _generate_large_data(store, nb_runs=1000):
                 "run_uuid": run_id,
             }
             params_list.append(param)
-        latest_metrics_list.append(
-            {
-                "key": "mkey_0",
-                "value": current_run,
-                "timestamp": 100 * 2,
-                "step": 100 * 3,
-                "is_nan": False,
-                "run_uuid": run_id,
-            }
-        )
+        latest_metrics_list.append({
+            "key": "mkey_0",
+            "value": current_run,
+            "timestamp": 100 * 2,
+            "step": 100 * 3,
+            "is_nan": False,
+            "run_uuid": run_id,
+        })
         current_run += 1
 
     # Bulk insert all data in a single transaction
@@ -8952,13 +8950,11 @@ def test_dataset_records_pagination(store):
 
     records = []
     for i in range(25):
-        records.append(
-            {
-                "inputs": {"id": i, "question": f"Question {i}"},
-                "expectations": {"answer": f"Answer {i}"},
-                "tags": {"index": str(i)},
-            }
-        )
+        records.append({
+            "inputs": {"id": i, "question": f"Question {i}"},
+            "expectations": {"answer": f"Answer {i}"},
+            "tags": {"index": str(i)},
+        })
 
     store.upsert_dataset_records(dataset.dataset_id, records)
 
@@ -11104,11 +11100,9 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,
+                }),
             },
         )
     )
@@ -11160,13 +11154,11 @@ def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
 
     otel_span._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
 
     span = create_mlflow_span(otel_span, trace_id, "LLM")
@@ -11204,13 +11196,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -11232,13 +11222,11 @@ def test_log_spans_update_token_usage_incrementally(store: SqlAlchemyStore) -> N
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 75,
-                "total_tokens": 275,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 75,
+            "total_tokens": 275,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -11265,13 +11253,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span1._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_1, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 100,
-                "output_tokens": 50,
-                "total_tokens": 150,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 100,
+            "output_tokens": 50,
+            "total_tokens": 150,
+        }),
     }
     span1 = create_mlflow_span(otel_span1, trace_id_1, "LLM")
     store.log_spans(experiment_id, [span1])
@@ -11287,13 +11273,11 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
     )
     otel_span2._attributes = {
         "mlflow.traceRequestId": json.dumps(trace_id_2, cls=TraceJSONEncoder),
-        SpanAttributeKey.CHAT_USAGE: json.dumps(
-            {
-                "input_tokens": 200,
-                "output_tokens": 100,
-                "total_tokens": 300,
-            }
-        ),
+        SpanAttributeKey.CHAT_USAGE: json.dumps({
+            "input_tokens": 200,
+            "output_tokens": 100,
+            "total_tokens": 300,
+        }),
     }
     span2 = create_mlflow_span(otel_span2, trace_id_2, "LLM")
     store.log_spans(experiment_id, [span2])
@@ -11430,11 +11414,9 @@ def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: boo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )
@@ -11485,11 +11467,9 @@ def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bo
             execution_duration=100,
             state=TraceState.OK,
             trace_metadata={
-                TraceMetadataKey.SIZE_STATS: json.dumps(
-                    {
-                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
-                    }
-                ),
+                TraceMetadataKey.SIZE_STATS: json.dumps({
+                    TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                }),
             },
         )
     )
