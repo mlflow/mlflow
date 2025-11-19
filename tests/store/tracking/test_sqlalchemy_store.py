@@ -12253,6 +12253,327 @@ def test_endpoint_with_multiple_models(store: SqlAlchemyStore, kek_passphrase):
     assert routes[0].models[0].model_name == "claude-3-5-sonnet-20241022"
 
 
+def test_add_endpoint_model(store: SqlAlchemyStore, kek_passphrase):
+    secret1 = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            )
+        ],
+    )
+
+    assert len(endpoint.models) == 1
+    assert endpoint.models[0].model_name == "gpt-4"
+
+    updated_endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="gpt-3.5-turbo",
+        secret_id=secret2.secret_id,
+        routing_config='{"weight": 0.3}',
+        created_by="test_user",
+    )
+
+    assert len(updated_endpoint.models) == 2
+    model_names = {m.model_name for m in updated_endpoint.models}
+    assert model_names == {"gpt-4", "gpt-3.5-turbo"}
+
+    gpt35_model = next(m for m in updated_endpoint.models if m.model_name == "gpt-3.5-turbo")
+    assert gpt35_model.secret_id == secret2.secret_id
+    assert gpt35_model.routing_config == '{"weight": 0.3}'
+
+
+def test_add_endpoint_model_with_dict_routing_config(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        provider="anthropic",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    updated_endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="claude-3-5-haiku-20241022",
+        secret_id=secret.secret_id,
+        routing_config={"weight": 0.5, "priority": 1},
+    )
+
+    assert len(updated_endpoint.models) == 2
+    haiku_model = next(
+        m for m in updated_endpoint.models if m.model_name == "claude-3-5-haiku-20241022"
+    )
+    assert haiku_model.routing_config == '{"weight": 0.5, "priority": 1}'
+
+
+def test_add_endpoint_model_with_invalid_json(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    with pytest.raises(MlflowException, match="Invalid routing_config JSON"):
+        store._add_endpoint_model(
+            endpoint_id=endpoint.endpoint_id,
+            model_name="gpt-3.5-turbo",
+            secret_id=secret.secret_id,
+            routing_config="not valid json{",
+        )
+
+
+def test_update_endpoint_model_secret(store: SqlAlchemyStore, kek_passphrase):
+    secret1 = store._create_secret(
+        secret_name="openai_key_1",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+            ),
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret1.secret_id,
+            ),
+        ],
+    )
+
+    gpt4_model = next(m for m in endpoint.models if m.model_name == "gpt-4")
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt4_model.model_id,
+        secret_id=secret2.secret_id,
+        updated_by="test_user",
+    )
+
+    updated_gpt4 = next(m for m in updated_endpoint.models if m.model_name == "gpt-4")
+    assert updated_gpt4.secret_id == secret2.secret_id
+
+    gpt35_model = next(m for m in updated_endpoint.models if m.model_name == "gpt-3.5-turbo")
+    assert gpt35_model.secret_id == secret1.secret_id
+
+
+def test_update_endpoint_model_routing_config(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        provider="anthropic",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret.secret_id,
+                routing_config={"weight": 0.5},
+            )
+        ],
+    )
+
+    model = endpoint.models[0]
+    assert model.routing_config == '{"weight": 0.5}'
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=model.model_id,
+        routing_config='{"weight": 0.8, "priority": 1}',
+        updated_by="test_user",
+    )
+
+    updated_model = updated_endpoint.models[0]
+    assert updated_model.routing_config == '{"weight": 0.8, "priority": 1}'
+
+
+def test_update_endpoint_model_both_secret_and_config(store: SqlAlchemyStore, kek_passphrase):
+    secret1 = store._create_secret(
+        secret_name="openai_key_1",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret1.secret_id,
+                routing_config={"weight": 0.5},
+            )
+        ],
+    )
+
+    model = endpoint.models[0]
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=model.model_id,
+        secret_id=secret2.secret_id,
+        routing_config={"weight": 0.9, "priority": 2},
+        updated_by="test_user",
+    )
+
+    updated_model = updated_endpoint.models[0]
+    assert updated_model.secret_id == secret2.secret_id
+    assert updated_model.routing_config == '{"weight": 0.9, "priority": 2}'
+
+
+def test_update_endpoint_model_with_invalid_json(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            )
+        ],
+    )
+
+    model = endpoint.models[0]
+
+    with pytest.raises(MlflowException, match="Invalid routing_config JSON"):
+        store._update_endpoint_model(
+            endpoint_id=endpoint.endpoint_id,
+            model_id=model.model_id,
+            routing_config="invalid json{",
+        )
+
+
+def test_remove_endpoint_model(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        provider="openai",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="gpt-4",
+                secret_id=secret.secret_id,
+            ),
+            EndpointModelSpec(
+                model_name="gpt-3.5-turbo",
+                secret_id=secret.secret_id,
+            ),
+            EndpointModelSpec(
+                model_name="gpt-4-turbo",
+                secret_id=secret.secret_id,
+            ),
+        ],
+    )
+
+    assert len(endpoint.models) == 3
+
+    gpt35_model = next(m for m in endpoint.models if m.model_name == "gpt-3.5-turbo")
+
+    updated_endpoint = store._remove_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt35_model.model_id,
+    )
+
+    assert len(updated_endpoint.models) == 2
+    model_names = {m.model_name for m in updated_endpoint.models}
+    assert model_names == {"gpt-4", "gpt-4-turbo"}
+
+
+def test_remove_endpoint_model_verify_deletion(store: SqlAlchemyStore, kek_passphrase):
+    secret = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        provider="anthropic",
+        is_shared=True,
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            EndpointModelSpec(
+                model_name="claude-3-5-sonnet-20241022",
+                secret_id=secret.secret_id,
+            ),
+            EndpointModelSpec(
+                model_name="claude-3-5-haiku-20241022",
+                secret_id=secret.secret_id,
+            ),
+        ],
+    )
+
+    sonnet_model = next(
+        m for m in endpoint.models if m.model_name == "claude-3-5-sonnet-20241022"
+    )
+    model_id_to_remove = sonnet_model.model_id
+
+    updated_endpoint = store._remove_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=model_id_to_remove,
+    )
+
+    assert len(updated_endpoint.models) == 1
+    assert updated_endpoint.models[0].model_name == "claude-3-5-haiku-20241022"
+
+    with store.ManagedSessionMaker() as session:
+        deleted_model = (
+            session.query(SqlEndpointModel).filter_by(model_id=model_id_to_remove).first()
+        )
+        assert deleted_model is None
+
+
 def test_multiple_providers_ux_workflow(store: SqlAlchemyStore, kek_passphrase):
     secret1 = store._create_secret(
         secret_name="openai_key",
