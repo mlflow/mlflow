@@ -449,3 +449,53 @@ def test_make_judge_scorer_works_without_databricks_uri():
     assert scorers[0].name == "helpfulness_judge"
 
     mlflow.delete_experiment(experiment_id)
+
+
+def test_scorer_validates_none_inputs_when_required():
+    @scorer
+    def needs_inputs(inputs):
+        return len(inputs) > 0
+
+    test_scorer = needs_inputs
+
+    with pytest.raises(
+        mlflow.MlflowException,
+        match=r"Scorer 'needs_inputs' requires 'inputs' but the trace has no captured inputs",
+    ):
+        test_scorer.run(inputs=None, outputs="some output", trace=None)
+
+
+def test_scorer_validates_none_outputs_when_required():
+    @scorer
+    def needs_outputs(outputs):
+        return len(outputs) > 0
+
+    test_scorer = needs_outputs
+
+    with pytest.raises(
+        mlflow.MlflowException,
+        match=r"Scorer 'needs_outputs' requires 'outputs' but the trace has no captured outputs",
+    ):
+        test_scorer.run(inputs="some input", outputs=None, trace=None)
+
+
+def test_scorer_allows_none_inputs_when_not_required():
+    @scorer
+    def only_uses_outputs(outputs):
+        return len(outputs) > 0
+
+    test_scorer = only_uses_outputs
+
+    result = test_scorer.run(inputs=None, outputs="some output", trace=None)
+    assert result is True
+
+
+def test_scorer_allows_none_outputs_when_not_required():
+    @scorer
+    def only_uses_trace(trace):
+        return trace is not None
+
+    test_scorer = only_uses_trace
+
+    result = test_scorer.run(inputs=None, outputs=None, trace=object())
+    assert result is True

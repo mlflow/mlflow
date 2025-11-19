@@ -383,6 +383,25 @@ class Scorer(BaseModel):
         # Filter to only the parameters the function actually expects
         sig = inspect.signature(self.__call__)
         filtered = {k: v for k, v in merged.items() if k in sig.parameters}
+
+        # Validate that required parameters are not None
+        # This helps provide clear error messages when traces don't have captured inputs/outputs
+        # (e.g., from third-party OTEL clients that don't use MLflow conventions)
+        if "inputs" in filtered and filtered["inputs"] is None:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer '{self.name}' requires 'inputs' but the trace has no captured inputs. "
+                "This may occur when using third-party OpenTelemetry clients that don't send "
+                "MLflow-specific input attributes. Please ensure inputs are being captured in "
+                "your traces, or use a scorer that doesn't require the 'inputs' parameter."
+            )
+        if "outputs" in filtered and filtered["outputs"] is None:
+            raise MlflowException.invalid_parameter_value(
+                f"Scorer '{self.name}' requires 'outputs' but the trace has no captured outputs. "
+                "This may occur when using third-party OpenTelemetry clients that don't send "
+                "MLflow-specific output attributes. Please ensure outputs are being captured in "
+                "your traces, or use a scorer that doesn't require the 'outputs' parameter."
+            )
+
         result = self(**filtered)
         if not (
             # TODO: Replace 'Assessment' with 'Feedback' once we migrate from the agent eval harness

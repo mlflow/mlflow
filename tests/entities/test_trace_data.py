@@ -244,8 +244,8 @@ def test_request_and_response_are_still_available():
 
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_data = trace.data
-    assert trace_data.request == "{}"
-    assert trace_data.response == '""'
+    assert trace_data.request is None
+    assert trace_data.response is None
 
 
 @pytest.fixture
@@ -280,13 +280,13 @@ def span_without_inputs():
     return Span(otel_span)
 
 
-def test_trace_data_request_returns_empty_dict_when_span_has_no_inputs(span_without_inputs):
+def test_trace_data_request_returns_none_when_span_has_no_inputs(span_without_inputs):
     trace_data = TraceData(spans=[span_without_inputs])
 
-    assert trace_data.request == "{}"
+    assert trace_data.request is None
 
 
-def test_trace_data_request_returns_empty_dict_when_no_root_span():
+def test_trace_data_request_returns_none_when_no_root_span():
     trace_id = 12345
     parent_id = 11111
     span_id = 67890
@@ -322,7 +322,7 @@ def test_trace_data_request_returns_empty_dict_when_no_root_span():
     span = Span(otel_span)
     trace_data = TraceData(spans=[span])
 
-    assert trace_data.request == "{}"
+    assert trace_data.request is None
 
 
 def test_trace_to_dataframe_with_missing_inputs(span_without_inputs):
@@ -337,5 +337,5 @@ def test_trace_to_dataframe_with_missing_inputs(span_without_inputs):
 
     row = trace.to_pandas_dataframe_row()
 
-    assert row["request"] == {}
+    assert row["request"] is None
     assert row["response"] == "some output"
