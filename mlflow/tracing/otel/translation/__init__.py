@@ -50,7 +50,7 @@ def translate_span_when_storing(span: Span) -> dict[str, Any]:
         Translated span dictionary
     """
     span_dict = span.to_dict()
-    attributes = span_dict.get("attributes", {})
+    attributes = sanitize_attributes(span_dict.get("attributes", {}))
 
     # Translate inputs and outputs
     if SpanAttributeKey.INPUTS not in attributes and (input_value := _get_input_value(attributes)):
@@ -202,3 +202,32 @@ def update_token_usage(
         )
 
     return current_token_usage
+
+
+def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
+    """
+    Sanitize attributes by removing duplicate dumped attributes.
+    This is necessary because when spans are logged to sql store with otel_api, the
+    span attributes are dumped twice (once in Span.from_otel_proto and once in span.to_dict).
+    """
+    updated_attributes = {}
+    for key, value in attributes.items():
+        try:
+            result = json.loads(value)
+            if isinstance(result, str):
+                try:
+                    # If the original value is a string or dict, we store it as
+                    # a JSON-encoded string.  For other types, we store the original value directly.
+                    # For string type, this is to avoid interpreting "1" as an int accidentally.
+                    # For dictionary, we save the json-encoded-once string so that the UI can render
+                    # it correctly after loading.
+                    if isinstance(json.loads(result), (str, dict)):
+                        updated_attributes[key] = result
+                        continue
+                except json.JSONDecodeError:
+                    pass
+        except (json.JSONDecodeError, TypeError):
+            pass
+        # if the value is not a json string, or it's only dumped once, we keep the original value
+        updated_attributes[key] = value
+    return updated_attributes
