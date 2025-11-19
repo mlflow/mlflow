@@ -4851,6 +4851,39 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
 
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
+                # Special handling for prompts filter: only support exact match with name/version
+                if key_name == TraceTagKey.LINKED_PROMPTS:
+                    # Only support = comparator for prompts filter
+                    if comparator != "=":
+                        raise MlflowException(
+                            f"Invalid comparator '{comparator}' for prompts filter. "
+                            "Only '=' is supported with format: prompts = \"name/version\"",
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    # Parse the filter value to extract name/version
+                    # Expected format: "name/version"
+                    if "/" not in value:
+                        raise MlflowException(
+                            f"Invalid prompts filter value '{value}'. "
+                            'Expected format: prompts = "name/version"',
+                            error_code=INVALID_PARAMETER_VALUE,
+                        )
+                    parts = value.rsplit("/", 1)
+                    prompt_name = parts[0]
+                    prompt_version = parts[1]
+                    # Search for the exact name/version combination in the JSON array
+                    # We need to match: {"name": "prompt_name", "version": "prompt_version"}
+                    val_filter = SearchTraceUtils.get_sql_comparison_func("LIKE", dialect)(
+                        entity.value,
+                        f'%{{"name": "{prompt_name}", "version": "{prompt_version}"%',
+                    )
+                    key_filter = SearchTraceUtils.get_sql_comparison_func("=", dialect)(
+                        entity.key, key_name
+                    )
+                    non_attribute_filters.append(
+                        session.query(entity).filter(key_filter, val_filter).subquery()
+                    )
+                    continue
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
                 entity = SqlTraceMetadata
             elif SearchTraceUtils.is_span(key_type, key_name, comparator):

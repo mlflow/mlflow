@@ -49,7 +49,6 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataNotFound,
 )
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.sqlalchemy_store import (
@@ -2370,12 +2369,12 @@ def test_log_and_detach_prompt(tracking_uri):
 
     # Check that initially no prompts are linked to the run
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is None
 
     client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 1
@@ -2383,7 +2382,7 @@ def test_log_and_detach_prompt(tracking_uri):
 
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     run = client.get_run(run_id)
-    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     prompts = json.loads(linked_prompts_tag)
     assert len(prompts) == 2
     prompt_names = [p["name"] for p in prompts]
@@ -2845,7 +2844,7 @@ def test_link_chat_prompt_version_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3087,7 +3086,7 @@ def test_link_prompt_with_response_format_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)
@@ -3117,7 +3116,7 @@ def test_link_multiple_prompt_types_to_run():
 
     # Verify linking
     run_data = client.get_run(run.info.run_id)
-    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    linked_prompts_tag = run_data.data.tags.get(TraceTagKey.LINKED_PROMPTS)
     assert linked_prompts_tag is not None
 
     linked_prompts = json.loads(linked_prompts_tag)

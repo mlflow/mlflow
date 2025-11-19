@@ -6794,6 +6794,196 @@ def test_search_traces_with_combined_numeric_and_string_filters(store: SqlAlchem
     assert trace_ids == {trace1_id, trace2_id, trace3_id}
 
 
+def test_search_traces_with_prompts_filter(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_exact")
+
+    # Create traces with different linked prompts
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+    trace3_id = "trace3"
+    trace4_id = "trace4"
+
+    # Trace 1: linked to qa-agent-system-prompt version 4
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "4"}]'},
+    )
+
+    # Trace 2: linked to qa-agent-system-prompt version 5
+    _create_trace(
+        store,
+        trace2_id,
+        exp_id,
+        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "5"}]'},
+    )
+
+    # Trace 3: linked to chat-assistant-prompt version 1
+    _create_trace(
+        store,
+        trace3_id,
+        exp_id,
+        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "chat-assistant-prompt", "version": "1"}]'},
+    )
+
+    # Trace 4: linked to multiple prompts
+    _create_trace(
+        store,
+        trace4_id,
+        exp_id,
+        tags={
+            TraceTagKey.LINKED_PROMPTS: (
+                '[{"name": "qa-agent-system-prompt", "version": "4"}, '
+                '{"name": "chat-assistant-prompt", "version": "2"}]'
+            )
+        },
+    )
+
+    # Test: Filter by exact prompt name/version
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt/4"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace4_id}
+
+    # Test: Filter by another exact prompt name/version
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt/5"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Filter by chat assistant prompt
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "chat-assistant-prompt/1"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace3_id
+
+    # Test: Filter by prompt that appears in multiple trace
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "chat-assistant-prompt/2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace4_id
+
+
+def test_search_traces_with_prompts_filter_invalid_comparator(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_invalid")
+
+    # Test: LIKE comparator should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid comparator 'LIKE' for prompts filter. "
+        "Only '=' is supported with format: prompts = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string='prompts LIKE "%qa-agent%"')
+
+    # Test: ILIKE comparator should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid comparator 'ILIKE' for prompts filter. "
+        "Only '=' is supported with format: prompts = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string='prompts ILIKE "%CHAT%"')
+
+    # Test: RLIKE comparator should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid comparator 'RLIKE' for prompts filter. "
+        "Only '=' is supported with format: prompts = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string='prompts RLIKE "version.*1"')
+
+    # Test: != comparator should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid comparator '!=' for prompts filter. "
+        "Only '=' is supported with format: prompts = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string='prompts != "test/1"')
+
+
+def test_search_traces_with_prompts_filter_invalid_format(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_invalid_format")
+
+    # Test: Missing "/" separator should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid prompts filter value 'qa-agent-system-prompt'. "
+        'Expected format: prompts = "name/version"',
+    ):
+        store.search_traces([exp_id], filter_string='prompts = "qa-agent-system-prompt"')
+
+    # Test: Empty value should raise error
+    with pytest.raises(
+        MlflowException,
+        match="Invalid prompts filter value ''. Expected format: prompts = \"name/version\"",
+    ):
+        store.search_traces([exp_id], filter_string='prompts = ""')
+
+
+def test_search_traces_with_prompts_filter_no_matches(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_no_match")
+
+    # Create traces with linked prompts
+    trace1_id = "trace1"
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "qa-agent-system-prompt", "version": "4"}]'},
+    )
+
+    # Test: Filter by non-existent prompt
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "non-existent-prompt/999"')
+    assert len(traces) == 0
+
+    # Test: Filter by correct name but wrong version
+    traces, _ = store.search_traces(
+        [exp_id], filter_string='prompts = "qa-agent-system-prompt/999"'
+    )
+    assert len(traces) == 0
+
+
+def test_search_traces_with_prompts_filter_multiple_prompts(store: SqlAlchemyStore):
+    exp_id = store.create_experiment("test_prompts_multiple")
+
+    # Create traces with multiple linked prompts
+    trace1_id = "trace1"
+    trace2_id = "trace2"
+
+    # Trace 1: Single prompt
+    _create_trace(
+        store,
+        trace1_id,
+        exp_id,
+        tags={TraceTagKey.LINKED_PROMPTS: '[{"name": "prompt-a", "version": "1"}]'},
+    )
+
+    # Trace 2: Multiple prompts
+    _create_trace(
+        store,
+        trace2_id,
+        exp_id,
+        tags={
+            TraceTagKey.LINKED_PROMPTS: (
+                '[{"name": "prompt-a", "version": "1"}, '
+                '{"name": "prompt-b", "version": "2"}, '
+                '{"name": "prompt-c", "version": "3"}]'
+            )
+        },
+    )
+
+    # Test: Filter by first prompt - should match both
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-a/1"')
+    trace_ids = {t.request_id for t in traces}
+    assert trace_ids == {trace1_id, trace2_id}
+
+    # Test: Filter by second prompt - should only match trace2
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-b/2"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+    # Test: Filter by third prompt - should only match trace2
+    traces, _ = store.search_traces([exp_id], filter_string='prompts = "prompt-c/3"')
+    assert len(traces) == 1
+    assert traces[0].request_id == trace2_id
+
+
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
     trace_id = "tr-123"

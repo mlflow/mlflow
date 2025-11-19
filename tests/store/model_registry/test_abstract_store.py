@@ -15,9 +15,9 @@ from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.model_registry.abstract_store import AbstractStore
+from mlflow.tracing.constant import TraceTagKey
 
 
 class MockAbstractStore(AbstractStore):
@@ -122,7 +122,7 @@ def test_link_prompt_version_to_model_success(store, mock_tracking_store):
     assert len(logged_model_tags) == 1
     logged_model_tag = logged_model_tags[0]
     assert isinstance(logged_model_tag, LoggedModelTag)
-    assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
+    assert logged_model_tag.key == TraceTagKey.LINKED_PROMPTS
 
     expected_value = [{"name": "test_prompt", "version": "1"}]
     assert json.loads(logged_model_tag.value) == expected_value
@@ -142,7 +142,7 @@ def test_link_prompt_version_to_model_append_to_existing(store, mock_tracking_st
         artifact_location="/path/to/model",
         creation_timestamp=1234567890,
         last_updated_timestamp=1234567890,
-        tags={LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)},
+        tags={TraceTagKey.LINKED_PROMPTS: json.dumps(existing_prompts)},
     )
     mock_tracking_store.get_logged_model.return_value = logged_model
 
@@ -207,7 +207,7 @@ def test_link_prompt_version_to_model_invalid_json_tag(store, mock_tracking_stor
         artifact_location="/path/to/model",
         creation_timestamp=1234567890,
         last_updated_timestamp=1234567890,
-        tags={LINKED_PROMPTS_TAG_KEY: "invalid json"},
+        tags={TraceTagKey.LINKED_PROMPTS: "invalid json"},
     )
     mock_tracking_store.get_logged_model.return_value = logged_model
 
@@ -229,7 +229,7 @@ def test_link_prompt_version_to_model_invalid_format_tag(store, mock_tracking_st
         artifact_location="/path/to/model",
         creation_timestamp=1234567890,
         last_updated_timestamp=1234567890,
-        tags={LINKED_PROMPTS_TAG_KEY: json.dumps({"not": "a list"})},
+        tags={TraceTagKey.LINKED_PROMPTS: json.dumps({"not": "a list"})},
     )
     mock_tracking_store.get_logged_model.return_value = logged_model
 
@@ -271,7 +271,7 @@ def test_link_prompt_version_to_model_duplicate_prevention(store, mock_tracking_
     assert mock_tracking_store.set_logged_model_tags.call_count == 1
 
     # Verify the tag contains only one entry
-    tag_value = logged_model.tags[LINKED_PROMPTS_TAG_KEY]
+    tag_value = logged_model.tags[TraceTagKey.LINKED_PROMPTS]
     parsed_value = json.loads(tag_value)
 
     expected_value = [{"name": "test_prompt", "version": "1"}]
@@ -332,7 +332,7 @@ def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
     assert len(exceptions) == 0, f"Thread exceptions: {exceptions}"
 
     # Verify final state contains both prompts (order may vary due to threading)
-    final_tag_value = json.loads(logged_model.tags[LINKED_PROMPTS_TAG_KEY])
+    final_tag_value = json.loads(logged_model.tags[TraceTagKey.LINKED_PROMPTS])
 
     expected_prompts = [
         {"name": "test_prompt_1", "version": "1"},
@@ -376,7 +376,7 @@ def test_link_prompt_version_to_run_success(store, mock_tracking_store):
 
     run_tag = call_args[0][1]
     assert isinstance(run_tag, RunTag)
-    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+    assert run_tag.key == TraceTagKey.LINKED_PROMPTS
 
     expected_value = [{"name": "test_prompt", "version": "1"}]
     assert json.loads(run_tag.value) == expected_value
@@ -392,7 +392,9 @@ def test_link_prompt_version_to_run_append_to_existing(store, mock_tracking_stor
     # Mock run with existing linked prompts
     existing_prompts = [{"name": "existing_prompt", "version": "1"}]
     run_data = RunData(
-        metrics=[], params=[], tags=[RunTag(LINKED_PROMPTS_TAG_KEY, json.dumps(existing_prompts))]
+        metrics=[],
+        params=[],
+        tags=[RunTag(TraceTagKey.LINKED_PROMPTS, json.dumps(existing_prompts))],
     )
     run_info = RunInfo(
         run_id=run_id,
@@ -469,7 +471,9 @@ def test_link_prompt_version_to_run_duplicate_prevention(store, mock_tracking_st
     # Mock run with existing prompt already linked
     existing_prompts = [{"name": "test_prompt", "version": "1"}]
     run_data = RunData(
-        metrics=[], params=[], tags=[RunTag(LINKED_PROMPTS_TAG_KEY, json.dumps(existing_prompts))]
+        metrics=[],
+        params=[],
+        tags=[RunTag(TraceTagKey.LINKED_PROMPTS, json.dumps(existing_prompts))],
     )
     run_info = RunInfo(
         run_id=run_id,
@@ -535,7 +539,7 @@ def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
         thread.join()
 
     # Verify both prompts were linked
-    final_tag_value = json.loads(run.data.tags[LINKED_PROMPTS_TAG_KEY])
+    final_tag_value = json.loads(run.data.tags[TraceTagKey.LINKED_PROMPTS])
 
     expected_prompts = [
         {"name": "test_prompt_1", "version": "1"},
@@ -647,7 +651,7 @@ def test_link_chat_prompt_to_run(store, mock_tracking_store):
     mock_tracking_store.set_tag.assert_called_once()
     call_args = mock_tracking_store.set_tag.call_args
     run_tag = call_args[0][1]
-    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+    assert run_tag.key == TraceTagKey.LINKED_PROMPTS
 
     tag_value = json.loads(run_tag.value)
     assert tag_value == [{"name": "test_chat", "version": "1"}]
@@ -685,7 +689,7 @@ def test_link_prompt_with_response_format_to_run(store, mock_tracking_store):
     mock_tracking_store.set_tag.assert_called_once()
     call_args = mock_tracking_store.set_tag.call_args
     run_tag = call_args[0][1]
-    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+    assert run_tag.key == TraceTagKey.LINKED_PROMPTS
 
     tag_value = json.loads(run_tag.value)
     assert tag_value == [{"name": "test_response", "version": "1"}]
