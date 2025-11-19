@@ -7,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.telemetry.installation_id import get_or_create_installation_id
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 
@@ -29,6 +30,7 @@ def _is_uuid(value: str) -> bool:
         return False
 
 
+@pytest.mark.skipif(is_windows(), reason="Windows uses a different path")
 def test_installation_id_persisted_and_reused(tmp_home):
     first = get_or_create_installation_id()
     assert _is_uuid(first)
