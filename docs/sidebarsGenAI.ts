@@ -283,22 +283,22 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track App Versions and Environments',
-            },
-            {
-              type: 'doc',
               id: 'tracing/collect-user-feedback/index',
               label: 'User Feedback Collection',
             },
             {
               type: 'doc',
               id: 'tracing/attach-tags/index',
-              label: 'Trace Tagging',
+              label: 'Tagging Traces',
             },
             {
               type: 'doc',
               id: 'tracing/observe-with-traces/delete-traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/track-environments-context/index',
+              label: 'Track Application Versions',
             },
             {
               type: 'doc',
@@ -308,7 +308,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK Optimized for Production Usage',
+              label: 'Lightweight Tracing SDK',
             },
           ],
         },
