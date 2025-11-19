@@ -964,6 +964,25 @@ service MlflowService {
     };
   }
 
+  // Query aggregated metrics for traces, spans, or assessments.
+  // Supports grouping by dimensions and time-based aggregation.
+  rpc queryTraceMetrics(QueryTraceMetrics) returns (QueryTraceMetrics.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/traces/metrics"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Query Trace Metrics"
+    };
+  }
+
   rpc createLoggedModel(CreateLoggedModel) returns (CreateLoggedModel.Response) {
     option (rpc) = {
       endpoints: [
@@ -2733,6 +2752,125 @@ message CalculateTraceFilterCorrelation {
     // Total number of traces in the experiments.
     optional int32 total_count = 6;
   }
+}
+
+// Aggregation type for metrics.
+enum AggregationType {
+  // Count of entities.
+  COUNT = 1;
+  // Sum of values.
+  SUM = 2;
+  // Average of values.
+  AVG = 3;
+  // Minimum value.
+  MIN = 4;
+  // Maximum value.
+  MAX = 5;
+  // 25th percentile.
+  P25 = 6;
+  // 50th percentile (median).
+  P50 = 7;
+  // 75th percentile.
+  P75 = 8;
+  // 90th percentile.
+  P90 = 9;
+  // 95th percentile.
+  P95 = 10;
+  // 99th percentile.
+  P99 = 11;
+}
+
+// Time granularity for time-based aggregation.
+enum TimeGranularity {
+  // Group by minute.
+  MINUTE = 1;
+  // Group by hour.
+  HOUR = 2;
+  // Group by day.
+  DAY = 3;
+  // Group by week.
+  WEEK = 4;
+  // Group by month.
+  MONTH = 5;
+}
+
+// View type for metrics aggregation.
+enum MetricsViewType {
+  // Aggregate at trace level.
+  TRACES = 1;
+  // Aggregate at span level.
+  SPANS = 2;
+  // Aggregate at assessment level.
+  ASSESSMENTS = 3;
+}
+
+// Query aggregated metrics for traces, spans, or assessments.
+message QueryTraceMetrics {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // Required: The experiment IDs to search traces.
+  repeated string experiment_ids = 1;
+
+  // Required: The level at which to aggregate metrics.
+  optional MetricsViewType view_type = 2;
+
+  // Required: The measure to query (e.g., "trace", "latency", "token_count").
+  optional string measure = 3;
+
+  // Required: The aggregation types to apply.
+  repeated AggregationType aggregation_type = 4;
+
+  // Optional: Dimensions to group metrics by.
+  repeated string dimensions = 5;
+
+  // Optional: Filter expressions to apply.
+  repeated string filters = 6;
+
+  // Optional: Time granularity for grouping.
+  // When set, results automatically include a time dimension grouped by
+  // the specified granularity (e.g., DAY, HOUR).
+  optional TimeGranularity time_granularity = 7;
+
+  // Optional: Start of time range in milliseconds since epoch.
+  // Required if time_granularity is set.
+  optional int64 start_time_ms = 8;
+
+  // Optional: End of time range in milliseconds since epoch.
+  // Required if time_granularity is set.
+  optional int64 end_time_ms = 9;
+
+  // Optional: Maximum number of data points to return.
+  // Default: 1000
+  optional int32 max_results = 10 [default = 1000];
+
+  // Optional: Pagination token for fetching the next page of results.
+  optional string page_token = 11;
+
+  message Response {
+    // Data points grouped by dimensions.
+    repeated MetricDataPoint data_points = 1;
+
+    // Pagination token for fetching the next page.
+    // Empty if no more results are available.
+    optional string next_page_token = 2;
+  }
+}
+
+// A single data point with dimension values and metric values.
+message MetricDataPoint {
+  // Dimension values for this data point.
+  // Keys correspond to the requested dimensions.
+  // Examples:
+  //   {"trace_status": "OK", "time_bucket": "2025-11-13"}
+  //   {"span_type": "LLM", "span_status": "OK"}
+  map<string, string> dimensions = 1;
+
+  // Metric values for this data point.
+  // Keys are in format "{measure}.{aggregation}".
+  // Examples:
+  //   {"trace.count": "150"}
+  //   {"latency.avg": "234.5", "latency.p95": "450.0"}
+  map<string, string> metrics = 2;
 }
 
 message SetTraceTag {
