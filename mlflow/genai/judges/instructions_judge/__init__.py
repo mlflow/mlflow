@@ -29,7 +29,7 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
-    resolve_conversation_from_session_traces,
+    resolve_conversation_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
@@ -190,7 +190,7 @@ class InstructionsJudge(Judge):
         self,
         expectations: dict[str, Any] | None,
         trace: Trace | None,
-        session_traces: list[Trace] | None,
+        session: list[Trace] | None,
     ) -> None:
         """Validate that parameters have correct types."""
         if expectations is not None and not isinstance(expectations, dict):
@@ -203,20 +203,19 @@ class InstructionsJudge(Judge):
                 f"'trace' must be a Trace object, got {type(trace).__name__}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if session_traces is not None and not isinstance(session_traces, list):
+        if session is not None and not isinstance(session, list):
             raise MlflowException(
-                f"'session_traces' must be a list of Trace objects, "
-                f"got {type(session_traces).__name__}",
+                f"'session' must be a list of Trace objects, got {type(session).__name__}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        if session_traces is not None and not all(
-            isinstance(trace, Trace) for trace in session_traces
-        ):
-            raise MlflowException(
-                f"All elements in 'session_traces' must be Trace objects, "
-                f"got {type(session_traces[0]).__name__}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
+        if session is not None:
+            for i, trace in enumerate(session):
+                if not isinstance(trace, Trace):
+                    raise MlflowException(
+                        f"All elements in 'session' must be Trace objects, "
+                        f"got {type(trace).__name__} at index {i}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
     def _check_required_parameters(
         self,
@@ -224,7 +223,7 @@ class InstructionsJudge(Judge):
         outputs: Any | None,
         expectations: dict[str, Any] | None,
         trace: Trace | None,
-        session_traces: list[Trace] | None,
+        session: list[Trace] | None,
     ) -> None:
         """Check that all required parameters are provided."""
         missing_params = []
@@ -236,11 +235,8 @@ class InstructionsJudge(Judge):
             missing_params.append("expectations")
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
             missing_params.append("trace")
-        if (
-            self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
-            and session_traces is None
-        ):
-            missing_params.append("session_traces")
+        if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
+            missing_params.append("session")
 
         if missing_params:
             missing_str = "', '".join(missing_params)
@@ -249,15 +245,17 @@ class InstructionsJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
-    def _validate_session_traces(self, session_traces: list[Trace]) -> None:
-        """Validate that all session traces belong to the same session."""
+    def _validate_session(self, session: list[Trace]) -> None:
+        """Validate that all traces in session belong to the same session."""
         session_id_to_trace_ids: dict[str, list[str]] = {}
-        for trace in session_traces:
+        for trace in session:
             session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
             if session_id is None:
                 raise MlflowException(
-                    f"All traces in session_traces must have a session_id. "
-                    f"Trace {trace.info.trace_id} is missing session_id.",
+                    f"All traces in 'session' must have a session_id. "
+                    f"Trace {trace.info.trace_id} is missing session_id. "
+                    f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
+                    f"for information on how to set session_id on traces.",
                     error_code=INVALID_PARAMETER_VALUE,
                 )
             if session_id not in session_id_to_trace_ids:
@@ -266,11 +264,16 @@ class InstructionsJudge(Judge):
 
         if len(session_id_to_trace_ids) != 1:
             session_details = "\n".join(
-                f"session_id '{sid}': trace_ids {trace_ids}"
+                f"session_id '{sid}': trace_ids {trace_ids[:3]}"
+                + (
+                    f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
+                    if len(trace_ids) > 3
+                    else ""
+                )
                 for sid, trace_ids in session_id_to_trace_ids.items()
             )
             raise MlflowException.invalid_parameter_value(
-                f"All traces in session_traces must belong to the same session. "
+                f"All traces in 'session' must belong to the same session. "
                 f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
             )
 
@@ -434,7 +437,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-        session_traces: list[Trace] | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
@@ -448,7 +451,7 @@ class InstructionsJudge(Judge):
                 will be extracted from the trace's expectation assessments.
             trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
                 or {{ expectations }}, the values will be extracted from the trace.
-            session_traces: List of traces from the same session. When the template uses
+            session: List of traces from the same session. When the template uses
                 {{ conversation }}, the conversation history will be extracted from these traces.
 
         Returns:
@@ -465,13 +468,13 @@ class InstructionsJudge(Judge):
           - inputs/outputs: From the trace's root span
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 
-        **Note on Session Traces Behavior**:
+        **Note on Session Behavior**:
         - Traces are expected to be in the same session and exception will be raised
           if they are not.
         - The conversation history will be extracted from the traces in chronological order.
         """
 
-        self._validate_parameter_types(expectations, trace, session_traces)
+        self._validate_parameter_types(expectations, trace, session)
 
         original_inputs = inputs
         original_outputs = outputs
@@ -495,9 +498,9 @@ class InstructionsJudge(Judge):
             )
 
         conversation = None
-        if session_traces is not None and session_traces:
-            self._validate_session_traces(session_traces)
-            conversation = resolve_conversation_from_session_traces(session_traces)
+        if session is not None and session:
+            self._validate_session(session)
+            conversation = resolve_conversation_from_session(session)
 
         self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(

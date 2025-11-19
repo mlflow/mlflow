@@ -2943,8 +2943,8 @@ def test_conversation_with_other_variables_rejected():
         )
 
 
-def test_session_traces_validation_type_error():
-    """Test that session_traces must be a list."""
+def test_session_validation_type_error():
+    """Test that session must be a list."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2952,14 +2952,12 @@ def test_session_traces_validation_type_error():
         model="openai:/gpt-4",
     )
 
-    with pytest.raises(
-        MlflowException, match="'session_traces' must be a list of Trace objects, got str"
-    ):
-        judge(session_traces="not a list")
+    with pytest.raises(MlflowException, match="'session' must be a list of Trace objects, got str"):
+        judge(session="not a list")
 
 
-def test_session_traces_validation_not_all_traces():
-    """Test that all elements in session_traces must be Trace objects."""
+def test_session_validation_not_all_traces():
+    """Test that all elements in session must be Trace objects."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2967,10 +2965,8 @@ def test_session_traces_validation_not_all_traces():
         model="openai:/gpt-4",
     )
 
-    with pytest.raises(
-        MlflowException, match="All elements in 'session_traces' must be Trace objects"
-    ):
-        judge(session_traces=["not a trace", "also not a trace"])
+    with pytest.raises(MlflowException, match="All elements in 'session' must be Trace objects"):
+        judge(session=["not a trace", "also not a trace"])
 
 
 def create_trace_with_session(
@@ -3016,8 +3012,8 @@ def create_trace_with_session(
     return Trace(info=trace_info, data=trace_data)
 
 
-def test_validate_session_traces_missing_session_id():
-    """Test that _validate_session_traces raises error when trace is missing session_id."""
+def test_validate_session_missing_session_id():
+    """Test that _validate_session raises error when trace is missing session_id."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3029,39 +3025,15 @@ def test_validate_session_traces_missing_session_id():
 
     with pytest.raises(
         MlflowException,
-        match="All traces in session_traces must have a session_id",
+        match="All traces in 'session' must have a session_id",
     ):
-        judge._validate_session_traces([trace_without_session])
+        judge._validate_session([trace_without_session])
 
 
-def test_validate_session_traces_different_sessions():
-    """Test that _validate_session_traces raises error when traces belong to different sessions."""
-    judge = make_judge(
-        name="conversation_judge",
-        instructions="Evaluate {{ conversation }}",
-        feedback_value_type=str,
-        model="openai:/gpt-4",
-    )
-
-    trace1 = create_trace_with_session("trace-1", "session-1")
-    trace2 = create_trace_with_session("trace-2", "session-2")
-
-    with pytest.raises(
-        MlflowException,
-        match="All traces in session_traces must belong to the same session",
-    ) as exception_info:
-        judge._validate_session_traces([trace1, trace2])
-
-    # Verify the exception message includes trace_ids grouped by session_id
-    error_message = str(exception_info.value)
-    assert "Found 2 different session(s):" in error_message
-    assert "session_id 'session-1': trace_ids ['trace-1']" in error_message
-    assert "session_id 'session-2': trace_ids ['trace-2']" in error_message
-
-
-def test_validate_session_traces_different_sessions_multiple_traces():
-    """Test that _validate_session_traces shows all trace_ids when multiple traces
-    belong to different sessions.
+def test_validate_session_different_sessions():
+    """Test that _validate_session raises error and shows trace_ids grouped by session_id
+    when traces belong to different sessions. Also verifies truncation when there are more than 3
+    traces.
     """
     judge = make_judge(
         name="conversation_judge",
@@ -3070,33 +3042,37 @@ def test_validate_session_traces_different_sessions_multiple_traces():
         model="openai:/gpt-4",
     )
 
+    # Create traces: session-1 has 5 traces (will be truncated),
+    # session-2 has 2 traces, session-3 has 1 trace
     trace1 = create_trace_with_session("trace-1", "session-1")
     trace2 = create_trace_with_session("trace-2", "session-1")
-    trace3 = create_trace_with_session("trace-3", "session-2")
-    trace4 = create_trace_with_session("trace-4", "session-2")
-    trace5 = create_trace_with_session("trace-5", "session-3")
+    trace3 = create_trace_with_session("trace-3", "session-1")
+    trace4 = create_trace_with_session("trace-4", "session-1")
+    trace5 = create_trace_with_session("trace-5", "session-1")
+    trace6 = create_trace_with_session("trace-6", "session-2")
+    trace7 = create_trace_with_session("trace-7", "session-2")
+    trace8 = create_trace_with_session("trace-8", "session-3")
 
     with pytest.raises(
         MlflowException,
-        match="All traces in session_traces must belong to the same session",
+        match="All traces in 'session' must belong to the same session",
     ) as exception_info:
-        judge._validate_session_traces([trace1, trace2, trace3, trace4, trace5])
+        judge._validate_session([trace1, trace2, trace3, trace4, trace5, trace6, trace7, trace8])
 
-    # Verify the exception message includes all trace_ids grouped by session_id
+    # Verify the exception message includes trace_ids grouped by session_id and truncates when >3
     error_message = str(exception_info.value)
-    assert "Found 3 different session(s):" in error_message
-    assert "session_id 'session-1': trace_ids" in error_message
-    assert "trace-1" in error_message
-    assert "trace-2" in error_message
-    assert "session_id 'session-2': trace_ids" in error_message
-    assert "trace-3" in error_message
-    assert "trace-4" in error_message
-    assert "session_id 'session-3': trace_ids" in error_message
-    assert "trace-5" in error_message
+    expected_message = (
+        "All traces in 'session' must belong to the same session. "
+        "Found 3 different session(s):\n"
+        "session_id 'session-1': trace_ids ['trace-1', 'trace-2', 'trace-3'] and 2 more traces\n"
+        "session_id 'session-2': trace_ids ['trace-6', 'trace-7']\n"
+        "session_id 'session-3': trace_ids ['trace-8']"
+    )
+    assert error_message == expected_message
 
 
-def test_validate_session_traces_same_session():
-    """Test that _validate_session_traces passes when all traces belong to the same session."""
+def test_validate_session_same_session():
+    """Test that _validate_session passes when all traces belong to the same session."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3108,10 +3084,10 @@ def test_validate_session_traces_same_session():
     trace2 = create_trace_with_session("trace-2", "session-1")
 
     # Should not raise
-    judge._validate_session_traces([trace1, trace2])
+    judge._validate_session([trace1, trace2])
 
 
-def test_conversation_extraction_from_session_traces(mock_invoke_judge_model):
+def test_conversation_extraction_from_session(mock_invoke_judge_model):
     """Test that conversation is correctly extracted from session traces."""
     judge = make_judge(
         name="conversation_judge",
@@ -3135,7 +3111,7 @@ def test_conversation_extraction_from_session_traces(mock_invoke_judge_model):
         timestamp_ms=2000,
     )
 
-    result = judge(session_traces=[trace1, trace2])
+    result = judge(session=[trace1, trace2])
 
     assert isinstance(result, Feedback)
     assert len(mock_invoke_judge_model.calls) == 1
@@ -3143,11 +3119,25 @@ def test_conversation_extraction_from_session_traces(mock_invoke_judge_model):
 
     # Check that conversation is in the user message
     user_msg = prompt[1]
-    assert "conversation:" in user_msg.content
-    assert "What is MLflow?" in user_msg.content
-    assert "MLflow is an open source platform" in user_msg.content
-    assert "How do I use it?" in user_msg.content
-    assert "You can use mlflow.start_run()" in user_msg.content
+    expected_content = """conversation: [
+  {
+    "role": "user",
+    "content": "{'question': 'What is MLflow?'}"
+  },
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"MLflow is an open source platform\\"}"
+  },
+  {
+    "role": "user",
+    "content": "{'question': 'How do I use it?'}"
+  },
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"You can use mlflow.start_run()\\"}"
+  }
+]"""
+    assert user_msg.content == expected_content
 
 
 def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
@@ -3175,7 +3165,7 @@ def test_conversation_extraction_chronological_order(mock_invoke_judge_model):
         timestamp_ms=1000,
     )
 
-    judge(session_traces=[trace2, trace1])  # Pass in reverse order
+    judge(session=[trace2, trace1])  # Pass in reverse order
 
     _, prompt, _ = mock_invoke_judge_model.calls[0]
     user_msg = prompt[1]
@@ -3206,20 +3196,30 @@ def test_conversation_with_expectations(mock_invoke_judge_model):
 
     expectations = {"criteria": "Should be accurate and helpful"}
 
-    result = judge(session_traces=[trace1], expectations=expectations)
+    result = judge(session=[trace1], expectations=expectations)
 
     assert isinstance(result, Feedback)
     _, prompt, _ = mock_invoke_judge_model.calls[0]
     user_msg = prompt[1]
 
-    assert "conversation:" in user_msg.content
-    assert "expectations:" in user_msg.content
-    assert "What is MLflow?" in user_msg.content
-    assert "Should be accurate and helpful" in user_msg.content
+    expected_content = """conversation: [
+  {
+    "role": "user",
+    "content": "{'question': 'What is MLflow?'}"
+  },
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"MLflow is a platform\\"}"
+  }
+]
+expectations: {
+  "criteria": "Should be accurate and helpful"
+}"""
+    assert user_msg.content == expected_content
 
 
-def test_conversation_missing_session_traces():
-    """Test that missing session_traces raises error when conversation is required."""
+def test_conversation_missing_session():
+    """Test that missing session raises error when conversation is required."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3228,13 +3228,13 @@ def test_conversation_missing_session_traces():
     )
 
     with pytest.raises(
-        MlflowException, match="Must specify 'session_traces' - required by template variables"
+        MlflowException, match="Must specify 'session' - required by template variables"
     ):
         judge()
 
 
-def test_conversation_empty_session_traces():
-    """Test that empty session_traces list is handled."""
+def test_conversation_empty_session():
+    """Test that empty session list is handled."""
     judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -3243,12 +3243,12 @@ def test_conversation_empty_session_traces():
     )
 
     with pytest.raises(
-        MlflowException, match="Must specify 'session_traces' - required by template variables"
+        MlflowException, match="Must specify 'session' - required by template variables"
     ):
-        judge(session_traces=[])
+        judge(session=[])
 
 
-def test_conversation_with_empty_inputs_outputs_filtered(mock_invoke_judge_model):
+def test_conversation_with_empty_inputs_or_outputs(mock_invoke_judge_model):
     """Test that empty inputs/outputs are filtered out from conversation."""
     judge = make_judge(
         name="conversation_judge",
@@ -3272,14 +3272,23 @@ def test_conversation_with_empty_inputs_outputs_filtered(mock_invoke_judge_model
         timestamp_ms=2000,
     )
 
-    judge(session_traces=[trace1, trace2])
+    judge(session=[trace1, trace2])
 
     _, prompt, _ = mock_invoke_judge_model.calls[0]
     user_msg = prompt[1]
 
     # Should only contain non-empty messages
-    assert "Valid answer" in user_msg.content
-    assert "Valid question" in user_msg.content
+    expected_content = """conversation: [
+  {
+    "role": "assistant",
+    "content": "{\\"answer\\": \\"Valid answer\\"}"
+  },
+  {
+    "role": "user",
+    "content": "{'question': 'Valid question'}"
+  }
+]"""
+    assert user_msg.content == expected_content
 
 
 def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
@@ -3299,11 +3308,11 @@ def test_conversation_unused_parameter_warning(mock_invoke_judge_model):
     )
 
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
-        judge(outputs={"answer": "Test"}, session_traces=[trace1])
+        judge(outputs={"answer": "Test"}, session=[trace1])
 
         mock_logger.warning.assert_called_once()
         warning_msg = mock_logger.warning.call_args[0][0]
-        assert "conversation" in warning_msg or "session_traces" in warning_msg
+        assert "conversation" in warning_msg or "session" in warning_msg
         assert "not used by this judge" in warning_msg
 
 
@@ -3324,7 +3333,7 @@ def test_conversation_no_warning_when_used(mock_invoke_judge_model):
     )
 
     with patch("mlflow.genai.judges.instructions_judge._logger") as mock_logger:
-        judge(session_traces=[trace1])
+        judge(session=[trace1])
 
         # Should not warn about conversation being unused
         # Check that no warnings were called, or if they were, they're not about conversation

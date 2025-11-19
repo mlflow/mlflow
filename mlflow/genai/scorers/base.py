@@ -440,7 +440,7 @@ class Scorer(BaseModel):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
-        session_traces: list[Trace] | None = None,
+        session: list[Trace] | None = None,
     ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
@@ -496,7 +496,7 @@ class Scorer(BaseModel):
               - A trace object corresponding to the prediction for the row.
               - Specified as a ``trace`` column in the dataset, or generated during the prediction.
 
-            * - ``session_traces``
+            * - ``session``
               - A list of trace objects belonging to the same conversation session.
               - Available only for multi-turn scorers (scorers with ``is_multi_turn = True``).
                 * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
