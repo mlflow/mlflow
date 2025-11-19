@@ -2564,8 +2564,8 @@ message GetTrace {
   // ID of the trace to fetch. Must be provided.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Whether to allow partial traces. Default to True.
-  optional bool allow_partial = 2 [default = true];
+  // Whether to allow partial traces. Default to False.
+  optional bool allow_partial = 2 [default = false];
 
   message Response {
     // The fetched trace including spans.
