@@ -7,14 +7,14 @@ import pytest
 import mlflow
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.telemetry.installation_id import get_or_create_installation_id
-from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 
 @pytest.fixture
 def tmp_home(tmp_path, monkeypatch):
-    monkeypatch.setenv("HOME", str(tmp_path))
-    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)
+    monkeypatch.setenv("HOME", str(tmp_path))  # macos/linux
+    monkeypatch.delenv("XDG_CONFIG_HOME", raising=False)  # macos/linux with custom location
+    monkeypatch.setenv("APPDATA", str(tmp_path))  # windows
     return tmp_path
 
 
@@ -31,7 +31,6 @@ def _is_uuid(value: str) -> bool:
         return False
 
 
-@pytest.mark.skipif(is_windows(), reason="Windows uses a different path")
 def test_installation_id_persisted_and_reused(tmp_home):
     first = get_or_create_installation_id()
     assert _is_uuid(first)
@@ -78,13 +77,6 @@ def test_installation_id_not_created_when_telemetry_disabled(monkeypatch, tmp_ho
     set_telemetry_client()
     assert not (tmp_home / ".config" / "mlflow" / "telemetry.json").exists()
     assert get_telemetry_client() is None
-
-
-def test_installation_id_file_windows(monkeypatch, tmp_path):
-    monkeypatch.setenv("APPDATA", str(tmp_path))
-    with mock.patch("mlflow.telemetry.installation_id.is_windows", return_value=True):
-        set_telemetry_client()
-    assert (tmp_path / "mlflow" / "telemetry.json").exists()
 
 
 def test_get_or_create_installation_id_should_not_raise():
