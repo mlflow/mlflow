@@ -5,8 +5,9 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
-import { Typography } from '@databricks/design-system';
+import { DesignSystemProvider, Typography } from '@databricks/design-system';
 import { shallowWithIntl, mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 import { ArtifactView, ArtifactViewImpl } from './ArtifactView';
 import ShowArtifactTextView from './artifact-view-components/ShowArtifactTextView';
@@ -51,9 +52,11 @@ describe('ArtifactView', () => {
   const getWrapper = (fakeStore: any, mockProps: any) =>
     mountWithIntl(
       <Provider store={fakeStore}>
-        <BrowserRouter>
-          <ArtifactView {...mockProps} />
-        </BrowserRouter>
+        <DesignSystemProvider>
+          <BrowserRouter>
+            <ArtifactView {...mockProps} />
+          </BrowserRouter>
+        </DesignSystemProvider>
       </Provider>,
     );
   beforeEach(() => {

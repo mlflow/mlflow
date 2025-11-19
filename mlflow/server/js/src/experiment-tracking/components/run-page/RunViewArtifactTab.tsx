@@ -1,14 +1,16 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import type { KeyValueEntity } from '../../../common/types';
 import ArtifactPage from '../ArtifactPage';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
-import type { UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
+import { useGetRunQuery, type UseGetRunQueryResponseOutputs } from './hooks/useGetRunQuery';
+import { useMemo } from 'react';
+import { keyBy } from 'lodash';
 
 /**
  * A run page tab containing the artifact browser
  */
 export const RunViewArtifactTab = ({
-  runTags,
+  runTags: tagsFromSearchRuns,
   experimentId,
   runOutputs,
   artifactUri,
@@ -24,6 +26,9 @@ export const RunViewArtifactTab = ({
 
   // Use scrollable artifact area only for non-xs screens
   const useFullHeightPage = useMediaQuery(`(min-width: ${theme.responsive.breakpoints.sm}px)`);
+
+  const runTags = tagsFromSearchRuns;
+  const runTagsList = useMemo(() => Object.values(runTags), [runTags]);
 
   return (
     <div
@@ -42,6 +47,7 @@ export const RunViewArtifactTab = ({
         useAutoHeight={useFullHeightPage}
         artifactRootUri={artifactUri}
         experimentId={experimentId}
+        entityTags={runTagsList}
       />
     </div>
   );

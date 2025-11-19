@@ -123,7 +123,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.80.0",
-            "maximum": "0.203.1"
+            "maximum": "1.4.1"
         }
     },
     "agno": {
@@ -369,15 +369,6 @@ _ML_PACKAGE_VERSIONS = {
             "maximum": "2.0.4"
         }
     },
-    "diviner": {
-        "package_info": {
-            "pip_release": "diviner"
-        },
-        "models": {
-            "minimum": "0.1.1",
-            "maximum": "0.1.1"
-        }
-    },
     "h2o": {
         "package_info": {
             "pip_release": "h2o"
@@ -448,15 +439,6 @@ _ML_PACKAGE_VERSIONS = {
         "models": {
             "minimum": "5.1.8",
             "maximum": "6.1.1"
-        }
-    },
-    "promptflow": {
-        "package_info": {
-            "pip_release": "promptflow"
-        },
-        "models": {
-            "minimum": "1.3.0",
-            "maximum": "1.18.1"
         }
     }
 }

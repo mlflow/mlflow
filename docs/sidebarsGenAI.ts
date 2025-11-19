@@ -9,33 +9,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MLflow 3.0',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'mlflow-3/deep-learning',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/genai-agent',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/breaking-changes',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/faqs',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'mlflow-3/index',
-      },
-    },
-    {
-      type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
@@ -578,8 +551,18 @@ const sidebarsGenAI: SidebarsConfig = {
           id: 'prompt-registry/structured-output',
         },
         {
-          type: 'doc',
-          id: 'prompt-registry/optimize-prompts',
+          type: 'category',
+          label: 'Optimize Prompts',
+          link: {
+            type: 'doc',
+            id: 'prompt-registry/optimize-prompts',
+          },
+          items: [
+            {
+              type: 'doc',
+              id: 'prompt-registry/optimize-prompts/openai-agent-optimization',
+            },
+          ],
         },
         {
           type: 'doc',

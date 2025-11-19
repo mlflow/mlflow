@@ -1,3 +1,4 @@
+import { jest, describe, it, expect } from '@jest/globals';
 import { render, screen, waitFor } from '@testing-library/react';
 import PromptsPage from './PromptsPage';
 import { QueryClientProvider, QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -12,6 +13,7 @@ import {
   getMockedRegisteredPromptsResponse,
   getMockedRegisteredPromptVersionSetTagsResponse,
 } from './test-utils';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // eslint-disable-next-line no-restricted-syntax -- TODO(FEINF-4392)
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
@@ -26,7 +28,12 @@ describe('PromptsPage', () => {
         <IntlProvider locale="en">
           <TestRouter
             routes={[
-              testRoute(<QueryClientProvider client={queryClient}>{children}</QueryClientProvider>, '/'),
+              testRoute(
+                <DesignSystemProvider>
+                  <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+                </DesignSystemProvider>,
+                '/',
+              ),
               testRoute(<div />, '*'),
             ]}
             initialEntries={['/']}
@@ -175,7 +182,7 @@ describe('PromptsPage', () => {
       name: 'prompt8',
       description: 'commit message',
     });
-    expect(payload.tags).toEqual(
+    expect((payload as any).tags).toEqual(
       expect.arrayContaining([
         { key: 'mlflow.prompt.is_prompt', value: 'true' },
         { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },

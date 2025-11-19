@@ -1,3 +1,5 @@
+import { useCallback } from 'react';
+
 import {
   NewWindowIcon,
   SpeechBubbleIcon,
@@ -6,8 +8,11 @@ import {
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage } from '@databricks/i18n';
+
+import { shouldEnableChatSessionsTab } from './FeatureUtils';
 import { getExperimentChatSessionPageRoute } from './MlflowUtils';
+import { ModelTraceHeaderMetricSection } from './ModelTraceExplorerMetricSection';
 import { Link } from './RoutingUtils';
 
 const ID_MAX_LENGTH = 10;
@@ -15,12 +20,31 @@ const ID_MAX_LENGTH = 10;
 export const ModelTraceHeaderSessionIdTag = ({
   experimentId,
   sessionId,
+  handleCopy,
 }: {
   experimentId: string;
   sessionId: string;
+  handleCopy: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const truncatedSessionId = sessionId.length > ID_MAX_LENGTH ? `${sessionId.slice(0, ID_MAX_LENGTH)}...` : sessionId;
+  const getTruncatedLabel = useCallback(
+    (label: string) => (label.length > ID_MAX_LENGTH ? `${label.slice(0, ID_MAX_LENGTH)}...` : label),
+    [],
+  );
+
+  if (!shouldEnableChatSessionsTab()) {
+    return (
+      <ModelTraceHeaderMetricSection
+        label={<FormattedMessage defaultMessage="Session ID" description="Label for the session id section" />}
+        icon={<SpeechBubbleIcon css={{ fontSize: 12, display: 'flex' }} />}
+        value={sessionId}
+        color="default"
+        getTruncatedLabel={getTruncatedLabel}
+        onCopy={handleCopy}
+      />
+    );
+  }
 
   return (
     <div
