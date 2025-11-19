@@ -53,22 +53,19 @@ export const ExperimentEvaluationRunsRowVisibilityProvider = ({ children }: { ch
     [hiddenRuns, visibilityMode],
   );
 
-  const toggleRowVisibility = useCallback(
-    (rowUuid: string) => {
-      setHiddenRuns((prevHiddenRuns) => {
-        const newHiddenRuns = new Set(prevHiddenRuns);
-        if (newHiddenRuns.has(rowUuid)) {
-          newHiddenRuns.delete(rowUuid);
-        } else {
-          newHiddenRuns.add(rowUuid);
-        }
-        return newHiddenRuns;
-      });
-      // Switch to custom mode when manually toggling
-      setVisibilityModeState(RUNS_VISIBILITY_MODE.CUSTOM);
-    },
-    [],
-  );
+  const toggleRowVisibility = useCallback((rowUuid: string) => {
+    setHiddenRuns((prevHiddenRuns) => {
+      const newHiddenRuns = new Set(prevHiddenRuns);
+      if (newHiddenRuns.has(rowUuid)) {
+        newHiddenRuns.delete(rowUuid);
+      } else {
+        newHiddenRuns.add(rowUuid);
+      }
+      return newHiddenRuns;
+    });
+    // Switch to custom mode when manually toggling
+    setVisibilityModeState(RUNS_VISIBILITY_MODE.CUSTOM);
+  }, []);
 
   const setVisibilityMode = useCallback((mode: RUNS_VISIBILITY_MODE) => {
     setVisibilityModeState(mode);
