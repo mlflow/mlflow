@@ -3,5 +3,9 @@ import { ExperimentChatSessionsGenericErrorState } from './ExperimentChatSession
 import { MonitoringConfigProvider } from '../../hooks/useMonitoringConfig';
 
 export const ExperimentChatSessionsPageWrapper = ({ children }: { children: React.ReactNode }) => {
-  return <ErrorBoundary fallback={<ExperimentChatSessionsGenericErrorState />}>{children}</ErrorBoundary>;
+  return (
+    <ErrorBoundary fallback={<ExperimentChatSessionsGenericErrorState />}>
+      <MonitoringConfigProvider>{children}</MonitoringConfigProvider>
+    </ErrorBoundary>
+  );
 };
