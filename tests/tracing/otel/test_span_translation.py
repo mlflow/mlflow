@@ -345,6 +345,18 @@ def test_translate_inputs_outputs_edge_cases(
             {"key": "string"},
             {"key": "string"},
         ),
+        (
+            {"key": json.dumps(True)},
+            {"key": "true"},
+        ),
+        (
+            {"key": json.dumps(123)},
+            {"key": "123"},
+        ),
+        (
+            {"key": json.dumps([1, 2, 3])},
+            {"key": "[1, 2, 3]"},
+        ),
     ],
 )
 def test_sanitize_attributes(attributes: dict[str, Any], expected_attributes: dict[str, Any]):

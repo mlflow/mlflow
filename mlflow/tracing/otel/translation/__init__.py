@@ -216,8 +216,9 @@ def sanitize_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
                 try:
                     # If the original value is a string or dict, we store it as
                     # a JSON-encoded string.  For other types, we store the original value directly.
-                    # This is to avoid the case where the value might be "1" (a string)
-                    # which could be interpreted as an int accidentally.
+                    # For string type, this is to avoid interpreting "1" as an int accidentally.
+                    # For dictionary, we save the json-encoded-once string so that the UI can render
+                    # it correctly after loading.
                     if isinstance(json.loads(result), (str, dict)):
                         updated_attributes[key] = result
                         continue
