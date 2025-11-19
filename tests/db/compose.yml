@@ -12,7 +12,7 @@ services:
       DISABLE_RESET_MLFLOW_URI_FIXTURE: "true"
 
   postgresql:
-    image: postgres
+    image: postgres@sha256:c1f0abd909b477d6088c72e4cd6eb01ea525344caca1b58689ae884204369502
     restart: always
     environment:
       POSTGRES_DB: mlflowdb
@@ -38,7 +38,7 @@ services:
     command: tests/db/check_migration.sh
 
   mysql:
-    image: mysql
+    image: mysql@sha256:569c4128dfa625ac2ac62cdd8af588a3a6a60a049d1a8d8f0fac95880ecdbbe5
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: root-password
@@ -65,7 +65,7 @@ services:
     command: tests/db/check_migration.sh
 
   mssql:
-    image: mcr.microsoft.com/mssql/server
+    image: mcr.microsoft.com/mssql/server@sha256:54b23ca766287dab5f6f55162923325f07cdec6ccb42108f37c55c87e7688ebd
     restart: always
     environment:
       ACCEPT_EULA: Y

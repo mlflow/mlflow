@@ -305,18 +305,21 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
-          // Redirect mlflow 3 pages
+          // Redirect mlflow 3 pages to migration guide
           {
-            to: '/genai/mlflow-3',
-            from: ['/mlflow-3', '/ml/mlflow-3'],
-          },
-          {
-            to: '/genai/mlflow-3/deep-learning',
-            from: ['/mlflow-3/deep-learning'],
-          },
-          {
-            to: '/genai/mlflow-3/genai-agent',
-            from: ['/mlflow-3/genai-agent'],
+            to: '/ml/mlflow-3',
+            from: [
+              '/mlflow-3',
+              '/genai/mlflow-3',
+              '/genai/mlflow-3/deep-learning',
+              '/mlflow-3/deep-learning',
+              '/genai/mlflow-3/genai-agent',
+              '/mlflow-3/genai-agent',
+              '/genai/mlflow-3/breaking-changes',
+              '/mlflow-3/breaking-changes',
+              '/genai/mlflow-3/faqs',
+              '/mlflow-3/faqs',
+            ],
           },
           {
             to: '/genai/getting-started/databricks-trial',
@@ -746,8 +749,12 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
+          },
+          {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
           },
           {
             to: '/ml/deep-learning/pytorch',
@@ -761,6 +768,15 @@ const config: Config = {
               '/ml/deep-learning/pytorch/guide',
               '/deep-learning/pytorch/quickstart/pytorch_quickstart',
               '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
+          },
+          // Redirect consolidated spaCy guide to index
+          {
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
             ],
           },
           {

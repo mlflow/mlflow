@@ -9,33 +9,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'MLflow 3.0',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'mlflow-3/deep-learning',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/genai-agent',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/breaking-changes',
-        },
-        {
-          type: 'doc',
-          id: 'mlflow-3/faqs',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'mlflow-3/index',
-      },
-    },
-    {
-      type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
@@ -310,22 +283,22 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/track-environments-context/index',
-              label: 'Track App Versions and Environments',
-            },
-            {
-              type: 'doc',
               id: 'tracing/collect-user-feedback/index',
               label: 'User Feedback Collection',
             },
             {
               type: 'doc',
               id: 'tracing/attach-tags/index',
-              label: 'Trace Tagging',
+              label: 'Tagging Traces',
             },
             {
               type: 'doc',
               id: 'tracing/observe-with-traces/delete-traces',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/track-environments-context/index',
+              label: 'Track Application Versions',
             },
             {
               type: 'doc',
@@ -335,7 +308,7 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/lightweight-sdk',
-              label: 'Lightweight Tracing SDK Optimized for Production Usage',
+              label: 'Lightweight Tracing SDK',
             },
           ],
         },
