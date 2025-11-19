@@ -186,5 +186,5 @@ class EvaluationResult:
 
     # For backwards compatibility
     @property
-    def tables(self) -> pd.DataFrame:
-        return {"eval_results": self.result_df} if self.result_df else {}
+    def tables(self) -> dict[str, pd.DataFrame]:
+        return {"eval_results": self.result_df} if self.result_df is not None else {}
