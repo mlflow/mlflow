@@ -118,6 +118,15 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
+    def is_multi_turn(self) -> bool:
+        """Get whether this scorer is a multi-turn scorer.
+
+        Defaults to False. Child classes can override this property to return True
+        or compute the value dynamically based on their configuration.
+        """
+        return False
+
+    @property
     def sample_rate(self) -> float | None:
         """Get the sample rate for this scorer. Available when registered for monitoring."""
         return self._sampling_config.sample_rate if self._sampling_config else None
@@ -431,6 +440,7 @@ class Scorer(BaseModel):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> int | float | bool | str | Feedback | list[Feedback]:
         """
         Implement the custom scorer's logic here.
@@ -485,6 +495,12 @@ class Scorer(BaseModel):
             * - ``trace``
               - A trace object corresponding to the prediction for the row.
               - Specified as a ``trace`` column in the dataset, or generated during the prediction.
+
+            * - ``session``
+              - A list of trace objects belonging to the same conversation session.
+              - Available only for multi-turn scorers (scorers with ``is_multi_turn = True``).
+                * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
+                  this parameter, otherwise an error will be raised.
 
         Example:
 
