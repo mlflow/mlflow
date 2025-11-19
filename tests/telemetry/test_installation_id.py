@@ -48,6 +48,14 @@ def test_installation_id_persisted_and_reused(tmp_home):
     assert second == first
 
 
+def test_installation_id_saved_to_xdg_config_dir_if_set(monkeypatch, tmp_home):
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_home))
+    first = get_or_create_installation_id()
+    assert _is_uuid(first)
+    path = tmp_home / "mlflow" / "telemetry.json"
+    assert path.exists()
+
+
 def test_installation_id_corrupted_file(tmp_home):
     # If the file is corrupted, installation ID should be recreated
     dir_path = tmp_home / ".config" / "mlflow"
@@ -82,5 +90,6 @@ def test_get_or_create_installation_id_should_not_raise():
     with mock.patch(
         "mlflow.telemetry.installation_id._load_installation_id_from_disk",
         side_effect=Exception("test"),
-    ):
+    ) as mocked:
         assert get_or_create_installation_id() is None
+        mocked.assert_called_once()
