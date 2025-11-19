@@ -175,21 +175,9 @@ class KEKManager:
 
         if not passphrase:
             raise MlflowException(
-                "MLFLOW_SECRETS_KEK_PASSPHRASE environment variable is required for "
-                "secrets management.\n\n"
-                "This passphrase is used to encrypt secrets in the database and must be set "
-                "on the MLflow server.\n\n"
-                "SECURITY: Use a high-entropy passphrase (32+ characters) from your secrets "
-                "manager to ensure strong protection.\n\n"
-                "For local development:\n"
-                "  export MLFLOW_SECRETS_KEK_PASSPHRASE='my-dev-secret-at-least-32-chars'\n\n"
-                "For production (use your secrets manager):\n"
-                "  export MLFLOW_SECRETS_KEK_PASSPHRASE='$(vault kv get "
-                "-field=passphrase mlflow/kek)'\n\n"
-                "For Kubernetes:\n"
-                "  Store passphrase in a Secret and inject via secretKeyRef\n\n"
-                "IMPORTANT: Users do NOT need this passphrase - only server administrators.\n"
-                "Users connect to the MLflow server over HTTPS and create secrets normally.",
+                "MLFLOW_SECRETS_KEK_PASSPHRASE environment variable is required. "
+                "Server administrators must set a passphrase (32+ characters) to encrypt secrets. "
+                "Example: export MLFLOW_SECRETS_KEK_PASSPHRASE='your-secure-passphrase-here'",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 

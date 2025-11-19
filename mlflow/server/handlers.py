@@ -3786,9 +3786,19 @@ def _list_secrets():
             "is_shared": [_assert_bool],
         },
     )
-    secrets = _get_tracking_store()._list_secrets(
-        is_shared=request_message.is_shared if request_message.HasField("is_shared") else None,
-    )
+
+    is_shared = request_message.is_shared if request_message.HasField("is_shared") else None
+
+    try:
+        secrets = _get_tracking_store()._list_secrets(is_shared=is_shared)
+    except NotImplementedError:
+        raise MlflowException(
+            "Secrets management requires a SQL backend. "
+            "FileStore does not support this feature. "
+            "Please use a database backend (e.g., 'sqlite:///mlflow.db').",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
     response_message = ListSecrets.Response()
     response_message.secrets.extend([s.to_proto() for s in secrets])
     return _wrap_response(response_message)
