@@ -26,9 +26,9 @@ export const EvalRunsVisibilityHeaderCell = React.memo(() => {
             description: 'Evaluation runs table > toggle visibility of runs > accessible label',
           })}
         >
-          {visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL || 
-           visibilityMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS || 
-           allRunsHidden ? (
+          {visibilityMode === RUNS_VISIBILITY_MODE.HIDEALL ||
+          visibilityMode === RUNS_VISIBILITY_MODE.HIDE_FINISHED_RUNS ||
+          allRunsHidden ? (
             <VisibleOffIcon />
           ) : (
             <VisibleIcon />
@@ -106,4 +106,3 @@ const styles = {
     },
   }),
 };
-
