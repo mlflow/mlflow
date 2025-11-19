@@ -140,8 +140,10 @@ export interface TraceActions {
     setShowExportTracesToDatasetsModal: (visible: boolean) => void;
     renderExportTracesToDatasetsModal: ({
       selectedTraceInfos,
+      onSuccess,
     }: {
       selectedTraceInfos: ModelTraceInfoV3[];
+      onSuccess?: (args: { experimentId: string; datasetId: string; datasetName: string; count: number }) => void;
     }) => React.ReactNode;
   };
   deleteTracesAction?: {

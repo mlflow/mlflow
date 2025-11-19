@@ -16,7 +16,7 @@ export const useUpsertDatasetRecordsMutation = ({
   onSuccess,
   onError,
 }: {
-  onSuccess?: () => void;
+  onSuccess?: (args: { data: UpsertDatasetRecordsResponse; variables: UpsertDatasetRecordsPayload }) => void;
   onError?: (error: any) => void;
 }) => {
   const { mutate: upsertDatasetRecordsMutation, isLoading } = useMutation({
@@ -34,8 +34,8 @@ export const useUpsertDatasetRecordsMutation = ({
 
       return response;
     },
-    onSuccess: () => {
-      onSuccess?.();
+    onSuccess: (data, variables) => {
+      onSuccess?.({ data, variables });
     },
     onError: (error) => {
       onError?.(error);
