@@ -122,7 +122,6 @@ from mlflow.tracing.utils import (
     generate_request_id_v2,
 )
 from mlflow.tracing.utils.truncation import _get_truncated_preview
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -788,8 +787,15 @@ class SqlAlchemyStore(AbstractStore):
 
     def log_metric(self, run_id, metric):
         # simply call _log_metrics and let it handle the rest
+
+        if metric.model_id is not None:
+            with self.ManagedSessionMaker() as session:
+                run = self._get_run(run_uuid=run_id, session=session)
+                self._check_run_is_active(run)
+                experiment_id = run.experiment_id
+            self._log_model_metrics(run_id, [metric], experiment_id=experiment_id)
+
         self._log_metrics(run_id, [metric])
-        self._log_model_metrics(run_id, [metric])
 
     def sanitize_metric_value(self, metric_value: float) -> tuple[bool, float]:
         """
@@ -886,15 +892,15 @@ class SqlAlchemyStore(AbstractStore):
         self,
         run_id: str,
         metrics: list[Metric],
+        experiment_id: str,
         dataset_uuid: str | None = None,
-        experiment_id: str | None = None,
     ) -> None:
         if not metrics:
             return
 
-        metric_instances: list[SqlLoggedModelMetric] = []
         is_single_metric = len(metrics) == 1
         seen: set[Metric] = set()
+        sanitized_metrics: list[tuple[Metric, float]] = []
         for idx, metric in enumerate(metrics):
             if metric.model_id is None:
                 continue
@@ -910,23 +916,29 @@ class SqlAlchemyStore(AbstractStore):
                 metric.step,
                 path="" if is_single_metric else f"metrics[{idx}]",
             )
-            is_nan, value = self.sanitize_metric_value(metric.value)
-            metric_instances.append(
+            _, value = self.sanitize_metric_value(metric.value)
+            sanitized_metrics.append((metric, value))
+
+        if not sanitized_metrics:
+            return
+
+        with self.ManagedSessionMaker() as session:
+            metric_instances = [
                 SqlLoggedModelMetric(
                     model_id=metric.model_id,
                     metric_name=metric.key,
                     metric_timestamp_ms=metric.timestamp,
                     metric_step=metric.step,
                     metric_value=value,
-                    experiment_id=experiment_id or _get_experiment_id(),
+                    experiment_id=experiment_id,
                     run_id=run_id,
                     dataset_uuid=dataset_uuid,
                     dataset_name=metric.dataset_name,
                     dataset_digest=metric.dataset_digest,
                 )
-            )
+                for metric, value in sanitized_metrics
+            ]
 
-        with self.ManagedSessionMaker() as session:
             try:
                 session.add_all(metric_instances)
                 session.commit()
@@ -1595,7 +1607,7 @@ class SqlAlchemyStore(AbstractStore):
             try:
                 self._log_params(run_id, params)
                 self._log_metrics(run_id, metrics)
-                self._log_model_metrics(run_id, metrics)
+                self._log_model_metrics(run_id, metrics, experiment_id=run.experiment_id)
                 self._set_tags(run_id, tags)
             except MlflowException as e:
                 raise e

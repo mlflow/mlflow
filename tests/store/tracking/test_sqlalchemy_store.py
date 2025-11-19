@@ -7672,6 +7672,32 @@ def test_log_logged_model_params(store: SqlAlchemyStore):
     assert loaded_model.params == {"param1": "apple"}
 
 
+def test_log_model_metrics_use_run_experiment_id(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+
+    metric = Metric(
+        key="metric",
+        value=1.0,
+        timestamp=get_current_time_millis(),
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+
+    store.log_metric(run.info.run_id, metric)
+
+    with store.ManagedSessionMaker() as session:
+        logged_metrics = (
+            session.query(SqlLoggedModelMetric)
+            .filter(SqlLoggedModelMetric.model_id == model.model_id)
+            .all()
+        )
+        assert len(logged_metrics) == 1
+        assert logged_metrics[0].experiment_id == int(exp_id)
+
+
 @pytest.mark.parametrize(
     "name",
     [
