@@ -3,35 +3,34 @@ import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 const sidebarsGenAI: SidebarsConfig = {
   genAISidebar: [
     {
-      type: 'doc',
-      id: 'index',
-      className: 'sidebar-top-level-category',
-    },
-    {
       type: 'category',
-      label: 'MLflow 3.0',
+      label: 'MLflow for GenAI',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
-          id: 'mlflow-3/deep-learning',
+          id: 'mlflow-3/index',
+          label: 'MLflow 3.0',
         },
         {
           type: 'doc',
           id: 'mlflow-3/genai-agent',
+          label: 'GenAI Agent with MLflow 3',
         },
         {
           type: 'doc',
           id: 'mlflow-3/breaking-changes',
+          label: 'Breaking Changes in MLflow 3',
         },
         {
           type: 'doc',
           id: 'mlflow-3/faqs',
+          label: 'FAQs',
         },
       ],
       link: {
         type: 'doc',
-        id: 'mlflow-3/index',
+        id: 'index',
       },
     },
     {
