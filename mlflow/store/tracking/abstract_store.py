@@ -345,13 +345,14 @@ class AbstractStore:
         """
         raise MlflowNotImplementedException()
 
-    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 
         Args:
             trace_ids: List of trace IDs to fetch.
             location: Location of the trace. For example, "catalog.schema" for UC schema.
+                Should be None for OSS backend.
 
         Returns:
             List of Trace objects.
