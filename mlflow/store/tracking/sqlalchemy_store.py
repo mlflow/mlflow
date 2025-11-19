@@ -2686,6 +2686,139 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_model)
             session.commit()
 
+    def _add_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_name: str,
+        secret_id: str,
+        routing_config: str | None = None,
+        created_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Add a model to an endpoint and return the updated endpoint.
+
+        This is a wrapper for REST API that adds a model and returns the full endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to add the model to.
+            model_name: Model identifier.
+            secret_id: ID of secret to use for this model.
+            routing_config: Optional routing configuration (JSON string or dict).
+            created_by: Username of creator.
+
+        Returns:
+            Updated Endpoint entity with all models.
+        """
+        # Parse routing_config if it's a JSON string
+        config_dict = None
+        if routing_config:
+            if isinstance(routing_config, str):
+                try:
+                    config_dict = json.loads(routing_config)
+                except json.JSONDecodeError:
+                    raise MlflowException(
+                        f"Invalid routing_config JSON: {routing_config}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                config_dict = routing_config
+
+        # Add the model using the existing low-level method
+        self._add_model_to_endpoint(
+            endpoint_id=endpoint_id,
+            model_name=model_name,
+            secret_id=secret_id,
+            routing_config=config_dict,
+            updated_by=created_by,
+        )
+
+        # Fetch and return the full endpoint
+        with self.ManagedSessionMaker() as session:
+            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+            return sql_endpoint.to_mlflow_entity()
+
+    def _update_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_id: str,
+        secret_id: str | None = None,
+        routing_config: str | None = None,
+        updated_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Update a model's secret and/or routing config and return the updated endpoint.
+
+        This is a wrapper for REST API that updates a model and returns the full endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint containing the model.
+            model_id: ID of the model to update.
+            secret_id: New secret ID (optional).
+            routing_config: New routing configuration (JSON string or dict, optional).
+            updated_by: Username of updater.
+
+        Returns:
+            Updated Endpoint entity with all models.
+        """
+        # Update secret if provided
+        if secret_id is not None:
+            self._update_model_secret(
+                model_id=model_id,
+                secret_id=secret_id,
+                updated_by=updated_by,
+            )
+
+        # Update routing config if provided
+        if routing_config is not None:
+            # Parse routing_config if it's a JSON string
+            config_dict = None
+            if isinstance(routing_config, str):
+                try:
+                    config_dict = json.loads(routing_config)
+                except json.JSONDecodeError:
+                    raise MlflowException(
+                        f"Invalid routing_config JSON: {routing_config}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
+            else:
+                config_dict = routing_config
+
+            self._update_model_config(
+                model_id=model_id,
+                routing_config=config_dict,
+                updated_by=updated_by,
+            )
+
+        # Fetch and return the full endpoint
+        with self.ManagedSessionMaker() as session:
+            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+            return sql_endpoint.to_mlflow_entity()
+
+    def _remove_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_id: str,
+    ) -> Endpoint:
+        """
+        Remove a model from an endpoint and return the updated endpoint.
+
+        This is a wrapper for REST API that removes a model and returns the full endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint containing the model.
+            model_id: ID of the model to remove.
+
+        Returns:
+            Updated Endpoint entity with remaining models.
+        """
+        # Remove the model using the existing low-level method
+        self._remove_model_from_endpoint(model_id=model_id)
+
+        # Fetch and return the full endpoint
+        with self.ManagedSessionMaker() as session:
+            sql_endpoint = session.query(SqlEndpoint).filter_by(endpoint_id=endpoint_id).first()
+            return sql_endpoint.to_mlflow_entity()
+
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
         Retrieve metadata for a secret by ID (does not decrypt the value).
