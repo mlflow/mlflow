@@ -29,12 +29,14 @@ from mlflow.genai.scorers.base import (
     SerializedScorer,
 )
 from mlflow.genai.utils.trace_utils import (
+    resolve_conversation_from_session,
     resolve_expectations_from_trace,
     resolve_inputs_from_trace,
     resolve_outputs_from_trace,
 )
 from mlflow.prompt.constants import PROMPT_TEMPLATE_VARIABLE_PATTERN, PROMPT_TEXT_DISPLAY_LIMIT
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -51,11 +53,13 @@ class InstructionsJudge(Judge):
     _TEMPLATE_VARIABLE_OUTPUTS = "outputs"
     _TEMPLATE_VARIABLE_TRACE = "trace"
     _TEMPLATE_VARIABLE_EXPECTATIONS = "expectations"
+    _TEMPLATE_VARIABLE_CONVERSATION = "conversation"
     _RESERVED_INSTRUCTION_TEMPLATE_VARIABLES = [
         _TEMPLATE_VARIABLE_INPUTS,
         _TEMPLATE_VARIABLE_OUTPUTS,
         _TEMPLATE_VARIABLE_TRACE,
         _TEMPLATE_VARIABLE_EXPECTATIONS,
+        _TEMPLATE_VARIABLE_CONVERSATION,
     ]
 
     _instructions: str = PrivateAttr()
@@ -148,6 +152,11 @@ class InstructionsJudge(Judge):
         return self._instructions_prompt.variables
 
     @property
+    def is_multi_turn(self) -> bool:
+        """Get whether this judge is a multi-turn judge based on template variables."""
+        return self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
+
+    @property
     def instructions(self) -> str:
         """Get the instructions of this judge."""
         return self._instructions
@@ -178,7 +187,10 @@ class InstructionsJudge(Judge):
         return fields
 
     def _validate_parameter_types(
-        self, expectations: dict[str, Any] | None, trace: Trace | None
+        self,
+        expectations: dict[str, Any] | None,
+        trace: Trace | None,
+        session: list[Trace] | None,
     ) -> None:
         """Validate that parameters have correct types."""
         if expectations is not None and not isinstance(expectations, dict):
@@ -191,6 +203,19 @@ class InstructionsJudge(Judge):
                 f"'trace' must be a Trace object, got {type(trace).__name__}",
                 error_code=INVALID_PARAMETER_VALUE,
             )
+        if session is not None and not isinstance(session, list):
+            raise MlflowException(
+                f"'session' must be a list of Trace objects, got {type(session).__name__}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        if session is not None:
+            for i, trace in enumerate(session):
+                if not isinstance(trace, Trace):
+                    raise MlflowException(
+                        f"All elements in 'session' must be Trace objects, "
+                        f"got {type(trace).__name__} at index {i}",
+                        error_code=INVALID_PARAMETER_VALUE,
+                    )
 
     def _check_required_parameters(
         self,
@@ -198,6 +223,7 @@ class InstructionsJudge(Judge):
         outputs: Any | None,
         expectations: dict[str, Any] | None,
         trace: Trace | None,
+        session: list[Trace] | None,
     ) -> None:
         """Check that all required parameters are provided."""
         missing_params = []
@@ -209,6 +235,8 @@ class InstructionsJudge(Judge):
             missing_params.append("expectations")
         if self._TEMPLATE_VARIABLE_TRACE in self.template_variables and trace is None:
             missing_params.append("trace")
+        if self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables and session is None:
+            missing_params.append("session")
 
         if missing_params:
             missing_str = "', '".join(missing_params)
@@ -217,12 +245,44 @@ class InstructionsJudge(Judge):
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
+    def _validate_session(self, session: list[Trace]) -> None:
+        """Validate that all traces in session belong to the same session."""
+        session_id_to_trace_ids: dict[str, list[str]] = {}
+        for trace in session:
+            session_id = trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
+            if session_id is None:
+                raise MlflowException(
+                    f"All traces in 'session' must have a session_id. "
+                    f"Trace {trace.info.trace_id} is missing session_id. "
+                    f"See https://mlflow.org/docs/latest/genai/tracing/track-users-sessions/ "
+                    f"for information on how to set session_id on traces.",
+                    error_code=INVALID_PARAMETER_VALUE,
+                )
+            if session_id not in session_id_to_trace_ids:
+                session_id_to_trace_ids[session_id] = []
+            session_id_to_trace_ids[session_id].append(trace.info.trace_id)
+
+        if len(session_id_to_trace_ids) != 1:
+            session_details = "\n".join(
+                f"session_id '{sid}': trace_ids {trace_ids[:3]}"
+                + (
+                    f" and {len(trace_ids) - 3} more trace{'s' if len(trace_ids) - 3 != 1 else ''}"
+                    if len(trace_ids) > 3
+                    else ""
+                )
+                for sid, trace_ids in session_id_to_trace_ids.items()
+            )
+            raise MlflowException.invalid_parameter_value(
+                f"All traces in 'session' must belong to the same session. "
+                f"Found {len(session_id_to_trace_ids)} different session(s):\n{session_details}"
+            )
+
     def _warn_unused_parameters(
         self,
         inputs: Any | None,
         outputs: Any | None,
         expectations: dict[str, Any] | None,
-        trace: Trace | None,
+        conversation: list[dict[str, str]] | None,
     ) -> None:
         """Warn about parameters that were provided but aren't used."""
         # Don't warn about unused parameters when using trace-based evaluation
@@ -240,6 +300,11 @@ class InstructionsJudge(Judge):
             and self._TEMPLATE_VARIABLE_EXPECTATIONS not in self.template_variables
         ):
             unused_params.append("expectations")
+        if (
+            conversation is not None
+            and self._TEMPLATE_VARIABLE_CONVERSATION not in self.template_variables
+        ):
+            unused_params.append("conversation")
 
         if unused_params:
             unused_str = "', '".join(unused_params)
@@ -300,10 +365,10 @@ class InstructionsJudge(Judge):
         inputs: Any | None,
         outputs: Any | None,
         expectations: dict[str, Any] | None,
-        is_trace_based: bool,
+        conversation: list[dict[str, str]] | None,
     ) -> str:
         """Build the user message with field values."""
-        template_values = self._build_template_values(inputs, outputs, expectations)
+        template_values = self._build_template_values(inputs, outputs, expectations, conversation)
 
         field_vars = [
             var for var in self._ordered_template_variables if var != self._TEMPLATE_VARIABLE_TRACE
@@ -325,7 +390,11 @@ class InstructionsJudge(Judge):
         )
 
     def _build_template_values(
-        self, inputs: Any | None, outputs: Any | None, expectations: dict[str, Any] | None
+        self,
+        inputs: Any | None,
+        outputs: Any | None,
+        expectations: dict[str, Any] | None,
+        conversation: list[dict[str, str]] | None,
     ) -> dict[str, str]:
         """Build dictionary of template variable values."""
         template_values = {}
@@ -344,6 +413,14 @@ class InstructionsJudge(Judge):
                 expectations
             )
 
+        if (
+            conversation is not None
+            and self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
+        ):
+            template_values[self._TEMPLATE_VARIABLE_CONVERSATION] = self._safe_json_dumps(
+                conversation
+            )
+
         return template_values
 
     def _safe_json_dumps(self, value: Any) -> str:
@@ -360,6 +437,7 @@ class InstructionsJudge(Judge):
         outputs: Any = None,
         expectations: dict[str, Any] | None = None,
         trace: Trace | None = None,
+        session: list[Trace] | None = None,
     ) -> Feedback:
         """
         Evaluate the provided data using the judge's instructions.
@@ -373,6 +451,8 @@ class InstructionsJudge(Judge):
                 will be extracted from the trace's expectation assessments.
             trace: Trace object for evaluation. When the template uses {{ inputs }}, {{ outputs }},
                 or {{ expectations }}, the values will be extracted from the trace.
+            session: List of traces from the same session. When the template uses
+                {{ conversation }}, the conversation history will be extracted from these traces.
 
         Returns:
             Evaluation results
@@ -388,8 +468,13 @@ class InstructionsJudge(Judge):
           - inputs/outputs: From the trace's root span
           - expectations: From the trace's human-set expectation assessments (ground truth only)
 
+        **Note on Session Behavior**:
+        - Traces are expected to be in the same session and exception will be raised
+          if they are not.
+        - The conversation history will be extracted from the traces in chronological order.
         """
-        self._validate_parameter_types(expectations, trace)
+
+        self._validate_parameter_types(expectations, trace, session)
 
         original_inputs = inputs
         original_outputs = outputs
@@ -412,15 +497,20 @@ class InstructionsJudge(Judge):
                 extract_if_none=self._TEMPLATE_VARIABLE_EXPECTATIONS in self.template_variables,
             )
 
-        self._check_required_parameters(inputs, outputs, expectations, trace)
+        conversation = None
+        if session is not None and session:
+            self._validate_session(session)
+            conversation = resolve_conversation_from_session(session)
+
+        self._check_required_parameters(inputs, outputs, expectations, trace, conversation)
         self._warn_unused_parameters(
-            original_inputs, original_outputs, original_expectations, trace
+            original_inputs, original_outputs, original_expectations, conversation
         )
 
         is_trace_based = self._TEMPLATE_VARIABLE_TRACE in self.template_variables
 
         system_content = self._build_system_message(is_trace_based)
-        user_content = self._build_user_message(inputs, outputs, expectations, is_trace_based)
+        user_content = self._build_user_message(inputs, outputs, expectations, conversation)
 
         from mlflow.types.llm import ChatMessage
 
@@ -459,8 +549,10 @@ class InstructionsJudge(Judge):
 
     def _validate_instructions_template(self) -> None:
         """
-        Validate that instructions contain at least one variable.
-
+        Validate that instruction:
+        1. contains at least one variable.
+        2. does not contain any template variables other than expectation
+           if conversation is provided.
         """
         template_vars = self.template_variables
 
@@ -468,6 +560,16 @@ class InstructionsJudge(Judge):
             raise MlflowException(
                 "Instructions template must contain at least one variable (e.g., {{ inputs }}, "
                 "{{ outputs }}, {{ trace }}, or {{ expectations }}).",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if self._TEMPLATE_VARIABLE_CONVERSATION in template_vars and template_vars - {
+            self._TEMPLATE_VARIABLE_EXPECTATIONS,
+            self._TEMPLATE_VARIABLE_CONVERSATION,
+        }:
+            raise MlflowException(
+                "Instructions template must not contain any template variables "
+                "other than {{ expectations }} if {{ conversation }} is provided.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
