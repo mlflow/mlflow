@@ -10,11 +10,6 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'MLflow',
     },
     {
-      type: 'link',
-      label: 'MLflow 3.0',
-      href: 'https://mlflow.org/docs/latest/genai/mlflow-3',
-    },
-    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
@@ -616,9 +611,15 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'link',
           label: 'CLI',
-          href: `${apiReferencePrefix()}cli.html`,
+          href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'category',

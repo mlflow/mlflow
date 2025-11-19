@@ -198,7 +198,6 @@ build = ["pip", "setuptools", "wheel", "build"]
 [tool.uv]
 required-version = "==0.9.8"
 constraint-dependencies = [
-  "click!=8.3.0",
   "langchain<1.0.0",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
@@ -361,6 +360,7 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
+  "docs/docs/classic-ml/mlflow-3/index.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -383,8 +383,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# This file intentionally shows problematic code as an example of what NOT to do
-"docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 
