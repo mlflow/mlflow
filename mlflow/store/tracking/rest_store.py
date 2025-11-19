@@ -1684,6 +1684,39 @@ class RestStore(AbstractStore):
             Endpoint.from_proto(response_proto.endpoint),
         )
 
+    def _update_endpoint_metadata(
+        self,
+        endpoint_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        updated_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Update endpoint metadata (name and/or description).
+
+        Args:
+            endpoint_id: String ID of the endpoint.
+            name: Optional new name for the endpoint.
+            description: Optional new description for the endpoint.
+            updated_by: Username of updater.
+
+        Returns:
+            Updated Endpoint entity.
+        """
+        req_body = message_to_json(
+            UpdateEndpoint(
+                endpoint_id=endpoint_id,
+                name=name,
+                description=description,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateEndpoint,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/endpoints/update",
+        )
+        return Endpoint.from_proto(response_proto.endpoint)
+
     def _bind_endpoint(
         self,
         endpoint_id: str,

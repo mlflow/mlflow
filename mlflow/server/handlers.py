@@ -3952,11 +3952,8 @@ def _update_endpoint():
         )
         response_message.endpoint.CopyFrom(endpoint.to_proto())
         if not (has_secret_id or has_secret_name or has_secret_value):
-            existing_models = _get_tracking_store()._list_endpoint_models(
-                request_message.endpoint_id
-            )
-            if existing_models:
-                secret = _get_tracking_store()._get_secret_info(existing_models[0].secret_id)
+            if endpoint.models:
+                secret = _get_tracking_store()._get_secret_info(endpoint.models[0].secret_id)
                 response_message.secret.CopyFrom(secret.to_proto())
 
     return _wrap_response(response_message)

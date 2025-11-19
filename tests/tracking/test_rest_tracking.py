@@ -4300,3 +4300,47 @@ def test_rest_store_endpoint_binding(mlflow_client_with_secrets, store_type):
 
     store._delete_endpoint_binding(binding.binding_id)
     store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_endpoint_update_metadata(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="test_key",
+        secret_value="sk-test",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "gpt-4", "secret_id": secret.secret_id}],
+        name="Initial Name",
+        description="Initial Description",
+    )
+    assert endpoint.name == "Initial Name"
+    assert endpoint.description == "Initial Description"
+
+    updated_endpoint = store._update_endpoint_metadata(
+        endpoint_id=endpoint.endpoint_id,
+        description="Updated Description",
+    )
+    assert updated_endpoint.name == "Initial Name"
+    assert updated_endpoint.description == "Updated Description"
+
+    updated_endpoint = store._update_endpoint_metadata(
+        endpoint_id=endpoint.endpoint_id,
+        name="Updated Name",
+    )
+    assert updated_endpoint.name == "Updated Name"
+    assert updated_endpoint.description == "Updated Description"
+
+    updated_endpoint = store._update_endpoint_metadata(
+        endpoint_id=endpoint.endpoint_id,
+        name="Final Name",
+        description="Final Description",
+    )
+    assert updated_endpoint.name == "Final Name"
+    assert updated_endpoint.description == "Final Description"
+
+    store._delete_secret(secret.secret_id)
