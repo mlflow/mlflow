@@ -1,5 +1,6 @@
 import json
 import logging
+import warnings
 
 import numpy as np
 
@@ -176,6 +177,14 @@ def format_input_example_for_special_cases(input_example, pipeline):
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
+    import warnings
+    warnings.warn(
+        "The function `mlflow.transformers.generate_signature_output` is deprecated "
+        "and will be removed in a future release. "
+        "Please use the `input_example` argument for model signature inference instead.",
+        DeprecationWarning,
+        stacklevel=2
+    )
     from mlflow.transformers import _TransformersWrapper
 
     return _TransformersWrapper(
