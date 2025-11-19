@@ -4344,3 +4344,324 @@ def test_rest_store_endpoint_update_metadata(mlflow_client_with_secrets, store_t
     assert updated_endpoint.description == "Final Description"
 
     store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_add_endpoint_model(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store._create_secret(
+        secret_name="openai_key_1",
+        secret_value="sk-openai-123",
+        is_shared=True,
+        provider="openai",
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "gpt-4", "secret_id": secret1.secret_id}],
+    )
+
+    assert len(endpoint.models) == 1
+    assert endpoint.models[0].model_name == "gpt-4"
+    assert endpoint.models[0].secret_id == secret1.secret_id
+
+    updated_endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="gpt-3.5-turbo",
+        secret_id=secret2.secret_id,
+        routing_config='{"weight": 0.3}',
+        created_by="test_user",
+    )
+
+    assert len(updated_endpoint.models) == 2
+    model_names = {m.model_name for m in updated_endpoint.models}
+    assert model_names == {"gpt-4", "gpt-3.5-turbo"}
+
+    gpt35_model = next(m for m in updated_endpoint.models if m.model_name == "gpt-3.5-turbo")
+    assert gpt35_model.secret_id == secret2.secret_id
+    assert gpt35_model.routing_config == '{"weight": 0.3}'
+
+    store._delete_secret(secret1.secret_id)
+    store._delete_secret(secret2.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_add_endpoint_model_with_dict_routing_config(
+    mlflow_client_with_secrets, store_type
+):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        is_shared=True,
+        provider="anthropic",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "claude-3-5-sonnet-20241022", "secret_id": secret.secret_id}],
+    )
+
+    updated_endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="claude-3-5-haiku-20241022",
+        secret_id=secret.secret_id,
+        routing_config={"weight": 0.5, "priority": 1},
+    )
+
+    assert len(updated_endpoint.models) == 2
+    haiku_model = next(
+        m for m in updated_endpoint.models if m.model_name == "claude-3-5-haiku-20241022"
+    )
+    assert haiku_model.routing_config == '{"weight": 0.5, "priority": 1}'
+
+    store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_update_endpoint_model_secret(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store._create_secret(
+        secret_name="openai_key_1",
+        secret_value="sk-openai-123",
+        is_shared=True,
+        provider="openai",
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            {"model_name": "gpt-4", "secret_id": secret1.secret_id},
+            {"model_name": "gpt-3.5-turbo", "secret_id": secret1.secret_id},
+        ],
+    )
+
+    gpt4_model = next(m for m in endpoint.models if m.model_name == "gpt-4")
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt4_model.model_id,
+        secret_id=secret2.secret_id,
+        updated_by="test_user",
+    )
+
+    updated_gpt4 = next(m for m in updated_endpoint.models if m.model_name == "gpt-4")
+    assert updated_gpt4.secret_id == secret2.secret_id
+
+    gpt35_model = next(m for m in updated_endpoint.models if m.model_name == "gpt-3.5-turbo")
+    assert gpt35_model.secret_id == secret1.secret_id
+
+    store._delete_secret(secret1.secret_id)
+    store._delete_secret(secret2.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_update_endpoint_model_routing_config(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-123",
+        is_shared=True,
+        provider="anthropic",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "claude-3-5-sonnet-20241022",
+                "secret_id": secret.secret_id,
+                "routing_config": {"weight": 0.5},
+            }
+        ],
+    )
+
+    model = endpoint.models[0]
+    assert model.routing_config == '{"weight": 0.5}'
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=model.model_id,
+        routing_config='{"weight": 0.8, "priority": 1}',
+        updated_by="test_user",
+    )
+
+    updated_model = updated_endpoint.models[0]
+    assert updated_model.routing_config == '{"weight": 0.8, "priority": 1}'
+
+    store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_update_endpoint_model_both_secret_and_config(
+    mlflow_client_with_secrets, store_type
+):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store._create_secret(
+        secret_name="openai_key_1",
+        secret_value="sk-openai-123",
+        is_shared=True,
+        provider="openai",
+    )
+    secret2 = store._create_secret(
+        secret_name="openai_key_2",
+        secret_value="sk-openai-456",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "gpt-4",
+                "secret_id": secret1.secret_id,
+                "routing_config": {"weight": 0.5},
+            }
+        ],
+    )
+
+    model = endpoint.models[0]
+
+    updated_endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=model.model_id,
+        secret_id=secret2.secret_id,
+        routing_config={"weight": 0.9, "priority": 2},
+        updated_by="test_user",
+    )
+
+    updated_model = updated_endpoint.models[0]
+    assert updated_model.secret_id == secret2.secret_id
+    assert updated_model.routing_config == '{"weight": 0.9, "priority": 2}'
+
+    store._delete_secret(secret1.secret_id)
+    store._delete_secret(secret2.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_remove_endpoint_model(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[
+            {"model_name": "gpt-4", "secret_id": secret.secret_id},
+            {"model_name": "gpt-3.5-turbo", "secret_id": secret.secret_id},
+            {"model_name": "gpt-4-turbo", "secret_id": secret.secret_id},
+        ],
+    )
+
+    assert len(endpoint.models) == 3
+
+    gpt35_model = next(m for m in endpoint.models if m.model_name == "gpt-3.5-turbo")
+
+    updated_endpoint = store._remove_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt35_model.model_id,
+    )
+
+    assert len(updated_endpoint.models) == 2
+    model_names = {m.model_name for m in updated_endpoint.models}
+    assert model_names == {"gpt-4", "gpt-4-turbo"}
+
+    store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_endpoint_model_crud_e2e(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret1 = store._create_secret(
+        secret_name="openai_key",
+        secret_value="sk-openai-123",
+        is_shared=True,
+        provider="openai",
+    )
+    secret2 = store._create_secret(
+        secret_name="anthropic_key",
+        secret_value="sk-ant-456",
+        is_shared=True,
+        provider="anthropic",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "gpt-4", "secret_id": secret1.secret_id}],
+        name="Multi-Model Endpoint",
+        description="Test endpoint for multi-model support",
+    )
+
+    assert len(endpoint.models) == 1
+    assert endpoint.name == "Multi-Model Endpoint"
+
+    endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="gpt-3.5-turbo",
+        secret_id=secret1.secret_id,
+        routing_config='{"weight": 0.3, "priority": 2}',
+    )
+    assert len(endpoint.models) == 2
+
+    endpoint = store._add_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_name="claude-3-5-sonnet-20241022",
+        secret_id=secret2.secret_id,
+        routing_config='{"weight": 0.2, "priority": 3}',
+    )
+    assert len(endpoint.models) == 3
+
+    model_names = {m.model_name for m in endpoint.models}
+    assert model_names == {"gpt-4", "gpt-3.5-turbo", "claude-3-5-sonnet-20241022"}
+
+    gpt4_model = next(m for m in endpoint.models if m.model_name == "gpt-4")
+    endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt4_model.model_id,
+        routing_config='{"weight": 0.5, "priority": 1}',
+    )
+
+    updated_gpt4 = next(m for m in endpoint.models if m.model_name == "gpt-4")
+    assert updated_gpt4.routing_config == '{"weight": 0.5, "priority": 1}'
+
+    gpt35_model = next(m for m in endpoint.models if m.model_name == "gpt-3.5-turbo")
+    endpoint = store._update_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=gpt35_model.model_id,
+        secret_id=secret2.secret_id,
+    )
+
+    updated_gpt35 = next(m for m in endpoint.models if m.model_name == "gpt-3.5-turbo")
+    assert updated_gpt35.secret_id == secret2.secret_id
+
+    claude_model = next(
+        m for m in endpoint.models if m.model_name == "claude-3-5-sonnet-20241022"
+    )
+    endpoint = store._remove_endpoint_model(
+        endpoint_id=endpoint.endpoint_id,
+        model_id=claude_model.model_id,
+    )
+
+    assert len(endpoint.models) == 2
+    remaining_models = {m.model_name for m in endpoint.models}
+    assert remaining_models == {"gpt-4", "gpt-3.5-turbo"}
+
+    store._delete_secret(secret1.secret_id)
+    store._delete_secret(secret2.secret_id)

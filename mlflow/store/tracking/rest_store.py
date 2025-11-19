@@ -52,6 +52,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AddEndpointModel,
     BatchGetTraces,
     BindEndpoint,
     CalculateTraceFilterCorrelation,
@@ -112,6 +113,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     RegisterScorer,
     RemoveDatasetFromExperiments,
+    RemoveEndpointModel,
     RestoreExperiment,
     RestoreRun,
     SearchEvaluationDatasets,
@@ -133,6 +135,7 @@ from mlflow.protos.service_pb2 import (
     TraceTag,
     UpdateAssessment,
     UpdateEndpoint,
+    UpdateEndpointModel,
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
@@ -1714,6 +1717,114 @@ class RestStore(AbstractStore):
             UpdateEndpoint,
             req_body,
             endpoint="/api/3.0/mlflow/secrets/endpoints/update",
+        )
+        return Endpoint.from_proto(response_proto.endpoint)
+
+    def _add_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_name: str,
+        secret_id: str,
+        routing_config: str | dict | None = None,
+        created_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Add a model configuration to an existing endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint to add the model to.
+            model_name: Model identifier.
+            secret_id: ID of secret to use for this model.
+            routing_config: Optional routing configuration (JSON string or dict).
+            created_by: Username of creator.
+
+        Returns:
+            Updated Endpoint entity with the new model added.
+        """
+        if routing_config and isinstance(routing_config, dict):
+            routing_config = json.dumps(routing_config)
+
+        req_body = message_to_json(
+            AddEndpointModel(
+                endpoint_id=endpoint_id,
+                model_name=model_name,
+                secret_id=secret_id,
+                routing_config=routing_config,
+                created_by=created_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            AddEndpointModel,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/endpoints/models/add",
+        )
+        return Endpoint.from_proto(response_proto.endpoint)
+
+    def _update_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_id: str,
+        secret_id: str | None = None,
+        routing_config: str | dict | None = None,
+        updated_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Update a model's secret and/or routing config within an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint containing the model.
+            model_id: ID of the model to update.
+            secret_id: New secret ID (optional).
+            routing_config: New routing configuration (JSON string or dict, optional).
+            updated_by: Username of updater.
+
+        Returns:
+            Updated Endpoint entity with the modified model.
+        """
+        if routing_config and isinstance(routing_config, dict):
+            routing_config = json.dumps(routing_config)
+
+        req_body = message_to_json(
+            UpdateEndpointModel(
+                endpoint_id=endpoint_id,
+                model_id=model_id,
+                secret_id=secret_id,
+                routing_config=routing_config,
+                updated_by=updated_by,
+            )
+        )
+        response_proto = self._call_endpoint(
+            UpdateEndpointModel,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/endpoints/models/update",
+        )
+        return Endpoint.from_proto(response_proto.endpoint)
+
+    def _remove_endpoint_model(
+        self,
+        endpoint_id: str,
+        model_id: str,
+    ) -> Endpoint:
+        """
+        Remove a model configuration from an endpoint.
+
+        Args:
+            endpoint_id: ID of the endpoint containing the model.
+            model_id: ID of the model to remove.
+
+        Returns:
+            Updated Endpoint entity with the model removed.
+        """
+        req_body = message_to_json(
+            RemoveEndpointModel(
+                endpoint_id=endpoint_id,
+                model_id=model_id,
+            )
+        )
+        response_proto = self._call_endpoint(
+            RemoveEndpointModel,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/endpoints/models/delete",
         )
         return Endpoint.from_proto(response_proto.endpoint)
 
