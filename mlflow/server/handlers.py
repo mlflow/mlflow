@@ -100,6 +100,7 @@ from mlflow.protos.model_registry_pb2 import (
 )
 from mlflow.protos.service_pb2 import (
     AddDatasetToExperiments,
+    AddEndpointModel,
     BatchGetTraces,
     BindEndpoint,
     CalculateTraceFilterCorrelation,
@@ -164,6 +165,7 @@ from mlflow.protos.service_pb2 import (
     MlflowService,
     RegisterScorer,
     RemoveDatasetFromExperiments,
+    RemoveEndpointModel,
     RestoreExperiment,
     RestoreRun,
     SearchDatasets,
@@ -185,6 +187,7 @@ from mlflow.protos.service_pb2 import (
     StartTraceV3,
     UpdateAssessment,
     UpdateEndpoint,
+    UpdateEndpointModel,
     UpdateExperiment,
     UpdateRun,
     UpdateSecret,
@@ -3984,6 +3987,81 @@ def _delete_endpoint():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _add_endpoint_model():
+    request_message = _get_request_message(
+        AddEndpointModel(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_name": [_assert_required, _assert_string],
+            "secret_id": [_assert_required, _assert_string],
+            "routing_config": [_assert_string],
+            "created_by": [_assert_string],
+        },
+    )
+
+    endpoint = _get_tracking_store()._add_endpoint_model(
+        endpoint_id=request_message.endpoint_id,
+        model_name=request_message.model_name,
+        secret_id=request_message.secret_id,
+        routing_config=request_message.routing_config or None,
+        created_by=request_message.created_by or None,
+    )
+    response_message = AddEndpointModel.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_endpoint_model():
+    request_message = _get_request_message(
+        UpdateEndpointModel(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_id": [_assert_required, _assert_string],
+            "secret_id": [_assert_string],
+            "routing_config": [_assert_string],
+            "updated_by": [_assert_string],
+        },
+    )
+
+    has_secret_id = request_message.HasField("secret_id")
+    has_routing_config = request_message.HasField("routing_config")
+
+    endpoint = _get_tracking_store()._update_endpoint_model(
+        endpoint_id=request_message.endpoint_id,
+        model_id=request_message.model_id,
+        secret_id=request_message.secret_id if has_secret_id else None,
+        routing_config=request_message.routing_config if has_routing_config else None,
+        updated_by=request_message.updated_by or None,
+    )
+    response_message = UpdateEndpointModel.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _remove_endpoint_model():
+    request_message = _get_request_message(
+        RemoveEndpointModel(),
+        schema={
+            "endpoint_id": [_assert_required, _assert_string],
+            "model_id": [_assert_required, _assert_string],
+        },
+    )
+
+    endpoint = _get_tracking_store()._remove_endpoint_model(
+        endpoint_id=request_message.endpoint_id,
+        model_id=request_message.model_id,
+    )
+    response_message = RemoveEndpointModel.Response()
+    response_message.endpoint.CopyFrom(endpoint.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _bind_endpoint():
     request_message = _get_request_message(
         BindEndpoint(),
@@ -4539,6 +4617,9 @@ HANDLERS = {
     ListEndpoints: _list_endpoints,
     UpdateEndpoint: _update_endpoint,
     DeleteEndpoint: _delete_endpoint,
+    AddEndpointModel: _add_endpoint_model,
+    UpdateEndpointModel: _update_endpoint_model,
+    RemoveEndpointModel: _remove_endpoint_model,
     BindEndpoint: _bind_endpoint,
     ListEndpointBindings: _list_endpoint_bindings,
     DeleteEndpointBinding: _delete_endpoint_binding,

@@ -1822,6 +1822,68 @@ service MlflowService {
     };
   }
 
+  // Add a model configuration to an existing endpoint.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the endpoint or secret does not exist.
+  // Throws ``INVALID_PARAMETER_VALUE`` if the model_name is already in use on this endpoint.
+  rpc addEndpointModel(AddEndpointModel) returns (AddEndpointModel.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/secrets/endpoints/models/add"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Add Endpoint Model"
+    };
+  }
+
+  // Update a model's configuration within an endpoint.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the endpoint, model, or secret does not exist.
+  rpc updateEndpointModel(UpdateEndpointModel) returns (UpdateEndpointModel.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "PATCH"
+          path: "/mlflow/secrets/endpoints/models/update"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Update Endpoint Model"
+    };
+  }
+
+  // Remove a model configuration from an endpoint.
+  //
+  // Throws ``RESOURCE_DOES_NOT_EXIST`` if the endpoint or model does not exist.
+  // Throws ``INVALID_PARAMETER_VALUE`` if attempting to remove the last model from an endpoint.
+  rpc removeEndpointModel(RemoveEndpointModel) returns (RemoveEndpointModel.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "DELETE"
+          path: "/mlflow/secrets/endpoints/models/delete"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      visibility: PUBLIC
+      rpc_doc_title: "Remove Endpoint Model"
+    };
+  }
+
   // Get backend information including store type and capabilities.
   //
   // Returns information about the tracking backend, including whether it supports
@@ -4317,5 +4379,64 @@ message DeleteEndpointTag {
 
   message Response {
     // Empty response.
+  }
+}
+
+// Add a model configuration to an existing endpoint.
+message AddEndpointModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the endpoint to add the model to.
+  optional string endpoint_id = 1;
+  // Model identifier (e.g., "claude-3-5-sonnet-20241022", "gpt-4-turbo").
+  optional string model_name = 2;
+  // Secret ID this model will use for authentication.
+  optional string secret_id = 3;
+  // Optional routing configuration (JSON-encoded string).
+  // Examples: {"weight": 0.5}, {"priority": 1}
+  optional string routing_config = 4;
+  // User ID adding the model.
+  optional string created_by = 5;
+
+  message Response {
+    // The updated endpoint with the new model added.
+    optional Endpoint endpoint = 1;
+  }
+}
+
+// Update a model's configuration within an endpoint.
+// Currently supports updating the secret_id to change which secret the model uses.
+message UpdateEndpointModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the endpoint containing the model.
+  optional string endpoint_id = 1;
+  // ID of the model to update.
+  optional string model_id = 2;
+  // New secret ID for the model to use.
+  optional string secret_id = 3;
+  // Optional updated routing configuration (JSON-encoded string).
+  optional string routing_config = 4;
+  // User ID updating the model.
+  optional string updated_by = 5;
+
+  message Response {
+    // The updated endpoint with the modified model.
+    optional Endpoint endpoint = 1;
+  }
+}
+
+// Remove a model configuration from an endpoint.
+message RemoveEndpointModel {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // ID of the endpoint containing the model.
+  optional string endpoint_id = 1;
+  // ID of the model to remove.
+  optional string model_id = 2;
+
+  message Response {
+    // The updated endpoint with the model removed.
+    optional Endpoint endpoint = 1;
   }
 }
