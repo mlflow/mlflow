@@ -25,11 +25,11 @@ import { ScrollablePageWrapper } from '@mlflow/mlflow/src/common/components/Scro
 import LocalStorageUtils from '@mlflow/mlflow/src/common/utils/LocalStorageUtils';
 import { ExperimentListViewTagsFilter } from '@mlflow/mlflow/src/experiment-tracking/components/experiment-page/components/ExperimentListViewTagsFilter';
 import { useBackendSupport } from '@mlflow/mlflow/src/common/hooks/useBackendSupport';
-import { useListRoutes } from '../hooks/useListRoutes';
+import { useListEndpoints } from '../hooks/useListEndpoints';
 import { useListSecrets } from '../hooks/useListSecrets';
-import { useCreateRoute } from '../hooks/useCreateRoute';
-import { useUpdateRoute } from '../hooks/useUpdateRoute';
-import { useDeleteRouteMutation } from '../hooks/useDeleteRouteMutation';
+import { useCreateEndpoint } from '../hooks/useCreateEndpoint';
+import { useUpdateEndpoint } from '../hooks/useUpdateEndpoint';
+import { useDeleteEndpointMutation } from '../hooks/useDeleteEndpointMutation';
 import { useRoutesTagsFilter } from '../hooks/useRoutesTagsFilter';
 import { CreateRouteModal } from './CreateRouteModal';
 import { AddRouteModal } from './AddRouteModal';
@@ -38,7 +38,7 @@ import { RouteDetailDrawer } from './RouteDetailDrawer';
 import { UpdateRouteModal } from './UpdateRouteModal';
 import { SecretManagementDrawer } from './SecretManagementDrawer';
 import { GatewayRequiresSqlBackend } from './GatewayRequiresSqlBackend';
-import type { Route } from '../types';
+import type { Endpoint } from '../types';
 
 const DEFAULT_HIDDEN_COLUMNS = ['tags', 'created_at', 'created_by', 'last_updated_by'];
 const LOCAL_STORAGE_KEY = 'hiddenColumns';
@@ -47,26 +47,26 @@ export default function RoutesPage() {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { isSqlBackend, storeType, isLoading: isCheckingBackend } = useBackendSupport();
-  const { routes = [], isLoading, error } = useListRoutes({ enabled: isSqlBackend === true });
+  const { endpoints = [], isLoading, error } = useListEndpoints({ enabled: isSqlBackend === true });
   const { secrets = [], refetch: refetchSecrets } = useListSecrets({ enabled: true });
-  const { createRouteAsync } = useCreateRoute();
-  const { updateRouteAsync } = useUpdateRoute();
+  const { createEndpointAsync } = useCreateEndpoint();
+  const { updateEndpointAsync } = useUpdateEndpoint();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useRoutesTagsFilter();
-  const { deleteRoute, isLoading: isDeleting } = useDeleteRouteMutation({
+  const { deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation({
     onSuccess: () => {
       setIsDrawerOpen(false);
       notification.success({
         message: intl.formatMessage({
-          defaultMessage: 'Route deleted successfully',
-          description: 'Routes page > delete route success',
+          defaultMessage: 'Endpoint deleted successfully',
+          description: 'Endpoints page > delete endpoint success',
         }),
       });
     },
     onError: (error) => {
       notification.error({
         message: intl.formatMessage({
-          defaultMessage: 'Failed to delete route',
-          description: 'Routes page > delete route error',
+          defaultMessage: 'Failed to delete endpoint',
+          description: 'Endpoints page > delete endpoint error',
         }),
         description: error.message,
       });
@@ -76,7 +76,7 @@ export default function RoutesPage() {
   const [showAddRouteModal, setShowAddRouteModal] = useState(false);
   const [showUpdateRouteModal, setShowUpdateRouteModal] = useState(false);
   const [showManagementDrawer, setShowManagementDrawer] = useState(false);
-  const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'name', desc: false },
@@ -107,15 +107,15 @@ export default function RoutesPage() {
     localStorageStore.setItem(LOCAL_STORAGE_KEY, JSON.stringify(hiddenColumns));
   }, [hiddenColumns, localStorageStore]);
 
-  // Update selectedRoute when routes data changes (e.g., after updating a route)
+  // Update selectedEndpoint when endpoints data changes (e.g., after updating an endpoint)
   useEffect(() => {
-    if (selectedRoute && routes.length > 0) {
-      const updatedRoute = routes.find((r) => r.route_id === selectedRoute.route_id);
-      if (updatedRoute) {
-        setSelectedRoute(updatedRoute);
+    if (selectedEndpoint && endpoints.length > 0) {
+      const updatedEndpoint = endpoints.find((r) => r.endpoint_id === selectedEndpoint.endpoint_id);
+      if (updatedEndpoint) {
+        setSelectedEndpoint(updatedEndpoint);
       }
     }
-  }, [routes, selectedRoute]);
+  }, [endpoints, selectedEndpoint]);
 
   const toggleHiddenColumn = useCallback((columnId: string) => {
     setHiddenColumns((prev) => {
@@ -126,24 +126,24 @@ export default function RoutesPage() {
     });
   }, []);
 
-  const filteredRoutes = useMemo(() => {
-    return routes.filter((route) => {
+  const filteredEndpoints = useMemo(() => {
+    return endpoints.filter((endpoint) => {
       const matchesSearch = debouncedSearchText
-        ? (route.name && route.name.toLowerCase().includes(debouncedSearchText.toLowerCase())) ||
-          route.route_id.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-          route.model_name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-          (route.provider && route.provider.toLowerCase().includes(debouncedSearchText.toLowerCase()))
+        ? (endpoint.name && endpoint.name.toLowerCase().includes(debouncedSearchText.toLowerCase())) ||
+          endpoint.endpoint_id.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+          endpoint.model_name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
+          (endpoint.provider && endpoint.provider.toLowerCase().includes(debouncedSearchText.toLowerCase()))
         : true;
 
       const matchesTags =
         tagsFilter.length === 0 ||
         tagsFilter.every((filter) => {
-          if (!route.tags) return false;
+          if (!endpoint.tags) return false;
 
           // Convert tags to array format
-          const tagEntries = Array.isArray(route.tags)
-            ? route.tags
-            : Object.entries(route.tags).map(([key, value]) => ({ key, value }));
+          const tagEntries = Array.isArray(endpoint.tags)
+            ? endpoint.tags
+            : Object.entries(endpoint.tags).map(([key, value]) => ({ key, value }));
 
           // Find matching tag by key
           const matchingTag = tagEntries.find((tag) => tag.key === filter.key);
@@ -167,7 +167,7 @@ export default function RoutesPage() {
 
       return matchesSearch && matchesTags;
     });
-  }, [routes, debouncedSearchText, tagsFilter]);
+  }, [endpoints, debouncedSearchText, tagsFilter]);
 
   // Show placeholder if FileStore is detected
   if (isCheckingBackend) {
@@ -191,12 +191,12 @@ export default function RoutesPage() {
     if (errorMsg.includes('Binding already exists')) {
       return {
         title: intl.formatMessage({
-          defaultMessage: 'Route name already exists',
-          description: 'Routes page > binding conflict error title',
+          defaultMessage: 'Endpoint name already exists',
+          description: 'Endpoints page > binding conflict error title',
         }),
         description: intl.formatMessage({
-          defaultMessage: 'Please select a different route name.',
-          description: 'Routes page > binding conflict error description',
+          defaultMessage: 'Please select a different endpoint name.',
+          description: 'Endpoints page > binding conflict error description',
         }),
       };
     }
@@ -232,27 +232,27 @@ export default function RoutesPage() {
     // Default error
     return {
       title: intl.formatMessage({
-        defaultMessage: 'Failed to create route',
-        description: 'Routes page > generic error title',
+        defaultMessage: 'Failed to create endpoint',
+        description: 'Endpoints page > generic error title',
       }),
       description:
         errorMsg ||
         intl.formatMessage({
           defaultMessage: 'An unexpected error occurred. Please try again.',
-          description: 'Routes page > generic error description',
+          description: 'Endpoints page > generic error description',
         }),
     };
   };
 
   const handleCreateRoute = async (routeData: any) => {
     try {
-      await createRouteAsync(routeData);
+      await createEndpointAsync(routeData);
       // Refetch secrets since a new secret was created
       refetchSecrets();
       notification.success({
         message: intl.formatMessage({
-          defaultMessage: 'Route created successfully',
-          description: 'Routes page > create route success notification',
+          defaultMessage: 'Endpoint created successfully',
+          description: 'Endpoints page > create endpoint success notification',
         }),
       });
       setShowCreateRouteModal(false);
@@ -273,11 +273,11 @@ export default function RoutesPage() {
 
   const handleAddRoute = async (routeData: any) => {
     try {
-      await createRouteAsync(routeData);
+      await createEndpointAsync(routeData);
       notification.success({
         message: intl.formatMessage({
-          defaultMessage: 'Route added successfully',
-          description: 'Routes page > add route success notification',
+          defaultMessage: 'Endpoint added successfully',
+          description: 'Endpoints page > add endpoint success notification',
         }),
       });
       setShowAddRouteModal(false);
@@ -296,25 +296,25 @@ export default function RoutesPage() {
     }
   };
 
-  const handleRowClick = (route: Route) => {
-    setSelectedRoute(route);
+  const handleRowClick = (endpoint: Endpoint) => {
+    setSelectedEndpoint(endpoint);
     setIsDrawerOpen(true);
   };
 
   const handleDrawerClose = () => {
     setIsDrawerOpen(false);
-    // Small delay before clearing selected route to avoid drawer content flickering
-    setTimeout(() => setSelectedRoute(null), 200);
+    // Small delay before clearing selected endpoint to avoid drawer content flickering
+    setTimeout(() => setSelectedEndpoint(null), 200);
   };
 
-  const handleUpdateRoute = (route: Route) => {
-    setSelectedRoute(route);
+  const handleUpdateRoute = (endpoint: Endpoint) => {
+    setSelectedEndpoint(endpoint);
     setIsDrawerOpen(false);
     setShowUpdateRouteModal(true);
   };
 
   const handleUpdateRouteSubmit = async (
-    routeId: string,
+    endpointId: string,
     updateData: {
       secret_id?: string;
       secret_name?: string;
@@ -325,11 +325,11 @@ export default function RoutesPage() {
       route_tags?: string;
     },
   ) => {
-    if (!selectedRoute) return;
+    if (!selectedEndpoint) return;
 
     try {
-      await updateRouteAsync({
-        route_id: routeId,
+      await updateEndpointAsync({
+        endpoint_id: endpointId,
         ...updateData,
       });
 
@@ -340,8 +340,8 @@ export default function RoutesPage() {
 
       notification.success({
         message: intl.formatMessage({
-          defaultMessage: 'Route updated successfully',
-          description: 'Routes page > update route success notification',
+          defaultMessage: 'Endpoint updated successfully',
+          description: 'Endpoints page > update endpoint success notification',
         }),
       });
       setShowUpdateRouteModal(false);
@@ -349,8 +349,8 @@ export default function RoutesPage() {
       const errorMsg = err.message || err.error_message || String(err);
       notification.error({
         message: intl.formatMessage({
-          defaultMessage: 'Failed to update route',
-          description: 'Routes page > update route error title',
+          defaultMessage: 'Failed to update endpoint',
+          description: 'Endpoints page > update endpoint error title',
         }),
         description: errorMsg,
       });
@@ -358,8 +358,8 @@ export default function RoutesPage() {
     }
   };
 
-  const handleDeleteRoute = (route: Route) => {
-    deleteRoute(route.route_id);
+  const handleDeleteRoute = (endpoint: Endpoint) => {
+    deleteEndpoint(endpoint.endpoint_id);
   };
 
   if (isLoading) {
@@ -379,7 +379,7 @@ export default function RoutesPage() {
         <Spacer shrinks={false} />
         <div css={{ padding: theme.spacing.lg }}>
           <Typography.Text color="error">
-            <FormattedMessage defaultMessage="Failed to load routes" description="Routes page > error loading routes" />
+            <FormattedMessage defaultMessage="Failed to load endpoints" description="Endpoints page > error loading endpoints" />
           </Typography.Text>
         </div>
       </ScrollablePageWrapper>
@@ -390,7 +390,7 @@ export default function RoutesPage() {
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
       <Spacer shrinks={false} />
       <Header
-        title={<FormattedMessage defaultMessage="Routes" description="Header title for the routes page" />}
+        title={<FormattedMessage defaultMessage="Endpoints" description="Header title for the endpoints page" />}
         breadcrumbs={[]}
         buttons={
           <div css={{ display: 'flex', gap: theme.spacing.sm }}>
@@ -406,8 +406,8 @@ export default function RoutesPage() {
               content={
                 secrets.length === 0
                   ? intl.formatMessage({
-                      defaultMessage: 'A route needs to be created first',
-                      description: 'Routes page > add route button disabled tooltip',
+                      defaultMessage: 'An endpoint needs to be created first',
+                      description: 'Endpoints page > add endpoint button disabled tooltip',
                     })
                   : undefined
               }
@@ -420,8 +420,8 @@ export default function RoutesPage() {
                   disabled={secrets.length === 0}
                 >
                   <FormattedMessage
-                    defaultMessage="Add Route"
-                    description="Add route button label (use existing secret)"
+                    defaultMessage="Add Endpoint"
+                    description="Add endpoint button label (use existing secret)"
                   />
                 </Button>
               </span>
@@ -432,14 +432,14 @@ export default function RoutesPage() {
               onClick={() => setShowCreateRouteModal(true)}
               icon={<PlusIcon />}
             >
-              <FormattedMessage defaultMessage="Create Route" description="Create route button label (new secret)" />
+              <FormattedMessage defaultMessage="Create Endpoint" description="Create endpoint button label (new secret)" />
             </Button>
           </div>
         }
       />
       <Spacer shrinks={false} />
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: theme.spacing.lg }}>
-        {routes.length === 0 ? (
+        {endpoints.length === 0 ? (
           <div
             css={{
               display: 'flex',
@@ -453,14 +453,14 @@ export default function RoutesPage() {
             <Empty
               title={
                 <FormattedMessage
-                  defaultMessage="No routes yet"
-                  description="Routes page > no routes empty state title"
+                  defaultMessage="No endpoints yet"
+                  description="Endpoints page > no endpoints empty state title"
                 />
               }
               description={
                 <FormattedMessage
-                  defaultMessage="Create a route to configure model access with API keys. Routes connect secrets to models and can be bound to specific resources."
-                  description="Routes page > no routes empty state description"
+                  defaultMessage="Create an endpoint to configure model access with API keys. Endpoints connect secrets to models and can be bound to specific resources."
+                  description="Endpoints page > no endpoints empty state description"
                 />
               }
             />
@@ -471,8 +471,8 @@ export default function RoutesPage() {
               icon={<PlusIcon />}
             >
               <FormattedMessage
-                defaultMessage="Create Route"
-                description="Routes page > empty state create route button"
+                defaultMessage="Create Endpoint"
+                description="Endpoints page > empty state create endpoint button"
               />
             </Button>
           </div>
@@ -483,8 +483,8 @@ export default function RoutesPage() {
                 componentId="mlflow.routes.search_input"
                 prefix={<SearchIcon />}
                 placeholder={intl.formatMessage({
-                  defaultMessage: 'Search routes by name',
-                  description: 'Routes page > search input placeholder',
+                  defaultMessage: 'Search endpoints by name',
+                  description: 'Endpoints page > search input placeholder',
                 })}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -505,7 +505,7 @@ export default function RoutesPage() {
                   >
                     <FormattedMessage
                       defaultMessage="Tag filter"
-                      description="Button to open the tags filter popover in the routes page"
+                      description="Button to open the tags filter popover in the endpoints page"
                     />
                   </Button>
                 </Popover.Trigger>
@@ -515,7 +515,7 @@ export default function RoutesPage() {
               </Popover.Root>
             </div>
             <RoutesTable
-              routes={filteredRoutes}
+              routes={filteredEndpoints}
               loading={isLoading}
               error={error || undefined}
               sorting={sorting}
@@ -545,7 +545,7 @@ export default function RoutesPage() {
       />
 
       <RouteDetailDrawer
-        route={selectedRoute}
+        route={selectedEndpoint}
         open={isDrawerOpen}
         onClose={handleDrawerClose}
         onUpdate={handleUpdateRouteSubmit}
@@ -553,7 +553,7 @@ export default function RoutesPage() {
       />
 
       <UpdateRouteModal
-        route={selectedRoute}
+        route={selectedEndpoint}
         visible={showUpdateRouteModal}
         onCancel={() => setShowUpdateRouteModal(false)}
         onUpdate={handleUpdateRouteSubmit}

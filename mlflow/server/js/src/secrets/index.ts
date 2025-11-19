@@ -1,31 +1,31 @@
 /**
- * MLflow Secrets and Routes Management - Public API
+ * MLflow Secrets and Endpoints Management - Public API
  *
  * This module provides reusable components, hooks, and utilities for managing
- * secrets and routes throughout the MLflow application.
+ * secrets and endpoints throughout the MLflow application.
  *
  * ## Usage Examples:
  *
- * ### Creating a route from scorer creation:
+ * ### Creating an endpoint from scorer creation:
  * ```typescript
- * import { CreateRouteModal, useCreateRoute } from '@mlflow/mlflow/src/secrets';
+ * import { CreateRouteModal, useCreateEndpoint } from '@mlflow/mlflow/src/secrets';
  *
  * function ScorerCreation() {
- *   const { createRouteAsync } = useCreateRoute();
- *   const [showRouteModal, setShowRouteModal] = useState(false);
+ *   const { createEndpointAsync } = useCreateEndpoint();
+ *   const [showEndpointModal, setShowEndpointModal] = useState(false);
  *
- *   const handleCreateRoute = async (routeData) => {
- *     const route = await createRouteAsync(routeData);
- *     // Use route.route_id for scorer
+ *   const handleCreateEndpoint = async (endpointData) => {
+ *     const endpoint = await createEndpointAsync(endpointData);
+ *     // Use endpoint.endpoint_id for scorer
  *   };
  *
  *   return (
  *     <>
- *       <Button onClick={() => setShowRouteModal(true)}>Create New Route</Button>
+ *       <Button onClick={() => setShowEndpointModal(true)}>Create New Endpoint</Button>
  *       <CreateRouteModal
- *         visible={showRouteModal}
- *         onCancel={() => setShowRouteModal(false)}
- *         onCreate={handleCreateRoute}
+ *         visible={showEndpointModal}
+ *         onCancel={() => setShowEndpointModal(false)}
+ *         onCreate={handleCreateEndpoint}
  *       />
  *     </>
  *   );

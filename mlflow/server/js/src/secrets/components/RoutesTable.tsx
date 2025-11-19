@@ -20,7 +20,7 @@ import React, { useMemo } from 'react';
 import { entries } from 'lodash';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 import { useIntl } from '@databricks/i18n';
-import type { Route } from '../types';
+import type { Endpoint } from '../types';
 import { ProviderBadge } from './ProviderBadge';
 import {
   type RoutesColumnDef,
@@ -31,14 +31,14 @@ import {
 } from './RoutesTable.utils';
 
 export interface RoutesTableProps {
-  routes: Route[];
+  routes: Endpoint[];
   loading: boolean;
   error?: Error;
   sorting: SortingState;
   setSorting: React.Dispatch<React.SetStateAction<SortingState>>;
   hiddenColumns?: string[];
   toggleHiddenColumn: (columnId: string) => void;
-  onRowClick?: (route: Route) => void;
+  onRowClick?: (route: Endpoint) => void;
 }
 
 const SecretNameCell = ({ secretName, secretId }: { secretName?: string; secretId: string }) => {
@@ -169,9 +169,9 @@ export const RoutesTable = React.memo(
           enableSorting: true,
           enableResizing: true,
           id: RoutesTableColumns.name,
-          accessorFn: (data) => data.name || data.route_id,
+          accessorFn: (data) => data.name || data.endpoint_id,
           cell: ({ row }) => {
-            const displayName = row.original.name || row.original.route_id;
+            const displayName = row.original.name || row.original.endpoint_id;
             return (
               <Typography.Text ellipsis css={{ maxWidth: 200, fontWeight: 600 }}>
                 {displayName}
@@ -315,12 +315,12 @@ export const RoutesTable = React.memo(
       return columns.filter((column) => column.id && !hiddenColumns.includes(column.id));
     }, [intl, hiddenColumns, showEmptyState, error, theme]);
 
-    const table = useReactTable<Route>({
+    const table = useReactTable<Endpoint>({
       columns,
       data: showEmptyState && !error ? [] : routes,
       state: { sorting },
       getCoreRowModel: getCoreRowModel(),
-      getRowId: (row) => row.route_id,
+      getRowId: (row) => row.endpoint_id,
       getSortedRowModel: getSortedRowModel(),
       onSortingChange: setSorting,
       enableColumnResizing: true,
@@ -350,7 +350,7 @@ export const RoutesTable = React.memo(
             minHeight: 400,
           }}
         >
-          <Typography.Text css={{ color: theme.colors.textSecondary }}>No routes found</Typography.Text>
+          <Typography.Text css={{ color: theme.colors.textSecondary }}>No endpoints found</Typography.Text>
         </div>
       );
     }
@@ -389,7 +389,7 @@ export const RoutesTable = React.memo(
                     size="small"
                     aria-label={intl.formatMessage({
                       defaultMessage: 'Select columns',
-                      description: 'Routes table > column selector dropdown aria label',
+                      description: 'Endpoints table > column selector dropdown aria label',
                     })}
                   />
                 </DropdownMenu.Trigger>

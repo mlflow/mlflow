@@ -27,7 +27,7 @@ export interface SecretBinding {
   last_updated_at: number;
   created_by?: string;
   last_updated_by?: string;
-  route_id?: string;
+  endpoint_id?: string;
   route_name?: string;
   secret_name?: string;
   provider?: string;
@@ -36,16 +36,14 @@ export interface SecretBinding {
 export interface CreateSecretRequest {
   secret_name: string;
   secret_value: string;
-  field_name: string;
-  resource_type: string;
-  resource_id: string;
+  provider?: string;
   is_shared?: boolean;
   created_by?: string;
+  auth_config?: string;
 }
 
 export interface CreateSecretResponse {
   secret: Secret;
-  binding: SecretBinding;
 }
 
 export interface UpdateSecretRequest {
@@ -80,9 +78,9 @@ export interface ListBindingsResponse {
   bindings: SecretBinding[];
 }
 
-// Route types for route-centric architecture
-export interface Route {
-  route_id: string;
+// Endpoint types for endpoint-centric architecture
+export interface Endpoint {
+  endpoint_id: string;
   secret_id: string;
   secret_name?: string; // Name of the secret/API key being used
   model_name: string;
@@ -97,7 +95,7 @@ export interface Route {
   tags?: Array<{ key: string; value: string }> | Record<string, string>;
 }
 
-export interface CreateRouteRequest {
+export interface CreateEndpointRequest_Legacy {
   // For "Add Route" flow (use existing secret - calls create-route-and-bind)
   secret_id?: string;
 
@@ -119,14 +117,14 @@ export interface CreateRouteRequest {
   created_by?: string;
 }
 
-export interface CreateRouteResponse {
+export interface CreateEndpointResponse_Legacy {
   secret?: Secret; // Present if new secret was created
-  route: Route;
-  binding: SecretBinding;
+  route: Endpoint;
+  binding?: SecretBinding;
 }
 
-export interface UpdateRouteRequest {
-  route_id: string;
+export interface UpdateEndpointRequest_Legacy {
+  endpoint_id: string;
 
   // Option 1: Update to existing secret
   secret_id?: string;
@@ -143,11 +141,77 @@ export interface UpdateRouteRequest {
   route_tags?: string;
 }
 
-export interface UpdateRouteResponse {
-  route: Route;
+export interface UpdateEndpointResponse_Legacy {
+  route: Endpoint;
   secret: Secret;
 }
 
-export interface ListRoutesResponse {
-  routes: Route[];
+export interface ListEndpointsResponse_Legacy {
+  routes: Endpoint[];
+}
+
+// Backend types for Endpoints (multi-model architecture from API)
+export interface BackendEndpointModel {
+  model_id: string;
+  model_name: string;
+  secret_id: string;
+  secret_name?: string;
+  provider?: string;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string;
+  last_updated_by?: string;
+}
+
+export interface BackendEndpoint {
+  endpoint_id: string;
+  name?: string;
+  description?: string;
+  models: BackendEndpointModel[];
+  tags?: Array<{ key: string; value: string }> | Record<string, string>;
+  created_at: number;
+  last_updated_at: number;
+  created_by?: string;
+  last_updated_by?: string;
+}
+
+export interface CreateEndpointRequest {
+  name?: string;
+  description?: string;
+  tags?: Array<{ key: string; value: string }>; // Array of tag objects
+  models: Array<{
+    model_name: string;
+    secret_id: string;
+  }>;
+  created_by?: string;
+}
+
+export interface CreateEndpointResponse {
+  endpoint: BackendEndpoint;
+}
+
+export interface UpdateEndpointRequest {
+  endpoint_id: string;
+  name?: string;
+  description?: string;
+  tags?: Array<{ key: string; value: string }>; // Array of tag objects
+}
+
+export interface UpdateEndpointResponse {
+  endpoint: BackendEndpoint;
+}
+
+export interface ListEndpointsResponse {
+  routes: BackendEndpoint[];
+}
+
+export interface BindEndpointRequest {
+  endpoint_id: string;
+  resource_type: string;
+  resource_id: string;
+  field_name: string;
+}
+
+export interface BindEndpointResponse {
+  binding_id: string;
 }

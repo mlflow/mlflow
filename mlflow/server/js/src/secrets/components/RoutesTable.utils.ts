@@ -1,9 +1,9 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import type { Route } from '../types';
+import type { Endpoint } from '../types';
 import type { Interpolation, Theme } from '@emotion/react';
 import { type MessageDescriptor, defineMessage } from '@databricks/i18n';
 
-export type RoutesColumnDef = ColumnDef<Route> & {
+export type RoutesColumnDef = ColumnDef<Endpoint> & {
   meta?: {
     styles?: Interpolation<Theme>;
   };

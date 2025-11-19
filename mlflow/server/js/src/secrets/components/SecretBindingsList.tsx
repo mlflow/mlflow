@@ -30,7 +30,7 @@ export const SecretBindingsList = ({
 
   const formatResourceType = (binding: any) => {
     // If this is a route binding, show "Route" regardless of the resource_type field
-    if (binding.route_id) {
+    if (binding.endpoint_id) {
       return 'Route';
     }
     // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
@@ -42,8 +42,8 @@ export const SecretBindingsList = ({
 
   const getResourceDisplay = (binding: any) => {
     // For route bindings, show the route name instead of resource_id
-    if (binding.route_id) {
-      return binding.route_name || binding.route_id;
+    if (binding.endpoint_id) {
+      return binding.route_name || binding.endpoint_id;
     }
     return binding.resource_id;
   };

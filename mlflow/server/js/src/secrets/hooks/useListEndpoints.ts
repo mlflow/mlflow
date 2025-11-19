@@ -1,13 +1,13 @@
 import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { routesApi } from '../api/routesApi';
-import type { ListRoutesResponse } from '../types';
+import { endpointsApi_Legacy } from '../api/routesApi';
+import type { ListEndpointsResponse_Legacy } from '../types';
 import { LIST_ROUTES_QUERY_KEY } from '../constants';
 
-export const useListRoutes = ({ enabled = true }: { enabled?: boolean } = {}) => {
-  const { data, isLoading, error, refetch } = useQuery<ListRoutesResponse, Error>({
+export const useListEndpoints = ({ enabled = true }: { enabled?: boolean } = {}) => {
+  const { data, isLoading, error, refetch } = useQuery<ListEndpointsResponse_Legacy, Error>({
     queryKey: [LIST_ROUTES_QUERY_KEY],
     queryFn: async () => {
-      const response = await routesApi.listRoutes();
+      const response = await endpointsApi_Legacy.listEndpoints();
       // Backend returns {} instead of {routes: []} when empty due to protobuf serialization
       // Normalize to always have routes array
       return { routes: response.routes || [] };
@@ -18,7 +18,7 @@ export const useListRoutes = ({ enabled = true }: { enabled?: boolean } = {}) =>
   });
 
   return {
-    routes: data?.routes ?? [],
+    endpoints: data?.routes ?? [],
     isLoading,
     error,
     refetch,

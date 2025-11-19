@@ -10,7 +10,7 @@ import {
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useState } from 'react';
 import { MaskedApiKeyInput } from './MaskedApiKeyInput';
-import type { Secret, SecretBinding, Route } from '../types';
+import type { Secret, SecretBinding, Endpoint } from '../types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
 
 export interface SecretManagementModalProps {
@@ -19,7 +19,7 @@ export interface SecretManagementModalProps {
   onClose: () => void;
   onRotate?: (secretId: string, newValue: string) => Promise<void>;
   onDelete?: (secretId: string) => Promise<void>;
-  routes?: Route[];
+  routes?: Endpoint[];
   bindings?: SecretBinding[];
 }
 
@@ -159,9 +159,9 @@ export const SecretManagementModal = ({
             </Typography.Title>
             <ul css={{ margin: 0, paddingLeft: theme.spacing.lg }}>
               {routesUsingSecret.map((route) => (
-                <li key={route.route_id}>
+                <li key={route.endpoint_id}>
                   <Typography.Text>
-                    {route.name || route.route_id} ({route.model_name})
+                    {route.name || route.endpoint_id} ({route.model_name})
                   </Typography.Text>
                 </li>
               ))}
@@ -318,8 +318,14 @@ export const SecretManagementModal = ({
             border: `1px solid ${theme.colors.borderDanger}`,
           }}
         >
-          <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.sm, color: theme.colors.textValidationDanger }}>
-            <FormattedMessage defaultMessage="Warning: Cascade Delete" description="Secret management > cascade delete title" />
+          <Typography.Title
+            level={4}
+            css={{ marginTop: 0, marginBottom: theme.spacing.sm, color: theme.colors.textValidationDanger }}
+          >
+            <FormattedMessage
+              defaultMessage="Warning: Cascade Delete"
+              description="Secret management > cascade delete title"
+            />
           </Typography.Title>
           <Typography.Text css={{ display: 'block', marginBottom: theme.spacing.sm }}>
             <FormattedMessage

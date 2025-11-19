@@ -16,16 +16,16 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useState, useMemo, useEffect } from 'react';
-import type { Route } from '../types';
+import type { Endpoint } from '../types';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
-import { useListRoutes } from '../hooks/useListRoutes';
+import { useListEndpoints } from '../hooks/useListEndpoints';
 import { MaskedApiKeyInput } from './MaskedApiKeyInput';
 import { AuthConfigFields } from './AuthConfigFields';
 import { PROVIDERS } from './routeConstants';
 
 export interface UpdateRouteModalProps {
-  route: Route | null;
+  route: Endpoint | null;
   visible: boolean;
   onCancel: () => void;
   onUpdate?: (
@@ -46,7 +46,7 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { secrets = [] } = useListSecrets({ enabled: visible });
-  const { routes = [] } = useListRoutes({ enabled: visible });
+  const { endpoints = [] } = useListEndpoints({ enabled: visible });
 
   // Get bindings for the current secret to show affected resources
   const { bindings = [] } = useListBindings({
@@ -117,16 +117,16 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
     });
   }, [secrets, route]);
 
-  // Find routes that use the current secret (will be affected by changing the secret)
-  const routesUsingCurrentSecret = useMemo(() => {
+  // Find endpoints that use the current secret (will be affected by changing the secret)
+  const endpointsUsingCurrentSecret = useMemo(() => {
     if (!route) return [];
-    return routes.filter((r) => r.secret_id === route.secret_id && r.route_id !== route.route_id);
-  }, [routes, route]);
+    return endpoints.filter((r) => r.secret_id === route.secret_id && r.endpoint_id !== route.endpoint_id);
+  }, [endpoints, route]);
 
   // Find bindings for this specific route (resources bound to this route)
   const routeBindings = useMemo(() => {
     if (!route) return [];
-    return bindings.filter((b) => b.route_id === route.route_id);
+    return bindings.filter((b) => b.endpoint_id === route.endpoint_id);
   }, [bindings, route]);
 
   // Get the selected provider info with auth config fields
@@ -180,9 +180,9 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
     setIsLoading(true);
     try {
       if (secretSource === 'existing') {
-        await onUpdate?.(route.route_id, { secret_id: selectedSecretId });
+        await onUpdate?.(route.endpoint_id, { secret_id: selectedSecretId });
       } else {
-        await onUpdate?.(route.route_id, {
+        await onUpdate?.(route.endpoint_id, {
           secret_name: newSecretName,
           secret_value: newSecretValue,
           provider: newSecretProvider || undefined,
@@ -206,11 +206,11 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
       componentId="mlflow.routes.update_route_modal"
       visible={visible}
       onCancel={onCancel}
-      okText={intl.formatMessage({ defaultMessage: 'Update Route', description: 'Update route button' })}
+      okText={intl.formatMessage({ defaultMessage: 'Update Endpoint', description: 'Update endpoint button' })}
       cancelText={intl.formatMessage({ defaultMessage: 'Cancel', description: 'Cancel button' })}
       onOk={handleUpdate}
       okButtonProps={{ loading: isLoading, disabled: !hasChanges }}
-      title={<FormattedMessage defaultMessage="Update Route API Key" description="Update route modal title" />}
+      title={<FormattedMessage defaultMessage="Update Endpoint API Key" description="Update endpoint modal title" />}
       size="wide"
     >
       {route && (
@@ -218,12 +218,12 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
           {/* Route info */}
           <div>
             <Typography.Title level={4} css={{ marginTop: 0, marginBottom: theme.spacing.sm }}>
-              {route.name || route.route_id}
+              {route.name || route.endpoint_id}
             </Typography.Title>
             <Typography.Text color="secondary" size="sm">
               <FormattedMessage
-                defaultMessage="Select a new API key for this route. The route will use the selected key for authentication."
-                description="Update route modal description"
+                defaultMessage="Select a new API key for this endpoint. The endpoint will use the selected key for authentication."
+                description="Update endpoint modal description"
               />
             </Typography.Text>
           </div>
@@ -283,10 +283,7 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                     : []
                 }
               >
-                <DialogComboboxTrigger
-                  allowClear={false}
-                  placeholder="Select Existing API Key"
-                />
+                <DialogComboboxTrigger allowClear={false} placeholder="Select Existing API Key" />
                 <DialogComboboxContent>
                   <DialogComboboxOptionList>
                     {compatibleSecrets.map((secret) => (
@@ -399,7 +396,7 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
           )}
 
           {/* Impact warning */}
-          {hasChanges && (routesUsingCurrentSecret.length > 0 || routeBindings.length > 0) && (
+          {hasChanges && (endpointsUsingCurrentSecret.length > 0 || routeBindings.length > 0) && (
             <div
               css={{
                 padding: theme.spacing.md,
@@ -412,13 +409,13 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                 <FormattedMessage defaultMessage="Impact Analysis" description="Impact analysis section title" />
               </Typography.Title>
 
-              {/* Resources bound to this route */}
+              {/* Resources bound to this endpoint */}
               {routeBindings.length > 0 && (
                 <div css={{ marginBottom: theme.spacing.md }}>
                   <Typography.Text css={{ fontWeight: 600, display: 'block', marginBottom: theme.spacing.xs }}>
                     <FormattedMessage
-                      defaultMessage="Resources Using This Route ({count})"
-                      description="Resources bound to route count"
+                      defaultMessage="Resources Using This Endpoint ({count})"
+                      description="Resources bound to endpoint count"
                       values={{ count: routeBindings.length }}
                     />
                   </Typography.Text>
@@ -455,14 +452,14 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                 </div>
               )}
 
-              {/* Other routes using the same key */}
-              {routesUsingCurrentSecret.length > 0 && (
+              {/* Other endpoints using the same key */}
+              {endpointsUsingCurrentSecret.length > 0 && (
                 <div>
                   <Typography.Text css={{ fontWeight: 600, display: 'block', marginBottom: theme.spacing.xs }}>
                     <FormattedMessage
-                      defaultMessage="Other Routes Using Current Key ({count})"
-                      description="Routes using same key count"
-                      values={{ count: routesUsingCurrentSecret.length }}
+                      defaultMessage="Other Endpoints Using Current Key ({count})"
+                      description="Endpoints using same key count"
+                      values={{ count: endpointsUsingCurrentSecret.length }}
                     />
                   </Typography.Text>
                   <Typography.Text
@@ -471,25 +468,25 @@ export const UpdateRouteModal = ({ route, visible, onCancel, onUpdate }: UpdateR
                     css={{ display: 'block', marginBottom: theme.spacing.xs }}
                   >
                     <FormattedMessage
-                      defaultMessage="These routes will continue using the current key:"
-                      description="Routes impact description"
+                      defaultMessage="These endpoints will continue using the current key:"
+                      description="Endpoints impact description"
                     />
                   </Typography.Text>
                   <ul css={{ margin: 0, paddingLeft: theme.spacing.lg }}>
-                    {routesUsingCurrentSecret.slice(0, 5).map((r) => (
-                      <li key={r.route_id}>
+                    {endpointsUsingCurrentSecret.slice(0, 5).map((r) => (
+                      <li key={r.endpoint_id}>
                         <Typography.Text size="sm">
-                          {r.name || r.route_id} ({r.model_name})
+                          {r.name || r.endpoint_id} ({r.model_name})
                         </Typography.Text>
                       </li>
                     ))}
-                    {routesUsingCurrentSecret.length > 5 && (
+                    {endpointsUsingCurrentSecret.length > 5 && (
                       <li>
                         <Typography.Text size="sm" color="secondary">
                           <FormattedMessage
                             defaultMessage="... and {count} more"
-                            description="More routes indicator"
-                            values={{ count: routesUsingCurrentSecret.length - 5 }}
+                            description="More endpoints indicator"
+                            values={{ count: endpointsUsingCurrentSecret.length - 5 }}
                           />
                         </Typography.Text>
                       </li>

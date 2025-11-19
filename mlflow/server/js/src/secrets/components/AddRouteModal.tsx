@@ -192,8 +192,8 @@ export const AddRouteModal = ({
 
     if (!routeName.trim()) {
       newErrors.routeName = intl.formatMessage({
-        defaultMessage: 'Route name is required',
-        description: 'Route name required error',
+        defaultMessage: 'Endpoint name is required',
+        description: 'Endpoint name required error',
       });
     }
 
@@ -236,8 +236,8 @@ export const AddRouteModal = ({
       if (errorMsg.includes('Binding already exists')) {
         setErrors({
           routeName: intl.formatMessage({
-            defaultMessage: 'A route with this name already exists. Please select a different route name.',
-            description: 'Route name conflict error',
+            defaultMessage: 'An endpoint with this name already exists. Please select a different endpoint name.',
+            description: 'Endpoint name conflict error',
           }),
         });
         return;
@@ -245,7 +245,7 @@ export const AddRouteModal = ({
 
       // Handle other errors
       setErrors({
-        general: errorMsg || 'Failed to add route',
+        general: errorMsg || 'Failed to add endpoint',
       });
     } finally {
       setIsLoading(false);
@@ -262,11 +262,11 @@ export const AddRouteModal = ({
       componentId="mlflow.routes.add_route_modal"
       visible={visible}
       onCancel={handleReset}
-      okText={intl.formatMessage({ defaultMessage: 'Add Route', description: 'Add route button' })}
+      okText={intl.formatMessage({ defaultMessage: 'Add Endpoint', description: 'Add endpoint button' })}
       cancelText={intl.formatMessage({ defaultMessage: 'Cancel', description: 'Cancel button' })}
       onOk={handleCreate}
       okButtonProps={{ loading: isLoading, disabled: !isFormValid }}
-      title={<FormattedMessage defaultMessage="Add Route with Existing Secret" description="Add route modal title" />}
+      title={<FormattedMessage defaultMessage="Add Endpoint with Existing Secret" description="Add endpoint modal title" />}
       size="wide"
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -434,7 +434,7 @@ export const AddRouteModal = ({
                         onOpenCreateModal?.();
                       }}
                     >
-                      <FormattedMessage defaultMessage="Create New Route" description="Create new route button" />
+                      <FormattedMessage defaultMessage="Create New Endpoint" description="Create new endpoint button" />
                     </Button>
                     <Button componentId="mlflow.routes.add_route_modal.cancel_no_secrets" onClick={handleReset}>
                       <FormattedMessage defaultMessage="Cancel" description="Cancel button" />
@@ -486,7 +486,7 @@ export const AddRouteModal = ({
           </div>
         )}
 
-        {/* Step 4: Route Configuration */}
+        {/* Step 4: Endpoint Configuration */}
         {canShowRouteDetailsSection && (
           <div
             css={{
@@ -498,7 +498,7 @@ export const AddRouteModal = ({
           >
             <RouteStepHeader
               stepNumber={4}
-              title={<FormattedMessage defaultMessage="Configure Route" description="Route config step title" />}
+              title={<FormattedMessage defaultMessage="Configure Endpoint" description="Endpoint config step title" />}
             />
             <RouteConfiguration
               routeName={routeName}

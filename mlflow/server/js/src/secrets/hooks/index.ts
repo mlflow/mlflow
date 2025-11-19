@@ -1,15 +1,15 @@
 /**
- * Public API for secrets and routes management hooks
+ * Public API for secrets and endpoints management hooks
  *
  * These hooks can be used from any part of the application that needs to
- * interact with secrets or routes (e.g., scorer creation, model deployment, etc.)
+ * interact with secrets or endpoints (e.g., scorer creation, model deployment, etc.)
  */
 
-// Route management hooks
-export { useCreateRoute } from './useCreateRoute';
-export { useUpdateRoute } from './useUpdateRoute';
-export { useDeleteRouteMutation } from './useDeleteRouteMutation';
-export { useListRoutes } from './useListRoutes';
+// Endpoint management hooks
+export { useCreateEndpoint } from './useCreateEndpoint';
+export { useUpdateEndpoint } from './useUpdateEndpoint';
+export { useDeleteEndpointMutation } from './useDeleteEndpointMutation';
+export { useListEndpoints } from './useListEndpoints';
 
 // Secret management hooks
 export { useCreateSecretMutation } from './useCreateSecretMutation';

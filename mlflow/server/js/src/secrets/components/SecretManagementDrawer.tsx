@@ -16,7 +16,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Secret } from '../types';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
-import { useListRoutes } from '../hooks/useListRoutes';
+import { useListEndpoints } from '../hooks/useListEndpoints';
 import { DeleteSecretModal } from './DeleteSecretModal';
 import { UpdateSecretModal } from './UpdateSecretModal';
 
@@ -34,7 +34,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { secrets = [], isLoading: isLoadingSecrets } = useListSecrets({ enabled: open });
-  const { routes = [] } = useListRoutes({ enabled: open });
+  const { endpoints = [] } = useListEndpoints({ enabled: open });
   const [expandedSecretIds, setExpandedSecretIds] = useState<Set<string>>(new Set());
   const [deleteSecret, setDeleteSecret] = useState<Secret | null>(null);
   const [updateSecret, setUpdateSecret] = useState<Secret | null>(null);
@@ -74,17 +74,17 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
     [onClose],
   );
 
-  // Create a map of secret_id -> route names for display
-  const secretToRoutes = useMemo(() => {
+  // Create a map of secret_id -> endpoint names for display
+  const secretToEndpoints = useMemo(() => {
     const map = new Map<string, string[]>();
-    routes.forEach((route) => {
-      if (route.secret_id) {
-        const existing = map.get(route.secret_id) || [];
-        map.set(route.secret_id, [...existing, route.name || route.route_id]);
+    endpoints.forEach((endpoint) => {
+      if (endpoint.secret_id) {
+        const existing = map.get(endpoint.secret_id) || [];
+        map.set(endpoint.secret_id, [...existing, endpoint.name || endpoint.endpoint_id]);
       }
     });
     return map;
-  }, [routes]);
+  }, [endpoints]);
 
   if (isLoadingSecrets) {
     return (
@@ -107,10 +107,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
               >
                 <GearIcon css={{ fontSize: 18 }} />
               </div>
-              <FormattedMessage
-                defaultMessage="Manage Secrets"
-                description="Secret management drawer > drawer title"
-              />
+              <FormattedMessage defaultMessage="Manage Secrets" description="Secret management drawer > drawer title" />
             </div>
           }
         >
@@ -143,10 +140,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
               >
                 <GearIcon css={{ fontSize: 18 }} />
               </div>
-              <FormattedMessage
-                defaultMessage="Manage Secrets"
-                description="Secret management drawer > drawer title"
-              />
+              <FormattedMessage defaultMessage="Manage Secrets" description="Secret management drawer > drawer title" />
             </div>
           }
         >
@@ -187,7 +181,7 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
                     onToggleExpand={() => toggleExpanded(secret.secret_id)}
                     onUpdate={() => handleUpdateClick(secret)}
                     onDelete={() => handleDeleteClick(secret)}
-                    routeNames={secretToRoutes.get(secret.secret_id) || []}
+                    routeNames={secretToEndpoints.get(secret.secret_id) || []}
                   />
                 ))}
               </div>
@@ -211,7 +205,14 @@ interface SecretManagementRowProps {
   routeNames: string[];
 }
 
-const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onUpdate, onDelete, routeNames }: SecretManagementRowProps) => {
+const SecretManagementRow = ({
+  secret,
+  isExpanded,
+  onToggleExpand,
+  onUpdate,
+  onDelete,
+  routeNames,
+}: SecretManagementRowProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { bindings = [], isLoading: isLoadingBindings } = useListBindings({
@@ -225,7 +226,7 @@ const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onUpdate, onD
 
   const formatResourceType = (binding: any) => {
     // If this is a route binding, show "Route" regardless of the resource_type field
-    if (binding.route_id) {
+    if (binding.endpoint_id) {
       return 'Route';
     }
     // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
@@ -237,8 +238,8 @@ const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onUpdate, onD
 
   const getResourceDisplay = (binding: any) => {
     // For route bindings, show the route name instead of resource_id
-    if (binding.route_id) {
-      return binding.route_name || binding.route_id;
+    if (binding.endpoint_id) {
+      return binding.route_name || binding.endpoint_id;
     }
     return binding.resource_id;
   };
@@ -301,7 +302,9 @@ const SecretManagementRow = ({ secret, isExpanded, onToggleExpand, onUpdate, onD
             css={{
               padding: `${theme.spacing.xs}px ${theme.spacing.sm}px`,
               borderRadius: theme.borders.borderRadiusMd,
-              backgroundColor: hasZeroUsage ? theme.colors.backgroundValidationDanger : theme.colors.backgroundSecondary,
+              backgroundColor: hasZeroUsage
+                ? theme.colors.backgroundValidationDanger
+                : theme.colors.backgroundSecondary,
               border: `1px solid ${hasZeroUsage ? theme.colors.borderValidationDanger : theme.colors.border}`,
             }}
           >

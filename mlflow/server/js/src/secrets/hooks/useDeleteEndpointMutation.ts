@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { routesApi } from '../api/routesApi';
+import { endpointsApi_Legacy } from '../api/routesApi';
 import { LIST_ROUTES_QUERY_KEY } from '../constants';
 
-export const useDeleteRouteMutation = ({
+export const useDeleteEndpointMutation = ({
   onSuccess,
   onError,
 }: {
@@ -11,9 +11,9 @@ export const useDeleteRouteMutation = ({
 } = {}) => {
   const queryClient = useQueryClient();
 
-  const { mutate: deleteRoute, isLoading } = useMutation<void, Error, string>({
-    mutationFn: async (routeId: string) => {
-      await routesApi.deleteRoute(routeId);
+  const { mutate: deleteEndpoint, isLoading } = useMutation<void, Error, string>({
+    mutationFn: async (endpointId: string) => {
+      await endpointsApi_Legacy.deleteEndpoint(endpointId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [LIST_ROUTES_QUERY_KEY] });
@@ -25,7 +25,7 @@ export const useDeleteRouteMutation = ({
   });
 
   return {
-    deleteRoute,
+    deleteEndpoint,
     isLoading,
   };
 };

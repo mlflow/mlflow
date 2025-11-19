@@ -116,10 +116,7 @@ export const CreateSecretModal = ({ visible, onCancel }: { visible: boolean; onC
     if (isGlobalScope) {
       createSecret({
         secret_name: finalSecretName,
-        field_name: envVarKey,
         secret_value: secretValue,
-        resource_type: 'GLOBAL',
-        resource_id: 'global',
         is_shared: true,
       });
     } else {

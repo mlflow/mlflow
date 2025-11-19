@@ -1218,7 +1218,6 @@ def test_secret_permission_management(client, monkeypatch):
         params={"secret_id": secret_id, "username": username2},
         auth=(ADMIN_USERNAME, ADMIN_PASSWORD),
     )
->>>>>>> 5a2500ba0 (Add auth integration for secrets)
 
     assert response.status_code == 404
     assert response.json()["error_code"] == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
@@ -1416,7 +1415,6 @@ def test_create_route_rbac(client, monkeypatch):
             (username_edit, password_edit),
         )
         assert response.status_code == 200
->>>>>>> e0ae396c7 (Fix test_list_secrets and _list_secrets query)
 
 
 def test_admin_bypass_secrets(client, monkeypatch):

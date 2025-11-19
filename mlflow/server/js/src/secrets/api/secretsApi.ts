@@ -19,7 +19,7 @@ export const secretsApi = {
 
   createSecret: async (request: CreateSecretRequest): Promise<CreateSecretResponse> => {
     return (await fetchAPI(
-      getAjaxUrl('ajax-api/3.0/mlflow/secrets/create-and-bind'),
+      getAjaxUrl('ajax-api/3.0/mlflow/secrets/create'),
       'POST',
       request,
     )) as CreateSecretResponse;

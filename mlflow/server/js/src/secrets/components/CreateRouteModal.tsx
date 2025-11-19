@@ -265,8 +265,8 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
 
     if (!routeName.trim()) {
       newErrors.routeName = intl.formatMessage({
-        defaultMessage: 'Route name is required',
-        description: 'Route name required error',
+        defaultMessage: 'Endpoint name is required',
+        description: 'Endpoint name required error',
       });
     }
 
@@ -316,8 +316,8 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
       if (errorMsg.includes('Binding already exists')) {
         setErrors({
           routeName: intl.formatMessage({
-            defaultMessage: 'A route with this name already exists. Please select a different route name.',
-            description: 'Route name conflict error',
+            defaultMessage: 'An endpoint with this name already exists. Please select a different endpoint name.',
+            description: 'Endpoint name conflict error',
           }),
         });
         return;
@@ -325,7 +325,7 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
 
       // Handle other errors
       setErrors({
-        general: errorMsg || 'Failed to create route',
+        general: errorMsg || 'Failed to create endpoint',
       });
     } finally {
       setIsLoading(false);
@@ -384,11 +384,11 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
       componentId="mlflow.routes.create_route_modal"
       visible={visible}
       onCancel={handleReset}
-      okText={intl.formatMessage({ defaultMessage: 'Create Route', description: 'Create route button' })}
+      okText={intl.formatMessage({ defaultMessage: 'Create Endpoint', description: 'Create endpoint button' })}
       cancelText={intl.formatMessage({ defaultMessage: 'Cancel', description: 'Cancel button' })}
       onOk={handleCreate}
       okButtonProps={{ loading: isLoading, disabled: !isFormValid }}
-      title={<FormattedMessage defaultMessage="Create New Route" description="Create route modal title" />}
+      title={<FormattedMessage defaultMessage="Create New Endpoint" description="Create endpoint modal title" />}
       size="wide"
     >
       <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md }}>
@@ -738,7 +738,7 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
                 4
               </div>
               <Typography.Title level={4} css={{ marginBottom: 0, color: theme.colors.textPrimary }}>
-                <FormattedMessage defaultMessage="Configure Route" description="Route config step title" />
+                <FormattedMessage defaultMessage="Configure Endpoint" description="Endpoint config step title" />
               </Typography.Title>
             </div>
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm }}>
@@ -746,7 +746,7 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
               <div css={{ display: 'flex', gap: theme.spacing.md }}>
                 <div css={{ flex: 1 }}>
                   <FormUI.Label htmlFor="route-name-input">
-                    <FormattedMessage defaultMessage="Route Name" description="Route name label" />
+                    <FormattedMessage defaultMessage="Endpoint Name" description="Endpoint name label" />
                   </FormUI.Label>
                   <Input
                     componentId="mlflow.routes.create_route_modal.route_name"
@@ -754,7 +754,7 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
                     autoComplete="off"
                     placeholder={intl.formatMessage({
                       defaultMessage: 'e.g., Production GPT-4o',
-                      description: 'Route name placeholder',
+                      description: 'Endpoint name placeholder',
                     })}
                     value={routeName}
                     onChange={(e) => {
