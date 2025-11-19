@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 const MOCK_OPENAI_CHAT_INPUT = {
@@ -157,6 +159,86 @@ const MOCK_OPENAI_RESPONSES_INPUT = {
   input: 'What is the capital of France?',
 };
 
+// from mlflow.types.responses.ResponsesAgentRequest
+const MOCK_RESPONSE_AGENT_INPUT = {
+  request: {
+    tool_choice: null,
+    truncation: null,
+    max_output_tokens: null,
+    metadata: null,
+    parallel_tool_calls: null,
+    tools: null,
+    reasoning: null,
+    store: null,
+    stream: null,
+    temperature: null,
+    text: null,
+    top_p: null,
+    user: null,
+    input: [
+      {
+        status: null,
+        content: 'What is 6*7 in Python? use your tool',
+        role: 'user',
+        type: 'message',
+      },
+    ],
+    custom_inputs: null,
+    context: null,
+  },
+};
+
+const MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT = [
+  {
+    type: 'response.output_text.delta',
+    delta: 'The',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_text.delta',
+    delta: 'capital',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_text.delta',
+    delta: 'of',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_text.delta',
+    delta: 'France',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_text.delta',
+    delta: 'is',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_text.delta',
+    delta: 'Paris.',
+    custom_outputs: null,
+    item_id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+  },
+  {
+    type: 'response.output_item.done',
+    custom_outputs: null,
+    sequence_number: 1,
+    item: {
+      id: 'a3330f22-46ee-4df7-b880-85939b69f458',
+      type: 'message',
+      status: 'completed',
+      content: [{ type: 'output_text', text: 'The capital of France is Paris.' }],
+      role: 'assistant',
+    },
+  },
+];
+
 describe('normalizeConversation', () => {
   it('handles an OpenAI chat input', () => {
     expect(normalizeConversation(MOCK_OPENAI_CHAT_INPUT, 'openai')).toEqual([
@@ -204,6 +286,24 @@ describe('normalizeConversation', () => {
       expect.objectContaining({
         role: 'assistant',
         content: 'The capital of France is Paris.',
+      }),
+    ]);
+  });
+
+  it('handles an OpenAI responses streaming output', () => {
+    expect(normalizeConversation(MOCK_OPENAI_RESPONSES_STREAMING_OUTPUT, 'openai')).toEqual([
+      expect.objectContaining({
+        role: 'assistant',
+        content: 'The capital of France is Paris.',
+      }),
+    ]);
+  });
+
+  it('handles a ResponsesAgent input', () => {
+    expect(normalizeConversation(MOCK_RESPONSE_AGENT_INPUT, 'responses-agent')).toEqual([
+      expect.objectContaining({
+        role: 'user',
+        content: 'What is 6*7 in Python? use your tool',
       }),
     ]);
   });

@@ -149,6 +149,41 @@ def resolve_outputs_from_trace(
     return outputs
 
 
+def resolve_conversation_from_session(
+    session: list[Trace],
+) -> list[dict[str, str]]:
+    """
+    Extract conversation history from traces in session.
+
+    Args:
+        session: List of traces from the same session.
+
+    Returns:
+        List of conversation messages in the format [{"role": "user"|"assistant", "content": str}].
+        Each trace contributes two messages: user (from input) and assistant (from output).
+    """
+    # Sort traces by creation time (timestamp_ms)
+    sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+    conversation = []
+    for trace in sorted_traces:
+        # Extract and parse input (user message)
+        inputs = extract_inputs_from_trace(trace)
+        if inputs:
+            user_content = parse_inputs_to_str(inputs)
+            if user_content and user_content.strip():
+                conversation.append({"role": "user", "content": user_content})
+
+        # Extract and parse output (assistant message)
+        outputs = extract_outputs_from_trace(trace)
+        if outputs:
+            assistant_content = parse_outputs_to_str(outputs)
+            if assistant_content and assistant_content.strip():
+                conversation.append({"role": "assistant", "content": assistant_content})
+
+    return conversation
+
+
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
@@ -491,16 +526,17 @@ def _should_keep_trace(trace: Trace, eval_start_time: int) -> bool:
 
 def construct_eval_result_df(
     run_id: str,
-    traces_wo_spans: list[Trace],
+    traces: list[Trace],
     eval_results: list["EvalResult"],
 ) -> "pd.DataFrame | None":
     """
-    Construct a pandas DataFrame from the traces (without spans) and eval results.
+    Construct a pandas DataFrame from the traces and eval results.
 
     Args:
         run_id: The MLflow run ID of the evaluation run.
-        traces_wo_spans: List of traces (without spans). This is the result of
-            `mlflow.search_traces(include_spans=False)` to fetch the assessments from the backend.
+        traces: List of traces. Only TraceInfo is used here, and **spans are ignored&**.
+            The expected input to this function is the result of
+            `mlflow.search_traces(include_spans=False, return_type="list")`.
         eval_results: List of eval results containing the full spans.
 
     Returns:
@@ -508,8 +544,11 @@ def construct_eval_result_df(
     """
     import pandas as pd
 
+    if not traces:
+        return None
+
     try:
-        trace_id_to_info = {t.info.trace_id: t.info for t in traces_wo_spans}
+        trace_id_to_info = {t.info.trace_id: t.info for t in traces}
         traces = [
             Trace(
                 info=trace_id_to_info[eval_result.eval_item.trace.info.trace_id],

@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   Empty,
   Input,
@@ -19,7 +20,7 @@ import { RunPageTabName } from '../../../constants';
 import { FormattedMessage, defineMessages, useIntl } from 'react-intl';
 import { isSystemMetricKey } from '../../../utils/MetricsUtils';
 import type { ColumnDef, Table as TableDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import type { UseGetRunQueryResponseRunInfo } from '../hooks/useGetRunQuery';
 import { isUndefined } from 'lodash';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
@@ -145,10 +146,12 @@ export const RunViewMetricsTable = ({
   latestMetrics,
   runInfo,
   loggedModels,
+  expandToParentContainer,
 }: {
   latestMetrics: MetricEntitiesByName;
   runInfo: RunInfoEntity | UseGetRunQueryResponseRunInfo;
   loggedModels?: LoggedModelProto[];
+  expandToParentContainer?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
   const { detailsPageTableStyles, detailsPageNoEntriesStyles } = useExperimentTrackingDetailsPageLayoutStyles();
@@ -257,14 +260,17 @@ export const RunViewMetricsTable = ({
     ];
   }, [filter, metricValues, intl]);
 
-  const table = useReactTable<MetricEntity>({
-    data: metricValues,
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.key,
-    enableColumnResizing: true,
-    columnResizeMode: 'onChange',
-    columns,
-  });
+  const table = useReactTable<MetricEntity>(
+    'mlflow/web/js/src/experiment-tracking/components/run-page/overview/RunViewMetricsTable.tsx',
+    {
+      data: metricValues,
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.key,
+      enableColumnResizing: true,
+      columnResizeMode: 'onChange',
+      columns,
+    },
+  );
 
   const renderTableContent = () => {
     if (!metricValues.length) {
@@ -351,7 +357,7 @@ export const RunViewMetricsTable = ({
   return (
     <div
       css={{
-        flex: '0 0 auto',
+        flex: expandToParentContainer ? 1 : '0 0 auto',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'hidden',
@@ -371,7 +377,7 @@ export const RunViewMetricsTable = ({
           borderRadius: theme.general.borderRadiusBase,
           display: 'flex',
           flexDirection: 'column',
-          flex: 1,
+          flex: expandToParentContainer ? 1 : '0 0 auto',
           overflow: 'hidden',
         }}
       >

@@ -18,54 +18,10 @@ This guide demonstrates the complete workflow for building and evaluating GenAI 
 **Databricks Users**: To use Evaluation Datasets with Databricks Unity Catalog, MLflow requires the additional installation of the `databricks-agents` package. This package uses Unity Catalog to store datasets. Install it with: `pip install databricks-agents`
 :::
 
-## Workflow Overview
-
-<DAGLoop
-  title="Evaluation-Driven Development"
-  circleSize={500}
-  steps={[
-    {
-      icon: Code,
-      title: "Build & Trace",
-      description: "Create your GenAI application with tracing enabled",
-      detailedDescription: "Start with a traced GenAI application using MLflow's automatic instrumentation or manual tracing decorators to capture detailed execution data."
-    },
-    {
-      icon: Activity,
-      title: "Capture Traces",
-      description: "Run your application to collect production traces",
-      detailedDescription: "Execute your application with real or test scenarios to generate traces that capture inputs, outputs, and intermediate steps."
-    },
-    {
-      icon: Target,
-      title: "Add Expectations",
-      description: "Define ground truth for quality validation",
-      detailedDescription: "Annotate traces with expectations that define correct behavior, using MLflow's assessment APIs to add ground truth data."
-    },
-    {
-      icon: Database,
-      title: "Create Dataset",
-      description: "Build reusable evaluation datasets from traces",
-      detailedDescription: "Transform annotated traces into evaluation datasets that serve as your test suite, growing with each iteration.",
-      isFocus: true
-    },
-    {
-      icon: BarChart3,
-      title: "Evaluate",
-      description: "Run systematic evaluations with scorers",
-      detailedDescription: "Use MLflow's evaluation framework with built-in and custom scorers to systematically assess your application's performance."
-    },
-    {
-      icon: CheckCircle,
-      title: "Analyze Results",
-      description: "Review performance and identify improvements",
-      detailedDescription: "Examine evaluation metrics, identify failure patterns, and determine areas for improvement to guide your next iteration."
-    }
-  ]}
-  loopBackIcon={RefreshCw}
-  loopBackText="Iterate & Improve"
-  loopBackDescription="Based on analysis insights, refine your application by improving prompts, adjusting parameters, or enhancing logic. The cycle continues as you progressively improve quality with each iteration."
-/>
+:::warning[SQL Backend Required]
+Evaluation Datasets require an MLflow Tracking Server with a **[SQL backend](/self-hosting/architecture/backend-store/#types-of-backend-stores)** (PostgreSQL, MySQL, SQLite, or MSSQL).
+This feature is **not available** with FileStore (local file system-based tracking).
+:::
 
 ## Prerequisites
 
@@ -149,7 +105,9 @@ for question in test_questions:
 
 ## Step 3: Add Ground Truth Expectations
 
-Add expectations to your traces to define what constitutes correct behavior. Use <APILink fn="mlflow.log_expectation">mlflow.log_expectation()</APILink> to annotate traces with ground truth values that will serve as your evaluation baseline.
+Add expectations to your traces to define what you expect as a response coming from your application. Use <APILink fn="mlflow.log_expectation">mlflow.log_expectation()</APILink> to annotate traces with ground truth values that will serve as your evaluation baseline. You can also directly apply expectations within the UI.
+
+<ImageBox src="/images/add-expectation-ui.png" alt="Adding Expectations in UI" />
 
 ```python
 # Search for recent traces (uses current active experiment by default)

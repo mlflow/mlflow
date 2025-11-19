@@ -843,7 +843,7 @@ def test_start_run_existing_run_from_environment_with_set_environment(
     with mock.patch.object(MlflowClient, "get_run", return_value=mock_run):
         set_experiment("test-run")
         with pytest.raises(
-            MlflowException, match="active run ID does not match environment run ID"
+            MlflowException, match="active experiment ID does not match environment run ID"
         ):
             start_run()
 

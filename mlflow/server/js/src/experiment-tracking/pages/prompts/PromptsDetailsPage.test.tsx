@@ -1,4 +1,5 @@
 /* eslint-disable jest/no-standalone-expect */
+import { jest, describe, beforeAll, it, expect, test } from '@jest/globals';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import { setupServer } from '../../../common/utils/setup-msw';
@@ -216,7 +217,7 @@ describe('PromptsDetailsPage', () => {
       name: 'prompt1',
       description: 'commit message',
     });
-    expect(payload.tags).toEqual(
+    expect((payload as any).tags).toEqual(
       expect.arrayContaining([
         { key: 'mlflow.prompt.is_prompt', value: 'true' },
         { key: 'mlflow.prompt.text', value: JSON.stringify(expectedMessages) },

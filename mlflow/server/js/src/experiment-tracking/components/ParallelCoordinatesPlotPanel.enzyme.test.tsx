@@ -5,6 +5,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import { ParallelCoordinatesPlotPanel, getDiffParams } from './ParallelCoordinatesPlotPanel';
