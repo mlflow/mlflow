@@ -19,10 +19,12 @@ export const RunViewTagsBox = ({
   runUuid,
   tags,
   onTagsUpdated,
+  className,
 }: {
   runUuid: string;
   tags: Record<string, KeyValueEntity>;
   onTagsUpdated: () => void;
+  className?: string;
 }) => {
   const sharedTaggingUIEnabled = shouldUseSharedTaggingUI();
 
@@ -87,6 +89,7 @@ export const RunViewTagsBox = ({
         },
         gap: theme.spacing.xs,
       }}
+      className={className}
     >
       {tagsKeyValueMap.length < 1 ? (
         <Button

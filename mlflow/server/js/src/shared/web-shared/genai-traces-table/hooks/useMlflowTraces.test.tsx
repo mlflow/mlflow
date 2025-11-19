@@ -1,3 +1,4 @@
+import { jest, describe, test, expect, it, beforeEach } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -11,7 +12,14 @@ import {
   useMlflowTracesTableMetadata,
   useSearchMlflowTraces,
 } from './useMlflowTraces';
-import { EXECUTION_DURATION_COLUMN_ID, SESSION_COLUMN_ID, LOGGED_MODEL_COLUMN_ID } from './useTableColumns';
+import {
+  EXECUTION_DURATION_COLUMN_ID,
+  SESSION_COLUMN_ID,
+  LOGGED_MODEL_COLUMN_ID,
+  SPAN_NAME_COLUMN_ID,
+  SPAN_TYPE_COLUMN_ID,
+  SPAN_CONTENT_COLUMN_ID,
+} from './useTableColumns';
 import {
   Assessment,
   getAssessmentValue,
@@ -19,7 +27,7 @@ import {
   type FeedbackAssessment,
   type ModelTraceInfoV3,
 } from '@databricks/web-shared/model-trace-explorer';
-import { FilterOperator, HiddenFilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
+import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { shouldEnableUnifiedEvalTab, shouldUseTracesV4API } from '../utils/FeatureUtils';
 import { fetchFn } from '../utils/FetchUtils';
@@ -44,7 +52,7 @@ jest.mock('../utils/FetchUtils', () => ({
 }));
 
 // Mock global window.fetch
-global.fetch = jest.fn();
+global.fetch = jest.fn<typeof global.fetch>();
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -308,8 +316,8 @@ describe('useSearchMlflowTraces', () => {
             },
             {
               column: 'custom_metadata:mlflow.trace.session',
-              operator: HiddenFilterOperator.ILIKE,
-              value: '%',
+              operator: FilterOperator.CONTAINS,
+              value: '',
             },
           ],
         }),
@@ -325,7 +333,7 @@ describe('useSearchMlflowTraces', () => {
     expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
-      filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%'`,
+      filter: `request_metadata.user_id = 'user123' AND request_metadata.environment = 'production' AND request_metadata.mlflow.trace.session ILIKE '%%'`,
       max_results: 10000,
     });
   });
@@ -387,6 +395,368 @@ describe('useSearchMlflowTraces', () => {
     expect(JSON.parse(body)).toEqual({
       locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
       filter: `request_metadata.user_id = 'user123' AND request_metadata.mlflow.run_id = 'run123'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span name filters with case-insensitive equals', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_NAME_COLUMN_ID,
+              operator: FilterOperator.EQUALS,
+              value: 'my_span',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.name ILIKE 'my_span'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span name filters with CONTAINS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_NAME_COLUMN_ID,
+              operator: FilterOperator.CONTAINS,
+              value: 'span',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.name ILIKE '%span%'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span name filters with NOT_EQUALS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_NAME_COLUMN_ID,
+              operator: FilterOperator.NOT_EQUALS,
+              value: 'excluded_span',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.name != 'excluded_span'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span type filters with case-insensitive equals', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_TYPE_COLUMN_ID,
+              operator: FilterOperator.EQUALS,
+              value: 'llm',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.type ILIKE 'llm'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span type filters with CONTAINS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_TYPE_COLUMN_ID,
+              operator: FilterOperator.CONTAINS,
+              value: 'chain',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.type ILIKE '%chain%'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles multiple span filters combined', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_NAME_COLUMN_ID,
+              operator: FilterOperator.CONTAINS,
+              value: 'query',
+            },
+            {
+              column: SPAN_TYPE_COLUMN_ID,
+              operator: FilterOperator.EQUALS,
+              value: 'llm',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.name ILIKE '%query%' AND span.type ILIKE 'llm'`,
+      max_results: 10000,
+    });
+  });
+
+  test('handles span content filter with CONTAINS operator', async () => {
+    jest.mocked(fetchFn).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        traces: [
+          {
+            trace_id: 'trace_1',
+            request: '{"input": "value"}',
+            response: '{"output": "value"}',
+          },
+        ],
+        next_page_token: undefined,
+      }),
+    } as any);
+
+    const { result } = renderHook(
+      () =>
+        useSearchMlflowTraces({
+          locations: [
+            {
+              type: 'MLFLOW_EXPERIMENT',
+              mlflow_experiment: {
+                experiment_id: 'experiment-xyz',
+              },
+            },
+          ],
+          filters: [
+            {
+              column: SPAN_CONTENT_COLUMN_ID,
+              operator: FilterOperator.CONTAINS,
+              value: 'search text',
+            },
+          ],
+        }),
+      {
+        wrapper: createWrapper(),
+      },
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const [url, { body }] = jest.mocked(fetchFn).mock.lastCall as any;
+
+    expect(url).toEqual('/ajax-api/3.0/mlflow/traces/search');
+    expect(JSON.parse(body)).toEqual({
+      locations: [{ mlflow_experiment: { experiment_id: 'experiment-xyz' }, type: 'MLFLOW_EXPERIMENT' }],
+      filter: `span.content ILIKE '%search text%'`,
       max_results: 10000,
     });
   });
@@ -905,7 +1275,7 @@ describe('useSearchMlflowTraces', () => {
                 },
               },
               {
-                assessment_id: 'a-1',
+                assessment_id: 'a-2',
                 assessment_name: 'overall',
                 trace_id: 'trace_1',
                 create_time: '2024-01-01T00:00:00Z',
@@ -942,6 +1312,7 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data?.[0].assessments?.[0].assessment_id).toBe('a-1');
     expect(result.current.data?.[0].assessments?.[0]?.source?.source_id).toBe('user-1');
     expect(getAssessmentValue(result.current.data?.[0].assessments?.[1] as Assessment)).toBe('expected value');
+    expect(result.current.data?.[0].assessments?.[1]?.assessment_id).toBe('a-2');
     expect(result.current.data?.[0].assessments?.[1]?.source?.source_id).toBe('user-2');
   });
 
@@ -1352,6 +1723,7 @@ describe('invalidateMlflowSearchTracesCache', () => {
 
     // Verify that invalidateQueries was called with the correct key
     expect(invalidateQueriesSpy).toHaveBeenCalledTimes(1);
+    // @ts-expect-error 'queryKey' does not exist in type
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['searchMlflowTraces'] });
   });
 });

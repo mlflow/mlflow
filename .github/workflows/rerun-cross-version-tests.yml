@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   set-matrix:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-slim
     timeout-minutes: 10
     if: github.repository == 'mlflow/dev'
     permissions:

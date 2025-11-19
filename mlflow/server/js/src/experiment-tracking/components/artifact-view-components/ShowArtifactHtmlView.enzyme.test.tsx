@@ -6,6 +6,7 @@
  * annotations are already looking good, please remove this comment.
  */
 
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import React from 'react';
 import { shallow } from 'enzyme';
 import ShowArtifactHtmlView from './ShowArtifactHtmlView';
@@ -58,7 +59,7 @@ describe('ShowArtifactHtmlView', () => {
     });
   });
 
-  test('should render html content in IFrame', (done: jest.DoneCallback) => {
+  test('should render html content in IFrame', (done) => {
     const getArtifact = jest.fn((artifactLocation) => {
       return Promise.resolve('my text');
     });

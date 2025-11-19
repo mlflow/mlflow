@@ -14,7 +14,7 @@ export const useFetchTraces = ({ traceIds }: { traceIds: string[] }) => {
 
       const results = [];
       for (const chunk of chunks) {
-        const traces = await Promise.all(chunk.map(getTrace));
+        const traces = await Promise.all(chunk.map((traceId) => getTrace(traceId)));
         results.push(...traces);
       }
 

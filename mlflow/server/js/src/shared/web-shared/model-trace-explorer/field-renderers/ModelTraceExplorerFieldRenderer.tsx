@@ -2,6 +2,7 @@ import { every, isBoolean, isNumber, isString } from 'lodash';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { FormattedMessage } from '@databricks/i18n';
 
 import { ModelTraceExplorerChatToolsRenderer } from './ModelTraceExplorerChatToolsRenderer';
 import { ModelTraceExplorerRetrieverFieldRenderer } from './ModelTraceExplorerRetrieverFieldRenderer';
@@ -10,20 +11,21 @@ import { CodeSnippetRenderMode } from '../ModelTrace.types';
 import { isModelTraceChatTool, isRetrieverDocument, normalizeConversation } from '../ModelTraceExplorer.utils';
 import { ModelTraceExplorerCodeSnippet } from '../ModelTraceExplorerCodeSnippet';
 import { ModelTraceExplorerConversation } from '../right-pane/ModelTraceExplorerConversation';
-import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
 
-const MAX_VISIBLE_MESSAGES = 3;
+export const DEFAULT_MAX_VISIBLE_CHAT_MESSAGES = 3;
 
 export const ModelTraceExplorerFieldRenderer = ({
   title,
   data,
   renderMode,
   chatMessageFormat,
+  maxVisibleMessages = DEFAULT_MAX_VISIBLE_CHAT_MESSAGES,
 }: {
   title: string;
   data: string;
   renderMode: 'default' | 'json' | 'text';
   chatMessageFormat?: string;
+  maxVisibleMessages?: number;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [messagesExpanded, setMessagesExpanded] = useState(false);
@@ -51,9 +53,9 @@ export const ModelTraceExplorerFieldRenderer = ({
     Array.isArray(parsedData) && parsedData.length > 0 && every(parsedData, isRetrieverDocument);
 
   if (chatMessages && chatMessages.length > 0) {
-    const shouldTruncateMessages = chatMessages.length > MAX_VISIBLE_MESSAGES;
+    const shouldTruncateMessages = chatMessages.length > maxVisibleMessages;
     const visibleMessages =
-      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-MAX_VISIBLE_MESSAGES);
+      messagesExpanded || !shouldTruncateMessages ? chatMessages : chatMessages.slice(-maxVisibleMessages);
     const hiddenMessageCount = shouldTruncateMessages ? chatMessages.length - visibleMessages.length : 0;
 
     return (

@@ -10,6 +10,7 @@ import { ExpectationValuePreview } from '@databricks/web-shared/model-trace-expl
 import { LoggedModelCell } from './LoggedModelCell';
 import { NullCell } from './NullCell';
 import { RunName } from './RunName';
+import { SessionIdLinkWrapper } from './SessionIdLinkWrapper';
 import { SourceCellRenderer } from './Source/SourceRenderer';
 import { StackedComponents } from './StackedComponents';
 import { StatusCellRenderer } from './StatusRenderer';
@@ -52,6 +53,8 @@ import {
   getTraceInfoOutputs,
   MLFLOW_SOURCE_RUN_KEY,
 } from '../utils/TraceUtils';
+import MlflowUtils from '../utils/MlflowUtils';
+import { Link } from '../utils/RoutingUtils';
 
 export const assessmentCellRenderer = (
   theme: ThemeType,
@@ -653,22 +656,24 @@ export const traceInfoCellRenderer = (
       <StackedComponents
         first={
           value ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={value}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <SessionIdLinkWrapper sessionId={value} experimentId={experimentId}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={value}
               >
-                {value}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {value}
+                </span>
+              </Tag>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           )
@@ -676,22 +681,24 @@ export const traceInfoCellRenderer = (
         second={
           isComparing &&
           (otherValue ? (
-            <Tag
-              css={{ width: 'fit-content', maxWidth: '100%' }}
-              componentId="mlflow.genai-traces-table.session"
-              title={otherValue}
-            >
-              <span
-                css={{
-                  display: 'inline-block',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}
+            <SessionIdLinkWrapper sessionId={otherValue} experimentId={experimentId}>
+              <Tag
+                css={{ width: 'fit-content', maxWidth: '100%' }}
+                componentId="mlflow.genai-traces-table.session"
+                title={otherValue}
               >
-                {otherValue}
-              </span>
-            </Tag>
+                <span
+                  css={{
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {otherValue}
+                </span>
+              </Tag>
+            </SessionIdLinkWrapper>
           ) : (
             <NullCell isComparing={isComparing} />
           ))

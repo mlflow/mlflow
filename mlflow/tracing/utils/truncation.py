@@ -24,7 +24,7 @@ def set_request_response_preview(trace_info: TraceInfo, trace_data: TraceData) -
         trace_info.response_preview = _get_truncated_preview(trace_data.response, role="assistant")
 
 
-def _get_truncated_preview(request_or_response: str | None, role: str) -> str:
+def _get_truncated_preview(request_or_response: str | dict[str, Any] | None, role: str) -> str:
     """
     Truncate the request preview to fit the max length.
     """
@@ -35,11 +35,14 @@ def _get_truncated_preview(request_or_response: str | None, role: str) -> str:
 
     content = None
     obj = None
-
-    try:
-        obj = json.loads(request_or_response)
-    except json.JSONDecodeError:
-        pass
+    if isinstance(request_or_response, dict):
+        obj = request_or_response
+        request_or_response = json.dumps(request_or_response)
+    elif isinstance(request_or_response, str):
+        try:
+            obj = json.loads(request_or_response)
+        except json.JSONDecodeError:
+            pass
 
     if obj is not None:
         if messages := _try_extract_messages(obj):

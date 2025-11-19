@@ -1,4 +1,5 @@
 import sys
+from enum import Enum
 from typing import Any
 
 from mlflow.telemetry.constant import GENAI_MODULES, MODULES_TO_CHECK_IMPORT
@@ -320,3 +321,14 @@ class AlignJudgeEvent(Event):
 
 class AutologgingEvent(Event):
     name: str = "autologging"
+
+
+class TraceSource(str, Enum):
+    """Source of a trace received by the MLflow server."""
+
+    MLFLOW_PYTHON_CLIENT = "MLFLOW_PYTHON_CLIENT"
+    UNKNOWN = "UNKNOWN"
+
+
+class TracesReceivedByServerEvent(Event):
+    name: str = "traces_received_by_server"

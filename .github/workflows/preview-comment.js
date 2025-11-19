@@ -13,7 +13,7 @@ const MARKER = "<!-- documentation preview -->";
  * @param {string} params.owner - Repository owner
  * @param {string} params.repo - Repository name
  * @param {string} params.pullNumber - Pull request number
- * @returns {Promise<string[]>} Array of changed file paths
+ * @returns {Promise<Array<{filename: string, status: string}>>} Array of changed file objects with filename and status
  */
 async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
   const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
@@ -25,7 +25,7 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
 
   const changedFiles = [];
   for await (const { data } of iterator) {
-    changedFiles.push(...data.map(({ filename }) => filename));
+    changedFiles.push(...data.map(({ filename, status }) => ({ filename, status })));
   }
 
   return changedFiles;
@@ -33,19 +33,19 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
 
 /**
  * Get changed documentation pages from the list of changed files
- * @param {string[]} changedFiles - Array of changed file paths
- * @returns {string[]} Array of documentation page paths
+ * @param {Array<{filename: string, status: string}>} changedFiles - Array of changed file objects
+ * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status
  */
 function getChangedDocPages(changedFiles) {
   const DOCS_DIR = "docs/docs/";
   const changedPages = [];
 
-  for (const file of changedFiles) {
-    const ext = path.extname(file);
+  for (const { filename, status } of changedFiles) {
+    const ext = path.extname(filename);
     if (ext !== ".md" && ext !== ".mdx") continue;
-    if (!file.startsWith(DOCS_DIR)) continue;
+    if (!filename.startsWith(DOCS_DIR)) continue;
 
-    const relativePath = path.relative(DOCS_DIR, file);
+    const relativePath = path.relative(DOCS_DIR, filename);
     const { dir, name, base } = path.parse(relativePath);
 
     let pagePath;
@@ -61,7 +61,7 @@ function getChangedDocPages(changedFiles) {
     // Ensure forward slashes for web paths
     pagePath = pagePath.split(path.sep).join("/");
 
-    changedPages.push(pagePath);
+    changedPages.push({ page: pagePath, status });
   }
 
   return changedPages;
@@ -115,7 +115,7 @@ async function upsertComment({ github, owner, repo, pullNumber, commentBody }) {
  * @param {string} params.workflowRunLink - Link to the workflow run
  * @param {string} params.docsWorkflowRunUrl - Link to the docs workflow run
  * @param {string} params.mainMessage - Main message content
- * @param {string[]} params.changedPages - Array of changed documentation page links
+ * @param {Array<{link: string, status: string}>} params.changedPages - Array of changed documentation page objects with link and status
  * @returns {string} Comment template
  */
 function getCommentTemplate({
@@ -128,8 +128,11 @@ function getCommentTemplate({
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map((page) => `- ${page}`).join("\n");
-    changedPagesSection = `
+    const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
+
+    // Only collapse if there are more than 5 changed pages
+    if (changedPages.length > 5) {
+      changedPagesSection = `
 
 <details>
 <summary>Changed Pages (${changedPages.length})</summary>
@@ -138,6 +141,14 @@ ${pageLinks}
 
 </details>
 `;
+    } else {
+      changedPagesSection = `
+
+**Changed Pages (${changedPages.length})**
+
+${pageLinks}
+`;
+    }
   }
 
   return `
@@ -199,9 +210,12 @@ module.exports = async ({ github, context, env }) => {
       const changedFiles = await fetchChangedFiles({ github, owner, repo, pullNumber });
       const docPages = getChangedDocPages(changedFiles);
 
-      // Convert to clickable links if we have changed pages
+      // Convert to clickable links with status if we have changed pages
       if (docPages.length > 0) {
-        changedPages = docPages.map((page) => `[${page}](${netlifyUrl}/${page})`);
+        changedPages = docPages.map(({ page, status }) => ({
+          link: `[${page}](${netlifyUrl}/${page})`,
+          status,
+        }));
       }
     } catch (error) {
       console.error("Error fetching changed files:", error);

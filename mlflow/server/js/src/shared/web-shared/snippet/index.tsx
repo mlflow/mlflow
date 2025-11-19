@@ -6,6 +6,10 @@ import json from 'react-syntax-highlighter/dist/cjs/languages/prism/json';
 import python from 'react-syntax-highlighter/dist/cjs/languages/prism/python';
 import yaml from 'react-syntax-highlighter/dist/cjs/languages/prism/yaml';
 import sql from 'react-syntax-highlighter/dist/cjs/languages/prism/sql';
+import duotoneDarkStyle from './theme/databricks-duotone-dark';
+import lightStyle from './theme/databricks-light';
+import type { CSSProperties, ReactNode } from 'react';
+import { pick } from 'lodash';
 
 SyntaxHighlighter.registerLanguage('sql', sql);
 SyntaxHighlighter.registerLanguage('java', java);
@@ -14,11 +18,6 @@ SyntaxHighlighter.registerLanguage('go', go);
 SyntaxHighlighter.registerLanguage('javascript', javascript);
 SyntaxHighlighter.registerLanguage('yaml', yaml);
 SyntaxHighlighter.registerLanguage('json', json);
-
-import duotoneDarkStyle from './theme/databricks-duotone-dark';
-import lightStyle from './theme/databricks-light';
-import type { CSSProperties, ReactNode } from 'react';
-import { pick } from 'lodash';
 export type CodeSnippetTheme = 'duotoneDark' | 'light';
 export const buttonBackgroundColorDark = 'rgba(140, 203, 255, 0)';
 export const buttonColorDark = 'rgba(255, 255, 255, 0.84)';

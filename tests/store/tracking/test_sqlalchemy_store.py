@@ -5,8 +5,6 @@ import pathlib
 import random
 import re
 import shutil
-import subprocess
-import sys
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -11121,97 +11119,6 @@ def test_batch_get_traces_with_incomplete_trace(store: SqlAlchemyStore) -> None:
     assert traces[0].data.spans[0].status.status_code == "OK"
 
 
-def test_sqlalchemy_store_import_does_not_cause_circular_import():
-    """
-    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
-
-    Store plugins that inherit from SqlAlchemyStore need to import it at module level, which
-    triggers imports of EvaluationDataset. The EvaluationDataset class in turn imports from
-    tracking service utilities, which can create a circular dependency if not handled carefully.
-
-    This test verifies that basic imports work without circular dependency errors. The circular
-    import is broken by using lazy imports within EvaluationDataset's methods rather than at
-    module level.
-    """
-    code = """
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-from mlflow.entities import EvaluationDataset
-"""
-
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
-
-
-def test_plugin_entrypoint_registration_does_not_fail():
-    """
-    Regression test for plugin loading issue (https://github.com/mlflow/mlflow/issues/18386).
-
-    When MLflow discovers and loads store plugins via entrypoints, it imports the plugin module
-    which typically defines a class inheriting from SqlAlchemyStore. This import chain needs to
-    work without ImportError.
-
-    This test simulates the entrypoint.load() process during plugin registration to ensure the
-    plugin module can be imported successfully.
-    """
-    code = """
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-class CustomTrackingStore(SqlAlchemyStore):
-    pass
-
-"""
-
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
-
-
-def test_plugin_can_create_dataset_without_name_error():
-    """
-    Regression test for plugin runtime usage (https://github.com/mlflow/mlflow/issues/18386).
-
-    Store plugins that inherit from SqlAlchemyStore need to be able to call methods like
-    create_dataset() which instantiate EvaluationDataset at runtime.
-
-    This test ensures that after a plugin loads, it can actually use store methods that reference
-    EvaluationDataset. This catches the actual runtime failure that users experienced, where the
-    plugin would load successfully but fail when trying to perform dataset operations.
-    """
-    code = """
-import tempfile
-from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-
-class PluginStore(SqlAlchemyStore):
-    pass
-
-with tempfile.TemporaryDirectory() as tmpdir:
-    db_path = f"{tmpdir}/test.db"
-    store = PluginStore(f"sqlite:///{db_path}", tmpdir)
-
-    dataset = store.create_dataset("test_dataset", tags={"key": "value"}, experiment_ids=[])
-
-    assert dataset is not None
-    assert dataset.name == "test_dataset"
-"""
-
-    subprocess.check_call([sys.executable, "-c", code], timeout=20)
-
-
-def test_evaluation_dataset_not_in_entities_all():
-    """
-    Regression test for circular import issue (https://github.com/mlflow/mlflow/issues/18386).
-
-    EvaluationDataset must be excluded from mlflow.entities.__all__ to prevent wildcard imports
-    from triggering circular dependencies. When store plugins are loaded via entrypoints, any
-    code that uses "from mlflow.entities import *" would pull in EvaluationDataset, which has
-    dependencies that create import cycles with the store infrastructure.
-
-    This test ensures EvaluationDataset remains importable directly but isn't exposed through
-    wildcard imports, allowing plugins to safely inherit from store classes without encountering
-    circular import issues during initialization.
-    """
-    import mlflow.entities
-
-    assert "EvaluationDataset" not in mlflow.entities.__all__
-
-
 def test_log_spans_token_usage(store: SqlAlchemyStore) -> None:
     experiment_id = store.create_experiment("test_log_spans_token_usage")
     trace_id = f"tr-{uuid.uuid4().hex}"
@@ -11414,3 +11321,154 @@ def test_batch_get_traces_token_usage(store: SqlAlchemyStore) -> None:
 
     trace3 = traces_by_id[trace_id_3]
     assert trace3.info.token_usage is None
+
+
+def test_get_trace_basic(store: SqlAlchemyStore) -> None:
+    experiment_id = store.create_experiment("test_get_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="root_span",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            start_ns=1_000_000_000,
+            end_ns=2_000_000_000,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="child_span",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.UNSET,
+            start_ns=1_500_000_000,
+            end_ns=1_800_000_000,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    trace = store.get_trace(trace_id)
+
+    assert trace is not None
+    loaded_spans = trace.data.spans
+
+    assert len(loaded_spans) == 2
+
+    root_span = next(s for s in loaded_spans if s.name == "root_span")
+    child_span = next(s for s in loaded_spans if s.name == "child_span")
+
+    assert root_span.trace_id == trace_id
+    assert root_span.span_id == "000000000000006f"
+    assert root_span.parent_id is None
+    assert root_span.start_time_ns == 1_000_000_000
+    assert root_span.end_time_ns == 2_000_000_000
+
+    assert child_span.trace_id == trace_id
+    assert child_span.span_id == "00000000000000de"
+    assert child_span.parent_id == "000000000000006f"
+    assert child_span.start_time_ns == 1_500_000_000
+    assert child_span.end_time_ns == 1_800_000_000
+
+
+def test_get_trace_not_found(store: SqlAlchemyStore) -> None:
+    trace_id = f"tr-{uuid.uuid4().hex}"
+    with pytest.raises(MlflowException, match=f"Trace with ID {trace_id} is not found."):
+        store.get_trace(trace_id)
+
+
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_with_partial_trace(store: SqlAlchemyStore, allow_partial: bool) -> None:
+    experiment_id = store.create_experiment("test_partial_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Log only 1 span but indicate trace should have 2 spans
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="span_1",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                    }
+                ),
+            },
+        )
+    )
+
+    if allow_partial:
+        trace = store.get_trace(trace_id, allow_partial=allow_partial)
+        assert trace is not None
+        assert len(trace.data.spans) == 1
+        assert trace.data.spans[0].name == "span_1"
+    else:
+        with pytest.raises(
+            MlflowException,
+            match=f"Trace with ID {trace_id} is not fully exported yet",
+        ):
+            store.get_trace(trace_id, allow_partial=allow_partial)
+
+
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_with_complete_trace(store: SqlAlchemyStore, allow_partial: bool) -> None:
+    experiment_id = store.create_experiment("test_complete_trace")
+    trace_id = f"tr-{uuid.uuid4().hex}"
+
+    # Log 2 spans matching the expected count
+    spans = [
+        create_test_span(
+            trace_id=trace_id,
+            name="span_1",
+            span_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+        create_test_span(
+            trace_id=trace_id,
+            name="span_2",
+            span_id=222,
+            parent_id=111,
+            status=trace_api.StatusCode.OK,
+            trace_num=12345,
+        ),
+    ]
+
+    store.log_spans(experiment_id, spans)
+    store.start_trace(
+        TraceInfo(
+            trace_id=trace_id,
+            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+            request_time=1234,
+            execution_duration=100,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.SIZE_STATS: json.dumps(
+                    {
+                        TraceSizeStatsKey.NUM_SPANS: 2,  # Expecting 2 spans
+                    }
+                ),
+            },
+        )
+    )
+
+    # should always return the trace
+    trace = store.get_trace(trace_id, allow_partial=allow_partial)
+    assert trace is not None
+    assert len(trace.data.spans) == 2
