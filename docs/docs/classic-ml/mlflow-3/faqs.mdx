@@ -1,0 +1,87 @@
+import { APILink } from "@site/src/components/APILink";
+
+# FAQs
+
+#### Can MLflow 3.x load resources (runs, models, traces, etc.) created with MLflow 2.x?
+
+Yes, MLflow 3.x can load resources such as runs, models, traces, and more that were created with MLflow 2.x. However, the reverse is not true.
+
+:::warning
+When testing MLflow 3.x, we strongly recommend using **a separate environment** to avoid conflicts with MLflow 2.x.
+:::
+
+#### `load_model` throws a `ResourceNotFound` error when loading a model created with MLflow 2.x. What's wrong?
+
+For example, the following code fails to load the model in MLflow 3.x since the model artifacts are NOT stored as run artifacts:
+
+```python
+import mlflow
+
+with mlflow.start_run() as run:
+    mlflow.sklearn.log_model(my_model, name="model")
+    mlflow.sklearn.load_model(mlflow.get_artifact_uri("model"))
+    # Throws a `ResourceNotFound` error.
+```
+
+To avoid this error, call `mlflow.<flavor>.load_model` with the model URI returned by `mlflow.<flavor>.log_model`:
+
+```python
+import mlflow
+
+with mlflow.start_run() as run:
+    info = mlflow.sklearn.log_model(my_model, name="model")
+    # if the result of `log_model` is available (recommended)
+    mlflow.sklearn.load_model(info.model_uri)
+    # if only `model_id` is available
+    mlflow.sklearn.load_model(f"models:/{info.model_id}")
+    # if neither `model_id` nor `model_uri` is available (deprecated and will be removed in future versions)
+    mlflow.sklearn.load_model(f"runs:/{run.info.run_id}/model")
+```
+
+Why does this happen? In MLflow 3.x, the model artifacts are stored in a different location than in MLflow 2.x. The following is a comparison of the two versions using the `tree` format:
+
+```shell
+# MLflow 2.x
+experiments/
+  └── <experiment_id>/
+    └── <run_id>/
+      └── artifacts/
+        └── ... # model artifacts are stored here
+
+# MLflow 3.x
+experiments/
+  └── <experiment_id>/
+    └── models/
+      └── <model_id>/
+        └── artifacts/
+          └── ... # model artifacts are stored here
+```
+
+#### I want to modify `requirements.txt` of my model. How can I do that?
+
+You can modify `requirements.txt` of your model using <APILink fn="mlflow.models.update_model_requirements" /> to add or remove requirements. Here's an example of how to add a requirement to the model:
+
+```python
+import mlflow
+
+
+class DummyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, context, model_input: list[str]) -> list[str]:
+        return model_input
+
+
+model_info = mlflow.pyfunc.log_model(name="model", python_model=DummyModel())
+mlflow.models.update_model_requirements(
+    model_uri=model_info.model_uri,
+    operation="add",
+    requirement_list=["scikit-learn"],
+)
+```
+
+#### I'm still not ready to upgrade to MLflow 3.x. How can I pin my MLflow version to 2.x?
+
+You can pin MLflow to the latest 2.x version by using the following command:
+
+```bash
+pip install 'mlflow<3'
+```

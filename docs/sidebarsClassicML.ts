@@ -9,24 +9,20 @@ const sidebarsClassicML: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'link',
-          label: 'MLflow 3.0',
-          href: '/genai/mlflow-3/',
+          type: 'doc',
+          id: 'mlflow-3/index',
         },
         {
-          type: 'link',
-          label: 'Deep Learning with MLflow 3',
-          href: '/genai/mlflow-3/deep-learning',
+          type: 'doc',
+          id: 'mlflow-3/deep-learning',
         },
         {
-          type: 'link',
-          label: 'Breaking Changes in MLflow 3',
-          href: '/genai/mlflow-3/breaking-changes',
+          type: 'doc',
+          id: 'mlflow-3/breaking-changes',
         },
         {
-          type: 'link',
-          label: 'FAQs',
-          href: '/genai/mlflow-3/faqs',
+          type: 'doc',
+          id: 'mlflow-3/faqs',
         },
       ],
       link: {
