@@ -183,3 +183,8 @@ class EvaluationResult:
             f"  result_df: {result_df_str}\n"
             ")"
         )
+
+    # For backwards compatibility
+    @property
+    def tables(self) -> dict[str, pd.DataFrame]:
+        return {"eval_results": self.result_df} if self.result_df is not None else {}
