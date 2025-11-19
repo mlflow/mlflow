@@ -5,7 +5,6 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-# from mlflow.version import VERSION
 from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 

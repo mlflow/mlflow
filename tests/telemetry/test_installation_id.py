@@ -45,7 +45,12 @@ def test_installation_id_persisted_and_reused(tmp_home):
     second = get_or_create_installation_id()
     assert second == first
 
+
+def test_installation_id_corrupted_file(tmp_home):
     # If the file is corrupted, installation ID should be recreated
+    dir_path = tmp_home / ".config" / "mlflow"
+    dir_path.mkdir(parents=True, exist_ok=True)
+    path = dir_path / "telemetry.json"
     path.write_text("invalid JSON", encoding="utf-8")
     third = get_or_create_installation_id()
     assert _is_uuid(third)
@@ -57,6 +62,8 @@ def test_installation_id_persisted_and_reused(tmp_home):
 @pytest.mark.parametrize("env_var", ["MLFLOW_DISABLE_TELEMETRY", "DO_NOT_TRACK"])
 def test_installation_id_not_created_when_telemetry_disabled(monkeypatch, tmp_home, env_var):
     monkeypatch.setenv(env_var, "true")
+    # This env var is set to True in conftest.py and force enable telemetry
+    monkeypatch.setattr(mlflow.telemetry.utils, "_IS_MLFLOW_TESTING_TELEMETRY", False)
     set_telemetry_client()
     assert not (tmp_home / ".config" / "mlflow" / "telemetry.json").exists()
     assert get_telemetry_client() is None
@@ -64,9 +71,9 @@ def test_installation_id_not_created_when_telemetry_disabled(monkeypatch, tmp_ho
 
 def test_installation_id_file_windows(monkeypatch, tmp_path):
     monkeypatch.setenv("APPDATA", str(tmp_path))
-
-    with mock.patch("mlflow.utils.os.is_windows", return_value=True):
-        assert (tmp_path / ".config" / "mlflow" / "telemetry.json").exists()
+    with mock.patch("mlflow.telemetry.installation_id.is_windows", return_value=True):
+        set_telemetry_client()
+    assert (tmp_path / "mlflow" / "telemetry.json").exists()
 
 
 def test_get_or_create_installation_id_should_not_raise():
