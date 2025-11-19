@@ -2865,8 +2865,10 @@ def test_conversation_template_variable_extraction():
     assert judge.template_variables == {"conversation"}
 
 
-def test_is_multi_turn_property():
-    """Test that is_multi_turn property returns True when conversation is in template variables."""
+def test_is_session_level_scorer_property():
+    """Test that is_session_level_scorer property returns True when conversation is in template
+    variables.
+    """
     conversation_judge = make_judge(
         name="conversation_judge",
         instructions="Evaluate {{ conversation }}",
@@ -2874,7 +2876,7 @@ def test_is_multi_turn_property():
         model="openai:/gpt-4",
     )
 
-    assert conversation_judge.is_multi_turn is True
+    assert conversation_judge.is_session_level_scorer is True
 
     regular_judge = make_judge(
         name="regular_judge",
@@ -2883,7 +2885,7 @@ def test_is_multi_turn_property():
         model="openai:/gpt-4",
     )
 
-    assert regular_judge.is_multi_turn is False
+    assert regular_judge.is_session_level_scorer is False
 
 
 def test_conversation_with_expectations_allowed():

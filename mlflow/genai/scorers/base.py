@@ -118,8 +118,8 @@ class Scorer(BaseModel):
     _registered_backend: str | None = PrivateAttr(default=None)
 
     @property
-    def is_multi_turn(self) -> bool:
-        """Get whether this scorer is a multi-turn scorer.
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this scorer is a session-level scorer.
 
         Defaults to False. Child classes can override this property to return True
         or compute the value dynamically based on their configuration.
@@ -498,7 +498,8 @@ class Scorer(BaseModel):
 
             * - ``session``
               - A list of trace objects belonging to the same conversation session.
-              - Available only for multi-turn scorers (scorers with ``is_multi_turn = True``).
+              - Specify this parameter only for session_level scorers
+                (scorers with ``is_session_level_scorer = True``).
                 * Only traces with the same ``mlflow.trace.session`` metadata value can be passed in
                   this parameter, otherwise an error will be raised.
 

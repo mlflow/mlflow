@@ -152,8 +152,8 @@ class InstructionsJudge(Judge):
         return self._instructions_prompt.variables
 
     @property
-    def is_multi_turn(self) -> bool:
-        """Get whether this judge is a multi-turn judge based on template variables."""
+    def is_session_level_scorer(self) -> bool:
+        """Get whether this judge is a session-level judge based on template variables."""
         return self._TEMPLATE_VARIABLE_CONVERSATION in self.template_variables
 
     @property
