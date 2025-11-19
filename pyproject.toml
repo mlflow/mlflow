@@ -361,6 +361,7 @@ exclude = [
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
   "docs/docs/classic-ml/mlflow-3/faqs.mdx",
+  "docs/docs/mlflow-3/faqs.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
