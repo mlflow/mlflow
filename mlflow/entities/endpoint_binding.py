@@ -5,6 +5,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import EndpointBinding as ProtoEndpointBinding
 
 if TYPE_CHECKING:
     from mlflow.entities.endpoint_model import EndpointModel
@@ -83,6 +84,33 @@ class EndpointBinding(_MlflowObject):
     created_by: str | None = None
     last_updated_by: str | None = None
 
+    def to_proto(self):
+        proto = ProtoEndpointBinding()
+        proto.binding_id = self.binding_id
+        proto.endpoint_id = self.endpoint_id
+        proto.resource_type = self.resource_type
+        proto.resource_id = self.resource_id
+        proto.field_name = self.field_name
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        proto.created_by = self.created_by or ""
+        proto.last_updated_by = self.last_updated_by or ""
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        return cls(
+            binding_id=proto.binding_id,
+            endpoint_id=proto.endpoint_id,
+            resource_type=proto.resource_type,
+            resource_id=proto.resource_id,
+            field_name=proto.field_name,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by or None,
+            last_updated_by=proto.last_updated_by or None,
+        )
+
 
 @dataclass
 class EndpointBindingListItem(EndpointBinding):
@@ -104,3 +132,33 @@ class EndpointBindingListItem(EndpointBinding):
     endpoint_name: str = ""
     endpoint_description: str = ""
     models: list[EndpointModel] = field(default_factory=list)
+
+    def to_proto(self):
+        """Override to include additional display fields in the proto."""
+        proto = super().to_proto()
+        proto.endpoint_name = self.endpoint_name
+        proto.endpoint_description = self.endpoint_description
+        proto.models.extend([m.to_proto() for m in self.models])
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        """Override to include additional display fields from the proto."""
+        from mlflow.entities.endpoint_model import EndpointModel
+
+        return cls(
+            binding_id=proto.binding_id,
+            endpoint_id=proto.endpoint_id,
+            resource_type=proto.resource_type,
+            resource_id=proto.resource_id,
+            field_name=proto.field_name,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            created_by=proto.created_by or None,
+            last_updated_by=proto.last_updated_by or None,
+            endpoint_name=proto.endpoint_name if proto.HasField("endpoint_name") else "",
+            endpoint_description=(
+                proto.endpoint_description if proto.HasField("endpoint_description") else ""
+            ),
+            models=[EndpointModel.from_proto(m) for m in proto.models],
+        )

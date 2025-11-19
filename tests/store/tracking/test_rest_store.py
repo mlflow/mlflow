@@ -9,7 +9,7 @@ import mlflow
 from mlflow.entities import (
     Dataset,
     DatasetInput,
-    Endpoint,
+    EndpointBinding,
     EvaluationDataset,
     Experiment,
     ExperimentTag,
@@ -20,8 +20,6 @@ from mlflow.entities import (
     Param,
     RunTag,
     Secret,
-    SecretBinding,
-    SecretWithEndpointAndBinding,
     SourceType,
     ViewType,
 )
@@ -2903,114 +2901,10 @@ def test_server_version_check_caching():
         )
 
 
-def test_create_and_bind_secret():
-    secret_json = {
-        "secret_id": "secret-123",
-        "secret_name": "my-openai-key",
-        "masked_value": "sk-...789",
-        "is_shared": False,
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-        "provider": "openai",
-    }
-    endpoint_json = {
-        "endpoint_id": "route-789",
-        "name": "Production GPT-4",
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-        "models": [
-            {
-                "model_id": "model-1",
-                "endpoint_id": "route-789",
-                "model_name": "gpt-4-turbo",
-                "secret_id": "secret-123",
-                "weight": 1.0,
-                "priority": 1,
-                "created_at": "1234567890000",
-                "last_updated_at": "1234567890000",
-            }
-        ],
-    }
-    binding_json = {
-        "binding_id": "binding-456",
-        "endpoint_id": "route-789",
-        "secret_id": "secret-123",
-        "resource_type": "SCORER_JOB",
-        "resource_id": "job-abc123",
-        "field_name": "OPENAI_API_KEY",
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-    }
-    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
-
-    def mock_request(*args, **kwargs):
-        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/create-and-bind")
-
-        request_json = kwargs["json"]
-        assert request_json["secret_name"] == "my-openai-key"
-        assert request_json["secret_value"] == "sk-test123456789"
-        assert request_json["resource_type"] == "SCORER_JOB"
-        assert request_json["resource_id"] == "job-abc123"
-        assert request_json["field_name"] == "OPENAI_API_KEY"
-        assert request_json["model_name"] == "gpt-4-turbo"
-        assert request_json["route_name"] == "Production GPT-4"
-        assert request_json["is_shared"] is False
-        assert request_json["created_by"] == "user@example.com"
-        assert request_json["provider"] == "openai"
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        response.text = json.dumps(response_json)
-        return response
-
-    with mock.patch("requests.Session.request", side_effect=mock_request):
-        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._create_and_bind_secret(
-            secret_name="my-openai-key",
-            secret_value="sk-test123456789",
-            resource_type="SCORER_JOB",
-            resource_id="job-abc123",
-            field_name="OPENAI_API_KEY",
-            model_name="gpt-4-turbo",
-            route_name="Production GPT-4",
-            is_shared=False,
-            created_by="user@example.com",
-            provider="openai",
-        )
-
-        assert isinstance(result, SecretWithEndpointAndBinding)
-        assert isinstance(result.secret, Secret)
-        assert isinstance(result.endpoint, Endpoint)
-        assert isinstance(result.binding, SecretBinding)
-
-        assert result.secret.secret_id == "secret-123"
-        assert result.secret.secret_name == "my-openai-key"
-        assert result.secret.masked_value == "sk-...789"
-        assert result.secret.is_shared is False
-        assert result.secret.created_by == "user@example.com"
-        assert result.secret.provider == "openai"
-
-        assert result.endpoint.endpoint_id == "route-789"
-        assert result.endpoint.name == "Production GPT-4"
-        assert len(result.endpoint.models) == 1
-        assert result.endpoint.models[0].model_name == "gpt-4-turbo"
-        assert result.endpoint.models[0].secret_id == "secret-123"
-
-        assert result.binding.binding_id == "binding-456"
-        assert result.binding.endpoint_id == "route-789"
-        assert result.binding.resource_type == "SCORER_JOB"
-        assert result.binding.resource_id == "job-abc123"
-        assert result.binding.field_name == "OPENAI_API_KEY"
-        assert result.binding.created_by == "user@example.com"
-
-
 def test_create_and_bind_secret_with_dict_value_and_auth_config():
+    service_account_json = {"type": "service_account", "project_id": "my-project"}
+    auth_config = {"project_id": "my-project", "location": "us-central1"}
+
     secret_json = {
         "secret_id": "secret-456",
         "secret_name": "vertex-ai-creds",
@@ -3035,8 +2929,6 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
                 "endpoint_id": "route-999",
                 "model_name": "gemini-2.5-pro",
                 "secret_id": "secret-456",
-                "weight": 1.0,
-                "priority": 1,
                 "created_at": "1234567890000",
                 "last_updated_at": "1234567890000",
             }
@@ -3045,7 +2937,6 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
     binding_json = {
         "binding_id": "binding-789",
         "endpoint_id": "route-999",
-        "secret_id": "secret-456",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-xyz789",
         "field_name": "GOOGLE_APPLICATION_CREDENTIALS",
@@ -3054,140 +2945,81 @@ def test_create_and_bind_secret_with_dict_value_and_auth_config():
         "created_by": "admin@example.com",
         "last_updated_by": "admin@example.com",
     }
-    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
-
-    service_account_json = {"type": "service_account", "project_id": "my-project"}
-    auth_config = {"project_id": "my-project", "location": "us-central1"}
 
     def mock_request(*args, **kwargs):
-        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/create-and-bind")
-
+        method, url = args
         request_json = kwargs["json"]
-        assert request_json["secret_name"] == "vertex-ai-creds"
-        assert json.loads(request_json["secret_value"]) == service_account_json
-        assert json.loads(request_json["auth_config"]) == auth_config
-        assert request_json["model_name"] == "gemini-2.5-pro"
-        assert request_json["route_description"] == "Vertex AI production endpoint"
 
         response = mock.MagicMock()
         response.status_code = 200
-        response.text = json.dumps(response_json)
+
+        # Step 1: Create secret
+        if url == "https://test-host/api/3.0/mlflow/secrets/create":
+            assert request_json["secret_name"] == "vertex-ai-creds"
+            assert json.loads(request_json["secret_value"]) == service_account_json
+            assert json.loads(request_json["auth_config"]) == auth_config
+            assert request_json["is_shared"] is True
+            assert request_json["provider"] == "vertex_ai"
+            response.text = json.dumps({"secret": secret_json})
+        # Step 2: Create endpoint
+        elif url == "https://test-host/api/3.0/mlflow/secrets/endpoints/create":
+            assert request_json["description"] == "Vertex AI production endpoint"
+            assert len(request_json["models"]) == 1
+            assert request_json["models"][0]["model_name"] == "gemini-2.5-pro"
+            assert request_json["models"][0]["secret_id"] == "secret-456"
+            response.text = json.dumps({"endpoint": endpoint_json})
+        # Step 3: Bind endpoint
+        elif url == "https://test-host/api/3.0/mlflow/secrets/bind-route":
+            assert request_json["endpoint_id"] == "route-999"
+            assert request_json["resource_type"] == "SCORER_JOB"
+            assert request_json["resource_id"] == "job-xyz789"
+            assert request_json["field_name"] == "GOOGLE_APPLICATION_CREDENTIALS"
+            response.text = json.dumps({"binding": binding_json})
+        else:
+            raise ValueError(f"Unexpected URL: {url}")
+
         return response
 
     with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._create_and_bind_secret(
+
+        # Step 1: Create secret with dict value and auth_config
+        secret = store._create_secret(
             secret_name="vertex-ai-creds",
             secret_value=service_account_json,
-            resource_type="SCORER_JOB",
-            resource_id="job-xyz789",
-            field_name="GOOGLE_APPLICATION_CREDENTIALS",
-            model_name="gemini-2.5-pro",
-            route_description="Vertex AI production endpoint",
             is_shared=True,
             created_by="admin@example.com",
             provider="vertex_ai",
             auth_config=auth_config,
         )
+        assert secret.secret_name == "vertex-ai-creds"
+        assert secret.masked_value == "<dict>"
+        assert secret.is_shared is True
 
-        assert isinstance(result, SecretWithEndpointAndBinding)
-        assert result.secret.masked_value == "<dict>"
-        assert len(result.endpoint.models) == 1
-        assert result.endpoint.models[0].model_name == "gemini-2.5-pro"
-
-
-def test_create_route_and_bind():
-    secret_json = {
-        "secret_id": "secret-shared-123",
-        "secret_name": "shared-openai-key",
-        "masked_value": "sk-...456",
-        "is_shared": True,
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-        "provider": "openai",
-    }
-    endpoint_json = {
-        "endpoint_id": "route-new-999",
-        "name": "Development GPT-3.5",
-        "description": "Cost-efficient dev endpoint",
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-        "tags": [{"key": "tier", "value": "development"}],
-        "models": [
-            {
-                "model_id": "model-3",
-                "endpoint_id": "route-new-999",
-                "model_name": "gpt-3.5-turbo",
-                "secret_id": "secret-shared-123",
-                "weight": 1.0,
-                "priority": 1,
-                "created_at": "1234567890000",
-                "last_updated_at": "1234567890000",
-            }
-        ],
-    }
-    binding_json = {
-        "binding_id": "binding-new-456",
-        "endpoint_id": "route-new-999",
-        "secret_id": "secret-shared-123",
-        "resource_type": "SCORER_JOB",
-        "resource_id": "job-dev-456",
-        "field_name": "OPENAI_API_KEY",
-        "created_at": "1234567890000",
-        "last_updated_at": "1234567890000",
-        "created_by": "user@example.com",
-        "last_updated_by": "user@example.com",
-    }
-    response_json = {"secret": secret_json, "endpoint": endpoint_json, "binding": binding_json}
-
-    route_tags = [{"key": "tier", "value": "development"}]
-
-    def mock_request(*args, **kwargs):
-        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/create-route-and-bind")
-
-        request_json = kwargs["json"]
-        assert request_json["secret_id"] == "secret-shared-123"
-        assert request_json["resource_type"] == "SCORER_JOB"
-        assert request_json["resource_id"] == "job-dev-456"
-        assert request_json["field_name"] == "OPENAI_API_KEY"
-        assert request_json["model_name"] == "gpt-3.5-turbo"
-        assert request_json["route_name"] == "Development GPT-3.5"
-        assert request_json["route_description"] == "Cost-efficient dev endpoint"
-        assert json.loads(request_json["route_tags"]) == route_tags
-
-        response = mock.MagicMock()
-        response.status_code = 200
-        response.text = json.dumps(response_json)
-        return response
-
-    with mock.patch("requests.Session.request", side_effect=mock_request):
-        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._create_route_and_bind(
-            secret_id="secret-shared-123",
-            resource_type="SCORER_JOB",
-            resource_id="job-dev-456",
-            field_name="OPENAI_API_KEY",
-            model_name="gpt-3.5-turbo",
-            route_name="Development GPT-3.5",
-            route_description="Cost-efficient dev endpoint",
-            route_tags=route_tags,
-            created_by="user@example.com",
+        # Step 2: Create endpoint
+        endpoint = store._create_endpoint(
+            models=[
+                {
+                    "model_name": "gemini-2.5-pro",
+                    "secret_id": "secret-456",
+                }
+            ],
+            description="Vertex AI production endpoint",
+            created_by="admin@example.com",
         )
+        assert endpoint.endpoint_id == "route-999"
+        assert len(endpoint.models) == 1
+        assert endpoint.models[0].model_name == "gemini-2.5-pro"
 
-        assert isinstance(result, SecretWithEndpointAndBinding)
-        assert result.secret.secret_id == "secret-shared-123"
-        assert result.endpoint.endpoint_id == "route-new-999"
-        assert len(result.endpoint.models) == 1
-        assert result.endpoint.models[0].model_name == "gpt-3.5-turbo"
-        assert result.endpoint.name == "Development GPT-3.5"
-        assert len(result.endpoint.tags) == 1
-        assert result.endpoint.tags[0].key == "tier"
-        assert result.endpoint.tags[0].value == "development"
-        assert result.binding.endpoint_id == "route-new-999"
+        # Step 3: Bind endpoint to resource
+        binding = store._bind_endpoint(
+            endpoint_id="route-999",
+            resource_type="SCORER_JOB",
+            resource_id="job-xyz789",
+            field_name="GOOGLE_APPLICATION_CREDENTIALS",
+        )
+        assert binding.endpoint_id == "route-999"
+        assert binding.resource_type == "SCORER_JOB"
 
 
 def test_get_secret_info():
@@ -3282,7 +3114,7 @@ def test_delete_secret():
 def test_bind_secret():
     binding_json = {
         "binding_id": "binding-new",
-        "secret_id": "secret-123",
+        "endpoint_id": "route-123",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-new",
         "field_name": "OPENAI_API_KEY",
@@ -3308,14 +3140,14 @@ def test_bind_secret():
 
     with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._bind_secret_route(
+        result = store._bind_endpoint(
             endpoint_id="route-123",
             resource_type="SCORER_JOB",
             resource_id="job-new",
             field_name="OPENAI_API_KEY",
         )
 
-        assert isinstance(result, SecretBinding)
+        assert isinstance(result, EndpointBinding)
         assert result.binding_id == "binding-new"
         assert result.resource_type == "SCORER_JOB"
         assert result.resource_id == "job-new"
@@ -3325,7 +3157,7 @@ def test_bind_secret():
 def test_list_secret_bindings():
     binding1_json = {
         "binding_id": "binding-1",
-        "secret_id": "secret-123",
+        "endpoint_id": "endpoint-1",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-abc",
         "field_name": "OPENAI_API_KEY",
@@ -3334,7 +3166,7 @@ def test_list_secret_bindings():
     }
     binding2_json = {
         "binding_id": "binding-2",
-        "secret_id": "secret-123",
+        "endpoint_id": "endpoint-2",
         "resource_type": "SCORER_JOB",
         "resource_id": "job-abc",
         "field_name": "ANTHROPIC_API_KEY",
@@ -3357,7 +3189,7 @@ def test_list_secret_bindings():
 
     with mock.patch("requests.Session.request", side_effect=mock_request):
         store = RestStore(lambda: MlflowHostCreds("https://test-host"))
-        result = store._list_secret_bindings(
+        result = store._list_endpoint_bindings(
             secret_id="secret-123",
             resource_type="SCORER_JOB",
             resource_id="job-abc",
@@ -3365,7 +3197,7 @@ def test_list_secret_bindings():
 
         assert isinstance(result, list)
         assert len(result) == 2
-        assert all(isinstance(b, SecretBinding) for b in result)
+        assert all(isinstance(b, EndpointBinding) for b in result)
 
 
 def test_list_secrets():
@@ -3421,3 +3253,178 @@ def test_list_secrets():
 
         result_private = store._list_secrets(is_shared=False)
         assert len(result_private) == 2
+
+
+def test_create_endpoint():
+    endpoint_json = {
+        "endpoint_id": "endpoint-new",
+        "models": [
+            {
+                "model_id": "model-1",
+                "endpoint_id": "endpoint-new",
+                "model_name": "gpt-4-turbo",
+                "secret_id": "secret-123",
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
+        "name": "Production Endpoint",
+        "description": "Main production endpoint",
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+        "created_by": "admin@example.com",
+        "tags": [{"key": "env", "value": "prod"}],
+    }
+
+    def mock_request(*args, **kwargs):
+        assert args == ("POST", "https://test-host/api/3.0/mlflow/secrets/endpoints/create")
+        request_json = kwargs["json"]
+        assert len(request_json["models"]) == 1
+        assert request_json["models"][0]["model_name"] == "gpt-4-turbo"
+        assert request_json["name"] == "Production Endpoint"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps({"endpoint": endpoint_json})
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._create_endpoint(
+            models=[{"model_name": "gpt-4-turbo", "secret_id": "secret-123"}],
+            name="Production Endpoint",
+            description="Main production endpoint",
+            created_by="admin@example.com",
+            tags={"env": "prod"},
+        )
+        assert result.endpoint_id == "endpoint-new"
+        assert result.name == "Production Endpoint"
+        assert len(result.models) == 1
+        assert result.models[0].model_name == "gpt-4-turbo"
+        assert len(result.tags) == 1
+
+
+def test_list_endpoints():
+    endpoint1_json = {
+        "endpoint_id": "endpoint-1",
+        "models": [
+            {
+                "model_id": "model-1",
+                "endpoint_id": "endpoint-1",
+                "model_name": "gpt-4",
+                "secret_id": "secret-123",
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+    }
+    endpoint2_json = {
+        "endpoint_id": "endpoint-2",
+        "models": [
+            {
+                "model_id": "model-2",
+                "endpoint_id": "endpoint-2",
+                "model_name": "claude-3-sonnet",
+                "secret_id": "secret-456",
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890000",
+            }
+        ],
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+    }
+
+    def mock_request(*args, **kwargs):
+        assert args == ("GET", "https://test-host/api/3.0/mlflow/secrets/list-routes")
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps({"routes": [endpoint1_json, endpoint2_json]})
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._list_endpoints(secret_id="secret-123")
+        assert len(result) == 2
+        assert result[0].endpoint_id == "endpoint-1"
+        assert result[1].endpoint_id == "endpoint-2"
+
+
+def test_delete_endpoint():
+    def mock_request(*args, **kwargs):
+        assert args == ("DELETE", "https://test-host/api/3.0/mlflow/secrets/endpoints/delete")
+        request_json = kwargs["json"]
+        assert request_json["endpoint_id"] == "endpoint-123"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps({})
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._delete_endpoint(endpoint_id="endpoint-123")
+
+        assert result is None
+
+
+def test_update_endpoint():
+    endpoint_json = {
+        "endpoint_id": "endpoint-123",
+        "models": [
+            {
+                "model_id": "model-1",
+                "endpoint_id": "endpoint-123",
+                "model_name": "gpt-4",
+                "secret_id": "secret-456",
+                "created_at": "1234567890000",
+                "last_updated_at": "1234567890999",
+            }
+        ],
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890999",
+    }
+    secret_json = {
+        "secret_id": "secret-456",
+        "secret_name": "new-key",
+        "masked_value": "sk-...456",
+        "is_shared": True,
+        "created_at": "1234567890000",
+        "last_updated_at": "1234567890000",
+    }
+
+    def mock_request(*args, **kwargs):
+        assert args == ("PATCH", "https://test-host/api/3.0/mlflow/secrets/endpoints/update")
+        request_json = kwargs["json"]
+        assert request_json["endpoint_id"] == "endpoint-123"
+        assert request_json["secret_id"] == "secret-456"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps({"endpoint": endpoint_json, "secret": secret_json})
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._update_endpoint(endpoint_id="endpoint-123", secret_id="secret-456")
+        assert result.endpoint_id == "endpoint-123"
+        assert result.models[0].secret_id == "secret-456"
+
+
+def test_delete_endpoint_binding():
+    def mock_request(*args, **kwargs):
+        assert args == ("DELETE", "https://test-host/api/3.0/mlflow/secrets/bindings/delete")
+        request_json = kwargs["json"]
+        assert request_json["binding_id"] == "binding-123"
+
+        response = mock.MagicMock()
+        response.status_code = 200
+        response.text = json.dumps({})
+        return response
+
+    with mock.patch("requests.Session.request", side_effect=mock_request):
+        store = RestStore(lambda: MlflowHostCreds("https://test-host"))
+        result = store._delete_endpoint_binding(binding_id="binding-123")
+
+        assert result is None

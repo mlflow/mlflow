@@ -3148,26 +3148,6 @@ class SqlAlchemyStore(AbstractStore):
                                 error_code=INVALID_PARAMETER_VALUE,
                             )
 
-                        # Find all endpoint_ids that have models using this secret
-                        endpoint_ids = [
-                            r.endpoint_id
-                            for r in session.query(SqlEndpointModel.endpoint_id)
-                            .filter_by(secret_id=sql_secret.secret_id)
-                            .distinct()
-                        ]
-                        binding_count = (
-                            session.query(SqlSecretBinding)
-                            .filter(SqlSecretBinding.endpoint_id.in_(endpoint_ids))
-                            .count()
-                        )
-                    if binding_count == 1:
-                        raise MlflowException(
-                            f"Cannot unbind the last binding for secret "
-                            f"'{sql_secret.secret_name}'. This would create an orphaned secret. "
-                            f"Delete the secret entirely if it's no longer needed.",
-                            error_code=INVALID_PARAMETER_VALUE,
-                        )
-
             session.delete(sql_binding)
             session.commit()
 

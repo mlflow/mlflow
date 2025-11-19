@@ -8,10 +8,9 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 import mlflow
 from mlflow.entities import (
     Endpoint,
+    EndpointBinding,
     ScorerVersion,
     Secret,
-    SecretBinding,
-    SecretWithEndpointAndBinding,
     Span,
     Trace,
     TraceData,
@@ -56,23 +55,33 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     BindEndpoint,
     CalculateTraceFilterCorrelation,
-    CreateAndBindSecret,
+    CreateEndpoint,
     CreateExperiment,
+    CreateSecret,
+    DeleteEndpoint,
+    DeleteEndpointBinding,
+    DeleteEndpointTag,
     DeleteScorer,
     DeleteSecret,
+    DeleteSecretTag,
     GetBackendInfo,
     GetScorer,
     GetSecretInfo,
     ListEndpointBindings,
+    ListEndpoints,
     ListScorers,
     ListScorerVersions,
+    ListSecrets,
     RegisterScorer,
     SearchExperiments,
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
     SearchTracesV3,
+    SetEndpointTag,
+    SetSecretTag,
     TraceLocation,
+    UpdateEndpoint,
     UpdateSecret,
 )
 from mlflow.protos.webhooks_pb2 import ListWebhooks
@@ -86,17 +95,21 @@ from mlflow.server.handlers import (
     ModelRegistryStoreRegistryWrapper,
     TrackingStoreRegistryWrapper,
     _batch_get_traces,
-    _bind_secret_route,
+    _bind_endpoint,
     _calculate_trace_filter_correlation,
     _convert_path_parameter_to_flask_format,
-    _create_and_bind_secret,
     _create_dataset_handler,
+    _create_endpoint,
     _create_experiment,
     _create_model_version,
     _create_registered_model,
+    _create_secret,
     _delete_artifact_mlflow_artifacts,
     _delete_dataset_handler,
     _delete_dataset_tag_handler,
+    _delete_endpoint,
+    _delete_endpoint_binding,
+    _delete_endpoint_tag,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
@@ -104,6 +117,7 @@ from mlflow.server.handlers import (
     _delete_registered_model_tag,
     _delete_scorer,
     _delete_secret,
+    _delete_secret_tag,
     _deprecated_search_traces_v2,
     _get_backend_info,
     _get_dataset_experiment_ids_handler,
@@ -118,9 +132,11 @@ from mlflow.server.handlers import (
     _get_scorer,
     _get_secret_info,
     _get_trace_artifact_repo,
+    _list_endpoint_bindings,
+    _list_endpoints,
     _list_scorer_versions,
     _list_scorers,
-    _list_secret_bindings,
+    _list_secrets,
     _list_webhooks,
     _log_batch,
     _register_scorer,
@@ -133,10 +149,13 @@ from mlflow.server.handlers import (
     _search_runs,
     _search_traces_v3,
     _set_dataset_tags_handler,
+    _set_endpoint_tag,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
+    _set_secret_tag,
     _transition_stage,
+    _update_endpoint,
     _update_model_version,
     _update_registered_model,
     _update_secret,
@@ -2021,101 +2040,6 @@ def test_batch_get_traces_handler_empty_list(mock_get_request_message, mock_trac
     assert response.status_code == 200
 
 
-def test_create_and_bind_secret(mock_get_request_message, mock_tracking_store):
-    mock_get_request_message.return_value = CreateAndBindSecret(
-        secret_name="my-openai-key",
-        secret_value="sk-test123456789",
-        resource_type="SCORER_JOB",
-        resource_id="job-abc123",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4-turbo",
-        route_name="Production GPT-4",
-        is_shared=False,
-        created_by="user@example.com",
-        provider="openai",
-    )
-
-    secret = Secret(
-        secret_id="secret-123",
-        secret_name="my-openai-key",
-        masked_value="sk-...789",
-        is_shared=False,
-        created_at=1234567890000,
-        last_updated_at=1234567890000,
-        created_by="user@example.com",
-        last_updated_by="user@example.com",
-        provider="openai",
-    )
-    from mlflow.entities.endpoint_model import EndpointModel
-
-    route = Endpoint(
-        endpoint_id="route-789",
-        name="Production GPT-4",
-        created_at=1234567890000,
-        last_updated_at=1234567890000,
-        created_by="user@example.com",
-        last_updated_by="user@example.com",
-        models=[
-            EndpointModel(
-                model_id="model-1",
-                endpoint_id="route-789",
-                model_name="gpt-4-turbo",
-                secret_id="secret-123",
-                weight=1.0,
-                priority=1,
-                created_at=1234567890000,
-                last_updated_at=1234567890000,
-            )
-        ],
-    )
-    binding = SecretBinding(
-        binding_id="binding-456",
-        endpoint_id="route-789",
-        secret_id="secret-123",
-        resource_type="SCORER_JOB",
-        resource_id="job-abc123",
-        field_name="OPENAI_API_KEY",
-        created_at=1234567890000,
-        last_updated_at=1234567890000,
-        created_by="user@example.com",
-        last_updated_by="user@example.com",
-    )
-    result = SecretWithEndpointAndBinding(secret=secret, endpoint=route, binding=binding)
-
-    mock_tracking_store._create_and_bind_secret.return_value = result
-
-    resp = _create_and_bind_secret()
-
-    mock_tracking_store._create_and_bind_secret.assert_called_once_with(
-        secret_name="my-openai-key",
-        secret_value="sk-test123456789",
-        resource_type="SCORER_JOB",
-        resource_id="job-abc123",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4-turbo",
-        is_shared=False,
-        created_by="user@example.com",
-        provider="openai",
-        auth_config=None,
-        route_name="Production GPT-4",
-        route_description=None,
-        route_tags=None,
-    )
-
-    response_data = json.loads(resp.get_data())
-    assert "secret" in response_data
-    assert "endpoint" in response_data
-    assert "binding" in response_data
-    assert response_data["secret"]["secret_id"] == "secret-123"
-    assert response_data["secret"]["provider"] == "openai"
-    assert response_data["endpoint"]["endpoint_id"] == "route-789"
-    assert len(response_data["endpoint"]["models"]) == 1
-    assert response_data["endpoint"]["models"][0]["model_name"] == "gpt-4-turbo"
-    assert response_data["endpoint"]["name"] == "Production GPT-4"
-    assert response_data["binding"]["binding_id"] == "binding-456"
-    assert response_data["binding"]["endpoint_id"] == "route-789"
-
-
 def test_get_secret_info(mock_get_request_message, mock_tracking_store):
     mock_get_request_message.return_value = GetSecretInfo(secret_id="secret-123")
 
@@ -2192,10 +2116,9 @@ def test_bind_secret(mock_get_request_message, mock_tracking_store):
         field_name="OPENAI_API_KEY",
     )
 
-    binding = SecretBinding(
+    binding = EndpointBinding(
         binding_id="binding-new",
         endpoint_id="route-123",
-        secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
         field_name="OPENAI_API_KEY",
@@ -2205,11 +2128,11 @@ def test_bind_secret(mock_get_request_message, mock_tracking_store):
         last_updated_by="user@example.com",
     )
 
-    mock_tracking_store._bind_secret_route.return_value = binding
+    mock_tracking_store._bind_endpoint.return_value = binding
 
-    resp = _bind_secret_route()
+    resp = _bind_endpoint()
 
-    mock_tracking_store._bind_secret_route.assert_called_once_with(
+    mock_tracking_store._bind_endpoint.assert_called_once_with(
         endpoint_id="route-123",
         resource_type="SCORER_JOB",
         resource_id="job-new",
@@ -2228,20 +2151,18 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
     )
 
     bindings = [
-        SecretBinding(
+        EndpointBinding(
             binding_id="binding-1",
             endpoint_id="route-1",
-            secret_id="secret-123",
             resource_type="SCORER_JOB",
             resource_id="job-abc",
             field_name="OPENAI_API_KEY",
             created_at=1234567890000,
             last_updated_at=1234567890000,
         ),
-        SecretBinding(
+        EndpointBinding(
             binding_id="binding-2",
             endpoint_id="route-2",
-            secret_id="secret-123",
             resource_type="SCORER_JOB",
             resource_id="job-abc",
             field_name="ANTHROPIC_API_KEY",
@@ -2250,16 +2171,348 @@ def test_list_secret_bindings(mock_get_request_message, mock_tracking_store):
         ),
     ]
 
-    mock_tracking_store._list_secret_bindings.return_value = bindings
+    mock_tracking_store._list_endpoint_bindings.return_value = bindings
 
-    _list_secret_bindings()
+    _list_endpoint_bindings()
 
-    mock_tracking_store._list_secret_bindings.assert_called_once_with(
+    mock_tracking_store._list_endpoint_bindings.assert_called_once_with(
         secret_id="secret-123",
         resource_type="SCORER_JOB",
         resource_id="job-abc",
         endpoint_id=None,
     )
+
+
+def test_create_secret(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = CreateSecret(
+        secret_name="openai-key",
+        secret_value="sk-test-key-12345",
+        is_shared=True,
+        provider="openai",
+        created_by="user@example.com",
+    )
+
+    secret = Secret(
+        secret_id="secret-new",
+        secret_name="openai-key",
+        masked_value="sk-...345",
+        is_shared=True,
+        provider="openai",
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="user@example.com",
+    )
+
+    mock_tracking_store._create_secret.return_value = secret
+
+    resp = _create_secret()
+
+    mock_tracking_store._create_secret.assert_called_once_with(
+        secret_name="openai-key",
+        secret_value="sk-test-key-12345",
+        is_shared=True,
+        provider="openai",
+        created_by="user@example.com",
+        auth_config=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["secret"]["secret_id"] == "secret-new"
+    assert response_data["secret"]["secret_name"] == "openai-key"
+
+
+def test_list_secrets(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = ListSecrets(is_shared=True)
+
+    secrets = [
+        Secret(
+            secret_id="secret-1",
+            secret_name="key-1",
+            masked_value="sk-...111",
+            is_shared=True,
+            provider="openai",
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+        Secret(
+            secret_id="secret-2",
+            secret_name="key-2",
+            masked_value="sk-...222",
+            is_shared=True,
+            provider="openai",
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+    ]
+
+    mock_tracking_store._list_secrets.return_value = secrets
+
+    resp = _list_secrets()
+
+    mock_tracking_store._list_secrets.assert_called_once_with(is_shared=True)
+
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["secrets"]) == 2
+    assert response_data["secrets"][0]["secret_id"] == "secret-1"
+
+
+def test_set_secret_tag(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities import SecretTag
+
+    mock_get_request_message.return_value = SetSecretTag(
+        secret_id="secret-123",
+        key="environment",
+        value="production",
+    )
+
+    mock_tracking_store.set_secret_tag.return_value = None
+
+    resp = _set_secret_tag()
+
+    args = mock_tracking_store.set_secret_tag.call_args
+    assert args[1]["secret_id"] == "secret-123"
+    assert isinstance(args[1]["tag"], SecretTag)
+    assert args[1]["tag"].key == "environment"
+    assert args[1]["tag"].value == "production"
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_delete_secret_tag(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = DeleteSecretTag(
+        secret_id="secret-123",
+        key="environment",
+    )
+
+    mock_tracking_store.delete_secret_tag.return_value = None
+
+    resp = _delete_secret_tag()
+
+    mock_tracking_store.delete_secret_tag.assert_called_once_with(
+        secret_id="secret-123",
+        key="environment",
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_create_endpoint(mock_get_request_message, mock_tracking_store):
+    from mlflow.protos.service_pb2 import CreateEndpointModel, EndpointTag
+
+    model_proto = CreateEndpointModel(
+        model_name="gpt-4-turbo",
+        secret_id="secret-123",
+    )
+    tag_proto = EndpointTag(key="team", value="ml-platform")
+
+    mock_get_request_message.return_value = CreateEndpoint(
+        models=[model_proto],
+        name="Production OpenAI",
+        description="Primary production endpoint",
+        tags=[tag_proto],
+        created_by="admin@example.com",
+    )
+
+    from mlflow.entities import EndpointModel
+    from mlflow.entities import EndpointTag as EndpointTagEntity
+
+    endpoint = Endpoint(
+        endpoint_id="endpoint-new",
+        models=[
+            EndpointModel(
+                model_id="model-1",
+                endpoint_id="endpoint-new",
+                model_name="gpt-4-turbo",
+                secret_id="secret-123",
+                created_at=1234567890000,
+                last_updated_at=1234567890000,
+            )
+        ],
+        name="Production OpenAI",
+        description="Primary production endpoint",
+        tags=[EndpointTagEntity(key="team", value="ml-platform")],
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+        created_by="admin@example.com",
+    )
+
+    mock_tracking_store._create_endpoint.return_value = endpoint
+
+    resp = _create_endpoint()
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["endpoint"]["endpoint_id"] == "endpoint-new"
+    assert response_data["endpoint"]["name"] == "Production OpenAI"
+
+
+def test_list_endpoints(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities import EndpointModel
+
+    mock_get_request_message.return_value = ListEndpoints(secret_id="secret-123")
+
+    endpoints = [
+        Endpoint(
+            endpoint_id="endpoint-1",
+            models=[
+                EndpointModel(
+                    model_id="model-1",
+                    endpoint_id="endpoint-1",
+                    model_name="gpt-4",
+                    secret_id="secret-123",
+                    created_at=1234567890000,
+                    last_updated_at=1234567890000,
+                )
+            ],
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+        Endpoint(
+            endpoint_id="endpoint-2",
+            models=[
+                EndpointModel(
+                    model_id="model-2",
+                    endpoint_id="endpoint-2",
+                    model_name="gpt-3.5",
+                    secret_id="secret-123",
+                    created_at=1234567890000,
+                    last_updated_at=1234567890000,
+                )
+            ],
+            created_at=1234567890000,
+            last_updated_at=1234567890000,
+        ),
+    ]
+
+    mock_tracking_store._list_endpoints.return_value = endpoints
+
+    resp = _list_endpoints()
+
+    mock_tracking_store._list_endpoints.assert_called_once_with(
+        secret_id="secret-123",
+        provider=None,
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert len(response_data["routes"]) == 2
+
+
+def test_delete_endpoint(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = DeleteEndpoint(endpoint_id="endpoint-123")
+
+    mock_tracking_store._delete_endpoint.return_value = None
+
+    resp = _delete_endpoint()
+
+    mock_tracking_store._delete_endpoint.assert_called_once_with(endpoint_id="endpoint-123")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_update_endpoint(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = UpdateEndpoint(
+        endpoint_id="endpoint-123",
+        secret_id="secret-456",
+    )
+
+    from mlflow.entities import EndpointModel
+
+    endpoint = Endpoint(
+        endpoint_id="endpoint-123",
+        models=[
+            EndpointModel(
+                model_id="model-1",
+                endpoint_id="endpoint-123",
+                model_name="gpt-4",
+                secret_id="secret-456",
+                created_at=1234567890000,
+                last_updated_at=1234567890999,
+            )
+        ],
+        created_at=1234567890000,
+        last_updated_at=1234567890999,
+    )
+
+    secret = Secret(
+        secret_id="secret-456",
+        secret_name="new-key",
+        masked_value="sk-...456",
+        is_shared=True,
+        created_at=1234567890000,
+        last_updated_at=1234567890000,
+    )
+
+    mock_tracking_store._update_endpoint.return_value = endpoint
+    mock_tracking_store._get_secret_info.return_value = secret
+
+    resp = _update_endpoint()
+
+    mock_tracking_store._update_endpoint.assert_called_once_with(
+        endpoint_id="endpoint-123",
+        secret_id="secret-456",
+    )
+    mock_tracking_store._get_secret_info.assert_called_once_with(secret_id="secret-456")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data["endpoint"]["endpoint_id"] == "endpoint-123"
+    assert response_data["secret"]["secret_id"] == "secret-456"
+
+
+def test_set_endpoint_tag(mock_get_request_message, mock_tracking_store):
+    from mlflow.entities import EndpointTag
+
+    mock_get_request_message.return_value = SetEndpointTag(
+        endpoint_id="endpoint-123",
+        key="environment",
+        value="staging",
+    )
+
+    mock_tracking_store.set_endpoint_tag.return_value = None
+
+    resp = _set_endpoint_tag()
+
+    args = mock_tracking_store.set_endpoint_tag.call_args
+    assert args[1]["endpoint_id"] == "endpoint-123"
+    assert isinstance(args[1]["tag"], EndpointTag)
+    assert args[1]["tag"].key == "environment"
+    assert args[1]["tag"].value == "staging"
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_delete_endpoint_tag(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = DeleteEndpointTag(
+        endpoint_id="endpoint-123",
+        key="environment",
+    )
+
+    mock_tracking_store.delete_endpoint_tag.return_value = None
+
+    resp = _delete_endpoint_tag()
+
+    mock_tracking_store.delete_endpoint_tag.assert_called_once_with(
+        endpoint_id="endpoint-123",
+        key="environment",
+    )
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
+
+
+def test_delete_endpoint_binding(mock_get_request_message, mock_tracking_store):
+    mock_get_request_message.return_value = DeleteEndpointBinding(binding_id="binding-123")
+
+    mock_tracking_store._delete_endpoint_binding.return_value = None
+
+    resp = _delete_endpoint_binding()
+
+    mock_tracking_store._delete_endpoint_binding.assert_called_once_with(binding_id="binding-123")
+
+    response_data = json.loads(resp.get_data())
+    assert response_data == {}
 
 
 def test_get_backend_info_sql_backend(mock_get_request_message, mock_tracking_store):

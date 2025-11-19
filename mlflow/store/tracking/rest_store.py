@@ -12,6 +12,8 @@ from packaging.version import Version
 from mlflow.entities import (
     DatasetInput,
     Endpoint,
+    EndpointBinding,
+    EndpointBindingListItem,
     EndpointTag,
     Experiment,
     LoggedModel,
@@ -25,10 +27,7 @@ from mlflow.entities import (
     RunInfo,
     ScorerVersion,
     Secret,
-    SecretBinding,
-    SecretBindingListItem,
     SecretTag,
-    SecretWithEndpointAndBinding,
     ViewType,
 )
 
@@ -56,13 +55,14 @@ from mlflow.protos.service_pb2 import (
     BatchGetTraces,
     BindEndpoint,
     CalculateTraceFilterCorrelation,
-    CreateAndBindSecret,
     CreateAssessment,
     CreateDataset,
-    CreateEndpointAndBind,
+    CreateEndpoint,
+    CreateEndpointModel,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    CreateSecret,
     DeleteAssessment,
     DeleteDataset,
     DeleteDatasetTag,
@@ -80,6 +80,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTag,
     DeleteTraces,
     DeleteTraceTag,
+    EndpointTag,
     EndTrace,
     FinalizeLoggedModel,
     GetAssessmentRequest,
@@ -146,6 +147,7 @@ from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_REST_API_PATH_PREFIX,
     _V3_TRACE_REST_API_PATH_PREFIX,
     MlflowHostCreds,
     call_endpoint,
@@ -173,6 +175,27 @@ class RestStore(AbstractStore):
     """
 
     _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
+    _V3_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _V3_REST_API_PATH_PREFIX)
+
+    # V3 APIs (secrets management)
+    _V3_APIS = {
+        CreateSecret,
+        GetSecretInfo,
+        UpdateSecret,
+        DeleteSecret,
+        ListSecrets,
+        CreateEndpoint,
+        ListEndpoints,
+        UpdateEndpoint,
+        DeleteEndpoint,
+        BindEndpoint,
+        ListEndpointBindings,
+        DeleteEndpointBinding,
+        SetSecretTag,
+        DeleteSecretTag,
+        SetEndpointTag,
+        DeleteEndpointTag,
+    }
 
     def __init__(self, get_host_creds):
         super().__init__()
@@ -219,9 +242,17 @@ class RestStore(AbstractStore):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
             # /mlflow/traces/{trace_id}/info.
-            _, method = self._METHOD_TO_INFO[api]
+            # Use V3 for secrets APIs, V2 for everything else
+            if api in self._V3_APIS:
+                _, method = self._V3_METHOD_TO_INFO[api]
+            else:
+                _, method = self._METHOD_TO_INFO[api]
         else:
-            endpoint, method = self._METHOD_TO_INFO[api]
+            # Check if this is a V3 API (secrets), otherwise use V2
+            if api in self._V3_APIS:
+                endpoint, method = self._V3_METHOD_TO_INFO[api]
+            else:
+                endpoint, method = self._METHOD_TO_INFO[api]
         response_proto = response_proto or api.Response()
         return call_endpoint(
             self.get_host_creds(),
@@ -1302,44 +1333,34 @@ class RestStore(AbstractStore):
     # Secrets Management APIs
     ############################################################################################
 
-    def _create_and_bind_secret(
+    def _create_secret(
         self,
         secret_name: str,
         secret_value: str | dict[str, Any],
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
+        provider: str | None = None,
         is_shared: bool = False,
         created_by: str | None = None,
-        provider: str | None = None,
         auth_config: dict[str, Any] | None = None,
-        route_name: str | None = None,
-        route_description: str | None = None,
-        route_tags: list[dict[str, str]] | None = None,
-    ) -> SecretWithEndpointAndBinding:
+    ) -> Secret:
         """
-        Atomically create a secret and bind it to a resource.
+        Create a new secret with encrypted credentials.
 
         Args:
             secret_name: Unique name for the secret.
-            secret_value: Secret value to encrypt. Can be:
-                - String: API key/token for simple providers (OpenAI, Anthropic)
-                - Dict: JSON credentials for complex providers (Vertex AI service account)
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: ID of the resource using this secret.
-            field_name: Environment variable name for the secret.
-            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
+            secret_value: Secret value to encrypt and store. Can be:
+                - String: API key/token for simple providers
+                - Dict: JSON credentials for complex providers (e.g., Vertex AI)
+            provider: LLM provider identifier (e.g., "anthropic", "openai", "cohere").
             is_shared: Whether the secret can be reused across resources.
+                True: Shared secret (can be bound to multiple resources)
+                False: Private secret (bound to single resource)
             created_by: User ID creating the secret.
-            provider: LLM provider identifier (e.g., "anthropic", "openai").
-            auth_config: Optional provider-specific authentication configuration.
-            route_name: Optional display name for the route.
-            route_description: Optional description for the route.
-            route_tags: Optional list of tags for the route.
+            auth_config: Optional provider-specific authentication configuration (e.g.,
+                Azure endpoint URL, AWS region/keys, Vertex AI service account).
+                This value is encrypted and stored but never returned in responses.
 
         Returns:
-            SecretWithEndpointAndBinding entity containing the created secret, route, and binding.
+            Created Secret entity with metadata.
         """
         if isinstance(secret_value, dict):
             secret_value_str = json.dumps(secret_value)
@@ -1350,94 +1371,22 @@ class RestStore(AbstractStore):
         if auth_config is not None:
             auth_config_str = json.dumps(auth_config)
 
-        route_tags_str = None
-        if route_tags is not None:
-            route_tags_str = json.dumps(route_tags)
-
         req_body = message_to_json(
-            CreateAndBindSecret(
+            CreateSecret(
                 secret_name=secret_name,
                 secret_value=secret_value_str,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                field_name=field_name,
+                provider=provider,
                 is_shared=is_shared,
                 created_by=created_by,
-                provider=provider,
                 auth_config=auth_config_str,
-                model_name=model_name,
-                route_name=route_name,
-                route_description=route_description,
-                route_tags=route_tags_str,
             )
         )
         response_proto = self._call_endpoint(
-            CreateAndBindSecret,
+            CreateSecret,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/create-and-bind",
+            endpoint="/api/3.0/mlflow/secrets/create",
         )
-        secret = Secret.from_proto(response_proto.secret)
-        endpoint = Endpoint.from_proto(response_proto.endpoint)
-        binding = SecretBinding.from_proto(response_proto.binding)
-        return SecretWithEndpointAndBinding(secret=secret, endpoint=endpoint, binding=binding)
-
-    def _create_route_and_bind(
-        self,
-        secret_id: str,
-        resource_type: str,
-        resource_id: str,
-        field_name: str,
-        model_name: str,
-        route_name: str | None = None,
-        route_description: str | None = None,
-        route_tags: list[dict[str, str]] | None = None,
-        created_by: str | None = None,
-    ) -> SecretWithEndpointAndBinding:
-        """
-        Create a new route and binding for an existing secret.
-
-        This enables reusing a single API key (secret) across multiple model configurations.
-
-        Args:
-            secret_id: ID of the existing secret to use.
-            resource_type: Type of resource (e.g., "SCORER_JOB").
-            resource_id: ID of the resource using this route.
-            field_name: Environment variable name for the secret.
-            model_name: Model identifier for the route (e.g., "gpt-4-turbo"). Required.
-            route_name: Optional display name for the route.
-            route_description: Optional description for the route.
-            route_tags: Optional list of tags for the route.
-            created_by: User ID creating the route and binding.
-
-        Returns:
-            SecretWithEndpointAndBinding entity containing the secret, new route, and new binding.
-        """
-        route_tags_str = None
-        if route_tags is not None:
-            route_tags_str = json.dumps(route_tags)
-
-        req_body = message_to_json(
-            CreateEndpointAndBind(
-                secret_id=secret_id,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                field_name=field_name,
-                model_name=model_name,
-                route_name=route_name,
-                route_description=route_description,
-                route_tags=route_tags_str,
-                created_by=created_by,
-            )
-        )
-        response_proto = self._call_endpoint(
-            CreateEndpointAndBind,
-            req_body,
-            endpoint="/api/3.0/mlflow/secrets/create-route-and-bind",
-        )
-        secret = Secret.from_proto(response_proto.secret)
-        endpoint = Endpoint.from_proto(response_proto.endpoint)
-        binding = SecretBinding.from_proto(response_proto.binding)
-        return SecretWithEndpointAndBinding(secret=secret, endpoint=endpoint, binding=binding)
+        return Secret.from_proto(response_proto.secret)
 
     def _get_secret_info(self, secret_id: str) -> Secret:
         """
@@ -1534,15 +1483,15 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(ListSecrets, req_body)
         return [Secret.from_proto(secret) for secret in response_proto.secrets]
 
-    def _list_secret_bindings(
+    def _list_endpoint_bindings(
         self,
         secret_id: str | None = None,
         resource_type: str | None = None,
         resource_id: str | None = None,
         endpoint_id: str | None = None,
-    ) -> list[SecretBindingListItem]:
+    ) -> list[EndpointBindingListItem]:
         """
-        List secret bindings filtered by optional criteria.
+        List endpoint bindings filtered by optional criteria.
 
         Args:
             secret_id: Filter by secret ID.
@@ -1551,7 +1500,7 @@ class RestStore(AbstractStore):
             endpoint_id: Filter by endpoint ID.
 
         Returns:
-            List of SecretBindingListItem entities matching the filters.
+            List of EndpointBindingListItem entities matching the filters.
         """
         req_body = message_to_json(
             ListEndpointBindings(
@@ -1566,9 +1515,9 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/secrets/list-bindings",
         )
-        return [SecretBindingListItem.from_proto(b) for b in response_proto.bindings]
+        return [EndpointBindingListItem.from_proto(b) for b in response_proto.bindings]
 
-    def _list_secret_routes(
+    def _list_endpoints(
         self,
         secret_id: str | None = None,
         provider: str | None = None,
@@ -1596,7 +1545,65 @@ class RestStore(AbstractStore):
         )
         return [Endpoint.from_proto(r) for r in response_proto.routes]
 
-    def _delete_secret_route(self, endpoint_id: str) -> None:
+    def _create_endpoint(
+        self,
+        models: list[dict[str, Any]],
+        name: str | None = None,
+        description: str | None = None,
+        created_by: str | None = None,
+        tags: dict[str, str] | None = None,
+    ) -> Endpoint:
+        """
+        Create a new endpoint with multiple model configurations.
+
+        Args:
+            models: List of model configurations. Each dict must contain:
+                - model_name: Model identifier (required)
+                - secret_id: Secret ID for authentication (required)
+                - routing_config: Optional routing config dict (e.g., {"weight": 0.5})
+            name: Optional display name for the endpoint.
+            description: Optional description for the endpoint.
+            created_by: User ID creating the endpoint.
+            tags: Optional dict of tags for the endpoint.
+
+        Returns:
+            Created Endpoint entity with all model configurations.
+        """
+        model_protos = []
+        for model_spec in models:
+            model_proto = CreateEndpointModel(
+                model_name=model_spec["model_name"],
+                secret_id=model_spec["secret_id"],
+            )
+            if "routing_config" in model_spec and model_spec["routing_config"]:
+                model_proto.routing_config = json.dumps(model_spec["routing_config"])
+            model_protos.append(model_proto)
+
+        tag_protos = []
+        if tags:
+            for key, value in tags.items():
+                tag_proto = EndpointTag()
+                tag_proto.key = key
+                tag_proto.value = value
+                tag_protos.append(tag_proto)
+
+        req_body = message_to_json(
+            CreateEndpoint(
+                name=name,
+                description=description,
+                created_by=created_by,
+                models=model_protos,
+                tags=tag_protos,
+            )
+        )
+        response_proto = self._call_endpoint(
+            CreateEndpoint,
+            req_body,
+            endpoint="/api/3.0/mlflow/secrets/endpoints/create",
+        )
+        return Endpoint.from_proto(response_proto.endpoint)
+
+    def _delete_endpoint(self, endpoint_id: str) -> None:
         """
         Delete a secret route.
 
@@ -1607,10 +1614,10 @@ class RestStore(AbstractStore):
         self._call_endpoint(
             DeleteEndpoint,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/routes/delete",
+            endpoint="/api/3.0/mlflow/secrets/endpoints/delete",
         )
 
-    def _update_secret_route(self, endpoint_id: str, secret_id: str) -> Endpoint:
+    def _update_endpoint(self, endpoint_id: str, secret_id: str) -> Endpoint:
         """
         Update a secret route to use a different existing secret.
 
@@ -1630,11 +1637,11 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateEndpoint,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/routes/update",
+            endpoint="/api/3.0/mlflow/secrets/endpoints/update",
         )
         return Endpoint.from_proto(response_proto.endpoint)
 
-    def _update_secret_route_with_new_secret(
+    def _update_endpoint_with_new_secret(
         self,
         route_id: str,
         secret_name: str,
@@ -1659,7 +1666,7 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(
             UpdateEndpoint(
-                endpoint_id=endpoint_id,
+                endpoint_id=route_id,
                 secret_name=secret_name,
                 secret_value=secret_value,
                 provider=provider,
@@ -1670,22 +1677,22 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateEndpoint,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/routes/update",
+            endpoint="/api/3.0/mlflow/secrets/endpoints/update",
         )
         return (
             Secret.from_proto(response_proto.secret),
             Endpoint.from_proto(response_proto.endpoint),
         )
 
-    def _bind_secret_route(
+    def _bind_endpoint(
         self,
         endpoint_id: str,
         resource_type: str,
         resource_id: str,
         field_name: str,
-    ) -> SecretBinding:
+    ) -> EndpointBinding:
         """
-        Bind a secret route to a resource.
+        Bind an endpoint to a resource.
 
         Args:
             endpoint_id: ID of the endpoint to bind.
@@ -1694,7 +1701,7 @@ class RestStore(AbstractStore):
             field_name: Environment variable name for the binding.
 
         Returns:
-            The created SecretBinding entity.
+            The created EndpointBinding entity.
         """
         req_body = message_to_json(
             BindEndpoint(
@@ -1709,9 +1716,9 @@ class RestStore(AbstractStore):
             req_body,
             endpoint="/api/3.0/mlflow/secrets/bind-route",
         )
-        return SecretBinding.from_proto(response_proto.binding)
+        return EndpointBinding.from_proto(response_proto.binding)
 
-    def _delete_secret_binding(self, binding_id: str) -> None:
+    def _delete_endpoint_binding(self, binding_id: str) -> None:
         """
         Delete a secret binding.
 
@@ -1771,7 +1778,7 @@ class RestStore(AbstractStore):
         Set a tag on a secret route.
 
         Args:
-            route_id: ID of the route.
+            endpoint_id: ID of the endpoint.
             tag: EndpointTag to set.
         """
         req_body = message_to_json(
@@ -1784,7 +1791,7 @@ class RestStore(AbstractStore):
         self._call_endpoint(
             SetEndpointTag,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/routes/set-tag",
+            endpoint="/api/3.0/mlflow/secrets/endpoints/set-tag",
         )
 
     def delete_secret_route_tag(self, endpoint_id: str, key: str) -> None:
@@ -1792,7 +1799,7 @@ class RestStore(AbstractStore):
         Delete a tag from a secret route.
 
         Args:
-            route_id: ID of the route.
+            endpoint_id: ID of the endpoint.
             key: Tag key to delete.
         """
         req_body = message_to_json(
@@ -1804,7 +1811,7 @@ class RestStore(AbstractStore):
         self._call_endpoint(
             DeleteEndpointTag,
             req_body,
-            endpoint="/api/3.0/mlflow/secrets/routes/delete-tag",
+            endpoint="/api/3.0/mlflow/secrets/endpoints/delete-tag",
         )
 
     ############################################################################################

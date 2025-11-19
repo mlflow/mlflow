@@ -63,8 +63,8 @@ class Endpoint(_MlflowObject):
             model_proto.endpoint_id = model.endpoint_id
             model_proto.model_name = model.model_name
             model_proto.secret_id = model.secret_id
-            model_proto.weight = model.weight
-            model_proto.priority = model.priority
+            if model.routing_config:
+                model_proto.routing_config = model.routing_config
             model_proto.created_at = model.created_at
             model_proto.last_updated_at = model.last_updated_at
             model_proto.created_by = model.created_by or ""
@@ -88,8 +88,11 @@ class Endpoint(_MlflowObject):
                     endpoint_id=model_proto.endpoint_id,
                     model_name=model_proto.model_name,
                     secret_id=model_proto.secret_id,
-                    weight=model_proto.weight,
-                    priority=model_proto.priority,
+                    routing_config=(
+                        model_proto.routing_config
+                        if model_proto.HasField("routing_config")
+                        else None
+                    ),
                     created_at=model_proto.created_at,
                     last_updated_at=model_proto.last_updated_at,
                     created_by=model_proto.created_by

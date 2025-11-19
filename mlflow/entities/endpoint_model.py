@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.protos.service_pb2 import EndpointModel as ProtoEndpointModel
 
 
 @dataclass
@@ -63,3 +64,39 @@ class EndpointModel(_MlflowObject):
     last_updated_by: str | None = None
     secret_name: str = ""
     provider: str = ""
+
+    def to_proto(self):
+        """Convert EndpointModel entity to protobuf message."""
+        proto = ProtoEndpointModel()
+        proto.model_id = self.model_id
+        proto.endpoint_id = self.endpoint_id
+        proto.model_name = self.model_name
+        proto.secret_id = self.secret_id
+        proto.created_at = self.created_at
+        proto.last_updated_at = self.last_updated_at
+        if self.routing_config is not None:
+            proto.routing_config = self.routing_config
+        if self.created_by is not None:
+            proto.created_by = self.created_by
+        if self.last_updated_by is not None:
+            proto.last_updated_by = self.last_updated_by
+        proto.secret_name = self.secret_name
+        proto.provider = self.provider
+        return proto
+
+    @classmethod
+    def from_proto(cls, proto):
+        """Create EndpointModel entity from protobuf message."""
+        return cls(
+            model_id=proto.model_id,
+            endpoint_id=proto.endpoint_id,
+            model_name=proto.model_name,
+            secret_id=proto.secret_id,
+            created_at=proto.created_at,
+            last_updated_at=proto.last_updated_at,
+            routing_config=proto.routing_config if proto.HasField("routing_config") else None,
+            created_by=proto.created_by if proto.HasField("created_by") else None,
+            last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
+            secret_name=proto.secret_name if proto.HasField("secret_name") else "",
+            provider=proto.provider if proto.HasField("provider") else "",
+        )

@@ -1,79 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import TYPE_CHECKING
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.service_pb2 import Secret as ProtoSecret
-from mlflow.protos.service_pb2 import SecretWithBinding as ProtoSecretWithBinding
 
 if TYPE_CHECKING:
-    from mlflow.entities.endpoint import Endpoint
-    from mlflow.entities.endpoint_binding import EndpointBinding
     from mlflow.entities.secret_tag import SecretTag
-
-
-class SecretState(str, Enum):
-    """Enum representing the state of a secret.
-
-    - ``ACTIVE``: Secret is active and can be used.
-    - ``REVOKED``: Secret has been revoked and can no longer be used.
-    - ``ROTATED``: Secret has been rotated to a new version and is inactive.
-    """
-
-    ACTIVE = "ACTIVE"
-    REVOKED = "REVOKED"
-    ROTATED = "ROTATED"
-
-    def __str__(self):
-        return self.value
-
-
-@dataclass
-class SecretWithEndpointAndBinding(_MlflowObject):
-    """
-    Result of atomically creating a gateway asset (secret + endpoint + binding).
-
-    This structure represents the complete gateway configuration:
-    - Secret: The API key/credential
-    - Endpoint: The model configuration (provider + model using that secret)
-    - Binding: The resource binding (which service uses this endpoint)
-
-    This ensures that secrets are always created with an endpoint configuration
-    and an initial binding, preventing orphaned secrets or endpoints.
-
-    Args:
-        secret: The created Secret entity with metadata (API key).
-        endpoint: The created Endpoint entity (model configuration).
-        binding: The initial EndpointBinding that associates the endpoint with a resource.
-    """
-
-    secret: "Secret"
-    endpoint: "Endpoint"
-    binding: "EndpointBinding"
-
-    def to_proto(self):
-        from mlflow.protos.service_pb2 import (
-            SecretWithRouteAndBinding as ProtoSecretWithRouteAndBinding,
-        )
-
-        proto = ProtoSecretWithRouteAndBinding()
-        proto.secret.CopyFrom(self.secret.to_proto())
-        proto.route.CopyFrom(self.route.to_proto())
-        proto.binding.CopyFrom(self.binding.to_proto())
-        return proto
-
-    @classmethod
-    def from_proto(cls, proto):
-        from mlflow.entities.secret_binding import SecretBinding
-        from mlflow.entities.secret_route import Endpoint
-
-        return cls(
-            secret=Secret.from_proto(proto.secret),
-            route=Endpoint.from_proto(proto.route),
-            binding=SecretBinding.from_proto(proto.binding),
-        )
 
 
 @dataclass
@@ -94,8 +28,6 @@ class Secret(_MlflowObject):
         is_shared: Boolean indicating if secret can be reused across resources.
             True: Shared secret (can be bound to multiple resources)
             False: Private secret (bound to single resource)
-        state: The secret state as a SecretState enum.
-            Possible values: SecretState.ACTIVE, SecretState.REVOKED, SecretState.ROTATED
         created_at: Creation timestamp in milliseconds since the UNIX epoch.
         last_updated_at: Last update timestamp in milliseconds since the UNIX epoch.
         created_by: String containing the user ID who created the secret, or None.
@@ -115,7 +47,6 @@ class Secret(_MlflowObject):
     is_shared: bool
     created_at: int
     last_updated_at: int
-    state: SecretState = SecretState.ACTIVE
     created_by: str | None = None
     last_updated_by: str | None = None
     provider: str | None = None
@@ -153,31 +84,4 @@ class Secret(_MlflowObject):
             last_updated_by=proto.last_updated_by if proto.HasField("last_updated_by") else None,
             provider=proto.provider if proto.HasField("provider") else None,
             binding_count=proto.binding_count if proto.HasField("binding_count") else None,
-        )
-
-
-@dataclass
-class SecretWithBinding(_MlflowObject):
-    """
-    DEPRECATED: Use SecretWithRouteAndBinding instead.
-
-    This class is kept for backward compatibility only.
-    """
-
-    secret: Secret
-    binding: SecretBinding
-
-    def to_proto(self):
-        proto = ProtoSecretWithBinding()
-        proto.secret.CopyFrom(self.secret.to_proto())
-        proto.binding.CopyFrom(self.binding.to_proto())
-        return proto
-
-    @classmethod
-    def from_proto(cls, proto):
-        from mlflow.entities.secret_binding import SecretBinding
-
-        return cls(
-            secret=Secret.from_proto(proto.secret),
-            binding=SecretBinding.from_proto(proto.binding),
         )

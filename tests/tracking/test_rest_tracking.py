@@ -108,6 +108,8 @@ def store_type(request):
 @pytest.fixture(scope="module")
 def cached_db(tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Creates and caches a SQLite database to avoid repeated migrations for each test run."""
+    os.environ["MLFLOW_SECRETS_KEK_PASSPHRASE"] = "test-cached-db-passphrase-32chars-min"
+
     tmp_dir = tmp_path_factory.mktemp("sqlite_db")
     db_path = tmp_dir / "mlflow.db"
     backend_uri = f"sqlite:///{db_path}"
@@ -4003,14 +4005,15 @@ async def test_rest_store_logs_spans_via_otel_endpoint(mlflow_client, store_type
 
 
 @pytest.fixture
-def mlflow_client_with_secrets(store_type: str, tmp_path: Path, cached_db: Path, monkeypatch):
+def mlflow_client_with_secrets(store_type: str, tmp_path: Path, monkeypatch):
     if store_type != "sqlalchemy":
         pytest.skip("Secrets are only supported with sqlalchemy backend")
 
-    monkeypatch.setenv("MLFLOW_SECRETS_KEK_PASSPHRASE", "test-e2e-passphrase-32chars-min")
+    # Set encryption passphrase before creating database (needed for secrets tables migration)
+    monkeypatch.setenv("MLFLOW_SECRETS_KEK_PASSPHRASE", "test-secrets-passphrase-32chars-min")
 
+    # Create a fresh database for each test (don't use cached_db to avoid conflicts)
     db_path = tmp_path / "mlflow.db"
-    shutil.copy(cached_db, db_path)
     backend_uri = f"sqlite:///{db_path}"
 
     handlers._tracking_store = None
@@ -4028,158 +4031,162 @@ def test_rest_store_secrets_end_to_end(mlflow_client_with_secrets, store_type):
 
     store = mlflow_client_with_secrets._tracking_client.store
 
-    result = store._create_and_bind_secret(
+    secret = store._create_secret(
         secret_name="openai_key",
         secret_value="sk-test-12345",
-        resource_type="SCORER_JOB",
-        resource_id="job-1",
-        field_name="OPENAI_API_KEY",
-        model_name="gpt-4-turbo",
         is_shared=True,
         provider="openai",
     )
-
-    assert result.secret.secret_name == "openai_key"
-    assert result.secret.is_shared is True
-    assert result.secret.provider == "openai"
-    assert result.route.model_name == "gpt-4-turbo"
-    assert result.route.secret_id == result.secret.secret_id
-    assert result.binding.resource_type == "SCORER_JOB"
-    assert result.binding.resource_id == "job-1"
-    assert result.binding.field_name == "OPENAI_API_KEY"
-    assert result.binding.route_id == result.route.route_id
-
-    secret = store._get_secret_info(result.secret.secret_id)
     assert secret.secret_name == "openai_key"
     assert secret.is_shared is True
     assert secret.provider == "openai"
 
-    updated_secret = store._update_secret(result.secret.secret_id, "sk-test-updated")
-    assert updated_secret.secret_id == result.secret.secret_id
+    endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "gpt-4-turbo",
+                "secret_id": secret.secret_id,
+            }
+        ],
+    )
+    assert len(endpoint.models) == 1
+    assert endpoint.models[0].model_name == "gpt-4-turbo"
+    assert endpoint.models[0].secret_id == secret.secret_id
 
-    new_binding_result = store._create_route_and_bind(
-        secret_id=result.secret.secret_id,
+    binding = store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="SCORER_JOB",
+        resource_id="job-1",
+        field_name="OPENAI_API_KEY",
+    )
+    assert binding.resource_type == "SCORER_JOB"
+    assert binding.resource_id == "job-1"
+    assert binding.field_name == "OPENAI_API_KEY"
+    assert binding.endpoint_id == endpoint.endpoint_id
+
+    fetched_secret = store._get_secret_info(secret.secret_id)
+    assert fetched_secret.secret_name == "openai_key"
+    assert fetched_secret.is_shared is True
+    assert fetched_secret.provider == "openai"
+
+    updated_secret = store._update_secret(secret.secret_id, "sk-test-updated")
+    assert updated_secret.secret_id == secret.secret_id
+
+    endpoint2 = store._create_endpoint(
+        models=[
+            {
+                "model_name": "gpt-4-turbo",
+                "secret_id": secret.secret_id,
+            }
+        ],
+    )
+    binding2 = store._bind_endpoint(
+        endpoint_id=endpoint2.endpoint_id,
         resource_type="SCORER_JOB",
         resource_id="job-2",
         field_name="OPENAI_API_KEY",
-        model_name="gpt-4-turbo",
     )
-    assert new_binding_result.secret.secret_id == result.secret.secret_id
-    assert new_binding_result.binding.resource_id == "job-2"
+    assert binding2.resource_id == "job-2"
 
-    bindings = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    bindings = store._list_endpoint_bindings(secret_id=secret.secret_id)
     assert len(bindings) == 2
-    assert bindings[0].secret_name == "openai_key"
-    assert bindings[0].provider == "openai"
-    assert bindings[0].route_name == "gpt-4-turbo"
+    assert bindings[0].models[0].secret_name == "openai_key"
+    assert bindings[0].models[0].provider == "openai"
 
-    # SECURITY NOTE: _get_secrets_for_resource() is intentionally NOT exposed via REST API
-    # as it returns decrypted secrets. We access the backend store directly here ONLY for
-    # testing to verify encryption/decryption works correctly. In production, this method
-    # is only called server-side to inject secrets into job environments.
-    backend_store = handlers._get_tracking_store()
-    decrypted_secrets_job1 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-1")
-    assert decrypted_secrets_job1["OPENAI_API_KEY"] == "sk-test-updated"
-
-    decrypted_secrets_job2 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-2")
-    assert decrypted_secrets_job2["OPENAI_API_KEY"] == "sk-test-updated"
-
-    # Find the job-2 binding and delete it
     job2_binding = next(b for b in bindings if b.resource_id == "job-2")
-    store._delete_secret_binding(binding_id=job2_binding.binding_id)
+    store._delete_endpoint_binding(binding_id=job2_binding.binding_id)
 
-    bindings_after_unbind = store._list_secret_bindings(secret_id=result.secret.secret_id)
+    bindings_after_unbind = store._list_endpoint_bindings(secret_id=secret.secret_id)
     assert len(bindings_after_unbind) == 1
 
-    decrypted_secrets_job2_after = backend_store._get_secrets_for_resource("SCORER_JOB", "job-2")
-    assert len(decrypted_secrets_job2_after) == 0
+    store._delete_secret(secret.secret_id)
 
-    store._delete_secret(result.secret.secret_id)
-
-    result_with_route_metadata = store._create_and_bind_secret(
+    anthropic_secret = store._create_secret(
         secret_name="anthropic_key",
         secret_value="sk-ant-test-67890",
-        resource_type="SCORER_JOB",
-        resource_id="job-3",
-        field_name="ANTHROPIC_API_KEY",
-        model_name="claude-3-5-sonnet-20241022",
-        route_name="Production Claude",
-        route_description="High-quality model for production workloads",
-        route_tags=[
-            {"key": "environment", "value": "production"},
-            {"key": "team", "value": "ml-platform"},
-        ],
         is_shared=True,
         provider="anthropic",
     )
 
-    assert result_with_route_metadata.route.name == "Production Claude"
-    assert (
-        result_with_route_metadata.route.description
-        == "High-quality model for production workloads"
+    production_endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "claude-3-5-sonnet-20241022",
+                "secret_id": anthropic_secret.secret_id,
+            }
+        ],
+        name="Production Claude",
+        description="High-quality model for production workloads",
+        tags={
+            "environment": "production",
+            "team": "ml-platform",
+        },
     )
-    assert len(result_with_route_metadata.route.tags) == 2
-    assert result_with_route_metadata.route.tags[0].key == "environment"
-    assert result_with_route_metadata.route.tags[0].value == "production"
-    assert result_with_route_metadata.route.tags[1].key == "team"
-    assert result_with_route_metadata.route.tags[1].value == "ml-platform"
+    assert production_endpoint.name == "Production Claude"
+    assert production_endpoint.description == "High-quality model for production workloads"
+    assert len(production_endpoint.tags) == 2
+    tag_dict = {tag.key: tag.value for tag in production_endpoint.tags}
+    assert tag_dict["environment"] == "production"
+    assert tag_dict["team"] == "ml-platform"
 
-    new_route_result = store._create_route_and_bind(
-        secret_id=result_with_route_metadata.secret.secret_id,
+    binding3 = store._bind_endpoint(
+        endpoint_id=production_endpoint.endpoint_id,
+        resource_type="SCORER_JOB",
+        resource_id="job-3",
+        field_name="ANTHROPIC_API_KEY",
+    )
+    assert binding3.resource_id == "job-3"
+
+    dev_endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "claude-3-haiku-20240307",
+                "secret_id": anthropic_secret.secret_id,
+            }
+        ],
+        name="Development Claude",
+        description="Fast and cost-efficient model for development",
+        tags={
+            "environment": "development",
+            "cost": "low",
+        },
+    )
+    assert dev_endpoint.endpoint_id != production_endpoint.endpoint_id
+    assert dev_endpoint.models[0].model_name == "claude-3-haiku-20240307"
+    assert dev_endpoint.name == "Development Claude"
+    assert dev_endpoint.description == "Fast and cost-efficient model for development"
+    assert len(dev_endpoint.tags) == 2
+    dev_tag_dict = {tag.key: tag.value for tag in dev_endpoint.tags}
+    assert dev_tag_dict["environment"] == "development"
+    assert dev_tag_dict["cost"] == "low"
+
+    binding4 = store._bind_endpoint(
+        endpoint_id=dev_endpoint.endpoint_id,
         resource_type="SCORER_JOB",
         resource_id="job-4",
         field_name="ANTHROPIC_API_KEY",
-        model_name="claude-3-haiku-20240307",
-        route_name="Development Claude",
-        route_description="Fast and cost-efficient model for development",
-        route_tags=[
-            {"key": "environment", "value": "development"},
-            {"key": "cost", "value": "low"},
-        ],
     )
+    assert binding4.resource_id == "job-4"
 
-    assert new_route_result.secret.secret_id == result_with_route_metadata.secret.secret_id
-    assert new_route_result.route.route_id != result_with_route_metadata.route.route_id
-    assert new_route_result.route.model_name == "claude-3-haiku-20240307"
-    assert new_route_result.route.name == "Development Claude"
-    assert new_route_result.route.description == "Fast and cost-efficient model for development"
-    assert len(new_route_result.route.tags) == 2
-    assert new_route_result.route.tags[0].key == "environment"
-    assert new_route_result.route.tags[0].value == "development"
-    assert new_route_result.binding.resource_id == "job-4"
+    endpoints = store._list_endpoints(secret_id=anthropic_secret.secret_id)
+    assert len(endpoints) == 2
+    model_names = {e.models[0].model_name for e in endpoints}
+    assert model_names == {"claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"}
 
-    routes = store._list_secret_routes(secret_id=result_with_route_metadata.secret.secret_id)
-    assert len(routes) == 2
-    assert routes[0].secret_name == "anthropic_key"
-    assert routes[0].provider == "anthropic"
-    assert routes[0].model_name in ["claude-3-5-sonnet-20241022", "claude-3-haiku-20240307"]
+    anthropic_endpoints = store._list_endpoints(provider="anthropic")
+    assert len(anthropic_endpoints) == 2
+    assert all(e.models[0].secret_id == anthropic_secret.secret_id for e in anthropic_endpoints)
 
-    anthropic_routes = store._list_secret_routes(provider="anthropic")
-    assert len(anthropic_routes) == 2
-    assert all(r.provider == "anthropic" for r in anthropic_routes)
-    assert all(r.secret_name == "anthropic_key" for r in anthropic_routes)
-
-    all_bindings = store._list_secret_bindings(
-        secret_id=result_with_route_metadata.secret.secret_id
-    )
+    all_bindings = store._list_endpoint_bindings(secret_id=anthropic_secret.secret_id)
     assert len(all_bindings) == 2
-    assert all_bindings[0].secret_name == "anthropic_key"
-    assert all_bindings[0].provider == "anthropic"
-    assert all_bindings[0].route_name in ["Production Claude", "Development Claude"]
-
-    decrypted_job3 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-3")
-    assert decrypted_job3["ANTHROPIC_API_KEY"] == "sk-ant-test-67890"
-
-    decrypted_job4 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-4")
-    assert decrypted_job4["ANTHROPIC_API_KEY"] == "sk-ant-test-67890"
-
-    store._delete_secret(result_with_route_metadata.secret.secret_id)
+    assert all_bindings[0].models[0].secret_name == "anthropic_key"
+    assert all_bindings[0].models[0].provider == "anthropic"
 
     vertex_auth_config = {
         "project_id": "my-gcp-project",
         "location": "us-central1",
     }
-    result_with_dict_value = store._create_and_bind_secret(
+    vertex_secret = store._create_secret(
         secret_name="vertex_service_account",
         secret_value={
             "type": "service_account",
@@ -4187,77 +4194,109 @@ def test_rest_store_secrets_end_to_end(mlflow_client_with_secrets, store_type):
             "private_key": "FAKE-TEST-PRIVATE-KEY-DATA-NOT-REAL",
             "client_email": "test@my-gcp-project.iam.gserviceaccount.com",
         },
-        resource_type="SCORER_JOB",
-        resource_id="job-5",
-        field_name="VERTEX_CREDENTIALS",
-        model_name="gemini-2.0-flash-exp",
-        route_name="Vertex AI Production",
         auth_config=vertex_auth_config,
         is_shared=True,
         provider="google",
     )
+    assert vertex_secret.provider == "google"
 
-    assert result_with_dict_value.secret.provider == "google"
-    assert result_with_dict_value.route.model_name == "gemini-2.0-flash-exp"
-    assert result_with_dict_value.route.name == "Vertex AI Production"
+    vertex_endpoint = store._create_endpoint(
+        models=[
+            {
+                "model_name": "gemini-2.0-flash-exp",
+                "secret_id": vertex_secret.secret_id,
+            }
+        ],
+        name="Vertex AI Production",
+    )
+    assert vertex_endpoint.models[0].model_name == "gemini-2.0-flash-exp"
+    assert vertex_endpoint.name == "Vertex AI Production"
 
-    decrypted_job5 = backend_store._get_secrets_for_resource("SCORER_JOB", "job-5")
-    assert isinstance(decrypted_job5["VERTEX_CREDENTIALS"], dict)
-    assert decrypted_job5["VERTEX_CREDENTIALS"]["type"] == "service_account"
-    assert decrypted_job5["VERTEX_CREDENTIALS"]["project_id"] == "my-gcp-project"
-
-    openai_secret_for_update = store._create_and_bind_secret(
-        secret_name="openai_key_alternate",
-        secret_value="sk-openai-alternate-key",
+    binding5 = store._bind_endpoint(
+        endpoint_id=vertex_endpoint.endpoint_id,
         resource_type="SCORER_JOB",
-        resource_id="job-6",
+        resource_id="job-5",
+        field_name="VERTEX_CREDENTIALS",
+    )
+    assert binding5.resource_id == "job-5"
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_secrets_create_and_get(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="test_key",
+        secret_value="sk-test-value",
+        is_shared=True,
+        provider="openai",
+    )
+    assert secret.secret_name == "test_key"
+    assert secret.is_shared is True
+    assert secret.provider == "openai"
+
+    fetched = store._get_secret_info(secret.secret_id)
+    assert fetched.secret_name == "test_key"
+    assert fetched.is_shared is True
+    assert fetched.provider == "openai"
+
+    store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_endpoint_create_and_list(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="test_key",
+        secret_value="sk-test",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "gpt-4", "secret_id": secret.secret_id}],
+        name="Test Endpoint",
+    )
+    assert endpoint.name == "Test Endpoint"
+    assert len(endpoint.models) == 1
+    assert endpoint.models[0].model_name == "gpt-4"
+
+    endpoints = store._list_endpoints(secret_id=secret.secret_id)
+    assert len(endpoints) == 1
+    assert endpoints[0].endpoint_id == endpoint.endpoint_id
+
+    store._delete_secret(secret.secret_id)
+
+
+@pytest.mark.parametrize("store_type", ["sqlalchemy"], indirect=True)
+def test_rest_store_endpoint_binding(mlflow_client_with_secrets, store_type):
+    store = mlflow_client_with_secrets._tracking_client.store
+
+    secret = store._create_secret(
+        secret_name="test_key",
+        secret_value="sk-test",
+        is_shared=True,
+        provider="openai",
+    )
+
+    endpoint = store._create_endpoint(
+        models=[{"model_name": "gpt-4", "secret_id": secret.secret_id}],
+    )
+
+    binding = store._bind_endpoint(
+        endpoint_id=endpoint.endpoint_id,
+        resource_type="SCORER_JOB",
+        resource_id="job-test",
         field_name="OPENAI_API_KEY",
-        model_name="gpt-4",
-        route_name="GPT-4 Route",
-        is_shared=True,
-        provider="openai",
     )
-    original_route_id = openai_secret_for_update.route.route_id
-    original_secret_id = openai_secret_for_update.secret.secret_id
-    assert openai_secret_for_update.binding.route_id == original_route_id
+    assert binding.endpoint_id == endpoint.endpoint_id
+    assert binding.resource_type == "SCORER_JOB"
+    assert binding.resource_id == "job-test"
 
-    updated_route_existing = store._update_secret_route(
-        route_id=original_route_id,
-        secret_id=result_with_dict_value.secret.secret_id,
-    )
-    assert updated_route_existing.route_id == original_route_id
-    assert updated_route_existing.secret_id == result_with_dict_value.secret.secret_id
-    assert updated_route_existing.secret_id != original_secret_id
+    bindings = store._list_endpoint_bindings(secret_id=secret.secret_id)
+    assert len(bindings) == 1
+    assert bindings[0].binding_id == binding.binding_id
 
-    bindings_after_update = store._list_secret_bindings(route_id=original_route_id)
-    assert len(bindings_after_update) == 1
-    assert bindings_after_update[0].route_id == original_route_id
-
-    decrypted_job6_after_update = backend_store._get_secrets_for_resource("SCORER_JOB", "job-6")
-    assert isinstance(decrypted_job6_after_update["OPENAI_API_KEY"], dict)
-    assert decrypted_job6_after_update["OPENAI_API_KEY"]["type"] == "service_account"
-
-    new_secret, updated_route_with_new_secret = store._update_secret_route_with_new_secret(
-        route_id=original_route_id,
-        secret_name="openai_key_brand_new",
-        secret_value="sk-openai-brand-new-key",
-        provider="openai",
-        is_shared=True,
-    )
-    assert updated_route_with_new_secret.route_id == original_route_id
-    assert updated_route_with_new_secret.secret_id == new_secret.secret_id
-    assert updated_route_with_new_secret.secret_id != result_with_dict_value.secret.secret_id
-    assert new_secret.secret_name == "openai_key_brand_new"
-    assert new_secret.is_shared is True
-    assert new_secret.provider == "openai"
-
-    bindings_after_new_secret = store._list_secret_bindings(route_id=original_route_id)
-    assert len(bindings_after_new_secret) == 1
-    assert bindings_after_new_secret[0].route_id == original_route_id
-
-    decrypted_job6_final = backend_store._get_secrets_for_resource("SCORER_JOB", "job-6")
-    assert decrypted_job6_final["OPENAI_API_KEY"] == "sk-openai-brand-new-key"
-
-    store._delete_secret(openai_secret_for_update.secret.secret_id)
-    store._delete_secret(new_secret.secret_id)
-    store._delete_secret(result_with_dict_value.secret.secret_id)
+    store._delete_endpoint_binding(binding.binding_id)
+    store._delete_secret(secret.secret_id)
