@@ -6,6 +6,7 @@ from operator import itemgetter
 from typing import Any
 from unittest import mock
 
+import langchain_core
 import pytest
 from langchain_community.document_loaders import TextLoader
 from langchain_community.vectorstores import FAISS
@@ -32,6 +33,7 @@ from langchain_core.runnables.router import RouterRunnable
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langchain_text_splitters.character import CharacterTextSplitter
+from packaging import version
 
 import mlflow
 from mlflow.entities.span import SpanType
@@ -54,6 +56,8 @@ MODEL_DIR = "model"
 TEST_CONTENT = "What is MLflow?"
 
 _SIMPLE_MODEL_CODE_PATH = "tests/langchain/sample_code/simple_runnable.py"
+
+IS_LANGCHAIN_v1 = version.parse(langchain_core.__version__).major >= 1
 
 
 def create_openai_runnable(temperature=0.9):
@@ -234,6 +238,7 @@ def test_chat_model_bind_tool_autolog():
     assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
 @skip_when_testing_trace_sdk
 def test_agent_autolog(async_logging_enabled):
     mlflow.langchain.autolog()
@@ -881,6 +886,7 @@ def test_langchain_auto_tracing_in_serving_runnable(model_info):
     assert child_span.span_type == "CHAT_MODEL"
 
 
+@pytest.mark.skipif(not IS_LANGCHAIN_v1, reason="create_agent is not supported in langchain v0")
 @skip_when_testing_trace_sdk
 def test_langchain_auto_tracing_in_serving_agent():
     mlflow.langchain.autolog()
@@ -1046,6 +1052,7 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model(model_i
     assert model_id == model_info.model_id
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.parametrize("log_traces", [True, False])
 def test_langchain_tracing_evaluate(log_traces):
     from mlflow.genai import scorer

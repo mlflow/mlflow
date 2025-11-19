@@ -602,7 +602,7 @@ langchain:
     repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
+      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.7"
@@ -663,6 +663,7 @@ langchain:
           # Need to bump FasAPI version to support pydantic v2
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
+          "langchain-classic",
         ]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict

@@ -15,7 +15,7 @@ members = [
     "mlflow-test-plugin",
 ]
 constraints = [
-    { name = "langchain", specifier = "<1.0.0" },
+    { name = "click", specifier = "!=8.3.0" },
     { name = "xgboost", specifier = "<3.1.0" },
 ]
 excludes = ["databricks-connect"]

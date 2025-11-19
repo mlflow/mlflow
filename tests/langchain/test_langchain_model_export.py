@@ -2,7 +2,6 @@ import inspect
 import json
 import os
 import shutil
-from importlib.metadata import version
 from operator import itemgetter
 from typing import Any, Iterator
 from unittest import mock
@@ -71,12 +70,9 @@ from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Array, ColSpec, DataType, Object, Property
 
-from tests.helper_functions import (
-    _compare_logged_code_paths,
-    get_traces,
-    pyfunc_serve_and_score_model,
-)
+from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
 from tests.langchain.conftest import DeterministicDummyEmbeddings
+from tests.tracing.helper import get_traces
 
 # this kwarg was added in langchain_community 0.0.27, and
 # prevents the use of pickled objects if not provided.
