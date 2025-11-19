@@ -101,11 +101,11 @@ def handle_chat(request: Request, chat_request: ChatRequest):
             "mlflow.trace.session": session_id,
             # Reserved user metadata - associates traces with specific users
             "mlflow.trace.user": user_id,
-            # Override automatically popoulated environment metadata
+            # Override automatically populated environment metadata
             "mlflow.source.type": os.getenv(
                 "APP_ENVIRONMENT", "development"
             ),  # Override default LOCAL/NOTEBOOK
-            # Add customer environment metadata
+            # Add custom environment metadata
             "environment": "production",
             "app_version": os.getenv("APP_VERSION", "1.0.0"),
             "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),

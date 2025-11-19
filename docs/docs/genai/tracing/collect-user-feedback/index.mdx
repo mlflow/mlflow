@@ -29,7 +29,6 @@ mlflow.log_feedback(
         source_type=AssessmentSourceType.HUMAN, source_id="user_123"
     ),
 )
-print(f"✓ Feedback recorded: {'👍' if is_helpful else '👎'}")
 ```
 
 If you have an `Feedback` object already (e.g., a response from LLM-as-a-Judge), you can log it
