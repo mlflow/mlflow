@@ -533,7 +533,7 @@ const sidebars: SidebarsConfig = {
         {
           type: 'link',
           label: 'CLI',
-          href: `${apiReferencePrefix()}cli.html`,
+          href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
     },

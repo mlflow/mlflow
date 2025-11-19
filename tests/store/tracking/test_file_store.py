@@ -148,7 +148,7 @@ def create_experiments(store, experiment_names):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="Filesystem tracking backend.*is deprecated"):
+    with pytest.warns(FutureWarning, match="Filesystem tracking backend.* deprecated"):
         FileStore(str(tmp_path / "mlruns"))
 
 
