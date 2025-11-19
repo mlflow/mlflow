@@ -515,7 +515,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdateRegisteredModelRequest(
                 name=full_name,
                 description=description,
-                deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
+                deployment_job_id=str(deployment_job_id) if deployment_job_id is not None else None,
             )
         )
         response_proto = self._call_endpoint(UpdateRegisteredModelRequest, req_body)
@@ -873,7 +873,7 @@ class UcModelRegistryStore(BaseRestStore):
                     f"Unable to download model artifacts from source artifact location "
                     f"'{source}' in order to upload them to Unity Catalog. Please ensure "
                     f"the source artifact location exists and that you can download from "
-                    f"it via mlflow.artifacts.download_artifacts()"
+                    f"it via mlflow.artifacts.download_artifacts(). Original error: {e}"
                 ) from e
             try:
                 yield local_model_dir
@@ -1482,7 +1482,7 @@ class UcModelRegistryStore(BaseRestStore):
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
@@ -1734,8 +1734,6 @@ class UcModelRegistryStore(BaseRestStore):
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        super().link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
-
         prompt_version_entries = [
             PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
         ]

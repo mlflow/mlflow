@@ -1,7 +1,14 @@
-import { DangerIcon, Empty, ParagraphSkeleton, TitleSkeleton, useDesignSystemTheme } from '@databricks/design-system';
+import {
+  DangerIcon,
+  Empty,
+  LegacySkeleton,
+  ParagraphSkeleton,
+  TitleSkeleton,
+  useDesignSystemTheme,
+} from '@databricks/design-system';
 import { useSelector } from 'react-redux';
 import invariant from 'invariant';
-import { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 import { PageContainer } from '../../../common/components/PageContainer';
 import { useNavigate, useParams } from '../../../common/utils/RoutingUtils';
@@ -132,6 +139,7 @@ export const RunPage = () => {
       <RunViewEvaluationsTab
         runUuid={safeRunUuid}
         runTags={tags}
+        experiment={experiment}
         experimentId={safeExperimentId}
         runDisplayName={Utils.getRunDisplayName(runInfo, safeRunUuid)}
       />

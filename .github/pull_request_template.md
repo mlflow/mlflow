@@ -1,3 +1,5 @@
+<!-- Remove unused checkboxes except for the patch release section at the bottom -->
+
 ### Related Issues/PRs
 
 <!-- Uncomment 'Resolve' if this PR can close the linked items. -->
@@ -78,6 +80,8 @@ Note that GitHub prefixes anchor names in markdown with "user-content-".
   Bug fixes and doc updates usually go into patch releases.
 
 </details>
+
+<!-- Do not modify or remove any text inside the parentheses. Keep both checkboxes below. -->
 
 - [ ] Yes (this PR will be cherry-picked and included in the next patch release)
 - [ ] No (this PR will be included in the next minor release)

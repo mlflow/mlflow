@@ -1,5 +1,5 @@
 import type { RowSelectionState } from '@tanstack/react-table';
-import { isNil } from 'lodash';
+import { compact, isNil } from 'lodash';
 import { useCallback, useContext, useMemo, useState } from 'react';
 
 import { Button, Tooltip, DropdownMenu, ChevronDownIcon } from '@databricks/design-system';
@@ -7,9 +7,10 @@ import { useIntl } from '@databricks/i18n';
 
 import { GenAITracesTableContext } from './GenAITracesTableContext';
 import { GenAiDeleteTraceModal } from './components/GenAiDeleteTraceModal';
-import type { RunEvaluationTracesDataEntry, TraceActions, TraceInfoV3 } from './types';
+import type { RunEvaluationTracesDataEntry, TraceActions } from './types';
 import { shouldEnableTagGrouping } from './utils/FeatureUtils';
-import { applyTraceInfoV3ToEvalEntry, convertTraceInfoV3ToModelTraceInfo, getRowIdFromTrace } from './utils/TraceUtils';
+import { applyTraceInfoV3ToEvalEntry, getRowIdFromTrace } from './utils/TraceUtils';
+import type { ModelTraceInfoV3 } from '../model-trace-explorer';
 
 interface GenAITracesTableActionsProps {
   experimentId: string;
@@ -18,7 +19,7 @@ interface GenAITracesTableActionsProps {
   // @deprecated
   setRowSelection?: React.Dispatch<React.SetStateAction<RowSelectionState>>;
   traceActions?: TraceActions;
-  traceInfos: TraceInfoV3[] | undefined;
+  traceInfos: ModelTraceInfoV3[] | undefined;
 }
 
 export const GenAITracesTableActions = (props: GenAITracesTableActionsProps) => {
@@ -75,22 +76,11 @@ interface TraceActionsDropdownProps {
 const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
   const { experimentId, selectedTraces, traceActions, setRowSelection } = props;
   const intl = useIntl();
-  const [showDatasetModal, setShowDatasetModal] = useState(false);
-  const [showLabelingSessionModal, setShowLabelingSessionModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-
-  const handleExportToDatasets = useCallback(() => {
-    setShowDatasetModal(true);
-  }, []);
-
-  const handleExportToLabelingSessions = useCallback(() => {
-    setShowLabelingSessionModal(true);
-  }, []);
 
   const handleEditTags = useCallback(() => {
     if (selectedTraces.length === 1 && selectedTraces[0].traceInfo && traceActions?.editTags) {
-      const modelTrace = convertTraceInfoV3ToModelTraceInfo(selectedTraces[0].traceInfo);
-      traceActions.editTags.showEditTagsModalForTrace(modelTrace);
+      traceActions.editTags.showEditTagsModalForTrace(selectedTraces[0].traceInfo);
     }
   }, [selectedTraces, traceActions]);
 
@@ -100,15 +90,20 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
 
   const deleteTraces = useCallback(
     async (experimentId: string, traceIds: string[]) => {
-      await traceActions?.deleteTracesAction?.deleteTraces(experimentId, traceIds);
+      await traceActions?.deleteTracesAction?.deleteTraces?.(experimentId, traceIds);
       setRowSelection?.({});
     },
     [setRowSelection, traceActions],
   );
 
-  const hasExportAction = Boolean(traceActions?.exportToEvals?.getTrace);
+  const hasExportAction = Boolean(traceActions?.exportToEvals);
   const hasEditTagsAction = shouldEnableTagGrouping() && Boolean(traceActions?.editTags);
   const hasDeleteAction = Boolean(traceActions?.deleteTracesAction);
+
+  const handleExportToDatasets = useCallback(() => {
+    traceActions?.exportToEvals?.setShowExportTracesToDatasetsModal(true);
+  }, [traceActions?.exportToEvals]);
+  const showDatasetModal = traceActions?.exportToEvals?.showExportTracesToDatasetsModal;
 
   const isEditTagsDisabled = selectedTraces.length > 1;
   const noTracesSelected = selectedTraces.length === 0;
@@ -156,6 +151,27 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
           <DropdownMenu.Trigger asChild>{ActionButton}</DropdownMenu.Trigger>
         )}
         <DropdownMenu.Content>
+          {hasExportAction && (
+            <>
+              <DropdownMenu.Group>
+                <DropdownMenu.Label>
+                  {intl.formatMessage({
+                    defaultMessage: 'Use for evaluation',
+                    description: 'Trace actions dropdown group label',
+                  })}
+                </DropdownMenu.Label>
+                <DropdownMenu.Item
+                  componentId="mlflow.genai-traces-table.export-to-datasets"
+                  onClick={handleExportToDatasets}
+                >
+                  {intl.formatMessage({
+                    defaultMessage: 'Add to evaluation dataset',
+                    description: 'Add traces to evaluation dataset action',
+                  })}
+                </DropdownMenu.Item>
+              </DropdownMenu.Group>
+            </>
+          )}
           {(hasEditTagsAction || hasDeleteAction) && (
             <>
               {hasExportAction && <DropdownMenu.Separator />}
@@ -179,7 +195,12 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
                   </DropdownMenu.Item>
                 )}
                 {hasDeleteAction && (
-                  <DropdownMenu.Item componentId="mlflow.genai-traces-table.delete-traces" onClick={handleDeleteTraces}>
+                  <DropdownMenu.Item
+                    componentId="mlflow.genai-traces-table.delete-traces"
+                    onClick={handleDeleteTraces}
+                    disabled={traceActions?.deleteTracesAction?.isDisabled}
+                    disabledReason={traceActions?.deleteTracesAction?.disabledReason}
+                  >
                     {intl.formatMessage({
                       defaultMessage: 'Delete traces',
                       description: 'Delete traces action',
@@ -193,6 +214,11 @@ const TraceActionsDropdown = (props: TraceActionsDropdownProps) => {
       </DropdownMenu.Root>
 
       {traceActions?.editTags?.EditTagsModal}
+
+      {showDatasetModal &&
+        traceActions?.exportToEvals?.renderExportTracesToDatasetsModal({
+          selectedTraceInfos: compact(selectedTraces.map((trace) => trace.traceInfo)),
+        })}
 
       {showDeleteModal && traceActions?.deleteTracesAction && (
         <GenAiDeleteTraceModal

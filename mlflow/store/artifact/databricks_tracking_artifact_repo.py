@@ -27,8 +27,10 @@ class DatabricksTrackingArtifactRepository(ArtifactRepository, ABC):
     repositories (e.g., for runs, logged models, etc.).
     """
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         m = self._get_uri_regex().search(artifact_uri)
         if not m:
             raise MlflowException.invalid_parameter_value(

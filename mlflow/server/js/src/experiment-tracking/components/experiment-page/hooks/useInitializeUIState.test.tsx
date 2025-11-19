@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, test, expect } from '@jest/globals';
 import { act, renderHook } from '@testing-library/react';
 import { generateExperimentHash, useInitializeUIState } from './useInitializeUIState';
 import { MemoryRouter } from '../../../../common/utils/RoutingUtils';
@@ -238,6 +239,7 @@ describe('useInitializeUIState', () => {
 
       const initializerInput = [[experiment1], initialUIState, runsData, false];
 
+      // @ts-expect-error A spread argument must either have a tuple type or be passed to a rest parameter
       expect(expandedEvaluationRunRowsUIStateInitializer).toHaveBeenCalledWith(...initializerInput);
     });
 

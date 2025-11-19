@@ -279,7 +279,7 @@ def parse_message(
     """
     Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
     """
-    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump_compat()
+    chat_message_dict = convert_lc_message_to_chat_message(msg).model_dump()
     chat_message_dict["attachments"] = attachments
     chat_message_dict["name"] = msg.name or name
     chat_message_dict["id"] = msg.id
@@ -288,7 +288,7 @@ def parse_message(
         chat_message_dict["content"] = ""
 
     chat_agent_msg = ChatAgentMessage(**chat_message_dict)
-    return chat_agent_msg.model_dump_compat(exclude_none=True)
+    return chat_agent_msg.model_dump(exclude_none=True)
 
 
 class ChatAgentToolNode(ToolNode):

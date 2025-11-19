@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
@@ -27,7 +28,7 @@ describe('MlflowClient', () => {
 
   describe('createTrace', () => {
     it('should create a trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -59,19 +60,17 @@ describe('MlflowClient', () => {
       expect(createdTraceInfo.requestPreview).toBe('{"input":"test"}');
       expect(createdTraceInfo.responsePreview).toBe('{"output":"result"}');
       expect(createdTraceInfo.clientRequestId).toBe('client-request-id');
-      expect(createdTraceInfo.traceMetadata).toEqual({
-        'meta-key': 'meta-value',
-        'mlflow.trace_schema.version': '3'
-      });
+      expect(createdTraceInfo.traceMetadata).toEqual({ 'meta-key': 'meta-value' });
       expect(createdTraceInfo.tags).toEqual({
         'tag-key': 'tag-value',
-        'mlflow.artifactLocation': expect.any(String)
+        'mlflow.artifactLocation': expect.any(String),
+        'mlflow.trace.spansLocation': expect.any(String)
       });
       expect(createdTraceInfo.assessments).toEqual([]);
     });
 
     it('should create a trace with error state', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {
@@ -97,7 +96,7 @@ describe('MlflowClient', () => {
 
   describe('getTraceInfo', () => {
     it('should retrieve trace info for an existing trace', async () => {
-      const traceId = 'test-trace-id';
+      const traceId = randomUUID();
       const traceInfo = new TraceInfo({
         traceId: traceId,
         traceLocation: {

@@ -41,8 +41,14 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     - DefaultAzureCredential is configured
     """
 
-    def __init__(self, artifact_uri: str, client=None, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        client=None,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
 
         _DEFAULT_TIMEOUT = 600  # 10 minutes
         self.write_timeout = MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
@@ -104,8 +110,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         storage_account = match.group(2)
         api_uri_suffix = match.group(3)
         path = parsed.path
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return container, storage_account, path, api_uri_suffix
 
     def log_artifact(self, local_file, artifact_path=None):
@@ -174,8 +179,7 @@ class AzureBlobArtifactRepository(ArtifactRepository, MultipartUploadMixin):
 
             if is_dir(result):
                 subdir = posixpath.relpath(path=result.name, start=artifact_path)
-                if subdir.endswith("/"):
-                    subdir = subdir[:-1]
+                subdir = subdir.removesuffix("/")
                 infos.append(FileInfo(subdir, is_dir=True, file_size=None))
             else:  # Just a plain old blob
                 file_name = posixpath.relpath(path=result.name, start=artifact_path)

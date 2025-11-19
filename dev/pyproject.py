@@ -351,12 +351,13 @@ def build(package_type: PackageType) -> None:
                 ],
                 "gateway": gateways_requirements,
                 "genai": gateways_requirements,
+                # click 8.3.0 causes MLflow MCP server to fail: https://github.com/mlflow/mlflow/issues/18747
+                "mcp": ["fastmcp<3,>=2.0.0", "click!=8.3.0"],
                 "sqlserver": ["mlflow-dbstore"],
                 "aliyun-oss": ["aliyunstoreplugin"],
                 "jfrog": ["mlflow-jfrog-plugin"],
                 "langchain": langchain_requirements,
                 "auth": ["Flask-WTF<2"],
-                "jobs": ["huey<3,>=2.5.0"],
             }
             # Tracing SDK does not support extras
             if package_type != PackageType.TRACING
@@ -364,7 +365,7 @@ def build(package_type: PackageType) -> None:
             "urls": {
                 "homepage": "https://mlflow.org",
                 "issues": "https://github.com/mlflow/mlflow/issues",
-                "documentation": "https://mlflow.org/docs/latest/index.html",
+                "documentation": "https://mlflow.org/docs/latest",
                 "repository": "https://github.com/mlflow/mlflow",
             },
             "scripts": {
@@ -436,6 +437,7 @@ def build(package_type: PackageType) -> None:
         formatted_full_content = formatted_generated_part + SEPARATOR + original_manual_content
 
         write_file_if_changed(out_path, formatted_full_content)
+        subprocess.check_call(["uv", "lock"])
 
 
 def _get_package_data(package_type: PackageType) -> dict[str, list[str]] | None:

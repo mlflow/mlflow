@@ -85,12 +85,6 @@ The evaluation dataset is a list of samples, each with an `inputs` and `expectat
 
 The dataset can be a list of dictionaries, a pandas DataFrame, a spark DataFrame. Here we use a list of dictionaries for simplicity.
 
-:::note[Static Data vs Traces]
-
-This quickstart uses static evaluation data. Some advanced scorers (like retrieval or agent behavior scorers) require execution traces and won't work with static datasets. See the [Scorer Data Requirements](/genai/eval-monitor/scorers#scorer-data-requirements) for details.
-
-:::
-
 ```python
 # Define a simple Q&A dataset with questions and expected answers
 eval_dataset = [

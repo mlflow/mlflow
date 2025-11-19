@@ -114,7 +114,12 @@ const RunsMetricsLegend: React.FC<React.PropsWithChildren<RunsMetricsLegendProps
       }}
     >
       {labelData.map((labelDatum) => (
-        <TraceLabel key={labelDatum.uuid ?? labelDatum.label} {...labelDatum} />
+        <TraceLabel
+          key={
+            labelDatum.uuid && labelDatum.metricKey ? `${labelDatum.uuid}-${labelDatum.metricKey}` : labelDatum.label
+          }
+          {...labelDatum}
+        />
       ))}
     </div>
   );

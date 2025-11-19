@@ -10,11 +10,6 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'MLflow',
     },
     {
-      type: 'link',
-      label: 'MLflow 3.0',
-      href: 'https://mlflow.org/docs/latest/genai/mlflow-3',
-    },
-    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
@@ -22,55 +17,11 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
+          label: 'Set Up MLflow',
         },
         {
-          type: 'category',
-          label: 'Your First MLflow Model: Complete Tutorial',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step1-tracking-server',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step2-mlflow-client',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step3-create-experiment',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step4-experiment-search',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step5-synthetic-data',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/logging-first-model/step6-logging-a-run',
-            },
-            {
-              type: 'category',
-              label: 'Notebooks',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'getting-started/logging-first-model/notebooks/logging-first-model-ipynb',
-                  label: 'Logging First Model',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'getting-started/logging-first-model/notebooks/index',
-              },
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'getting-started/logging-first-model/index',
-          },
+          type: 'doc',
+          id: 'getting-started/quickstart',
         },
         {
           type: 'doc',
@@ -79,32 +30,6 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/deep-learning',
-        },
-        {
-          type: 'category',
-          label: 'Model Registry Quickstart',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step1-register-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step2-explore-registered-model',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/registering-first-model/step3-load-model',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'getting-started/registering-first-model/index',
-          },
-        },
-        {
-          type: 'doc',
-          id: 'getting-started/tracking-server-overview/index',
         },
       ],
       link: {
@@ -267,34 +192,14 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/sparkml/index',
               label: 'SparkML',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sparkml/guide/index',
-                  label: 'SparkML within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sparkml/index',
-              },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/prophet/index',
               label: 'Prophet',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/prophet/guide/index',
-                  label: 'Prophet within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/prophet/index',
-              },
             },
           ],
           link: {
@@ -326,42 +231,14 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/quickstart/quickstart-pytorch-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/pytorch/index',
-              },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/quickstart/quickstart-tensorflow-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/tensorflow/index',
-              },
             },
             {
               type: 'category',
@@ -510,18 +387,8 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'MLflow Tracking',
           items: [
             {
-              type: 'category',
-              label: 'Quickstart ⚡',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracking/quickstart/notebooks/tracking_quickstart-ipynb',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'tracking/quickstart/index',
-              },
+              type: 'doc',
+              id: 'tracking/quickstart/index',
             },
             {
               type: 'doc',
@@ -529,34 +396,9 @@ const sidebarsClassicML: SidebarsConfig = {
               label: 'Auto Logging',
             },
             {
-              type: 'category',
+              type: 'link',
               label: 'Tracking Server',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracking/artifact-stores/index',
-                  label: 'Artifact Store',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracking/backend-stores/index',
-                  label: 'Backend Store',
-                },
-                {
-                  type: 'category',
-                  label: 'Tutorials',
-                  items: [
-                    {
-                      type: 'autogenerated',
-                      dirName: 'tracking/tutorials',
-                    },
-                  ],
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'tracking/server/index',
-              },
+              href: '/self-hosting/architecture/tracking-server/',
             },
             {
               type: 'category',
@@ -720,7 +562,7 @@ const sidebarsClassicML: SidebarsConfig = {
       items: [
         {
           type: 'link',
-          href: '/ml/tracking/#tracking-setup',
+          href: '/self-hosting',
           label: 'Self-Hosting',
         },
         {
@@ -729,8 +571,8 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'Managed Services',
         },
         {
-          type: 'doc',
-          id: 'auth/index',
+          type: 'link',
+          href: '/self-hosting/security/basic-http-auth',
           label: 'Access Control',
         },
         {
@@ -769,9 +611,15 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'link',
           label: 'CLI',
-          href: `${apiReferencePrefix()}cli.html`,
+          href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'category',

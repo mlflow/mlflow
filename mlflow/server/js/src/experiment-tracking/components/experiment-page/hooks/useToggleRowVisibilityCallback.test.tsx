@@ -1,19 +1,16 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { renderHook, act } from '@testing-library/react';
 import { useToggleRowVisibilityCallback } from './useToggleRowVisibilityCallback';
 import { ExperimentPageUIStateContextProvider } from '../contexts/ExperimentPageUIStateContext';
 import { RUNS_VISIBILITY_MODE, createExperimentPageUIState } from '../models/ExperimentPageUIState';
 import { useEffect, useState } from 'react';
 import type { RunRowType } from '../utils/experimentPage.row-types';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseRunRowsVisibilityMap,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 
 jest.mock('../../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../../common/utils/FeatureUtils')>(
     '../../../../common/utils/FeatureUtils',
   ),
-  shouldEnableToggleIndividualRunsInGroups: jest.fn(),
   shouldUseRunRowsVisibilityMap: jest.fn(() => false),
 }));
 
@@ -112,7 +109,6 @@ describe('useToggleRowVisibilityCallback', () => {
   });
 
   test('disables run group when useGroupedValuesInCharts is true (using legacy runsHidden UI state)', () => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
     jest.mocked(shouldUseRunRowsVisibilityMap).mockReturnValue(false);
     const toggleRowVisibility = renderConfiguredHook(
       [
@@ -141,7 +137,6 @@ describe('useToggleRowVisibilityCallback', () => {
   });
 
   test('disables run group when useGroupedValuesInCharts is true (using runsVisibilityMap UI state)', () => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
     jest.mocked(shouldUseRunRowsVisibilityMap).mockReturnValue(true);
     const toggleRowVisibility = renderConfiguredHook(
       [
@@ -170,7 +165,6 @@ describe('useToggleRowVisibilityCallback', () => {
   });
 
   test('disables run group when useGroupedValuesInCharts is false (using legacy runsHidden UI state)', () => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
     jest.mocked(shouldUseRunRowsVisibilityMap).mockReturnValue(false);
     const toggleRowVisibility = renderConfiguredHook(
       [
@@ -199,7 +193,6 @@ describe('useToggleRowVisibilityCallback', () => {
   });
 
   test('disables run group when useGroupedValuesInCharts is false (using runsVisibilityMap UI state)', () => {
-    jest.mocked(shouldEnableToggleIndividualRunsInGroups).mockReturnValue(true);
     jest.mocked(shouldUseRunRowsVisibilityMap).mockReturnValue(true);
     const toggleRowVisibility = renderConfiguredHook(
       [

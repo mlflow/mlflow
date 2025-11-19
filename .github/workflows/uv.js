@@ -32,12 +32,6 @@ function execWithOutput(cmd, args) {
   return output;
 }
 
-function getDaysAgo(days) {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString().split("T")[0];
-}
-
 function getTimestamp() {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, -5);
 }
@@ -46,13 +40,7 @@ module.exports = async ({ github, context }) => {
   // Note: We intentionally avoid early exits to maximize test coverage on PRs
   // This allows testing the entire workflow except git push and PR creation
 
-  // `--exclude-newer` to avoid potentially unstable releases
-  const uvLockOutput = execWithOutput("uv", [
-    "lock",
-    "--upgrade",
-    "--exclude-newer",
-    getDaysAgo(3),
-  ]);
+  const uvLockOutput = execWithOutput("uv", ["lock", "--upgrade"]);
   console.log(`uv lock output:\n${uvLockOutput}`);
 
   // Check if uv.lock has changes
@@ -111,4 +99,13 @@ Created by: ${runUrl}
 `,
   });
   console.log(`Created PR: ${pr.html_url}`);
+
+  // Add team-review label to request review from the team
+  await github.rest.issues.addLabels({
+    owner,
+    repo,
+    issue_number: pr.number,
+    labels: ["team-review"],
+  });
+  console.log("Added team-review label to the PR");
 };

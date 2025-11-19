@@ -44,7 +44,7 @@ def test_download_from_uri():
         def download_artifacts(self, artifact_path, **kwargs):
             return (self.scheme, artifact_path)
 
-    def test_get_artifact_repository(artifact_uri, tracking_uri=None):
+    def test_get_artifact_repository(artifact_uri, tracking_uri=None, registry_uri=None):
         return TestArtifactRepo(artifact_uri)
 
     pairs = [

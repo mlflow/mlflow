@@ -6,6 +6,7 @@ import type { ExperimentPageTabName } from './constants';
  * Keys should correspond to route paths.
  */
 export enum PageId {
+  home = 'mlflow.home',
   promptsPage = 'mlflow.prompts',
   promptDetailsPage = 'mlflow.prompts.details',
   experimentPageTabbed = 'mlflow.experiment.details.tab',
@@ -16,6 +17,10 @@ export enum PageId {
   experimentPageTabRuns = 'mlflow.experiment.tab.runs',
   experimentPageTabModels = 'mlflow.experiment.tab.models',
   experimentPageTabTraces = 'mlflow.experiment.tab.traces',
+  experimentPageTabEvaluationRuns = 'mlflow.experiment.tab.evaluation-runs',
+  experimentPageTabDatasets = 'mlflow.experiment.tab.datasets',
+  experimentPageTabChatSessions = 'mlflow.experiment.tab.chat-sessions',
+  experimentPageTabSingleChatSession = 'mlflow.experiment.tab.single-chat-session',
   // Child routes for experiment page - end
   experimentPageSearch = 'mlflow.experiment.details.search',
   compareExperimentsSearch = 'mlflow.experiment.compare',
@@ -45,8 +50,20 @@ export class RoutePaths {
   static get experimentPageTabTraces() {
     return createMLflowRoutePath('/experiments/:experimentId/traces');
   }
+  static get experimentPageTabChatSessions() {
+    return createMLflowRoutePath('/experiments/:experimentId/chat-sessions');
+  }
+  static get experimentPageTabSingleChatSession() {
+    return createMLflowRoutePath('/experiments/:experimentId/chat-sessions/:sessionId');
+  }
   static get experimentPageTabModels() {
     return createMLflowRoutePath('/experiments/:experimentId/models');
+  }
+  static get experimentPageTabEvaluationRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/evaluation-runs');
+  }
+  static get experimentPageTabDatasets() {
+    return createMLflowRoutePath('/experiments/:experimentId/datasets');
   }
   // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
@@ -143,6 +160,10 @@ class Routes {
     return generatePath(RoutePaths.experimentPageTabbed, { experimentId, tabName });
   }
 
+  static getExperimentPageTabSingleChatSessionRoute(experimentId: string, sessionId: string) {
+    return generatePath(RoutePaths.experimentPageTabSingleChatSession, { experimentId, sessionId });
+  }
+
   static getExperimentLoggedModelDetailsPage(experimentId: string, loggedModelId: string) {
     return generatePath(RoutePaths.experimentLoggedModelDetailsPage, { experimentId, loggedModelId });
   }
@@ -215,7 +236,7 @@ class Routes {
     experimentIds: string[],
     plotMetricKeys: string[] | null = null,
     plotLayout: any = {},
-    selectedXAxis: 'wall' | 'step' | 'relative' = 'relative',
+    selectedXAxis: 'wall' | 'step' | 'relative' = 'step',
     yAxisLogScale = false,
     lineSmoothness = 1,
     showPoint = false,

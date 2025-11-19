@@ -6,6 +6,7 @@ import shutil
 import sys
 import time
 import uuid
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, NamedTuple, TypedDict
@@ -106,6 +107,7 @@ from mlflow.utils.uri import (
     resolve_uri_if_local,
 )
 from mlflow.utils.validation import (
+    _resolve_experiment_ids_and_locations,
     _validate_batch_log_data,
     _validate_batch_log_limits,
     _validate_experiment_artifact_location_length,
@@ -214,6 +216,15 @@ class FileStore(AbstractStore):
         Create a new FileStore with the given root directory and a given default artifact root URI.
         """
         super().__init__()
+        warnings.warn(
+            "The filesystem tracking backend (e.g., './mlruns') will be deprecated in "
+            "February 2026. Consider transitioning to a database backend (e.g., "
+            "'sqlite:///mlflow.db') to take advantage of the latest MLflow features. "
+            "See https://github.com/mlflow/mlflow/issues/18534 for more details and migration "
+            "guidance.",
+            FutureWarning,
+            stacklevel=2,
+        )
         self.root_directory = local_file_uri_to_path(root_directory or _default_root_dir())
         if not artifact_root_uri:
             self.artifact_root_uri = path_to_local_file_uri(self.root_directory)
@@ -2145,13 +2156,13 @@ class FileStore(AbstractStore):
 
     def search_traces(
         self,
-        experiment_ids: list[str],
+        experiment_ids: list[str] | None = None,
         filter_string: str | None = None,
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: list[str] | None = None,
         page_token: str | None = None,
         model_id: str | None = None,
-        sql_warehouse_id: str | None = None,
+        locations: list[str] | None = None,
     ) -> tuple[list[TraceInfo], str | None]:
         """
         Return traces that match the given list of search expressions within the experiments.
@@ -2166,8 +2177,8 @@ class FileStore(AbstractStore):
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
             model_id: If specified, return traces associated with the model ID.
-            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
-                searching traces in inference tables.
+            locations: A list of locations to search over. To search over experiments, provide
+                a list of experiment IDs.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -2177,6 +2188,7 @@ class FileStore(AbstractStore):
             some store implementations may not support pagination and thus the returned token would
             not be meaningful in such cases.
         """
+        locations = _resolve_experiment_ids_and_locations(experiment_ids, locations)
         if max_results > SEARCH_MAX_RESULTS_THRESHOLD:
             raise MlflowException(
                 "Invalid value for request parameter max_results. It must be at "
@@ -2184,7 +2196,7 @@ class FileStore(AbstractStore):
                 INVALID_PARAMETER_VALUE,
             )
         traces = []
-        for experiment_id in experiment_ids:
+        for experiment_id in locations:
             trace_infos = self._list_trace_infos(experiment_id)
             traces.extend(trace_infos)
         filtered = SearchTraceUtils.filter(traces, filter_string)

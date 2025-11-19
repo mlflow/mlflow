@@ -31,16 +31,14 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
 ## Key Capabilities
 
-## Evaluation Datasets
-
 <TabsWrapper>
   <Tabs>
-  <TabItem value="overview" label="Overview" default>
+  <TabItem value="dataset" label="Dataset Management">
     <div class="flex-column">
       <div class="flex-row">
         <div class="flex-item">
 
-        #### Your Test Data Foundation
+        #### Create and maintain a High-Quality Dataset
 
         Before you can evaluate your GenAI application, you need test data. **Evaluation Datasets** provide a centralized repository for managing test cases, ground truth expectations, and evaluation data at scale.
 
@@ -51,85 +49,7 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
         </div>
 
         <div class="flex-item padding-md">
-          <div style={{ padding: "20px", backgroundColor: "#f8f9fa", borderRadius: "8px" }}>
-            <h5 style={{ marginTop: 0 }}>Key Capabilities</h5>
-            <ul style={{ marginBottom: 0 }}>
-              <li><strong>Centralized Management:</strong> Store all test data in one place</li>
-              <li><strong>Production Data:</strong> Build from real traces</li>
-              <li><strong>Ground Truth:</strong> Track expectations alongside inputs</li>
-              <li><strong>Team Collaboration:</strong> Share datasets across projects</li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-  <TabItem value="quickstart" label="Quick Start">
-    <div class="flex-column">
-      <div class="flex-row">
-        <div class="flex-item">
-
-        #### Build Your First Dataset in Minutes
-
-        Create evaluation datasets from production traces, manual test cases, or existing data. MLflow makes it simple to organize your test data and expectations for systematic evaluation.
-
-        Start with traces from production, add ground truth expectations, and transform them into reusable evaluation datasets that power your testing workflow.
-
-        [Get started with datasets →](/genai/datasets)
-
-        [View SDK guide →](/genai/datasets/sdk-guide)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ```python
-          from mlflow.genai.datasets import create_dataset
-
-          # Create a dataset from production traces
-          dataset = create_dataset(
-              name="customer_support_qa", experiment_id=["0"], tags={"stage": "validation"}
-          )
-
-          # Add test cases with expectations
-          dataset.merge_records(
-              [
-                  {
-                      "inputs": {"question": "How to reset password?"},
-                      "expectations": {"contains_steps": True, "mentions_security": True},
-                  }
-              ]
-          )
-          ```
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-  </Tabs>
-</TabsWrapper>
-
-## Feedback & Expectations
-
-<TabsWrapper>
-  <Tabs>
-  <TabItem value="evaluation" label="Systematic Evaluation">
-    <div class="flex-column">
-      <div class="flex-row">
-        <div class="flex-item">
-
-        #### Evaluate and Enhance quality
-
-        Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
-
-        Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
-
-        [Learn more →](/genai/eval-monitor/quickstart)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Trace Evaluation](/images/llms/tracing/genai-evaluation-compare.png)
+          ![Trace Dataset](/images/llms/tracing/genai-trace-dataset.png)
         </div>
       </div>
     </div>
@@ -179,7 +99,28 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
     </div>
 
   </TabItem>
+  <TabItem value="evaluation" label="Systematic Evaluation">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
 
+        #### Evaluate and Enhance quality
+
+        Systematically assessing and improving the quality of GenAI applications is a challenge. MLflow provides a comprehensive set of tools to help you evaluate and enhance the quality of your applications.
+
+        Being the industry's most-trusted experiment tracking platform, MLflow provides a strong foundation for tracking your evaluation results and effectively collaborating with your team.
+
+        [Learn more →](/genai/eval-monitor/quickstart)
+
+        </div>
+
+        <div class="flex-item padding-md">
+          ![Trace Evaluation](/images/llms/tracing/genai-evaluation-compare.png)
+        </div>
+      </div>
+    </div>
+
+  </TabItem>
   <TabItem value="production-monitoring" label="Production Monitoring">
     <div class="flex-column">
       <div class="flex-row">
@@ -195,28 +136,6 @@ A core tenet of MLflow's evaluation capabilities is **Evaluation-Driven Developm
 
         <div class="flex-item padding-md">
           ![Monitoring](/images/llms/tracing/genai-monitoring.png)
-        </div>
-      </div>
-    </div>
-
-  </TabItem>
-  <TabItem value="dataset" label="Dataset Collection">
-    <div class="flex-column">
-      <div class="flex-row">
-        <div class="flex-item">
-
-        #### Create a High-Quality Dataset from Real World Traffic
-
-        Evaluating the performance of your GenAI application is crucial, but creating a reliable evaluation dataset is challenging.
-
-        Traces from production systems capture perfect data for building high-quality datasets with precise details for internal components like retrievers and tools.
-
-        [Learn more →](/genai/tracing/search-traces/#creating-evaluation-datasets)
-
-        </div>
-
-        <div class="flex-item padding-md">
-          ![Trace Dataset](/images/llms/tracing/genai-trace-dataset.png)
         </div>
       </div>
     </div>

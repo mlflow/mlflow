@@ -1,7 +1,7 @@
-import { type QueryFunctionContext, useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { type QueryFunctionContext, useQuery, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import type { LoggedModelProto } from '../../types';
-import { loggedModelsDataRequest } from './request.utils';
-import { getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { fetchAPI, getAjaxUrl } from '@mlflow/mlflow/src/common/utils/FetchUtils';
+import { useCallback } from 'react';
 
 type UseGetLoggedModelQueryResponseType = {
   model: LoggedModelProto;
@@ -14,7 +14,7 @@ const getQueryKey = (loggedModelId: string): UseGetLoggedModelQueryKey => ['GET_
 const queryFn = async ({
   queryKey: [, loggedModelId],
 }: QueryFunctionContext<UseGetLoggedModelQueryKey>): Promise<UseGetLoggedModelQueryResponseType> =>
-  loggedModelsDataRequest(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
+  fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
 
 /**
  * Retrieve logged model from API based on its ID
@@ -50,6 +50,17 @@ export const useGetLoggedModelQuery = ({
 };
 
 /**
+ * Lazy query function to retrieve logged model from API based on its ID
+ */
+export const useGetLoggedModelLazyQuery = () => {
+  const client = useQueryClient();
+  return useCallback(
+    (modelId: string) => client.ensureQueryData({ queryKey: getQueryKey(modelId), queryFn }),
+    [client],
+  );
+};
+
+/**
  * A non-hook version of useGetLoggedModelQuery that can be used in async functions.
  * @deprecated Use useGetLoggedModelQuery instead. This function is provided for backward compatibility for legacy class-based components.
  */
@@ -58,7 +69,7 @@ export const asyncGetLoggedModel = async (
   failSilently = false,
 ): Promise<UseGetLoggedModelQueryResponseType | undefined> => {
   try {
-    const data = await loggedModelsDataRequest(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
+    const data = await fetchAPI(getAjaxUrl(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}`), 'GET');
     return data;
   } catch (error) {
     if (failSilently) {

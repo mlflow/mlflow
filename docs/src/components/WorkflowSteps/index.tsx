@@ -5,7 +5,7 @@ import ImageBox from '../ImageBox';
 
 interface WorkflowStep {
   title: string;
-  description: string;
+  description: string | React.ReactNode;
   icon?: LucideIcon;
 }
 
@@ -17,9 +17,10 @@ interface WorkflowStepsProps {
     alt: string;
     width?: string;
   };
+  width?: 'normal' | 'wide';
 }
 
-const WorkflowSteps: React.FC<WorkflowStepsProps> = ({ steps, title, screenshot }) => {
+const WorkflowSteps: React.FC<WorkflowStepsProps> = ({ steps, title, screenshot, width = 'normal' }) => {
   return (
     <div className={styles.workflowContainer}>
       {title && <h3 className={styles.workflowTitle}>{title}</h3>}
@@ -28,7 +29,7 @@ const WorkflowSteps: React.FC<WorkflowStepsProps> = ({ steps, title, screenshot 
           <ImageBox src={screenshot.src} alt={screenshot.alt} width={screenshot.width || '90%'} />
         </div>
       )}
-      <div className={styles.stepsContainer}>
+      <div className={styles.stepsContainer} style={{ maxWidth: width === 'wide' ? '850px' : '700px' }}>
         {steps.map((step, index) => (
           <div key={index} className={styles.stepItem}>
             <div className={styles.stepIndicator}>

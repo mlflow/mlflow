@@ -62,7 +62,6 @@ def test_default_get_registry_uri_no_tracking_uri():
 
 
 def test_default_get_registry_uri_with_databricks_tracking_uri_defaults_to_uc():
-    """Test that databricks tracking URIs default to databricks-uc for registry"""
     tracking_uri = "databricks://tracking_werohoz"
     with mock.patch(
         "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
@@ -155,7 +154,6 @@ def test_registry_uri_from_environment_overrides_databricks_default():
 
 
 def test_registry_uri_from_spark_session_overrides_databricks_default():
-    """Test that registry URI from Spark session overrides databricks default"""
     tracking_uri = "databricks://workspace"
     spark_registry_uri = "databricks-uc://spark_profile"
 
@@ -183,7 +181,6 @@ def test_registry_uri_from_spark_session_overrides_databricks_default():
     ],
 )
 def test_edge_cases_for_databricks_uri_detection(tracking_uri, expected_result):
-    """Test edge cases for databricks URI detection"""
     with mock.patch(
         "mlflow.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
@@ -225,7 +222,6 @@ def test_resolve_registry_uri_consistency_with_get_registry_uri(
 
 
 def test_resolve_registry_uri_with_environment_variable():
-    """Test _resolve_registry_uri with environment variable set"""
     from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 
     env_registry_uri = "http://env-registry:5000"
@@ -246,7 +242,6 @@ def test_resolve_registry_uri_with_environment_variable():
 
 
 def test_resolve_registry_uri_with_spark_session():
-    """Test _resolve_registry_uri with Spark session URI"""
     spark_registry_uri = "databricks-uc://spark_profile"
     tracking_uri = "databricks://workspace"
 
@@ -289,6 +284,7 @@ def test_get_store_sqlalchemy_store(db_type, monkeypatch):
     monkeypatch.delenv("MLFLOW_SQLALCHEMYSTORE_POOLCLASS", raising=False)
     with (
         mock.patch("sqlalchemy.create_engine") as mock_create_engine,
+        mock.patch("sqlalchemy.event.listens_for"),
         mock.patch("mlflow.store.db.utils._initialize_tables"),
         mock.patch(
             "mlflow.store.model_registry.sqlalchemy_store.SqlAlchemyStore."

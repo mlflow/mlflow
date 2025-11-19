@@ -16,6 +16,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         credential_refresh_def=None,
         s3_upload_extra_args=None,
         tracking_uri=None,
+        registry_uri: str | None = None,
     ):
         # setup Cloudflare R2 backend to be endpoint_url, otherwise all s3 requests
         # will go to AWS S3 by default
@@ -35,6 +36,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
             s3_endpoint_url=s3_endpoint_url,
             s3_upload_extra_args=s3_upload_extra_args,
             tracking_uri=tracking_uri,
+            registry_uri=registry_uri,
         )
 
     # Cloudflare implementation of head_bucket is not the same as AWS's, so we
@@ -61,8 +63,7 @@ class R2ArtifactRepository(OptimizedS3ArtifactRepository):
         path = parsed.path
 
         bucket = host.split("@")[0]
-        if path.startswith("/"):
-            path = path[1:]
+        path = path.removeprefix("/")
         return bucket, path
 
     @staticmethod

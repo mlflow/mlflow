@@ -4,7 +4,7 @@ import TileCard from '@site/src/components/TileCard';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { Hammer, Bot, GitBranch } from "lucide-react";
 
-# Use Predefined LLM Scorers
+# Predefined LLM Scorers
 
 MLflow provides several pre-configured LLM judge scorers optimized for common evaluation scenarios.
 
@@ -68,20 +68,44 @@ results = mlflow.genai.evaluate(
 
 ## Available Scorers
 
-| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? | Data Compatibility    |
+| Scorer                                                                                     | What does it evaluate?                                       | Requires ground-truth? | Requires traces?      |
 | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------ | ---------------------- | --------------------- |
-| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     | ✅ Static Data OK     |
-| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes                    | ✅ Static Data OK     |
-| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes                    | ✅ Static Data OK     |
-| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes                    | ✅ Static Data OK     |
-| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     | ✅ Static Data OK     |
+| <APILink fn="mlflow.genai.scorers.RelevanceToQuery">RelevanceToQuery</APILink>             | Does the app's response directly address the user's input?   | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Correctness">Correctness</APILink>                       | Is the app's response correct compared to ground-truth?      | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.Guidelines">Guidelines</APILink>                         | Does the response adhere to provided guidelines?             | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.ExpectationsGuidelines">ExpectationsGuidelines</APILink> | Does the response meet specific expectations and guidelines? | Yes\*                  | No                    |
+| <APILink fn="mlflow.genai.scorers.Safety">Safety</APILink>                                 | Does the app's response avoid harmful or toxic content?      | No                     | No                    |
+| <APILink fn="mlflow.genai.scorers.Equivalence">Equivalence</APILink>                       | Is the app's response equivalent to the expected output?     | Yes                    | No                    |
 | <APILink fn="mlflow.genai.scorers.RetrievalGroundedness">RetrievalGroundedness</APILink>   | Is the app's response grounded in retrieved information?     | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalRelevance">RetrievalRelevance</APILink>         | Are retrieved documents relevant to the user's request?      | No                     | ⚠️ **Trace Required** |
 | <APILink fn="mlflow.genai.scorers.RetrievalSufficiency">RetrievalSufficiency</APILink>     | Do retrieved documents contain all necessary information?    | Yes                    | ⚠️ **Trace Required** |
 
+\*Can extract expectations from trace assessments if available.
+
 :::note Availability
 Safety and RetrievalRelevance scorers are currently only available in [Databricks managed MLflow](https://docs.databricks.com/mlflow3/genai/eval-monitor/) and will be open-sourced soon.
 :::
+
+## Using Traces with Built-in Scorers
+
+All built-in scorers, such as Guidelines, RelevanceToQuery, Safety, Correctness, and ExpectationsGuidelines, can extract inputs and outputs directly from traces:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+trace = mlflow.get_trace("<your-trace-id>")
+scorer = Correctness()
+
+# Extracts inputs/outputs from trace automatically
+result = scorer(trace=trace)
+
+# Override specific fields as needed
+result = scorer(trace=trace, expectations={"expected_facts": ["Custom fact"]})
+```
+
+### Automatic Fallback for Complex Traces
+
+For complex traces or those that do not contain inputs and outputs in the root span, the scorer will use tool calling to provide the trace information to an LLM judge.
 
 :::warning[Retrieval Scorers Require Traces]
 

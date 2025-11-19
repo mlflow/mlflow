@@ -36,7 +36,7 @@ def clean_up_docker():
 
     # Clean up the build cache and volumes
     try:
-        subprocess.run(["docker", "builder", "prune", "-a", "-f"], check=True)
+        subprocess.check_call(["docker", "builder", "prune", "-a", "-f"])
     except subprocess.CalledProcessError as e:
         _logger.warning("Failed to clean up docker system: %s", e)
 
@@ -63,7 +63,10 @@ def save_model_with_latest_mlflow_version(flavor, extra_pip_requirements=None, *
     """
     latest_mlflow_version = get_released_mlflow_version()
     if flavor == "langchain":
-        kwargs["pip_requirements"] = [f"mlflow[gateway]=={latest_mlflow_version}", "langchain"]
+        kwargs["pip_requirements"] = [
+            f"mlflow[gateway]=={latest_mlflow_version}",
+            "langchain<1.1.0",
+        ]
     else:
         extra_pip_requirements = extra_pip_requirements or []
         extra_pip_requirements.append(f"mlflow=={latest_mlflow_version}")

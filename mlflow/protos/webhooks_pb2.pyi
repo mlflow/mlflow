@@ -1,5 +1,5 @@
-from scalapb import scalapb_pb2 as _scalapb_pb2
 import databricks_pb2 as _databricks_pb2
+from scalapb import scalapb_pb2 as _scalapb_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
@@ -21,6 +21,11 @@ class WebhookEntity(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     MODEL_VERSION: _ClassVar[WebhookEntity]
     MODEL_VERSION_TAG: _ClassVar[WebhookEntity]
     MODEL_VERSION_ALIAS: _ClassVar[WebhookEntity]
+    PROMPT: _ClassVar[WebhookEntity]
+    PROMPT_VERSION: _ClassVar[WebhookEntity]
+    PROMPT_TAG: _ClassVar[WebhookEntity]
+    PROMPT_VERSION_TAG: _ClassVar[WebhookEntity]
+    PROMPT_ALIAS: _ClassVar[WebhookEntity]
 
 class WebhookAction(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -36,6 +41,11 @@ REGISTERED_MODEL: WebhookEntity
 MODEL_VERSION: WebhookEntity
 MODEL_VERSION_TAG: WebhookEntity
 MODEL_VERSION_ALIAS: WebhookEntity
+PROMPT: WebhookEntity
+PROMPT_VERSION: WebhookEntity
+PROMPT_TAG: WebhookEntity
+PROMPT_VERSION_TAG: WebhookEntity
+PROMPT_ALIAS: WebhookEntity
 ACTION_UNSPECIFIED: WebhookAction
 CREATED: WebhookAction
 UPDATED: WebhookAction

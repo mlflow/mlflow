@@ -39,8 +39,10 @@ class _SftpPool:
 class SFTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 
-    def __init__(self, artifact_uri: str, tracking_uri: str | None = None) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(
+        self, artifact_uri: str, tracking_uri: str | None = None, registry_uri: str | None = None
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri, registry_uri)
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
             "host": parsed.hostname,

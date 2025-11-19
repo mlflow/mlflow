@@ -4,10 +4,18 @@ import { useIntl } from '@databricks/i18n';
 import { getUser } from '@databricks/web-shared/global-settings';
 import { useMutation, useQueryClient } from '@databricks/web-shared/query-client';
 
+import { invalidateMlflowSearchTracesCache } from './invalidateMlflowSearchTracesCache';
+import { shouldUseTracesV4API } from '../FeatureUtils';
 import type { Assessment, Expectation, Feedback } from '../ModelTrace.types';
-import { displayErrorNotification, FETCH_TRACE_INFO_QUERY_KEY } from '../ModelTraceExplorer.utils';
-import type { CreateAssessmentPayload } from '../api';
-import { createAssessment } from '../api';
+import {
+  displayErrorNotification,
+  doesTraceSupportV4API,
+  FETCH_TRACE_INFO_QUERY_KEY,
+  isV3ModelTraceInfo,
+} from '../ModelTraceExplorer.utils';
+import type { CreateAssessmentPayload, CreateAssessmentV3Response, CreateAssessmentV4Response } from '../api';
+import { createAssessment, TracesServiceV4 } from '../api';
+import { useModelTraceExplorerUpdateTraceContext } from '../contexts/UpdateTraceContext';
 
 export const useOverrideAssessment = ({
   traceId,
@@ -23,6 +31,8 @@ export const useOverrideAssessment = ({
   const intl = useIntl();
   const queryClient = useQueryClient();
 
+  const updateTraceVariables = useModelTraceExplorerUpdateTraceContext();
+
   const { mutate: overrideAssessmentMutation, isLoading } = useMutation({
     mutationFn: ({
       oldAssessment,
@@ -32,7 +42,7 @@ export const useOverrideAssessment = ({
       oldAssessment: Assessment;
       value: { feedback: Feedback } | { expectation: Expectation };
       rationale?: string;
-    }) => {
+    }): Promise<CreateAssessmentV4Response | CreateAssessmentV3Response> => {
       const newAssessment: Assessment = {
         ...oldAssessment,
         ...value,
@@ -46,9 +56,23 @@ export const useOverrideAssessment = ({
       const payload: CreateAssessmentPayload = {
         assessment: omit(newAssessment, 'assessment_id', 'create_time', 'last_update_time', 'overriddenAssessments'),
       };
+
+      // TODO: Squash all this logic into a single util function (in both model-trace-explorer and genai-traces-table)
+      if (
+        shouldUseTracesV4API() &&
+        updateTraceVariables.modelTraceInfo &&
+        isV3ModelTraceInfo(updateTraceVariables.modelTraceInfo) &&
+        doesTraceSupportV4API(updateTraceVariables.modelTraceInfo)
+      ) {
+        return TracesServiceV4.createAssessmentV4({
+          payload,
+          traceLocation: updateTraceVariables.modelTraceInfo.trace_location,
+        });
+      }
+
       return createAssessment({ payload });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       displayErrorNotification(
         intl.formatMessage(
           {
@@ -64,6 +88,7 @@ export const useOverrideAssessment = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [FETCH_TRACE_INFO_QUERY_KEY, traceId] });
+      invalidateMlflowSearchTracesCache({ queryClient });
       onSuccess?.();
     },
     onSettled: () => {

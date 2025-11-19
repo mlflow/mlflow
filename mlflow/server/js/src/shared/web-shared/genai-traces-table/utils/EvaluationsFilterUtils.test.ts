@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { filterEvaluationResults } from './EvaluationsFilterUtils';
 import type { AssessmentFilter, EvalTraceComparisonEntry } from '../types';
 
@@ -91,5 +93,30 @@ describe('filterEvaluationResults', () => {
     const filteredResults = filterEvaluationResults(evals, assessmentFilters, searchQuery);
 
     expect(filteredResults).toEqual([evals[1]]);
+  });
+
+  it('filter on search query matches in trace request preview', () => {
+    const evalsWithTraceInfo: EvalTraceComparisonEntry[] = [
+      {
+        currentRunValue: {
+          ...evals[0].currentRunValue!,
+          inputs: { inputs: 'paris' },
+        },
+      },
+      {
+        currentRunValue: {
+          ...evals[1].currentRunValue!,
+          inputs: { inputs: 'london' },
+        },
+      },
+    ];
+
+    let filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'paris');
+
+    expect(filteredResults).toEqual([evalsWithTraceInfo[0]]);
+
+    filteredResults = filterEvaluationResults(evalsWithTraceInfo, [], 'inputs');
+
+    expect(filteredResults).toEqual(evalsWithTraceInfo);
   });
 });

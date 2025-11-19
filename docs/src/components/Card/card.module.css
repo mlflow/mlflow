@@ -39,6 +39,8 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .CardBordered {
@@ -138,11 +140,9 @@
 }
 
 .SmallLogoCardImage {
-  max-width: 150px;
+  max-width: 200px;
   max-height: 60px;
   justify-content: center;
-  border-radius: 8px;
-  overflow: hidden;
 }
 
 .NewFeatureCardContent {
@@ -179,6 +179,26 @@
 
 .TitleCardContent {
   width: 100%;
+}
+
+.TitleCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.TitleCardHeaderRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ifm-font-color-base);
+}
+
+/* Ensure right header keeps neutral color even when the card link applies hover styles */
+.Link .TitleCardHeaderRight,
+.Link:hover .TitleCardHeaderRight {
+  color: var(--ifm-font-color-base);
 }
 
 .TitleCardTitle {

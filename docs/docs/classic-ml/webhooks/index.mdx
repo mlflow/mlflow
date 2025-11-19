@@ -12,18 +12,18 @@ import { APILink } from "@site/src/components/APILink";
 
 ## Overview
 
-MLflow webhooks enable real-time notifications when specific events occur in the Model Registry. When you register a model, create a new version, or modify tags and aliases, MLflow can automatically send HTTP POST requests to your specified endpoints. This enables seamless integration with CI/CD pipelines, notification systems, and other external services.
+MLflow webhooks enable real-time notifications when specific events occur in the Model Registry and Prompt Registry. When you register a model or prompt, create a new version, or modify tags and aliases, MLflow can automatically send HTTP POST requests to your specified endpoints. This enables seamless integration with CI/CD pipelines, notification systems, and other external services.
 
 ## Key Features
 
-- **Real-time notifications** for Model Registry events
+- **Real-time notifications** for Model Registry and Prompt Registry events
 - **HMAC signature verification** for secure webhook delivery
-- **Multiple event types** including model creation, versioning, and tagging
+- **Multiple event types** including model/prompt creation, versioning, and tagging
 - **Built-in testing** to verify webhook connectivity
 
 ## Supported Events
 
-MLflow webhooks support the following Model Registry events:
+MLflow webhooks support the following Model Registry and Prompt Registry events:
 
 <table>
   <thead>
@@ -37,32 +37,72 @@ MLflow webhooks support the following Model Registry events:
     <tr>
       <td><code>registered_model.created</code></td>
       <td>Triggered when a new registered model is created</td>
-      <td><APILink fn="mlflow.webhooks.types.RegisteredModelCreatedPayload" >`RegisteredModelCreatedPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.RegisteredModelCreatedPayload" >`RegisteredModelCreatedPayload`</APILink></td>
     </tr>
     <tr>
       <td><code>model_version.created</code></td>
       <td>Triggered when a new model version is created</td>
-      <td><APILink fn="mlflow.webhooks.types.ModelVersionCreatedPayload" >`ModelVersionCreatedPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.ModelVersionCreatedPayload" >`ModelVersionCreatedPayload`</APILink></td>
     </tr>
     <tr>
       <td><code>model_version_tag.set</code></td>
       <td>Triggered when a tag is set on a model version</td>
-      <td><APILink fn="mlflow.webhooks.types.ModelVersionTagSetPayload" >`ModelVersionTagSetPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.ModelVersionTagSetPayload" >`ModelVersionTagSetPayload`</APILink></td>
     </tr>
     <tr>
       <td><code>model_version_tag.deleted</code></td>
       <td>Triggered when a tag is deleted from a model version</td>
-      <td><APILink fn="mlflow.webhooks.types.ModelVersionTagDeletedPayload" >`ModelVersionTagDeletedPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.ModelVersionTagDeletedPayload" >`ModelVersionTagDeletedPayload`</APILink></td>
     </tr>
     <tr>
       <td><code>model_version_alias.created</code></td>
       <td>Triggered when an alias is created for a model version</td>
-      <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasCreatedPayload" >`ModelVersionAliasCreatedPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.ModelVersionAliasCreatedPayload" >`ModelVersionAliasCreatedPayload`</APILink></td>
     </tr>
     <tr>
       <td><code>model_version_alias.deleted</code></td>
       <td>Triggered when an alias is deleted from a model version</td>
-      <td><APILink fn="mlflow.webhooks.types.ModelVersionAliasDeletedPayload" >`ModelVersionAliasDeletedPayload`</APILink></td>
+      <td><APILink fn="mlflow.webhooks.ModelVersionAliasDeletedPayload" >`ModelVersionAliasDeletedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt.created</code></td>
+      <td>Triggered when a new prompt is created</td>
+      <td><APILink fn="mlflow.webhooks.PromptCreatedPayload" >`PromptCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_version.created</code></td>
+      <td>Triggered when a new prompt version is created</td>
+      <td><APILink fn="mlflow.webhooks.PromptVersionCreatedPayload" >`PromptVersionCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_tag.set</code></td>
+      <td>Triggered when a tag is set on a prompt</td>
+      <td><APILink fn="mlflow.webhooks.PromptTagSetPayload" >`PromptTagSetPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_tag.deleted</code></td>
+      <td>Triggered when a tag is deleted from a prompt</td>
+      <td><APILink fn="mlflow.webhooks.PromptTagDeletedPayload" >`PromptTagDeletedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_version_tag.set</code></td>
+      <td>Triggered when a tag is set on a prompt version</td>
+      <td><APILink fn="mlflow.webhooks.PromptVersionTagSetPayload" >`PromptVersionTagSetPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_version_tag.deleted</code></td>
+      <td>Triggered when a tag is deleted from a prompt version</td>
+      <td><APILink fn="mlflow.webhooks.PromptVersionTagDeletedPayload" >`PromptVersionTagDeletedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_alias.created</code></td>
+      <td>Triggered when an alias is created for a prompt version</td>
+      <td><APILink fn="mlflow.webhooks.PromptAliasCreatedPayload" >`PromptAliasCreatedPayload`</APILink></td>
+    </tr>
+    <tr>
+      <td><code>prompt_alias.deleted</code></td>
+      <td>Triggered when an alias is deleted from a prompt</td>
+      <td><APILink fn="mlflow.webhooks.PromptAliasDeletedPayload" >`PromptAliasDeletedPayload`</APILink></td>
     </tr>
   </tbody>
 </table>
@@ -259,7 +299,7 @@ MLflow webhooks send structured JSON payloads with the following format:
 
 ### Payload Fields
 
-- **`entity`**: The type of MLflow entity that triggered the webhook (e.g., `"registered_model"`, `"model_version"`, `"model_version_tag"`, `"model_version_alias"`)
+- **`entity`**: The type of MLflow entity that triggered the webhook (e.g., `"registered_model"`, `"model_version"`, `"prompt"`, `"prompt_version"`)
 - **`action`**: The action that was performed (e.g., `"created"`, `"updated"`, `"deleted"`, `"set"`)
 - **`timestamp`**: ISO 8601 timestamp indicating when the webhook was sent
 - **`data`**: The actual payload data containing entity-specific information (see payload schema links in the events table above)
