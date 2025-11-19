@@ -678,8 +678,8 @@ def _fail_malformed_databricks_auth(uri):
         )
     raise MlflowException(
         f"Reading Databricks credential configuration failed with MLflow {uri_name} '{uri}'. "
-        "Please ensure that the 'databricks-sdk' PyPI library is installed, the tracking "
-        "URI is set correctly, and Databricks authentication is properly configured. "
+        f"Please ensure that the 'databricks-sdk' PyPI library is installed, the {uri_name} "
+        "is set correctly, and Databricks authentication is properly configured. "
         f"The {uri_name} can be either '{uri_scheme}' "
         f"(using profile name specified by 'DATABRICKS_CONFIG_PROFILE' environment variable "
         f"or using 'DEFAULT' authentication profile if 'DATABRICKS_CONFIG_PROFILE' environment "
