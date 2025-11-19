@@ -3,7 +3,6 @@ import { compact, has, isArray, isObject, isString } from 'lodash';
 import type { ModelTraceChatMessage, ModelTraceContentParts, ModelTraceToolCall } from '../ModelTrace.types';
 import { prettyPrintChatMessage } from '../ModelTraceExplorer.utils';
 
-
 type VercelAITextContent = {
   type: 'text';
   text: string;
@@ -54,7 +53,7 @@ const isVercelAIContentPart = (obj: unknown): obj is VercelAIContentPart => {
 
   if (isVercelAIToolCall(obj)) return true;
 
-  if (typedObj.type === 'tool-result' && (has(obj, 'output'))) {
+  if (typedObj.type === 'tool-result' && has(obj, 'output')) {
     return true;
   }
 
@@ -110,7 +109,7 @@ const normalizeVercelAIContentPart = (item: VercelAIContentPart): ModelTraceCont
 };
 
 const extractToolCalls = (content: VercelAIContentPart[]): ModelTraceToolCall[] => {
-  return content.filter(item => item.type === 'tool-call').map(processVercelAIToolCall);
+  return content.filter((item) => item.type === 'tool-call').map(processVercelAIToolCall);
 };
 
 const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage | null => {
@@ -125,7 +124,7 @@ const processVercelAIMessage = (message: VercelAIMessage): ModelTraceChatMessage
     // Convert content parts array to ModelTraceContentParts
     const contentParts: ModelTraceContentParts[] = message.content.map(normalizeVercelAIContentPart);
     const toolCalls: ModelTraceToolCall[] = extractToolCalls(message.content);
-    const toolCallId = message.content.find(item => item.type === 'tool-result')?.toolCallId;
+    const toolCallId = message.content.find((item) => item.type === 'tool-result')?.toolCallId;
 
     return prettyPrintChatMessage({
       content: contentParts,
@@ -165,7 +164,7 @@ export const normalizeVercelAIChatInput = (obj: unknown): ModelTraceChatMessage[
 
 /**
  * Normalize Vercel AI chat output format
-**/
+ **/
 export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage[] | null => {
   if (!isObject(obj)) {
     return null;
@@ -174,20 +173,24 @@ export const normalizeVercelAIChatOutput = (obj: unknown): ModelTraceChatMessage
   const typedObj = obj as any;
 
   if (has(obj, 'text') && isString(typedObj.text)) {
-    return compact([prettyPrintChatMessage({
-      type: 'message',
-      content: typedObj.text,
-      role: 'assistant',
-    })]);
+    return compact([
+      prettyPrintChatMessage({
+        type: 'message',
+        content: typedObj.text,
+        role: 'assistant',
+      }),
+    ]);
   }
 
   if (has(obj, 'toolCalls') && isArray(typedObj.toolCalls) && typedObj.toolCalls.every(isVercelAIToolCall)) {
-    return compact([prettyPrintChatMessage({
-      type: 'message',
-      content: '',
-      role: 'assistant',
-      tool_calls: compact(typedObj.toolCalls.map(processVercelAIToolCall)),
-    })]);
+    return compact([
+      prettyPrintChatMessage({
+        type: 'message',
+        content: '',
+        role: 'assistant',
+        tool_calls: compact(typedObj.toolCalls.map(processVercelAIToolCall)),
+      }),
+    ]);
   }
 
   return null;

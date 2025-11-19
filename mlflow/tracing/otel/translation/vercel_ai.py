@@ -2,11 +2,13 @@ import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 
 
 class VercelAITranslator(OtelSchemaTranslator):
     """Translator for Vercel AI SDK spans."""
+
     # https://ai-sdk.dev/docs/ai-sdk-core/telemetry#collected-data
     INPUT_VALUE_KEYS = [
         # generateText

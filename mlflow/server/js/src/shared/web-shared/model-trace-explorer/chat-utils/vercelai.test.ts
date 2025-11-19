@@ -54,9 +54,7 @@ const MOCK_VERCEL_AI_TOOL_CALL_INPUT = {
   messages: [
     {
       role: 'user',
-      content: [
-        { type: 'text', text: 'Please check the weather in Tokyo.' },
-      ],
+      content: [{ type: 'text', text: 'Please check the weather in Tokyo.' }],
     },
     {
       role: 'assistant',
