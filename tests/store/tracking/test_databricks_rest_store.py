@@ -481,6 +481,14 @@ def test_batch_get_traces(monkeypatch, sql_warehouse_id):
         assert result[1].info.trace_id == trace2.info.trace_id
 
 
+def test_batch_get_traces_requires_location():
+    """Test that batch_get_traces raises an error when location is None."""
+    store = DatabricksTracingRestStore(lambda: MlflowHostCreds("https://test"))
+
+    with pytest.raises(MlflowException, match="location is required"):
+        store.batch_get_traces(["trace-id-1", "trace-id-2"], location=None)
+
+
 def test_search_traces_uc_schema(monkeypatch):
     monkeypatch.setenv(MLFLOW_TRACING_SQL_WAREHOUSE_ID.name, "test-warehouse")
 
