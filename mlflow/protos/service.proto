@@ -4206,6 +4206,11 @@ message UpdateEndpoint {
   // Optional authentication configuration for the new secret.
   optional string auth_config = 7;
 
+  // Optional endpoint name.
+  optional string name = 8;
+  // Optional endpoint description.
+  optional string description = 9;
+
   message Response {
     // The updated endpoint.
     optional Endpoint endpoint = 1;

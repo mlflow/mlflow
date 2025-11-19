@@ -1890,7 +1890,7 @@ class DeleteEndpoint(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ...) -> None: ...
 
 class UpdateEndpoint(_message.Message):
-    __slots__ = ("endpoint_id", "secret_id", "secret_name", "secret_value", "provider", "is_shared", "auth_config")
+    __slots__ = ("endpoint_id", "secret_id", "secret_name", "secret_value", "provider", "is_shared", "auth_config", "name", "description")
     class Response(_message.Message):
         __slots__ = ("endpoint", "secret")
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -1905,6 +1905,8 @@ class UpdateEndpoint(_message.Message):
     PROVIDER_FIELD_NUMBER: _ClassVar[int]
     IS_SHARED_FIELD_NUMBER: _ClassVar[int]
     AUTH_CONFIG_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     secret_id: str
     secret_name: str
@@ -1912,7 +1914,9 @@ class UpdateEndpoint(_message.Message):
     provider: str
     is_shared: bool
     auth_config: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., is_shared: bool = ..., auth_config: _Optional[str] = ...) -> None: ...
+    name: str
+    description: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., secret_name: _Optional[str] = ..., secret_value: _Optional[str] = ..., provider: _Optional[str] = ..., is_shared: bool = ..., auth_config: _Optional[str] = ..., name: _Optional[str] = ..., description: _Optional[str] = ...) -> None: ...
 
 class BindEndpoint(_message.Message):
     __slots__ = ("endpoint_id", "resource_type", "resource_id", "field_name")

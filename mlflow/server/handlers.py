@@ -3903,12 +3903,16 @@ def _update_endpoint():
             "provider": [_assert_string],
             "is_shared": [_assert_bool],
             "auth_config": [_assert_string],
+            "name": [_assert_string],
+            "description": [_assert_string],
         },
     )
 
     has_secret_id = request_message.HasField("secret_id")
     has_secret_name = request_message.HasField("secret_name")
     has_secret_value = request_message.HasField("secret_value")
+    has_name = request_message.HasField("name")
+    has_description = request_message.HasField("description")
 
     if has_secret_id and (has_secret_name or has_secret_value):
         raise MlflowException(
@@ -3925,7 +3929,7 @@ def _update_endpoint():
         response_message.endpoint.CopyFrom(endpoint.to_proto())
         secret = _get_tracking_store()._get_secret_info(request_message.secret_id)
         response_message.secret.CopyFrom(secret.to_proto())
-    else:
+    elif has_secret_name or has_secret_value:
         secret, endpoint = _get_tracking_store()._update_endpoint_with_new_secret(
             route_id=request_message.endpoint_id,
             secret_name=request_message.secret_name,
@@ -3937,6 +3941,23 @@ def _update_endpoint():
         response_message = UpdateEndpoint.Response()
         response_message.endpoint.CopyFrom(endpoint.to_proto())
         response_message.secret.CopyFrom(secret.to_proto())
+    else:
+        response_message = UpdateEndpoint.Response()
+
+    if has_name or has_description:
+        endpoint = _get_tracking_store()._update_endpoint_metadata(
+            endpoint_id=request_message.endpoint_id,
+            name=request_message.name if has_name else None,
+            description=request_message.description if has_description else None,
+        )
+        response_message.endpoint.CopyFrom(endpoint.to_proto())
+        if not (has_secret_id or has_secret_name or has_secret_value):
+            existing_models = _get_tracking_store()._list_endpoint_models(
+                request_message.endpoint_id
+            )
+            if existing_models:
+                secret = _get_tracking_store()._get_secret_info(existing_models[0].secret_id)
+                response_message.secret.CopyFrom(secret.to_proto())
 
     return _wrap_response(response_message)
 

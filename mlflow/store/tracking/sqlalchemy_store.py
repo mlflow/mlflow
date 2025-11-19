@@ -3351,6 +3351,47 @@ class SqlAlchemyStore(AbstractStore):
                 )
             session.delete(filtered_tags[0])
 
+    def _update_endpoint_metadata(
+        self,
+        endpoint_id: str,
+        name: str | None = None,
+        description: str | None = None,
+        updated_by: str | None = None,
+    ) -> Endpoint:
+        """
+        Update endpoint metadata (name and/or description).
+
+        Args:
+            endpoint_id: String ID of the endpoint.
+            name: Optional new name for the endpoint.
+            description: Optional new description for the endpoint.
+            updated_by: Username of updater.
+
+        Returns:
+            Updated Endpoint entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            endpoint = (
+                session.query(SqlEndpoint).filter(SqlEndpoint.endpoint_id == endpoint_id).first()
+            )
+            if endpoint is None:
+                raise MlflowException(
+                    f"Endpoint with ID '{endpoint_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            if name is not None:
+                endpoint.name = name
+            if description is not None:
+                endpoint.description = description
+
+            endpoint.last_updated_at = get_current_time_millis()
+            endpoint.last_updated_by = updated_by
+
+            session.commit()
+
+            return endpoint.to_mlflow_entity()
+
     def _apply_order_by_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
