@@ -3539,6 +3539,48 @@ class SqlAlchemyStore(AbstractStore):
                     return TraceState.OK.value
         return None
 
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        if not allow_partial:
+            for retry_count in range(3):
+                # only retry if the spans are not fully exported
+                if trace := self._get_trace(trace_id, allow_partial):
+                    return trace
+                elif retry_count < 2:
+                    time.sleep(2**retry_count)
+            raise MlflowException(
+                message=f"Trace with ID {trace_id} is not fully exported yet, "
+                "please try again later.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return self._get_trace(trace_id, allow_partial)
+
+    def _get_trace(self, trace_id: str, allow_partial: bool) -> Trace | None:
+        """
+        Get the trace with spans for given trace id. This function should
+        only return None when the spans are not fully exported. If the trace
+        info doesn't exist, it should raise an exception.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_trace_info = (
+                session.query(SqlTraceInfo)
+                .options(joinedload(SqlTraceInfo.spans))
+                .filter(SqlTraceInfo.request_id == trace_id)
+                .one_or_none()
+            )
+
+            if sql_trace_info:
+                trace_info = sql_trace_info.to_mlflow_entity()
+                spans = self._get_spans_with_trace_info(
+                    trace_info, sql_trace_info.spans, allow_partial=allow_partial
+                )
+                if allow_partial or spans:
+                    return Trace(info=trace_info, data=TraceData(spans=spans))
+            else:
+                raise MlflowException(
+                    message=f"Trace with ID {trace_id} is not found.",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get complete traces with spans for given trace ids.
@@ -3571,45 +3613,49 @@ class SqlAlchemyStore(AbstractStore):
             traces = []
             for sql_trace_info in sql_trace_infos:
                 trace_info = sql_trace_info.to_mlflow_entity()
-                # if the tag doesn't exist then the trace is not stored in the tracking store,
-                # we should rely on the artifact repo to get the trace data
-                if (
-                    trace_info.tags.get(TraceTagKey.SPANS_LOCATION)
-                    != SpansLocation.TRACKING_STORE.value
+                # batch_get_traces is depended by search_traces, so we need to return
+                # complete traces only
+                if spans := self._get_spans_with_trace_info(
+                    trace_info, sql_trace_info.spans, allow_partial=False
                 ):
-                    # This check is required so that the handler can capture the exception
-                    # and load data from artifact repo instead
-                    raise MlflowTracingException("Trace data not stored in tracking store")
-
-                sorted_sql_spans = sorted(
-                    sql_trace_info.spans,
-                    key=lambda s: (
-                        # Root spans come first, then sort by start time
-                        0 if s.parent_span_id is None else 1,
-                        s.start_time_unix_nano,
-                    ),
-                )
-                # we need to check whether all spans are logged before returning the trace
-                # to avoid incomplete trace data being returned, UI and evaluation relies
-                # on the complete trace for rendering and analysis
-                if trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS):
-                    trace_stats = json.loads(trace_stats)
-                    num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
-                    if len(sorted_sql_spans) < num_spans:
-                        _logger.debug(
-                            f"Trace {trace_info.trace_id} is not fully exported yet, "
-                            f"expecting {num_spans} spans but got {len(sorted_sql_spans)}"
-                        )
-                        continue
-
-                spans = [
-                    Span.from_dict(translate_loaded_span(json.loads(sql_span.content)))
-                    for sql_span in sorted_sql_spans
-                ]
-                trace = Trace(info=trace_info, data=TraceData(spans=spans))
-                traces.append(trace)
+                    traces.append(Trace(info=trace_info, data=TraceData(spans=spans)))
 
             return traces
+
+    def _get_spans_with_trace_info(
+        self, trace_info: TraceInfo, spans: list[SqlSpan], allow_partial: bool = True
+    ) -> list[Span] | None:
+        # if the tag doesn't exist then the trace is not stored in the tracking store,
+        # we should rely on the artifact repo to get the trace data
+        if trace_info.tags.get(TraceTagKey.SPANS_LOCATION) != SpansLocation.TRACKING_STORE.value:
+            # This check is required so that the handler can capture the exception
+            # and load data from artifact repo instead
+            raise MlflowTracingException("Trace data not stored in tracking store")
+        sql_spans = sorted(
+            spans,
+            key=lambda s: (
+                # Root spans come first, then sort by start time
+                0 if s.parent_span_id is None else 1,
+                s.start_time_unix_nano,
+            ),
+        )
+        # check whether all spans are logged before returning if not allow partial
+        if not allow_partial and (
+            trace_stats := trace_info.trace_metadata.get(TraceMetadataKey.SIZE_STATS)
+        ):
+            trace_stats = json.loads(trace_stats)
+            num_spans = trace_stats.get(TraceSizeStatsKey.NUM_SPANS, 0)
+            if len(sql_spans) < num_spans:
+                _logger.debug(
+                    f"Trace {trace_info.trace_id} is not fully exported yet, "
+                    f"expecting {num_spans} spans but got {len(sql_spans)}"
+                )
+                return
+
+        return [
+            Span.from_dict(translate_loaded_span(json.loads(sql_span.content)))
+            for sql_span in sql_spans
+        ]
 
     #######################################################################################
     # Entity Association Methods
