@@ -1,54 +1,39 @@
-name: Assign Reviewer On Review
+name: assign-reviewer
 
 on:
   pull_request_review:
     types: [submitted]
 
 jobs:
-  assign-reviewer:
+  upload:
     permissions:
       contents: read
-      pull-requests: write
-      issues: write
-    # Skip bot reviews and draft PRs
+    # Only trusted reviewers; skip bots and draft PRs
     if: >-
-      ${{ github.event.review.user.type != 'Bot' && !github.event.pull_request.draft }}
+      ${{ github.event.pull_request.draft == false &&
+          github.event.review.user.type != 'Bot' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) }}
     runs-on: ubuntu-slim
     timeout-minutes: 5
     steps:
-      - name: Assign reviewer as assignee if maintainer
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      - name: Prepare payload artifact
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/assign
+          cat > /tmp/assign/payload.json <<'EOF'
+          {
+            "pr_number": ${{ github.event.pull_request.number }},
+            "reviewer": "${{ github.event.review.user.login }}",
+            "review_author_association": "${{ github.event.review.author_association }}",
+            "review_state": "${{ github.event.review.state }}",
+            "reviewer_type": "${{ github.event.review.user.type }}",
+            "pr_author": "${{ github.event.pull_request.user.login }}",
+            "pr_draft": ${{ github.event.pull_request.draft }}
+          }
+          EOF
+          echo "Payload:" && cat /tmp/assign/payload.json
+      - name: Upload payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          script: |
-            const reviewer = context.payload.review.user.login;
-            const pr = context.payload.pull_request;
-            const { owner, repo } = context.repo;
-            const issue_number = pr.number;
-
-            try {
-              const { data } = await github.rest.repos.getCollaboratorPermissionLevel({
-                owner,
-                repo,
-                username: reviewer,
-              });
-              const permission = data.permission; // 'none' | 'read' | 'triage' | 'write' | 'maintain' | 'admin'
-              if (!['maintain', 'admin'].includes(permission)) {
-                core.info(`User ${reviewer} has permission '${permission}', not a maintainer; skipping.`);
-                return;
-              }
-            } catch (err) {
-              core.warning(`Could not fetch permission for ${reviewer}: ${err.message}`);
-              return;
-            }
-
-            try {
-              await github.rest.issues.addAssignees({
-                owner,
-                repo,
-                issue_number,
-                assignees: [reviewer],
-              });
-              core.info(`Assigned ${reviewer} to PR #${issue_number}.`);
-            } catch (err) {
-              core.warning(`Failed to assign ${reviewer}: ${err.message}`);
-            }
+          name: assign_reviewer_payload
+          path: /tmp/assign/
