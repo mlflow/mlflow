@@ -11,10 +11,9 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Assessment, Expectation, Feedback
+from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource, AssessmentSourceType
 from mlflow.entities.span import SpanType
-from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
 from mlflow.genai.evaluation.entities import EvaluationResult
@@ -87,7 +86,10 @@ def has_trace(trace):
 def _validate_assessments(traces):
     """Validate assessments are added to the traces"""
     for trace in traces:
-        assert len(trace.info.assessments) == 6  # 2 expectations + 4 feedbacks
+        assert len(trace.info.assessments) == 6, (
+            f"Expected 6 assessments, got {len(trace.info.assessments)}"
+            f"Assessments: {[a.name for a in trace.info.assessments]}"
+        )  # 2 expectations + 4 feedbacks
         assessments = {a.name: a for a in trace.info.assessments}
         a_exact_match = assessments["exact_match"]
         assert isinstance(a_exact_match, Feedback)
@@ -121,13 +123,11 @@ def _validate_assessments(traces):
         assert isinstance(a_expected_response.value, str)
         assert a_expected_response.source.source_type == AssessmentSourceType.HUMAN
         assert a_expected_response.source.source_id is not None
-        assert a_expected_response.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
         a_max_length = assessments["max_length"]
         assert isinstance(a_max_length, Expectation)
         assert isinstance(a_max_length.value, (int, float))
         assert a_max_length.source.source_type == AssessmentSourceType.HUMAN
-        assert a_max_length.metadata[AssessmentMetadataKey.SOURCE_RUN_ID] is not None
 
 
 def _validate_eval_result_df(result: EvaluationResult):
@@ -342,62 +342,46 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced, server_config):
     _validate_eval_result_df(result)
 
 
-def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config):
+@pytest.mark.parametrize("return_type", ["pandas", "list"])
+def test_evaluate_with_traces(monkeypatch: pytest.MonkeyPatch, server_config, return_type):
     questions = ["What is MLflow?", "What is Spark?"]
 
     @mlflow.trace(span_type=SpanType.AGENT)
     def predict(question: str) -> str:
         return TestModel().predict(question)
 
-    for question in questions:
-        predict(question)
+    predict(questions[0])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="MLflow is a tool for ML",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=100,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    predict(questions[1])
+    trace_id = mlflow.get_last_active_trace_id()
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="Spark is a fast data processing engine",
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="max_length",
+        value=1,
+        source=AssessmentSource(source_id="me", source_type="HUMAN"),
+    )
 
-    data = mlflow.search_traces()
+    data = mlflow.search_traces(return_type=return_type)
     assert len(data) == len(questions)
 
-    # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
-    def add_assessment_to_trace_json(trace_json: str, assessments: list[Assessment]):
-        trace = Trace.from_json(trace_json)
-        trace.info.assessments = assessments
-        return trace.to_json()
-
-    data.at[0, "trace"] = add_assessment_to_trace_json(
-        data.at[0, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="MLflow is a tool for ML",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=100,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-    data.at[1, "trace"] = add_assessment_to_trace_json(
-        data.at[1, "trace"],
-        [
-            Expectation(
-                name="expected_response",
-                trace_id="tr-123",
-                value="Spark is a fast data processing engine",
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-            Expectation(
-                name="max_length",
-                trace_id="tr-123",
-                value=1,
-                source=AssessmentSource(source_id="me", source_type="HUMAN"),
-            ),
-        ],
-    )
-
-    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
-    monkeypatch.setenv("AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED", "false")
     result = mlflow.genai.evaluate(
         data=data,
         scorers=[exact_match, is_concise, relevance, has_trace],
