@@ -203,16 +203,16 @@ def make_judge(
                     "or expressions of dissatisfaction."
                 ),
                 model="openai:/gpt-4",
-                feedback_value_type=Literal["high", "medium", "low", "none"],
+                feedback_value_type=Literal["frustrated", "not frustrated"],
             )
 
             # Evaluate a multi-turn conversation using session traces
-            session_traces = mlflow.search_traces(
+            session = mlflow.search_traces(
                 experiment_ids=["1"],
                 filter_string="metadata.`mlflow.trace.session` = 'session_123'",
                 return_type="list",
             )
-            result = frustration_judge(session_traces=session_traces)
+            result = frustration_judge(session=session)
 
             # Align a judge with human feedback
             aligned_judge = quality_judge.align(traces)

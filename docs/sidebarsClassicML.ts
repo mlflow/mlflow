@@ -10,11 +10,6 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'MLflow',
     },
     {
-      type: 'link',
-      label: 'MLflow 3.0',
-      href: 'https://mlflow.org/docs/latest/genai/mlflow-3',
-    },
-    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
@@ -217,25 +212,6 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'Deep Learning',
           items: [
             {
-              type: 'category',
-              label: 'Keras',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/keras/index',
-              },
-            },
-            {
               type: 'doc',
               id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
@@ -244,6 +220,11 @@ const sidebarsClassicML: SidebarsConfig = {
               type: 'doc',
               id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
+            },
+            {
+              type: 'doc',
+              id: 'deep-learning/keras/index',
+              label: 'Keras',
             },
             {
               type: 'category',
@@ -360,18 +341,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/spacy/index',
               label: 'spaCy',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/spacy/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/spacy/index',
-              },
             },
           ],
           link: {
@@ -619,6 +591,12 @@ const sidebarsClassicML: SidebarsConfig = {
           href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'category',

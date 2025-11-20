@@ -360,6 +360,7 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
+  "docs/docs/classic-ml/mlflow-3/index.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -382,8 +383,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# This file intentionally shows problematic code as an example of what NOT to do
-"docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 

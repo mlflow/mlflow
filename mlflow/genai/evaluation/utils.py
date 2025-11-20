@@ -13,6 +13,7 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.utils.search import traces_to_df
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -32,12 +33,17 @@ if TYPE_CHECKING:
             pd.DataFrame
             | pyspark.sql.dataframe.DataFrame
             | list[dict]
+            | list[Trace]
             | ManagedEvaluationDataset
             | EntityEvaluationDataset
         )
     except ImportError:
         EvaluationDatasetTypes = (
-            pd.DataFrame | list[dict] | ManagedEvaluationDataset | EntityEvaluationDataset
+            pd.DataFrame
+            | list[dict]
+            | list[Trace]
+            | ManagedEvaluationDataset
+            | EntityEvaluationDataset
         )
 
 
@@ -58,12 +64,14 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
 
     if isinstance(data, list):
-        # validate that every item in the list is a dict and has inputs as key
-        for item in data:
-            if not isinstance(item, dict):
-                raise MlflowException.invalid_parameter_value(
-                    "Every item in the list must be a dictionary."
-                )
+        if all(isinstance(item, Trace) for item in data):
+            data = traces_to_df(data)
+        else:
+            for item in data:
+                if not isinstance(item, dict):
+                    raise MlflowException.invalid_parameter_value(
+                        "Every item in the list must be a dictionary."
+                    )
         df = pd.DataFrame(data)
     elif isinstance(data, pd.DataFrame):
         # Data is already a pd DataFrame, just copy it
@@ -103,25 +111,13 @@ def _convert_eval_set_to_df(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
 
 def _convert_to_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame":
     """
-    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts it
-    into standardized Pandas DataFrame.
-    The expected schema can be found at:
-    https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/evaluation-schema
-
-    NB: The harness secretly support 'expectations' column as well. It accepts a dictionary of
-        expectations, which is same as the schema that mlflow.genai.evaluate() expects.
-        Therefore, we can simply pass through expectations column.
+    Takes in a dataset in the multiple format that mlflow.genai.evaluate() expects and converts
+    it into a standardized Pandas DataFrame.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
-
     df = _convert_eval_set_to_df(data)
 
     return (
-        df.rename(columns=column_mapping)
-        .pipe(_deserialize_trace_column_if_needed)
+        df.pipe(_deserialize_trace_column_if_needed)
         .pipe(_extract_request_response_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
@@ -175,7 +171,7 @@ def _deserialize_trace_column_if_needed(df: "pd.DataFrame") -> "pd.DataFrame":
 
 def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
     """
-    Add `request` and `response`columns from traces if it is not already present.
+    Add `inputs` and `outputs` columns from traces if it is not already present.
     """
     if "trace" not in df.columns:
         return df
@@ -185,10 +181,10 @@ def _extract_request_response_from_trace(df: "pd.DataFrame") -> "pd.DataFrame":
             return json.loads(att)
         return None
 
-    if "request" not in df.columns:
-        df["request"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "request"))
-    if "response" not in df.columns:
-        df["response"] = df["trace"].apply(lambda trace: _extract_attribute(trace.data, "response"))
+    if "inputs" not in df.columns:
+        df["inputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().inputs)
+    if "outputs" not in df.columns:
+        df["outputs"] = df["trace"].apply(lambda trace: trace.data._get_root_span().outputs)
     return df
 
 
@@ -406,7 +402,7 @@ def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]
     multi_turn_scorers = []
 
     for scorer in scorers:
-        if scorer.is_multi_turn:
+        if scorer.is_session_level_scorer:
             multi_turn_scorers.append(scorer)
         else:
             single_turn_scorers.append(scorer)
