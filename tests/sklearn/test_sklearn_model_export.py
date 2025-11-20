@@ -1,6 +1,7 @@
 import json
 import os
 import pickle
+import shutil
 import tempfile
 from pathlib import Path
 from typing import Any, NamedTuple
@@ -95,6 +96,12 @@ def sklearn_knn_model(iris_df):
     return ModelWithData(model=knn_model, inference_data=X)
 
 
+sklearn_knn_model_skops_trusted_types = [
+    "sklearn.metrics._dist_metrics.EuclideanDistance64",
+    "sklearn.neighbors._kd_tree.KDTree",
+]
+
+
 @pytest.fixture(scope="module")
 def sklearn_logreg_model(iris_df):
     X, y = iris_df
@@ -134,21 +141,78 @@ def sklearn_custom_env(tmp_path):
     return conda_env
 
 
-def test_model_save_load(sklearn_knn_model, model_path):
-    knn_model = sklearn_knn_model.model
+@pytest.mark.parametrize("serialization_format", mlflow.sklearn.SUPPORTED_SERIALIZATION_FORMATS)
+def test_model_save_load(sklearn_logreg_model, model_path, serialization_format):
+    import cloudpickle
+    import skops
 
-    mlflow.sklearn.save_model(sk_model=knn_model, path=model_path)
-    reloaded_knn_model = mlflow.sklearn.load_model(model_uri=model_path)
-    reloaded_knn_pyfunc = pyfunc.load_model(model_uri=model_path)
+    from mlflow.utils.requirements_utils import _parse_requirements
+
+    sk_model = sklearn_logreg_model.model
+    mlflow.sklearn.save_model(
+        sk_model=sk_model, path=model_path, serialization_format=serialization_format
+    )
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+
+    sklearn_conf = _get_flavor_configuration(
+        model_path=model_path, flavor_name=mlflow.sklearn.FLAVOR_NAME
+    )
+    assert "serialization_format" in sklearn_conf
+    assert sklearn_conf["serialization_format"] == serialization_format
+
+    req_map = {
+        mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS: f"skops=={skops.__version__}",
+        mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE: f"cloudpickle=={cloudpickle.__version__}",
+    }
+
+    logged_reqs = [
+        req.req_str
+        for req in _parse_requirements(
+            os.path.join(model_path, "requirements.txt"), is_constraint=False
+        )
+    ]
+    if serialization_format != mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE:
+        assert req_map[serialization_format] in logged_reqs
 
     np.testing.assert_array_equal(
-        knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
+        sk_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
     )
 
     np.testing.assert_array_equal(
-        reloaded_knn_model.predict(sklearn_knn_model.inference_data),
-        reloaded_knn_pyfunc.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_logreg_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_logreg_model.inference_data),
+    )
+
+
+def test_model_skops_format_trusted_type(sklearn_knn_model, model_path):
+    sk_model = sklearn_knn_model.model
+
+    with pytest.raises(MlflowException, match="The saved sklearn model references untrusted type"):
+        mlflow.sklearn.save_model(
+            sk_model=sk_model,
+            path=model_path,
+            serialization_format="skops",
+        )
+
+    shutil.rmtree(model_path)
+    mlflow.sklearn.save_model(
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        serialization_format="skops",
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
+    )
+    reloaded_model = mlflow.sklearn.load_model(model_uri=model_path)
+    reloaded_pyfunc = pyfunc.load_model(model_uri=model_path)
+    np.testing.assert_array_equal(
+        sk_model.predict(sklearn_knn_model.inference_data),
+        reloaded_model.predict(sklearn_knn_model.inference_data),
+    )
+
+    np.testing.assert_array_equal(
+        reloaded_model.predict(sklearn_knn_model.inference_data),
+        reloaded_pyfunc.predict(sklearn_knn_model.inference_data),
     )
 
 
@@ -342,7 +406,10 @@ def test_model_save_persists_specified_conda_env_in_mlflow_model_directory(
     sklearn_knn_model, model_path, sklearn_custom_env
 ):
     mlflow.sklearn.save_model(
-        sk_model=sklearn_knn_model.model, path=model_path, conda_env=sklearn_custom_env
+        sk_model=sklearn_knn_model.model,
+        path=model_path,
+        conda_env=sklearn_custom_env,
+        skops_trusted_types=sklearn_knn_model_skops_trusted_types,
     )
 
     pyfunc_conf = _get_flavor_configuration(model_path=model_path, flavor_name=pyfunc.FLAVOR_NAME)
@@ -594,6 +661,7 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
             sk_model=sklearn_knn_model.model,
             path=model_path,
             serialization_format=serialization_format,
+            skops_trusted_types=sklearn_knn_model_skops_trusted_types,
         )
 
         sklearn_conf = _get_flavor_configuration(
@@ -612,6 +680,8 @@ def test_model_save_without_cloudpickle_format_does_not_add_cloudpickle_to_conda
         assert all(
             "cloudpickle" not in dependency for dependency in saved_conda_env_parsed["dependencies"]
         )
+
+        shutil.rmtree(model_path)
 
 
 def test_load_pyfunc_succeeds_for_older_models_with_pyfunc_data_field(
