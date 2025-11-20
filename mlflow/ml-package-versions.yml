@@ -402,6 +402,7 @@ pmdarima:
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]
+      "< 2.1.0": ["numpy<2"]
     run: |
       pytest tests/pmdarima/test_pmdarima_model_export.py
 
