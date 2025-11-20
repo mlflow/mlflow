@@ -343,6 +343,8 @@ ban-relative-imports = "all"
 [tool.ruff.lint.isort]
 forced-separate = ["tests"]
 # https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+# The `docker` package is marked as third-party because a `docker` directory exists in the repository root,
+# which would otherwise cause ruff to incorrectly classify it as first-party.
 known-third-party = ["docker"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
