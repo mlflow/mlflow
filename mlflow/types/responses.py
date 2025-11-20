@@ -342,7 +342,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
         return [
             {
                 "role": "tool",
-                "content": "mcp approval request",
+                "content": "mcp approval request", # empty content is not supported by claude models
                 "tool_calls": [
                     {
                         "id": message["id"],
