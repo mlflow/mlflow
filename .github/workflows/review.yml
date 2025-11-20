@@ -41,7 +41,7 @@ jobs:
     steps:
       - name: React to comment
         if: ${{ github.event_name == 'issue_comment' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const { comment } = context.payload;
@@ -130,7 +130,7 @@ jobs:
 
       - name: Report review results
         if: ${{ github.event_name == 'issue_comment' }}
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
             const fs = require('fs');
