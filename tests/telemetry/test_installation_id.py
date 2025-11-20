@@ -7,6 +7,7 @@ import pytest
 import mlflow
 from mlflow.telemetry.client import get_telemetry_client, set_telemetry_client
 from mlflow.telemetry.installation_id import get_or_create_installation_id
+from mlflow.utils.os import is_windows
 from mlflow.version import VERSION
 
 
@@ -35,7 +36,8 @@ def test_installation_id_persisted_and_reused(tmp_home):
     first = get_or_create_installation_id()
     assert _is_uuid(first)
 
-    path = tmp_home / ".config" / "mlflow" / "telemetry.json"
+    base_path = tmp_home if is_windows() else tmp_home / ".config"
+    path = base_path / "mlflow" / "telemetry.json"
     assert path.exists()
     data = json.loads(path.read_text(encoding="utf-8"))
     assert data.get("installation_id") == first
@@ -58,7 +60,8 @@ def test_installation_id_saved_to_xdg_config_dir_if_set(monkeypatch, tmp_home):
 
 def test_installation_id_corrupted_file(tmp_home):
     # If the file is corrupted, installation ID should be recreated
-    dir_path = tmp_home / ".config" / "mlflow"
+    base_path = tmp_home if is_windows() else tmp_home / ".config"
+    dir_path = base_path / "mlflow"
     dir_path.mkdir(parents=True, exist_ok=True)
     path = dir_path / "telemetry.json"
     path.write_text("invalid JSON", encoding="utf-8")
