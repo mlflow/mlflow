@@ -11,12 +11,13 @@ to MLflow spans, which requires more complex conversion logic.
 """
 
 from collections import defaultdict
-from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request, Response, status
 from google.protobuf.message import DecodeError
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
-from pydantic import BaseModel, Field
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+    ExportTraceServiceResponse,
+)
 
 from mlflow.entities.span import Span
 from mlflow.server.handlers import _get_tracking_store
@@ -32,27 +33,13 @@ from mlflow.tracking.request_header.default_request_header_provider import (
 otel_router = APIRouter(prefix=OTLP_TRACES_PATH, tags=["OpenTelemetry"])
 
 
-class OTelExportTraceServiceResponse(BaseModel):
-    """
-    Pydantic model for the OTLP/HTTP ExportTraceServiceResponse.
-
-    This matches the OpenTelemetry protocol specification for trace export responses.
-    Reference: https://opentelemetry.io/docs/specs/otlp/
-    """
-
-    partialSuccess: dict[str, Any] | None = Field(
-        None, description="Details about partial success of the export operation"
-    )
-
-
-@otel_router.post("", response_model=OTelExportTraceServiceResponse, status_code=200)
+@otel_router.post("", status_code=200)
 async def export_traces(
     request: Request,
-    response: Response,
     x_mlflow_experiment_id: str = Header(..., alias=MLFLOW_EXPERIMENT_ID_HEADER),
     content_type: str = Header(None),
     user_agent: str | None = Header(None, alias=_USER_AGENT),
-) -> OTelExportTraceServiceResponse:
+) -> Response:
     """
     Export trace spans to MLflow via the OpenTelemetry protocol.
 
@@ -61,13 +48,12 @@ async def export_traces(
 
     Args:
         request: OTel ExportTraceServiceRequest in protobuf format
-        response: FastAPI Response object for setting headers
         x_mlflow_experiment_id: Required header containing the experiment ID
         content_type: Content-Type header from the request
         user_agent: User-Agent header (used to identify MLflow Python client)
 
     Returns:
-        OTel ExportTraceServiceResponse indicating success
+        FastAPI Response with ExportTraceServiceResponse in protobuf format
 
     Raises:
         HTTPException: If the request is invalid or span logging fails
@@ -78,9 +64,6 @@ async def export_traces(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid Content-Type: {content_type}. Expected: application/x-protobuf",
         )
-
-    # Set response Content-Type header
-    response.headers["Content-Type"] = "application/x-protobuf"
 
     body = await request.body()
     parsed_request = ExportTraceServiceRequest()
@@ -171,4 +154,11 @@ async def export_traces(
                 },
             )
 
-    return OTelExportTraceServiceResponse()
+    # Return protobuf response as per OTLP specification
+    response_message = ExportTraceServiceResponse()
+    response_bytes = response_message.SerializeToString()
+    return Response(
+        content=response_bytes,
+        media_type="application/x-protobuf",
+        status_code=200,
+    )
