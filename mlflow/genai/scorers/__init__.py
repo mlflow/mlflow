@@ -33,6 +33,7 @@ _LAZY_IMPORTS = {
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "UserFrustration",
     "get_all_scorers",
 }
 
@@ -74,6 +75,7 @@ if TYPE_CHECKING:
         RetrievalRelevance,
         RetrievalSufficiency,
         Safety,
+        UserFrustration,
         get_all_scorers,
     )
 
@@ -87,6 +89,7 @@ __all__ = [
     "RetrievalRelevance",
     "RetrievalSufficiency",
     "Safety",
+    "UserFrustration",
     "Scorer",
     "scorer",
     "ScorerSamplingConfig",
