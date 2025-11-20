@@ -80,9 +80,8 @@ def _parse_model_uri(model_uri: str) -> tuple[str, str]:
     """Parse a model URI of the form "<provider>:/<model-name>"."""
     # urllib.parse.urlparse is not used because provider names with underscores
     # (e.g., vertex_ai) are invalid in RFC 3986 URI schemes and would fail parsing.
-
     match model_uri.split(":/", 1):
-        case [provider, model_path] if provider and model_path:
+        case [provider, model_path] if provider and model_path.lstrip("/"):
             return provider, model_path.lstrip("/")
         case _:
             raise MlflowException(

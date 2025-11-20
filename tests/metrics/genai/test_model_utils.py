@@ -56,7 +56,7 @@ def force_reload_openai():
         ("azure_ai:/gpt-4", "azure_ai", "gpt-4"),
     ],
 )
-def test_parse_model_uri(model_uri, expected_prefix, expected_suffix):
+def test_parse_model_uri(model_uri: str, expected_prefix: str, expected_suffix: str):
     prefix, suffix = _parse_model_uri(model_uri)
     assert prefix == expected_prefix
     assert suffix == expected_suffix
