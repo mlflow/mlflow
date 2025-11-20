@@ -233,7 +233,7 @@ export const DetailsOverviewParamsTable = ({
     [],
   );
 
-  const table = useReactTable('mlflow/server/js/src/experiment-tracking/components/DetailsOverviewParamsTable.tsx', {
+  const table = useReactTable('mlflow/web/js/src/experiment-tracking/components/DetailsOverviewParamsTable.tsx', {
     data: paramsList,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),

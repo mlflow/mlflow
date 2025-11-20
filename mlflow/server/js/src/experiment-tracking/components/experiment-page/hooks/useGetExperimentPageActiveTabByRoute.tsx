@@ -14,6 +14,7 @@ const ExperimentPageRoutePathToTabNameMap = map(
     [RoutePaths.experimentPageTabDatasets]: ExperimentPageTabName.Datasets,
     [RoutePaths.experimentPageTabChatSessions]: ExperimentPageTabName.ChatSessions,
     [RoutePaths.experimentPageTabSingleChatSession]: ExperimentPageTabName.SingleChatSession,
+    [RoutePaths.experimentPageTabScorers]: ExperimentPageTabName.Scorers,
   },
   (tabName, routePath) => ({ routePath, tabName }),
 );

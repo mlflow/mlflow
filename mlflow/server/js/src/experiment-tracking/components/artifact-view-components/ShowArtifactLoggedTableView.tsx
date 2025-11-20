@@ -168,7 +168,7 @@ const LoggedTable = ({ data, runUuid }: { data: { columns: string[]; data: any[]
     [rows, columns],
   );
   const table = useReactTable(
-    'mlflow/server/js/src/experiment-tracking/components/artifact-view-components/ShowArtifactLoggedTableView.tsx',
+    'mlflow/web/js/src/experiment-tracking/components/artifact-view-components/ShowArtifactLoggedTableView.tsx',
     {
       columns: tableColumns,
       data: tableData,

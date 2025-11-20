@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { useGetDatasetRecords } from '../hooks/useGetDatasetRecords';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import type { ColumnDef } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import { Empty, TableCell, TableHeader, TableRow, TableSkeletonRows } from '@databricks/design-system';
 import { Table } from '@databricks/design-system';
 import { useIntl } from 'react-intl';
 import { JsonCell } from './ExperimentEvaluationDatasetJsonCell';
 import { ExperimentEvaluationDatasetRecordsToolbar } from './ExperimentEvaluationDatasetRecordsToolbar';
-import { EvaluationDataset, EvaluationDatasetRecord } from '../types';
+import type { EvaluationDataset, EvaluationDatasetRecord } from '../types';
 import { useInfiniteScrollFetch } from '../hooks/useInfiniteScrollFetch';
 
 const INPUTS_COLUMN_ID = 'inputs';
@@ -66,17 +68,20 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
     fetchNextPage,
   });
 
-  const table = useReactTable({
-    columns,
-    data: datasetRecords ?? [],
-    getCoreRowModel: getCoreRowModel(),
-    getRowId: (row) => row.dataset_record_id,
-    enableColumnResizing: false,
-    meta: { rowSize },
-    state: {
-      columnVisibility,
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/experiment-evaluation-datasets/components/ExperimentEvaluationDatasetRecordsTable.tsx',
+    {
+      columns,
+      data: datasetRecords ?? [],
+      getCoreRowModel: getCoreRowModel(),
+      getRowId: (row) => row.dataset_record_id,
+      enableColumnResizing: false,
+      meta: { rowSize },
+      state: {
+        columnVisibility,
+      },
     },
-  });
+  );
 
   return (
     <div
@@ -119,7 +124,7 @@ export const ExperimentEvaluationDatasetRecordsTable = ({ dataset }: { dataset: 
               header.column.getIsVisible() && (
                 <TableHeader
                   key={header.id}
-                  componentId={`mlflow.eval-dataset-records.${header.column.id}-header`}
+                  componentId="mlflow.eval-dataset-records.column-header"
                   header={header}
                   column={header.column}
                   css={{ position: 'sticky', top: 0, zIndex: 1 }}

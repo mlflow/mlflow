@@ -80,7 +80,12 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [traceInfos]);
 
   const getTrace = getTraceV3;
-  const { data: traces, isLoading: isLoadingTraceDatas } = useGetTraces(getTrace, sortedTraceInfos);
+  const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
+  const {
+    data: traces,
+    isLoading: isLoadingTraceDatas,
+    invalidateSingleTraceQuery,
+  } = useGetTraces(getTrace, sortedTraceInfos);
 
   if (!shouldEnableChatSessionsTab()) {
     return <div />;
@@ -113,6 +118,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
             chatRefs={chatRefs}
+            getAssessmentTitle={getAssessmentTitle}
           />
         </div>
       )}
@@ -140,7 +146,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
           >
             <ContextProviders // prettier-ignore
             >
-              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace as ModelTrace} />}
+              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
             </ContextProviders>
           </div>
         </Drawer.Content>

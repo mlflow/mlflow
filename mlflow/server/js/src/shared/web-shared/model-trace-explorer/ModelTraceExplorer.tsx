@@ -125,7 +125,11 @@ export const ModelTraceExplorerImpl = ({
   initialActiveView?: 'summary' | 'detail';
   selectedSpanId?: string;
   onSelectSpan?: (selectedSpanId?: string) => void;
-  collapseAssessmentPane?: boolean;
+  /**
+   * If set to `false`, the assessments pane will be expanded if there are any assessments.
+   * If set to `'force-open'`, the assessments pane will be expanded regardless of whether there are any assessments.
+   */
+  collapseAssessmentPane?: boolean | 'force-open';
 }) => {
   const [modelTrace, setModelTrace] = useState(initialModelTrace);
   const [forceDisplay, setForceDisplay] = useState(false);
