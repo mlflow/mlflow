@@ -1,6 +1,7 @@
 import json
 import logging
 import math
+from collections import defaultdict
 from concurrent.futures import Future, as_completed
 from typing import TYPE_CHECKING, Any, Collection
 
@@ -13,6 +14,7 @@ from mlflow.genai.evaluation.constant import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.models import EvaluationMetric
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.utils.search import traces_to_df
 
 try:
@@ -24,7 +26,7 @@ except ImportError:
 if TYPE_CHECKING:
     from mlflow.entities.evaluation_dataset import EvaluationDataset as EntityEvaluationDataset
     from mlflow.genai.datasets import EvaluationDataset as ManagedEvaluationDataset
-    from mlflow.genai.evaluation.entities import EvalResult
+    from mlflow.genai.evaluation.entities import EvalItem, EvalResult
 
     try:
         import pyspark.sql.dataframe
@@ -410,7 +412,7 @@ def _classify_scorers(scorers: list[Scorer]) -> tuple[list[Scorer], list[Scorer]
     return single_turn_scorers, multi_turn_scorers
 
 
-def _group_traces_by_session(eval_items: list["EvalResult"]) -> dict[str, list[tuple[Any, Trace]]]:
+def _group_traces_by_session(eval_items: list["EvalItem"]) -> dict[str, list["EvalItem"]]:
     """
     Group evaluation items containing traces by session_id.
 
@@ -418,39 +420,32 @@ def _group_traces_by_session(eval_items: list["EvalResult"]) -> dict[str, list[t
         eval_items: List of EvalItem objects.
 
     Returns:
-        dict: {session_id: [(eval_item, trace), ...]} where traces are grouped by session.
-              Only traces with a session_id are included in the output.
+        dict: {session_id: [eval_item, ...]} where eval items are grouped by session.
+              Only items with traces that have a session_id are included in the output.
     """
-    from collections import defaultdict
-
-    from mlflow.tracing.constant import TraceMetadataKey
-
     session_groups = defaultdict(list)
 
     for item in eval_items:
         if not hasattr(item, "trace") or item.trace is None:
             continue
 
-        session_id = item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION)
-        if session_id:
-            session_groups[session_id].append((item, item.trace))
+        if session_id := item.trace.info.trace_metadata.get(TraceMetadataKey.TRACE_SESSION):
+            session_groups[session_id].append(item)
 
     return dict(session_groups)
 
 
-def _get_first_trace_in_session(
-    session_traces: list[tuple[Any, Trace]]
-) -> tuple[Any, Trace]:
+def _get_first_trace_in_session(session_items: list["EvalItem"]) -> "EvalItem":
     """
     Find the chronologically first trace in a session based on request_time.
 
     Args:
-        session_traces: List of (eval_item, trace) tuples.
+        session_items: List of EvalItem objects from the same session.
 
     Returns:
-        tuple: (eval_item, trace) of the first trace in chronological order.
+        EvalItem: The eval item with the earliest trace in chronological order.
     """
-    return min(session_traces, key=lambda x: x[1].info.request_time)
+    return min(session_items, key=lambda x: x.trace.info.request_time)
 
 
 def complete_eval_futures_with_progress_base(futures: list[Future]) -> list["EvalResult"]:

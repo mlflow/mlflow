@@ -693,7 +693,7 @@ def test_group_traces_by_session_single_session():
     assert len(session_groups["session-1"]) == 3
 
     # Check that all traces are included
-    session_traces = [trace for _, trace in session_groups["session-1"]]
+    session_traces = [item.trace for item in session_groups["session-1"]]
     assert trace1 in session_traces
     assert trace2 in session_traces
     assert trace3 in session_traces
@@ -740,7 +740,7 @@ def test_group_traces_by_session_excludes_no_session_id():
     assert "session-1" in session_groups
     assert len(session_groups["session-1"]) == 2
     # trace2 should not be included
-    session_traces = [trace for _, trace in session_groups["session-1"]]
+    session_traces = [item.trace for item in session_groups["session-1"]]
     assert trace1 in session_traces
     assert trace2 not in session_traces
     assert trace3 in session_traces
@@ -780,11 +780,11 @@ def test_get_first_trace_in_session_chronological_order():
     eval_item2 = _create_mock_eval_item(trace2)
     eval_item3 = _create_mock_eval_item(trace3)
 
-    session_traces = [(eval_item1, trace1), (eval_item2, trace2), (eval_item3, trace3)]
+    session_items = [eval_item1, eval_item2, eval_item3]
 
-    first_item, first_trace = _get_first_trace_in_session(session_traces)
+    first_item = _get_first_trace_in_session(session_items)
 
-    assert first_trace == trace2
+    assert first_item.trace == trace2
     assert first_item == eval_item2
 
 
@@ -793,11 +793,11 @@ def test_get_first_trace_in_session_single_trace():
     trace1 = _create_mock_trace("trace-1", "session-1", 1000)
     eval_item1 = _create_mock_eval_item(trace1)
 
-    session_traces = [(eval_item1, trace1)]
+    session_items = [eval_item1]
 
-    first_item, first_trace = _get_first_trace_in_session(session_traces)
+    first_item = _get_first_trace_in_session(session_items)
 
-    assert first_trace == trace1
+    assert first_item.trace == trace1
     assert first_item == eval_item1
 
 
@@ -812,9 +812,9 @@ def test_get_first_trace_in_session_same_timestamp():
     eval_item2 = _create_mock_eval_item(trace2)
     eval_item3 = _create_mock_eval_item(trace3)
 
-    session_traces = [(eval_item1, trace1), (eval_item2, trace2), (eval_item3, trace3)]
+    session_items = [eval_item1, eval_item2, eval_item3]
 
-    first_item, first_trace = _get_first_trace_in_session(session_traces)
+    first_item = _get_first_trace_in_session(session_items)
 
     # Should return one of the traces with timestamp 1000 (likely the first one)
-    assert first_trace.info.request_time == 1000
+    assert first_item.trace.info.request_time == 1000
