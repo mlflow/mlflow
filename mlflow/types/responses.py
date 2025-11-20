@@ -284,7 +284,12 @@ def create_mcp_approval_request_item(id: str, arguments: str, name: str, server_
         "server_label": server_label,
     }
 
-def create_mcp_approval_response_item(id: str, approval_request_id: str, approve: bool, reason: str) -> dict[str, Any]:
+def create_mcp_approval_response_item(
+    id: str,
+    approval_request_id: str,
+    approve: bool,
+    reason: str | None = None,
+) -> dict[str, Any]:
     """Helper method to create a dictionary conforming to the MCP approval response item schema.
 
     Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -342,7 +347,7 @@ def responses_to_cc(message: dict[str, Any]) -> list[dict[str, Any]]:
         return [
             {
                 "role": "tool",
-                "content": "mcp approval request", # empty content is not supported by claude models
+                "content": "mcp approval request",  # empty content is not supported by claude models
                 "tool_calls": [
                     {
                         "id": message["id"],
