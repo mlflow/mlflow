@@ -7,12 +7,14 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.entities import TraceData, TraceInfo, TraceLocation, TraceState
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.datasets import EvaluationDataset, create_dataset
+from mlflow.genai.evaluation.entities import EvalItem
 from mlflow.genai.evaluation.utils import (
     _classify_scorers,
     _convert_scorer_to_legacy_metric,
@@ -22,6 +24,7 @@ from mlflow.genai.evaluation.utils import (
     validate_tags,
 )
 from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.spark_utils import is_spark_connect_mode
 
 from tests.genai.conftest import databricks_only
@@ -642,9 +645,6 @@ def test_classify_scorers_empty_list():
 
 def _create_mock_trace(trace_id: str, session_id: str | None, request_time: int):
     """Helper to create a mock trace with session_id and request_time."""
-    from mlflow.entities import TraceInfo, TraceLocation, TraceState
-    from mlflow.tracing.constant import TraceMetadataKey
-
     trace_metadata = {}
     if session_id is not None:
         trace_metadata[TraceMetadataKey.TRACE_SESSION] = session_id
@@ -658,7 +658,6 @@ def _create_mock_trace(trace_id: str, session_id: str | None, request_time: int)
         trace_metadata=trace_metadata,
         tags={},
     )
-    from mlflow.entities import TraceData
 
     trace = Mock(spec=Trace)
     trace.info = trace_info
@@ -668,8 +667,6 @@ def _create_mock_trace(trace_id: str, session_id: str | None, request_time: int)
 
 def _create_mock_eval_item(trace):
     """Helper to create a mock EvalItem with a trace."""
-    from mlflow.genai.evaluation.entities import EvalItem
-
     eval_item = Mock(spec=EvalItem)
     eval_item.trace = trace
     return eval_item
