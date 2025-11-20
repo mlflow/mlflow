@@ -1,18 +1,40 @@
-import type { BackendEndpoint, BackendEndpointModel, Endpoint, CreateEndpointRequest_Legacy, CreateEndpointResponse_Legacy } from '../types';
+import type { Endpoint, EndpointModel, RouteResponse, CreateEndpointRequest_Legacy, CreateEndpointResponse_Legacy } from '../types';
 
 /**
- * Transforms a backend BackendEndpoint (multi-model) to a UI Endpoint (single-model).
- * Since UI treats each model as a separate endpoint, we flatten backend endpoints to UI endpoints.
+ * Transforms an Endpoint (multi-model) to a RouteResponse (single-model).
+ * Since the API returns one route per model, we flatten endpoints to route responses.
  *
- * @param backendEndpoint - Backend endpoint with potentially multiple models
+ * @param backendEndpoint - Endpoint with potentially multiple models
  * @param modelIndex - Index of the model to extract (defaults to first model)
- * @returns Endpoint object compatible with UI components
+ * @returns RouteResponse object compatible with legacy APIs
  */
-export function backendEndpointToEndpoint(backendEndpoint: BackendEndpoint, modelIndex: number = 0): Endpoint {
-  const model: BackendEndpointModel | undefined = backendEndpoint.models[modelIndex];
+export function backendEndpointToEndpoint(backendEndpoint: Endpoint, modelIndex: number = 0): RouteResponse {
+  // Handle case where models array might be missing (e.g., in update responses)
+  const models = backendEndpoint.models || [];
+  const model: EndpointModel | undefined = models[modelIndex];
 
   if (!model) {
-    throw new Error(`BackendEndpoint ${backendEndpoint.endpoint_id} has no model at index ${modelIndex}`);
+    // If no model is present, create a minimal endpoint object
+    // This can happen when updating endpoint metadata only
+    console.warn(
+      `Endpoint ${backendEndpoint.endpoint_id} has no model at index ${modelIndex}. ` +
+      `Using placeholder values.`
+    );
+
+    return {
+      endpoint_id: backendEndpoint.endpoint_id,
+      secret_id: '',
+      secret_name: undefined,
+      model_name: '',
+      name: backendEndpoint.name,
+      description: backendEndpoint.description,
+      provider: undefined,
+      created_at: backendEndpoint.created_at,
+      last_updated_at: backendEndpoint.last_updated_at,
+      created_by: backendEndpoint.created_by,
+      last_updated_by: backendEndpoint.last_updated_by,
+      tags: backendEndpoint.tags,
+    };
   }
 
   return {
@@ -32,14 +54,14 @@ export function backendEndpointToEndpoint(backendEndpoint: BackendEndpoint, mode
 }
 
 /**
- * Transforms a list of backend BackendEndpoints to UI Endpoints.
- * For now, we only extract the first model from each backend endpoint.
- * Future: Could expand to show all models as separate UI endpoints if needed.
+ * Transforms a list of Endpoints to RouteResponses.
+ * For now, we only extract the first model from each endpoint.
+ * Future: Could expand to show all models as separate route responses if needed.
  *
- * @param backendEndpoints - List of backend endpoints
- * @returns List of UI endpoints compatible with UI
+ * @param backendEndpoints - List of endpoints
+ * @returns List of RouteResponse objects compatible with legacy APIs
  */
-export function backendEndpointsToEndpoints(backendEndpoints: BackendEndpoint[]): Endpoint[] {
+export function backendEndpointsToEndpoints(backendEndpoints: Endpoint[]): RouteResponse[] {
   return backendEndpoints.map((backendEndpoint) => backendEndpointToEndpoint(backendEndpoint, 0));
 }
 
@@ -119,7 +141,7 @@ export function routeRequestToBackendCalls(request: CreateEndpointRequest_Legacy
  * @returns Endpoint creation response compatible with UI
  */
 export function endpointResponseToRouteResponse(
-  backendEndpoint: BackendEndpoint,
+  backendEndpoint: Endpoint,
   binding?: { binding_id: string },
 ): CreateEndpointResponse_Legacy {
   const route = backendEndpointToEndpoint(backendEndpoint, 0);

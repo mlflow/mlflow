@@ -4419,6 +4419,8 @@ message UpdateEndpointModel {
   optional string routing_config = 4;
   // User ID updating the model.
   optional string updated_by = 5;
+  // New model name.
+  optional string model_name = 6;
 
   message Response {
     // The updated endpoint with the modified model.

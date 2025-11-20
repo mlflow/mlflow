@@ -208,37 +208,33 @@ export const RoutesTable = React.memo(
           meta: { styles: { minWidth: 200, maxWidth: 400 } },
         },
         {
-          header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.secretName]),
+          header: intl.formatMessage({
+            defaultMessage: 'Models',
+            description: 'Routes table > models count column header',
+          }),
           enableSorting: true,
           enableResizing: true,
-          id: RoutesTableColumns.secretName,
-          accessorFn: (data) => data.secret_name || data.secret_id,
-          cell: ({ row }) => <SecretNameCell secretName={row.original.secret_name} secretId={row.original.secret_id} />,
-          meta: { styles: { minWidth: 180, maxWidth: 280 } },
-        },
-        {
-          header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.modelName]),
-          enableSorting: true,
-          enableResizing: true,
-          id: RoutesTableColumns.modelName,
-          accessorFn: (data) => data.model_name,
-          cell: ({ row }) => (
-            <Tag componentId="mlflow.routes.table.model_tag">
-              <Typography.Text ellipsis css={{ maxWidth: 180 }}>
-                {row.original.model_name}
-              </Typography.Text>
-            </Tag>
-          ),
+          id: 'models_count',
+          accessorFn: (data) => data.models?.length || 0,
+          cell: ({ row }) => {
+            const modelCount = row.original.models?.length || 0;
+            if (modelCount === 0) {
+              return (
+                <Typography.Text css={{ color: theme.colors.textSecondary, fontStyle: 'italic' }}>
+                  No models
+                </Typography.Text>
+              );
+            }
+            const modelNames = row.original.models.map((m) => `${m.model_name}${m.provider ? ` (${m.provider})` : ''}`).join(', ');
+            return (
+              <span title={modelNames}>
+                <Typography.Text css={{ fontWeight: 600, cursor: 'pointer', textDecoration: 'underline dotted' }}>
+                  {modelCount} {modelCount === 1 ? 'model' : 'models'}
+                </Typography.Text>
+              </span>
+            );
+          },
           meta: { styles: { minWidth: 150, maxWidth: 250 } },
-        },
-        {
-          header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.provider]),
-          enableSorting: true,
-          enableResizing: true,
-          id: RoutesTableColumns.provider,
-          accessorFn: (data) => data.provider,
-          cell: ({ row }) => <ProviderBadge provider={row.original.provider} />,
-          meta: { styles: { minWidth: 130, maxWidth: 180 } },
         },
         {
           header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.tags]),
@@ -249,15 +245,16 @@ export const RoutesTable = React.memo(
           cell: ({ row }) => <TagsCell tags={row.original.tags} />,
           meta: { styles: { minWidth: 200, maxWidth: 350 } },
         },
-        {
-          header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.bindingCount]),
-          enableSorting: true,
-          enableResizing: true,
-          id: RoutesTableColumns.bindingCount,
-          accessorFn: (data) => data.binding_count || 0,
-          cell: ({ row }) => <BindingCountBadge count={row.original.binding_count || 0} />,
-          meta: { styles: { minWidth: 100, maxWidth: 120 } },
-        },
+        // Binding count column disabled - not available in Endpoint
+        // {
+        //   header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.bindingCount]),
+        //   enableSorting: true,
+        //   enableResizing: true,
+        //   id: RoutesTableColumns.bindingCount,
+        //   accessorFn: (data) => data.binding_count || 0,
+        //   cell: ({ row }) => <BindingCountBadge count={row.original.binding_count || 0} />,
+        //   meta: { styles: { minWidth: 100, maxWidth: 120 } },
+        // },
         {
           header: intl.formatMessage(RoutesTableColumnLabels[RoutesTableColumns.createdAt]),
           enableSorting: true,

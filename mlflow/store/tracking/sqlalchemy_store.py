@@ -2655,6 +2655,41 @@ class SqlAlchemyStore(AbstractStore):
 
             return sql_model.to_mlflow_entity()
 
+    def _update_model_name(
+        self,
+        model_id: str,
+        model_name: str,
+        updated_by: str | None = None,
+    ) -> EndpointModel:
+        """
+        Update a model's name.
+
+        Args:
+            model_id: ID of the model to update.
+            model_name: New model name.
+            updated_by: Username of updater.
+
+        Returns:
+            Updated EndpointModel entity.
+        """
+        with self.ManagedSessionMaker() as session:
+            sql_model = session.query(SqlEndpointModel).filter_by(model_id=model_id).first()
+            if not sql_model:
+                raise MlflowException(
+                    f"Model '{model_id}' not found",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+
+            current_time = get_current_time_millis()
+            sql_model.model_name = model_name
+            sql_model.last_updated_at = current_time
+            if updated_by:
+                sql_model.last_updated_by = updated_by
+
+            session.commit()
+
+            return sql_model.to_mlflow_entity()
+
     def _remove_model_from_endpoint(
         self,
         model_id: str,
@@ -2741,18 +2776,20 @@ class SqlAlchemyStore(AbstractStore):
         self,
         endpoint_id: str,
         model_id: str,
+        model_name: str | None = None,
         secret_id: str | None = None,
         routing_config: str | None = None,
         updated_by: str | None = None,
     ) -> Endpoint:
         """
-        Update a model's secret and/or routing config and return the updated endpoint.
+        Update a model's name, secret, and/or routing config and return the updated endpoint.
 
         This is a wrapper for REST API that updates a model and returns the full endpoint.
 
         Args:
             endpoint_id: ID of the endpoint containing the model.
             model_id: ID of the model to update.
+            model_name: New model name (optional).
             secret_id: New secret ID (optional).
             routing_config: New routing configuration (JSON string or dict, optional).
             updated_by: Username of updater.
@@ -2760,6 +2797,14 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             Updated Endpoint entity with all models.
         """
+        # Update model name if provided
+        if model_name is not None:
+            self._update_model_name(
+                model_id=model_id,
+                model_name=model_name,
+                updated_by=updated_by,
+            )
+
         # Update secret if provided
         if secret_id is not None:
             self._update_model_secret(

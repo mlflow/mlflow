@@ -1,27 +1,36 @@
 import { useMutation, useQueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { endpointsApi_Legacy } from '../api/routesApi';
-import type { UpdateEndpointRequest_Legacy } from '../types';
-import { LIST_ROUTES_QUERY_KEY, LIST_SECRETS_QUERY_KEY } from '../constants';
+import { secretsApi } from '../api/secretsApi';
+import { LIST_ROUTES_QUERY_KEY } from '../constants';
+import type { UpdateEndpointRequest, UpdateEndpointResponse } from '../types';
 
-export const useUpdateEndpoint = () => {
+export const useUpdateEndpoint = ({
+  onSuccess,
+  onError,
+}: {
+  onSuccess?: (data: UpdateEndpointResponse) => void;
+  onError?: (error: Error) => void;
+} = {}) => {
   const queryClient = useQueryClient();
 
-  const { mutate, mutateAsync, isLoading, error } = useMutation({
-    mutationFn: async (request: UpdateEndpointRequest_Legacy) => {
-      return await endpointsApi_Legacy.updateEndpoint(request);
+  const { mutate: updateEndpoint, isLoading } = useMutation<
+    UpdateEndpointResponse,
+    Error,
+    UpdateEndpointRequest
+  >({
+    mutationFn: async (request: UpdateEndpointRequest) => {
+      return await secretsApi.updateEndpoint(request);
     },
-    onSuccess: () => {
-      // Invalidate endpoints list to refetch
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [LIST_ROUTES_QUERY_KEY] });
-      // Also invalidate secrets list since we might have created a new secret
-      queryClient.invalidateQueries({ queryKey: [LIST_SECRETS_QUERY_KEY] });
+      onSuccess?.(data);
+    },
+    onError: (error) => {
+      onError?.(error);
     },
   });
 
   return {
-    updateEndpoint: mutate,
-    updateEndpointAsync: mutateAsync,
+    updateEndpoint,
     isLoading,
-    error,
   };
 };

@@ -27,20 +27,25 @@ import { useUpdateSecretModal } from '../hooks/modals/useUpdateSecretModal';
 import { useDeleteSecretModal } from '../hooks/modals/useDeleteSecretModal';
 import { SecretDetailDrawer } from './SecretDetailDrawer';
 import { SecretManagementDrawer } from './SecretManagementDrawer';
+import { RouteDetailDrawer } from './RouteDetailDrawer';
 import { GatewayRequiresSqlBackend } from './GatewayRequiresSqlBackend';
-import type { Secret } from '../types';
+import type { Secret, Endpoint } from '../types';
+import { useListEndpoints } from '../hooks/useListEndpoints';
 
 export default function SecretsPage() {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
   const { isSqlBackend, storeType, isLoading: isCheckingBackend } = useBackendSupport();
   const { secrets = [], isLoading, error } = useListSecrets({ enabled: isSqlBackend === true });
+  const { endpoints = [] } = useListEndpoints({ enabled: isSqlBackend === true });
 
   const [sorting, setSorting] = useState<SortingState>([{ id: 'created_at', desc: true }]);
   const [hiddenColumns, setHiddenColumns] = useState<string[]>([]);
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showManagementDrawer, setShowManagementDrawer] = useState(false);
+  const [showEndpointDrawer, setShowEndpointDrawer] = useState(false);
   const [selectedSecret, setSelectedSecret] = useState<Secret | null>(null);
+  const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
   const [searchText, setSearchText] = useState('');
   const [debouncedSearchText] = useDebounce(searchText, 500);
   const [isSharedFilter, setIsSharedFilter] = useState<'all' | 'shared' | 'private'>('all');
@@ -104,6 +109,16 @@ export default function SecretsPage() {
       }
       return [...prev, columnId];
     });
+  }, []);
+
+  const handleEndpointClick = useCallback((endpoint: Endpoint) => {
+    // Close management drawer first
+    setShowManagementDrawer(false);
+    // Set selected endpoint and open drawer after brief delay
+    setTimeout(() => {
+      setSelectedEndpoint(endpoint);
+      setShowEndpointDrawer(true);
+    }, 100);
   }, []);
 
   const filteredSecrets = useMemo(() => {
@@ -266,7 +281,20 @@ export default function SecretsPage() {
         </Notification.Provider>
       )}
 
-      <SecretManagementDrawer open={showManagementDrawer} onClose={() => setShowManagementDrawer(false)} />
+      <SecretManagementDrawer
+        open={showManagementDrawer}
+        onClose={() => setShowManagementDrawer(false)}
+        onEndpointClick={handleEndpointClick}
+      />
+
+      <RouteDetailDrawer
+        route={selectedEndpoint}
+        open={showEndpointDrawer}
+        onClose={() => {
+          setShowEndpointDrawer(false);
+          setSelectedEndpoint(null);
+        }}
+      />
     </ScrollablePageWrapper>
   );
 }

@@ -13,7 +13,7 @@ import {
 } from '@databricks/design-system';
 import { FormattedMessage, useIntl } from '@databricks/i18n';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { Secret } from '../types';
+import type { Secret, Endpoint } from '../types';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useListBindings } from '../hooks/useListBindings';
 import { useListEndpoints } from '../hooks/useListEndpoints';
@@ -23,6 +23,7 @@ import { UpdateSecretModal } from './UpdateSecretModal';
 export interface SecretManagementDrawerProps {
   open: boolean;
   onClose: () => void;
+  onEndpointClick?: (endpoint: Endpoint) => void;
 }
 
 interface ExpandedRowData {
@@ -30,7 +31,7 @@ interface ExpandedRowData {
   isLoading: boolean;
 }
 
-export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawerProps) => {
+export const SecretManagementDrawer = ({ open, onClose, onEndpointClick }: SecretManagementDrawerProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
   const { secrets = [], isLoading: isLoadingSecrets } = useListSecrets({ enabled: open });
@@ -74,14 +75,20 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
     [onClose],
   );
 
-  // Create a map of secret_id -> endpoint names for display
+  // Create a map of secret_id -> endpoints for display
   const secretToEndpoints = useMemo(() => {
-    const map = new Map<string, string[]>();
+    const map = new Map<string, Endpoint[]>();
     endpoints.forEach((endpoint) => {
-      if (endpoint.secret_id) {
-        const existing = map.get(endpoint.secret_id) || [];
-        map.set(endpoint.secret_id, [...existing, endpoint.name || endpoint.endpoint_id]);
-      }
+      // Each endpoint can have multiple models, each with its own secret_id
+      endpoint.models.forEach((model) => {
+        if (model.secret_id) {
+          const existing = map.get(model.secret_id) || [];
+          // Only add the endpoint if it's not already in the list for this secret
+          if (!existing.find((ep) => ep.endpoint_id === endpoint.endpoint_id)) {
+            map.set(model.secret_id, [...existing, endpoint]);
+          }
+        }
+      });
     });
     return map;
   }, [endpoints]);
@@ -181,7 +188,8 @@ export const SecretManagementDrawer = ({ open, onClose }: SecretManagementDrawer
                     onToggleExpand={() => toggleExpanded(secret.secret_id)}
                     onUpdate={() => handleUpdateClick(secret)}
                     onDelete={() => handleDeleteClick(secret)}
-                    routeNames={secretToEndpoints.get(secret.secret_id) || []}
+                    endpoints={secretToEndpoints.get(secret.secret_id) || []}
+                    onEndpointClick={onEndpointClick}
                   />
                 ))}
               </div>
@@ -202,7 +210,8 @@ interface SecretManagementRowProps {
   onToggleExpand: () => void;
   onUpdate: () => void;
   onDelete: () => void;
-  routeNames: string[];
+  endpoints: Endpoint[];
+  onEndpointClick?: (endpoint: Endpoint) => void;
 }
 
 const SecretManagementRow = ({
@@ -211,7 +220,8 @@ const SecretManagementRow = ({
   onToggleExpand,
   onUpdate,
   onDelete,
-  routeNames,
+  endpoints,
+  onEndpointClick,
 }: SecretManagementRowProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -225,9 +235,9 @@ const SecretManagementRow = ({
   const hasZeroUsage = usageCount === 0;
 
   const formatResourceType = (binding: any) => {
-    // If this is a route binding, show "Route" regardless of the resource_type field
+    // If this is an endpoint binding, show "Endpoint" regardless of the resource_type field
     if (binding.endpoint_id) {
-      return 'Route';
+      return 'Endpoint';
     }
     // Convert SCORER_JOB to "Scorer Job", GLOBAL to "Global", etc.
     return binding.resource_type
@@ -237,7 +247,7 @@ const SecretManagementRow = ({
   };
 
   const getResourceDisplay = (binding: any) => {
-    // For route bindings, show the route name instead of resource_id
+    // For endpoint bindings, show the endpoint name instead of resource_id
     if (binding.endpoint_id) {
       return binding.route_name || binding.endpoint_id;
     }
@@ -369,7 +379,7 @@ const SecretManagementRow = ({
             <div css={{ display: 'flex', justifyContent: 'center', padding: theme.spacing.lg }}>
               <Spinner />
             </div>
-          ) : bindings.length === 0 ? (
+          ) : endpoints.length === 0 && bindings.length === 0 ? (
             <div
               css={{
                 padding: theme.spacing.lg,
@@ -381,21 +391,21 @@ const SecretManagementRow = ({
             >
               <Typography.Text color="secondary">
                 <FormattedMessage
-                  defaultMessage="This secret is not currently being used by any resources or routes."
+                  defaultMessage="This secret is not currently being used by any resources or endpoints."
                   description="Secret management drawer > no bindings message"
                 />
               </Typography.Text>
             </div>
           ) : (
             <div css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.lg }}>
-              {/* Routes section */}
-              {routeNames.length > 0 && (
+              {/* Endpoints section */}
+              {endpoints.length > 0 && (
                 <div>
                   <Typography.Title level={5} css={{ marginTop: theme.spacing.md, marginBottom: theme.spacing.sm }}>
                     <FormattedMessage
-                      defaultMessage="Routes ({count})"
-                      description="Secret management drawer > routes section title"
-                      values={{ count: routeNames.length }}
+                      defaultMessage="Endpoints ({count})"
+                      description="Secret management drawer > endpoints section title"
+                      values={{ count: endpoints.length }}
                     />
                   </Typography.Title>
                   <div
@@ -405,18 +415,40 @@ const SecretManagementRow = ({
                       gap: theme.spacing.sm,
                     }}
                   >
-                    {routeNames.map((routeName, index) => (
+                    {endpoints.map((endpoint) => (
                       <div
-                        key={index}
+                        key={endpoint.endpoint_id}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onEndpointClick) {
+                            onEndpointClick(endpoint);
+                          }
+                        }}
                         css={{
                           padding: theme.spacing.sm,
                           backgroundColor: theme.colors.backgroundPrimary,
                           borderRadius: theme.borders.borderRadiusMd,
                           border: `1px solid ${theme.colors.border}`,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          pointerEvents: 'auto',
+                          '&:hover': {
+                            backgroundColor: theme.colors.actionDefaultBackgroundHover,
+                            borderColor: theme.colors.actionDefaultBorderHover,
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                          },
                         }}
                       >
-                        <Typography.Text css={{ fontFamily: 'monospace', fontSize: theme.typography.fontSizeSm }}>
-                          {routeName}
+                        <Typography.Text
+                          css={{
+                            fontFamily: 'monospace',
+                            fontSize: theme.typography.fontSizeSm,
+                            fontWeight: 600,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          {endpoint.name || endpoint.endpoint_id}
                         </Typography.Text>
                       </div>
                     ))}

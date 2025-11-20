@@ -4019,18 +4019,21 @@ def _update_endpoint_model():
         schema={
             "endpoint_id": [_assert_required, _assert_string],
             "model_id": [_assert_required, _assert_string],
+            "model_name": [_assert_string],
             "secret_id": [_assert_string],
             "routing_config": [_assert_string],
             "updated_by": [_assert_string],
         },
     )
 
+    has_model_name = request_message.HasField("model_name")
     has_secret_id = request_message.HasField("secret_id")
     has_routing_config = request_message.HasField("routing_config")
 
     endpoint = _get_tracking_store()._update_endpoint_model(
         endpoint_id=request_message.endpoint_id,
         model_id=request_message.model_id,
+        model_name=request_message.model_name if has_model_name else None,
         secret_id=request_message.secret_id if has_secret_id else None,
         routing_config=request_message.routing_config if has_routing_config else None,
         updated_by=request_message.updated_by or None,

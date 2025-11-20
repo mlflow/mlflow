@@ -87,8 +87,10 @@ export const SecretManagementModal = ({
     }
   };
 
-  // Find routes using this secret
-  const routesUsingSecret = routes.filter((r) => r.secret_id === secret?.secret_id);
+  // Find endpoints using this secret (check each model's secret_id)
+  const routesUsingSecret = routes.filter((endpoint) =>
+    endpoint.models.some((model) => model.secret_id === secret?.secret_id),
+  );
 
   // Get unique resource bindings (not route bindings)
   const resourceBindings = bindings.filter((b) => b.secret_id === secret?.secret_id);
@@ -158,10 +160,15 @@ export const SecretManagementModal = ({
               />
             </Typography.Title>
             <ul css={{ margin: 0, paddingLeft: theme.spacing.lg }}>
-              {routesUsingSecret.map((route) => (
-                <li key={route.endpoint_id}>
+              {routesUsingSecret.map((endpoint) => (
+                <li key={endpoint.endpoint_id}>
                   <Typography.Text>
-                    {route.name || route.endpoint_id} ({route.model_name})
+                    {endpoint.name || endpoint.endpoint_id} (
+                    {endpoint.models
+                      .filter((model) => model.secret_id === secret?.secret_id)
+                      .map((model) => model.model_name)
+                      .join(', ')}
+                    )
                   </Typography.Text>
                 </li>
               ))}

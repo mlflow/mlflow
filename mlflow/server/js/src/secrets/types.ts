@@ -79,7 +79,8 @@ export interface ListBindingsResponse {
 }
 
 // Endpoint types for endpoint-centric architecture
-export interface Endpoint {
+// API response format - single route per model
+export interface RouteResponse {
   endpoint_id: string;
   secret_id: string;
   secret_name?: string; // Name of the secret/API key being used
@@ -119,7 +120,7 @@ export interface CreateEndpointRequest_Legacy {
 
 export interface CreateEndpointResponse_Legacy {
   secret?: Secret; // Present if new secret was created
-  route: Endpoint;
+  route: RouteResponse;
   binding?: SecretBinding;
 }
 
@@ -142,16 +143,16 @@ export interface UpdateEndpointRequest_Legacy {
 }
 
 export interface UpdateEndpointResponse_Legacy {
-  route: Endpoint;
+  route: RouteResponse;
   secret: Secret;
 }
 
 export interface ListEndpointsResponse_Legacy {
-  routes: Endpoint[];
+  routes: RouteResponse[];
 }
 
-// Backend types for Endpoints (multi-model architecture from API)
-export interface BackendEndpointModel {
+// Endpoint model type (individual model within an endpoint)
+export interface EndpointModel {
   model_id: string;
   model_name: string;
   secret_id: string;
@@ -163,11 +164,11 @@ export interface BackendEndpointModel {
   last_updated_by?: string;
 }
 
-export interface BackendEndpoint {
+export interface Endpoint {
   endpoint_id: string;
   name?: string;
   description?: string;
-  models: BackendEndpointModel[];
+  models: EndpointModel[];
   tags?: Array<{ key: string; value: string }> | Record<string, string>;
   created_at: number;
   last_updated_at: number;
@@ -187,7 +188,7 @@ export interface CreateEndpointRequest {
 }
 
 export interface CreateEndpointResponse {
-  endpoint: BackendEndpoint;
+  endpoint: Endpoint;
 }
 
 export interface UpdateEndpointRequest {
@@ -198,11 +199,11 @@ export interface UpdateEndpointRequest {
 }
 
 export interface UpdateEndpointResponse {
-  endpoint: BackendEndpoint;
+  endpoint: Endpoint;
 }
 
 export interface ListEndpointsResponse {
-  routes: BackendEndpoint[];
+  routes: Endpoint[];
 }
 
 export interface BindEndpointRequest {
@@ -214,4 +215,39 @@ export interface BindEndpointRequest {
 
 export interface BindEndpointResponse {
   binding_id: string;
+}
+
+// Model-level CRUD operations
+export interface AddEndpointModelRequest {
+  endpoint_id: string;
+  model_name: string;
+  secret_id: string;
+  routing_config?: Record<string, any>;
+  created_by?: string;
+}
+
+export interface AddEndpointModelResponse {
+  endpoint: Endpoint;
+}
+
+export interface UpdateEndpointModelRequest {
+  endpoint_id: string;
+  model_id: string;
+  model_name?: string;
+  secret_id?: string;
+  routing_config?: Record<string, any>;
+  updated_by?: string;
+}
+
+export interface UpdateEndpointModelResponse {
+  endpoint: Endpoint;
+}
+
+export interface RemoveEndpointModelRequest {
+  endpoint_id: string;
+  model_id: string;
+}
+
+export interface RemoveEndpointModelResponse {
+  endpoint: Endpoint;
 }

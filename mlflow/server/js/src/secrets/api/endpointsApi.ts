@@ -52,4 +52,22 @@ export const endpointsApi = {
       binding_id: bindingId,
     });
   },
+
+  listEndpointBindings: async (params: {
+    endpoint_id?: string;
+    secret_id?: string;
+    resource_type?: string;
+    resource_id?: string;
+  }): Promise<import('../types').ListBindingsResponse> => {
+    const queryParams = new URLSearchParams();
+    if (params.endpoint_id) queryParams.append('endpoint_id', params.endpoint_id);
+    if (params.secret_id) queryParams.append('secret_id', params.secret_id);
+    if (params.resource_type) queryParams.append('resource_type', params.resource_type);
+    if (params.resource_id) queryParams.append('resource_id', params.resource_id);
+
+    return (await fetchAPI(
+      getAjaxUrl(`ajax-api/3.0/mlflow/secrets/bindings/list?${queryParams.toString()}`),
+      'GET',
+    )) as import('../types').ListBindingsResponse;
+  },
 };

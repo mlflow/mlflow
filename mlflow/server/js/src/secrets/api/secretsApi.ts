@@ -10,6 +10,14 @@ import type {
   ListSecretsResponse,
   ListBindingsResponse,
   Secret,
+  UpdateEndpointRequest,
+  UpdateEndpointResponse,
+  AddEndpointModelRequest,
+  AddEndpointModelResponse,
+  UpdateEndpointModelRequest,
+  UpdateEndpointModelResponse,
+  RemoveEndpointModelRequest,
+  RemoveEndpointModelResponse,
 } from '../types';
 
 export const secretsApi = {
@@ -46,5 +54,39 @@ export const secretsApi = {
 
   unbindSecret: async (request: UnbindSecretRequest): Promise<void> => {
     await fetchAPI(getAjaxUrl('ajax-api/3.0/mlflow/secrets/unbind'), 'POST', request);
+  },
+
+  // Endpoint-level operations
+  updateEndpoint: async (request: UpdateEndpointRequest): Promise<UpdateEndpointResponse> => {
+    return (await fetchAPI(
+      getAjaxUrl('ajax-api/3.0/mlflow/secrets/endpoints/update'),
+      'PATCH',
+      request,
+    )) as UpdateEndpointResponse;
+  },
+
+  // Model-level CRUD operations
+  addEndpointModel: async (request: AddEndpointModelRequest): Promise<AddEndpointModelResponse> => {
+    return (await fetchAPI(
+      getAjaxUrl('ajax-api/3.0/mlflow/secrets/endpoints/models/add'),
+      'POST',
+      request,
+    )) as AddEndpointModelResponse;
+  },
+
+  updateEndpointModel: async (request: UpdateEndpointModelRequest): Promise<UpdateEndpointModelResponse> => {
+    return (await fetchAPI(
+      getAjaxUrl('ajax-api/3.0/mlflow/secrets/endpoints/models/update'),
+      'PATCH',
+      request,
+    )) as UpdateEndpointModelResponse;
+  },
+
+  removeEndpointModel: async (request: RemoveEndpointModelRequest): Promise<RemoveEndpointModelResponse> => {
+    return (await fetchAPI(
+      getAjaxUrl('ajax-api/3.0/mlflow/secrets/endpoints/models/delete'),
+      'DELETE',
+      request,
+    )) as RemoveEndpointModelResponse;
   },
 };

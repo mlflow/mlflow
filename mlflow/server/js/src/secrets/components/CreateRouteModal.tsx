@@ -8,6 +8,7 @@ import {
   Input,
   Modal,
   Button,
+  Radio,
   RefreshIcon,
   useDesignSystemTheme,
   Typography,
@@ -31,6 +32,7 @@ import { MaskedApiKeyInput } from './MaskedApiKeyInput';
 import { AuthConfigFields } from './AuthConfigFields';
 import { groupModelsByFamily } from './routeUtils';
 import { PROVIDERS, EMPTY_MODEL_ARRAY, type Model } from './routeConstants';
+import { useListSecrets } from '../hooks/useListSecrets';
 
 const EMPTY_TAG_ENTITY = { key: '', value: '' };
 const EMPTY_TAG_ARRAY: { key: string; value: string }[] = [];
@@ -44,6 +46,7 @@ interface CreateRouteModalProps {
 interface FormErrors {
   customProvider?: string;
   apiKey?: string;
+  secretId?: string;
   modelName?: string;
   routeName?: string;
   envVarKey?: string;
@@ -51,10 +54,16 @@ interface FormErrors {
   authConfig?: Record<string, string>;
 }
 
+type SecretSource = 'existing' | 'new';
+
 export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteModalProps) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
 
+  const { secrets = [] } = useListSecrets({ enabled: visible });
+
+  const [secretSource, setSecretSource] = useState<SecretSource>('new');
+  const [selectedSecretId, setSelectedSecretId] = useState('');
   const [provider, setProvider] = useState('');
   const [customProvider, setCustomProvider] = useState('');
   const [apiKey, setApiKey] = useState('');
@@ -118,12 +127,40 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
   // Group models by family for elegant display
   const groupedModels = useMemo(() => groupModelsByFamily(availableModels), [availableModels]);
 
+  // Filter secrets to only show compatible ones based on provider
+  const compatibleSecrets = useMemo(() => {
+    if (!provider) return secrets;
+
+    const providerValue = provider === 'custom' ? customProvider : provider;
+    if (!providerValue) return secrets;
+
+    return secrets.filter((secret) => {
+      if (secret.provider) {
+        return secret.provider.toLowerCase() === providerValue.toLowerCase();
+      }
+      // Fallback to name-based matching if provider field not set
+      const secretNameLower = secret.secret_name.toLowerCase();
+      const providerLower = providerValue.toLowerCase();
+      if (providerLower === 'openai') return secretNameLower.includes('openai');
+      if (providerLower === 'anthropic') return secretNameLower.includes('anthropic') || secretNameLower.includes('claude');
+      if (providerLower === 'bedrock') return secretNameLower.includes('bedrock') || secretNameLower.includes('aws');
+      if (providerLower === 'vertex_ai') return secretNameLower.includes('vertex') || secretNameLower.includes('gemini') || secretNameLower.includes('google');
+      if (providerLower === 'azure') return secretNameLower.includes('azure');
+      if (providerLower === 'databricks') return secretNameLower.includes('databricks');
+      return true;
+    });
+  }, [secrets, provider, customProvider]);
+
   // Determine if we can show the next section
   const canShowApiKeySection = provider !== '' && (provider !== 'custom' || customProvider.trim().length > 0);
-  const canShowModelSection = canShowApiKeySection && apiKey.trim().length > 0;
+  const canShowModelSection = secretSource === 'existing'
+    ? canShowApiKeySection && selectedSecretId.trim().length > 0
+    : canShowApiKeySection && apiKey.trim().length > 0;
   const canShowRouteDetailsSection = canShowModelSection && (selectedModelFromList || modelName.trim().length > 0);
 
   const handleReset = () => {
+    setSecretSource('new');
+    setSelectedSecretId('');
     setProvider('');
     setCustomProvider('');
     setApiKey('');
@@ -229,30 +266,40 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
       });
     }
 
-    if (!apiKey.trim()) {
-      newErrors.apiKey = intl.formatMessage({
-        defaultMessage: 'API key is required',
-        description: 'API key required error',
-      });
-    }
+    // Validate secret selection based on source
+    if (secretSource === 'existing') {
+      if (!selectedSecretId.trim()) {
+        newErrors.secretId = intl.formatMessage({
+          defaultMessage: 'Please select an API key',
+          description: 'Secret selection required error',
+        });
+      }
+    } else {
+      if (!apiKey.trim()) {
+        newErrors.apiKey = intl.formatMessage({
+          defaultMessage: 'API key is required',
+          description: 'API key required error',
+        });
+      }
 
-    // Validate required auth config fields
-    const authConfigErrors: Record<string, string> = {};
-    if (selectedProviderInfo?.authConfigFields) {
-      selectedProviderInfo.authConfigFields.forEach((field) => {
-        if (field.required && !authConfig[field.name]?.trim()) {
-          authConfigErrors[field.name] = intl.formatMessage(
-            {
-              defaultMessage: '{fieldLabel} is required',
-              description: 'Auth config field required error',
-            },
-            { fieldLabel: field.label },
-          );
-        }
-      });
-    }
-    if (Object.keys(authConfigErrors).length > 0) {
-      newErrors.authConfig = authConfigErrors;
+      // Validate required auth config fields (only for new secrets)
+      const authConfigErrors: Record<string, string> = {};
+      if (selectedProviderInfo?.authConfigFields) {
+        selectedProviderInfo.authConfigFields.forEach((field) => {
+          if (field.required && !authConfig[field.name]?.trim()) {
+            authConfigErrors[field.name] = intl.formatMessage(
+              {
+                defaultMessage: '{fieldLabel} is required',
+                description: 'Auth config field required error',
+              },
+              { fieldLabel: field.label },
+            );
+          }
+        });
+      }
+      if (Object.keys(authConfigErrors).length > 0) {
+        newErrors.authConfig = authConfigErrors;
+      }
     }
 
     const finalModelName = selectedModelFromList || modelName;
@@ -285,27 +332,43 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
     setIsLoading(true);
 
     try {
-      // Use user-provided key name or generate from provider and env var key as fallback
-      const secretName = keyName.trim() || `${effectiveProvider.toLowerCase()}_${envVarKey.toLowerCase()}`;
-
       // Get tags from form and filter out empty entries
       const tagsArray = tagsForm.getValues('tags') || [];
       const validTags = tagsArray.filter((tag) => tag.key && tag.value);
 
-      const routeData = {
-        secret_name: secretName,
-        secret_value: apiKey,
-        provider: effectiveProvider,
-        model_name: finalModelName,
-        route_name: routeName,
-        route_description: description || undefined,
-        route_tags: validTags.length > 0 ? JSON.stringify(validTags) : undefined,
-        resource_type: 'GLOBAL',
-        resource_id: 'global',
-        field_name: envVarKey,
-        is_shared: true,
-        auth_config: Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined,
-      };
+      let routeData: any;
+
+      if (secretSource === 'existing') {
+        // Using existing secret - only pass secret_id
+        routeData = {
+          secret_id: selectedSecretId,
+          model_name: finalModelName,
+          route_name: routeName,
+          route_description: description || undefined,
+          route_tags: validTags.length > 0 ? JSON.stringify(validTags) : undefined,
+          resource_type: 'GLOBAL',
+          resource_id: 'global',
+          field_name: envVarKey,
+        };
+      } else {
+        // Creating new secret - pass all secret details
+        const secretName = keyName.trim() || `${effectiveProvider.toLowerCase()}_${envVarKey.toLowerCase()}`;
+
+        routeData = {
+          secret_name: secretName,
+          secret_value: apiKey,
+          provider: effectiveProvider,
+          model_name: finalModelName,
+          route_name: routeName,
+          route_description: description || undefined,
+          route_tags: validTags.length > 0 ? JSON.stringify(validTags) : undefined,
+          resource_type: 'GLOBAL',
+          resource_id: 'global',
+          field_name: envVarKey,
+          is_shared: true,
+          auth_config: Object.keys(authConfig).length > 0 ? JSON.stringify(authConfig) : undefined,
+        };
+      }
 
       await onCreate?.(routeData);
       handleReset();
@@ -505,76 +568,152 @@ export const CreateRouteModal = ({ visible, onCancel, onCreate }: CreateRouteMod
                 <FormattedMessage defaultMessage="Configure API Key" description="API key step title" />
               </Typography.Title>
             </div>
-            <div>
-              <FormUI.Label htmlFor="api-key-input">
-                <FormattedMessage defaultMessage="API Key" description="API key label" />
-              </FormUI.Label>
-              <MaskedApiKeyInput
-                componentId="mlflow.routes.create_route_modal.api_key"
-                id="api-key-input"
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'sk-...',
-                  description: 'API key placeholder',
-                })}
-                value={apiKey}
-                onChange={(value) => {
-                  setApiKey(value);
-                  const { apiKey: _, ...rest } = errors;
-                  setErrors(rest);
+
+            {/* Radio group for selecting existing vs new secret */}
+            <div css={{ marginBottom: theme.spacing.md }}>
+              <Radio.Group
+                componentId="mlflow.routes.create_route_modal.secret_source"
+                name="secret-source"
+                value={secretSource}
+                onChange={(e) => {
+                  setSecretSource(e.target.value as SecretSource);
+                  setErrors({});
                 }}
-              />
-              {errors.apiKey && <FormUI.Message type="error" message={errors.apiKey} />}
-              <FormUI.Hint css={{ marginTop: theme.spacing.sm }}>
-                <FormattedMessage
-                  defaultMessage="Your API key will be encrypted and stored securely"
-                  description="API key security hint"
-                />
-              </FormUI.Hint>
+              >
+                <Radio value="existing">
+                  <FormattedMessage
+                    defaultMessage="Use Existing Key"
+                    description="Use existing secret option"
+                  />
+                </Radio>
+                <Radio value="new">
+                  <FormattedMessage
+                    defaultMessage="Create New Key"
+                    description="Create new secret option"
+                  />
+                </Radio>
+              </Radio.Group>
             </div>
 
-            <div css={{ marginTop: theme.spacing.md }}>
-              <FormUI.Label htmlFor="key-name-input">
-                <FormattedMessage defaultMessage="Key Name (Optional)" description="Key name label" />
-              </FormUI.Label>
-              <Input
-                componentId="mlflow.routes.create_route_modal.key_name"
-                id="key-name-input"
-                placeholder={intl.formatMessage({
-                  defaultMessage: 'e.g., openai_production_key',
-                  description: 'Key name placeholder',
-                })}
-                value={keyName}
-                onChange={(e) => setKeyName(e.target.value)}
-              />
-              <FormUI.Hint css={{ marginTop: theme.spacing.sm }}>
-                <FormattedMessage
-                  defaultMessage="Give this key a memorable name. If not specified, a name will be auto-generated."
-                  description="Key name hint"
-                />
-              </FormUI.Hint>
-            </div>
-
-            {/* Provider-specific auth config fields */}
-            <div css={{ marginTop: theme.spacing.md }}>
-              <AuthConfigFields
-                fields={selectedProviderInfo?.authConfigFields || []}
-                values={authConfig}
-                errors={errors.authConfig}
-                onChange={(name, value) => {
-                  setAuthConfig((prev) => ({ ...prev, [name]: value }));
-                  if (errors.authConfig?.[name]) {
-                    setErrors((prev) => ({
-                      ...prev,
-                      authConfig: {
-                        ...prev.authConfig,
-                        [name]: undefined,
-                      } as Record<string, string>,
-                    }));
+            {/* Existing secret selection */}
+            {secretSource === 'existing' && (
+              <div>
+                <DialogCombobox
+                  componentId="mlflow.routes.create_route_modal.existing_secret"
+                  label={intl.formatMessage({
+                    defaultMessage: 'Select API Key',
+                    description: 'Select API key label',
+                  })}
+                  value={
+                    selectedSecretId
+                      ? [compatibleSecrets.find((s) => s.secret_id === selectedSecretId)?.secret_name || '']
+                      : []
                   }
-                }}
-                componentIdPrefix="mlflow.routes.create_route_modal.auth_config"
-              />
-            </div>
+                >
+                  <DialogComboboxTrigger
+                    allowClear={false}
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'Select Existing API Key',
+                      description: 'Select existing API key placeholder',
+                    })}
+                  />
+                  <DialogComboboxContent>
+                    <DialogComboboxOptionList>
+                      {compatibleSecrets.map((secret) => (
+                        <DialogComboboxOptionListSelectItem
+                          key={secret.secret_id}
+                          checked={selectedSecretId === secret.secret_id}
+                          value={secret.secret_name}
+                          onChange={() => {
+                            setSelectedSecretId(secret.secret_id);
+                            setErrors((prev) => ({ ...prev, secretId: undefined }));
+                          }}
+                        >
+                          <Typography.Text>{secret.secret_name}</Typography.Text>
+                        </DialogComboboxOptionListSelectItem>
+                      ))}
+                    </DialogComboboxOptionList>
+                  </DialogComboboxContent>
+                </DialogCombobox>
+                {errors.secretId && <FormUI.Message type="error" message={errors.secretId} />}
+              </div>
+            )}
+
+            {/* New secret creation */}
+            {secretSource === 'new' && (
+              <>
+                <div>
+                  <FormUI.Label htmlFor="api-key-input">
+                    <FormattedMessage defaultMessage="API Key" description="API key label" />
+                  </FormUI.Label>
+                  <MaskedApiKeyInput
+                    componentId="mlflow.routes.create_route_modal.api_key"
+                    id="api-key-input"
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'sk-...',
+                      description: 'API key placeholder',
+                    })}
+                    value={apiKey}
+                    onChange={(value) => {
+                      setApiKey(value);
+                      const { apiKey: _, ...rest } = errors;
+                      setErrors(rest);
+                    }}
+                  />
+                  {errors.apiKey && <FormUI.Message type="error" message={errors.apiKey} />}
+                  <FormUI.Hint css={{ marginTop: theme.spacing.sm }}>
+                    <FormattedMessage
+                      defaultMessage="Your API key will be encrypted and stored securely"
+                      description="API key security hint"
+                    />
+                  </FormUI.Hint>
+                </div>
+
+                <div css={{ marginTop: theme.spacing.md }}>
+                  <FormUI.Label htmlFor="key-name-input">
+                    <FormattedMessage defaultMessage="Key Name (Optional)" description="Key name label" />
+                  </FormUI.Label>
+                  <Input
+                    componentId="mlflow.routes.create_route_modal.key_name"
+                    id="key-name-input"
+                    placeholder={intl.formatMessage({
+                      defaultMessage: 'e.g., openai_production_key',
+                      description: 'Key name placeholder',
+                    })}
+                    value={keyName}
+                    onChange={(e) => setKeyName(e.target.value)}
+                  />
+                  <FormUI.Hint css={{ marginTop: theme.spacing.sm }}>
+                    <FormattedMessage
+                      defaultMessage="Give this key a memorable name. If not specified, a name will be auto-generated."
+                      description="Key name hint"
+                    />
+                  </FormUI.Hint>
+                </div>
+
+                {/* Provider-specific auth config fields */}
+                <div css={{ marginTop: theme.spacing.md }}>
+                  <AuthConfigFields
+                    fields={selectedProviderInfo?.authConfigFields || []}
+                    values={authConfig}
+                    errors={errors.authConfig}
+                    onChange={(name, value) => {
+                      setAuthConfig((prev) => ({ ...prev, [name]: value }));
+                      if (errors.authConfig?.[name]) {
+                        setErrors((prev) => ({
+                          ...prev,
+                          authConfig: {
+                            ...prev.authConfig,
+                            [name]: undefined,
+                          } as Record<string, string>,
+                        }));
+                      }
+                    }}
+                    componentIdPrefix="mlflow.routes.create_route_modal.auth_config"
+                  />
+                </div>
+              </>
+            )}
           </div>
         )}
 

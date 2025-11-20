@@ -23,7 +23,7 @@ export const GatewayRequiresSqlBackend = ({ storeType }: { storeType?: string | 
           description={
             <div css={{ textAlign: 'left' as const }}>
               <FormattedMessage
-                defaultMessage="Gateway features (secrets and routes management) require a SQL database backend. You are currently using {storeType}."
+                defaultMessage="Gateway features (secrets and endpoints management) require a SQL database backend. You are currently using {storeType}."
                 description="Empty state description for Gateway when FileStore backend is detected"
                 values={{
                   storeType: storeType || 'FileStore',

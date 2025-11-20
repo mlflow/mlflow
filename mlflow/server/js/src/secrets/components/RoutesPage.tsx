@@ -28,14 +28,12 @@ import { useBackendSupport } from '@mlflow/mlflow/src/common/hooks/useBackendSup
 import { useListEndpoints } from '../hooks/useListEndpoints';
 import { useListSecrets } from '../hooks/useListSecrets';
 import { useCreateEndpoint } from '../hooks/useCreateEndpoint';
-import { useUpdateEndpoint } from '../hooks/useUpdateEndpoint';
 import { useDeleteEndpointMutation } from '../hooks/useDeleteEndpointMutation';
 import { useRoutesTagsFilter } from '../hooks/useRoutesTagsFilter';
 import { CreateRouteModal } from './CreateRouteModal';
-import { AddRouteModal } from './AddRouteModal';
 import { RoutesTable } from './RoutesTable';
 import { RouteDetailDrawer } from './RouteDetailDrawer';
-import { UpdateRouteModal } from './UpdateRouteModal';
+// import { UpdateRouteModal } from './UpdateRouteModal'; // Disabled: not compatible with multi-model architecture
 import { SecretManagementDrawer } from './SecretManagementDrawer';
 import { GatewayRequiresSqlBackend } from './GatewayRequiresSqlBackend';
 import type { Endpoint } from '../types';
@@ -50,7 +48,6 @@ export default function RoutesPage() {
   const { endpoints = [], isLoading, error } = useListEndpoints({ enabled: isSqlBackend === true });
   const { secrets = [], refetch: refetchSecrets } = useListSecrets({ enabled: true });
   const { createEndpointAsync } = useCreateEndpoint();
-  const { updateEndpointAsync } = useUpdateEndpoint();
   const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useRoutesTagsFilter();
   const { deleteEndpoint, isLoading: isDeleting } = useDeleteEndpointMutation({
     onSuccess: () => {
@@ -73,8 +70,7 @@ export default function RoutesPage() {
     },
   });
   const [showCreateRouteModal, setShowCreateRouteModal] = useState(false);
-  const [showAddRouteModal, setShowAddRouteModal] = useState(false);
-  const [showUpdateRouteModal, setShowUpdateRouteModal] = useState(false);
+  // const [showUpdateRouteModal, setShowUpdateRouteModal] = useState(false); // Disabled: not compatible with multi-model architecture
   const [showManagementDrawer, setShowManagementDrawer] = useState(false);
   const [selectedEndpoint, setSelectedEndpoint] = useState<Endpoint | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -131,8 +127,8 @@ export default function RoutesPage() {
       const matchesSearch = debouncedSearchText
         ? (endpoint.name && endpoint.name.toLowerCase().includes(debouncedSearchText.toLowerCase())) ||
           endpoint.endpoint_id.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-          endpoint.model_name.toLowerCase().includes(debouncedSearchText.toLowerCase()) ||
-          (endpoint.provider && endpoint.provider.toLowerCase().includes(debouncedSearchText.toLowerCase()))
+          (endpoint.models && endpoint.models.some((m) => m.model_name.toLowerCase().includes(debouncedSearchText.toLowerCase()))) ||
+          (endpoint.models && endpoint.models.some((m) => m.provider && m.provider.toLowerCase().includes(debouncedSearchText.toLowerCase())))
         : true;
 
       const matchesTags =
@@ -168,6 +164,16 @@ export default function RoutesPage() {
       return matchesSearch && matchesTags;
     });
   }, [endpoints, debouncedSearchText, tagsFilter]);
+
+  const handleEndpointClick = useCallback((endpoint: Endpoint) => {
+    // Close management drawer first
+    setShowManagementDrawer(false);
+    // Set selected endpoint and open drawer after brief delay
+    setTimeout(() => {
+      setSelectedEndpoint(endpoint);
+      setIsDrawerOpen(true);
+    }, 100);
+  }, []);
 
   // Show placeholder if FileStore is detected
   if (isCheckingBackend) {
@@ -271,31 +277,6 @@ export default function RoutesPage() {
     }
   };
 
-  const handleAddRoute = async (routeData: any) => {
-    try {
-      await createEndpointAsync(routeData);
-      notification.success({
-        message: intl.formatMessage({
-          defaultMessage: 'Endpoint added successfully',
-          description: 'Endpoints page > add endpoint success notification',
-        }),
-      });
-      setShowAddRouteModal(false);
-    } catch (err: any) {
-      const errorMsg = err.message || err.error_message || String(err);
-
-      // Don't show notification for binding conflicts - the modal handles these
-      if (!errorMsg.includes('Binding already exists')) {
-        const { title, description } = parseErrorMessage(err);
-        notification.error({
-          message: title,
-          description,
-        });
-      }
-      throw err;
-    }
-  };
-
   const handleRowClick = (endpoint: Endpoint) => {
     setSelectedEndpoint(endpoint);
     setIsDrawerOpen(true);
@@ -307,56 +288,58 @@ export default function RoutesPage() {
     setTimeout(() => setSelectedEndpoint(null), 200);
   };
 
-  const handleUpdateRoute = (endpoint: Endpoint) => {
-    setSelectedEndpoint(endpoint);
-    setIsDrawerOpen(false);
-    setShowUpdateRouteModal(true);
-  };
+  // Disabled: UpdateRouteModal not compatible with multi-model architecture
+  // const handleUpdateRoute = (endpoint: Endpoint) => {
+  //   setSelectedEndpoint(endpoint);
+  //   setIsDrawerOpen(false);
+  //   setShowUpdateRouteModal(true);
+  // };
 
-  const handleUpdateRouteSubmit = async (
-    endpointId: string,
-    updateData: {
-      secret_id?: string;
-      secret_name?: string;
-      secret_value?: string;
-      provider?: string;
-      auth_config?: string;
-      route_description?: string;
-      route_tags?: string;
-    },
-  ) => {
-    if (!selectedEndpoint) return;
+  // Disabled: UpdateRouteModal not compatible with multi-model architecture
+  // const handleUpdateRouteSubmit = async (
+  //   endpointId: string,
+  //   updateData: {
+  //     secret_id?: string;
+  //     secret_name?: string;
+  //     secret_value?: string;
+  //     provider?: string;
+  //     auth_config?: string;
+  //     route_description?: string;
+  //     route_tags?: string;
+  //   },
+  // ) => {
+  //   if (!selectedEndpoint) return;
 
-    try {
-      await updateEndpointAsync({
-        endpoint_id: endpointId,
-        ...updateData,
-      });
+  //   try {
+  //     await updateEndpointAsync({
+  //       endpoint_id: endpointId,
+  //       ...updateData,
+  //     });
 
-      // Refetch secrets if we created a new one
-      if (updateData.secret_name) {
-        refetchSecrets();
-      }
+  //     // Refetch secrets if we created a new one
+  //     if (updateData.secret_name) {
+  //       refetchSecrets();
+  //     }
 
-      notification.success({
-        message: intl.formatMessage({
-          defaultMessage: 'Endpoint updated successfully',
-          description: 'Endpoints page > update endpoint success notification',
-        }),
-      });
-      setShowUpdateRouteModal(false);
-    } catch (err: any) {
-      const errorMsg = err.message || err.error_message || String(err);
-      notification.error({
-        message: intl.formatMessage({
-          defaultMessage: 'Failed to update endpoint',
-          description: 'Endpoints page > update endpoint error title',
-        }),
-        description: errorMsg,
-      });
-      throw err;
-    }
-  };
+  //     notification.success({
+  //       message: intl.formatMessage({
+  //         defaultMessage: 'Endpoint updated successfully',
+  //         description: 'Endpoints page > update endpoint success notification',
+  //       }),
+  //     });
+  //     setShowUpdateRouteModal(false);
+  //   } catch (err: any) {
+  //     const errorMsg = err.message || err.error_message || String(err);
+  //     notification.error({
+  //       message: intl.formatMessage({
+  //         defaultMessage: 'Failed to update endpoint',
+  //         description: 'Endpoints page > update endpoint error title',
+  //       }),
+  //       description: errorMsg,
+  //     });
+  //     throw err;
+  //   }
+  // };
 
   const handleDeleteRoute = (endpoint: Endpoint) => {
     deleteEndpoint(endpoint.endpoint_id);
@@ -401,31 +384,6 @@ export default function RoutesPage() {
             >
               <FormattedMessage defaultMessage="Manage Secrets" description="Manage secrets button label" />
             </Button>
-            <Tooltip
-              componentId="mlflow.routes.add_route_button_tooltip"
-              content={
-                secrets.length === 0
-                  ? intl.formatMessage({
-                      defaultMessage: 'An endpoint needs to be created first',
-                      description: 'Endpoints page > add endpoint button disabled tooltip',
-                    })
-                  : undefined
-              }
-            >
-              <span>
-                <Button
-                  componentId="mlflow.routes.add_route_button"
-                  onClick={() => setShowAddRouteModal(true)}
-                  icon={<PlusIcon />}
-                  disabled={secrets.length === 0}
-                >
-                  <FormattedMessage
-                    defaultMessage="Add Endpoint"
-                    description="Add endpoint button label (use existing secret)"
-                  />
-                </Button>
-              </span>
-            </Tooltip>
             <Button
               componentId="mlflow.routes.create_route_button"
               type="primary"
@@ -533,33 +491,27 @@ export default function RoutesPage() {
         onCancel={() => setShowCreateRouteModal(false)}
         onCreate={handleCreateRoute}
       />
-      <AddRouteModal
-        visible={showAddRouteModal}
-        onCancel={() => setShowAddRouteModal(false)}
-        onCreate={handleAddRoute}
-        onOpenCreateModal={() => {
-          setShowAddRouteModal(false);
-          setShowCreateRouteModal(true);
-        }}
-        availableSecrets={secrets}
-      />
 
       <RouteDetailDrawer
         route={selectedEndpoint}
         open={isDrawerOpen}
         onClose={handleDrawerClose}
-        onUpdate={handleUpdateRouteSubmit}
         onDelete={handleDeleteRoute}
       />
 
-      <UpdateRouteModal
+      {/* Disabled: UpdateRouteModal not compatible with multi-model architecture */}
+      {/* <UpdateRouteModal
         route={selectedEndpoint}
         visible={showUpdateRouteModal}
         onCancel={() => setShowUpdateRouteModal(false)}
         onUpdate={handleUpdateRouteSubmit}
-      />
+      /> */}
 
-      <SecretManagementDrawer open={showManagementDrawer} onClose={() => setShowManagementDrawer(false)} />
+      <SecretManagementDrawer
+        open={showManagementDrawer}
+        onClose={() => setShowManagementDrawer(false)}
+        onEndpointClick={handleEndpointClick}
+      />
     </ScrollablePageWrapper>
   );
 }

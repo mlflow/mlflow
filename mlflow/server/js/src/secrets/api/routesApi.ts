@@ -100,14 +100,22 @@ export const endpointsApi_Legacy = {
       secretId = secretResponse.secret.secret_id;
     }
 
-    const updateResponse = await endpointsApi.updateEndpoint({
+    await endpointsApi.updateEndpoint({
       endpoint_id: request.endpoint_id,
       name: request.route_description,
       description: request.route_description,
       tags: request.route_tags ? JSON.parse(request.route_tags) : undefined,
     });
 
-    const route = backendEndpointToEndpoint(updateResponse.endpoint, 0);
+    // Refetch the full endpoint to get complete data including models array
+    const listResponse = await endpointsApi.listEndpoints();
+    const updatedBackendEndpoint = listResponse.routes.find((e) => e.endpoint_id === request.endpoint_id);
+
+    if (!updatedBackendEndpoint) {
+      throw new Error(`Endpoint ${request.endpoint_id} not found after update`);
+    }
+
+    const route = backendEndpointToEndpoint(updatedBackendEndpoint, 0);
 
     return {
       route,

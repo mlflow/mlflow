@@ -2023,7 +2023,7 @@ class AddEndpointModel(_message.Message):
     def __init__(self, endpoint_id: _Optional[str] = ..., model_name: _Optional[str] = ..., secret_id: _Optional[str] = ..., routing_config: _Optional[str] = ..., created_by: _Optional[str] = ...) -> None: ...
 
 class UpdateEndpointModel(_message.Message):
-    __slots__ = ("endpoint_id", "model_id", "secret_id", "routing_config", "updated_by")
+    __slots__ = ("endpoint_id", "model_id", "secret_id", "routing_config", "updated_by", "model_name")
     class Response(_message.Message):
         __slots__ = ("endpoint",)
         ENDPOINT_FIELD_NUMBER: _ClassVar[int]
@@ -2034,12 +2034,14 @@ class UpdateEndpointModel(_message.Message):
     SECRET_ID_FIELD_NUMBER: _ClassVar[int]
     ROUTING_CONFIG_FIELD_NUMBER: _ClassVar[int]
     UPDATED_BY_FIELD_NUMBER: _ClassVar[int]
+    MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     endpoint_id: str
     model_id: str
     secret_id: str
     routing_config: str
     updated_by: str
-    def __init__(self, endpoint_id: _Optional[str] = ..., model_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., routing_config: _Optional[str] = ..., updated_by: _Optional[str] = ...) -> None: ...
+    model_name: str
+    def __init__(self, endpoint_id: _Optional[str] = ..., model_id: _Optional[str] = ..., secret_id: _Optional[str] = ..., routing_config: _Optional[str] = ..., updated_by: _Optional[str] = ..., model_name: _Optional[str] = ...) -> None: ...
 
 class RemoveEndpointModel(_message.Message):
     __slots__ = ("endpoint_id", "model_id")

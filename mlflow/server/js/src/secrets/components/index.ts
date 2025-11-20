@@ -7,8 +7,8 @@
 
 // Route modals - for creating and managing routes from external contexts
 export { CreateRouteModal } from './CreateRouteModal';
-export { AddRouteModal } from './AddRouteModal';
-export { UpdateRouteModal } from './UpdateRouteModal';
+// export { AddRouteModal } from './AddRouteModal'; // Disabled: redundant with CreateRouteModal
+// export { UpdateRouteModal } from './UpdateRouteModal'; // Disabled: not compatible with multi-model architecture
 
 // Secret modals - use the hooks versions instead for better encapsulation
 // These are exported for legacy compatibility
