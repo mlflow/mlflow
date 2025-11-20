@@ -566,7 +566,10 @@ def test_validate_tags_invalid(tags, expected_error):
 
 
 class _MultiTurnTestScorer(mlflow.genai.Scorer):
-    """Test scorer that simulates a multi-turn scorer by overriding is_session_level_scorer property."""
+    """Test scorer that simulates a multi-turn scorer.
+
+    Overrides is_session_level_scorer property to return True.
+    """
 
     def __init__(self, name: str = "multi_turn_test_scorer"):
         super().__init__(name=name)
@@ -599,7 +602,10 @@ def test_classify_scorers_all_single_turn():
 
 
 def test_classify_scorers_all_multi_turn():
-    """Test that all scorers are classified as multi-turn when all have is_session_level_scorer=True."""
+    """Test that all scorers are classified as multi-turn.
+
+    When all scorers have is_session_level_scorer=True.
+    """
     multi_turn_scorer1 = _MultiTurnTestScorer(name="multi_turn_scorer1")
     multi_turn_scorer2 = _MultiTurnTestScorer(name="multi_turn_scorer2")
 
