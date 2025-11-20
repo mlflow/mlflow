@@ -1,9 +1,15 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Typography } from '@databricks/design-system';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { OverflowMenu } from '../../../../../shared/building_blocks/PageHeader';
 import type { ExperimentEntity } from '../../../../types';
-import { getExperimentType } from '../../utils/experimentPage.common-utils';
+import {
+  canModifyExperiment,
+  getExperimentType,
+  isExperimentTypeDefault,
+  isRepoNotebookExperiment,
+  isExperimentTypeNotebook,
+} from '../../utils/experimentPage.common-utils';
 import { getShareFeedbackOverflowMenuItem } from './ExperimentViewHeader.utils';
 import { getExperimentKindFromTags } from '../../../../utils/ExperimentKindUtils';
 import { ExperimentKind } from '../../../../constants';
@@ -12,6 +18,7 @@ import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
 import { RenameExperimentModal } from '../../../modals/RenameExperimentModal';
 import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
+import { shouldEnableExperimentPageSideTabs } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 /**
  * Experiment page header part responsible for displaying menu

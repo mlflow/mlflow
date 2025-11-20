@@ -2,9 +2,8 @@
   "extends": [],
   "compilerOptions": {
     "types": [
-      "jest",
       "node",
-      "@testing-library/jest-dom"
+      "@testing-library/jest-dom/jest-globals"
     ],
     "noPropertyAccessFromIndexSignature": true,
     "jsxImportSource": "@emotion/react",

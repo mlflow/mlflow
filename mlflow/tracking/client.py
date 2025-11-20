@@ -488,7 +488,7 @@ class MlflowClient:
         template: str | list[dict[str, Any]],
         commit_message: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
@@ -5762,7 +5762,7 @@ class MlflowClient:
         template: str | list[dict[str, Any]],
         description: str | None = None,
         tags: dict[str, str] | None = None,
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: type[BaseModel] | dict[str, Any] | None = None,
     ) -> PromptVersion:
         """
         Create a new version of an existing prompt.

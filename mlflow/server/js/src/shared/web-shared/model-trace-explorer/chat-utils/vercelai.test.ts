@@ -1,3 +1,4 @@
+import { describe, expect, it } from '@jest/globals';
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 // Mock Vercel AI input with messages format

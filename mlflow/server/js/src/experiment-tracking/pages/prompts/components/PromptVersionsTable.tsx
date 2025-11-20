@@ -1,3 +1,4 @@
+import { useReactTable_unverifiedWithReact18 as useReactTable } from '@databricks/web-shared/react-table';
 import {
   ChevronRightIcon,
   Empty,
@@ -9,7 +10,7 @@ import {
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import type { ColumnDef } from '@tanstack/react-table';
-import { flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { flexRender, getCoreRowModel } from '@tanstack/react-table';
 import { useMemo } from 'react';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../../../common/utils/Utils';
@@ -93,13 +94,16 @@ export const PromptVersionsTable = ({
     return resultColumns;
   }, [mode, intl]);
 
-  const table = useReactTable({
-    data: promptVersions ?? [],
-    getRowId: (row) => row.version,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
-    meta: { showEditAliasesModal, aliasesByVersion, registeredPrompt },
-  });
+  const table = useReactTable(
+    'mlflow/server/js/src/experiment-tracking/pages/prompts/components/PromptVersionsTable.tsx',
+    {
+      data: promptVersions ?? [],
+      getRowId: (row) => row.version,
+      columns,
+      getCoreRowModel: getCoreRowModel(),
+      meta: { showEditAliasesModal, aliasesByVersion, registeredPrompt },
+    },
+  );
 
   const getEmptyState = () => {
     if (!isLoading && promptVersions?.length === 0) {

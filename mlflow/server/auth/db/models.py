@@ -8,7 +8,12 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, relationship
 
-from mlflow.server.auth.entities import ExperimentPermission, RegisteredModelPermission, User
+from mlflow.server.auth.entities import (
+    ExperimentPermission,
+    RegisteredModelPermission,
+    ScorerPermission,
+    User,
+)
 
 Base = declarative_base()
 
@@ -21,6 +26,7 @@ class SqlUser(Base):
     is_admin = Column(Boolean, default=False)
     experiment_permissions = relationship("SqlExperimentPermission", backref="users")
     registered_model_permissions = relationship("SqlRegisteredModelPermission", backref="users")
+    scorer_permissions = relationship("SqlScorerPermission", backref="users")
 
     def to_mlflow_entity(self):
         return User(
@@ -32,6 +38,7 @@ class SqlUser(Base):
             registered_model_permissions=[
                 p.to_mlflow_entity() for p in self.registered_model_permissions
             ],
+            scorer_permissions=[p.to_mlflow_entity() for p in self.scorer_permissions],
         )
 
 
@@ -62,6 +69,26 @@ class SqlRegisteredModelPermission(Base):
     def to_mlflow_entity(self):
         return RegisteredModelPermission(
             name=self.name,
+            user_id=self.user_id,
+            permission=self.permission,
+        )
+
+
+class SqlScorerPermission(Base):
+    __tablename__ = "scorer_permissions"
+    id = Column(Integer(), primary_key=True)
+    experiment_id = Column(String(255), nullable=False)
+    scorer_name = Column(String(256), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    permission = Column(String(255))
+    __table_args__ = (
+        UniqueConstraint("experiment_id", "scorer_name", "user_id", name="unique_scorer_user"),
+    )
+
+    def to_mlflow_entity(self):
+        return ScorerPermission(
+            experiment_id=self.experiment_id,
+            scorer_name=self.scorer_name,
             user_id=self.user_id,
             permission=self.permission,
         )

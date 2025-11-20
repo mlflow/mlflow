@@ -1,5 +1,7 @@
-import { ModelTraceInfoV3 } from '../../model-trace-explorer';
+import { describe, it, expect } from '@jest/globals';
+
 import { getSessionTableRows } from './utils';
+import type { ModelTraceInfoV3 } from '../../model-trace-explorer';
 
 const MOCK_TRACES: ModelTraceInfoV3[] = [
   {
