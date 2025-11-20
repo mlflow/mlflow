@@ -154,3 +154,23 @@ def test_index_for_dataset_tables(tmp_path, db_url):
             "index_inputs_destination_type_destination_id_source_type",
         }
         assert new_index_names.issubset(all_index_names)
+
+
+def test_index_for_secrets_tables(tmp_path, db_url):
+    # Test for mlflow/store/db_migrations/versions/1b49d398cd23_add_secrets_tables.py
+    SqlAlchemyStore(db_url, tmp_path.joinpath("ARTIFACTS").as_uri())
+    with sqlite3.connect(db_url[len("sqlite:///") :]) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type = 'index'")
+        all_index_names = [r[0] for r in cursor.fetchall()]
+        new_index_names = {
+            "index_secrets_is_shared_secret_name",
+            "index_secret_tags_secret_id",
+            "index_endpoints_secret_id",
+            "index_endpoint_models_endpoint_id",
+            "index_endpoint_models_model_name",
+            "index_endpoint_tags_endpoint_id",
+            "index_secrets_bindings_endpoint_id",
+            "index_secrets_bindings_resource_type_resource_id",
+        }
+        assert new_index_names.issubset(all_index_names)
