@@ -15,7 +15,10 @@ import pytest
 import requests
 from opentelemetry import trace as otel_trace
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
-from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
+from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
+    ExportTraceServiceRequest,
+    ExportTraceServiceResponse,
+)
 from opentelemetry.proto.common.v1.common_pb2 import InstrumentationScope
 from opentelemetry.proto.resource.v1.resource_pb2 import Resource
 from opentelemetry.proto.trace.v1.trace_pb2 import ResourceSpans, ScopeSpans
@@ -749,16 +752,6 @@ def test_otel_trace_received_telemetry_from_external_client(mlflow_server: str):
 
 
 def test_response_is_protobuf_format(mlflow_server: str):
-    """
-    Test that the v1/traces endpoint returns a valid protobuf response.
-
-    This test verifies the fix for the issue where the response was incorrectly
-    returned as JSON instead of protobuf format.
-    """
-    from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import (
-        ExportTraceServiceResponse,
-    )
-
     mlflow.set_tracking_uri(mlflow_server)
     experiment = mlflow.set_experiment("otel-protobuf-response-test")
     experiment_id = experiment.experiment_id
@@ -802,13 +795,4 @@ def test_response_is_protobuf_format(mlflow_server: str):
 
     # Verify the response can be parsed as a valid ExportTraceServiceResponse
     response_message = ExportTraceServiceResponse()
-    try:
-        response_message.ParseFromString(response.content)
-    except Exception as e:
-        raise AssertionError(
-            f"Failed to parse response as ExportTraceServiceResponse protobuf: {e}"
-        )
-
-    # The response should be a valid protobuf message (empty or with partial_success field)
-    # An empty response serializes to an empty bytes object
-    assert isinstance(response.content, bytes)
+    response_message.ParseFromString(response.content)
