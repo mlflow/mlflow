@@ -35,7 +35,7 @@
     "@tanstack/react-table": "^8.8.2",
     "@tanstack/react-virtual": "^3.8.1",
     "@types/react-virtualized": "^9.21.9",
-    "babel-jest": "^27.5.1",
+    "babel-jest": "^30.2.0",
     "buffer": "^6.0.3",
     "bytes": "3.0.0",
     "classnames": "^2.2.6",
@@ -97,7 +97,8 @@
     "use-clipboard-copy": "^0.2.0",
     "use-debounce": "^10.0.4",
     "use-sync-external-store": "^1.2.0",
-    "wavesurfer.js": "^7.8.8"
+    "wavesurfer.js": "^7.8.8",
+    "zustand": "^4.5.6"
   },
   "devDependencies": {
     "@babel/core": "^7.27.3",
@@ -177,7 +178,8 @@
     "jest-localstorage-mock": "^2.3.0",
     "knip": "^5.30.2",
     "msw": "^1.2.3",
-    "prettier": "^2.8.0",
+    "postcss-normalize": "^10.0.1",
+    "prettier": "2.8.0",
     "react-17": "npm:react@^17.0.2",
     "react-dom-17": "npm:react-dom@^17.0.2",
     "react-scripts": "5.0.0",
@@ -185,7 +187,7 @@
     "redux-mock-store": "^1.5.3",
     "stream-browserify": "^3.0.0",
     "tsconfig-paths-webpack-plugin": "^4.0.1",
-    "typescript": "^5.9.2",
+    "typescript": "^5.9.3",
     "webpack": "^5.69.0",
     "whatwg-fetch": "^3.6.17"
   },
@@ -198,6 +200,8 @@
     "@types/react": "^17.0.50",
     "@emotion/react": "11.11.0",
     "@types/react-plotly.js/@types/plotly.js": "^1.54.6",
+    "babel-jest": "^30.2.0",
+    "cheerio": ">=1.0.0-rc.3 <1.0.0",
     "d3-transition": "3.0.1",
     "react-dev-utils/fork-ts-checker-webpack-plugin": "6.5.3",
     "postcss-preset-env/autoprefixer": "10.4.5",

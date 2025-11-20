@@ -1,5 +1,7 @@
+import { describe, beforeEach, jest, afterEach, it, expect } from '@jest/globals';
 import React from 'react';
 import { CopyButton } from './CopyButton';
+import { DesignSystemProvider } from '@databricks/design-system';
 import { renderWithIntl, screen } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import userEvent from '@testing-library/user-event';
 
@@ -24,10 +26,14 @@ describe('CopyButton', () => {
   });
 
   it('should render with minimal props without exploding', async () => {
-    renderWithIntl(<CopyButton copyText="copyText" />);
+    renderWithIntl(
+      <DesignSystemProvider>
+        <CopyButton copyText="copyText" />
+      </DesignSystemProvider>,
+    );
     expect(screen.getByText('Copy')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Copy'));
-    expect(screen.getByText('Copied')).toBeInTheDocument();
+    expect(screen.getByRole('tooltip', { name: 'Copied' })).toBeInTheDocument();
     expect(global.navigator.clipboard.writeText).toHaveBeenCalledWith('copyText');
   });
 });

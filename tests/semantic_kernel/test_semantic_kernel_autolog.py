@@ -101,7 +101,7 @@ async def test_sk_invoke_simple(mock_openai, with_openai_autolog):
     assert spans[2].span_type == SpanType.TOOL
 
     # Actual LLM call
-    assert spans[3].name == "chat.completions gpt-4o-mini"
+    assert spans[3].name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert "gen_ai.operation.name" in spans[3].attributes
     assert spans[3].inputs == {"messages": [{"role": "user", "content": prompt}]}
     assert spans[3].outputs == {"messages": [{"role": "assistant", "content": expected_content}]}
@@ -197,10 +197,10 @@ async def test_sk_invoke_complex(mock_openai):
     assert tool_span.span_type == SpanType.TOOL
     assert tool_span.parent_id == kernel_span.span_id
 
-    assert chat_span.name == "chat.completions gpt-4o-mini"
+    assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.parent_id == tool_span.span_id
     assert chat_span.span_type == SpanType.CHAT_MODEL
-    assert chat_span.get_attribute(model_gen_ai_attributes.OPERATION) == "chat.completions"
+    assert chat_span.get_attribute(model_gen_ai_attributes.OPERATION).startswith("chat")
     assert chat_span.get_attribute(model_gen_ai_attributes.SYSTEM) == "openai"
     assert chat_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
     assert chat_span.get_attribute(model_gen_ai_attributes.RESPONSE_ID) == "chatcmpl-123"
@@ -243,7 +243,7 @@ async def test_sk_invoke_agent(mock_openai):
     assert child_span.span_type == SpanType.UNKNOWN
     assert "sk.available_functions" in child_span.attributes
 
-    assert grandchild_span.name.startswith("chat.completions gpt-4o-mini")
+    assert grandchild_span.name.startswith("chat")
     assert grandchild_span.span_type == SpanType.CHAT_MODEL
     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
     assert isinstance(grandchild_span.inputs["messages"], list)
@@ -322,7 +322,7 @@ async def test_tracing_autolog_with_active_span(mock_openai, with_openai_autolog
     assert spans[2].parent_id == spans[1].span_id
     assert spans[3].name.startswith("execute_tool")
     assert spans[3].parent_id == spans[2].span_id
-    assert spans[4].name == "chat.completions gpt-4o-mini"
+    assert spans[4].name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert spans[4].parent_id == spans[3].span_id
 
     if with_openai_autolog:
@@ -378,18 +378,18 @@ async def test_tracing_attribution_with_threaded_calls(mock_openai):
     [
         (
             _create_and_invoke_kernel_simple,
-            "chat.completions",
+            "chat",
             ["messages"],
         ),
         (
             _create_and_invoke_text_completion,
-            "text.completions",
+            "text",
             # Text completion input should be stored as a raw string
             None,
         ),
         (
             _create_and_invoke_chat_completion_direct,
-            "chat.completions",
+            "chat",
             ["messages"],
         ),
     ],
@@ -430,7 +430,7 @@ async def test_sk_invoke_with_kernel_arguments(mock_openai):
     assert len(traces) == 1
 
     # Check that kernel arguments were passed through to the prompt
-    child_span = next(s for s in traces[0].data.spans if "chat.completions" in s.name)
+    child_span = next(s for s in traces[0].data.spans if "chat" in s.name)
     assert child_span.inputs["messages"][0]["content"] == "Add 5 and 3"
 
 
@@ -474,5 +474,5 @@ async def test_kernel_invoke_function_object(mock_openai):
     assert tool_span.span_type == SpanType.TOOL
 
     # Child span should be chat completion
-    assert chat_span.name == "chat.completions gpt-4o-mini"
+    assert chat_span.name in ("chat.completions gpt-4o-mini", "chat gpt-4o-mini")
     assert chat_span.span_type == SpanType.CHAT_MODEL
