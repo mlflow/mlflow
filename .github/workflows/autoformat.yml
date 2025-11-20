@@ -85,6 +85,7 @@ jobs:
           db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
           echo "js=$js" >> $GITHUB_OUTPUT
+          echo "docs=$docs" >> $GITHUB_OUTPUT
           echo "r=$r" >> $GITHUB_OUTPUT
           echo "db=$db" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
