@@ -1,3 +1,6 @@
+import json
+import logging
+
 import mlflow.utils.databricks_utils
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
@@ -11,6 +14,8 @@ from mlflow.utils.uri import (
     remove_databricks_profile_info_from_artifact_uri,
     strip_scheme,
 )
+
+_logger = logging.getLogger(__name__)
 
 
 class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
@@ -50,6 +55,8 @@ def uc_volume_artifact_repo_factory(
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
     """
+    _logger.warning("✅ uc_volume_artifact_repo_factory called")
+
     if not is_valid_uc_volumes_uri(artifact_uri):
         raise MlflowException(
             message=(
@@ -61,6 +68,29 @@ def uc_volume_artifact_repo_factory(
 
     artifact_uri = artifact_uri.rstrip("/")
     db_profile_uri = get_databricks_profile_uri_from_artifact_uri(artifact_uri)
+    _logger.warning(
+        json.dumps(
+            {
+                "is_uc_volume_fuse_available": (
+                    mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
+                ),
+                "MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO": (
+                    MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
+                ),
+                "is_databricks_model_registry_artifacts_uri": (
+                    is_databricks_model_registry_artifacts_uri(artifact_uri)
+                ),
+                "db_profile_uri": db_profile_uri,
+                "Use LocalArtifactRepository?": (
+                    mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
+                    and MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
+                    and not is_databricks_model_registry_artifacts_uri(artifact_uri)
+                    and (db_profile_uri is None or db_profile_uri == "databricks")
+                ),
+            },
+            indent=2,
+        )
+    )
     if (
         mlflow.utils.databricks_utils.is_uc_volume_fuse_available()
         and MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO.get()
