@@ -1111,6 +1111,11 @@ const config: Config = {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
           },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
           // Redirect removed XGBoost subdirectories to consolidated page
           {
             to: '/ml/traditional-ml/xgboost/',
