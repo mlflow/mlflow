@@ -241,6 +241,7 @@ docstring-code-format = true
 docstring-code-line-length = 88
 
 [tool.ruff.lint]
+preview = true
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
@@ -316,6 +317,8 @@ select = [
   "W",       # warning
 ]
 ignore = [
+  "E265", # no-space-after-block-comment
+  "E266", # multiple-leading-hashes-for-block-comment
   "E402", # module-import-not-at-top-of-file
   "E721", # type-comparison
   "E741", # ambiguous-variable-name
@@ -339,6 +342,8 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
 forced-separate = ["tests"]
+# https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+known-third-party = ["docker"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."

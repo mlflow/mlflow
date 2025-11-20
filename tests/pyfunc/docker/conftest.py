@@ -3,11 +3,11 @@ import os
 import subprocess
 from functools import lru_cache
 
+import docker
 import pytest
 import requests
 from packaging.version import Version
 
-import docker
 import mlflow
 
 TEST_IMAGE_NAME = "test_image"
