@@ -172,24 +172,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/xgboost/index',
               label: 'XGBoost',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/quickstart/quickstart-xgboost-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/guide/index',
-                  label: 'XGBoost within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/xgboost/index',
-              },
             },
             {
               type: 'doc',
