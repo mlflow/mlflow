@@ -459,7 +459,7 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:mlflow",
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
-  "ignore:Filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
+  "ignore:filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
 ]
 timeout = 1200
 
