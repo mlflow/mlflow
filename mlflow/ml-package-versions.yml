@@ -663,8 +663,8 @@ langchain:
           # Need to bump FasAPI version to support pydantic v2
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
-          "langchain-classic",
         ]
+      ">= 1.0.0": ["langchain-classic"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
