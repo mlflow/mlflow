@@ -35,12 +35,6 @@ INFO:     Uvicorn running on http://127.0.0.1:8080 (Press CTRL+C to quit)
 
 There are many options to configure the server, refer to [Configure Server](#configure-server) for more details.
 
-:::info
-
-The server uses SQLite (`sqlite:///mlflow.db`) as the default backend store. This provides much better performance and reliability than the file-based backend. To use a different database such as PostgreSQL or customize the SQLite database location, use the `--backend-store-uri` option. For more details on backend options, check out [Backend Store](/self-hosting/architecture/backend-store).
-
-:::
-
 :::warning important
 The server listens on http://localhost:5000 by default and only accepts
 connections from the local machine. To let the server accept connections
