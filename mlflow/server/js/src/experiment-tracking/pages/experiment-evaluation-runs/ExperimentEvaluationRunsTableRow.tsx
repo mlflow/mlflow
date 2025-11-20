@@ -32,8 +32,8 @@ const GroupTag = ({ groupKey, groupValue }: { groupKey: string; groupValue: stri
   const { theme } = useDesignSystemTheme();
 
   return (
-    <Tooltip content={groupKey + ': ' + groupValue} componentId={`mlflow.eval-runs.${groupKey}-group-tag`}>
-      <Tag css={{ margin: 0 }} componentId={`mlflow.eval-runs.${groupKey}-group-tag`}>
+    <Tooltip content={groupKey + ': ' + groupValue} componentId="mlflow.eval-runs.group-tag">
+      <Tag css={{ margin: 0 }} componentId="mlflow.eval-runs.group-tag">
         <Typography.Text
           bold
           css={{
@@ -73,7 +73,7 @@ export const ExperimentEvaluationRunsTableRow = React.memo(
           <TableCell>
             <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
               <Button
-                componentId={`mlflow.eval-runs.${row.id}-group-expand-button`}
+                componentId="mlflow.eval-runs.group-expand-button"
                 size="small"
                 css={{ flexShrink: 0 }}
                 icon={row.getIsExpanded() ? <ChevronDownIcon /> : <ChevronRightIcon />}

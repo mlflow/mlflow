@@ -10,11 +10,6 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'MLflow',
     },
     {
-      type: 'link',
-      label: 'MLflow 3.0',
-      href: 'https://mlflow.org/docs/latest/genai/mlflow-3',
-    },
-    {
       type: 'category',
       label: 'Getting Started',
       className: 'sidebar-top-level-category',
@@ -192,34 +187,14 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/sparkml/index',
               label: 'SparkML',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sparkml/guide/index',
-                  label: 'SparkML within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sparkml/index',
-              },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'traditional-ml/prophet/index',
               label: 'Prophet',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/prophet/guide/index',
-                  label: 'Prophet within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/prophet/index',
-              },
             },
           ],
           link: {
@@ -232,61 +207,19 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'Deep Learning',
           items: [
             {
-              type: 'category',
-              label: 'Keras',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/quickstart/quickstart-keras-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/keras/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/keras/index',
-              },
-            },
-            {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/pytorch/index',
               label: 'PyTorch',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/quickstart/quickstart-pytorch-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/pytorch/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/pytorch/index',
-              },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/tensorflow/index',
               label: 'TensorFlow',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/quickstart/quickstart-tensorflow-ipynb',
-                  label: 'Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'deep-learning/tensorflow/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/tensorflow/index',
-              },
+            },
+            {
+              type: 'doc',
+              id: 'deep-learning/keras/index',
+              label: 'Keras',
             },
             {
               type: 'category',
@@ -403,18 +336,9 @@ const sidebarsClassicML: SidebarsConfig = {
               },
             },
             {
-              type: 'category',
+              type: 'doc',
+              id: 'deep-learning/spacy/index',
               label: 'spaCy',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'deep-learning/spacy/guide/index',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'deep-learning/spacy/index',
-              },
             },
           ],
           link: {
@@ -659,9 +583,15 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'link',
           label: 'CLI',
-          href: `${apiReferencePrefix()}cli.html`,
+          href: `${apiReferencePrefix()}api_reference/cli.html`,
         },
       ],
+    },
+    {
+      type: 'doc',
+      id: 'mlflow-3/index',
+      label: 'MLflow 3.0 Migration',
+      className: 'sidebar-top-level-category',
     },
     {
       type: 'category',

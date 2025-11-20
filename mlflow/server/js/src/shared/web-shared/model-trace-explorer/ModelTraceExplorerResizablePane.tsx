@@ -19,6 +19,7 @@ interface ModelTraceExplorerResizablePaneProps {
 
 export interface ModelTraceExplorerResizablePaneRef {
   updateRatio: (newPaneWidth: number) => void;
+  getContainerWidth: () => number | undefined;
 }
 
 /**
@@ -53,8 +54,11 @@ const ModelTraceExplorerResizablePane = forwardRef<
     [containerWidth],
   );
 
+  const getContainerWidth = useCallback(() => containerWidth, [containerWidth]);
+
   useImperativeHandle(ref, () => ({
     updateRatio,
+    getContainerWidth,
   }));
 
   useLayoutEffect(() => {

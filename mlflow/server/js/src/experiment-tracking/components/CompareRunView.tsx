@@ -8,7 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
+import { Spacer, Switch, LegacyTabs, Tooltip, Typography } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -388,17 +388,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
         </th>
         {data.map(([runUuid, value]) => (
           <td className="data-value" key={runUuid as string} css={colWidthStyle}>
-            <LegacyTooltip
-              title={value}
-              // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
-              color="gray"
-              placement="topLeft"
-              overlayStyle={{ maxWidth: '400px' }}
-              // mouseEnterDelay prop is not available in DuBois design system (yet)
-              dangerouslySetAntdProps={{ mouseEnterDelay: 1 }}
+            <Tooltip
+              componentId="mlflow.legacy_compare_run.time_row"
+              content={value}
+              side="top"
+              align="end"
+              maxWidth={400}
             >
-              {value}
-            </LegacyTooltip>
+              <Typography.Text>{value}</Typography.Text>
+            </Tooltip>
           </td>
         ))}
       </tr>
@@ -525,16 +523,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                 </th>
                 {this.props.runInfos.map((r) => (
                   <th scope="row" className="data-value" key={r.runUuid} css={colWidthStyle}>
-                    <LegacyTooltip
-                      title={r.runUuid}
-                      // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
-                      color="gray"
-                      placement="topLeft"
-                      overlayStyle={{ maxWidth: '400px' }}
-                      mouseEnterDelay={1.0}
+                    <Tooltip
+                      componentId="mlflow.legacy_compare_run.run_id"
+                      content={r.runUuid}
+                      side="top"
+                      align="end"
+                      maxWidth={400}
                     >
                       <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
-                    </LegacyTooltip>
+                    </Tooltip>
                   </th>
                 ))}
               </tr>
@@ -551,16 +548,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                   return (
                     <td className="data-value" key={runInfos[i].runUuid} css={colWidthStyle}>
                       <div className="truncate-text single-line">
-                        <LegacyTooltip
-                          title={runName}
-                          // @ts-expect-error TS(2322): Type '{ children: string; title: string; color: st... Remove this comment to see the full error message
-                          color="gray"
-                          placement="topLeft"
-                          overlayStyle={{ maxWidth: '400px' }}
-                          mouseEnterDelay={1.0}
+                        <Tooltip
+                          componentId="mlflow.legacy_compare_run.run_name"
+                          content={runName}
+                          side="top"
+                          align="end"
+                          maxWidth={400}
                         >
-                          {runName}
-                        </LegacyTooltip>
+                          <Typography.Text>{runName}</Typography.Text>
+                        </Tooltip>
                       </div>
                     </td>
                   );
@@ -672,16 +668,15 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                 const cellText = value === undefined ? '' : formatter(value);
                 return (
                   <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
-                    <LegacyTooltip
-                      title={cellText}
-                      // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
-                      color="gray"
-                      placement="topLeft"
-                      overlayStyle={{ maxWidth: '400px' }}
-                      mouseEnterDelay={1.0}
+                    <Tooltip
+                      componentId="mlflow.legacy_compare_run.data_row"
+                      content={cellText}
+                      side="top"
+                      align="end"
+                      maxWidth={400}
                     >
                       <span className="truncate-text single-line">{cellText}</span>
-                    </LegacyTooltip>
+                    </Tooltip>
                   </td>
                 );
               })}

@@ -128,8 +128,20 @@ function getCommentTemplate({
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
-    changedPagesSection = `
+    const pageLinks = changedPages
+      .map(({ link, status }) => {
+        let statusText = status;
+        // Add warning for removed and renamed files to avoid page-not-found
+        if (status === "removed" || status === "renamed") {
+          statusText = `${status}, ⚠️ add a redirect`;
+        }
+        return `- ${link} (${statusText})`;
+      })
+      .join("\n");
+
+    // Only collapse if there are more than 5 changed pages
+    if (changedPages.length > 5) {
+      changedPagesSection = `
 
 <details>
 <summary>Changed Pages (${changedPages.length})</summary>
@@ -138,6 +150,14 @@ ${pageLinks}
 
 </details>
 `;
+    } else {
+      changedPagesSection = `
+
+**Changed Pages (${changedPages.length})**
+
+${pageLinks}
+`;
+    }
   }
 
   return `

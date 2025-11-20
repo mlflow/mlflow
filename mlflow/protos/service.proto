@@ -1512,6 +1512,52 @@ service MlflowService {
       rpc_doc_title: "Get Evaluation Dataset Records"
     };
   }
+
+  // Add a dataset to additional experiments
+  rpc addDatasetToExperiments(AddDatasetToExperiments) returns (AddDatasetToExperiments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/add-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Add Dataset to Experiments"
+    };
+  }
+
+  // Remove a dataset from experiments
+  rpc removeDatasetFromExperiments(RemoveDatasetFromExperiments) returns (RemoveDatasetFromExperiments.Response) {
+    option (rpc) = {
+      endpoints: [
+        {
+          method: "POST"
+          path: "/mlflow/datasets/{dataset_id}/remove-experiments"
+          since: {
+            major: 3
+            minor: 0
+          }
+        }
+      ]
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ]
+      visibility: PUBLIC_UNDOCUMENTED
+      rpc_doc_title: "Remove Dataset from Experiments"
+    };
+  }
 }
 
 // View type for ListExperiments query.
@@ -2518,8 +2564,8 @@ message GetTrace {
   // ID of the trace to fetch. Must be provided.
   optional string trace_id = 1 [(validate_required) = true];
 
-  // Whether to allow partial traces. Default to True.
-  optional bool allow_partial = 2 [default = true];
+  // Whether to allow partial traces. Default to False.
+  optional bool allow_partial = 2 [default = false];
 
   message Response {
     // The fetched trace including spans.
@@ -3400,7 +3446,7 @@ message AddDatasetToExperiments {
 
   message Response {
     // The updated dataset with new experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
@@ -3415,7 +3461,7 @@ message RemoveDatasetFromExperiments {
 
   message Response {
     // The updated dataset after removing experiment associations
-    optional Dataset dataset = 1;
+    optional datasets.Dataset dataset = 1;
   }
 }
 
