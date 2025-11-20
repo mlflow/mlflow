@@ -399,7 +399,6 @@ pmdarima:
           "prophet",
           # Avoid holidays 0.25 due to https://github.com/dr-prodigy/python-holidays/issues/1200
           "holidays!=0.25",
-          "numpy<2",
           # TODO: Try the latest version of moto (https://github.com/getmoto/moto/issues/8498) and remove this pin
           "boto3<1.36",
         ]

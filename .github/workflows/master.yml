@@ -83,8 +83,6 @@ jobs:
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
-          # Pin numpy<2 for pmdarima compatibility (https://github.com/alkaline-ml/pmdarima/issues/577)
-          pip install "numpy<2"
           # Ensure `databricks-connect` and `databricks-agents` are not installed
           pip uninstall -y databricks-connect databricks-agents
           pip install --no-deps --force-reinstall pyspark
