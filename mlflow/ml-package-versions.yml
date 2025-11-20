@@ -750,6 +750,9 @@ llama_index:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          # TODO: qdrant-client 1.16 is currently broken with llama-index until
+          # https://github.com/run-llama/llama_index/issues/20271 is resolved
+          "qdrant-client<1.16.0",
         ]
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
