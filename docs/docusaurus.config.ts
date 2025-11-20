@@ -1116,6 +1116,11 @@ const config: Config = {
             to: '/ml/traditional-ml/sklearn/',
             from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
           },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
+          },
         ],
       },
     ],
