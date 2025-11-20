@@ -1111,10 +1111,10 @@ const config: Config = {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
           },
-          // Redirect removed XGBoost quickstart to consolidated guide
+          // Redirect removed XGBoost subdirectories to consolidated page
           {
-            to: '/ml/traditional-ml/xgboost/guide',
-            from: ['/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },
