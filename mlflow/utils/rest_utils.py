@@ -6,6 +6,7 @@ import time
 import warnings
 from functools import lru_cache
 from typing import Any, Callable
+from urllib.parse import quote
 
 import requests
 
@@ -20,6 +21,7 @@ from mlflow.environment_variables import (
     MLFLOW_HTTP_REQUEST_MAX_RETRIES,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
     MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import (
     CUSTOMER_UNAUTHORIZED,
@@ -55,6 +57,57 @@ _ARMERIA_OK = "200 OK"
 _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
     "The 'retry_after_secs' parameter of DatabricksError is deprecated"
 )
+
+
+def _resolve_active_workspace() -> str | None:
+    from mlflow.tracking._workspace.context import get_current_workspace
+
+    workspace = get_current_workspace()
+    if workspace is None:
+        workspace = MLFLOW_WORKSPACE.get()
+
+    if workspace is None:
+        return None
+
+    if isinstance(workspace, str):
+        workspace = workspace.strip()
+        if not workspace:
+            return None
+
+    return workspace
+
+
+def _maybe_prefix_with_workspace(endpoint: str) -> str:
+    """Prefix MLflow REST endpoints with the active workspace when set."""
+
+    workspace = _resolve_active_workspace()
+    if not workspace:
+        return endpoint
+
+    if not endpoint.startswith("/api/"):
+        return endpoint
+
+    artifacts_segment = "/mlflow-artifacts"
+    artifacts_workspace_segment = "/mlflow-artifacts/workspaces/"
+    if artifacts_segment in endpoint and artifacts_workspace_segment not in endpoint:
+        idx = endpoint.find(artifacts_segment)
+        workspace_segment = f"/mlflow-artifacts/workspaces/{quote(workspace, safe='')}"
+        suffix = endpoint[idx + len(artifacts_segment) :]
+        return endpoint[:idx] + workspace_segment + suffix
+
+    marker = "/mlflow"
+    marker_index = endpoint.find(marker)
+    if marker_index == -1:
+        return endpoint
+
+    insert_pos = marker_index + len(marker)
+
+    # Avoid double-prefixing workspace-aware endpoints or workspace management APIs.
+    if endpoint.startswith("/workspaces", insert_pos):
+        return endpoint
+
+    workspace_segment = f"/workspaces/{quote(workspace, safe='')}"
+    return endpoint[:insert_pos] + workspace_segment + endpoint[insert_pos:]
 
 
 def http_request(
@@ -577,6 +630,7 @@ def call_endpoint(
     # Convert json string to json dictionary, to pass to requests
     if json_body is not None:
         json_body = json.loads(json_body)
+
     call_kwargs = {
         "host_creds": host_creds,
         "endpoint": endpoint,
@@ -613,7 +667,12 @@ def call_endpoints(host_creds, endpoints, json_body, response_proto, extra_heade
     for i, (endpoint, method) in enumerate(endpoints):
         try:
             return call_endpoint(
-                host_creds, endpoint, method, json_body, response_proto, extra_headers
+                host_creds,
+                endpoint,
+                method,
+                json_body,
+                response_proto,
+                extra_headers,
             )
         except RestException as e:
             if e.error_code != ErrorCode.Name(ENDPOINT_NOT_FOUND) or i == len(endpoints) - 1:

@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from mlflow import server
-from mlflow.environment_variables import _MLFLOW_SGI_NAME
+from mlflow.environment_variables import _MLFLOW_SGI_NAME, MLFLOW_FLASK_SERVER_SECRET_KEY
 from mlflow.exceptions import MlflowException
 
 
@@ -159,8 +159,14 @@ def test_run_server_win32(mock_exec_cmd, monkeypatch):
     mock_exec_cmd.assert_called_once()
 
 
-def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
+@pytest.mark.parametrize("secret_key_set", [False, True])
+def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch, secret_key_set):
     monkeypatch.setenv("MLFLOW_SERVER_ENABLE_JOB_EXECUTION", "false")
+    if secret_key_set:
+        monkeypatch.setenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, "test-secret-key")
+    else:
+        monkeypatch.delenv(MLFLOW_FLASK_SERVER_SECRET_KEY.name, raising=False)
+
     with mock.patch("sys.platform", return_value="linux"):
         server._run_server(
             file_store_path="",
@@ -186,9 +192,13 @@ def test_run_server_with_uvicorn(mock_exec_cmd, monkeypatch):
         "4",
         "mlflow.server.fastapi_app:app",
     ]
+    expected_extra_env = {_MLFLOW_SGI_NAME.name: "uvicorn"}
+    if secret_key_set:
+        expected_extra_env[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = "test-secret-key"
+
     mock_exec_cmd.assert_called_once_with(
         expected_command,
-        extra_env={_MLFLOW_SGI_NAME.name: "uvicorn"},
+        extra_env=expected_extra_env,
         capture_output=False,
         synchronous=False,
     )

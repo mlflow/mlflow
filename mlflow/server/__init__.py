@@ -1,3 +1,4 @@
+import functools
 import importlib
 import importlib.metadata
 import logging
@@ -24,6 +25,7 @@ from mlflow.server import handlers
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
+    _insert_workspace_segment,
     _search_datasets_handler,
     create_promptlab_run_handler,
     gateway_proxy_handler,
@@ -34,6 +36,8 @@ from mlflow.server.handlers import (
     get_model_version_artifact_handler,
     get_trace_artifact_handler,
     upload_artifact_handler,
+    workspace_before_request_handler,
+    workspace_teardown_request_handler,
 )
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
@@ -70,8 +74,56 @@ if is_running_as_server:
 
     security.init_security_middleware(app)
 
+app.before_request(workspace_before_request_handler)
+app.teardown_request(workspace_teardown_request_handler)
+
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
+
+
+def _workspace_aware_route(path, **route_kwargs):
+    """
+    Decorator that registers both standard and workspace-prefixed routes.
+
+    Automatically creates:
+    - Standard route: /path (workspace from context/default)
+    - Workspace route: /workspaces/<workspace_name>/path (explicit workspace)
+
+    The workspace_name parameter is automatically stripped from handler kwargs
+    since it's stored in the request context by middleware.
+
+    Examples:
+        @_workspace_aware_route("/get-artifact")
+        def serve_artifacts():
+            return get_artifact_handler()
+
+        @_workspace_aware_route("/logged-models/<model_id>/artifacts/files", methods=["GET"])
+        def serve_logged_model(model_id: str):
+            return get_logged_model_artifact_handler(model_id)
+    """
+
+    def decorator(func):
+        # Register standard route
+        standard_path = _add_static_prefix(path)
+        app.route(standard_path, **route_kwargs)(func)
+
+        # Register workspace-prefixed route with workspace_name parameter stripped
+        workspace_variant = _insert_workspace_segment(path)
+        workspace_path = _add_static_prefix(workspace_variant)
+
+        # Create wrapper that discards workspace_name parameter
+        # Uses **kwargs to pass through any path parameters (like model_id)
+        @functools.wraps(func)
+        def workspace_wrapper(workspace_name, **kwargs):
+            return func(**kwargs)
+
+        workspace_wrapper.__name__ = f"{func.__name__}_workspace"
+        app.route(workspace_path, **route_kwargs)(workspace_wrapper)
+
+        return func
+
+    return decorator
+
 
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
@@ -94,62 +146,65 @@ def version():
     return VERSION, 200
 
 
-# Serve the "get-artifact" route.
-@app.route(_add_static_prefix("/get-artifact"))
+# Serve the "get-artifact" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/get-artifact")
 def serve_artifacts():
     return get_artifact_handler()
 
 
-# Serve the "model-versions/get-artifact" route.
-@app.route(_add_static_prefix("/model-versions/get-artifact"))
+# Serve the "model-versions/get-artifact" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/model-versions/get-artifact")
 def serve_model_version_artifact():
     return get_model_version_artifact_handler()
 
 
-# Serve the "metrics/get-history-bulk" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk"))
+# Serve the "metrics/get-history-bulk" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/metrics/get-history-bulk")
 def serve_get_metric_history_bulk():
     return get_metric_history_bulk_handler()
 
 
-# Serve the "metrics/get-history-bulk-interval" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval"))
+# Serve the "metrics/get-history-bulk-interval" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/metrics/get-history-bulk-interval")
 def serve_get_metric_history_bulk_interval():
     return get_metric_history_bulk_interval_handler()
 
 
-# Serve the "experiments/search-datasets" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/experiments/search-datasets"), methods=["POST"])
+# Serve the "experiments/search-datasets" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/experiments/search-datasets", methods=["POST"])
 def serve_search_datasets():
     return _search_datasets_handler()
 
 
-# Serve the "runs/create-promptlab-run" route.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/runs/create-promptlab-run"), methods=["POST"])
+# Serve the "runs/create-promptlab-run" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/runs/create-promptlab-run", methods=["POST"])
 def serve_create_promptlab_run():
     return create_promptlab_run_handler()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/gateway-proxy"), methods=["POST", "GET"])
+# Serve the "gateway-proxy" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/gateway-proxy", methods=["POST", "GET"])
 def serve_gateway_proxy():
     return gateway_proxy_handler()
 
 
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/upload-artifact"), methods=["POST"])
+# Serve the "upload-artifact" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/upload-artifact", methods=["POST"])
 def serve_upload_artifact():
     return upload_artifact_handler()
 
 
 # Serve the "/get-trace-artifact" route to allow frontend to fetch trace artifacts
 # and render them in the Trace UI. The request body should contain the request_id
-# of the trace.
-@app.route(_add_static_prefix("/ajax-api/2.0/mlflow/get-trace-artifact"), methods=["GET"])
+# of the trace (with automatic workspace-prefixed variant).
+@_workspace_aware_route("/ajax-api/2.0/mlflow/get-trace-artifact", methods=["GET"])
 def serve_get_trace_artifact():
     return get_trace_artifact_handler()
 
 
-@app.route(
-    _add_static_prefix("/ajax-api/2.0/mlflow/logged-models/<model_id>/artifacts/files"),
+# Serve the "logged-model artifact" route (with automatic workspace-prefixed variant).
+@_workspace_aware_route(
+    "/ajax-api/2.0/mlflow/logged-models/<model_id>/artifacts/files",
     methods=["GET"],
 )
 def serve_get_logged_model_artifact(model_id: str):

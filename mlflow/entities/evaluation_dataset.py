@@ -10,11 +10,13 @@ from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.dataset_record import DatasetRecord
 from mlflow.entities.dataset_record_source import DatasetRecordSourceType
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.protos.datasets_pb2 import Dataset as ProtoDataset
 from mlflow.telemetry.events import MergeRecordsEvent
 from mlflow.telemetry.track import record_usage_event
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -42,8 +44,10 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         profile: str | None = None,
         created_by: str | None = None,
         last_updated_by: str | None = None,
+        workspace: str | None = None,
     ):
         """Initialize the EvaluationDataset."""
+
         self.dataset_id = dataset_id
         self.created_time = created_time
         self.last_update_time = last_update_time
@@ -52,6 +56,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         self._profile = profile
         self.created_by = created_by
         self.last_updated_by = last_updated_by
+        self._workspace = resolve_entity_workspace_name(workspace)
         self._experiment_ids = None
         self._records = None
 
@@ -83,6 +88,13 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Dataset profile information.
         """
         return self._profile
+
+    @property
+    def workspace(self) -> str:
+        """
+        Workspace name for the dataset.
+        """
+        return self._workspace
 
     @property
     def experiment_ids(self) -> list[str]:
@@ -316,13 +328,23 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
         Convert dataset records to a pandas DataFrame.
 
         This method triggers lazy loading of records if they haven't been loaded yet.
+        If the dataset no longer exists in the backend, an empty DataFrame is returned.
 
         Returns:
             DataFrame with columns for inputs, outputs, expectations, tags, and metadata
         """
         import pandas as pd
 
-        records = self.records
+        try:
+            records = self.records
+        except MlflowException as e:
+            error_code = getattr(e, "error_code", None)
+            if error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST):
+                # Cache the empty records list to avoid repeated store lookups
+                self._records = []
+                records = []
+            else:
+                raise
 
         if not records:
             return pd.DataFrame(
@@ -416,6 +438,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
                 "created_by": self.created_by,
                 "last_updated_by": self.last_updated_by,
                 "experiment_ids": self.experiment_ids,
+                "workspace": self.workspace,
             }
         )
 
@@ -448,6 +471,7 @@ class EvaluationDataset(_MlflowObject, Dataset, PyFuncConvertibleDatasetMixin):
             profile=data.get("profile"),
             created_by=data.get("created_by"),
             last_updated_by=data.get("last_updated_by"),
+            workspace=data.get("workspace"),
         )
         if "experiment_ids" in data:
             dataset._experiment_ids = data["experiment_ids"]

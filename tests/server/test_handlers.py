@@ -1,4 +1,5 @@
 import json
+import re
 import uuid
 from unittest import mock
 
@@ -127,6 +128,7 @@ from mlflow.server.handlers import (
     get_endpoints,
     get_trace_artifact_handler,
 )
+from mlflow.server.workspace_helpers import _RBAC_RESOURCE_PREFIX_MAP, _resolve_rbac_resource_type
 from mlflow.store._unity_catalog.registry.rest_store import UcModelRegistryStore
 from mlflow.store.artifact.azure_blob_artifact_repo import AzureBlobArtifactRepository
 from mlflow.store.artifact.local_artifact_repo import LocalArtifactRepository
@@ -244,6 +246,223 @@ def test_convert_path_parameter_to_flask_format():
 
     converted = _convert_path_parameter_to_flask_format("/mlflow/{foo}/{bar}/{baz}")
     assert "/mlflow/<foo>/<bar>/<baz>" == converted
+
+
+@pytest.mark.parametrize(
+    ("path", "operation", "expected"),
+    [
+        ("/graphql", "MlflowGetExperimentQuery", "experiments"),
+        ("/graphql", "GetExperiment", "experiments"),
+        ("/graphql", "GetRun", "experiments"),
+        ("/graphql", "MlflowGetRunQuery", "experiments"),
+        ("/graphql", "SearchRuns", "experiments"),
+        ("/graphql", "MlflowSearchRunsQuery", "experiments"),
+        ("/graphql", "GetMetricHistoryBulkInterval", "experiments"),
+        ("/graphql", "MlflowGetMetricHistoryBulkIntervalQuery", "experiments"),
+        ("/graphql", "SearchModelVersions", "registered_models"),
+        ("/mlflow/graphql", "MlflowSearchModelVersionsQuery", "registered_models"),
+        ("/graphql", "GetModelVersion", "registered_models"),
+        ("/graphql", "MlflowGetModelVersionQuery", "registered_models"),
+        ("/workspaces/example/graphql", "GetRegisteredModel", "registered_models"),
+        (
+            "/mlflow/workspaces/example/graphql",
+            "MlflowGetRegisteredModelQuery",
+            "registered_models",
+        ),
+        ("/graphql", "SearchRegisteredModels", "registered_models"),
+        ("/graphql", "MlflowSearchRegisteredModelsQuery", "registered_models"),
+    ],
+)
+def test_resolve_rbac_resource_type_graphql_model_registry(path, operation, expected):
+    with app.test_request_context(path, method="POST", json={"operationName": operation}):
+        assert _resolve_rbac_resource_type() == expected
+
+
+@pytest.mark.parametrize(
+    ("path", "method", "kwargs"),
+    [
+        ("/graphql", "POST", {"json": {}}),
+        ("/graphql", "GET", {}),
+        ("/graphql", "POST", {"json": {"operationName": "UnknownOperation"}}),
+        ("/graphql", "GET", {"query_string": {"operationName": "UnmappedOperation"}}),
+    ],
+)
+def test_resolve_rbac_resource_type_graphql_defaults_to_experiments(path, method, kwargs):
+    with app.test_request_context(path, method=method, **kwargs):
+        assert _resolve_rbac_resource_type() == "experiments"
+
+
+_RBAC_METHOD_OVERRIDES = {
+    "upload-artifact": "POST",
+}
+
+
+_PARAM_VALUE_OVERRIDES = {
+    "artifact_path": "artifact",
+    "workspace_name": "example",
+    "experiment_id": "1",
+    "run_id": "run",
+    "name": "name",
+    "version": "1",
+    "alias": "alias",
+    "key": "key",
+    "model_name": "model",
+    "tag_name": "tag",
+    "tag_key": "tag",
+    "tag_value": "value",
+    "scorer_id": "scorer",
+    "scorer_version_id": "scorer_version",
+    "metric_key": "metric",
+    "sha256": "sha",
+    "scorer_name": "scorer",
+    "dataset_id": "dataset",
+    "trace_id": "trace",
+    "scorer_version_name": "scorer_version_name",
+    "scorer_version_version": "1",
+    "prompt_name": "prompt",
+    "prompt_version": "1",
+    "prompt_tag": "tag",
+    "prompt_version_tag": "tag",
+    "registered_model_name": "model",
+    "path": "artifact",
+    "request_id": "request",
+}
+
+
+def _materialize_endpoint_path(path: str) -> str:
+    """
+    Replace Flask-style path parameters (e.g. ``<int:experiment_id>``) with concrete
+    sample values so the generated URL can be used directly in test requests.
+    """
+    return re.sub(
+        r"<(?:[^:]+:)?([^>]+)>",
+        lambda match: _PARAM_VALUE_OVERRIDES.get(match.group(1), "example"),
+        path,
+    )
+
+
+def _build_endpoint_case_id(handler_name: str, path: str) -> str:
+    """
+    Generate a stable pytest param id by combining the handler name with a sanitized
+    version of the route path (non-word characters converted to underscores).
+    """
+    sanitized_path = re.sub(r"[\\W]+", "_", path.strip("/"))
+    return f"{handler_name}__{sanitized_path or 'root'}"
+
+
+def _build_endpoint_cases():
+    """
+    Enumerate all server endpoints and build pytest parameters so parameterized tests
+    can iterate over every registered handler/method combination.
+    """
+    cases = []
+    for path, handler, methods in get_endpoints():
+        cases.append(
+            pytest.param(
+                path,
+                tuple(methods),
+                id=_build_endpoint_case_id(handler.__name__, path),
+            )
+        )
+    return cases
+
+
+def _prepare_endpoint_request(path: str, methods: tuple[str, ...]):
+    """
+    Choose a representative HTTP method/URL combo for the given endpoint so
+    parameterized tests can issue a concrete request without knowing the
+    endpoint's full schema.
+    """
+    method_order = ["GET", "POST", "PUT", "PATCH", "DELETE"]
+    available_methods = list(dict.fromkeys(methods))
+    method = next((m for m in method_order if m in available_methods), available_methods[0])
+    kwargs: dict[str, object] = {}
+    sample_path = _materialize_endpoint_path(path)
+
+    if "graphql" in path:
+        if "POST" in available_methods:
+            method = "POST"
+            kwargs["json"] = {"operationName": "GetExperiment"}
+        else:
+            kwargs["query_string"] = {"operationName": "GetExperiment"}
+
+    return sample_path, method, kwargs
+
+
+def _build_rbac_path_cases():
+    """
+    Construct representative request cases for every RBAC prefix so tests can
+    verify `_resolve_rbac_resource_type` across the base and workspace-prefixed
+    route variants.
+    """
+    cases = []
+    for prefix, expected in _RBAC_RESOURCE_PREFIX_MAP.items():
+        method = _RBAC_METHOD_OVERRIDES.get(prefix, "GET")
+        base_templates = [
+            "/{prefix}",
+            "/mlflow/{prefix}",
+            "/ajax-api/2.0/mlflow/{prefix}",
+        ]
+        workspace_templates = [
+            "/workspaces/example/{prefix}",
+            "/workspaces/example/mlflow/{prefix}",
+            "/workspaces/example/ajax-api/2.0/mlflow/{prefix}",
+        ]
+        paths = {template.format(prefix=prefix) for template in base_templates}
+        if prefix == "workspaces":
+            paths.update(
+                {
+                    "/workspaces",
+                    "/workspaces/permissions",
+                    "/workspaces/example",
+                    "/workspaces/example/permissions",
+                }
+            )
+        else:
+            paths.update(template.format(prefix=prefix) for template in workspace_templates)
+
+        for path in sorted(paths):
+            cases.append(
+                pytest.param(
+                    path,
+                    method,
+                    expected,
+                    id=f"{prefix}_{path.strip('/').replace('/', '__') or 'root'}",
+                )
+            )
+
+    cases.extend(
+        [
+            pytest.param(
+                "/workspaces/example/experiments/search",
+                "GET",
+                "experiments",
+                id="workspaces_nested_experiments",
+            ),
+            pytest.param(
+                "/workspaces/example/model-versions/search",
+                "GET",
+                "registered_models",
+                id="workspaces_nested_model_versions",
+            ),
+        ]
+    )
+    return cases
+
+
+@pytest.mark.parametrize(("path", "method", "expected"), _build_rbac_path_cases())
+def test_resolve_rbac_resource_type(path, method, expected):
+    with app.test_request_context(path, method=method):
+        assert _resolve_rbac_resource_type() == expected
+
+
+@pytest.mark.parametrize(("path", "methods"), _build_endpoint_cases())
+def test_all_registered_endpoints_have_rbac_mapping(path, methods):
+    sample_path, method, kwargs = _prepare_endpoint_request(path, methods)
+    with app.test_request_context(sample_path, method=method, **kwargs):
+        assert _resolve_rbac_resource_type() is not None, (
+            f"Missing RBAC resource mapping for path '{path}'"
+        )
 
 
 def test_all_model_registry_endpoints_available():

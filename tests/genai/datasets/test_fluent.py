@@ -1533,7 +1533,8 @@ def test_evaluation_dataset_tags_crud_workflow(tracking_uri, experiments):
             tags={"should": "fail"},
         )
 
-    delete_dataset_tag(dataset_id=dataset.dataset_id, key="status")
+    with pytest.raises(MlflowException, match="Could not find|not found"):
+        delete_dataset_tag(dataset_id=dataset.dataset_id, key="status")
 
 
 def test_set_dataset_tags_databricks(mock_databricks_environment):
@@ -1673,7 +1674,6 @@ def test_dataset_schema_evolution_and_log_input(tracking_uri, experiments):
 
     consistent_profile = json.loads(consistent_dataset.profile)
     assert consistent_profile["num_records"] == 4
-    delete_dataset_tag(dataset_id="test", key="key")
 
 
 def test_deprecated_parameter_substitution(experiment):

@@ -45,7 +45,13 @@ def _is_default_backend_store_uri(backend_store_uri: str) -> bool:
     return backend_store_uri == DEFAULT_TRACKING_URI
 
 
-def artifacts_only_config_validation(artifacts_only: bool, backend_store_uri: str) -> None:
+def artifacts_only_config_validation(
+    artifacts_only: bool,
+    backend_store_uri: str,
+    enable_workspaces: bool = False,
+) -> None:
+    if artifacts_only and enable_workspaces:
+        raise click.UsageError("--enable-workspaces cannot be combined with --artifacts-only.")
     if artifacts_only and not _is_default_backend_store_uri(backend_store_uri):
         msg = (
             "You are starting a tracking server in `--artifacts-only` mode and have provided a "

@@ -34,6 +34,9 @@ def _launch_server(host, port, backend_store_uri, default_artifact_root, artifac
         "--artifacts-destination",
         artifacts_destination,
         *extra_cmd,
+        # Explicitly disable workspaces for the server to avoid environment variable inheritance
+        # from the test environment
+        "--no-enable-workspaces",
     ]
     process = subprocess.Popen(cmd)
     _await_server_up_or_die(port)

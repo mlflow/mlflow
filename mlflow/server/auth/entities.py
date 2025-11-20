@@ -1,3 +1,6 @@
+from mlflow.utils.workspace_utils import resolve_entity_workspace_name
+
+
 class User:
     def __init__(
         self,
@@ -142,10 +145,16 @@ class RegisteredModelPermission:
         name,
         user_id,
         permission,
+        workspace=None,
     ):
+        self._workspace = resolve_entity_workspace_name(workspace)
         self._name = name
         self._user_id = user_id
         self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
 
     @property
     def name(self):
@@ -165,6 +174,7 @@ class RegisteredModelPermission:
 
     def to_json(self):
         return {
+            "workspace": self.workspace,
             "name": self.name,
             "user_id": self.user_id,
             "permission": self.permission,
@@ -176,6 +186,7 @@ class RegisteredModelPermission:
             name=dictionary["name"],
             user_id=dictionary["user_id"],
             permission=dictionary["permission"],
+            workspace=dictionary.get("workspace"),
         )
 
 
@@ -226,5 +237,52 @@ class ScorerPermission:
             experiment_id=dictionary["experiment_id"],
             scorer_name=dictionary["scorer_name"],
             user_id=dictionary["user_id"],
+            permission=dictionary["permission"],
+        )
+
+
+class WorkspacePermission:
+    def __init__(self, workspace, username, resource_type, permission):
+        if not all([workspace, username, resource_type, permission]):
+            raise ValueError("workspace, username, resource_type, and permission are required.")
+        self._workspace = workspace
+        self._username = username
+        self._resource_type = resource_type
+        self._permission = permission
+
+    @property
+    def workspace(self):
+        return self._workspace
+
+    @property
+    def username(self):
+        return self._username
+
+    @property
+    def resource_type(self):
+        return self._resource_type
+
+    @property
+    def permission(self):
+        return self._permission
+
+    def to_json(self):
+        return {
+            "workspace": self.workspace,
+            "username": self.username,
+            "resource_type": self.resource_type,
+            "permission": self.permission,
+        }
+
+    @classmethod
+    def from_json(cls, dictionary):
+        required_fields = ["workspace", "username", "resource_type", "permission"]
+        missing = [field for field in required_fields if field not in dictionary]
+        if missing:
+            raise ValueError(f"Missing required fields: {', '.join(missing)}")
+        return cls(
+            workspace=dictionary["workspace"],
+            username=dictionary["username"],
+            resource_type=dictionary["resource_type"],
             permission=dictionary["permission"],
         )

@@ -42,10 +42,7 @@ from mlflow.environment_variables import (
     MLFLOW_RUN_ID,
 )
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INVALID_PARAMETER_VALUE,
-    RESOURCE_DOES_NOT_EXIST,
-)
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_DOES_NOT_EXIST
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
@@ -2074,7 +2071,9 @@ def create_experiment(
     Args:
         name: The experiment name, must be a non-empty unique string.
         artifact_location: The location to store run artifacts. If not provided, the server picks
-            an appropriate default.
+            an appropriate default. When workspaces are enabled, artifact_location must be omitted.
+            The server uses the workspace's default artifact location and returns
+            INVALID_PARAMETER_VALUE if provided.
         tags: An optional dictionary of string keys and values to set as tags on the experiment.
 
     Returns:

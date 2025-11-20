@@ -1,0 +1,255 @@
+import Link from "@docusaurus/Link";
+
+# Workspace Configuration
+
+This page describes configuration options and startup behavior for MLflow workspaces.
+
+## Server Configuration
+
+### Enabling Workspaces
+
+Enable workspaces using the `--enable-workspaces` flag:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces
+```
+
+Or use the environment variable:
+
+```bash
+export MLFLOW_ENABLE_WORKSPACES=true
+mlflow server \
+  --backend-store-uri postgresql://user:pass@localhost/mlflow \
+  --default-artifact-root s3://mlflow-artifacts
+```
+
+### Client Configuration
+
+Clients can configure the active workspace through multiple methods.
+
+#### Method 1: Explicit API call (recommended)
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://mlflow.example.com")
+mlflow.set_workspace("team-a")
+```
+
+#### Method 2: Environment variable
+
+```bash
+export MLFLOW_WORKSPACE=team-a
+```
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://mlflow.example.com")
+# Workspace automatically resolved from environment
+```
+
+#### Method 3: Provider default
+
+If neither of the above is set, the workspace provider's `get_default_workspace()` method is called. The default database-backed provider returns the `default` workspace.
+
+:::info Workspace-aware REST routes
+When multi-tenancy is enabled, every REST endpoint must include the workspace segment:
+
+- Standard tracking/model registry APIs: `/api/<version>/mlflow/workspaces/<workspace>/…`
+- Artifact proxy APIs: `/api/<version>/mlflow-artifacts/workspaces/<workspace>/…`
+
+UI requests (AJAX) follow the same pattern (`/ajax-api/<version>/…`). When calling the APIs manually, ensure the workspace segment is present; otherwise the server will reject the request before authorization runs.
+:::
+
+## Startup Validation
+
+When starting with `--enable-workspaces`, the server performs the following validations:
+
+### Store Compatibility Check
+
+Both tracking and model registry stores must support workspaces:
+
+```python
+def supports_workspaces(self) -> bool:
+    return True
+```
+
+If either store returns `False`, the server will abort startup with an error message instructing you to either disable workspaces or use a SQL-backed store.
+
+### Workspace Provider Validation
+
+The server ensures a workspace provider is configured. If none is specified, MLflow loads the default SQL-backed provider that persists workspaces in the tracking database.
+
+### Default Workspace Creation
+
+The server verifies that the `default` workspace exists in the workspace catalog. If missing, it creates it automatically with the description "Default workspace for legacy resources".
+
+### Artifact Conflict Detection
+
+The server checks for potential artifact location conflicts that could compromise workspace isolation:
+
+1. **Reserved namespace check**: Flags any existing experiments with artifact locations starting with `<default_artifact_root>/workspaces/`
+2. **Root validation**: Ensures the default artifact root doesn't reside within a workspace-prefixed path
+
+If conflicts are detected, the server aborts startup with remediation instructions. This check is skipped once at least one experiment exists in a non-default workspace.
+
+## Database Schema
+
+Workspace support requires database schema changes applied through Alembic migrations.
+
+### Running Migrations
+
+Before starting the server with workspaces enabled, run migrations:
+
+```bash
+mlflow db upgrade postgresql://user:pass@localhost/mlflow
+```
+
+The migration performs the following operations:
+
+1. Adds `workspace` column to all top-level resource tables
+2. Backfills existing resources with `workspace = 'default'`
+3. Updates primary keys and foreign keys to include workspace
+4. Creates the `workspaces` catalog table
+5. Creates workspace-aware indexes for query performance
+
+:::warning Always backup before migrations
+
+Database schema migrations can result in downtime and may take time on large databases. Always backup your database before running migrations.
+
+:::
+
+### Rollback Support
+
+The migration includes a `downgrade()` path that:
+
+1. Checks for workspace conflicts (multiple resources with the same name across workspaces)
+2. Only drops workspace columns when consolidation into the `default` workspace would not create a naming conflict
+3. Removes workspace columns and reverts indexes
+
+If a conflict is detected, the rollback aborts before modifying any resources.
+
+## API Limitations
+
+When workspaces are enabled, MLflow Tracking APIs enforce certain restrictions to ensure consistent behavior and isolation:
+
+- **`create_experiment()`**: The `artifact_location` parameter is disallowed. MLflow automatically assigns a unique, workspace-specific artifact location for each experiment. Passing an `artifact_location` will result in an error.
+
+## Configuration Examples
+
+### Basic Multi-Tenant Deployment
+
+```bash
+mlflow server \
+  --host 0.0.0.0 \
+  --backend-store-uri postgresql://mlflow:password@postgres:5432/mlflow \
+  --default-artifact-root s3://mlflow-artifacts \
+  --enable-workspaces \
+  --app-name basic-auth
+```
+
+### Docker Compose
+
+```yaml
+version: '3'
+services:
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_ENABLE_WORKSPACES=true
+      - MLFLOW_BACKEND_STORE_URI=postgresql://mlflow:password@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=s3://mlflow-artifacts
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --app-name basic-auth
+```
+
+### Kubernetes Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow
+spec:
+  template:
+    spec:
+      containers:
+      - name: mlflow
+        image: ghcr.io/mlflow/mlflow:latest
+        env:
+        - name: MLFLOW_ENABLE_WORKSPACES
+          value: "true"
+        - name: MLFLOW_BACKEND_STORE_URI
+          valueFrom:
+            secretKeyRef:
+              name: mlflow-secrets
+              key: database-uri
+        - name: MLFLOW_DEFAULT_ARTIFACT_ROOT
+          value: "s3://mlflow-artifacts"
+        command:
+        - mlflow
+        - server
+        - --host
+        - "0.0.0.0"
+        - --app-name
+        - basic-auth
+```
+
+## Environment Variables
+
+The following environment variables control workspace behavior:
+
+| Variable                   | Description                                                                  | Default                                    |
+| -------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------ |
+| `MLFLOW_ENABLE_WORKSPACES` | Enable workspace mode                                                        | `false`                                    |
+| `MLFLOW_WORKSPACE`         | Active workspace for client operations                                       | None                                       |
+| `MLFLOW_WORKSPACE_URI`     | Override the workspace provider URI; falls back to the resolved tracking URI | None (falls back to resolved tracking URI) |
+
+Workspace providers are discovered via the `mlflow.workspace_provider` entry point and selected based on the workspace URI or provider registry configuration, not via an environment variable.
+
+`MLFLOW_WORKSPACE` controls which workspace requests target. If it's unset, the provider's
+`get_default_workspace()` implementation determines the workspace (typically `default`). Setting
+`MLFLOW_WORKSPACE_URI` only changes where the workspace catalog is stored; it does not pick a
+workspace. When unset, MLflow reuses the configured tracking URI for workspace metadata operations,
+so most deployments can leave it blank unless the workspace store lives on a dedicated database
+or a custom workspace provider is used.
+
+## Verification
+
+After enabling workspaces, verify the setup:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")
+
+# List workspaces (should include 'default' and any created workspaces)
+workspaces = mlflow.list_workspaces()
+print(f"Available workspaces: {[ws.name for ws in workspaces]}")
+
+# Test workspace operations
+mlflow.set_workspace("default")
+experiments = mlflow.search_experiments()
+print(f"Default workspace has {len(experiments)} experiments")
+```
+
+## Disabling Workspaces
+
+To disable workspaces:
+
+1. Ensure all resources are in the `default` workspace
+2. Restart the server without the `--enable-workspaces` flag
+
+## Next Steps
+
+- [Workspace Providers](/self-hosting/workspaces/workspace-providers) - Learn about pluggable providers
+- [Permissions](/self-hosting/workspaces/permissions) - Configure fine-grained access control
+- [Troubleshooting](/self-hosting/troubleshooting) - Common issues and solutions

@@ -12,6 +12,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import WebhookAction as ProtoWebhookAction
 from mlflow.protos.webhooks_pb2 import WebhookEntity as ProtoWebhookEntity
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
+from mlflow.utils.workspace_utils import DEFAULT_WORKSPACE_NAME
 
 
 @pytest.mark.parametrize(
@@ -141,6 +142,35 @@ def test_webhook_proto_conversion():
     assert webhook_from_proto.status == webhook.status
     assert webhook_from_proto.creation_timestamp == webhook.creation_timestamp
     assert webhook_from_proto.last_updated_timestamp == webhook.last_updated_timestamp
+    assert webhook_from_proto.workspace == DEFAULT_WORKSPACE_NAME
+
+
+def test_webhook_workspace_defaults_to_default_workspace():
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    webhook = Webhook(
+        webhook_id="webhook123",
+        name="Test Webhook",
+        url="https://example.com/webhook",
+        events=events,
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567900,
+        workspace=None,
+    )
+    assert webhook.workspace == DEFAULT_WORKSPACE_NAME
+
+
+def test_webhook_workspace_is_preserved():
+    events = [WebhookEvent(WebhookEntity.MODEL_VERSION, WebhookAction.CREATED)]
+    webhook = Webhook(
+        webhook_id="webhook123",
+        name="Team Webhook",
+        url="https://example.com/webhook",
+        events=events,
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567900,
+        workspace="team-a",
+    )
+    assert webhook.workspace == "team-a"
 
 
 def test_webhook_no_secret_in_repr():

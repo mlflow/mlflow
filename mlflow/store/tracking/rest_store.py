@@ -2,6 +2,7 @@ import functools
 import json
 import logging
 from typing import TYPE_CHECKING, Any
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from mlflow.entities import DatasetRecord, EvaluationDataset
@@ -119,7 +120,12 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.analysis import TraceFilterCorrelationResult
-from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER, OTLP_TRACES_PATH
+from mlflow.tracing.utils.otlp import (
+    MLFLOW_EXPERIMENT_ID_HEADER,
+    OTLP_TRACES_PATH,
+    OTLP_TRACES_WORKSPACE_PATH,
+)
+from mlflow.utils import rest_utils
 from mlflow.utils.databricks_utils import databricks_api_disabled
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
@@ -132,7 +138,6 @@ from mlflow.utils.rest_utils import (
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
     get_trace_tag_endpoint,
-    http_request,
     verify_rest_response,
 )
 from mlflow.utils.validation import _resolve_experiment_ids_and_locations
@@ -155,6 +160,38 @@ class RestStore(AbstractStore):
     def __init__(self, get_host_creds):
         super().__init__()
         self.get_host_creds = get_host_creds
+        self._workspace_support: bool | None = None
+
+    def supports_workspaces(self) -> bool:
+        if self._workspace_support is None:
+            self._workspace_support = self._probe_workspace_support()
+        return self._workspace_support
+
+    def _probe_workspace_support(self) -> bool:
+        host_creds = self.get_host_creds()
+        try:
+            response = rest_utils.http_request(
+                host_creds=host_creds,
+                endpoint="/api/2.0/mlflow/workspaces",
+                method="GET",
+                timeout=3,
+                max_retries=0,
+                raise_on_status=False,
+            )
+        except Exception as exc:  # pragma: no cover - network errors vary
+            _logger.debug("Failed to probe workspace support: %s", exc)
+            return False
+
+        # These response codes indicate the workspace endpoints are being served.
+        if response.status_code in (200, 401, 403):
+            return True
+
+        _logger.debug(
+            "Workspace endpoint probe returned status %s: %s",
+            response.status_code,
+            response.text,
+        )
+        return False
 
     @staticmethod
     @functools.lru_cache
@@ -169,7 +206,7 @@ class RestStore(AbstractStore):
             Version object if successful, None if failed to retrieve version.
         """
         try:
-            response = http_request(
+            response = rest_utils.http_request(
                 host_creds=host_creds,
                 endpoint="/version",
                 method="GET",
@@ -201,6 +238,17 @@ class RestStore(AbstractStore):
         else:
             endpoint, method = self._METHOD_TO_INFO[api]
         response_proto = response_proto or api.Response()
+        workspace = rest_utils._resolve_active_workspace()
+        workspace_requested = workspace is not None
+        if workspace_requested and not self.supports_workspaces():
+            raise MlflowException(
+                f"Active workspace '{workspace}' cannot be used because the remote tracking "
+                "server does not support workspaces. Restart the server with --enable-workspaces "
+                "or unset the active workspace.",
+                error_code=databricks_pb2.FEATURE_DISABLED,
+            )
+        if workspace_requested:
+            endpoint = rest_utils._maybe_prefix_with_workspace(endpoint)
         return call_endpoint(
             self.get_host_creds(),
             endpoint,
@@ -1741,14 +1789,29 @@ class RestStore(AbstractStore):
                 error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
             )
 
+        workspace = rest_utils._resolve_active_workspace()
+        if workspace and not self.supports_workspaces():
+            raise MlflowException(
+                f"Active workspace '{workspace}' cannot be used because the remote tracking "
+                "server does not support workspaces. Restart the server with --enable-workspaces "
+                "or unset the active workspace.",
+                error_code=databricks_pb2.FEATURE_DISABLED,
+            )
+
+        otlp_endpoint = (
+            OTLP_TRACES_WORKSPACE_PATH.format(workspace_name=quote(workspace, safe=""))
+            if workspace
+            else OTLP_TRACES_PATH
+        )
+
         request = ExportTraceServiceRequest()
         resource_spans = request.resource_spans.add()
         scope_spans = resource_spans.scope_spans.add()
         scope_spans.spans.extend(span.to_otel_proto() for span in spans)
 
-        response = http_request(
+        response = rest_utils.http_request(
             host_creds=self.get_host_creds(),
-            endpoint=OTLP_TRACES_PATH,
+            endpoint=otlp_endpoint,
             method="POST",
             data=request.SerializeToString(),
             extra_headers={
@@ -1757,7 +1820,7 @@ class RestStore(AbstractStore):
             },
         )
 
-        verify_rest_response(response, OTLP_TRACES_PATH)
+        verify_rest_response(response, otlp_endpoint)
         return spans
 
     async def log_spans_async(self, location: str, spans: list[Span]) -> list[Span]:

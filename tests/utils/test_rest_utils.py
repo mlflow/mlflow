@@ -11,11 +11,13 @@ from mlflow.deployments.databricks import DatabricksDeploymentClient
 from mlflow.environment_variables import (
     _MLFLOW_DATABRICKS_TRAFFIC_ID,
     MLFLOW_HTTP_REQUEST_TIMEOUT,
+    MLFLOW_WORKSPACE,
 )
 from mlflow.exceptions import InvalidUrlException, MlflowException, RestException
 from mlflow.protos.databricks_pb2 import ENDPOINT_NOT_FOUND, ErrorCode
 from mlflow.protos.service_pb2 import GetRun
 from mlflow.pyfunc.scoring_server import NumpyEncoder
+from mlflow.tracking._workspace.context import WorkspaceContext
 from mlflow.tracking.request_header.default_request_header_provider import (
     _CLIENT_VERSION,
     _USER_AGENT,
@@ -25,6 +27,7 @@ from mlflow.utils.rest_utils import (
     _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING,
     MlflowHostCreds,
     _can_parse_as_json_object,
+    _maybe_prefix_with_workspace,
     augmented_raise_for_status,
     call_endpoint,
     call_endpoints,
@@ -104,6 +107,56 @@ def test_http_request_hostonly():
             headers=DefaultRequestHeaderProvider().request_headers(),
             timeout=120,
         )
+
+
+def test_maybe_prefix_with_workspace_scopes_mlflow_api():
+    with WorkspaceContext("team-a"):
+        assert (
+            _maybe_prefix_with_workspace("/api/2.0/mlflow/runs/search")
+            == "/api/2.0/mlflow/workspaces/team-a/runs/search"
+        )
+
+
+def test_maybe_prefix_with_workspace_scopes_mlflow_artifact_api():
+    with WorkspaceContext("team-a"):
+        assert (
+            _maybe_prefix_with_workspace("/api/2.0/mlflow-artifacts/runs/artifacts")
+            == "/api/2.0/mlflow-artifacts/workspaces/team-a/runs/artifacts"
+        )
+
+
+def test_maybe_prefix_with_workspace_no_workspace(monkeypatch):
+    monkeypatch.delenv(MLFLOW_WORKSPACE.name, raising=False)
+    assert (
+        _maybe_prefix_with_workspace("/api/2.0/mlflow/runs/search") == "/api/2.0/mlflow/runs/search"
+    )
+
+
+def test_maybe_prefix_with_workspace_skips_non_mlflow_routes():
+    with WorkspaceContext("team-a"):
+        assert _maybe_prefix_with_workspace("/version") == "/version"
+
+
+def test_maybe_prefix_with_workspace_avoids_double_prefix(monkeypatch):
+    monkeypatch.delenv(MLFLOW_WORKSPACE.name, raising=False)
+    with WorkspaceContext("team-a"):
+        endpoint = "/api/3.0/mlflow/workspaces/my-ws/runs/search"
+        assert _maybe_prefix_with_workspace(endpoint) == endpoint
+
+
+def test_maybe_prefix_with_workspace_trims_env_value(monkeypatch):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, " team-a  ")
+    assert (
+        _maybe_prefix_with_workspace("/api/2.0/mlflow/runs/search")
+        == "/api/2.0/mlflow/workspaces/team-a/runs/search"
+    )
+
+
+def test_maybe_prefix_with_workspace_ignores_blank_env_value(monkeypatch):
+    monkeypatch.setenv(MLFLOW_WORKSPACE.name, "   ")
+    assert (
+        _maybe_prefix_with_workspace("/api/2.0/mlflow/runs/search") == "/api/2.0/mlflow/runs/search"
+    )
 
 
 def test_http_request_cleans_hostname():

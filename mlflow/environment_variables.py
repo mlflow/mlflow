@@ -102,6 +102,14 @@ class _BooleanEnvironmentVariable(_EnvironmentVariable):
 #: (default: ``None``)
 MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 
+#: Specifies the active workspace for client operations.
+#: (default: ``None``)
+MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
+
+#: Specifies the workspace provider URI. Falls back to the tracking URI when unset.
+#: (default: ``None``)
+MLFLOW_WORKSPACE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_URI", str, None)
+
 #: Specifies the registry URI.
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
@@ -1123,3 +1131,8 @@ MLFLOW_SERVER_JOB_TRANSIENT_ERROR_RETRY_MAX_DELAY = _EnvironmentVariable(
 #: issues with the judge's reasoning.
 #: (default: ``30``)
 MLFLOW_JUDGE_MAX_ITERATIONS = _EnvironmentVariable("MLFLOW_JUDGE_MAX_ITERATIONS", int, 30)
+
+#: Enables workspace-aware (multi-tenant) behavior for MLflow servers and clients.
+#: When set, requests can include a workspace. Some workspace providers support default workspaces.
+#: (default: ``False``)
+MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)

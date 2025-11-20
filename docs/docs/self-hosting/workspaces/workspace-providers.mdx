@@ -1,0 +1,140 @@
+import Link from "@docusaurus/Link";
+
+# Workspace Providers
+
+Workspace providers are pluggable backends that manage workspace metadata and determine which workspaces are visible to users. This architecture allows MLflow to integrate with external tenancy systems while providing a default SQL-backed implementation.
+
+## Provider Architecture
+
+The `WorkspaceProvider` interface defines the contract for workspace management:
+
+```python
+from dataclasses import dataclass
+from abc import ABC, abstractmethod
+
+
+@dataclass
+class Workspace:
+    """Minimal metadata describing a workspace."""
+
+    name: str
+    description: str | None = None
+
+
+class WorkspaceProvider(ABC):
+    @abstractmethod
+    def list_workspaces(self, request) -> list[Workspace]:
+        """Return workspaces visible to the current request."""
+
+    @abstractmethod
+    def get_workspace(self, workspace_name: str, request) -> Workspace:
+        """Validate access and return metadata for a single workspace."""
+
+    def create_workspace(self, workspace: Workspace, request) -> Workspace:
+        """Provision a new workspace (optional)."""
+        raise NotImplementedError
+
+    def update_workspace(self, workspace: Workspace, request) -> Workspace:
+        """Update an existing workspace (optional)."""
+        raise NotImplementedError
+
+    def delete_workspace(self, workspace_name: str, request) -> None:
+        """Delete an existing workspace (optional)."""
+        raise NotImplementedError
+
+    def get_default_workspace(self, request) -> Workspace:
+        """Return the workspace to select when none is specified (optional)."""
+        raise NotImplementedError
+
+    def resolve_artifact_root(
+        self, default_artifact_root: str, workspace_name: str | None = None
+    ) -> tuple[str, bool]:
+        """Optionally customize artifact root per workspace.
+
+        Returns:
+            A tuple of ``(root, append_workspace_prefix)``.
+        """
+        return default_artifact_root, True
+```
+
+## Default SQL Provider
+
+The default workspace provider persists workspace metadata in the MLflow tracking database. This provider is automatically used when workspaces are enabled without specifying a custom provider.
+
+### Features
+
+- CRUD operations for workspaces via REST API
+- Workspace metadata stored in `workspaces` table
+- Admin-only workspace management when authentication is enabled
+- Returns `default` workspace as the default
+
+### Usage
+
+The SQL provider is used automatically:
+
+```bash
+mlflow server \
+  --backend-store-uri postgresql://localhost/mlflow \
+  --enable-workspaces
+# Uses default SQL provider
+```
+
+## Advanced: Workspace-Aware Artifact Repositories
+
+For deployments requiring dynamic workspace-specific artifact resolution beyond URI prefixing, artifact repositories can optionally implement a `for_workspace()` hook:
+
+```python
+from mlflow.store.artifact.artifact_repo import ArtifactRepository
+
+
+class WorkspaceAwareS3ArtifactRepository(ArtifactRepository):
+    def for_workspace(self, workspace_name: str) -> "ArtifactRepository":
+        """
+        Return a workspace-scoped repository instance.
+
+        This allows dynamic per-workspace configuration such as:
+        - Different S3 buckets per workspace
+        - Workspace-specific credentials
+        - Custom encryption keys
+        """
+        if workspace_name == "team-sensitive":
+            # Use dedicated bucket with specific credentials
+            return S3ArtifactRepository(
+                artifact_uri="s3://team-sensitive-bucket",
+                access_key_id=get_team_credentials(workspace_name),
+            )
+
+        # Default behavior
+        return self
+```
+
+Most deployments use the default URI prefixing approach (`/workspaces/<workspace>/<experiment>`), which works with all existing artifact repository implementations.
+
+## Flask Request Context
+
+Workspace middleware sets the following Flask `g` context variables for use by providers and authentication plugins:
+
+- `g.mlflow_workspace`: The resolved `Workspace` object for the request (may be `None` when workspaces are disabled)
+- `g.mlflow_rbac_resource_type`: The resource type being accessed (`"experiments"`, `"registered_models"`, `"workspaces"`)
+
+Providers can use these for custom authorization logic:
+
+```python
+from flask import g
+
+
+def get_workspace(self, workspace_name, request):
+    workspace = self._fetch_workspace(workspace_name)
+
+    # Custom authorization using Flask context
+    if not self._user_can_access(g.get("username"), workspace):
+        raise MlflowException("Access denied", PERMISSION_DENIED)
+
+    return workspace
+```
+
+## Next Steps
+
+- [Permissions](/self-hosting/workspaces/permissions) - Configure workspace-scoped permissions
+- [Getting Started](/self-hosting/workspaces/getting-started) - Set up your first workspace
+- [Configuration](/self-hosting/workspaces/configuration) - Server configuration options

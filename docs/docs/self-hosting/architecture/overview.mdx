@@ -74,3 +74,13 @@ The following diagram and table show a few common setups for the MLflow Tracking
     </tr>
   </tbody>
 </Table>
+
+## Multi-Tenancy with Workspaces
+
+For organizations managing multiple teams or projects, MLflow supports [workspaces](/self-hosting/workspaces) to provide logical isolation within a single server instance. Workspaces enable:
+
+- Team-based resource isolation
+- Shared infrastructure with logical separation
+- Integration with platform-level tenancy systems (e.g., Kubernetes namespaces)
+
+Workspaces are opt-in and require a SQL database backend. See the [Workspaces documentation](/self-hosting/workspaces) for setup instructions and architecture details.

@@ -42,6 +42,7 @@ from mlflow.entities import (
     SpanType,
     Trace,
     ViewType,
+    Workspace,
 )
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
@@ -106,6 +107,9 @@ from mlflow.tracking._model_registry import utils as registry_utils
 from mlflow.tracking._model_registry.client import ModelRegistryClient
 from mlflow.tracking._tracking_service import utils
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
+from mlflow.tracking._workspace import utils as workspace_utils
+from mlflow.tracking._workspace.client import WorkspaceProviderClient
+from mlflow.tracking._workspace.registry import UnsupportedWorkspaceStoreURIException
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
@@ -197,12 +201,19 @@ def _disable_in_databricks(use_uc_message=False):
 class MlflowClient:
     """
     Client of an MLflow Tracking Server that creates and manages experiments and runs, and of an
-    MLflow Registry Server that creates and manages registered models and model versions. It's a
-    thin wrapper around TrackingServiceClient and RegistryClient so there is a unified API but we
-    can keep the implementation of the tracking and registry clients independent from each other.
+    MLflow Registry Server that creates and manages registered models and model versions. It also
+    exposes workspace CRUD via the configured workspace provider. It's a thin wrapper around
+    TrackingServiceClient for tracking operations, WorkspaceProviderClient for workspace operations,
+    and ModelRegistryClient for registry operations so we can offer a unified API while keeping each
+    implementation independent.
     """
 
-    def __init__(self, tracking_uri: str | None = None, registry_uri: str | None = None):
+    def __init__(
+        self,
+        tracking_uri: str | None = None,
+        registry_uri: str | None = None,
+        workspace_uri: str | None = None,
+    ):
         """
         Args:
             tracking_uri: Address of local or remote tracking server. If not provided, defaults
@@ -212,21 +223,37 @@ class MlflowClient:
             registry_uri: Address of local or remote model registry server. If not provided,
                 defaults to the service set by ``mlflow.tracking.set_registry_uri``. If
                 no such service was set, defaults to the tracking uri of the client.
+            workspace_uri: Address of the workspace provider backend. Defaults to the tracking
+                URI when unspecified, but can be pointed at a dedicated workspace store.
         """
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
         self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
-        self._tracing_client = TracingClient(tracking_uri)
+        self._workspace_uri = workspace_utils.resolve_workspace_uri(
+            workspace_uri, tracking_uri=final_tracking_uri
+        )
+        self._tracing_client = TracingClient(final_tracking_uri)
+        self._workspace_client = None
 
-        # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by the
-        # `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not explicitly
-        # defined as an instance variable in the `MlflowClient` constructor; an instance variable
-        # is assigned lazily by `MlflowClient._get_registry_client()` and should not be referenced
-        # outside of the `MlflowClient._get_registry_client()` method
+        # `MlflowClient` also references a `ModelRegistryClient` instance that is provided by
+        # the `MlflowClient._get_registry_client()` method. This `ModelRegistryClient` is not
+        # explicitly defined as an instance variable in the `MlflowClient` constructor; an
+        # instance variable is assigned lazily by `MlflowClient._get_registry_client()` and
+        # should not be referenced outside of the `MlflowClient._get_registry_client()` method.
+        # The workspace provider client follows the same lazy initialization pattern and is only
+        # constructed on demand via `_get_workspace_client()`.
 
     @property
     def tracking_uri(self):
         return self._tracking_client.tracking_uri
+
+    def get_workspace_uri(self) -> str:
+        """
+        Return the resolved workspace provider URI. This value is always non-null because
+        `resolve_workspace_uri()` falls back to the tracking URI when no workspace URI is
+        explicitly provided.
+        """
+        return self._workspace_uri
 
     def _get_registry_client(self):
         """Attempts to create a ModelRegistryClient if one does not already exist.
@@ -264,6 +291,54 @@ class MlflowClient:
         return registry_client
 
     # Tracking API
+
+    def _get_workspace_client(self) -> WorkspaceProviderClient:
+        """
+        Lazily construct and cache the WorkspaceProviderClient used for workspace operations.
+        """
+
+        if self._workspace_client is not None:
+            return self._workspace_client
+
+        try:
+            self._workspace_client = WorkspaceProviderClient(
+                self.tracking_uri,
+                self._workspace_uri,
+            )
+        except UnsupportedWorkspaceStoreURIException as exc:
+            raise MlflowException(
+                "Workspace operations are not supported by the configured workspace URI "
+                f"'{self._workspace_uri}'. Stores with the following URI schemes are supported: "
+                f"{exc.supported_uri_schemes}. Configure a supported workspace store to use "
+                "workspace APIs.",
+                error_code=FEATURE_DISABLED,
+            ) from exc
+        return self._workspace_client
+
+    def list_workspaces(self) -> list[Workspace]:
+        """Return the list of workspaces available to the current user."""
+
+        return self._get_workspace_client().list_workspaces()
+
+    def create_workspace(self, name: str, description: str | None = None) -> Workspace:
+        """Create a new workspace."""
+
+        return self._get_workspace_client().create_workspace(name, description)
+
+    def get_workspace(self, name: str) -> Workspace:
+        """Return metadata for the specified workspace."""
+
+        return self._get_workspace_client().get_workspace(name)
+
+    def update_workspace(self, name: str, description: str | None = None) -> Workspace:
+        """Update metadata for an existing workspace."""
+
+        return self._get_workspace_client().update_workspace(name, description)
+
+    def delete_workspace(self, name: str) -> None:
+        """Delete an existing workspace."""
+
+        self._get_workspace_client().delete_workspace(name)
 
     def get_run(self, run_id: str) -> Run:
         """
@@ -1808,7 +1883,8 @@ class MlflowClient:
         Args:
             name: The experiment name, which must be a unique string.
             artifact_location: The location to store run artifacts. If not provided, the server
-                picks anappropriate default.
+                picks an appropriate default. When workspaces are enabled, this argument cannot be
+                specified because a workspace-scoped default artifact location is always used.
             tags: A dictionary of key-value pairs that are converted into
                 :py:class:`mlflow.entities.ExperimentTag` objects, set as
                 experiment tags upon experiment creation.
