@@ -77,7 +77,7 @@ jobs:
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
         run: |
-          uv sync --extra 'extras,gateway,mcp'
+          uv sync --extra extras --extra gateway --extra mcp
           uv pip install \
             -r requirements/test-requirements.txt \
             -r requirements/extra-ml-requirements.txt
