@@ -152,29 +152,14 @@ const sidebarsClassicML: SidebarsConfig = {
               ],
             },
             {
-              type: 'category',
-              label: 'Scikit Learn',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/sklearn/guide/index',
-                  label: 'Scikit Learn within MLflow',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'traditional-ml/sklearn/index',
-              },
+              type: 'doc',
+              id: 'traditional-ml/sklearn/index',
+              label: 'Scikit-learn',
             },
             {
               type: 'category',
               label: 'XGBoost',
               items: [
-                {
-                  type: 'doc',
-                  id: 'traditional-ml/xgboost/quickstart/quickstart-xgboost-ipynb',
-                  label: 'Quickstart',
-                },
                 {
                   type: 'doc',
                   id: 'traditional-ml/xgboost/guide/index',
