@@ -29,10 +29,6 @@ from mlflow.models.utils import load_serving_example
 # Only import model fixtures if when MLFLOW_RUN_SLOW_TESTS environment variable is set to true
 if _MLFLOW_RUN_SLOW_TESTS.get():
     from tests.catboost.test_catboost_model_export import reg_model  # noqa: F401
-    from tests.diviner.test_diviner_model_export import (  # noqa: F401
-        diviner_data,
-        grouped_prophet,
-    )
     from tests.h2o.test_h2o_model_export import h2o_iris_model  # noqa: F401
     from tests.helper_functions import get_safe_port
     from tests.langchain.test_langchain_model_export import fake_chat_model  # noqa: F401
@@ -129,7 +125,6 @@ def start_container(port: int):
     ("flavor"),
     [
         "catboost",
-        "diviner",
         "h2o",
         # "johnsnowlabs", # Couldn't test JohnSnowLab locally due to license issue
         "keras",
@@ -189,17 +184,6 @@ def catboost_model(model_path, reg_model):
         cb_model=reg_model.model,
         path=model_path,
         input_example=reg_model.inference_dataframe[:1],
-    )
-    return model_path
-
-
-@pytest.fixture
-def diviner_model(model_path, grouped_prophet):
-    save_model_with_latest_mlflow_version(
-        flavor="diviner",
-        diviner_model=grouped_prophet,
-        path=model_path,
-        input_example={"horizon": 10, "frequency": "D"},
     )
     return model_path
 

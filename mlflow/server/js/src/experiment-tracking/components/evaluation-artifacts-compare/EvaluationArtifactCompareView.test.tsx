@@ -1,3 +1,4 @@
+import { jest, describe, test, expect } from '@jest/globals';
 import { Provider } from 'react-redux';
 import type { EvaluationDataReduxState } from '../../reducers/EvaluationDataReducer';
 import { EvaluationArtifactCompareView } from './EvaluationArtifactCompareView';
@@ -13,6 +14,7 @@ import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import userEventGlobal, { PointerEventsCheckLevel } from '@testing-library/user-event';
 import { useState } from 'react';
+import { DesignSystemProvider } from '@databricks/design-system';
 
 // Disable pointer events check for DialogCombobox which masks the elements we want to click
 const userEvent = userEventGlobal.setup({ pointerEventsCheck: PointerEventsCheckLevel.Never });
@@ -186,12 +188,14 @@ describe('EvaluationArtifactCompareView', () => {
       setVisibleRunsFn = setVisibleRuns;
       return (
         <Provider store={mockStore}>
-          <EvaluationArtifactCompareView
-            comparedRuns={visibleRuns}
-            updateViewState={updateViewStateMock}
-            viewState={viewState}
-            onDatasetSelected={() => {}}
-          />
+          <DesignSystemProvider>
+            <EvaluationArtifactCompareView
+              comparedRuns={visibleRuns}
+              updateViewState={updateViewStateMock}
+              viewState={viewState}
+              onDatasetSelected={() => {}}
+            />
+          </DesignSystemProvider>
         </Provider>
       );
     };

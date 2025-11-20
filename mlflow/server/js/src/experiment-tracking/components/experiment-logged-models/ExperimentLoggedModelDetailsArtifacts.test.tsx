@@ -1,3 +1,5 @@
+import { beforeAll, describe, expect, test } from '@jest/globals';
+import { DesignSystemProvider } from '@databricks/design-system';
 import userEvent from '@testing-library/user-event';
 import { rest } from 'msw';
 import { IntlProvider } from 'react-intl';
@@ -63,11 +65,13 @@ describe('ExperimentLoggedModelDetailsArtifacts integration test', () => {
 
     return render(<ExperimentLoggedModelDetailsArtifacts loggedModel={loggedModel} />, {
       wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <Provider store={store}>
-            <TestRouter routes={[testRoute(<>{children}</>)]} history={history} />
-          </Provider>
-        </IntlProvider>
+        <DesignSystemProvider>
+          <IntlProvider locale="en">
+            <Provider store={store}>
+              <TestRouter routes={[testRoute(<>{children}</>)]} history={history} />
+            </Provider>
+          </IntlProvider>
+        </DesignSystemProvider>
       ),
     });
   };

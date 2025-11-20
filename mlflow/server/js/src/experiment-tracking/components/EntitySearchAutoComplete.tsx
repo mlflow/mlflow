@@ -3,6 +3,7 @@ import {
   Button,
   CloseIcon,
   InfoFillIcon,
+  InfoPopover,
   InfoSmallIcon,
   Input,
   LegacyTooltip,
@@ -219,6 +220,12 @@ export const EntitySearchAutoComplete = ({
         [theme.responsive.mediaQueries.xs]: {
           width: 'auto',
         },
+        '[type=search]::-webkit-search-cancel-button': {
+          WebkitAppearance: 'none',
+        },
+        '[type=search]::-webkit-search-decoration': {
+          WebkitAppearance: 'none',
+        },
       }}
       className={className}
     >
@@ -326,33 +333,9 @@ export const EntitySearchAutoComplete = ({
                   />
                 </Tooltip>
               ) : (
-                <LegacyTooltip
-                  title={tooltipContent}
-                  placement="right"
-                  dangerouslySetAntdProps={{
-                    overlayInnerStyle: { width: '150%' },
-                    trigger: ['focus', 'click'],
-                  }}
-                >
-                  <Button
-                    size="small"
-                    ref={tooltipIcon}
-                    componentId="mlflow.experiment_page.search_filter.tooltip"
-                    type="link"
-                    css={{ marginLeft: -theme.spacing.xs, marginRight: -theme.spacing.xs }}
-                    icon={
-                      <InfoSmallIcon
-                        css={{
-                          svg: {
-                            width: theme.general.iconFontSize,
-                            height: theme.general.iconFontSize,
-                            color: theme.colors.textSecondary,
-                          },
-                        }}
-                      />
-                    }
-                  />
-                </LegacyTooltip>
+                <InfoPopover popoverProps={{ side: 'right' }} iconProps={{ ref: tooltipIcon }}>
+                  {tooltipContent}
+                </InfoPopover>
               )}
             </div>
           }

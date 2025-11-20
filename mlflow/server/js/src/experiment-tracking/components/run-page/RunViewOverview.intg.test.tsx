@@ -1,3 +1,4 @@
+import { jest, describe, beforeEach, expect, test } from '@jest/globals';
 import type { DeepPartial } from 'redux';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
 import { waitFor, renderWithIntl, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
@@ -10,6 +11,10 @@ import { setTagApi } from '../../actions';
 import { useGetRunQuery } from './hooks/useGetRunQuery';
 import { usePromptVersionsForRunQuery } from '../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import { NOTE_CONTENT_TAG } from '../../utils/NoteUtils';
+import {
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage,
+  shouldEnableArtifactsOnRunDetailsPage,
+} from '../../../common/utils/FeatureUtils';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { EXPERIMENT_PARENT_ID_TAG } from '../experiment-page/utils/experimentPage.common-utils';
 import type { RunInfoEntity } from '../../types';
@@ -30,6 +35,12 @@ jest.mock('../../actions', () => ({
 
 jest.mock('./hooks/useGetRunQuery', () => ({
   useGetRunQuery: jest.fn(),
+}));
+
+jest.mock('../../../common/utils/FeatureUtils', () => ({
+  ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
+  shouldEnableRunDetailsMetadataBoxOnRunDetailsPage: jest.fn(() => false),
+  shouldEnableArtifactsOnRunDetailsPage: jest.fn(() => false),
 }));
 
 const testPromptName = 'test-prompt';
@@ -101,7 +112,7 @@ describe('RunViewOverview integration', () => {
     jest.mocked(useGetRunQuery).mockReset();
   });
 
-  const onRunDataUpdated = jest.fn();
+  const onRunDataUpdated = jest.fn<() => void>();
   const renderComponent = ({
     tags = {},
     runInfo,

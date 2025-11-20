@@ -1,6 +1,7 @@
 import { ChainIcon, TitleSkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { getModelTraceId, type ModelTrace, type ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
-import { MutableRefObject, useCallback } from 'react';
+import type { MutableRefObject } from 'react';
+import { useCallback } from 'react';
 
 export const ExperimentSingleChatSessionSidebar = ({
   traces,

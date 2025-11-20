@@ -77,6 +77,7 @@ from mlflow.protos.service_pb2 import (
     GetMetricHistory,
     GetRun,
     GetScorer,
+    GetTrace,
     GetTraceInfo,
     GetTraceInfoV3,
     LinkTracesToRun,
@@ -461,6 +462,13 @@ class RestStore(AbstractStore):
         endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
         return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
+
+    def get_trace(self, trace_id: str, *, allow_partial: bool = False) -> Trace:
+        req_body = message_to_json(GetTrace(trace_id=trace_id, allow_partial=allow_partial))
+        response_proto = self._call_endpoint(
+            GetTrace, req_body, endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/get"
+        )
+        return Trace.from_proto(response_proto.trace)
 
     def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
@@ -1428,7 +1436,6 @@ class RestStore(AbstractStore):
         from mlflow.entities import EvaluationDataset
 
         # GetDataset uses path parameter, not request body
-        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             GetDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}"
         )
@@ -1443,7 +1450,6 @@ class RestStore(AbstractStore):
             dataset_id: The ID of the dataset to delete.
         """
         # DeleteDataset uses path parameter, not request body
-        # Dataset APIs are v3.0 endpoints
         self._call_endpoint(DeleteDataset, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}")
 
     @databricks_api_disabled(_DATABRICKS_DATASET_API_NAME, _DATABRICKS_DATASET_ALTERNATIVE)
@@ -1478,7 +1484,6 @@ class RestStore(AbstractStore):
             page_token=page_token,
         )
         req_body = message_to_json(req)
-        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             SearchEvaluationDatasets, req_body, endpoint="/api/3.0/mlflow/datasets/search"
         )
@@ -1503,7 +1508,6 @@ class RestStore(AbstractStore):
             records=json.dumps(records),
         )
         req_body = message_to_json(req)
-        # Dataset APIs are v3.0 endpoints - dataset_id is in path
         response_proto = self._call_endpoint(
             UpsertDatasetRecords,
             req_body,
@@ -1529,7 +1533,6 @@ class RestStore(AbstractStore):
             tags=json.dumps(tags),
         )
         req_body = message_to_json(req)
-        # Dataset APIs are v3.0 endpoints - dataset_id is in path
         self._call_endpoint(
             SetDatasetTags, req_body, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags"
         )
@@ -1543,8 +1546,6 @@ class RestStore(AbstractStore):
             dataset_id: The ID of the dataset.
             key: The tag key to delete.
         """
-        # DeleteDatasetTag uses path parameters for both dataset_id and key
-        # Dataset APIs are v3.0 endpoints
         self._call_endpoint(
             DeleteDatasetTag, None, endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/tags/{key}"
         )
@@ -1560,8 +1561,6 @@ class RestStore(AbstractStore):
         Returns:
             List of experiment IDs associated with the dataset.
         """
-        # GetDatasetExperimentIds uses path parameter
-        # Dataset APIs are v3.0 endpoints
         response_proto = self._call_endpoint(
             GetDatasetExperimentIds,
             None,
@@ -1663,13 +1662,22 @@ class RestStore(AbstractStore):
         """
         Add a dataset to additional experiments via REST API.
         """
+        # NB: Local import to avoid circular dependency:
+        # rest_store -> EvaluationDataset -> mlflow.data -> artifact_repository_registry
+        # -> dbfs_artifact_repo -> rest_store
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
         req_body = message_to_json(
             AddDatasetToExperiments(
                 dataset_id=dataset_id,
                 experiment_ids=experiment_ids,
             )
         )
-        response = self._call_endpoint(AddDatasetToExperiments, req_body)
+        response = self._call_endpoint(
+            AddDatasetToExperiments,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/add-experiments",
+        )
         return EvaluationDataset.from_proto(response.dataset)
 
     def remove_dataset_from_experiments(
@@ -1678,13 +1686,22 @@ class RestStore(AbstractStore):
         """
         Remove a dataset from experiments via REST API.
         """
+        # NB: Local import to avoid circular dependency:
+        # rest_store -> EvaluationDataset -> mlflow.data -> artifact_repository_registry
+        # -> dbfs_artifact_repo -> rest_store
+        from mlflow.entities.evaluation_dataset import EvaluationDataset
+
         req_body = message_to_json(
             RemoveDatasetFromExperiments(
                 dataset_id=dataset_id,
                 experiment_ids=experiment_ids,
             )
         )
-        response = self._call_endpoint(RemoveDatasetFromExperiments, req_body)
+        response = self._call_endpoint(
+            RemoveDatasetFromExperiments,
+            req_body,
+            endpoint=f"/api/3.0/mlflow/datasets/{dataset_id}/remove-experiments",
+        )
         return EvaluationDataset.from_proto(response.dataset)
 
     def log_spans(self, location: str, spans: list[Span], tracking_uri=None) -> list[Span]:

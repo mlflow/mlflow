@@ -148,7 +148,7 @@ def create_experiments(store, experiment_names):
 
 
 def test_file_store_deprecation_warning(tmp_path):
-    with pytest.warns(FutureWarning, match="Filesystem tracking backend.*is deprecated"):
+    with pytest.warns(FutureWarning, match="filesystem tracking backend.*will be deprecated"):
         FileStore(str(tmp_path / "mlruns"))
 
 
@@ -435,7 +435,7 @@ def _verify_experiment(fs, exp_id, exp_data):
 
 def _verify_logged(store, run_id, metrics, params, tags):
     run = store.get_run(run_id)
-    all_metrics = sum([store.get_metric_history(run_id, key) for key in run.data.metrics], [])
+    all_metrics = sum((store.get_metric_history(run_id, key) for key in run.data.metrics), [])
     assert len(all_metrics) == len(metrics)
     logged_metrics = [(m.key, m.value, m.timestamp, m.step) for m in all_metrics]
     assert set(logged_metrics) == {(m.key, m.value, m.timestamp, m.step) for m in metrics}
