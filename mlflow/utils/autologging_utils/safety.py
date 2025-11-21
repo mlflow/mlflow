@@ -24,23 +24,6 @@ _AUTOLOGGING_PATCHES = {}
 _AUTOLOGGING_CLEANUP_CALLBACKS = {}
 
 
-def register_cleanup_callback(autologging_integration, callback):
-    """
-    Registers a cleanup callback function for an autologging integration.
-    The callback will be invoked when revert_patches() is called for the integration.
-
-    This is useful for integrations that need custom cleanup logic beyond patch
-    reversion, such as uninstrumenting OpenTelemetry instrumentation.
-
-    Args:
-        autologging_integration: The name of the autologging integration.
-        callback: A callable that performs cleanup. Should take no arguments.
-    """
-    if autologging_integration not in _AUTOLOGGING_CLEANUP_CALLBACKS:
-        _AUTOLOGGING_CLEANUP_CALLBACKS[autologging_integration] = []
-    _AUTOLOGGING_CLEANUP_CALLBACKS[autologging_integration].append(callback)
-
-
 # Function attribute used for testing purposes to verify that a given function
 # has been wrapped with the `exception_safe_function_for_class` and
 # `picklable_exception_safe_function` decorators

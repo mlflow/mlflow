@@ -1,13 +1,8 @@
 import inspect
 import logging
 
-from mlflow.agno.autolog import (
-    _is_agno_v2,
-    _setup_otel_instrumentation,
-    _uninstrument_otel,
-    patched_async_class_call,
-    patched_class_call,
-)
+from mlflow.agno.autolog import patched_async_class_call, patched_class_call
+from mlflow.agno.autolog_v2 import _is_agno_v2, _setup_otel_instrumentation, _uninstrument_otel
 from mlflow.telemetry.events import AutologgingEvent
 from mlflow.telemetry.track import _record_event
 from mlflow.utils.annotations import experimental
@@ -18,7 +13,6 @@ _logger = logging.getLogger(__name__)
 
 
 @experimental(version="3.3.0")
-@autologging_integration(FLAVOR_NAME)
 def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = False) -> None:
     """
     Enables (or disables) and configures autologging from Agno to MLflow.
@@ -30,6 +24,13 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
         disable: If ``True``, disables Agno autologging.
         silent: If ``True``, suppresses all MLflow event logs and warnings.
     """
+    # NB: The @autologging_integration annotation is used for adding shared logic. However, one
+    # caveat is that the wrapped function is NOT executed when disable=True is passed. This prevents
+    # us from running cleaning up logging when autologging is turned off. To workaround this, we
+    # annotate _autolog() instead of this entrypoint, and define the cleanup logic outside it.
+    # This needs to be called before doing any safe-patching (otherwise safe-patch will be no-op).
+    _autolog(log_traces=log_traces, disable=disable, silent=silent)
+
     # Check if Agno V2 is installed
     if _is_agno_v2():
         _logger.info("Detected Agno V2, using OpenTelemetry instrumentation")
@@ -104,3 +105,16 @@ def autolog(*, log_traces: bool = True, disable: bool = False, silent: bool = Fa
     _record_event(
         AutologgingEvent, {"flavor": FLAVOR_NAME, "log_traces": log_traces, "disable": disable}
     )
+
+
+# This is required by mlflow.autolog()
+autolog.integration_name = FLAVOR_NAME
+
+
+@autologging_integration(FLAVOR_NAME)
+def _autolog(
+    log_traces: bool,
+    disable: bool = False,
+    silent: bool = False,
+):
+    pass

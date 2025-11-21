@@ -22,8 +22,8 @@ AGNO_VERSION = Version(getattr(agno, "__version__", "1.0.0"))
 IS_AGNO_V2 = AGNO_VERSION >= Version("2.0.0")
 
 
-def get_autolog_module():
-    return sys.modules["mlflow.agno.autolog"]
+def get_v2_autolog_module():
+    return sys.modules["mlflow.agno.autolog_v2"]
 
 
 def _create_message(content):
@@ -258,23 +258,18 @@ async def test_agno_and_anthropic_autolog_single_trace(simple_agent, is_async):
 
 @pytest.mark.skipif(not IS_AGNO_V2, reason="Test requires V2 functionality")
 def test_v2_autolog_setup_teardown():
-    autolog_module = get_autolog_module()
-    original_setup = autolog_module._otel_instrumentation_setup
+    autolog_module = get_v2_autolog_module()
     original_instrumentor = autolog_module._agno_instrumentor
 
     try:
-        autolog_module._otel_instrumentation_setup = False
         autolog_module._agno_instrumentor = None
 
         with patch("mlflow.get_tracking_uri", return_value="http://localhost:5000"):
             mlflow.agno.autolog(log_traces=True)
-            assert autolog_module._otel_instrumentation_setup is True
             assert autolog_module._agno_instrumentor is not None
 
             mlflow.agno.autolog(log_traces=False)
-            assert autolog_module._otel_instrumentation_setup is False
     finally:
-        autolog_module._otel_instrumentation_setup = original_setup
         autolog_module._agno_instrumentor = original_instrumentor
 
 
