@@ -11,6 +11,7 @@ from mlflow.genai.judges.base import JudgeField
 from mlflow.genai.judges.builtin import CategoricalRating
 from mlflow.genai.judges.utils import FieldExtraction
 from mlflow.genai.scorers import (
+    ConversationCompleteness,
     Correctness,
     Equivalence,
     ExpectationsGuidelines,
@@ -575,7 +576,7 @@ def test_get_all_scorers_oss(tracking_uri):
     scorers = get_all_scorers()
 
     # Safety and RetrievalRelevance are only available in Databricks
-    assert len(scorers) == (9 if tracking_uri == "databricks" else 7)
+    assert len(scorers) == (10 if tracking_uri == "databricks" else 8)
     assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
@@ -1367,4 +1368,43 @@ def test_user_frustration_with_custom_name_and_model(monkeypatch: pytest.MonkeyP
 
         assert result.name == "custom_frustration_check"
         assert result.value == "frustration_resolved"
+        mock_invoke_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "model", "expected_name"),
+    [
+        (None, None, "conversation_completeness"),
+        ("custom_completion_check", "openai:/gpt-4", "custom_completion_check"),
+    ],
+)
+def test_conversation_completeness_with_session(name, model, expected_name):
+    """Test ConversationCompleteness scorer with a list of traces from the same session."""
+    # Create multiple traces representing a conversation session
+    session_id = "test_session_789"
+    traces = []
+    for i in range(3):
+        with mlflow.start_span(name=f"conversation_turn_{i}") as span:
+            span.set_inputs({"question": f"User question {i}"})
+            span.set_outputs(f"AI response {i}")
+            mlflow.update_current_trace(metadata={TraceMetadataKey.TRACE_SESSION: session_id})
+        traces.append(mlflow.get_trace(span.trace_id))
+
+    with patch(
+        "mlflow.genai.judges.instructions_judge.invoke_judge_model",
+        return_value=Feedback(
+            name=expected_name, value="complete", rationale="All needs addressed"
+        ),
+    ) as mock_invoke_judge:
+        kwargs = {}
+        if name:
+            kwargs["name"] = name
+        if model:
+            kwargs["model"] = model
+        scorer = ConversationCompleteness(**kwargs)
+        result = scorer(session=traces)
+
+        assert result.name == expected_name
+        assert result.value == "complete"
+        assert result.rationale == "All needs addressed"
         mock_invoke_judge.assert_called_once()

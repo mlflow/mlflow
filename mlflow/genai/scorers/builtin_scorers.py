@@ -23,6 +23,10 @@ from mlflow.genai.judges.instructions_judge import InstructionsJudge
 from mlflow.genai.judges.prompts.context_sufficiency import (
     CONTEXT_SUFFICIENCY_PROMPT_INSTRUCTIONS,
 )
+from mlflow.genai.judges.prompts.conversation_completeness import (
+    CONVERSATION_COMPLETENESS_ASSESSMENT_NAME,
+    CONVERSATION_COMPLETENESS_PROMPT,
+)
 from mlflow.genai.judges.prompts.correctness import CORRECTNESS_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.equivalence import EQUIVALENCE_PROMPT_INSTRUCTIONS
 from mlflow.genai.judges.prompts.groundedness import GROUNDEDNESS_PROMPT_INSTRUCTIONS
@@ -1672,6 +1676,122 @@ class UserFrustration(BuiltInScorer):
         raise NotImplementedError("Alignment is not supported for session-level scorers.")
 
 
+@experimental(version="3.7.0")
+class ConversationCompleteness(BuiltInScorer):
+    """
+    ConversationCompleteness evaluates whether an AI assistant fully addresses all user questions
+    and high-level intentions throughout a conversation session.
+
+    This scorer analyzes a complete conversation (represented as a list of traces) to determine
+    if the AI successfully satisfied the user's needs, answered all questions, and fulfilled
+    their high-level intent. It returns "complete" or "incomplete".
+
+    You can invoke the scorer directly with a session for testing, or pass it to
+    `mlflow.genai.evaluate` for running full evaluation on a dataset.
+
+    Args:
+        name: The name of the scorer. Defaults to "conversation_completeness".
+        model: {{ model }}
+
+    Example (direct usage):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        # Retrieve a list of traces with the same session ID
+        session = traces_from_my_session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+
+        assessment = ConversationCompleteness(name="my_completion_check")(session=session)
+        print(assessment)  # Feedback with value "complete" or "incomplete"
+
+    Example (with evaluate):
+
+    .. code-block:: python
+
+        import mlflow
+        from mlflow.genai.scorers import ConversationCompleteness
+
+        session = traces_from_my_session = mlflow.search_traces(
+            experiment_ids=[experiment_id],
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
+            return_type="list",
+        )
+        result = mlflow.genai.evaluate(data=session, scorers=[ConversationCompleteness()])
+    """
+
+    name: str = CONVERSATION_COMPLETENESS_ASSESSMENT_NAME
+    model: str | None = None
+    required_columns: set[str] = {"session"}
+    description: str = (
+        "Evaluate whether the AI fully addresses all user questions and high-level intentions."
+    )
+    _judge: InstructionsJudge | None = pydantic.PrivateAttr(default=None)
+
+    def _get_judge(self) -> InstructionsJudge:
+        """Return a session-level InstructionsJudge with the conversation completeness prompt."""
+        if self._judge is None:
+            self._judge = InstructionsJudge(
+                name=self.name,
+                instructions=self.instructions,
+                model=self.model,
+                description=self.description,
+                feedback_value_type=Literal["complete", "incomplete"],
+            )
+        return self._judge
+
+    @property
+    def is_session_level_scorer(self) -> bool:
+        """Return True as ConversationCompleteness requires a session of traces for evaluation."""
+        return True
+
+    @property
+    def instructions(self) -> str:
+        """Get the instructions of what this scorer evaluates."""
+        return CONVERSATION_COMPLETENESS_PROMPT
+
+    def get_input_fields(self) -> list[JudgeField]:
+        """
+        Get the input fields for the ConversationCompleteness judge.
+
+        Returns:
+            List of JudgeField objects defining the input fields based on the __call__ method.
+        """
+        return [
+            JudgeField(
+                name="session",
+                description="A list of trace objects belonging to the same conversation session.",
+            ),
+        ]
+
+    def __call__(
+        self,
+        *,
+        session: list[Trace] | None = None,
+    ) -> Feedback:
+        """
+        Evaluate conversation completeness based on a list of traces from the same session.
+
+        This scorer analyzes a conversation to determine if the AI assistant fully addressed
+        all user questions and satisfied their high-level intentions. It evaluates whether
+        the conversation reached a successful conclusion where the user's needs were met.
+
+        Args:
+            session: A list of Trace objects belonging to the same conversation session.
+                The traces should represent the full conversation history to evaluate.
+
+        Returns:
+            A Feedback object with 'complete'/'incomplete', along with a rationale explaining
+            the assessment.
+        """
+        return self._get_judge()(session=session)
+
+
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.
@@ -1700,6 +1820,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         RetrievalGroundedness(),
         Equivalence(),
         UserFrustration(),
+        ConversationCompleteness(),
     ]
     if is_databricks_uri(mlflow.get_tracking_uri()):
         scorers.extend([Safety(), RetrievalRelevance()])
