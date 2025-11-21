@@ -197,7 +197,14 @@ def set_experiment(
                         # NB: If two simultaneous processes attempt to set the same experiment
                         # simultaneously, a race condition may be encountered here wherein
                         # experiment creation fails
-                        return client.get_experiment_by_name(experiment_name)
+                        if experiment := client.get_experiment_by_name(experiment_name):
+                            return experiment
+                        else:
+                            raise MlflowException.invalid_parameter_value(
+                                f"Resource '{experiment_name}' already exists but is not of type "
+                                "Experiment. Please use a different name to create a new "
+                                "experiment."
+                            ) from e
                     raise
 
                 experiment = client.get_experiment(experiment_id)
