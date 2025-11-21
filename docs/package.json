@@ -24,7 +24,7 @@
     "prettier:check": "prettier '**/*.{js,jsx,ts,tsx,md,mdx,css}' --check",
     "check-links": "tsx scripts/check-links.mts",
     "sitemap": "tsx scripts/compare-sitemaps.ts",
-    "eslint": "eslint docs"
+    "eslint": "eslint docs --format compact"
   },
   "dependencies": {
     "@docusaurus/core": "^3.6.3",
@@ -57,6 +57,8 @@
     "@types/estree-jsx": "^1.0.5",
     "eslint": "^9.29.0",
     "eslint-plugin-mdx": "^3.5.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-unused-imports": "^4.3.0",
     "markdown-link-check": "^3.13.7",
     "node-fetch": "^3.3.2",
     "prettier": "^3.6.1",
