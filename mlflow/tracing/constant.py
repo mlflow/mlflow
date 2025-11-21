@@ -30,6 +30,9 @@ class TraceTagKey:
     # traces in the UI. This supposed to be immutable, but we use tag because we can only set this
     # after the scorer is executed, which is not possible with trace metadata.
     SOURCE_SCORER_NAME = "mlflow.trace.sourceScorer"
+    # Store a list of linked prompt versions in JSON format
+    # Structure: [{"name": "prompt_name", "version": "version"}]
+    LINKED_PROMPTS = "mlflow.linkedPrompts"
 
 
 class TokenUsageKey:
