@@ -439,6 +439,8 @@ html[data-genai-theme='true'] {
 /* Sidebar background color and spacing */
 .theme-doc-sidebar-container {
   background-color: transparent;
+  border-right: none !important;
+  margin-right: 2rem;
 }
 
 /* Common sidebar styles for both themes */
@@ -448,12 +450,17 @@ html[data-genai-theme='true'] {
 
 .sidebar-top-level-category > .menu__link,
 .sidebar-top-level-category > .menu__list-item-collapsible > .menu__link {
+  font-size: var(--font-size-body-m);
   font-weight: var(--font-weight-medium);
+  padding: 0.8rem 1rem;
 }
 
 .menu__list-item:not(.sidebar-top-level-category) > .menu__link,
 .menu__list-item:not(.sidebar-top-level-category) > .menu__list-item-collapsible > .menu__link {
-  font-size: var(--font-size-body-s);
+  font-size: var(--font-size-body-m);
+  padding-left: 2rem;
+  padding-top: 0.8rem;
+  padding-bottom: 0.8rem;
 }
 
 /* Regular menu links */
@@ -936,4 +943,9 @@ th {
 
 .col--3 {
   padding-left: 0;
+}
+
+.theme-layout-main {
+  margin-left: auto;
+  margin-right: auto;
 }
