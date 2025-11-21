@@ -151,8 +151,8 @@ def test_prompt_cache_invalidation():
     key = PromptCache.generate_cache_key("invalidate_prompt", version=1)
     assert cache.get(key) is not None
 
-    # Invalidate
-    cache.invalidate("invalidate_prompt")
+    # Delete specific version from cache
+    cache.delete("invalidate_prompt", version=1)
 
     # Should be gone
     assert cache.get(key) is None

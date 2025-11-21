@@ -177,7 +177,7 @@ Prompts are cached in memory with a default TTL of 60 seconds to reduce latency.
 - **Bypass cache**: `mlflow.genai.load_prompt("summarization-prompt/", version=1, cache_ttl_seconds=0)`
 - **Global config**: Set `MLFLOW_PROMPT_CACHE_TTL_SECONDS` environment variable
 
-To invalidate cached prompts programmatically, use `PromptCache.get_instance().invalidate("prompt-name")` from `mlflow.prompt.registry_utils`.
+To delete cached prompts programmatically, use `PromptCache.get_instance().delete("prompt-name", version=1)` or `PromptCache.get_instance().delete("prompt-name", label="production")` from `mlflow.prompt.registry_utils`.
 
 :::
 

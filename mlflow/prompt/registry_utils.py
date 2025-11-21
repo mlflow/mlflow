@@ -325,7 +325,10 @@ class PromptCache:
             return value
 
     def set(
-        self, key: str, value: Any, ttl_seconds: float = DEFAULT_PROMPT_CACHE_TTL_SECONDS
+        self,
+        key: str,
+        value: Any,
+        ttl_seconds: float = DEFAULT_PROMPT_CACHE_TTL_SECONDS,
     ) -> None:
         """
         Store a prompt in the cache.
@@ -338,17 +341,16 @@ class PromptCache:
         with self._lock:
             self._cache[key] = (value, time.time() + ttl_seconds)
 
-    def invalidate(self, prompt_name: str) -> None:
-        """
-        Invalidate all cached versions/labels of a prompt.
-
-        Args:
-            prompt_name: The prompt name to invalidate
-        """
+    def delete(
+        self,
+        prompt_name: str,
+        version: int | None = None,
+        label: str | None = None,
+    ) -> None:
+        """Delete a prompt from the cache."""
+        key = PromptCache.generate_cache_key(prompt_name, version, label)
         with self._lock:
-            keys_to_remove = [k for k in self._cache if k.startswith(prompt_name)]
-            for key in keys_to_remove:
-                del self._cache[key]
+            del self._cache[key]
 
     def clear(self) -> None:
         """Clear all cached prompts."""

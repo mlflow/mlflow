@@ -44,7 +44,7 @@ def test_ttl_expiration():
     assert cache.get(key) is None
 
 
-def test_invalidate_prompt():
+def test_delete_prompt():
     cache = PromptCache.get_instance()
     key1 = PromptCache.generate_cache_key("my-prompt", version=1)
     key2 = PromptCache.generate_cache_key("my-prompt", version=2)
@@ -54,11 +54,27 @@ def test_invalidate_prompt():
     cache.set(key2, "value2")
     cache.set(key3, "value3")
 
-    cache.invalidate("my-prompt")
+    # Delete only version 1 of my-prompt
+    cache.delete("my-prompt", version=1)
 
     assert cache.get(key1) is None
-    assert cache.get(key2) is None
+    assert cache.get(key2) == "value2"  # version 2 still cached
     assert cache.get(key3) == "value3"
+
+
+def test_delete_prompt_by_label():
+    cache = PromptCache.get_instance()
+    key1 = PromptCache.generate_cache_key("my-prompt", label="production")
+    key2 = PromptCache.generate_cache_key("my-prompt", label="staging")
+
+    cache.set(key1, "value1")
+    cache.set(key2, "value2")
+
+    # Delete only the production label
+    cache.delete("my-prompt", label="production")
+
+    assert cache.get(key1) is None
+    assert cache.get(key2) == "value2"  # staging still cached
 
 
 def test_clear():
