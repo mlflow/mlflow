@@ -25,6 +25,16 @@ import { spanTimeFormatter } from './timeline-tree/TimelineTree.utils';
 
 const BASE_NOTIFICATION_COMPONENT_ID = 'mlflow.model_trace_explorer.header_details.notification';
 
+const DATE_FORMAT_OPTIONS: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'short',
+  day: '2-digit',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+  timeZoneName: 'short',
+};
+
 export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: ModelTrace['info'] }) => {
   const { theme } = useDesignSystemTheme();
   const [showNotification, setShowNotification] = useState(false);
@@ -65,6 +75,18 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
     return undefined;
   }, [rootNode]);
 
+  const requestTime = useMemo(() => {
+    // NB: Not handling V2 intentionally, this functionality is not critical so is not worth
+    // the complexity of supporting two different logic for old versions.
+    if (isV3ModelTraceInfo(modelTraceInfo) && modelTraceInfo.request_time) {
+      const requestDate = new Date(modelTraceInfo.request_time);
+      if (!Number.isNaN(requestDate.getTime())) {
+        return requestDate.toLocaleString(undefined, DATE_FORMAT_OPTIONS);
+      }
+    }
+    return undefined;
+  }, [modelTraceInfo]);
+
   const handleTagClick = (text: string) => {
     navigator.clipboard.writeText(text);
   };
@@ -86,6 +108,16 @@ export const ModelTraceHeaderDetails = ({ modelTraceInfo }: { modelTraceInfo: Mo
             value={modelTraceId}
             displayValue={modelTraceIdToDisplay}
             color="purple"
+            getTruncatedLabel={getTruncatedLabel}
+            onCopy={handleCopy}
+          />
+        )}
+        {requestTime && (
+          <ModelTraceHeaderMetricSection
+            label={<FormattedMessage defaultMessage="Time" description="Label for the request time section" />}
+            icon={<ClockIcon css={{ fontSize: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }} />}
+            value={requestTime}
+            displayValue={requestTime}
             getTruncatedLabel={getTruncatedLabel}
             onCopy={handleCopy}
           />
