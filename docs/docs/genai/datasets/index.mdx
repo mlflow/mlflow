@@ -29,7 +29,7 @@ There are several ways to create evaluation datasets, each suited to different s
 The simplest way to create one is through MLflow's UI. Navigate to an Experiment that you want the evaluation dataset to be associated with and you can directly create a new one by supplying a unique name.
 After adding records to it, you can view the dataset's entries in the UI.
 
-<video src={useBaseUrl("/images/eval-datasets.mp4")} controls loop autoPlay muted />
+<video src={useBaseUrl("/images/eval-datasets.mp4")} controls loop autoPlay muted aria-label="Evaluation Datasets Video" />
 
 At its core, evaluation datasets are comprised of **inputs** and **expectations**. **Outputs** are an optional addition that can be added to an evaluation dataset for
 post-hoc evaluation with scorers. Adding these elements can be done either directly from traces, dictionaries, or via a Pandas DataFrame.
