@@ -1,5 +1,5 @@
 /**
- * This file is a subset of functions from mlflow/web/js/src/common/Utils.tsx
+ * This file is a subset of functions from mlflow/server/js/src/common/Utils.tsx
  */
 import moment from 'moment';
 

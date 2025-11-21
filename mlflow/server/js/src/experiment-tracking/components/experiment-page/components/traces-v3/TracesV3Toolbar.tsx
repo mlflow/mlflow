@@ -1,12 +1,4 @@
-import {
-  ArrowLeftIcon,
-  Button,
-  ClockIcon,
-  SpeechBubbleIcon,
-  Tag,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
+import { SpeechBubbleIcon, Tag, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { TracesV3DateSelector } from './TracesV3DateSelector';
 import { FormattedMessage } from '@databricks/i18n';
 

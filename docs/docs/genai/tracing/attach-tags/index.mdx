@@ -2,6 +2,7 @@ import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 # Setting Trace Tags
 
@@ -9,7 +10,7 @@ Tags are mutable key-value pairs that you can attach to traces to add valuable l
 
 ## Setting Tags via the MLflow UI
 
-![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
+<video src={useBaseUrl("/images/llms/tracing/trace-set-tag.mp4")} controls loop autoPlay muted aria-label="Traces tag update" />
 
 ## Setting Tags on Ongoing Traces
 
