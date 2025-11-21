@@ -1,4 +1,3 @@
-import { trace } from '@opentelemetry/api';
 import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { MlflowSpanProcessor } from '../../src/exporters/mlflow';
 
@@ -6,6 +5,7 @@ const mockGetConfig = jest.fn();
 const mockGetOtlpConfig = jest.fn();
 const mockShouldUseOtlpExporter = jest.fn();
 const mockCreateOtlpTraceExporter = jest.fn();
+const mockGetTracerProvider = jest.fn();
 
 jest.mock('../../src/core/config', () => ({
   getConfig: () => mockGetConfig()
@@ -23,6 +23,17 @@ jest.mock('../../src/core/otlp_exporter_factory', () => ({
 jest.mock('../../src/clients', () => ({
   MlflowClient: jest.fn().mockImplementation(() => ({}))
 }));
+
+jest.mock('@opentelemetry/api', () => {
+  const actual = jest.requireActual('@opentelemetry/api');
+  return {
+    ...actual,
+    trace: {
+      ...actual.trace,
+      getTracerProvider: () => mockGetTracerProvider()
+    }
+  };
+});
 
 jest.mock('@opentelemetry/sdk-node', () => {
   return {
@@ -42,7 +53,6 @@ describe('initializeSDK', () => {
   };
 
   beforeEach(() => {
-    jest.resetModules();
     jest.clearAllMocks();
     mockGetConfig.mockReturnValue(baseConfig);
     mockGetOtlpConfig.mockReturnValue({
@@ -57,15 +67,16 @@ describe('initializeSDK', () => {
     mockShouldUseOtlpExporter.mockReturnValue(false);
     mockCreateOtlpTraceExporter.mockReturnValue(null);
     delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
+    mockGetTracerProvider.mockReset();
+    mockGetTracerProvider.mockReturnValue(undefined);
   });
 
   it('uses NodeSDK-managed provider when env flag is not disabled', () => {
-    const tracerSpy = jest.spyOn(trace, 'getTracerProvider').mockReturnValue({} as unknown as any);
+    process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER = 'true';
+    mockGetTracerProvider.mockReturnValue({});
 
-    jest.isolateModules(() => {
-      const { initializeSDK } = require('../../src/core/provider');
-      initializeSDK();
-    });
+    const { initializeSDK } = require('../../src/core/provider');
+    initializeSDK();
 
     const { NodeSDK } = require('@opentelemetry/sdk-node');
     expect(NodeSDK).toHaveBeenCalledTimes(1);
@@ -73,71 +84,67 @@ describe('initializeSDK', () => {
     expect(nodeConfig.spanProcessors).toHaveLength(1);
     expect(nodeConfig.spanProcessors[0]).toBeInstanceOf(MlflowSpanProcessor);
 
-    const instance = NodeSDK.mock.instances[0];
-    expect(instance.start).toHaveBeenCalledTimes(1);
-
-    tracerSpy.mockRestore();
+    const instance = NodeSDK.mock.results[0]?.value as { start: jest.Mock } | undefined;
+    expect(instance).toBeDefined();
+    expect(instance?.start).toHaveBeenCalledTimes(1);
+    delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 
   it('attaches MlflowSpanProcessor to existing global provider when env flag is false', () => {
     process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER = 'false';
     const existingProcessor = { name: 'existing' };
-    const spanProcessors: unknown[] = [existingProcessor];
     const provider = {
       _activeSpanProcessor: {
-        _spanProcessors: spanProcessors
+        _spanProcessors: [existingProcessor]
       }
     };
-    const tracerSpy = jest.spyOn(trace, 'getTracerProvider').mockReturnValue(provider as any);
+    mockGetTracerProvider.mockReturnValue(provider as any);
 
-    jest.isolateModules(() => {
-      const { initializeSDK } = require('../../src/core/provider');
-      initializeSDK();
-    });
+    const { initializeSDK } = require('../../src/core/provider');
+    initializeSDK();
 
-    expect(spanProcessors).toHaveLength(2);
-    const attached = spanProcessors[1];
+    const attachedProcessors = provider._activeSpanProcessor!._spanProcessors!;
+    expect(attachedProcessors).toHaveLength(2);
+    const attached = attachedProcessors[attachedProcessors.length - 1];
     expect(attached).toBeInstanceOf(MlflowSpanProcessor);
 
     const { NodeSDK } = require('@opentelemetry/sdk-node');
     expect(NodeSDK).not.toHaveBeenCalled();
-
-    tracerSpy.mockRestore();
+    delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 
   it('replaces previous MlflowSpanProcessor when reinitializing in shared mode', () => {
     process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER = 'false';
     const existingProcessor = { name: 'existing' };
-    const spanProcessors: unknown[] = [existingProcessor];
     const provider = {
       _activeSpanProcessor: {
-        _spanProcessors: spanProcessors
+        _spanProcessors: [existingProcessor]
       }
     };
-    const tracerSpy = jest.spyOn(trace, 'getTracerProvider').mockReturnValue(provider as any);
+    mockGetTracerProvider.mockReturnValue(provider as any);
 
-    jest.isolateModules(() => {
-      const { initializeSDK } = require('../../src/core/provider');
-      initializeSDK();
-      const firstMlflowProcessor = spanProcessors[spanProcessors.length - 1];
-      initializeSDK();
-      const secondMlflowProcessor = spanProcessors[spanProcessors.length - 1];
+    const { initializeSDK } = require('../../src/core/provider');
+    initializeSDK();
+    const firstAttachedProcessors = provider._activeSpanProcessor!._spanProcessors!;
+    const firstMlflowProcessor = firstAttachedProcessors[firstAttachedProcessors.length - 1];
+    initializeSDK();
+    const secondAttachedProcessors = provider._activeSpanProcessor!._spanProcessors!;
+    const secondMlflowProcessor = secondAttachedProcessors[secondAttachedProcessors.length - 1];
 
-      expect(firstMlflowProcessor).toBeInstanceOf(MlflowSpanProcessor);
-      expect(secondMlflowProcessor).toBeInstanceOf(MlflowSpanProcessor);
-      expect(secondMlflowProcessor).not.toBe(firstMlflowProcessor);
+    expect(firstMlflowProcessor).toBeInstanceOf(MlflowSpanProcessor);
+    expect(secondMlflowProcessor).toBeInstanceOf(MlflowSpanProcessor);
+    expect(secondMlflowProcessor).not.toBe(firstMlflowProcessor);
 
-      const attachedMlflowProcessors = spanProcessors.filter(
-        (processor) => processor instanceof MlflowSpanProcessor
-      );
-      expect(attachedMlflowProcessors).toHaveLength(1);
-      expect(spanProcessors).toHaveLength(2);
-    });
-
-    tracerSpy.mockRestore();
+    const attachedMlflowProcessors = secondAttachedProcessors.filter(
+      (processor) => processor instanceof MlflowSpanProcessor
+    );
+    expect(attachedMlflowProcessors).toHaveLength(1);
+    expect(secondAttachedProcessors).toHaveLength(2);
+    delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 
   it('adds OTLP BatchSpanProcessor when exporter is configured and dual export enabled', () => {
+    process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER = 'true';
     mockShouldUseOtlpExporter.mockReturnValue(true);
     mockGetOtlpConfig.mockReturnValue({
       endpoint: 'http://collector:4318/v1/traces',
@@ -155,10 +162,8 @@ describe('initializeSDK', () => {
     };
     mockCreateOtlpTraceExporter.mockReturnValue(dummyExporter);
 
-    jest.isolateModules(() => {
-      const { initializeSDK } = require('../../src/core/provider');
-      initializeSDK();
-    });
+    const { initializeSDK } = require('../../src/core/provider');
+    initializeSDK();
 
     const { NodeSDK } = require('@opentelemetry/sdk-node');
     expect(NodeSDK).toHaveBeenCalledTimes(1);
@@ -166,9 +171,11 @@ describe('initializeSDK', () => {
     expect(nodeConfig.spanProcessors).toHaveLength(2);
     expect(nodeConfig.spanProcessors[0]).toBeInstanceOf(BatchSpanProcessor);
     expect(nodeConfig.spanProcessors[1]).toBeInstanceOf(MlflowSpanProcessor);
+    delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 
   it('skips MlflowSpanProcessor when dual export disabled and OTLP exporter present', () => {
+    process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER = 'true';
     mockShouldUseOtlpExporter.mockReturnValue(true);
     mockGetOtlpConfig.mockReturnValue({
       endpoint: 'http://collector:4318/v1/traces',
@@ -186,14 +193,13 @@ describe('initializeSDK', () => {
     };
     mockCreateOtlpTraceExporter.mockReturnValue(dummyExporter);
 
-    jest.isolateModules(() => {
-      const { initializeSDK } = require('../../src/core/provider');
-      initializeSDK();
-    });
+    const { initializeSDK } = require('../../src/core/provider');
+    initializeSDK();
 
     const { NodeSDK } = require('@opentelemetry/sdk-node');
     const nodeConfig = NodeSDK.mock.calls[0][0];
     expect(nodeConfig.spanProcessors).toHaveLength(1);
     expect(nodeConfig.spanProcessors[0]).toBeInstanceOf(BatchSpanProcessor);
+    delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 });
