@@ -1,0 +1,39 @@
+name: assign-reviewer
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  upload:
+    permissions:
+      contents: read
+    # Only trusted reviewers; skip bots and draft PRs
+    if: >-
+      ${{ github.event.pull_request.draft == false &&
+          github.event.review.user.type != 'Bot' &&
+          contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association) }}
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    steps:
+      - name: Prepare payload artifact
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/assign
+          cat > /tmp/assign/payload.json <<'EOF'
+          {
+            "pr_number": ${{ github.event.pull_request.number }},
+            "reviewer": "${{ github.event.review.user.login }}",
+            "review_author_association": "${{ github.event.review.author_association }}",
+            "review_state": "${{ github.event.review.state }}",
+            "reviewer_type": "${{ github.event.review.user.type }}",
+            "pr_author": "${{ github.event.pull_request.user.login }}",
+            "pr_draft": ${{ github.event.pull_request.draft }}
+          }
+          EOF
+          echo "Payload:" && cat /tmp/assign/payload.json
+      - name: Upload payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: assign_reviewer_payload
+          path: /tmp/assign/
