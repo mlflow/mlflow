@@ -11,3 +11,6 @@ class Workspace:
 
     name: str
     description: str | None = None
+
+    def to_dict(self) -> dict[str, str | None]:
+        return {"name": self.name, "description": self.description}

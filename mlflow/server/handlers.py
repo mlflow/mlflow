@@ -28,6 +28,7 @@ from mlflow.entities import (
     Param,
     RunTag,
     ViewType,
+    Workspace,
 )
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -45,6 +46,7 @@ from mlflow.entities.webhook import WebhookAction, WebhookEntity, WebhookEvent, 
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_ENABLE_WORKSPACES,
 )
 from mlflow.exceptions import (
     MlflowException,
@@ -57,6 +59,7 @@ from mlflow.prompt.constants import PROMPT_TEXT_TAG_KEY, PROMPT_TYPE_TAG_KEY
 from mlflow.protos import databricks_pb2
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
+    FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
@@ -183,6 +186,7 @@ from mlflow.protos.webhooks_pb2 import (
     WebhookService,
 )
 from mlflow.server.validation import _validate_content_type
+from mlflow.server.workspace_helpers import _get_workspace_store
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -191,6 +195,7 @@ from mlflow.store.model_registry.abstract_store import AbstractStore as Abstract
 from mlflow.store.model_registry.rest_store import RestStore as ModelRegistryRestStore
 from mlflow.store.tracking.abstract_store import AbstractStore as AbstractTrackingStore
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
+from mlflow.store.workspace.abstract_store import WorkspaceNameValidator
 from mlflow.tracing.utils.artifact_utils import (
     TRACE_DATA_FILE_NAME,
     get_artifact_uri_for_trace,
@@ -777,6 +782,113 @@ def _disable_if_artifacts_only(func):
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def _disable_if_workspaces_disabled(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        if not MLFLOW_ENABLE_WORKSPACES.get():
+            return Response(
+                (
+                    f"Endpoint: {request.url_rule} disabled because the server is running "
+                    "without multi-tenancy support. To enable workspace functionality, run "
+                    "`mlflow server` with `--enable-workspaces`"
+                ),
+                503,
+            )
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
+def _workspace_not_supported(message: str) -> MlflowException:
+    return MlflowException(message, FEATURE_DISABLED)
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _list_workspaces_handler():
+    workspaces = _get_workspace_store().list_workspaces()
+    return jsonify({"workspaces": [ws.to_dict() for ws in workspaces]})
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _create_workspace_handler():
+    payload = _get_request_json(request) or {}
+    name = payload.get("name")
+    if not name:
+        raise MlflowException.invalid_parameter_value("Workspace name must be provided")
+
+    WorkspaceNameValidator.validate(name)
+
+    description = payload.get("description")
+    store = _get_workspace_store()
+    try:
+        workspace = store.create_workspace(Workspace(name=name, description=description))
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace creation is not supported by this provider")
+
+    response = jsonify(workspace.to_dict())
+    response.status_code = 201
+    return response
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _get_workspace_handler(workspace_name: str):
+    workspace = _get_workspace_store().get_workspace(workspace_name)
+    return jsonify(workspace.to_dict())
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _update_workspace_handler(workspace_name: str):
+    payload = _get_request_json(request) or {}
+
+    if not payload.keys():
+        raise MlflowException.invalid_parameter_value("Workspace update must have at least one key")
+
+    invalid_keys = payload.keys() - {"description"}
+    if invalid_keys:
+        raise MlflowException.invalid_parameter_value(
+            f"Workspace update had the following invalid keys: {', '.join(invalid_keys)}"
+        )
+
+    store = _get_workspace_store()
+    try:
+        workspace = store.update_workspace(
+            Workspace(name=workspace_name, description=payload["description"])
+        )
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace updates are not supported by this provider")
+
+    return jsonify(workspace.to_dict())
+
+
+@catch_mlflow_exception
+@_disable_if_workspaces_disabled
+def _delete_workspace_handler(workspace_name: str):
+    store = _get_workspace_store()
+    try:
+        store.delete_workspace(workspace_name)
+    except NotImplementedError:
+        raise _workspace_not_supported("Workspace deletion is not supported by this provider")
+    return Response(status=204)
+
+
+def _workspace_endpoints():
+    endpoints = []
+    for path in _get_paths("/mlflow/workspaces"):
+        endpoints.append((path, _list_workspaces_handler, ["GET"]))
+        endpoints.append((path, _create_workspace_handler, ["POST"]))
+
+    for path in _get_paths("/mlflow/workspaces/<workspace_name>"):
+        endpoints.append((path, _get_workspace_handler, ["GET"]))
+        endpoints.append((path, _update_workspace_handler, ["PATCH"]))
+        endpoints.append((path, _delete_workspace_handler, ["DELETE"]))
+
+    return endpoints
 
 
 @catch_mlflow_exception
@@ -3830,6 +3942,7 @@ def get_endpoints(get_handler=get_handler):
         + get_service_endpoints(MlflowArtifactsService, get_handler)
         + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
+        + _workspace_endpoints()
     )
 
 
