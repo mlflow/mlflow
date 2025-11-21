@@ -11,17 +11,10 @@ import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
-from mlflow.environment_variables import (
-    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
-    MLFLOW_PROMPT_CACHE_TTL_SECONDS,
-)
+from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.registry_utils import (
-    PromptCache,
-    parse_prompt_name_or_uri,
-    require_prompt_registry,
-)
+from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -742,32 +735,17 @@ def load_prompt(
         stacklevel=3,
     )
 
-    # Determine TTL for caching
-    ttl = (
-        cache_ttl_seconds
-        if cache_ttl_seconds is not None
-        else MLFLOW_PROMPT_CACHE_TTL_SECONDS.get()
-    )
+    client = MlflowClient()
 
-    if ttl <= 0:
-        # Cache disabled - fetch directly from server
-        prompt = _load_prompt_not_cached(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-        )
-    else:
-        # Use TTL-based cache
-        prompt = _load_prompt_with_cache(
-            name_or_uri=name_or_uri,
-            version=version,
-            allow_missing=allow_missing,
-            ttl_seconds=ttl,
-        )
+    # Load prompt with caching (handled by client)
+    prompt = client.load_prompt(
+        name_or_uri=name_or_uri,
+        version=version,
+        allow_missing=allow_missing,
+        cache_ttl_seconds=cache_ttl_seconds,
+    )
     if prompt is None:
         return
-
-    client = MlflowClient()
 
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
@@ -816,52 +794,6 @@ def load_prompt(
         )
 
     return prompt
-
-
-def _load_prompt_with_cache(
-    name_or_uri: str,
-    version: str | int | None = None,
-    allow_missing: bool = False,
-    ttl_seconds: int = 60,
-) -> PromptVersion | None:
-    """
-    Load prompt with TTL-based caching.
-
-    If the prompt is in cache and not expired, returns immediately.
-    Otherwise, fetches from server and caches the result.
-    """
-    cache = PromptCache.get_instance()
-
-    # Parse URI and generate cache key
-    prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-    cache_key = PromptCache.generate_cache_key_from_uri(prompt_uri)
-
-    # Try to get from cache
-    cached_prompt = cache.get(cache_key)
-    if cached_prompt is not None:
-        return cached_prompt
-
-    # Cache miss - fetch from server
-    prompt = _load_prompt_not_cached(name_or_uri, version, allow_missing)
-
-    # Cache the result (including None for allow_missing cases)
-    if prompt is not None:
-        cache.set(cache_key, prompt, ttl_seconds)
-
-    return prompt
-
-
-def _load_prompt_not_cached(
-    name_or_uri: str,
-    version: str | int | None = None,
-    allow_missing: bool = False,
-) -> PromptVersion | None:
-    """
-    Load prompt from client, handling URI parsing.
-    """
-    client = MlflowClient()
-    prompt_uri = parse_prompt_name_or_uri(name_or_uri, version)
-    return client.load_prompt(prompt_uri, allow_missing=allow_missing)
 
 
 @require_prompt_registry
