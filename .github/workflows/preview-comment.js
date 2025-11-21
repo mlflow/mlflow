@@ -34,7 +34,7 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
 /**
  * Get changed documentation pages from the list of changed files
  * @param {Array<{filename: string, status: string}>} changedFiles - Array of changed file objects
- * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status
+ * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status, sorted alphabetically by page path
  */
 function getChangedDocPages(changedFiles) {
   const DOCS_DIR = "docs/docs/";
@@ -63,6 +63,9 @@ function getChangedDocPages(changedFiles) {
 
     changedPages.push({ page: pagePath, status });
   }
+
+  // Sort alphabetically by page path for easier lookup
+  changedPages.sort((a, b) => a.page.localeCompare(b.page));
 
   return changedPages;
 }
