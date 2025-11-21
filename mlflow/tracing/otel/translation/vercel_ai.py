@@ -2,6 +2,7 @@ import json
 from typing import Any
 
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.otel.translation.base import OtelSchemaTranslator
 
 
@@ -52,6 +53,8 @@ class VercelAITranslator(OtelSchemaTranslator):
             inputs = self._unpack_attributes_with_prefix(attributes, "ai.prompt.")
             if "tools" in inputs:
                 inputs["tools"] = [self._safe_load_json(tool) for tool in inputs["tools"]]
+            # Record the message format for the span for chat UI rendering
+            attributes[SpanAttributeKey.MESSAGE_FORMAT] = "vercel_ai"
             return json.dumps(inputs) if inputs else None
         return super().get_input_value(attributes)
 
@@ -85,4 +88,4 @@ class VercelAITranslator(OtelSchemaTranslator):
 
     def _is_chat_span(self, attributes: dict[str, Any]) -> bool:
         span_kind = self._safe_load_json(attributes.get(self.SPAN_KIND_ATTRIBUTE_KEY))
-        return span_kind == "ai.generateText.doGenerate"
+        return span_kind in ["ai.generateText.doGenerate", "ai.streamText.doStream"]
