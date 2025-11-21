@@ -5,6 +5,7 @@ import { FormattedMessage } from 'react-intl';
 import type { FieldValues } from 'react-hook-form';
 import type { KeyValueEntity } from '../types';
 import { UnifiedTaggingForm } from '../components/UnifiedTaggingForm';
+import { useMemoDeep } from './useMemoDeep';
 
 interface Params {
   componentIdPrefix: string;
@@ -37,6 +38,8 @@ export const useTagAssignmentModal = ({
 }: Params) => {
   const baseComponentId = `${componentIdPrefix}.tag-assignment-modal`;
 
+  const memoizedInitialTags = useMemoDeep(() => initialTags, [initialTags]);
+
   const [isVisible, setIsVisible] = useState(false);
   const { theme } = useDesignSystemTheme();
   const form = useForm<{ tags: KeyValueEntity[] }>({ mode: 'onChange' });
@@ -53,15 +56,16 @@ export const useTagAssignmentModal = ({
 
   const handleSubmit = (data: FieldValues) => {
     const tags: KeyValueEntity[] = data[formName].filter((tag: FieldValues) => Boolean(tag[keyProperty]));
+
+    // Find tags that are new (not in initialTags at all based on key) or updated (key exists but value changed)
     const newTags =
       tags.filter(
         (tag) =>
           !initialTags?.some((t) => t[keyProperty] === tag[keyProperty] && t[valueProperty] === tag[valueProperty]),
       ) ?? [];
-    const deletedTags =
-      initialTags?.filter(
-        (tag) => !tags.some((t) => t[keyProperty] === tag[keyProperty] && t[valueProperty] === tag[valueProperty]),
-      ) ?? [];
+
+    // Find tags that were deleted (in initialTags but not in current tags based on key)
+    const deletedTags = initialTags?.filter((tag) => !tags.some((t) => t[keyProperty] === tag[keyProperty])) ?? [];
 
     onSubmit(newTags, deletedTags).then(() => {
       hideTagAssignmentModal();
@@ -110,7 +114,7 @@ export const useTagAssignmentModal = ({
           css={{ marginBottom: theme.spacing.sm }}
         />
       )}
-      <UnifiedTaggingForm name={formName} form={form} initialTags={initialTags} />
+      <UnifiedTaggingForm name={formName} form={form} initialTags={memoizedInitialTags} />
     </Modal>
   );
 

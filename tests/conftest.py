@@ -308,7 +308,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/bedrock",
             "tests/catboost",
             "tests/crewai",
-            "tests/diviner",
             "tests/dspy",
             "tests/gemini",
             "tests/groq",
@@ -327,7 +326,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/openai",
             "tests/paddle",
             "tests/pmdarima",
-            "tests/promptflow",
             "tests/prophet",
             "tests/pydantic_ai",
             "tests/pyfunc",
@@ -701,7 +699,7 @@ def clean_up_mlruns_directory(request):
             if is_windows():
                 raise
             # `shutil.rmtree` can't remove files owned by root in a docker container.
-            subprocess.run(["sudo", "rm", "-rf", mlruns_dir], check=True)
+            subprocess.check_call(["sudo", "rm", "-rf", mlruns_dir])
 
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
@@ -783,7 +781,7 @@ def serve_wheel(request, tmp_path_factory):
         # In this case, assume we're in the root of the repo.
         repo_root = "."
 
-    subprocess.run(
+    subprocess.check_call(
         [
             sys.executable,
             "-m",
@@ -794,7 +792,6 @@ def serve_wheel(request, tmp_path_factory):
             "--no-deps",
             repo_root,
         ],
-        check=True,
     )
     with subprocess.Popen(
         [

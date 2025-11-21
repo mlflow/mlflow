@@ -1,3 +1,4 @@
+import { describe, jest, test, expect, beforeEach } from '@jest/globals';
 import { render, screen } from '@testing-library/react';
 import { IntlProvider } from 'react-intl';
 import { DesignSystemProvider } from '@databricks/design-system';
@@ -64,7 +65,8 @@ describe('ExperimentPageSideNav', () => {
       expect(screen.getByText('Datasets')).toBeInTheDocument();
 
       // Check prompts & versions section
-      expect(screen.getByText('Versions')).toBeInTheDocument();
+      const versionsSectionHeader = 'Versions';
+      expect(screen.getByText(versionsSectionHeader)).toBeInTheDocument();
       expect(screen.getByText('Agent versions')).toBeInTheDocument();
     },
   );

@@ -1,10 +1,14 @@
 import { compact, isNil } from 'lodash';
-import { useMemo } from 'react';
+import { useCallback } from 'react';
 
 import { isV3ModelTraceInfo, type ModelTrace } from '@databricks/web-shared/model-trace-explorer';
-import { useQuery } from '@databricks/web-shared/query-client';
+import { useQueries, useQueryClient } from '@databricks/web-shared/query-client';
+
+import { useArrayMemo } from './useArrayMemo';
 
 export type GetTraceFunction = (traceId?: string, traceInfo?: ModelTrace['info']) => Promise<ModelTrace | undefined>;
+
+const QUERY_KEY = 'getTrace';
 
 // unfortunately the util from model-trace-explorer
 // requires the whole trace object, not just the info
@@ -13,24 +17,37 @@ function getModelTraceId(traceInfo: ModelTrace['info']): string {
 }
 
 export function useGetTraces(getTrace?: GetTraceFunction, traceInfos?: ModelTrace['info'][]) {
-  const traceIds = useMemo(() => {
-    if (!traceInfos) {
-      return [];
-    }
-    return traceInfos.map(getModelTraceId);
-  }, [traceInfos]);
+  const queryClient = useQueryClient();
 
-  return useQuery({
-    queryKey: ['getTrace', traceIds],
-    queryFn: async () => {
-      const traces = await Promise.all(
-        (traceInfos ?? []).map((traceInfo) => getTrace?.(getModelTraceId(traceInfo), traceInfo)),
-      );
-      return compact(traces);
-    },
-    enabled: !isNil(getTrace) && traceIds.length > 0,
-    refetchOnWindowFocus: false,
-    retry: 1,
-    keepPreviousData: true,
+  const queries = useQueries({
+    queries: (traceInfos ?? []).map((traceInfo) => {
+      const traceId = getModelTraceId(traceInfo);
+
+      return {
+        queryKey: [QUERY_KEY, traceId],
+        queryFn: async () => {
+          return getTrace?.(traceId, traceInfo);
+        },
+        enabled: !isNil(getTrace) && Boolean(traceId),
+        refetchOnWindowFocus: false,
+        retry: 1,
+        keepPreviousData: true,
+      };
+    }),
   });
+
+  const data = useArrayMemo(compact(queries.map((query) => query.data)));
+  const isLoading = queries.some((query) => query.isLoading);
+  const invalidateSingleTraceQuery = useCallback(
+    (traceId?: string) => {
+      queryClient.invalidateQueries({ queryKey: [QUERY_KEY, traceId] });
+    },
+    [queryClient],
+  );
+
+  return {
+    data,
+    isLoading,
+    invalidateSingleTraceQuery,
+  };
 }

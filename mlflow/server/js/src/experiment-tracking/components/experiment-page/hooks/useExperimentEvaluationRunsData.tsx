@@ -1,4 +1,4 @@
-import { useQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useInfiniteQuery } from '@databricks/web-shared/query-client';
 import type { SearchRunsApiResponse } from '@mlflow/mlflow/src/experiment-tracking/types';
 import { MlflowService } from '../../../sdk/MlflowService';
 import { useMemo } from 'react';
@@ -12,14 +12,19 @@ export const useExperimentEvaluationRunsData = ({
   enabled: boolean;
   filter: string;
 }) => {
-  const { data, isLoading, isFetching, refetch, error } = useQuery<SearchRunsApiResponse, Error>({
+  const { data, fetchNextPage, hasNextPage, isLoading, isFetching, refetch, error } = useInfiniteQuery<
+    SearchRunsApiResponse,
+    Error
+  >({
     queryKey: ['SEARCH_RUNS', experimentId, filter],
-    queryFn: async () => {
+    queryFn: async ({ pageParam = undefined }) => {
       const requestBody = {
         experiment_ids: [experimentId],
         order_by: ['attributes.start_time DESC'],
         run_view_type: 'ACTIVE_ONLY',
         filter,
+        max_results: 50,
+        page_token: pageParam,
       };
 
       return MlflowService.searchRuns(requestBody);
@@ -28,13 +33,15 @@ export const useExperimentEvaluationRunsData = ({
     refetchOnWindowFocus: false,
     retry: false,
     enabled,
+    getNextPageParam: (lastPage) => lastPage.next_page_token,
   });
 
   const { evaluationRuns, trainingRuns } = useMemo(() => {
-    if (!data?.runs) {
+    if (!data?.pages) {
       return { evaluationRuns: [], trainingRuns: [] };
     }
-    return data.runs.reduce(
+    const allRuns = data.pages.flatMap((page) => page.runs || []);
+    return allRuns.reduce(
       (acc, run) => {
         const isTrainingRun = run.outputs?.modelOutputs?.length ?? 0;
 
@@ -46,13 +53,15 @@ export const useExperimentEvaluationRunsData = ({
 
         return acc;
       },
-      { evaluationRuns: [], trainingRuns: [] } as { evaluationRuns: typeof data.runs; trainingRuns: typeof data.runs },
+      { evaluationRuns: [] as typeof allRuns, trainingRuns: [] as typeof allRuns },
     );
   }, [data]);
 
   return {
     data: evaluationRuns,
     trainingRuns,
+    hasNextPage,
+    fetchNextPage,
     refetch,
     isLoading,
     isFetching,

@@ -1,8 +1,11 @@
 import ErrorUtils from '@mlflow/mlflow/src/common/utils/ErrorUtils';
 import { withErrorBoundary } from '@mlflow/mlflow/src/common/utils/withErrorBoundary';
 import { FormattedMessage } from '@mlflow/mlflow/src/i18n/i18n';
+import type { GetTraceFunction } from '@databricks/web-shared/genai-traces-table';
 import {
   createTraceLocationForExperiment,
+  createTraceLocationForUCSchema,
+  doesTraceSupportV4API,
   useGetTraces,
   useSearchMlflowTraces,
 } from '@databricks/web-shared/genai-traces-table';
@@ -77,7 +80,12 @@ const ExperimentSingleChatSessionPageImpl = () => {
   }, [traceInfos]);
 
   const getTrace = getTraceV3;
-  const { data: traces, isLoading: isLoadingTraceDatas } = useGetTraces(getTrace, sortedTraceInfos);
+  const getAssessmentTitle = useCallback((assessmentName: string) => assessmentName, []);
+  const {
+    data: traces,
+    isLoading: isLoadingTraceDatas,
+    invalidateSingleTraceQuery,
+  } = useGetTraces(getTrace, sortedTraceInfos);
 
   if (!shouldEnableChatSessionsTab()) {
     return <div />;
@@ -110,6 +118,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
             setSelectedTurnIndex={setSelectedTurnIndex}
             setSelectedTrace={setSelectedTrace}
             chatRefs={chatRefs}
+            getAssessmentTitle={getAssessmentTitle}
           />
         </div>
       )}
@@ -122,7 +131,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
         }}
       >
         <Drawer.Content
-          componentId="mlflow.experiment.chat-session.trace-data-drawer"
+          componentId="mlflow.experiment.chat-session.trace-drawer"
           title={selectedTrace ? getModelTraceId(selectedTrace) : ''}
           width="90vw"
           expandContentToFullHeight
@@ -137,7 +146,7 @@ const ExperimentSingleChatSessionPageImpl = () => {
           >
             <ContextProviders // prettier-ignore
             >
-              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace as ModelTrace} />}
+              {selectedTrace && <ModelTraceExplorer modelTrace={selectedTrace} collapseAssessmentPane="force-open" />}
             </ContextProviders>
           </div>
         </Drawer.Content>

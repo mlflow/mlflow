@@ -47,6 +47,16 @@ const ExperimentPageSideNavGenAIConfig = {
     {
       label: (
         <FormattedMessage
+          defaultMessage="Scorers"
+          description="Label for the scorers tab in the MLflow experiment navbar"
+        />
+      ),
+      icon: <GavelIcon />,
+      tabName: ExperimentPageTabName.Scorers,
+    },
+    {
+      label: (
+        <FormattedMessage
           defaultMessage="Datasets"
           description="Label for the datasets tab in the MLflow experiment navbar"
         />
@@ -133,7 +143,7 @@ export const getExperimentPageSideNavSectionLabel = (
       return (
         <FormattedMessage
           defaultMessage="Versions"
-          description="Label for the prompts & versions section in the MLflow experiment navbar"
+          description="Label for the versions section in the MLflow experiment navbar"
         />
       );
     default:

@@ -13,10 +13,7 @@ import type { SingleRunData } from './experimentPage.row-utils';
 import type { MetricEntity, RunDatasetWithTags } from '../../../types';
 import type { SampledMetricsByRun } from '@mlflow/mlflow/src/experiment-tracking/components/runs-charts/hooks/useSampledMetricHistory';
 import { RUNS_VISIBILITY_MODE } from '../models/ExperimentPageUIState';
-import {
-  shouldEnableToggleIndividualRunsInGroups,
-  shouldUseRunRowsVisibilityMap,
-} from '../../../../common/utils/FeatureUtils';
+import { shouldUseRunRowsVisibilityMap } from '../../../../common/utils/FeatureUtils';
 import { determineIfRowIsHidden } from './experimentPage.common-row-utils';
 import { removeOutliersFromMetricHistory } from '../../runs-charts/components/RunsCharts.common';
 import { type ExperimentPageSearchFacetsState } from '../models/ExperimentPageSearchFacetsState';
@@ -196,7 +193,7 @@ const createGroupRenderMetadataV2 = ({
 
   const groupVisibilityControl = (() => {
     // If the individual run visibility selection is enabled then we should show the visibility control UI
-    if (shouldEnableToggleIndividualRunsInGroups() && useGroupedValuesInCharts === false) {
+    if (useGroupedValuesInCharts === false) {
       return RunRowVisibilityControl.Enabled;
     }
     // Otherwise, if the group is not used in charts, we should hide the visibility control UI
@@ -683,37 +680,23 @@ export const getGroupedRowRenderMetadata = ({
     // Determine if the group is expanded or not.
     const isGroupExpanded = isUndefined(groupsExpanded[groupId]) || groupsExpanded[groupId] === true;
 
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      // If the individual run visibility selection is enabled, use specialized version of group rows creation function.
-      result.push(
-        ...createGroupRenderMetadataV2({
-          groupId,
-          expanded: isGroupExpanded,
-          runsInGroup: group.runs,
-          aggregateFunction: groupByConfig.aggregateFunction,
-          isRemainingRowsGroup: false,
-          groupingKeys: group.groupingValues,
-          rowCounter,
-          runsHidden,
-          runsVisibilityMap,
-          runsHiddenMode,
-          useGroupedValuesInCharts,
-        }),
-      );
-
-      return;
-    }
-
     result.push(
-      ...createGroupRenderMetadata(
+      ...createGroupRenderMetadataV2({
         groupId,
-        isGroupExpanded,
-        group.runs,
-        groupByConfig.aggregateFunction,
-        false,
-        group.groupingValues,
-      ),
+        expanded: isGroupExpanded,
+        runsInGroup: group.runs,
+        aggregateFunction: groupByConfig.aggregateFunction,
+        isRemainingRowsGroup: false,
+        groupingKeys: group.groupingValues,
+        rowCounter,
+        runsHidden,
+        runsVisibilityMap,
+        runsHiddenMode,
+        useGroupedValuesInCharts,
+      }),
     );
+
+    return;
   });
 
   // If there are any ungrouped runs, create a group for them as well.
@@ -721,35 +704,21 @@ export const getGroupedRowRenderMetadata = ({
     const groupId = createEmptyGroupId(groupByConfig);
     const isGroupExpanded = groupsExpanded[groupId] === true;
 
-    if (shouldEnableToggleIndividualRunsInGroups()) {
-      // If the individual run visibility selection is enabled, use specialized version of group rows creation function.
-      result.push(
-        ...createGroupRenderMetadataV2({
-          groupId,
-          expanded: isGroupExpanded,
-          runsInGroup: ungroupedRuns,
-          aggregateFunction: groupByConfig.aggregateFunction,
-          isRemainingRowsGroup: true,
-          groupingKeys: [],
-          rowCounter,
-          runsHidden,
-          runsVisibilityMap,
-          runsHiddenMode,
-          useGroupedValuesInCharts,
-        }),
-      );
-    } else {
-      result.push(
-        ...createGroupRenderMetadata(
-          groupId,
-          isGroupExpanded,
-          ungroupedRuns,
-          groupByConfig.aggregateFunction,
-          true,
-          [],
-        ),
-      );
-    }
+    result.push(
+      ...createGroupRenderMetadataV2({
+        groupId,
+        expanded: isGroupExpanded,
+        runsInGroup: ungroupedRuns,
+        aggregateFunction: groupByConfig.aggregateFunction,
+        isRemainingRowsGroup: true,
+        groupingKeys: [],
+        rowCounter,
+        runsHidden,
+        runsVisibilityMap,
+        runsHiddenMode,
+        useGroupedValuesInCharts,
+      }),
+    );
   }
 
   const [entity, sortKey] = extractSortKey(searchFacetsState);

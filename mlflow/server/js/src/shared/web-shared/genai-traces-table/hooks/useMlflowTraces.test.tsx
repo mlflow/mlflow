@@ -1,7 +1,10 @@
+import { jest, describe, test, expect, it, beforeEach } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { IntlProvider } from '@databricks/i18n';
+import type { Assessment, FeedbackAssessment, ModelTraceInfoV3 } from '@databricks/web-shared/model-trace-explorer';
+import { TracesServiceV4, getAssessmentValue } from '@databricks/web-shared/model-trace-explorer';
 import { QueryClient, QueryClientProvider } from '@databricks/web-shared/query-client';
 
 import { useGenAiTraceEvaluationArtifacts } from './useGenAiTraceEvaluationArtifacts';
@@ -19,13 +22,6 @@ import {
   SPAN_TYPE_COLUMN_ID,
   SPAN_CONTENT_COLUMN_ID,
 } from './useTableColumns';
-import {
-  Assessment,
-  getAssessmentValue,
-  TracesServiceV4,
-  type FeedbackAssessment,
-  type ModelTraceInfoV3,
-} from '@databricks/web-shared/model-trace-explorer';
 import { FilterOperator, TracesTableColumnGroup, TracesTableColumnType } from '../types';
 import type { RunEvaluationTracesDataEntry } from '../types';
 import { shouldEnableUnifiedEvalTab, shouldUseTracesV4API } from '../utils/FeatureUtils';
@@ -51,7 +47,7 @@ jest.mock('../utils/FetchUtils', () => ({
 }));
 
 // Mock global window.fetch
-global.fetch = jest.fn();
+global.fetch = jest.fn<typeof global.fetch>();
 
 function createWrapper() {
   const queryClient = new QueryClient({
@@ -1274,7 +1270,7 @@ describe('useSearchMlflowTraces', () => {
                 },
               },
               {
-                assessment_id: 'a-1',
+                assessment_id: 'a-2',
                 assessment_name: 'overall',
                 trace_id: 'trace_1',
                 create_time: '2024-01-01T00:00:00Z',
@@ -1311,6 +1307,7 @@ describe('useSearchMlflowTraces', () => {
     expect(result.current.data?.[0].assessments?.[0].assessment_id).toBe('a-1');
     expect(result.current.data?.[0].assessments?.[0]?.source?.source_id).toBe('user-1');
     expect(getAssessmentValue(result.current.data?.[0].assessments?.[1] as Assessment)).toBe('expected value');
+    expect(result.current.data?.[0].assessments?.[1]?.assessment_id).toBe('a-2');
     expect(result.current.data?.[0].assessments?.[1]?.source?.source_id).toBe('user-2');
   });
 
@@ -1721,6 +1718,7 @@ describe('invalidateMlflowSearchTracesCache', () => {
 
     // Verify that invalidateQueries was called with the correct key
     expect(invalidateQueriesSpy).toHaveBeenCalledTimes(1);
+    // @ts-expect-error 'queryKey' does not exist in type
     expect(invalidateQueriesSpy).toHaveBeenCalledWith({ queryKey: ['searchMlflowTraces'] });
   });
 });

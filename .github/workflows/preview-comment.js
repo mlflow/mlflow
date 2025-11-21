@@ -34,7 +34,7 @@ async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
 /**
  * Get changed documentation pages from the list of changed files
  * @param {Array<{filename: string, status: string}>} changedFiles - Array of changed file objects
- * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status
+ * @returns {Array<{page: string, status: string}>} Array of documentation page objects with page path and status, sorted alphabetically by page path
  */
 function getChangedDocPages(changedFiles) {
   const DOCS_DIR = "docs/docs/";
@@ -63,6 +63,9 @@ function getChangedDocPages(changedFiles) {
 
     changedPages.push({ page: pagePath, status });
   }
+
+  // Sort alphabetically by page path for easier lookup
+  changedPages.sort((a, b) => a.page.localeCompare(b.page));
 
   return changedPages;
 }
@@ -128,8 +131,20 @@ function getCommentTemplate({
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
-    const pageLinks = changedPages.map(({ link, status }) => `- ${link} (${status})`).join("\n");
-    changedPagesSection = `
+    const pageLinks = changedPages
+      .map(({ link, status }) => {
+        let statusText = status;
+        // Add warning for removed and renamed files to avoid page-not-found
+        if (status === "removed" || status === "renamed") {
+          statusText = `${status}, ⚠️ add a redirect`;
+        }
+        return `- ${link} (${statusText})`;
+      })
+      .join("\n");
+
+    // Only collapse if there are more than 5 changed pages
+    if (changedPages.length > 5) {
+      changedPagesSection = `
 
 <details>
 <summary>Changed Pages (${changedPages.length})</summary>
@@ -138,6 +153,14 @@ ${pageLinks}
 
 </details>
 `;
+    } else {
+      changedPagesSection = `
+
+**Changed Pages (${changedPages.length})**
+
+${pageLinks}
+`;
+    }
   }
 
   return `
