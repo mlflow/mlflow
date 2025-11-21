@@ -740,6 +740,15 @@ MLFLOW_HTTP_POOL_MAXSIZE = _EnvironmentVariable("MLFLOW_HTTP_POOL_MAXSIZE", int,
 #: (default: ``False``)
 MLFLOW_ENABLE_UC_FUNCTIONS = _BooleanEnvironmentVariable("MLFLOW_ENABLE_UC_FUNCTIONS", False)
 
+#: Enable multi-turn evaluation support in mlflow.genai.evaluate.
+#: When enabled, multi-turn scorers can evaluate entire conversation sessions by grouping
+#: traces with the same session_id. Multi-turn assessments are logged to the first trace
+#: in each session chronologically.
+#: (default: ``False``)
+MLFLOW_ENABLE_MULTI_TURN_EVALUATION = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_MULTI_TURN_EVALUATION", False
+)
+
 #: Specifies the length of time in seconds for the asynchronous logging thread to wait before
 #: logging a batch.
 MLFLOW_ASYNC_LOGGING_BUFFERING_SECONDS = _EnvironmentVariable(

@@ -821,3 +821,155 @@ def test_get_first_trace_in_session_same_timestamp():
 
     # Should return one of the traces with timestamp 1000 (likely the first one)
     assert first_item.trace.info.request_time == 1000
+
+
+# ==================== Tests for Multi-Turn Validation ====================
+
+
+def test_validate_multi_turn_input_no_multi_turn_scorers():
+    """Test that validation passes when there are no multi-turn scorers."""
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    @scorer
+    def single_turn_scorer(outputs):
+        return 1.0
+
+    scorers_list = [single_turn_scorer]
+
+    # Should not raise any exceptions
+    _validate_multi_turn_input(
+        data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+        scorers=scorers_list,
+        predict_fn=None,
+    )
+
+
+def test_validate_multi_turn_input_feature_flag_disabled():
+    """Test that validation raises error when feature flag is disabled."""
+    import os
+
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    # Make sure feature flag is disabled
+    os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+
+    multi_turn_scorer = _MultiTurnTestScorer()
+    scorers_list = [multi_turn_scorer]
+
+    with pytest.raises(
+        MlflowException,
+        match="Multi-turn evaluation is currently an experimental feature",
+    ):
+        _validate_multi_turn_input(
+            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+            scorers=scorers_list,
+            predict_fn=None,
+        )
+
+
+def test_validate_multi_turn_input_with_predict_fn():
+    """Test that validation raises error when predict_fn is provided with multi-turn scorers."""
+    import os
+
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    # Enable feature flag
+    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+
+    try:
+        multi_turn_scorer = _MultiTurnTestScorer()
+        scorers_list = [multi_turn_scorer]
+
+        def dummy_predict_fn():
+            return "output"
+
+        with pytest.raises(
+            MlflowException,
+            match="Multi-turn scorers are not supported with predict_fn",
+        ):
+            _validate_multi_turn_input(
+                data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+                scorers=scorers_list,
+                predict_fn=dummy_predict_fn,
+            )
+    finally:
+        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+
+
+def test_validate_multi_turn_input_with_non_dataframe():
+    """Test that validation raises error when data is not a DataFrame."""
+    import os
+
+    from mlflow.exceptions import MlflowException
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    # Enable feature flag
+    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+
+    try:
+        multi_turn_scorer = _MultiTurnTestScorer()
+        scorers_list = [multi_turn_scorer]
+
+        with pytest.raises(
+            MlflowException,
+            match="Multi-turn scorers require DataFrame input with traces",
+        ):
+            _validate_multi_turn_input(
+                data=[{"inputs": {}, "outputs": "test"}],  # List, not DataFrame
+                scorers=scorers_list,
+                predict_fn=None,
+            )
+    finally:
+        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+
+
+def test_validate_multi_turn_input_valid():
+    """Test that validation passes with valid multi-turn input."""
+    import os
+
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    # Enable feature flag
+    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+
+    try:
+        multi_turn_scorer = _MultiTurnTestScorer()
+        scorers_list = [multi_turn_scorer]
+
+        # Should not raise any exceptions
+        _validate_multi_turn_input(
+            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+            scorers=scorers_list,
+            predict_fn=None,
+        )
+    finally:
+        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
+
+
+def test_validate_multi_turn_input_mixed_scorers():
+    """Test validation with mixed single-turn and multi-turn scorers."""
+    import os
+
+    from mlflow.genai.evaluation.utils import _validate_multi_turn_input
+
+    # Enable feature flag
+    os.environ["MLFLOW_ENABLE_MULTI_TURN_EVALUATION"] = "true"
+
+    try:
+        @scorer
+        def single_turn_scorer(outputs):
+            return 1.0
+
+        multi_turn_scorer = _MultiTurnTestScorer()
+        scorers_list = [single_turn_scorer, multi_turn_scorer]
+
+        # Should not raise any exceptions
+        _validate_multi_turn_input(
+            data=pd.DataFrame([{"inputs": {}, "outputs": "test"}]),
+            scorers=scorers_list,
+            predict_fn=None,
+        )
+    finally:
+        os.environ.pop("MLFLOW_ENABLE_MULTI_TURN_EVALUATION", None)
