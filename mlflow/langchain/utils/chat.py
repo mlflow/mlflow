@@ -330,8 +330,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
     should_convert = MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.get()
     if should_convert is None:
         should_convert = _should_transform_request_json_for_chat(lc_model) and (
-            json_dict_might_be_chat_request(request_json)
-            or is_list_of_chat_messages(request_json)
+            json_dict_might_be_chat_request(request_json) or is_list_of_chat_messages(request_json)
         )
         if should_convert:
             _logger.debug(
@@ -391,8 +390,8 @@ def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
 
     # If the total tokens are not present, calculate it from the input and output tokens
     if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
-        usage[TokenUsageKey.TOTAL_TOKENS] = usage.get(
-            TokenUsageKey.INPUT_TOKENS, 0
-        ) + usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+        usage[TokenUsageKey.TOTAL_TOKENS] = usage.get(TokenUsageKey.INPUT_TOKENS, 0) + usage.get(
+            TokenUsageKey.OUTPUT_TOKENS, 0
+        )
 
     return usage

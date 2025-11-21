@@ -51,11 +51,7 @@ def capture_function_input_args(func, args, kwargs) -> dict[str, Any] | None:
         # Remove `cls` from bound arguments if it's the first parameter and it's a type
         # This detects classmethods more reliably
         params = list(bound_arguments.arguments.keys())
-        if (
-            params
-            and params[0] == "cls"
-            and isinstance(bound_arguments.arguments["cls"], type)
-        ):
+        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
             del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
@@ -163,9 +159,7 @@ def get_mlflow_span_for_otel_span(span: OTelSpan) -> LiveSpan | None:
 
     trace_id = get_otel_attribute(span, SpanAttributeKey.REQUEST_ID)
     mlflow_span_id = encode_span_id(span.get_span_context().span_id)
-    return InMemoryTraceManager.get_instance().get_span_from_id(
-        trace_id, mlflow_span_id
-    )
+    return InMemoryTraceManager.get_instance().get_span_from_id(trace_id, mlflow_span_id)
 
 
 def build_otel_context(trace_id: int, span_id: int) -> trace_api.SpanContext:
@@ -268,9 +262,7 @@ def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
             return None
         return json.loads(attribute_value)
     except Exception:
-        _logger.debug(
-            f"Failed to get attribute {key} with from span {span}.", exc_info=True
-        )
+        _logger.debug(f"Failed to get attribute {key} with from span {span}.", exc_info=True)
 
 
 def _try_get_prediction_context():
