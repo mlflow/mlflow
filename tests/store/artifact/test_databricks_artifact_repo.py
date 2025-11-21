@@ -1241,10 +1241,19 @@ def test_artifact_logging_chunks_upload_list(databricks_artifact_repo, tmp_path)
     ):
         databricks_artifact_repo.log_artifacts(src_dir, "dir_artifact")
 
-        assert mock_get_write_creds.call_count == 5
-        assert all(
-            len(call[1]["remote_file_paths"]) == 2 for call in mock_get_write_creds.call_args_list
-        )
+        # Expect 6 calls total:
+        # - Call 0: 1 file for cloud type detection
+        # - Call 1: 1 file (the batch containing the detected file, which already has credentials)
+        # - Calls 2-5: 2 files each (remaining 4 batches)
+        # This is because the file used for cloud detection gets its credential cached,
+        # so when its batch is processed, only the other file in that batch needs credentials.
+        assert mock_get_write_creds.call_count == 6
+        # Calls are made with positional args: _get_write_credential_infos([list_of_paths])
+        # So call[0][0] is the list of file paths (first positional argument)
+        call_sizes = [len(call[0][0]) for call in mock_get_write_creds.call_args_list]
+        # Should have two calls with 1 file and four calls with 2 files
+        assert call_sizes.count(1) == 2  # Cloud detection + its batch's other file
+        assert call_sizes.count(2) == 4  # Remaining 4 batches with 2 files each
 
 
 def test_download_artifacts_provides_failure_info(databricks_artifact_repo):
