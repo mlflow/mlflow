@@ -36,3 +36,7 @@ Flask-WTF<2
 polars>=1
 # required for testing mlflow.genai.optimize_prompt
 dspy
+# Required by mlflow.tensorrt
+tensorrt-cu12
+tensorrt-cu12-bindings
+tensorrt-cu12-libs

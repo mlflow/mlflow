@@ -107,6 +107,7 @@ strands = LazyLoader("mlflow.strands", globals(), "mlflow.strands")
 spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
 statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
 tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
+tensorrt = LazyLoader("mlflow.tensorrt", globals(), "mlflow.tensorrt")
 # TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
 txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
@@ -159,6 +160,7 @@ if TYPE_CHECKING:
         statsmodels,
         strands,
         tensorflow,
+        tensorrt,
         transformers,
         xgboost,
     )

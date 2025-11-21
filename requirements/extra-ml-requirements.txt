@@ -93,3 +93,7 @@ agno
 strands-agents
 # Required by mlflow.haystack
 haystack-ai
+# Required by mlflow.tensorrt
+tensorrt-cu12
+tensorrt-cu12-bindings
+tensorrt-cu12-libs
