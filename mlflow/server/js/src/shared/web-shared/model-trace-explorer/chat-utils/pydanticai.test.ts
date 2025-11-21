@@ -1,3 +1,5 @@
+import { describe, it, expect } from '@jest/globals';
+
 import { normalizeConversation } from '../ModelTraceExplorer.utils';
 
 // Mock PydanticAI messages based on the actual structure from pydantic_ai.messages module
