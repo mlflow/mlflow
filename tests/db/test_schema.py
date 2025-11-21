@@ -1,11 +1,19 @@
 import difflib
+import logging
 import re
 from pathlib import Path
 from typing import NamedTuple
 
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.schema import CreateTable, MetaData
+from sqlalchemy import create_engine, inspect
+from sqlalchemy.schema import CreateTable, MetaData, UniqueConstraint
+
+_logger = logging.getLogger(__name__)
+
+_DIALECT_REFLECTED_UNIQUE_CONSTRAINTS = {
+    "mysql": {"uq_experiments_workspace_name"},
+    "mssql": {"uq_experiments_workspace_name"},
+}
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
@@ -25,6 +33,7 @@ def dump_schema(db_uri):
     engine = create_engine(db_uri)
     created_tables_metadata = MetaData()
     created_tables_metadata.reflect(bind=engine)
+    _reattach_missing_unique_constraints(engine, created_tables_metadata)
     # Write out table schema as described in
     # https://docs.sqlalchemy.org/en/13/faq/metadata_schema.html#how-can-i-get-the-create-table-drop-table-output-as-a-string
     lines = []
@@ -32,6 +41,70 @@ def dump_schema(db_uri):
         # Apply `str.rstrip` to remove trailing whitespaces
         lines += map(str.rstrip, str(CreateTable(table)).splitlines())
     return "\n".join(lines)
+
+
+def _reattach_missing_unique_constraints(engine, metadata):
+    constraint_names = _DIALECT_REFLECTED_UNIQUE_CONSTRAINTS.get(engine.dialect.name)
+    if not constraint_names:
+        return
+    inspector = inspect(engine)
+    for table in metadata.sorted_tables:
+        existing_unique_columns = {
+            tuple(constraint.columns.keys())
+            for constraint in table.constraints
+            if isinstance(constraint, UniqueConstraint)
+        }
+        # Not all dialects reflect `UniqueConstraint` objects the same way. MySQL reports
+        # them as indexes; MSSQL doesn't implement `get_unique_constraints` at all. We
+        # normalize the reflection results via `_get_unique_constraints` so the same code
+        # path can reattach missing `UniqueConstraint`s across dialects.
+        for unique in _get_unique_constraints(inspector, engine.dialect.name, table.name):
+            name = unique.get("name")
+            columns = tuple(unique.get("column_names") or ())
+            duplicates_index = unique.get("duplicates_index")
+            if not columns or name not in constraint_names:
+                continue
+            if engine.dialect.name == "mysql" and not duplicates_index:
+                # MySQL exposes unique constraints as unique indexes. SQLAlchemy treats those as
+                # indexes during reflection, so the reflected metadata lacks the original
+                # `UniqueConstraint`. Only recreate constraints that are backed by an actual
+                # unique index reported via `duplicates_index`.
+                continue
+            if columns in existing_unique_columns:
+                continue
+            missing_columns = tuple(column for column in columns if column not in table.c)
+            if missing_columns:
+                _logger.warning(
+                    "Skipping recreation of unique constraint '%s' on table '%s' due to "
+                    "missing columns: %s",
+                    name,
+                    table.name,
+                    ", ".join(missing_columns),
+                )
+                continue
+            constraint = UniqueConstraint(*[table.c[column] for column in columns], name=name)
+            table.append_constraint(constraint)
+            existing_unique_columns.add(columns)
+
+
+def _get_unique_constraints(inspector, dialect, table_name):
+    try:
+        unique_constraints = inspector.get_unique_constraints(table_name)
+    except NotImplementedError:
+        unique_constraints = None
+    if unique_constraints is None:
+        unique_constraints = []
+    if not unique_constraints:
+        unique_constraints = [
+            {
+                "name": index.get("name"),
+                "column_names": index.get("column_names"),
+                "duplicates_index": index.get("unique"),
+            }
+            for index in inspector.get_indexes(table_name)
+            if index.get("unique")
+        ]
+    return unique_constraints
 
 
 class _CreateTable(NamedTuple):
