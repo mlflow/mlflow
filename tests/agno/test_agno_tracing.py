@@ -23,6 +23,8 @@ IS_AGNO_V2 = AGNO_VERSION >= Version("2.0.0")
 
 
 def get_v2_autolog_module():
+    from mlflow.agno.autolog_v2 import _is_agno_v2  # noqa: F401
+
     return sys.modules["mlflow.agno.autolog_v2"]
 
 
