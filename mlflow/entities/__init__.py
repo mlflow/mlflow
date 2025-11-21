@@ -76,6 +76,7 @@ from mlflow.entities.webhook import (
     WebhookStatus,
     WebhookTestResult,
 )
+from mlflow.entities.workspace import Workspace
 
 __all__ = [
     "Experiment",
@@ -151,6 +152,7 @@ __all__ = [
     "WebhookEvent",
     "WebhookStatus",
     "WebhookTestResult",
+    "Workspace",
 ]
 
 

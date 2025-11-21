@@ -49,6 +49,16 @@ TABLES = [
     SqlModelVersionTag.__tablename__,
 ]
 SNAPSHOTS_DIR = Path(__file__).parent / "snapshots"
+WORKSPACE_TABLES = {
+    "experiments",
+    "registered_models",
+    "model_versions",
+    "registered_model_tags",
+    "model_version_tags",
+    "registered_model_aliases",
+    "evaluation_datasets",
+    "webhooks",
+}
 
 
 class Model(mlflow.pyfunc.PythonModel):
@@ -72,7 +82,7 @@ def log_everything():
     client.create_registered_model(
         registered_model_name, tags={"tag": "registered_model"}, description="description"
     )
-    client.create_model_version(
+    model_version = client.create_model_version(
         registered_model_name,
         model_info.model_uri,
         run_id=run.info.run_id,
@@ -80,6 +90,41 @@ def log_everything():
         run_link="run_link",
         description="description",
     )
+    client.set_registered_model_alias(
+        name=registered_model_name,
+        alias="prod",
+        version=model_version.version,
+    )
+    # Create an additional experiment/model to ensure workspace backfills cover multiple resources.
+    mlflow.create_experiment(uuid.uuid4().hex)
+    client.create_registered_model(uuid.uuid4().hex)
+    client.create_webhook(
+        name=f"migration-webhook-{uuid.uuid4().hex}",
+        url="https://example.com/hook",
+        events=["model_version.created"],
+        description="workspace-migration-check",
+    )
+    engine = sa.create_engine(os.environ["MLFLOW_TRACKING_URI"])
+    metadata = sa.MetaData()
+    evaluation_datasets_table = sa.Table(
+        "evaluation_datasets",
+        metadata,
+        autoload_with=engine,
+    )
+    with engine.begin() as conn:
+        conn.execute(
+            sa.insert(evaluation_datasets_table).values(
+                dataset_id=uuid.uuid4().hex,
+                name="workspace-migration-dataset",
+                schema="{}",
+                profile="{}",
+                digest=uuid.uuid4().hex,
+                created_time=0,
+                last_update_time=0,
+                created_by="user",
+                last_updated_by="user",
+            )
+        )
 
 
 def connect_to_mlflow_db():
@@ -113,6 +158,10 @@ def post_migration():
             df_actual = pd.read_sql(sa.text(f"SELECT * FROM {table}"), conn)
             df_expected = pd.read_pickle(SNAPSHOTS_DIR / f"{table}.pkl")
             pd.testing.assert_frame_equal(df_actual[df_expected.columns], df_expected)
+        for table in WORKSPACE_TABLES:
+            df = pd.read_sql(sa.text(f"SELECT DISTINCT workspace FROM {table}"), conn)
+            assert not df["workspace"].isna().any(), f"{table} contains NULL workspace values"
+            assert set(df["workspace"]) == {"default"}, f"{table} contains non-default workspaces"
 
 
 if __name__ == "__main__":
