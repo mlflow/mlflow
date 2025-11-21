@@ -4,9 +4,11 @@ Autologging logic for Agno V2 (>= 2.0.0) using OpenTelemetry instrumentation.
 
 import importlib.metadata as _meta
 import logging
+
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.utils.otlp import MLFLOW_EXPERIMENT_ID_HEADER
 
 _logger = logging.getLogger(__name__)
@@ -76,7 +78,7 @@ def _setup_otel_instrumentation() -> None:
         _logger.debug("OpenTelemetry instrumentation enabled for Agno V2")
 
     except ImportError as exc:
-       raise MlflowException(
+        raise MlflowException(
             "Failed to set up OpenTelemetry instrumentation for Agno V2. "
             "Please install the following required packages: "
             "'pip install opentelemetry-exporter-otlp openinference-instrumentation-agno'. "
@@ -98,4 +100,3 @@ def _uninstrument_otel() -> None:
             _logger.warning("Instrumentor instance not found, cannot uninstrument")
     except Exception as exc:
         _logger.warning("Failed to uninstrument Agno V2: %s", exc)
-
