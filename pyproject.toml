@@ -116,7 +116,7 @@ mcp = ["fastmcp<3,>=2.0.0", "click!=8.3.0"]
 sqlserver = ["mlflow-dbstore"]
 aliyun-oss = ["aliyunstoreplugin"]
 jfrog = ["mlflow-jfrog-plugin"]
-langchain = ["langchain>=0.3.7,<=0.3.27"]
+langchain = ["langchain>=0.3.7,<=1.0.5"]
 auth = ["Flask-WTF<2"]
 
 [project.urls]
@@ -198,8 +198,6 @@ build = ["pip", "setuptools", "wheel", "build"]
 [tool.uv]
 required-version = "==0.9.8"
 constraint-dependencies = [
-  "click!=8.3.0",
-  "langchain<1.0.0",
   # xgboost 3.1.0 changed base_score format to vector for multi-output models, breaking shap compatibility
   # https://xgboost.readthedocs.io/en/latest/changes/v3.1.0.html#multi-target-class-intercept
   "xgboost<3.1.0",
@@ -242,6 +240,7 @@ docstring-code-format = true
 docstring-code-line-length = 88
 
 [tool.ruff.lint]
+preview = true
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 select = [
   "B006",    # multiple-argument-default
@@ -317,6 +316,8 @@ select = [
   "W",       # warning
 ]
 ignore = [
+  "E265", # no-space-after-block-comment
+  "E266", # multiple-leading-hashes-for-block-comment
   "E402", # module-import-not-at-top-of-file
   "E721", # type-comparison
   "E741", # ambiguous-variable-name
@@ -340,6 +341,10 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.isort]
 forced-separate = ["tests"]
+# https://docs.astral.sh/ruff/faq/#how-does-ruff-determine-which-of-my-imports-are-first-party-third-party-etc
+# The `docker` package is marked as third-party because a `docker` directory exists in the repository root,
+# which would otherwise cause ruff to incorrectly classify it as first-party.
+known-third-party = ["docker"]
 
 [tool.ruff.lint.flake8-tidy-imports.banned-api]
 "pkg_resources".msg = "Do not use pkg_resources. Use importlib.resources or importlib.metadata instead."
@@ -361,6 +366,7 @@ exclude = [
   "mlflow/genai/labeling/__init__.py",
   "mlflow/genai/label_schemas/__init__.py",
   "tests/protos",
+  "docs/docs/classic-ml/mlflow-3/index.mdx",
 ]
 typing-extensions-allowlist = [
   # Docs: https://typing-extensions.readthedocs.io/en/latest/
@@ -383,8 +389,6 @@ example-rules = [
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
 ]
-# This file intentionally shows problematic code as an example of what NOT to do
-"docs/docs/genai/mlflow-3/faqs.mdx" = ["get-artifact-uri"]
 # Multi-assign has better readability in this example.
 "docs/docs/classic-ml/getting-started/deep-learning.mdx" = ["multi-assign"]
 
@@ -461,7 +465,7 @@ filterwarnings = [
   "error::pydantic.PydanticDeprecatedSince20:mlflow",
   "error::pydantic.PydanticDeprecatedSince20:tests",
   # Silence filesystem backend deprecation warnings (https://github.com/mlflow/mlflow/issues/18534)
-  "ignore:Filesystem (tracking|model registry) backend.*is deprecated:FutureWarning",
+  "ignore:The filesystem (tracking|model registry) backend.*will be deprecated:FutureWarning",
 ]
 timeout = 1200
 

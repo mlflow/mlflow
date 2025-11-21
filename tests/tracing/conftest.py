@@ -49,7 +49,7 @@ def async_logging_enabled(request, monkeypatch):
 @pytest.fixture
 def otel_collector():
     """Start an OpenTelemetry collector in a Docker container."""
-    subprocess.run(["docker", "pull", "otel/opentelemetry-collector"], check=True)
+    subprocess.check_call(["docker", "pull", "otel/opentelemetry-collector"])
 
     # Use a random port to avoid conflicts
     port = random.randint(20000, 30000)

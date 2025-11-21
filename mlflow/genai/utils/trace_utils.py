@@ -149,6 +149,41 @@ def resolve_outputs_from_trace(
     return outputs
 
 
+def resolve_conversation_from_session(
+    session: list[Trace],
+) -> list[dict[str, str]]:
+    """
+    Extract conversation history from traces in session.
+
+    Args:
+        session: List of traces from the same session.
+
+    Returns:
+        List of conversation messages in the format [{"role": "user"|"assistant", "content": str}].
+        Each trace contributes two messages: user (from input) and assistant (from output).
+    """
+    # Sort traces by creation time (timestamp_ms)
+    sorted_traces = sorted(session, key=lambda t: t.info.timestamp_ms)
+
+    conversation = []
+    for trace in sorted_traces:
+        # Extract and parse input (user message)
+        inputs = extract_inputs_from_trace(trace)
+        if inputs:
+            user_content = parse_inputs_to_str(inputs)
+            if user_content and user_content.strip():
+                conversation.append({"role": "user", "content": user_content})
+
+        # Extract and parse output (assistant message)
+        outputs = extract_outputs_from_trace(trace)
+        if outputs:
+            assistant_content = parse_outputs_to_str(outputs)
+            if assistant_content and assistant_content.strip():
+                conversation.append({"role": "assistant", "content": assistant_content})
+
+    return conversation
+
+
 def resolve_expectations_from_trace(
     expectations: dict[str, Any] | None,
     trace: Trace,
@@ -272,6 +307,17 @@ def is_none_or_nan(value: Any) -> bool:
     """
     # isinstance(value, float) check is needed to ensure that math.isnan is not called on an array.
     return value is None or (isinstance(value, float) and math.isnan(value))
+
+
+def _is_empty(value: Any) -> bool:
+    """
+    Check if a value is empty (None, empty dict, empty list, empty string, etc.).
+    """
+    if value is None:
+        return True
+    if isinstance(value, (dict, list, str)):
+        return len(value) == 0
+    return False
 
 
 def parse_inputs_to_str(value: Any) -> str:

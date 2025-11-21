@@ -160,8 +160,6 @@ def upgrade():
     )
     session.commit()
 
-    _logger.info("Migration complete!")
-
 
 def downgrade():
     op.drop_table(SqlLatestMetric.__tablename__)

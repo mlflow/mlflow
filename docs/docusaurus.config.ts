@@ -35,6 +35,11 @@ const config: Config = {
   onBrokenAnchors: 'throw',
   onDuplicateRoutes: 'throw', // Fail build on duplicate redirects
 
+  future: {
+    v4: true, // opt-in for Docusaurus v4 planned changes
+    experimental_faster: true, // turns Docusaurus Faster on globally
+  },
+
   // Even if you don't use internationalization, you can use this field to set
   // useful metadata like html lang. For example, if your site is Chinese, you
   // may want to replace "en" with "zh-Hans".
@@ -305,18 +310,21 @@ const config: Config = {
             to: '/self-hosting/security/basic-http-auth',
             from: ['/ml/auth'],
           },
-          // Redirect mlflow 3 pages
+          // Redirect mlflow 3 pages to migration guide
           {
-            to: '/genai/mlflow-3',
-            from: ['/mlflow-3', '/ml/mlflow-3'],
-          },
-          {
-            to: '/genai/mlflow-3/deep-learning',
-            from: ['/mlflow-3/deep-learning'],
-          },
-          {
-            to: '/genai/mlflow-3/genai-agent',
-            from: ['/mlflow-3/genai-agent'],
+            to: '/ml/mlflow-3',
+            from: [
+              '/mlflow-3',
+              '/genai/mlflow-3',
+              '/genai/mlflow-3/deep-learning',
+              '/mlflow-3/deep-learning',
+              '/genai/mlflow-3/genai-agent',
+              '/mlflow-3/genai-agent',
+              '/genai/mlflow-3/breaking-changes',
+              '/mlflow-3/breaking-changes',
+              '/genai/mlflow-3/faqs',
+              '/mlflow-3/faqs',
+            ],
           },
           {
             to: '/genai/getting-started/databricks-trial',
@@ -746,13 +754,18 @@ const config: Config = {
             from: ['/deep-learning/keras'],
           },
           {
-            to: '/ml/deep-learning/keras/quickstart/quickstart-keras',
+            to: '/ml/deep-learning/keras',
             from: ['/deep-learning/keras/quickstart/quickstart_keras'],
+          },
+          {
+            to: '/ml/deep-learning/keras',
+            from: ['/deep-learning/keras/guide', '/ml/deep-learning/keras/guide'],
           },
           {
             to: '/ml/deep-learning/pytorch',
             from: ['/deep-learning/pytorch'],
           },
+          // Redirect consolidated pytorch guide and quickstart to index
           {
             to: '/ml/deep-learning/pytorch',
             from: [
@@ -760,6 +773,15 @@ const config: Config = {
               '/ml/deep-learning/pytorch/guide',
               '/deep-learning/pytorch/quickstart/pytorch_quickstart',
               '/ml/deep-learning/pytorch/quickstart/quickstart-pytorch',
+            ],
+          },
+          // Redirect consolidated spaCy guide to index
+          {
+            to: '/ml/deep-learning/spacy',
+            from: [
+              '/deep-learning/spacy/guide',
+              '/classic-ml/deep-learning/spacy/guide',
+              '/ml/deep-learning/spacy/guide',
             ],
           },
           {
@@ -796,13 +818,15 @@ const config: Config = {
             to: '/ml/deep-learning/tensorflow',
             from: ['/deep-learning/tensorflow'],
           },
+          // Redirect consolidated tensorflow guide and quickstart to index
           {
             to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/guide'],
-          },
-          {
-            to: '/ml/deep-learning/tensorflow',
-            from: ['/deep-learning/tensorflow/quickstart/quickstart_tensorflow'],
+            from: [
+              '/deep-learning/tensorflow/guide',
+              '/ml/deep-learning/tensorflow/guide',
+              '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+              '/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow',
+            ],
           },
           {
             to: '/ml/deep-learning/transformers',
@@ -1091,6 +1115,16 @@ const config: Config = {
           {
             to: '/ml/tutorials-and-examples',
             from: ['/tutorials-and-examples'],
+          },
+          // Redirect removed sklearn subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/sklearn/',
+            from: ['/ml/traditional-ml/sklearn/guide', '/ml/traditional-ml/sklearn/quickstart/quickstart-sklearn'],
+          },
+          // Redirect removed XGBoost subdirectories to consolidated page
+          {
+            to: '/ml/traditional-ml/xgboost/',
+            from: ['/ml/traditional-ml/xgboost/guide', '/ml/traditional-ml/xgboost/quickstart/quickstart-xgboost'],
           },
         ],
       },

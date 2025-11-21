@@ -162,7 +162,7 @@ class DatabricksTracingRestStore(RestStore):
         )
         return TraceInfo.from_proto(response_proto)
 
-    def batch_get_traces(self, trace_ids: list[str], location: str) -> list[Trace]:
+    def batch_get_traces(self, trace_ids: list[str], location: str | None = None) -> list[Trace]:
         """
         Get a batch of complete traces with spans for given trace ids.
 

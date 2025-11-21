@@ -110,8 +110,10 @@ def make_judge(
         name: The name of the judge
         instructions: Natural language instructions for evaluation. Must contain at least one
                       template variable: {{ inputs }}, {{ outputs }}, {{ expectations }},
-                      or {{ trace }} to reference evaluation data. Custom variables are not
-                      supported.
+                      {{ conversation }}, or {{ trace }} to reference evaluation data. Custom
+                      variables are not supported.
+                      Note: {{ conversation }} can only coexist with {{ expectations }}.
+                      It cannot be used together with {{ inputs }}, {{ outputs }}, or {{ trace }}.
         model: The model identifier to use for evaluation (e.g., "openai:/gpt-4")
         description: A description of what the judge evaluates
         feedback_value_type: Type specification for the 'value' field in the Feedback
@@ -191,6 +193,26 @@ def make_judge(
             for trace in traces:
                 feedback = trace_judge(trace=trace)
                 print(f"Trace {trace.info.trace_id}: {feedback.value} - {feedback.rationale}")
+
+            # Create a multi-turn judge that detects user frustration
+            frustration_judge = make_judge(
+                name="user_frustration",
+                instructions=(
+                    "Analyze the {{ conversation }} to detect signs of user frustration. "
+                    "Look for indicators such as repeated questions, negative language, "
+                    "or expressions of dissatisfaction."
+                ),
+                model="openai:/gpt-4",
+                feedback_value_type=Literal["frustrated", "not frustrated"],
+            )
+
+            # Evaluate a multi-turn conversation using session traces
+            session = mlflow.search_traces(
+                experiment_ids=["1"],
+                filter_string="metadata.`mlflow.trace.session` = 'session_123'",
+                return_type="list",
+            )
+            result = frustration_judge(session=session)
 
             # Align a judge with human feedback
             aligned_judge = quality_judge.align(traces)

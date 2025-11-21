@@ -164,6 +164,12 @@ build_context_tags_from_databricks_job_info <- function(job_info) {
   tags
 }
 
+# Helper function to delegate to the next method in the S3 dispatch chain
+# This wrapper makes it possible to test delegation behavior
+mlflow_databricks_delegate_to_next_method <- function() {
+  NextMethod()
+}
+
 mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_id, ...) {
   if (exists(".databricks_internals")) {
     databricks_internal_env <- get(".databricks_internals", envir = .GlobalEnv)
@@ -190,9 +196,9 @@ mlflow_get_run_context.mlflow_databricks_client <- function(client, experiment_i
         ...
       ))
     }
-    NextMethod()
+    mlflow_databricks_delegate_to_next_method()
   } else {
-    NextMethod()
+    mlflow_databricks_delegate_to_next_method()
   }
 }
 

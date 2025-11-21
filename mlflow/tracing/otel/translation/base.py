@@ -154,18 +154,7 @@ class OtelSchemaTranslator:
         value = attributes.get(key)
         if isinstance(value, str):
             try:
-                result = json.loads(value)
-                if isinstance(result, str):
-                    # the span attributes may be dumped several times in different places
-                    # (e.g. Span.from_otel_proto, span.to_dict)
-                    # so we try to load it twice here to get the dumped-once value
-                    try:
-                        if json.loads(result):
-                            return result
-                        return None
-                    except json.JSONDecodeError:
-                        pass
-                return value if result else None
+                return value if json.loads(value) else None
             except json.JSONDecodeError:
                 pass  # Use the string value as-is
         return value

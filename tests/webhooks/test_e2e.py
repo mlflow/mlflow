@@ -895,32 +895,36 @@ def test_prompt_webhook_with_mixed_events(
     logs = app_client.wait_for_logs(expected_count=4, timeout=10)
     assert len(logs) == 4
 
-    log_0, log_1, log_2, log_3 = logs
-    assert log_0.payload == {
-        "name": "regular_model",
-        "description": "Regular model description",
-        "tags": {},
-    }
-    assert log_1.payload == {
-        "name": "test_prompt_mixed",
-        "description": "Prompt description",
-        "tags": {},
-    }
-    assert log_2.payload == {
-        "name": "regular_model",
-        "source": "s3://bucket/model",
-        "run_id": "1234567890abcdef",
-        "version": "1",
-        "description": None,
-        "tags": {},
-    }
-    assert log_3.payload == {
-        "name": "test_prompt_mixed",
-        "template": "Hello {{name}}!",
-        "version": "1",
-        "description": None,
-        "tags": {},
-    }
+    # Webhooks are processed asynchronously and may arrive out of order
+    expected_payloads = [
+        {
+            "name": "regular_model",
+            "description": "Regular model description",
+            "tags": {},
+        },
+        {
+            "name": "test_prompt_mixed",
+            "description": "Prompt description",
+            "tags": {},
+        },
+        {
+            "name": "regular_model",
+            "source": "s3://bucket/model",
+            "run_id": "1234567890abcdef",
+            "version": "1",
+            "description": None,
+            "tags": {},
+        },
+        {
+            "name": "test_prompt_mixed",
+            "template": "Hello {{name}}!",
+            "version": "1",
+            "description": None,
+            "tags": {},
+        },
+    ]
+    actual_payloads = [log.payload for log in logs]
+    assert sorted(actual_payloads, key=str) == sorted(expected_payloads, key=str)
 
 
 def test_prompt_webhook_test_endpoint(mlflow_client: MlflowClient, app_client: AppClient) -> None:

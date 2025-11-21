@@ -2845,6 +2845,31 @@ def test_set_and_delete_trace_tag(mlflow_client):
     assert "tag2" not in trace_info.tags
 
 
+@pytest.mark.parametrize("allow_partial", [True, False])
+def test_get_trace_handler(mlflow_client, allow_partial: bool, store_type):
+    if store_type == "file":
+        pytest.skip("File store doesn't support get trace handler")
+
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
+    with mlflow.start_span(name="test") as span:
+        span.set_attributes({"fruit": "apple"})
+
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/3.0/mlflow/traces/get",
+        params={"trace_id": span.trace_id, "allow_partial": allow_partial},
+    )
+
+    assert response.status_code == 200
+
+    trace = response.json()["trace"]
+    assert trace["trace_info"]["trace_id"] == span.trace_id
+    assert len(trace["spans"]) == 1
+    assert trace["spans"][0]["name"] == "test"
+    attributes = trace["spans"][0]["attributes"]
+    assert {"key": "fruit", "value": {"string_value": "apple"}} in attributes
+
+
 def test_get_trace_artifact_handler(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 

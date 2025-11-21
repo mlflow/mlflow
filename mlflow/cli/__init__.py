@@ -24,9 +24,16 @@ from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import (
+    DEFAULT_ARTIFACTS_URI,
+    DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+)
 from mlflow.tracking import _get_store
-from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
+from mlflow.tracking._tracking_service.utils import (
+    _get_default_tracking_uri,
+    is_tracking_uri_set,
+    set_tracking_uri,
+)
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
@@ -350,7 +357,7 @@ def _validate_static_prefix(ctx, param, value):
     "--backend-store-uri",
     envvar="MLFLOW_BACKEND_STORE_URI",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI to which to persist experiment and run data. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "
@@ -541,13 +548,13 @@ def server(
         if x_frame_options:
             os.environ["MLFLOW_SERVER_X_FRAME_OPTIONS"] = x_frame_options
 
-    # Ensure that both backend_store_uri and default_artifact_uri are set correctly.
     if not backend_store_uri:
-        backend_store_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        backend_store_uri = _get_default_tracking_uri()
+        click.echo(f"Backend store URI not provided. Using {backend_store_uri}")
 
-    # the default setting of registry_store_uri is same as backend_store_uri
     if not registry_store_uri:
         registry_store_uri = backend_store_uri
+        click.echo(f"Registry store URI not provided. Using {registry_store_uri}")
 
     default_artifact_root = resolve_default_artifact_root(
         serve_artifacts, default_artifact_root, backend_store_uri
@@ -623,7 +630,7 @@ def server(
 @click.option(
     "--backend-store-uri",
     metavar="PATH",
-    default=DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    default=None,
     help="URI of the backend store from which to delete runs. Acceptable URIs are "
     "SQLAlchemy-compatible database connection strings "
     "(e.g. 'sqlite:///path/to/file.db') or local filesystem URIs "

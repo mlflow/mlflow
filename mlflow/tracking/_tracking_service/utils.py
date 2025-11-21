@@ -8,7 +8,7 @@ from typing import Generator
 
 from mlflow.environment_variables import MLFLOW_TRACKING_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
-from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+from mlflow.store.tracking import DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH, DEFAULT_TRACKING_URI
 from mlflow.store.tracking.databricks_rest_store import DatabricksTracingRestStore
 from mlflow.store.tracking.rest_store import RestStore
 from mlflow.tracing.provider import reset
@@ -24,6 +24,40 @@ from mlflow.utils.uri import (
 
 _logger = logging.getLogger(__name__)
 _tracking_uri = None
+
+
+def _has_existing_mlruns_data() -> bool:
+    """
+    Returns True if mlruns contains experiment data (meta.yaml files).
+
+    This check is used to maintain backward compatibility when switching the default
+    tracking URI from file-based storage to SQLite. If existing mlruns data is detected,
+    the default remains as file-based storage to avoid breaking existing workflows.
+    """
+    from mlflow.store.tracking.file_store import FileStore
+
+    mlruns_path = Path(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH)
+    if not mlruns_path.exists():
+        return False
+
+    try:
+        for item in mlruns_path.iterdir():
+            if item.is_dir() and item.name.isdigit():
+                for f in item.iterdir():
+                    if f.name == FileStore.META_DATA_FILE_NAME:
+                        return True
+    except (OSError, PermissionError):
+        return False
+
+    return False
+
+
+def _get_default_tracking_uri() -> str:
+    return (
+        DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        if _has_existing_mlruns_data()
+        else DEFAULT_TRACKING_URI
+    )
 
 
 def is_tracking_uri_set():
@@ -124,14 +158,17 @@ def get_tracking_uri() -> str:
 
     .. code-block:: text
 
-        Current tracking uri: file:///.../mlruns
+        Current tracking uri: sqlite:///mlflow.db
     """
     if _tracking_uri is not None:
         return _tracking_uri
     elif uri := MLFLOW_TRACKING_URI.get():
         return uri
     else:
-        return path_to_local_file_uri(os.path.abspath(DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH))
+        default_uri = _get_default_tracking_uri()
+        if default_uri == DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH:
+            return path_to_local_file_uri(os.path.abspath(default_uri))
+        return default_uri
 
 
 def _get_file_store(store_uri, **_):
