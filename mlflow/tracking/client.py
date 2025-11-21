@@ -69,10 +69,10 @@ from mlflow.prompt.constants import (
     RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
+    PromptCache,
     has_prompt_tag,
     model_version_to_prompt_version,
     parse_prompt_name_or_uri,
-    PromptCache,
     require_prompt_registry,
     translate_prompt_exception,
     validate_prompt_name,

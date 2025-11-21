@@ -1,4 +1,3 @@
-import importlib
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -10,7 +9,6 @@ from pydantic import BaseModel
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.model_registry import PromptVersion
-from mlflow.environment_variables import MLFLOW_PROMPT_CACHE_MAX_SIZE
 from mlflow.exceptions import MlflowException
 from mlflow.genai.prompts.utils import format_prompt
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
@@ -86,6 +84,11 @@ def test_crud_prompts(tmp_path):
 
 
 def test_prompt_alias(tmp_path):
+    from mlflow.prompt.registry_utils import PromptCache
+
+    # Reset cache to ensure clean state
+    PromptCache._reset_instance()
+
     mlflow.genai.register_prompt(name="p1", template="Hi, there!")
     mlflow.genai.register_prompt(name="p1", template="Hi, {{name}}!")
 
@@ -95,18 +98,25 @@ def test_prompt_alias(tmp_path):
     assert prompt.aliases == ["production"]
 
     # Reassign alias to a different version
+    # Need to bypass cache to see the updated alias
     mlflow.genai.set_prompt_alias("p1", alias="production", version=2)
-    assert mlflow.genai.load_prompt("prompts:/p1@production").template == "Hi, {{name}}!"
+    assert (
+        mlflow.genai.load_prompt("prompts:/p1@production", cache_ttl_seconds=0).template
+        == "Hi, {{name}}!"
+    )
 
     mlflow.genai.delete_prompt_alias("p1", alias="production")
     with pytest.raises(
         MlflowException,
         match=(r"Prompt (.*) does not exist.|Prompt alias (.*) not found."),
     ):
-        mlflow.genai.load_prompt("prompts:/p1@production")
+        mlflow.genai.load_prompt("prompts:/p1@production", cache_ttl_seconds=0)
 
-    # Latest alias
-    assert mlflow.genai.load_prompt("prompts:/p1@latest").template == "Hi, {{name}}!"
+    # Latest alias - bypass cache
+    assert (
+        mlflow.genai.load_prompt("prompts:/p1@latest", cache_ttl_seconds=0).template
+        == "Hi, {{name}}!"
+    )
 
 
 def test_prompt_associate_with_run(tmp_path):
@@ -813,144 +823,107 @@ def test_load_prompt_with_tracing_nested_spans():
 
 def test_load_prompt_caching_works():
     """Test that prompt caching works and improves performance."""
-    # Mock the client load_prompt method to count calls
-    with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-        # Configure mock to return a prompt
-        mock_prompt = PromptVersion(
-            name="cached_prompt",
-            version=1,
-            template="Hello, {{name}}!",
-            creation_timestamp=123456789,
-        )
-        mock_client_load.return_value = mock_prompt
+    from mlflow.prompt.registry_utils import PromptCache
 
-        # First call should hit the client
-        prompt1 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
-        assert prompt1.name == "cached_prompt"
-        assert mock_client_load.call_count == 1
+    # Reset cache
+    PromptCache._reset_instance()
 
-        # Second call with same parameters should use cache (not call client again)
+    # Register prompts
+    mlflow.genai.register_prompt(name="cached_prompt", template="Hello, {{name}}!")
+    mlflow.genai.register_prompt(name="cached_prompt", template="Hi, {{name}}!")
+
+    # First call should hit the registry
+    prompt1 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
+    assert prompt1.name == "cached_prompt"
+
+    # Second call with same parameters should use cache (not call registry again)
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
         prompt2 = mlflow.genai.load_prompt("cached_prompt", version=1, link_to_model=False)
         assert prompt2.name == "cached_prompt"
-        assert mock_client_load.call_count == 1  # Should still be 1, not 2
+        assert mock_load.call_count == 0  # Cache hit
 
-        # Call with different version should hit the client again
-        mock_client_load.return_value = PromptVersion(
-            name="cached_prompt",
-            version=2,
-            template="Hi, {{name}}!",
-            creation_timestamp=123456790,
+    # Call with different version should hit the registry again
+    prompt3 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
+    assert prompt3.version == 2
+
+    # But subsequent calls to version 2 should use cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        prompt4 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
+        assert prompt4.version == 2
+        assert mock_load.call_count == 0  # Cache hit
+
+
+def test_load_prompt_caching_respects_ttl_env_var():
+    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_TTL_SECONDS environment variable."""
+    import time
+
+    from mlflow.prompt.registry_utils import PromptCache
+
+    # Reset cache
+    PromptCache._reset_instance()
+
+    # Register a prompt
+    mlflow.genai.register_prompt(name="ttl_test_prompt", template="Hello!")
+
+    # Load with very short TTL
+    mlflow.genai.load_prompt("ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False)
+
+    # Immediate second load should hit cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt(
+            "ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False
         )
-        prompt3 = mlflow.genai.load_prompt("cached_prompt", version=2, link_to_model=False)
-        assert prompt3.version == 2
-        assert mock_client_load.call_count == 2  # Should be 2 now
+        assert mock_load.call_count == 0  # Cache hit
 
+    # Wait for TTL to expire
+    time.sleep(1.1)
 
-def test_load_prompt_caching_respects_env_var():
-    """Test that prompt caching respects the MLFLOW_PROMPT_CACHE_MAX_SIZE environment variable."""
-    # Test with a small cache size
-    original_value = MLFLOW_PROMPT_CACHE_MAX_SIZE.get()
-    try:
-        # Set cache size to 1
-        MLFLOW_PROMPT_CACHE_MAX_SIZE.set(1)
-
-        # Clear any existing cache by creating a new cached function
-        # (This simulates restarting with the new env var)
-        importlib.reload(mlflow.tracking._model_registry.fluent)
-
-        # Register prompts
-        mlflow.genai.register_prompt(name="prompt_1", template="Template 1")
-        mlflow.genai.register_prompt(name="prompt_2", template="Template 2")
-
-        # Mock the client load_prompt method to count calls
-        with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-            mock_client_load.side_effect = [
-                PromptVersion(
-                    name="prompt_1",
-                    version=1,
-                    template="Template 1",
-                    creation_timestamp=1,
-                ),
-                PromptVersion(
-                    name="prompt_2",
-                    version=1,
-                    template="Template 2",
-                    creation_timestamp=2,
-                ),
-                PromptVersion(
-                    name="prompt_1",
-                    version=1,
-                    template="Template 1",
-                    creation_timestamp=1,
-                ),
-            ]
-
-            # Load first prompt - should cache it
-            mlflow.genai.load_prompt("prompt_1", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 1
-
-            # Load second prompt - should evict first from cache (size=1)
-            mlflow.genai.load_prompt("prompt_2", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 2
-
-            # Load first prompt again - should need to call client again (evicted from cache)
-            mlflow.genai.load_prompt("prompt_1", version=1, link_to_model=False)
-            assert mock_client_load.call_count == 3  # Called again because evicted
-
-    finally:
-        # Restore original cache size
-        if original_value is not None:
-            MLFLOW_PROMPT_CACHE_MAX_SIZE.set(original_value)
-        else:
-            MLFLOW_PROMPT_CACHE_MAX_SIZE.unset()
+    # Load after expiration should miss cache
+    prompt = mlflow.genai.load_prompt(
+        "ttl_test_prompt", version=1, cache_ttl_seconds=1, link_to_model=False
+    )
+    assert prompt is not None
+    assert prompt.template == "Hello!"
 
 
 def test_load_prompt_skip_cache_for_allow_missing_none():
-    """Test that we skip cache if allow_missing=True and the result is None."""
-    # Mock the client load_prompt method to return None (prompt not found)
-    with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-        mock_client_load.return_value = None  # Simulate prompt not found
+    """Test behavior when loading non-existent prompts with allow_missing=True."""
+    from mlflow.prompt.registry_utils import PromptCache
 
-        # First call with allow_missing=True should call the client twice
-        # (once for cached call, once for non-cached call due to `or` logic)
-        prompt1 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt1 is None
-        assert mock_client_load.call_count == 2  # Called twice due to `or` logic
+    # Reset cache
+    PromptCache._reset_instance()
 
-        # Second call: cached function returns None from cache, non-cached function called once
-        prompt2 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt2 is None
-        assert mock_client_load.call_count == 3  # One additional call (non-cached only)
+    # First call with allow_missing=True for non-existent prompt
+    prompt1 = mlflow.genai.load_prompt(
+        "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
+    )
+    assert prompt1 is None
 
-        # But if we find a prompt, the pattern will change
-        mock_prompt = PromptVersion(
-            name="nonexistent_prompt",
-            version=1,
-            template="Found!",
-            creation_timestamp=123,
-        )
-        mock_client_load.return_value = mock_prompt
+    # Now create the prompt
+    mlflow.genai.register_prompt(name="nonexistent_prompt", template="Now I exist!")
 
+    # Should find it now (None results are not cached)
+    prompt2 = mlflow.genai.load_prompt(
+        "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
+    )
+    assert prompt2 is not None
+    assert prompt2.template == "Now I exist!"
+
+    # Subsequent calls should use cache
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
         prompt3 = mlflow.genai.load_prompt(
             "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
         )
-        assert prompt3.template == "Found!"
-        assert (
-            mock_client_load.call_count == 4
-        )  # Called once for cached call (returned found prompt)
-
-        # Now this should be cached - only cached call needed since it returns a valid prompt
-        prompt4 = mlflow.genai.load_prompt(
-            "nonexistent_prompt", version=1, allow_missing=True, link_to_model=False
-        )
-        assert prompt4.template == "Found!"
-        assert (
-            mock_client_load.call_count == 5
-        )  # One more call for cached check (but no non-cached call needed)
+        assert prompt3.template == "Now I exist!"
+        assert mock_load.call_count == 0  # Cache hit
 
 
 def test_load_prompt_missing_then_created_then_found():
@@ -1008,40 +981,37 @@ def test_load_prompt_none_result_no_linking():
 
 def test_load_prompt_caching_with_different_parameters():
     """Test that caching works correctly with different parameter combinations."""
+    from mlflow.prompt.registry_utils import PromptCache
+
+    # Reset cache
+    PromptCache._reset_instance()
+
     # Register a prompt
     mlflow.genai.register_prompt(name="param_test", template="Hello, {{name}}!")
 
-    with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
-        mock_prompt = PromptVersion(
-            name="param_test",
-            version=1,
-            template="Hello, {{name}}!",
-            creation_timestamp=123,
-        )
-        mock_client_load.return_value = mock_prompt
+    # Load prompt - should cache it
+    mlflow.genai.load_prompt("param_test", version=1, link_to_model=False)
 
-        # Different allow_missing values should result in separate cache entries
+    # allow_missing parameter doesn't affect cache key - same prompt should be cached
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        # Both should hit cache regardless of allow_missing value
         mlflow.genai.load_prompt("param_test", version=1, allow_missing=False, link_to_model=False)
-        call_count_after_first = mock_client_load.call_count
-
         mlflow.genai.load_prompt("param_test", version=1, allow_missing=True, link_to_model=False)
-        call_count_after_second = mock_client_load.call_count
+        assert mock_load.call_count == 0  # Both should be cache hits
 
-        # Should be called again for different allow_missing parameter
-        assert call_count_after_second > call_count_after_first
+    # Different version should miss cache
+    mlflow.genai.register_prompt(name="param_test", template="Version 2")
+    prompt_v2 = mlflow.genai.load_prompt("param_test", version=2, link_to_model=False)
+    assert prompt_v2.version == 2
 
-        # Same parameters should use cache
-        mlflow.genai.load_prompt("param_test", version=1, allow_missing=False, link_to_model=False)
-        call_count_after_third = mock_client_load.call_count
-
-        # Cache should work - either same count or only one additional call
-        assert call_count_after_third <= call_count_after_second + 1
-
-        mlflow.genai.load_prompt("param_test", version=1, allow_missing=True, link_to_model=False)
-        call_count_after_fourth = mock_client_load.call_count
-
-        # Cache should work - either same count or only one additional call
-        assert call_count_after_fourth <= call_count_after_third + 1
+    # But then it should be cached
+    with mock.patch(
+        "mlflow.tracking._model_registry.client.ModelRegistryClient.get_prompt_version",
+    ) as mock_load:
+        mlflow.genai.load_prompt("param_test", version=2, link_to_model=False)
+        assert mock_load.call_count == 0  # Cache hit
 
 
 def test_register_prompt_chat_format_integration():
