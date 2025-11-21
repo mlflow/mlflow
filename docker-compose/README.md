@@ -53,7 +53,7 @@ The `.env` file defines container image tags, ports, credentials, and storage co
 
 - **MLflow**
   - `MLFLOW_PORT=5000` — host port for the MLflow UI/API
-  - `MLFLOW_DEFAULT_ARTIFACT_ROOT=s3://mlflow/` — artifact store URI
+  - `MLFLOW_ARTIFACTS_DESTINATION=s3://mlflow/` — artifact store URI
   - `MLFLOW_S3_ENDPOINT_URL=http://minio:9000` — S3 endpoint (inside the Compose network)
 - **PostgreSQL**
   - `POSTGRES_USER=mlflow`
@@ -125,7 +125,7 @@ docker compose down
 - **Verify connectivity**  
   If MLflow can't write artifacts, confirm your S3 settings:
 
-  - `MLFLOW_DEFAULT_ARTIFACT_ROOT` points to your MinIO bucket (e.g., `s3://mlflow/`)
+  - `MLFLOW_ARTIFACTS_DESTINATION` points to your MinIO bucket (e.g., `s3://mlflow/`)
   - `MLFLOW_S3_ENDPOINT_URL` is reachable from the MLflow container (often `http://minio:9000`)
 
 - **Resetting the environment**  
