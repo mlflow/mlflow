@@ -83,8 +83,13 @@ FLAVOR_NAME = "sklearn"
 
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 SERIALIZATION_FORMAT_CLOUDPICKLE = "cloudpickle"
+SERIALIZATION_FORMAT_SKOPS = "skops"
 
-SUPPORTED_SERIALIZATION_FORMATS = [SERIALIZATION_FORMAT_PICKLE, SERIALIZATION_FORMAT_CLOUDPICKLE]
+SUPPORTED_SERIALIZATION_FORMATS = [
+    SERIALIZATION_FORMAT_PICKLE,
+    SERIALIZATION_FORMAT_CLOUDPICKLE,
+    SERIALIZATION_FORMAT_SKOPS,
+]
 
 _logger = logging.getLogger(__name__)
 _SklearnTrainingSession = _get_new_training_session_class()
@@ -131,7 +136,7 @@ def _gen_estimators_to_patch():
     ]
 
 
-def get_default_pip_requirements(include_cloudpickle=False):
+def get_default_pip_requirements(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         A list of default pip requirements for MLflow Models produced by this flavor.
@@ -141,17 +146,21 @@ def get_default_pip_requirements(include_cloudpickle=False):
     pip_deps = [_get_pinned_requirement("scikit-learn", module="sklearn")]
     if include_cloudpickle:
         pip_deps += [_get_pinned_requirement("cloudpickle")]
+    if include_skops:
+        pip_deps += [_get_pinned_requirement("skops")]
 
     return pip_deps
 
 
-def get_default_conda_env(include_cloudpickle=False):
+def get_default_conda_env(include_cloudpickle=False, include_skops=False):
     """
     Returns:
         The default Conda environment for MLflow Models produced by calls to
         :func:`save_model()` and :func:`log_model()`.
     """
-    return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements(include_cloudpickle))
+    return _mlflow_conda_env(
+        additional_pip_deps=get_default_pip_requirements(include_cloudpickle, include_skops)
+    )
 
 
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
@@ -262,7 +271,8 @@ def save_model(
 
     model_data_subpath = _MODEL_DATA_SUBPATH
     model_data_path = os.path.join(path, model_data_subpath)
-    _save_model(
+
+    skops_untrusted_types = _save_model(
         sk_model=sk_model,
         output_path=model_data_path,
         serialization_format=serialization_format,
@@ -285,13 +295,17 @@ def save_model(
             f"Model was missing function: {pyfunc_predict_fn}. Not logging python_function flavor!"
         )
 
-    mlflow_model.add_flavor(
-        FLAVOR_NAME,
-        pickled_model=model_data_subpath,
-        sklearn_version=sklearn.__version__,
-        serialization_format=serialization_format,
-        code=code_path_subdir,
-    )
+    flavor_config = {
+        "pickled_model": model_data_subpath,
+        "sklearn_version": sklearn.__version__,
+        "serialization_format": serialization_format,
+        "code": code_path_subdir,
+    }
+
+    if serialization_format == SERIALIZATION_FORMAT_SKOPS:
+        flavor_config["trusted_types"] = skops_untrusted_types
+
+    mlflow_model.add_flavor(FLAVOR_NAME, **flavor_config)
     if size := get_total_file_size(path):
         mlflow_model.model_size_bytes = size
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
@@ -299,7 +313,8 @@ def save_model(
     if conda_env is None:
         if pip_requirements is None:
             include_cloudpickle = serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE
-            default_reqs = get_default_pip_requirements(include_cloudpickle)
+            include_skops = serialization_format == SERIALIZATION_FORMAT_SKOPS
+            default_reqs = get_default_pip_requirements(include_cloudpickle, include_skops)
             # To ensure `_load_pyfunc` can successfully load the model during the dependency
             # inference, `mlflow_model.save` must be called beforehand to save an MLmodel file.
             inferred_reqs = mlflow.models.infer_pip_requirements(
@@ -447,14 +462,16 @@ def log_model(
     )
 
 
-def _load_model_from_local_file(path, serialization_format):
+def _load_model_from_local_file(path, serialization_format, trusted_types=None):
     """Load a scikit-learn model saved as an MLflow artifact on the local file system.
 
     Args:
         path: Local filesystem path to the MLflow Model saved with the ``sklearn`` flavor
         serialization_format: The format in which the model was serialized. This should be one of
-            the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
-            ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+            the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE``,
+            ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``, or
+            ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
+        trusted_types: List of types needed to be trusted for skops to load the model.
     """
     # TODO: we could validate the scikit-learn version here
     if serialization_format not in SUPPORTED_SERIALIZATION_FORMATS:
@@ -474,6 +491,19 @@ def _load_model_from_local_file(path, serialization_format):
             import cloudpickle
 
             return cloudpickle.load(f)
+        elif serialization_format == SERIALIZATION_FORMAT_SKOPS:
+            try:
+                import skops.io
+            except ImportError as e:
+                raise MlflowException(
+                    message=(
+                        "Failed to import skops. Make sure skops is installed by running "
+                        "`pip install skops` for instance."
+                    ),
+                    error_code=INVALID_PARAMETER_VALUE,
+                ) from e
+
+            return skops.io.load(f, trusted=trusted_types)
 
 
 def _load_pyfunc(path):
@@ -516,8 +546,18 @@ def _load_pyfunc(path):
         )
         path = os.path.join(path, pyfunc_flavor_conf["model_path"])
 
+    trusted_types = (
+        sklearn_flavor_conf.get("trusted_types")
+        if serialization_format == SERIALIZATION_FORMAT_SKOPS
+        else None
+    )
+
     return _SklearnModelWrapper(
-        _load_model_from_local_file(path=path, serialization_format=serialization_format)
+        _load_model_from_local_file(
+            path=path,
+            serialization_format=serialization_format,
+            trusted_types=trusted_types,
+        )
     )
 
 
@@ -597,8 +637,13 @@ def _save_model(sk_model, output_path, serialization_format):
         sk_model: The scikit-learn model to serialize.
         output_path: The file path to which to write the serialized model.
         serialization_format: The format in which to serialize the model. This should be one of
-            the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE`` or
-            ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``.
+            the following: ``mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE``,
+            ``mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE``, or
+            ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
+
+    Returns:
+        List of untrusted types detected by `skops`. None if `serialization_format` is not
+        ``mlflow.sklearn.SERIALIZATION_FORMAT_SKOPS``.
     """
     with open(output_path, "wb") as out:
         if serialization_format == SERIALIZATION_FORMAT_PICKLE:
@@ -607,6 +652,24 @@ def _save_model(sk_model, output_path, serialization_format):
             import cloudpickle
 
             _dump_model(cloudpickle, sk_model, out)
+        elif serialization_format == SERIALIZATION_FORMAT_SKOPS:
+            try:
+                import skops.io
+            except ImportError as e:
+                raise MlflowException(
+                    message=(
+                        "Failed to import skops. Make sure skops is installed by running "
+                        "`pip install skops` for instance."
+                    ),
+                    error_code=INTERNAL_ERROR,
+                ) from e
+
+            dumped = skops.io.dumps(sk_model, compresslevel=9)
+            untrusted_types = skops.io.get_untrusted_types(data=dumped)
+            out.write(dumped)
+            if untrusted_types:
+                _logger.info(f"Detected untrusted types for skops format: {untrusted_types}")
+            return untrusted_types
         else:
             raise MlflowException(
                 message=f"Unrecognized serialization format: {serialization_format}",
@@ -654,8 +717,15 @@ def load_model(model_uri, dst_path=None):
     _add_code_from_conf_to_system_path(local_model_path, flavor_conf)
     sklearn_model_artifacts_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     serialization_format = flavor_conf.get("serialization_format", SERIALIZATION_FORMAT_PICKLE)
+    trusted_types = (
+        flavor_conf.get("trusted_types")
+        if serialization_format == SERIALIZATION_FORMAT_SKOPS
+        else None
+    )
     return _load_model_from_local_file(
-        path=sklearn_model_artifacts_path, serialization_format=serialization_format
+        path=sklearn_model_artifacts_path,
+        serialization_format=serialization_format,
+        trusted_types=trusted_types,
     )
 
 
