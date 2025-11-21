@@ -7,13 +7,14 @@ const unusedImports = require('eslint-plugin-unused-imports');
 const reactPlugin = require('eslint-plugin-react');
 
 // Prevent auto-fixing MDX files as it can corrupt file contents
-if (process.argv.includes('--fix')) {
+// Can be bypassed by setting MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 environment variable
+if (process.argv.includes('--fix') && !process.env.MLFLOW_DOCS_ALLOW_ESLINT_FIX) {
   throw new Error(
     'ESLint --fix is disabled for MDX files because it can corrupt file contents ' +
       '(e.g., removing heading markers like # or inconsistent semicolon handling).\n\n' +
       'If you want to use auto-fix anyway:\n' +
-      '1. Comment out this check in eslint.config.js\n' +
-      '2. Run eslint --fix\n' +
+      '1. Set the environment variable: MLFLOW_DOCS_ALLOW_ESLINT_FIX=1\n' +
+      '2. Run: MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 eslint --fix\n' +
       '3. Carefully review ALL changes before committing\n' +
       '4. Manually restore any corrupted content\n\n' +
       'Otherwise, please fix issues manually.',
@@ -27,6 +28,9 @@ const compat = new FlatCompat({
 });
 
 module.exports = defineConfig([
+  {
+    ignores: ['**/*-ipynb.mdx'],
+  },
   {
     files: ['**/*.md', '**/*.mdx'],
     extends: compat.extends('plugin:mdx/recommended'),

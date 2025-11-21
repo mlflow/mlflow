@@ -1,6 +1,5 @@
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
-import { APILink } from "@site/src/components/APILink";
 import ImageBox from '@site/src/components/ImageBox';
 import TabsWrapper from '@site/src/components/TabsWrapper';
 import ServerSetup from "@site/src/content/setup_server.mdx";
@@ -96,7 +95,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     Call the `init` function with the tracking URI (e.g., `http://127.0.0.1:5000`) and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "<your-tracking-server-uri>",
@@ -107,7 +106,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     If [authentication](/self-hosting/security/basic-http-auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "<your-tracking-server-uri>",
@@ -124,7 +123,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     Call the `init` function with the URI of your remote MLflow server and the experiment ID. You can find the experiment ID by hovering over the <div className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-gray-400 text-sm font-semibold text-gray-600">!</div> icon next to the experiment name within the MLflow UI.
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "<remote-tracking-server-uri>",
@@ -135,7 +134,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     If [authentication](/self-hosting/security/basic-http-auth) is enabled on the tracking server, you can pass the credential through `trackingServerUsername` and `trackingServerPassword`.
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "<remote-tracking-server-uri>",
@@ -154,7 +153,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     **Method 1: Use Databricks config file for authentication.**
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "databricks",
@@ -186,7 +185,7 @@ _You can leave the `Artifact Location` field blank for now. It is an advanced co
     The `init` function will automatically load the above environment variables when tracking URI is set to `databricks`.
 
     ```typescript
-    import { init } from "mlflow-tracing";
+import { init } from "mlflow-tracing";
 
     init({
         trackingUri: "databricks",

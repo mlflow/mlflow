@@ -6,8 +6,6 @@ sidebar_label: OpenAI
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import { APILink } from "@site/src/components/APILink";
-import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
-import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import ImageBox from "@site/src/components/ImageBox";
@@ -32,8 +30,8 @@ for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflo
 </TabItem>
 <TabItem value="typescript" label="JS / TS">
     ```typescript
-    import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+import { tracedOpenAI } from "mlflow-openai";
 
     const client = tracedOpenAI(new OpenAI());
     ```
@@ -140,8 +138,8 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
     ```typescript
-    import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+import { tracedOpenAI } from "mlflow-openai";
 
     // Wrap the OpenAI client with the tracedOpenAI function
     const client = tracedOpenAI(new OpenAI());
@@ -208,8 +206,8 @@ MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of
   </TabItem>
   <TabItem value="typescript" label="JS / TS">
     ```typescript
-    import { OpenAI } from "openai";
-    import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from "openai";
+import { tracedOpenAI } from "mlflow-openai";
 
     // Wrap the OpenAI client with the tracedOpenAI function
     const client = tracedOpenAI(new OpenAI());
