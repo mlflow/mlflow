@@ -6,18 +6,14 @@ const { FlatCompat } = require('@eslint/eslintrc');
 const unusedImports = require('eslint-plugin-unused-imports');
 const reactPlugin = require('eslint-plugin-react');
 
-// Prevent auto-fixing MDX files as it can corrupt file contents
-// Can be bypassed by setting MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 environment variable
+// Prevent autofixing as it can corrupt file contents
 if (process.argv.includes('--fix') && !process.env.MLFLOW_DOCS_ALLOW_ESLINT_FIX) {
   throw new Error(
-    'ESLint --fix is disabled for MDX files because it can corrupt file contents ' +
-      '(e.g., removing heading markers like # or inconsistent semicolon handling).\n\n' +
-      'If you want to use auto-fix anyway:\n' +
-      '1. Set the environment variable: MLFLOW_DOCS_ALLOW_ESLINT_FIX=1\n' +
-      '2. Run: MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 eslint --fix\n' +
-      '3. Carefully review ALL changes before committing\n' +
-      '4. Manually restore any corrupted content\n\n' +
-      'Otherwise, please fix issues manually.',
+    'ESLint autofix is disabled because it can corrupt file contents ' +
+      '(e.g., removing heading markers when removing unused imports). ' +
+      'If you want to use auto-fix anyway, run this command and ' +
+      'carefully review ALL changes before committing:\n\n' +
+      'MLFLOW_DOCS_ALLOW_ESLINT_FIX=1 npm run eslint -- --fix',
   );
 }
 
@@ -52,8 +48,9 @@ module.exports = defineConfig([
       'mlflow-docs/use-base-url-for-images': 'error',
       'mlflow-docs/prefer-apilink-component': 'error',
       'unused-imports/no-unused-imports': 'error',
-      // These React rules prevent false positives in MDX files where JSX components
-      // (like <Tabs>, <TabItem>) are used but ESLint doesn't recognize them as "used"
+      // These React rules prevent component imports from being flagged as unused.
+      // Required when using eslint-plugin-unused-imports with JSX/React code.
+      // https://www.npmjs.com/package/eslint-plugin-unused-imports
       'react/jsx-uses-vars': 'error',
       'react/jsx-uses-react': 'error',
     },
