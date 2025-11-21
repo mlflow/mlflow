@@ -84,6 +84,9 @@ IS_LANGCHAIN_03 = version.parse(langchain.__version__) >= version.parse("0.3.0")
 IS_LANGCHAIN_v1 = version.parse(langchain.__version__).major >= 1
 LANGCHAIN_V1_SKIP_REASON = "Pickle serialization is not supported for LangChain v1"
 
+# Reusable decorator for skipping tests on LangChain v1
+skip_if_v1 = pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+
 # The mock OAI completion endpoint returns payload as it is
 TEST_CONTENT = '[{"role": "user", "content": "What is MLflow?"}]'
 
@@ -159,7 +162,7 @@ def fake_classifier_chat_model():
     return FakeMlflowClassifier()
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_langchain_native_log_and_load_model():
     model = create_openai_runnable()
 
@@ -189,7 +192,7 @@ def test_langchain_native_log_and_load_model():
     assert list(result) == ["Hello", " world"]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_pyfunc_spark_udf_with_langchain_model(spark):
     model = create_openai_runnable()
     with mlflow.start_run():
@@ -265,7 +268,7 @@ def assert_equal_retrievers(retriever, expected_retreiver):
     assert retriever.search_kwargs == expected_retreiver.search_kwargs
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_log_and_load_retriever_chain(tmp_path):
     # Create the vector db, persist the db to a local fs folder
     loader = TextLoader("tests/langchain/state_of_the_union.txt")
@@ -361,7 +364,7 @@ def load_requests_wrapper(_):
     return TextRequestsWrapper(headers=None, aiosession=None)
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_agent_with_unpicklable_tools(tmp_path):
     from langchain.agents import AgentType, initialize_agent
 
@@ -392,7 +395,7 @@ def test_agent_with_unpicklable_tools(tmp_path):
                 mlflow.langchain.log_model(agent, name="unpicklable_tools")
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_runnable_passthrough():
     runnable = RunnablePassthrough()
     assert runnable.invoke("hello") == "hello"
@@ -409,7 +412,7 @@ def test_save_load_runnable_passthrough():
     assert pyfunc_loaded_model.predict(["hello"]) == ["hello"]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_runnable_lambda(spark):
     def add_one(x: int) -> int:
         return x + 1
@@ -439,7 +442,7 @@ def test_save_load_runnable_lambda(spark):
     assert pdf["answer"].tolist() == [2, 3, 4]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_runnable_lambda_in_sequence():
     def add_one(x):
         return x + 1
@@ -475,7 +478,7 @@ def test_save_load_runnable_lambda_in_sequence():
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_predict_with_callbacks(fake_chat_model):
     class TestCallbackHandler(BaseCallbackHandler):
         def __init__(self):
@@ -533,7 +536,7 @@ def test_predict_with_callbacks(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_model):
     prompt = ChatPromptTemplate.from_template("What's your favorite {industry} company?")
     chain = prompt | fake_chat_model | StrOutputParser()
@@ -585,7 +588,7 @@ def test_predict_with_callbacks_supports_chat_response_conversion(fake_chat_mode
         )
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_runnable_parallel():
     runnable = RunnableParallel({"llm": create_openai_runnable()})
     expected_result = {"llm": TEST_CONTENT}
@@ -611,7 +614,7 @@ def test_save_load_runnable_parallel():
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_chain_with_model_paths():
     prompt1 = PromptTemplate.from_template("what is the city {person} is from?")
     llm = ChatOpenAI(temperature=0.9)
@@ -631,7 +634,7 @@ def test_save_load_chain_with_model_paths():
         add_mock.assert_called()
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_rag(tmp_path, spark, fake_chat_model):
     # TODO: Migrate to models-from-code
     # Create the vector db, persist the db to a local fs folder
@@ -704,7 +707,7 @@ def test_save_load_rag(tmp_path, spark, fake_chat_model):
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_runnable_branch_save_load():
     branch = RunnableBranch(
         (lambda x: isinstance(x, str), lambda x: x.upper()),
@@ -740,7 +743,7 @@ def test_runnable_branch_save_load():
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat_model):
     prompt = ChatPromptTemplate.from_template("{question_is_relevant}\n{query}")
     # Need to add prompt here as the chat model doesn't accept dict input
@@ -813,7 +816,7 @@ def test_complex_runnable_branch_save_load(fake_chat_model, fake_classifier_chat
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_chat_with_history(spark, fake_chat_model):
     prompt_with_history_str = """
     Here is a history between you and a human: {chat_history}
@@ -894,7 +897,7 @@ class ChatModel(SimpleChatModel):
         return "chat model"
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_predict_with_builtin_pyfunc_chat_conversion(spark):
     # TODO: Migrate to models-from-code
     input_example = {
@@ -964,7 +967,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion(spark):
         pyfunc_loaded_model.predict({"messages": [{"role": "foobar", "content": "test content"}]})
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
     class ChatModel(SimpleChatModel):
         def _call(self, messages, stop, run_manager, **kwargs):
@@ -1027,7 +1030,7 @@ def test_predict_with_builtin_pyfunc_chat_conversion_for_aimessage_response():
         ]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     chain = RunnablePassthrough() | itemgetter("messages")
     # Ensure we're going to test that "messages" remains intact & unchanged even if it
@@ -1120,7 +1123,7 @@ def test_pyfunc_builtin_chat_request_conversion_fails_gracefully():
     ]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_chain_that_relies_on_pickle_serialization(monkeypatch, model_path):
     from langchain_community.llms.databricks import Databricks
 
@@ -1562,7 +1565,7 @@ def fake_chat_stream_model():
     return FakeChatStreamModel(endpoint_name="fake-stream-endpoint")
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 @pytest.mark.parametrize("provide_signature", [True, False])
 def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_signature):
     # TODO: Migrate to models-from-code
@@ -1648,7 +1651,7 @@ def test_simple_chat_model_stream_inference(fake_chat_stream_model, provide_sign
             ]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     # TODO: Migrate to models-from-code
     class TestCallbackHandler(BaseCallbackHandler):
@@ -1694,7 +1697,7 @@ def test_simple_chat_model_stream_with_callbacks(fake_chat_stream_model):
     assert callback_handler2.num_llm_start_calls == 1
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_langchain_model_save_load_with_listeners(fake_chat_model):
     # Migrate this to models-from-code
     prompt = ChatPromptTemplate.from_messages(
@@ -1822,7 +1825,7 @@ def test_save_model_as_code_correct_streamable(chain_path):
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_langchain_binding(fake_chat_model):
     runnable_binding = RunnableBinding(bound=fake_chat_model, kwargs={"stop": ["-"]})
     model = runnable_binding | StrOutputParser()
@@ -1850,7 +1853,7 @@ def test_save_load_langchain_binding(fake_chat_model):
     }
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_save_load_langchain_binding_llm_with_tool():
     from langchain_core.tools import tool
 
@@ -1881,7 +1884,7 @@ def test_save_load_langchain_binding_llm_with_tool():
     assert pyfunc_loaded_model.predict("hello") == [expected_output]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_langchain_bindings_save_load_with_config_and_types(fake_chat_model):
     class CustomCallbackHandler(BaseCallbackHandler):
         def __init__(self):
@@ -2001,7 +2004,7 @@ def model_type(request):
     return lc_runnables_types()[request.param]
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 @pytest.mark.parametrize("streamable", [True, False, None])
 @pytest.mark.parametrize("model_type", range(len(lc_runnables_types())), indirect=True)
 def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
@@ -2031,7 +2034,7 @@ def test_langchain_model_streamable_param_in_log_model_for_lc_runnable_types(
         assert model_info.flavors["langchain"]["streamable"] is bool(streamable)
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_agent_executor_model_with_messages_input():
     question = {"messages": [{"role": "user", "content": "Who owns MLflow?"}]}
 
@@ -2195,7 +2198,7 @@ def test_pyfunc_converts_chat_request_for_non_chat_model():
     assert isinstance(list(response)[0]["choices"][0]["delta"]["content"], str)
 
 
-@pytest.mark.skipif(IS_LANGCHAIN_v1, reason=LANGCHAIN_V1_SKIP_REASON)
+@skip_if_v1
 def test_pyfunc_should_not_convert_chat_request_if_env_var_is_set_to_false(monkeypatch):
     monkeypatch.setenv(MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN.name, "false")
 
