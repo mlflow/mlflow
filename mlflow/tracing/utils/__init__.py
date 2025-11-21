@@ -181,6 +181,8 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     input_tokens = 0
     output_tokens = 0
     total_tokens = 0
+    cache_creation_tokens = 0
+    cache_read_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -195,7 +197,13 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
             roots.append(span)
 
     def dfs(span: LiveSpan, ancestor_has_usage: bool) -> None:
-        nonlocal input_tokens, output_tokens, total_tokens, has_usage_data
+        nonlocal \
+            input_tokens, \
+            output_tokens, \
+            total_tokens, \
+            cache_creation_tokens, \
+            cache_read_tokens, \
+            has_usage_data
 
         usage = span.get_attribute(SpanAttributeKey.CHAT_USAGE)
         span_has_usage = usage is not None
@@ -204,6 +212,10 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
+            cache_creation_tokens += usage.get(
+                TokenUsageKey.CACHE_CREATION_INPUT_TOKENS, 0
+            )
+            cache_read_tokens += usage.get(TokenUsageKey.CACHE_READ_INPUT_TOKENS, 0)
             has_usage_data = True
 
         next_ancestor_has_usage = ancestor_has_usage or span_has_usage
@@ -217,11 +229,19 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> dict[str, int] | None:
     if not has_usage_data:
         return None
 
-    return {
+    result = {
         TokenUsageKey.INPUT_TOKENS: input_tokens,
         TokenUsageKey.OUTPUT_TOKENS: output_tokens,
         TokenUsageKey.TOTAL_TOKENS: total_tokens,
     }
+
+    # Only include cache tokens if they have non-zero values
+    if cache_creation_tokens > 0:
+        result[TokenUsageKey.CACHE_CREATION_INPUT_TOKENS] = cache_creation_tokens
+    if cache_read_tokens > 0:
+        result[TokenUsageKey.CACHE_READ_INPUT_TOKENS] = cache_read_tokens
+
+    return result
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> str | None:
