@@ -25,7 +25,7 @@ describe('PromptContentCompare', () => {
       </IntlProvider>,
     );
   };
-  test('stringifies chat prompts for comparison', () => {
+  it('stringifies chat prompts for comparison', () => {
     const baseline = {
       name: 'p',
       version: '1',
