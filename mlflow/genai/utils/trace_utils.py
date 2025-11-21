@@ -309,6 +309,17 @@ def is_none_or_nan(value: Any) -> bool:
     return value is None or (isinstance(value, float) and math.isnan(value))
 
 
+def _is_empty(value: Any) -> bool:
+    """
+    Check if a value is empty (None, empty dict, empty list, empty string, etc.).
+    """
+    if value is None:
+        return True
+    if isinstance(value, (dict, list, str)):
+        return len(value) == 0
+    return False
+
+
 def parse_inputs_to_str(value: Any) -> str:
     """Parse the inputs to a string compatible with the judges API"""
     if is_none_or_nan(value):
