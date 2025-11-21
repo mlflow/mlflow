@@ -1,10 +1,23 @@
 import { trace } from '@opentelemetry/api';
+import { BatchSpanProcessor } from '@opentelemetry/sdk-trace-base';
 import { MlflowSpanProcessor } from '../../src/exporters/mlflow';
 
 const mockGetConfig = jest.fn();
+const mockGetOtlpConfig = jest.fn();
+const mockShouldUseOtlpExporter = jest.fn();
+const mockCreateOtlpTraceExporter = jest.fn();
 
 jest.mock('../../src/core/config', () => ({
   getConfig: () => mockGetConfig()
+}));
+
+jest.mock('../../src/core/otlp_config', () => ({
+  getOtlpConfig: () => mockGetOtlpConfig(),
+  shouldUseOtlpExporter: () => mockShouldUseOtlpExporter()
+}));
+
+jest.mock('../../src/core/otlp_exporter_factory', () => ({
+  createOtlpTraceExporter: () => mockCreateOtlpTraceExporter()
 }));
 
 jest.mock('../../src/clients', () => ({
@@ -32,6 +45,17 @@ describe('initializeSDK', () => {
     jest.resetModules();
     jest.clearAllMocks();
     mockGetConfig.mockReturnValue(baseConfig);
+    mockGetOtlpConfig.mockReturnValue({
+      endpoint: undefined,
+      protocol: 'http/protobuf',
+      headers: {},
+      metricsEndpoint: undefined,
+      metricsProtocol: 'http/protobuf',
+      enableExporter: true,
+      dualExportEnabled: false
+    });
+    mockShouldUseOtlpExporter.mockReturnValue(false);
+    mockCreateOtlpTraceExporter.mockReturnValue(null);
     delete process.env.MLFLOW_USE_DEFAULT_TRACER_PROVIDER;
   });
 
@@ -111,5 +135,65 @@ describe('initializeSDK', () => {
     });
 
     tracerSpy.mockRestore();
+  });
+
+  it('adds OTLP BatchSpanProcessor when exporter is configured and dual export enabled', () => {
+    mockShouldUseOtlpExporter.mockReturnValue(true);
+    mockGetOtlpConfig.mockReturnValue({
+      endpoint: 'http://collector:4318/v1/traces',
+      protocol: 'http/protobuf',
+      headers: { authorization: 'Bearer abc' },
+      metricsEndpoint: undefined,
+      metricsProtocol: 'http/protobuf',
+      enableExporter: true,
+      dualExportEnabled: true
+    });
+    const dummyExporter = {
+      export: jest.fn(),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      forceFlush: jest.fn().mockResolvedValue(undefined)
+    };
+    mockCreateOtlpTraceExporter.mockReturnValue(dummyExporter);
+
+    jest.isolateModules(() => {
+      const { initializeSDK } = require('../../src/core/provider');
+      initializeSDK();
+    });
+
+    const { NodeSDK } = require('@opentelemetry/sdk-node');
+    expect(NodeSDK).toHaveBeenCalledTimes(1);
+    const nodeConfig = NodeSDK.mock.calls[0][0];
+    expect(nodeConfig.spanProcessors).toHaveLength(2);
+    expect(nodeConfig.spanProcessors[0]).toBeInstanceOf(BatchSpanProcessor);
+    expect(nodeConfig.spanProcessors[1]).toBeInstanceOf(MlflowSpanProcessor);
+  });
+
+  it('skips MlflowSpanProcessor when dual export disabled and OTLP exporter present', () => {
+    mockShouldUseOtlpExporter.mockReturnValue(true);
+    mockGetOtlpConfig.mockReturnValue({
+      endpoint: 'http://collector:4318/v1/traces',
+      protocol: 'http/protobuf',
+      headers: {},
+      metricsEndpoint: undefined,
+      metricsProtocol: 'http/protobuf',
+      enableExporter: true,
+      dualExportEnabled: false
+    });
+    const dummyExporter = {
+      export: jest.fn(),
+      shutdown: jest.fn().mockResolvedValue(undefined),
+      forceFlush: jest.fn().mockResolvedValue(undefined)
+    };
+    mockCreateOtlpTraceExporter.mockReturnValue(dummyExporter);
+
+    jest.isolateModules(() => {
+      const { initializeSDK } = require('../../src/core/provider');
+      initializeSDK();
+    });
+
+    const { NodeSDK } = require('@opentelemetry/sdk-node');
+    const nodeConfig = NodeSDK.mock.calls[0][0];
+    expect(nodeConfig.spanProcessors).toHaveLength(1);
+    expect(nodeConfig.spanProcessors[0]).toBeInstanceOf(BatchSpanProcessor);
   });
 });
