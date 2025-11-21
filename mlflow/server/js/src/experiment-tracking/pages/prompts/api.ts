@@ -36,7 +36,16 @@ export const RegisteredPromptsApi = {
     let filter = `tags.\`${IS_PROMPT_TAG_NAME}\` = '${IS_PROMPT_TAG_VALUE}'`;
 
     if (searchFilter) {
-      filter = `${filter} AND name ILIKE '%${searchFilter}%'`;
+      // Check if the search filter looks like a SQL-like query
+      // If so, treat it as a raw filter query; otherwise, treat it as a simple name search
+      const sqlKeywordPattern = /AND|ILIKE|LIKE|=|!=/i;
+      if (sqlKeywordPattern.test(searchFilter)) {
+        // User provided a SQL-like filter, use it directly
+        filter = `${filter} AND ${searchFilter}`;
+      } else {
+        // Simple name search
+        filter = `${filter} AND name ILIKE '%${searchFilter}%'`;
+      }
     }
 
     if (pageToken) {
