@@ -2814,8 +2814,8 @@ message QueryTraceMetrics {
   // Required: The level at which to aggregate metrics.
   optional MetricsViewType view_type = 2;
 
-  // Required: The measure to query (e.g., "trace", "latency", "token_count").
-  optional string measure = 3;
+  // Required: The metric_name to query (e.g., "trace", "latency", "token_count").
+  optional string metric_name = 3;
 
   // Required: The aggregation types to apply.
   repeated AggregationType aggregation_type = 4;
@@ -2858,19 +2858,18 @@ message QueryTraceMetrics {
 
 // A single data point with dimension values and metric values.
 message MetricDataPoint {
-  // Dimension values for this data point.
-  // Keys correspond to the requested dimensions.
-  // Examples:
-  //   {"trace_status": "OK", "time_bucket": "2025-11-13"}
-  //   {"span_type": "LLM", "span_status": "OK"}
+  // Dimension values for this data point
+  // Keys correspond to dimensions
+  // e.g., {"trace_status": "OK", "time_bucket": "2025-11-13"}
   map<string, string> dimensions = 1;
 
-  // Metric values for this data point.
-  // Keys are in format "{measure}.{aggregation}".
-  // Examples:
-  //   {"trace.count": "150"}
-  //   {"latency.avg": "234.5", "latency.p95": "450.0"}
-  map<string, string> metrics = 2;
+  // Metric name, e.g. trace_latency
+  optional string metric_name = 2;
+
+  // Metric values for this data point
+  // Keys are aggregation types
+  // e.g., {"avg": "150", "p99": "234.5"}
+  map<string, string> values = 3;
 }
 
 message SetTraceTag {
