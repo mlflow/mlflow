@@ -20,7 +20,12 @@ import mlflow.store.artifact.cli
 from mlflow import ai_commands, projects, version
 from mlflow.entities import ViewType
 from mlflow.entities.lifecycle_stage import LifecycleStage
-from mlflow.environment_variables import MLFLOW_EXPERIMENT_ID, MLFLOW_EXPERIMENT_NAME
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_WORKSPACES,
+    MLFLOW_EXPERIMENT_ID,
+    MLFLOW_EXPERIMENT_NAME,
+    MLFLOW_WORKSPACE_STORE_URI,
+)
 from mlflow.exceptions import InvalidUrlException, MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -458,6 +463,26 @@ def _validate_static_prefix(ctx, param, value):
         "Unsupported on Windows."
     ),
 )
+@click.option(
+    "--workspace-store-uri",
+    envvar=MLFLOW_WORKSPACE_STORE_URI.name,
+    metavar="URI",
+    default=None,
+    help=(
+        "Workspace provider backend URI used for workspace CRUD APIs and request routing. "
+        "When unspecified, defaults to the backend store URI. This only needs to be specified "
+        "when using a workspace store plugin leveraging externally managed workspaces (e.g. "
+        + "Kubernetes namespaces)."
+    ),
+)
+@click.option(
+    "--enable-workspaces",
+    envvar=MLFLOW_ENABLE_WORKSPACES.name,
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Enable backwards compatible workspace-aware multi-tenancy mode.",
+)
 def server(
     ctx,
     backend_store_uri,
@@ -480,6 +505,8 @@ def server(
     app_name,
     dev,
     uvicorn_opts,
+    workspace_store_uri,
+    enable_workspaces,
 ):
     """
     Run the MLflow tracking server with built-in security middleware.
@@ -524,6 +551,17 @@ def server(
         x_frame_options=x_frame_options,
         disable_security_middleware=disable_security_middleware,
     )
+
+    if enable_workspaces:
+        os.environ[MLFLOW_ENABLE_WORKSPACES.name] = "true"
+        if workspace_store_uri:
+            os.environ[MLFLOW_WORKSPACE_STORE_URI.name] = workspace_store_uri
+    elif workspace_store_uri:
+        click.echo(
+            "Ignoring --workspace-store-uri because workspaces are not enabled. "
+            "Use --enable-workspaces to activate workspace mode.",
+            err=True,
+        )
 
     if disable_security_middleware:
         os.environ["MLFLOW_SERVER_DISABLE_SECURITY_MIDDLEWARE"] = "true"

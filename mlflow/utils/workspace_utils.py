@@ -1,4 +1,4 @@
-"""Utility helpers for workspace-aware database schema defaults."""
+"""Workspace-related utility constants."""
 
 DEFAULT_WORKSPACE_NAME = "default"
 
