@@ -43,11 +43,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.3.7",
-            "maximum": "0.3.27"
+            "maximum": "1.0.5"
         },
         "autologging": {
             "minimum": "0.3.7",
-            "maximum": "0.3.27"
+            "maximum": "1.0.5"
         }
     },
     "langgraph": {
@@ -56,11 +56,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "0.2.43",
-            "maximum": "0.6.10"
+            "maximum": "1.0.3"
         },
         "autologging": {
             "minimum": "0.2.43",
-            "maximum": "0.6.10"
+            "maximum": "1.0.3"
         }
     },
     "llama_index": {

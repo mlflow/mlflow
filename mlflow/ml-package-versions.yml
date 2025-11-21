@@ -602,11 +602,11 @@ langchain:
     repo: https://github.com/langchain-ai/langchain/tree/HEAD/libs/langchain
     pip_release: "langchain"
     install_dev: |
-      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain
+      pip install git+https://github.com/langchain-ai/langchain#subdirectory=libs/langchain_v1
   models:
     # Where the large package update was made (langchain-core, community, ...)
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -620,21 +620,22 @@ langchain:
           "langchain-experimental",
           "numexpr",
           "hf_transfer",
-          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
+          "langchain-huggingface",
           "langchain-openai",
           "langgraph",
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
           # Required for testing Databricks dependency extraction
+          "databricks-langchain",
           "databricks-vectorsearch",
-        ]
-      ">= 0.2": [
-          "langchain-huggingface",
           # Required for testing uc tools
           "unitycatalog-langchain",
         ]
-      ">=0.3": ["databricks-langchain"]
+      ">= 1.0.0": [
+          # required for testing legacy modules
+          "langchain-classic",
+        ]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -648,24 +649,22 @@ langchain:
       pytest tests/langchain --ignore tests/langchain/test_langchain_autolog.py
   autologging:
     minimum: "0.3.7"
-    maximum: "0.3.27"
+    maximum: "1.0.5"
     requirements:
       ">= 0.0.0": [
           "openai",
           "google-search-results",
           "faiss-cpu",
-          "langchain-core!=0.1.39", # https://github.com/langchain-ai/langchain/issues/19947
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
           # Some model logging/loading requires langchain community
           "langchain-community",
-        ]
-      ">= 0.3.0": [
           # Need to bump FasAPI version to support pydantic v2
           "fastapi>=0.100.0",
           "langchain-openai>=0.2.0",
         ]
+      ">= 1.0.0": ["langchain-classic"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
       pip uninstall -y databricks-connect
@@ -673,11 +672,6 @@ langchain:
     run: |
       pytest tests/langchain/test_langchain_autolog.py
 
-      echo "Testing langchain autolog and evaluation with langchain-community"
-      # Install with 'langchain' to ensure the compatible version is installed
-      pip install langchain langchain-community
-
-      pytest tests/langchain/test_langchain_autolog.py
     test_tracing_sdk: true
 
 langgraph:
@@ -692,7 +686,7 @@ langgraph:
 
   models:
     minimum: "0.2.43"
-    maximum: "0.6.10"
+    maximum: "1.0.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -709,7 +703,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.43"
-    maximum: "0.6.10"
+    maximum: "1.0.3"
     requirements:
       ">= 0.0.0": [
           "langchain",
